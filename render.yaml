@@ -1,0 +1,23 @@
+# render.yaml
+services:
+  - type: web
+    name: vetmybuilder-api
+    env: node
+    plan: free
+    region: frankfurt # or oregon, virginia, singapore, etc.
+    rootDir: .
+    buildCommand: |
+      npm ci
+      mkdir -p data          # ensure sqlite dir exists
+    startCommand: node server/index.js
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_WEB_BASE
+        sync: false # set in Render dashboard to your Vercel URL later
+      - key: FIREBASE_ADMIN_CREDENTIALS_JSON
+        sync: false # paste your service account JSON string
+      - key: DATABASE_URL
+        value: ./data/app.db # default already, but explicit is nice
+      # Render injects PORT automatically; your code already reads it

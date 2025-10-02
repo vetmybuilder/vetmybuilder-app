@@ -1,0 +1,51 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Environment (root & subpackages)
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# SQLite & local data
+*.sqlite
+*.db
+*.db-shm
+*.db-wal
+data/
+!.keep
+
+# Build artifacts (generic)
+dist/
+build/
+tmp/
+temp/
+.cache/
+
+# Test artifacts
+coverage/
+test-results/
+playwright-report/
+playwright/.cache/
+.tmpdb-*/
+
+# Next.js (if any builds happen from root)
+.next/
+out/
+
+# Logs
+*.log
+
+# E2E workspace (if present)
+e2e-tests/node_modules/
+e2e-tests/test-results/
+e2e-tests/playwright-report/
