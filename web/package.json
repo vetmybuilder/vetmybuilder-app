@@ -8,6 +8,11 @@
     "start": "next start -p 3000",
     "lint": "echo 'lint skipped in POC'"
   },
+  "dependencies": {
+    "next": "^14.2.0",          
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
   "devDependencies": {
     "@types/react": "19.1.16"
   }
