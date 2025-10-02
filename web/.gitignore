@@ -1,0 +1,25 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Next.js
+.next/
+out/
+.vercel/
+.next/trace
+
+# Images cache (Next)
+public/_next/
+public/.next/
+
+# Env (keep only sample committed)
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Misc
+dist/
+coverage/
+*.log

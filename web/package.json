@@ -1,0 +1,14 @@
+{
+  "name": "vetmybuilder-web",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "lint": "echo 'lint skipped in POC'"
+  },
+  "devDependencies": {
+    "@types/react": "19.1.16"
+  }
+}
