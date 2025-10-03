@@ -58,7 +58,6 @@ function notifyUsers(db, userIds, payload) {
 }
 
 /* -------------------- Location helpers -------------------- */
-// Tiny UK postcode / city tokeniser used for “local” notifications.
 function extractLocationTokens(raw) {
   const s = String(raw || "").trim();
   if (!s)
@@ -69,7 +68,7 @@ function extractLocationTokens(raw) {
     const outward = m[1];
     const inward = m[2];
     const full = `${outward} ${inward}`;
-    const sector = `${outward} ${inward[0]}`; // e.g., "E4 6"
+    const sector = `${outward} ${inward[0]}`;
     return { full, sector, outward, city: null, raw: s };
   }
   return {
@@ -121,11 +120,8 @@ app.get("/health", (_req, res) =>
 
 /* -------------------- Public stats (for homepage) -------------------- */
 
-// cache user count for 5 minutes to avoid hammering Admin API
 let __userCountCache = { value: 0, fetchedAt: 0 };
-
 async function countAllFirebaseUsers(admin) {
-  // Return cached value if it's fresh
   const now = Date.now();
   if (
     now - __userCountCache.fetchedAt < 5 * 60 * 1000 &&
@@ -133,7 +129,6 @@ async function countAllFirebaseUsers(admin) {
   ) {
     return __userCountCache.value;
   }
-
   let nextPageToken = undefined;
   let total = 0;
   do {
@@ -141,24 +136,17 @@ async function countAllFirebaseUsers(admin) {
     total += res.users.length;
     nextPageToken = res.pageToken;
   } while (nextPageToken);
-
   __userCountCache = { value: total, fetchedAt: Date.now() };
   return total;
 }
 
-// Returns: { communityMembers, recommendations, shortlists }
-app.get("/api/stats/public", async (_req, res) => {
+async function handlePublicStats(_req, res) {
   try {
-    // 1) total Firebase users (community members)
     const communityMembers = admin.apps.length
       ? await countAllFirebaseUsers(admin)
       : 0;
-
-    // 2) total recommendations (from DB)
     const recommendations =
       db.prepare(`SELECT COUNT(*) AS c FROM recommendations`).get().c || 0;
-
-    // 3) "shortlists created" = number of distinct projects that have at least 1 recommendation
     const shortlists =
       db
         .prepare(`SELECT COUNT(DISTINCT projectId) AS c FROM recommendations`)
@@ -169,7 +157,9 @@ app.get("/api/stats/public", async (_req, res) => {
     console.error("stats error", e);
     res.status(500).json({ error: "Failed to load stats" });
   }
-});
+}
+app.get("/api/stats/public", handlePublicStats);
+app.get("/api/stats", handlePublicStats);
 
 /* -------------------- Validation -------------------- */
 
@@ -182,37 +172,43 @@ const ProjectSchema = z.object({
   bedrooms: z.number().int().min(0).max(20),
 });
 
-const RecSchema = z.object({
-  name: z.string().min(1).max(120),
-  email: z
-    .string()
-    .email()
-    .optional()
-    .or(z.literal("").transform(() => undefined)),
-  phone: z
-    .string()
-    .min(3)
-    .max(40)
-    .optional()
-    .or(z.literal("").transform(() => undefined)),
-  company: z.string().min(1).max(200),
-  rating: z.number().int().min(1).max(5),
-  comment: z.string().min(10).max(2000),
-});
+// Accepts either rating (1–5) or hireAgain ("yes" | "no"); rating is coerced.
+const RecSchema = z
+  .object({
+    name: z.string().min(1).max(120),
+    email: z
+      .string()
+      .email()
+      .optional()
+      .or(z.literal("").transform(() => undefined)),
+    phone: z
+      .string()
+      .min(3)
+      .max(40)
+      .optional()
+      .or(z.literal("").transform(() => undefined)),
+    company: z.string().min(1).max(200),
+    rating: z.coerce.number().int().min(1).max(5).optional(),
+    hireAgain: z.enum(["yes", "no"]).optional(),
+    comment: z.string().min(10).max(2000),
+  })
+  .transform((v) => {
+    // Prefer explicit rating; otherwise map hireAgain -> rating
+    const r =
+      typeof v.rating === "number" ? v.rating : v.hireAgain === "yes" ? 5 : 3; // "no" = neutral (not negative)
+    return { ...v, rating: r };
+  });
 
-// --- phone helper (very light) ---
 function cleanPhone(input) {
   if (!input) return null;
   const s = String(input).trim();
   if (!s) return null;
-  // keep + and digits; strip spaces/dashes/brackets
   const compact = s.replace(/[^\d+]/g, "");
   return compact || null;
 }
 
 /* -------------------- Projects CRUD -------------------- */
 
-// Create (default pending)
 app.post("/api/projects", authMiddleware(admin), (req, res) => {
   const CreateProjectSchema = ProjectSchema.extend({
     bedrooms: z.coerce.number().int().min(0).max(20),
@@ -260,7 +256,6 @@ app.post("/api/projects", authMiddleware(admin), (req, res) => {
   res.json({ project });
 });
 
-// List (filters + pagination consolidated)
 app.get("/api/projects", authMiddleware(admin), (req, res) => {
   const uid = req.user.uid;
   const tab = req.query.tab === "recommended" ? "recommended" : "mine";
@@ -366,7 +361,6 @@ app.get("/api/me", authMiddleware(admin), (req, res) => {
 
 /* -------------------- Profile (location) -------------------- */
 
-// Get my profile
 app.get("/api/profile", authMiddleware(admin), (req, res) => {
   const uid = req.user.uid;
   const row = db
@@ -378,7 +372,6 @@ app.get("/api/profile", authMiddleware(admin), (req, res) => {
   res.json({ profile: row || null });
 });
 
-// Update my location (body: { location: string })
 app.post("/api/profile", authMiddleware(admin), (req, res) => {
   const uid = req.user.uid;
   const loc = String(req.body?.location ?? "").trim();
@@ -431,13 +424,12 @@ app.post("/api/projects/:id/publish", authMiddleware(admin), (req, res) => {
     return res
       .status(400)
       .json({ error: "Project is archived. Unarchive before publishing." });
-  if (status === "live") return res.json({ project: existing }); // already live — do nothing
+  if (status === "live") return res.json({ project: existing });
 
   db.prepare(`UPDATE projects SET status='live' WHERE id=?`).run(id);
   const updated = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
   res.json({ project: updated });
 
-  // Target local users (profile area match) + logged-in recommenders in the same area (exclude owner)
   const locTokens = extractLocationTokens(updated.location);
   const whereParts = [];
   const areaParams = {};
@@ -496,8 +488,6 @@ app.post("/api/projects/:id/publish", authMiddleware(admin), (req, res) => {
 
 /* -------------------- Read / Update / Archive -------------------- */
 
-// IMPORTANT: optionalAuth here so LIVE projects can be read without a token.
-// If no/invalid token and the project is not live, you’ll get 401.
 app.get("/api/projects/:id", optionalAuth(admin), (req, res) => {
   const id = Number(req.params.id);
   if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });
@@ -506,7 +496,6 @@ app.get("/api/projects/:id", optionalAuth(admin), (req, res) => {
   if (!project) return res.status(404).json({ error: "Not found" });
 
   if (!req.user) {
-    // no token — allow read only if live
     if ((project.status || "").toLowerCase() !== "live") {
       return res.status(401).json({ error: "Missing bearer token" });
     }
@@ -597,47 +586,99 @@ app.post("/api/projects/:id/unarchive", authMiddleware(admin), (req, res) => {
 
 /* -------------------- Magic links & recommendations -------------------- */
 
-// Magic link (owner only; LIVE only)
+// --- MAGIC LINK: one token per project; rotate=1 to force a new token
 app.post("/api/projects/:id/magic-link", authMiddleware(admin), (req, res) => {
-  const id = Number(req.params.id);
-  if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });
-
-  const project = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
-  if (!project) return res.status(404).json({ error: "Not found" });
-  if (project.ownerUserId !== req.user.uid)
-    return res.status(403).json({ error: "Forbidden" });
-
-  if ((project.status || "").toLowerCase() !== "live") {
-    return res
-      .status(400)
-      .json({ error: "Project must be live before inviting recommendations." });
+  const projectId = Number(req.params.id);
+  if (!Number.isFinite(projectId)) {
+    return res.status(400).json({ error: "Invalid id" });
   }
 
+  const project = db
+    .prepare(`SELECT id, ownerUserId, status FROM projects WHERE id = ?`)
+    .get(projectId);
+  if (!project) return res.status(404).json({ error: "Project not found" });
+  if (project.ownerUserId !== req.user.uid) {
+    return res
+      .status(403)
+      .json({ error: "Only the owner can generate invites." });
+  }
+  if ((project.status || "").toLowerCase() !== "live") {
+    return res.status(400).json({
+      error: "Project must be live before inviting recommendations.",
+    });
+  }
+
+  // Backward-compatible table ensure (no UNIQUE so older DBs don’t error)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS recommendation_links (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      projectId INTEGER NOT NULL,
+      token TEXT NOT NULL,
+      createdAt TEXT NOT NULL
+    );
+  `);
+
+  const rotate =
+    String(req.query.rotate || "").toLowerCase() === "1" ||
+    String(req.body?.rotate || "").toLowerCase() === "1";
+
+  const now = new Date().toISOString();
+
+  // Get the latest link for this project (in case older DBs have duplicates)
   let link = db
-    .prepare(`SELECT * FROM recommendation_links WHERE projectId = ?`)
-    .get(id);
+    .prepare(
+      `SELECT id, token, createdAt
+       FROM recommendation_links
+      WHERE projectId = ?
+   ORDER BY id DESC
+      LIMIT 1`
+    )
+    .get(projectId);
+
   if (!link) {
+    // No link yet → insert
     const token = crypto.randomBytes(24).toString("base64url");
-    const now = new Date().toISOString();
-    const info = db
-      .prepare(
-        `INSERT INTO recommendation_links (projectId, token, createdAt) VALUES (?, ?, ?)`
-      )
-      .run(id, token, now);
+    db.prepare(
+      `INSERT INTO recommendation_links (projectId, token, createdAt)
+       VALUES (?, ?, ?)`
+    ).run(projectId, token, now);
+
     link = db
-      .prepare(`SELECT * FROM recommendation_links WHERE id = ?`)
-      .get(info.lastInsertRowid);
+      .prepare(
+        `SELECT id, token, createdAt
+         FROM recommendation_links
+        WHERE projectId = ?
+     ORDER BY id DESC
+        LIMIT 1`
+      )
+      .get(projectId);
+
+    console.log("[magic-link] created", { projectId, token: link.token });
+  } else if (rotate) {
+    // Rotate existing token
+    const token = crypto.randomBytes(24).toString("base64url");
+    db.prepare(
+      `UPDATE recommendation_links SET token = ?, createdAt = ? WHERE id = ?`
+    ).run(token, now, link.id);
+
+    link = db
+      .prepare(
+        `SELECT id, token, createdAt FROM recommendation_links WHERE id = ?`
+      )
+      .get(link.id);
+
+    console.log("[magic-link] rotated", { projectId, token: link.token });
+  } else {
+    console.log("[magic-link] existing", { projectId, token: link.token });
   }
 
   const base = process.env.NEXT_PUBLIC_WEB_BASE || "http://localhost:3000";
-  res.json({
-    url: `${base}/r/${link.token}`,
-    token: link.token,
-    projectId: id,
-  });
+  const url = new URL(`/r/${link.token}`, base).toString();
+
+  return res.status(200).json({ ok: true, url, token: link.token, projectId });
 });
 
-// Resolve magic link (public; LIVE only)
+// Resolve magic link
 app.get("/api/recommendations/magic/:token", (req, res) => {
   const { token } = req.params;
   const row = db
@@ -658,7 +699,7 @@ app.get("/api/recommendations/magic/:token", (req, res) => {
   res.json({ token, project: { id: row.projectId, name: row.projectName } });
 });
 
-// Submit recommendation (public; LIVE only)
+// Submit recommendation via magic link (public; optional auth)
 app.post(
   "/api/recommendations/magic/:token",
   optionalAuth(admin),
@@ -667,12 +708,19 @@ app.post(
     const link = db
       .prepare(`SELECT * FROM recommendation_links WHERE token = ?`)
       .get(token);
-    if (!link) return res.status(404).json({ error: "Invalid link" });
+    if (!link) {
+      console.warn("[magic-post] token not found", { token });
+      return res.status(404).json({ error: "Invalid or expired link token." });
+    }
 
     const proj = db
       .prepare(`SELECT status FROM projects WHERE id = ?`)
       .get(link.projectId);
     if (!proj || (proj.status || "").toLowerCase() !== "live") {
+      console.warn("[magic-post] project not live", {
+        token,
+        pid: link.projectId,
+      });
       return res
         .status(400)
         .json({ error: "This project is not accepting recommendations yet." });
@@ -680,39 +728,74 @@ app.post(
 
     const parsed = RecSchema.safeParse(req.body);
     if (!parsed.success) {
+      console.warn("[magic-post] bad payload", parsed.error.flatten());
       return res
         .status(400)
         .json({ error: "Invalid payload", issues: parsed.error.issues });
     }
 
-    const { name, email, phone, company, rating, comment } = parsed.data;
+    const { name, email, phone, company, comment, hireAgain } = parsed.data;
     const now = new Date().toISOString();
     const uid = req.user?.uid ?? null;
     const isAnonymous = uid ? 0 : 1;
 
-    db.prepare(
-      `INSERT INTO recommendations
-      (projectId, recommenderUserId, createdAt, name, email, phone, company, rating, comment, isAnonymous, source)
-     VALUES
-      (@projectId, @uid, @createdAt, @name, @email, @phone, @company, @rating, @comment, @isAnonymous, 'magic')`
-    ).run({
-      projectId: link.projectId,
-      uid,
-      createdAt: now,
-      name,
-      email: email ?? null,
-      phone: cleanPhone(phone),
-      company,
-      rating,
-      comment,
-      isAnonymous,
-    });
+    // store a benign rating (not used by UI)
+    const storedRating = hireAgain ? 5 : 1;
 
+    const info = db
+      .prepare(
+        `INSERT INTO recommendations
+   (projectId, recommenderUserId, createdAt, name, email, phone, company, rating, comment, isAnonymous, source)
+   VALUES (@projectId, @uid, @createdAt, @name, @email, @phone, @company, @rating, @comment, @isAnonymous, 'magic')`
+      )
+      .run({
+        projectId: link.projectId,
+        uid,
+        createdAt: now,
+        name,
+        email: email ?? null,
+        phone: cleanPhone(phone),
+        company,
+        rating: storedRating,
+        comment,
+        isAnonymous,
+      });
+
+    // If they’d hire again, count it as a like (one per person).
+    if (hireAgain) {
+      const voterId = uid || `anon:${crypto.randomBytes(8).toString("hex")}`;
+      db.prepare(
+        `INSERT OR IGNORE INTO recommendation_votes (recommendationId, userId, value) VALUES (?, ?, 1)`
+      ).run(info.lastInsertRowid, voterId);
+    }
+
+    console.log("[magic-post] recommendation created", {
+      token,
+      pid: link.projectId,
+      uid: uid || "anon",
+    });
     return res.status(201).json({ ok: true });
   }
 );
 
-// Shortlist access
+// Debug helper (owner only): list rec-links for a project
+app.get("/api/debug/reclinks/:projectId", authMiddleware(admin), (req, res) => {
+  const pid = Number(req.params.projectId);
+  if (!Number.isFinite(pid)) return res.status(400).json({ error: "bad id" });
+  const p = db.prepare(`SELECT ownerUserId FROM projects WHERE id=?`).get(pid);
+  if (!p) return res.status(404).json({ error: "not found" });
+  if (p.ownerUserId !== req.user.uid)
+    return res.status(403).json({ error: "forbidden" });
+  const rows = db
+    .prepare(
+      `SELECT id, token, createdAt FROM recommendation_links WHERE projectId=?`
+    )
+    .all(pid);
+  res.json({ rows });
+});
+
+/* -------------------- Shortlist w/ votes -------------------- */
+
 app.get(
   "/api/projects/:id/recommendations",
   authMiddleware(admin),
@@ -732,7 +815,7 @@ app.get(
 
     let allowed = !!isOwner;
     if (!allowed) {
-      if (isLive) allowed = !!uid; // any logged-in user on live projects
+      if (isLive) allowed = !!uid;
       else {
         const hasRec = db
           .prepare(
@@ -757,19 +840,32 @@ app.get(
 
     const raw = db
       .prepare(
-        `SELECT r.id, r.name, r.email, r.company, r.rating, r.comment, r.isAnonymous, r.createdAt, r.source,
-            r.recommenderUserId,
-            up.postcode AS up_postcode,
-            up.postcodeSector AS up_sector,
-            up.postcodeOutward AS up_outward,
-            up.city AS up_city
-       FROM recommendations r
-  LEFT JOIN user_profiles up ON up.userId = r.recommenderUserId
-      WHERE r.projectId = ?
-   ORDER BY r.createdAt DESC
-      LIMIT ? OFFSET ?`
+        `
+        SELECT
+          r.id, r.name, r.email, r.company, r.comment, r.isAnonymous, r.createdAt, r.source,
+          r.recommenderUserId,
+          up.postcode AS up_postcode,
+          up.postcodeSector AS up_sector,
+          up.postcodeOutward AS up_outward,
+          up.city AS up_city,
+          COALESCE(v.likes, 0) AS likes,
+          CASE WHEN mv.userId IS NULL THEN 0 ELSE 1 END AS myLike
+        FROM recommendations r
+        LEFT JOIN (
+          SELECT recommendationId, COUNT(*) AS likes
+          FROM recommendation_votes
+          WHERE value = 1
+          GROUP BY recommendationId
+        ) v ON v.recommendationId = r.id
+        LEFT JOIN recommendation_votes mv
+          ON mv.recommendationId = r.id AND mv.userId = ?
+        LEFT JOIN user_profiles up ON up.userId = r.recommenderUserId
+        WHERE r.projectId = ?
+        ORDER BY likes DESC, r.createdAt DESC
+        LIMIT ? OFFSET ?
+      `
       )
-      .all(id, pageSize, offset);
+      .all(uid || "", id, pageSize, offset);
 
     function communityMatch(row) {
       if (!row.recommenderUserId) return 0;
@@ -795,19 +891,27 @@ app.get(
       createdAt: r.createdAt,
       fromFriend: String(r.source || "magic") === "magic" ? 1 : 0,
       fromCommunity: communityMatch(r),
+      votesUp: r.votesUp,
+      votesDown: r.votesDown,
+      score: r.score,
+      myVote: r.myVote,
+      likes: r.likes,
+      myLike: r.myLike ? 1 : 0,
     }));
 
     res.json({ items, total: totalRow.c || 0, page, pageSize });
   }
 );
 
-// Logged-in platform submission (no magic link) – location must match
+/* -------------------- Logged-in recommendation submission -------------- */
+/* Canonical endpoint */
 app.post(
   "/api/projects/:id/recommendations",
   authMiddleware(admin),
   (req, res) => {
     const id = Number(req.params.id);
-    if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+    if (!Number.isFinite(id))
+      return res.status(400).json({ error: "Invalid id" });
 
     const proj = db
       .prepare(`SELECT id, name, location, status FROM projects WHERE id=?`)
@@ -842,33 +946,47 @@ app.post(
       });
     }
 
-    const { name, email, phone, company, rating, comment } = parsed.data;
+    const { name, email, phone, company, comment, hireAgain } = parsed.data;
     const now = new Date().toISOString();
+    const storedRating = hireAgain ? 5 : 1;
 
-    db.prepare(
-      `INSERT INTO recommendations
-      (projectId, recommenderUserId, createdAt, name, email, phone, company, rating, comment, isAnonymous, source)
-     VALUES
-      (@projectId, @uid, @createdAt, @name, @email, @phone, @company, @rating, @comment, 0, 'platform')`
-    ).run({
-      projectId: id,
-      uid: req.user.uid,
-      createdAt: now,
-      name,
-      email: email ?? null,
-      phone: cleanPhone(phone),
-      company,
-      rating,
-      comment,
-    });
+    const info = db
+      .prepare(
+        `INSERT INTO recommendations
+   (projectId, recommenderUserId, createdAt, name, email, phone, company, rating, comment, isAnonymous, source)
+   VALUES (@projectId, @uid, @createdAt, @name, @email, @phone, @company, @rating, @comment, 0, 'platform')`
+      )
+      .run({
+        projectId: id,
+        uid: req.user.uid,
+        createdAt: now,
+        name,
+        email: email ?? null,
+        phone: cleanPhone(phone),
+        company,
+        rating: storedRating,
+        comment,
+      });
+
+    // If hireAgain=yes, auto-like once by this user
+    if (hireAgain) {
+      db.prepare(
+        `INSERT OR IGNORE INTO recommendation_votes (recommendationId, userId, value) VALUES (?, ?, 1)`
+      ).run(info.lastInsertRowid, req.user.uid);
+    }
 
     res.status(201).json({ ok: true });
   }
 );
 
+/* Back-compat alias for clients calling /recommend (singular) */
+app.post("/api/projects/:id/recommend", (req, res) => {
+  req.url = req.url.replace("/recommend", "/recommendations");
+  return app._router.handle(req, res);
+});
+
 /* -------------------- Notifications API & SSE -------------------- */
 
-// SSE with token (EventSource can’t send headers in all browsers; we accept ?token=)
 app.get("/api/notifications/stream", async (req, res) => {
   let token = "";
   const auth = req.headers.authorization || "";
@@ -924,7 +1042,6 @@ app.get("/api/notifications/stream", async (req, res) => {
   });
 });
 
-// List / mark read
 app.get("/api/notifications", authMiddleware(admin), (req, res) => {
   const uid = req.user.uid;
   const items = db
@@ -958,6 +1075,50 @@ app.post("/api/notifications/read-all", authMiddleware(admin), (req, res) => {
     `UPDATE notifications SET readAt=? WHERE userId=? AND readAt IS NULL`
   ).run(new Date().toISOString(), req.user.uid);
   res.json({ ok: true });
+});
+
+/* -------------------- Voting -------------------- */
+
+// POST /api/recommendations/:id/like  (one like per user; no unlike)
+app.post("/api/recommendations/:id/like", authMiddleware(admin), (req, res) => {
+  const userId = req.user.uid;
+  const recId = Number(req.params.id);
+  if (!Number.isFinite(recId)) return res.status(400).json({ error: "Bad id" });
+
+  const rec = db
+    .prepare(`SELECT id, projectId FROM recommendations WHERE id=?`)
+    .get(recId);
+  if (!rec) return res.status(404).json({ error: "Recommendation not found" });
+
+  const proj = db
+    .prepare(`SELECT ownerUserId FROM projects WHERE id=?`)
+    .get(rec.projectId);
+  if (!proj) return res.status(404).json({ error: "Project not found" });
+  if (proj.ownerUserId === userId)
+    return res.status(403).json({ error: "Owner cannot like" });
+
+  // Insert once; if already liked, do nothing (no unlike)
+  db.prepare(
+    `INSERT OR IGNORE INTO recommendation_votes (recommendationId, userId, value) VALUES (?, ?, 1)`
+  ).run(recId, userId);
+
+  const row = db
+    .prepare(
+      `SELECT COUNT(*) AS likes FROM recommendation_votes WHERE recommendationId = ? AND value = 1`
+    )
+    .get(recId);
+  const myLike = !!db
+    .prepare(
+      `SELECT 1 FROM recommendation_votes WHERE recommendationId = ? AND userId = ? LIMIT 1`
+    )
+    .get(recId, userId);
+
+  res.json({
+    ok: true,
+    recommendationId: recId,
+    likes: row.likes || 0,
+    myLike,
+  });
 });
 
 app.listen(PORT, () => console.log(`[server] http://localhost:${PORT}`));

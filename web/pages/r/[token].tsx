@@ -28,10 +28,7 @@ function deriveNameFromUser(u: {
   const email = (u.email || "").trim();
   if (!email) return "";
   const local = email.split("@")[0] || "";
-  const pretty = local
-    .replace(/[._-]+/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-  return pretty;
+  return local.replace(/[._-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export default function MagicRecommendation() {
@@ -48,17 +45,15 @@ export default function MagicRecommendation() {
     email: "",
     phone: "",
     company: "",
-    rating: 5,
+    hireAgain: "yes" as "yes" | "no",
     comment: "",
   });
-  const [lockIdentity, setLockIdentity] = useState(false); // ← lock name/email when signed in
+  const [lockIdentity, setLockIdentity] = useState(false);
   const [sent, setSent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // only prefill once so we don’t overwrite user edits
   const prefilledRef = useRef(false);
 
-  // Resolve token → project
   useEffect(() => {
     if (!router.isReady || !token) return;
     let alive = true;
@@ -94,7 +89,6 @@ export default function MagicRecommendation() {
       setLockIdentity(true);
       prefilledRef.current = true;
     } else if (!user) {
-      // anonymous visitors can edit
       setLockIdentity(false);
     }
   }, [authLoading, user]);
@@ -106,7 +100,6 @@ export default function MagicRecommendation() {
     if (!token || submitting) return;
     setSubmitting(true);
     try {
-      // attach bearer if logged in
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
@@ -116,7 +109,6 @@ export default function MagicRecommendation() {
       if (user) {
         const idt = await user.getIdToken();
         headers.Authorization = `Bearer ${idt}`;
-        // defense-in-depth: force server identity to the account values
         payloadName = deriveNameFromUser(user) || form.name;
         payloadEmail = user.email || form.email || undefined;
       }
@@ -129,13 +121,14 @@ export default function MagicRecommendation() {
           email: payloadEmail,
           phone: form.phone || undefined,
           company: form.company,
-          rating: Number(form.rating),
+          hireAgain: form.hireAgain,
           comment: form.comment,
         }),
       });
       setSent(true);
     } catch (e: any) {
-      alert(e?.message || "Failed to submit recommendation");
+      const msg = e?.message || "Failed to submit recommendation";
+      alert(msg);
     } finally {
       setSubmitting(false);
     }
@@ -195,6 +188,7 @@ export default function MagicRecommendation() {
                   disabled={lockIdentity}
                   readOnly={lockIdentity}
                 />
+
                 <input
                   className="input"
                   placeholder="Company / Tradesperson"
@@ -210,16 +204,37 @@ export default function MagicRecommendation() {
                   inputMode="tel"
                   pattern="[\d +()-]*"
                 />
-                <label className="text-sm">Rating (1–5)</label>
-                <input
-                  className="input"
-                  type="number"
-                  min={1}
-                  max={5}
-                  value={form.rating}
-                  onChange={(e) => set("rating", e.target.value)}
-                  required
-                />
+
+                <fieldset className="mt-1">
+                  <legend className="text-sm mb-1">Hire again?</legend>
+                  <div className="flex gap-4">
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="hireAgain"
+                        className="accent-indigo-500"
+                        value="yes"
+                        checked={form.hireAgain === "yes"}
+                        onChange={() => set("hireAgain", "yes")}
+                      />
+                      Yes
+                    </label>
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="hireAgain"
+                        className="accent-indigo-500"
+                        value="no"
+                        checked={form.hireAgain === "no"}
+                        onChange={() => set("hireAgain", "no")}
+                      />
+                      No
+                    </label>
+                  </div>
+                  <p className="text-xs text-zinc-400 mt-1">
+                    “Yes” counts as a like. “No” does not add a negative score.
+                  </p>
+                </fieldset>
 
                 <label className="text-sm">Comment (min 10 characters)</label>
                 <textarea

@@ -24,15 +24,20 @@ type Recommendation = {
   name: string | null;
   email: string | null;
   company: string;
-  rating: number | null;
+  // rating now derived from likes in UI; backend can still store it but we don't rely on it here
+  rating?: number | null;
   comment: string | null;
   isAnonymous: 0 | 1;
   createdAt: string;
   fromFriend?: 0 | 1;
   fromCommunity?: 0 | 1;
+
+  // NEW: like aggregates from API
+  likes?: number; // total likes
+  myLike?: 0 | 1; // whether current user has liked
 };
 
-// stars
+// stars (UI helper)
 function StarRating({ value }: { value: number | null | undefined }) {
   const v = Math.max(0, Math.min(5, Math.round(Number(value ?? 0))));
   return (
@@ -68,9 +73,22 @@ function Badge({
   );
 }
 
-// Helper: prefer provided name; otherwise "Guest"
 const displayRecommender = (r: Recommendation) =>
   r.name && r.name.trim() ? r.name.trim() : "Guest";
+
+// Facebook-like icon
+const LikeIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
+    <path d="M12.1 21.35c-.32 0-.63-.1-.9-.3l-1.2-.9C5.2 16.54 2 13.76 2 10.28 2 7.5 4.2 5.3 7 5.3c1.45 0 2.86.63 3.8 1.7.94-1.07 2.35-1.7 3.8-1.7 2.8 0 5 2.2 5 4.98 0 3.48-3.2 6.26-7 9.88l-1.2.9c-.27.2-.58.3-.9.3z" />
+  </svg>
+);
+
+// Map likes to stars (0–5) relative to the current list's max likes
+function starsFromLikes(likes: number, maxLikes: number) {
+  if (maxLikes <= 0) return 0;
+  const pct = likes / maxLikes; // 0..1
+  return Math.max(1, Math.round(pct * 5)); // ensure at least 1 star if any likes exist
+}
 
 export default function ProjectView() {
   const api = useApi();
@@ -82,15 +100,15 @@ export default function ProjectView() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  // shortlist (latest 3)
+  // shortlist (top 3)
   const [recs, setRecs] = useState<Recommendation[] | null>(null);
   const [recTotal, setRecTotal] = useState(0);
   const [recsErr, setRecsErr] = useState<string | null>(null);
+  const [likingId, setLikingId] = useState<number | null>(null);
 
-  // eligibility to add recommendation (server-side decision)
+  // eligibility to add recommendation
   const [canAddRec, setCanAddRec] = useState(false);
 
-  // fetch project (public endpoint, no auth needed)
   useEffect(() => {
     if (!id) return;
     (async () => {
@@ -110,7 +128,6 @@ export default function ProjectView() {
   const isLive = (project?.status || "").toLowerCase() === "live";
   const canPublish = isOwner && !isArchived && !isLive;
 
-  // owner actions
   const onPublish = async () => {
     if (!project) return;
     try {
@@ -120,7 +137,6 @@ export default function ProjectView() {
       alert(e?.response?.data?.error || "Failed to publish");
     }
   };
-
   const onArchive = async () => {
     if (!project) return;
     if (!confirm("Archive this project? You’ll find it in Archived projects."))
@@ -132,7 +148,6 @@ export default function ProjectView() {
       alert(e?.response?.data?.error || "Failed to archive");
     }
   };
-
   const onUnarchive = async () => {
     if (!project) return;
     try {
@@ -147,14 +162,30 @@ export default function ProjectView() {
     if (!project) return;
     try {
       const { data } = await api.post(`/api/projects/${project.id}/magic-link`);
-      await navigator.clipboard.writeText(data.url);
-      alert("Invite link copied:\n" + data.url);
+      if (!data?.url) throw new Error("No URL returned");
+      try {
+        await navigator.clipboard.writeText(data.url);
+        alert("Invite link copied:\n" + data.url);
+      } catch {
+        window.prompt("Copy this invite link:", data.url);
+      }
     } catch (e: any) {
-      alert(e?.response?.data?.error || "Failed to generate link");
+      alert(
+        e?.response?.data?.error || e?.message || "Failed to generate link"
+      );
     }
   };
 
-  // shortlist (latest 3) — WAIT for auth to be ready and a user to exist.
+  async function loadRecs(pid: number) {
+    const { data } = await api.get(
+      `/api/projects/${pid}/recommendations?page=1&pageSize=3`
+    );
+    setRecs(data.items || []);
+    setRecTotal(data.total || 0);
+    setRecsErr(null);
+  }
+
+  // load shortlist
   useEffect(() => {
     if (!project || authLoading) return;
 
@@ -168,13 +199,7 @@ export default function ProjectView() {
     let alive = true;
     (async () => {
       try {
-        const { data } = await api.get(
-          `/api/projects/${project.id}/recommendations?page=1&pageSize=3`
-        );
-        if (!alive) return;
-        setRecs(data.items || []);
-        setRecTotal(data.total || 0);
-        setRecsErr(null);
+        await loadRecs(project.id);
       } catch (e: any) {
         if (!alive) return;
         const status = e?.status ?? e?.response?.status;
@@ -194,7 +219,7 @@ export default function ProjectView() {
     };
   }, [api, project, authLoading, user]);
 
-  // check server-side eligibility for “Add recommendation”
+  // check eligibility for “Add recommendation”
   useEffect(() => {
     if (!project || authLoading || !user) return;
     let alive = true;
@@ -215,6 +240,37 @@ export default function ProjectView() {
       alive = false;
     };
   }, [api, project, user, isLive, authLoading]);
+
+  // --- Like (one per user; no unlike) ---
+  const canLike = !!user && !!project && !isOwner;
+  const likeOnce = async (rec: Recommendation) => {
+    if (!canLike || !project || likingId) return;
+    if (rec.myLike === 1) return; // already liked
+
+    setLikingId(rec.id);
+
+    // optimistic: lock & bump
+    setRecs((prev) =>
+      (prev || []).map((r) =>
+        r.id === rec.id
+          ? { ...r, myLike: 1 as 0 | 1, likes: (r.likes ?? 0) + 1 }
+          : r
+      )
+    );
+
+    try {
+      await api.post(`/api/recommendations/${rec.id}/like`);
+      await loadRecs(project.id); // refresh tallies/order
+    } catch (e: any) {
+      await loadRecs(project.id); // revert to server truth
+      alert(e?.response?.data?.error || "Unable to like right now");
+    } finally {
+      setLikingId(null);
+    }
+  };
+
+  // compute current max likes to derive star fill
+  const maxLikes = Math.max(0, ...(recs || []).map((r) => r.likes ?? 0));
 
   return (
     <Layout>
@@ -238,7 +294,6 @@ export default function ProjectView() {
                         Created {new Date(project.createdAt).toLocaleString()}
                       </p>
                     </div>
-                    {/* Add recommendation CTA when eligible */}
                     {canAddRec && !isOwner && (
                       <Link
                         className="btn"
@@ -317,8 +372,7 @@ export default function ProjectView() {
                     <div>
                       <h2 className="text-2xl font-semibold mb-2">Shortlist</h2>
                       <p className="text-sm text-zinc-400">
-                        A list of builders that have been recommended to you by
-                        your friends and community members.
+                        The top recommendations, ranked by the community.
                       </p>
                     </div>
                   </div>
@@ -334,44 +388,97 @@ export default function ProjectView() {
                   ) : (
                     <>
                       <ul className="space-y-3">
-                        {recs.map((r) => (
-                          <li
-                            key={r.id}
-                            className="rounded-lg border border-zinc-800 p-3"
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="font-medium truncate">
-                                {r.company}
-                              </div>
-                              <StarRating value={r.rating} />
-                            </div>
+                        {recs.map((r) => {
+                          const likes = r.likes ?? 0;
+                          const hasLiked = r.myLike === 1;
+                          const stars =
+                            likes > 0 ? starsFromLikes(likes, maxLikes) : 0;
 
-                            {r.comment && (
-                              <p className="text-sm text-zinc-300 mt-1 line-clamp-3">
-                                {r.comment}
-                              </p>
-                            )}
+                          return (
+                            <li
+                              key={r.id}
+                              className="rounded-lg border border-zinc-800 p-3"
+                            >
+                              <div className="flex items-start gap-3">
+                                {/* Card body (flex-1) */}
+                                <div className="min-w-0 flex-1">
+                                  {/* Top row: name + stars + likes (right, no-wrap) */}
+                                  <div className="flex items-center gap-3">
+                                    <div className="font-medium truncate flex-1 min-w-0">
+                                      {r.company}
+                                    </div>
+                                    <div className="shrink-0 flex items-center gap-3 whitespace-nowrap">
+                                      <StarRating value={stars} />
+                                      <div className="text-xs text-zinc-400 tabular-nums flex items-center gap-1">
+                                        <LikeIcon className="h-3.5 w-3.5" />{" "}
+                                        {likes}
+                                      </div>
+                                    </div>
+                                  </div>
 
-                            <div className="mt-2 flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                {r.fromFriend ? (
-                                  <Badge color="indigo">Friend</Badge>
-                                ) : null}
-                                {r.fromCommunity ? (
-                                  <Badge color="green">Community</Badge>
-                                ) : null}
-                              </div>
-                              <div className="text-xs text-zinc-400">
-                                {new Date(r.createdAt).toLocaleDateString()}
-                              </div>
-                            </div>
+                                  {r.comment && (
+                                    <p className="text-sm text-zinc-300 mt-1 line-clamp-3">
+                                      {r.comment}
+                                    </p>
+                                  )}
 
-                            <div className="text-xs text-zinc-400 mt-1">
-                              {displayRecommender(r)}
-                              {r.email ? ` · ${r.email}` : ""}
-                            </div>
-                          </li>
-                        ))}
+                                  <div className="mt-2 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      {r.fromFriend ? (
+                                        <Badge color="indigo">Friend</Badge>
+                                      ) : null}
+                                      {r.fromCommunity ? (
+                                        <Badge color="green">Community</Badge>
+                                      ) : null}
+                                    </div>
+                                    <div className="text-xs text-zinc-400">
+                                      {new Date(
+                                        r.createdAt
+                                      ).toLocaleDateString()}
+                                    </div>
+                                  </div>
+
+                                  <div className="text-xs text-zinc-400 mt-1">
+                                    {displayRecommender(r)}
+                                    {r.email ? ` · ${r.email}` : ""}
+                                  </div>
+                                </div>
+
+                                {/* Like column (fixed width, right aligned) */}
+                                {!isOwner && (
+                                  <div className="ml-3 shrink-0 flex flex-col items-center">
+                                    <button
+                                      onClick={() => likeOnce(r)}
+                                      disabled={
+                                        !user || hasLiked || likingId === r.id
+                                      }
+                                      className={`h-9 w-9 rounded-full grid place-items-center border transition
+                                        ${
+                                          hasLiked
+                                            ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-300 cursor-default"
+                                            : "border-zinc-700 hover:bg-zinc-800"
+                                        }
+                                        ${!user ? "opacity-60" : ""}`}
+                                      title={
+                                        !user
+                                          ? "Sign in to like"
+                                          : hasLiked
+                                          ? "You’ve liked this"
+                                          : "Like"
+                                      }
+                                      aria-label="Like"
+                                    >
+                                      <LikeIcon className="h-4 w-4" />
+                                    </button>
+                                    <div className="mt-1 text-xs tabular-nums text-zinc-300">
+                                      {likes}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </li>
+                          );
+                        })}
                       </ul>
 
                       {recTotal > (recs?.length ?? 0) && (
