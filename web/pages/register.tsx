@@ -1,7 +1,9 @@
+// web/pages/register.tsx
 import Layout from '@/components/Layout'
 import { initFirebase } from '@/utils/firebase'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { useRouter } from 'next/router'
+import Link from 'next/link'
 import { useState } from 'react'
 
 export default function Register(){
@@ -35,6 +37,14 @@ export default function Register(){
           {err && <p className="text-red-400 text-sm">{err}</p>}
           <button className="btn w-full" disabled={busy}>{busy ? 'Creating...' : 'Create account'}</button>
         </form>
+
+        {/* Added sign-in hint */}
+        <p className="text-sm text-zinc-400 mt-4">
+          Already a member?{' '}
+          <Link href="/login" className="text-indigo-300 hover:text-indigo-200 underline underline-offset-4">
+            Sign in
+          </Link>
+        </p>
       </div>
     </Layout>
   )

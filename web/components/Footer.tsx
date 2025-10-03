@@ -55,7 +55,7 @@ const socials = [
 export default function Footer() {
   const year = new Date().getFullYear();
   return (
-    <footer className="mt-16 border-t border-white/10 bg-black/60 backdrop-blur">
+    <footer>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           {/* Brand */}

@@ -3,6 +3,7 @@ import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import { useState } from "react";
 import { useRouter } from "next/router";
+import Link from "next/link";
 
 const PROPERTY_TYPES = [
   "Detached",
@@ -40,6 +41,7 @@ export default function NewProject() {
     try {
       const payload = { ...form, bedrooms: Number(form.bedrooms) || 0 };
       const { data } = await api.post("/api/projects", payload);
+      // keep your existing behavior: go to the newly created project
       router.replace(`/projects/${data.project.id}`);
     } catch (e: any) {
       setErr(e?.response?.data?.error || "Failed to create");
@@ -51,9 +53,19 @@ export default function NewProject() {
   return (
     <Layout>
       <AuthedOnly>
-        <div className="card max-w-2xl">
-          <h1 className="text-xl font-semibold mb-4">Create Project</h1>
-          <form onSubmit={submit} className="grid grid-cols-1 gap-3">
+        <div className="mx-auto max-w-2xl">
+          {/* Header row with quick way back */}
+          <div className="mb-4 flex items-center justify-between">
+            <h1 className="text-xl font-semibold">Create Project</h1>
+            <Link
+              href="/projects"
+              className="inline-flex items-center rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 hover:bg-zinc-800"
+            >
+              ← Back to projects
+            </Link>
+          </div>
+
+          <form onSubmit={submit} className="card grid grid-cols-1 gap-3">
             <input
               className="input"
               placeholder="Name"
@@ -106,10 +118,14 @@ export default function NewProject() {
               onChange={(e) => set("description", e.target.value)}
               required
             />
+
             {err && <p className="text-red-400 text-sm">{err}</p>}
-            <button className="btn w-full" disabled={busy}>
-              {busy ? "Saving..." : "Save Project"}
-            </button>
+
+            <div className="mt-2 flex flex-wrap gap-3">
+              <button className="btn disabled:opacity-50" disabled={busy}>
+                {busy ? "Saving..." : "Save Project"}
+              </button>
+            </div>
           </form>
         </div>
       </AuthedOnly>

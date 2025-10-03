@@ -119,6 +119,58 @@ app.get("/health", (_req, res) =>
   res.json({ ok: true, now: new Date().toISOString() })
 );
 
+/* -------------------- Public stats (for homepage) -------------------- */
+
+// cache user count for 5 minutes to avoid hammering Admin API
+let __userCountCache = { value: 0, fetchedAt: 0 };
+
+async function countAllFirebaseUsers(admin) {
+  // Return cached value if it's fresh
+  const now = Date.now();
+  if (
+    now - __userCountCache.fetchedAt < 5 * 60 * 1000 &&
+    __userCountCache.fetchedAt
+  ) {
+    return __userCountCache.value;
+  }
+
+  let nextPageToken = undefined;
+  let total = 0;
+  do {
+    const res = await admin.auth().listUsers(1000, nextPageToken);
+    total += res.users.length;
+    nextPageToken = res.pageToken;
+  } while (nextPageToken);
+
+  __userCountCache = { value: total, fetchedAt: Date.now() };
+  return total;
+}
+
+// Returns: { communityMembers, recommendations, shortlists }
+app.get("/api/stats/public", async (_req, res) => {
+  try {
+    // 1) total Firebase users (community members)
+    const communityMembers = admin.apps.length
+      ? await countAllFirebaseUsers(admin)
+      : 0;
+
+    // 2) total recommendations (from DB)
+    const recommendations =
+      db.prepare(`SELECT COUNT(*) AS c FROM recommendations`).get().c || 0;
+
+    // 3) "shortlists created" = number of distinct projects that have at least 1 recommendation
+    const shortlists =
+      db
+        .prepare(`SELECT COUNT(DISTINCT projectId) AS c FROM recommendations`)
+        .get().c || 0;
+
+    res.json({ communityMembers, recommendations, shortlists });
+  } catch (e) {
+    console.error("stats error", e);
+    res.status(500).json({ error: "Failed to load stats" });
+  }
+});
+
 /* -------------------- Validation -------------------- */
 
 const ProjectSchema = z.object({
