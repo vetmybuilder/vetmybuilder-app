@@ -16,13 +16,21 @@ Thumbs.db
 !.env.example
 !.env.sample
 
-# SQLite & local data
-*.sqlite
-*.db
-*.db-shm
-*.db-wal
-data/
-!.keep
+# SQLite & local data — keep folder, ignore its contents
+/data/*
+!/data/.gitkeep
+# If you store seeds or docs in data/, keep them too:
+!/data/README.md
+!/data/*.sql
+
+# Defensive ignores (if any DBs escape the folder)
+/*.sqlite
+/*.db
+/*.db-shm
+/*.db-wal
+**/*.sqlite
+**/*.db-shm
+**/*.db-wal
 
 # Build artifacts (generic)
 dist/
@@ -38,7 +46,7 @@ playwright-report/
 playwright/.cache/
 .tmpdb-*/
 
-# Next.js (if any builds happen from root)
+# Next.js (if built from root)
 .next/
 out/
 
