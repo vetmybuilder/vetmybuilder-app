@@ -10,14 +10,15 @@ type Recommendation = {
   id: number;
   name: string | null;
   email: string | null;
+  phone?: string | null;
   company: string;
   comment: string | null;
   isAnonymous: 0 | 1;
   createdAt: string;
 
   // like aggregates (must be provided by API)
-  likes?: number;   // total likes
-  myLike?: 0 | 1;   // whether the current user has liked
+  likes?: number; // total likes
+  myLike?: 0 | 1; // whether the current user has liked
 };
 
 type ProjectLite = {
@@ -229,10 +230,18 @@ export default function ShortlistPage() {
                       {/* Body */}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-3">
-                          <div className="font-medium truncate">{r.company}</div>
+                          <div className="font-medium">
+                            <Link
+                              href={`/builders/${r.id}`}
+                              className="hover:underline decoration-indigo-400/60"
+                            >
+                              {r.company}
+                            </Link>
+                          </div>
                           <div className="flex items-center gap-3 shrink-0 whitespace-nowrap">
                             <div className="text-xs text-zinc-400 tabular-nums flex items-center gap-1">
-                              <LikeIcon className="h-3.5 w-3.5 -mt-px" /> {likes}
+                              <LikeIcon className="h-3.5 w-3.5 -mt-px" />{" "}
+                              {likes}
                             </div>
                             <StarRating value={stars} />
                           </div>
@@ -248,6 +257,7 @@ export default function ShortlistPage() {
                           <span>
                             {r.isAnonymous ? "Anonymous" : r.name || "—"}
                             {r.email ? ` · ${r.email}` : ""}
+                            {r.phone ? ` · ${r.phone}` : ""}
                           </span>
                           <span>{new Date(r.createdAt).toLocaleString()}</span>
                         </div>

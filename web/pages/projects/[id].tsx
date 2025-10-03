@@ -23,6 +23,7 @@ type Recommendation = {
   id: number;
   name: string | null;
   email: string | null;
+  phone?: string | null;
   company: string;
   // rating now derived from likes in UI; backend can still store it but we don't rely on it here
   rating?: number | null;
@@ -405,7 +406,13 @@ export default function ProjectView() {
                                   {/* Top row: name + stars + likes (right, no-wrap) */}
                                   <div className="flex items-center gap-3">
                                     <div className="font-medium truncate flex-1 min-w-0">
-                                      {r.company}
+                                      <Link
+                                        href={`/builders/${r.id}`}
+                                        className="hover:underline decoration-indigo-400/60"
+                                        title="Open builder profile"
+                                      >
+                                        {r.company}
+                                      </Link>
                                     </div>
                                     <div className="shrink-0 flex items-center gap-3 whitespace-nowrap">
                                       <StarRating value={stars} />
@@ -441,6 +448,7 @@ export default function ProjectView() {
                                   <div className="text-xs text-zinc-400 mt-1">
                                     {displayRecommender(r)}
                                     {r.email ? ` · ${r.email}` : ""}
+                                    {r.phone ? ` · ${r.phone}` : ""}
                                   </div>
                                 </div>
 

@@ -16,6 +16,9 @@ Thumbs.db
 !.env.example
 !.env.sample
 
+# Image uploads
+uploads/
+
 # SQLite & local data — keep folder, ignore its contents
 /data/*
 !/data/.gitkeep

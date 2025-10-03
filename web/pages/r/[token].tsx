@@ -45,15 +45,17 @@ export default function MagicRecommendation() {
     email: "",
     phone: "",
     company: "",
-    hireAgain: "yes" as "yes" | "no",
+    hireAgain: "yes" as "yes" | "no", // replaces rating
     comment: "",
   });
   const [lockIdentity, setLockIdentity] = useState(false);
   const [sent, setSent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // only prefill once so we don’t overwrite user edits
   const prefilledRef = useRef(false);
 
+  // Resolve token → project
   useEffect(() => {
     if (!router.isReady || !token) return;
     let alive = true;
@@ -76,7 +78,7 @@ export default function MagicRecommendation() {
     };
   }, [router.isReady, token]);
 
-  // Prefill + lock when signed in
+  // Prefill + lock when signed in (after auth has resolved)
   useEffect(() => {
     if (authLoading) return;
     if (user && !prefilledRef.current) {
@@ -109,9 +111,13 @@ export default function MagicRecommendation() {
       if (user) {
         const idt = await user.getIdToken();
         headers.Authorization = `Bearer ${idt}`;
+        // prefer account identity when logged in
         payloadName = deriveNameFromUser(user) || form.name;
         payloadEmail = user.email || form.email || undefined;
       }
+
+      // Map hireAgain to rating for current backend schema (5=yes, 1=no)
+      const ratingFromHire = form.hireAgain === "yes" ? 5 : 1;
 
       await fetchJSON(`${API}/api/recommendations/magic/${token}`, {
         method: "POST",
@@ -121,7 +127,7 @@ export default function MagicRecommendation() {
           email: payloadEmail,
           phone: form.phone || undefined,
           company: form.company,
-          hireAgain: form.hireAgain,
+          rating: ratingFromHire,
           comment: form.comment,
         }),
       });
@@ -232,7 +238,8 @@ export default function MagicRecommendation() {
                     </label>
                   </div>
                   <p className="text-xs text-zinc-400 mt-1">
-                    “Yes” counts as a like. “No” does not add a negative score.
+                    “Yes” counts as a like in the UI. “No” does not add a
+                    negative score.
                   </p>
                 </fieldset>
 

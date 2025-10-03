@@ -9,9 +9,16 @@ const { runMigrations } = require("./lib/migrate");
 const { authMiddleware } = require("./lib/middleware");
 const { z } = require("zod");
 const crypto = require("crypto");
+const path = require("path");
+const fs = require("fs");
+const multer = require("multer");
 
 const app = express();
 const PORT = process.env.PORT || 8787;
+
+// Public API origin used to build absolute file URLs for images
+const PUBLIC_API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE || `http://localhost:${PORT}`;
 
 app.use(
   cors({
@@ -118,6 +125,48 @@ app.get("/health", (_req, res) =>
   res.json({ ok: true, now: new Date().toISOString() })
 );
 
+/* -------------------- Uploads (photos) -------------------- */
+
+// Serve uploaded files
+const UPLOAD_DIR = path.resolve(process.cwd(), "uploads");
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+app.use("/uploads", express.static(UPLOAD_DIR, { maxAge: "7d", index: false }));
+
+// Ensure photos table (defensive, in case migration hasn't run)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS recommendation_photos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    recommendationId INTEGER NOT NULL,
+    filePath TEXT NOT NULL,
+    mime TEXT,
+    sizeBytes INTEGER,
+    createdAt TEXT NOT NULL,
+    FOREIGN KEY (recommendationId) REFERENCES recommendations(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_rec_photos_rec ON recommendation_photos(recommendationId);
+`);
+
+// Multer storage
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname || "");
+    const base =
+      Date.now().toString(36) +
+      "-" +
+      crypto.randomBytes(6).toString("base64url");
+    cb(null, `${base}${ext || ""}`);
+  },
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 8 * 1024 * 1024, files: 8 }, // 8MB, up to 8 photos
+  fileFilter: (_req, file, cb) => {
+    const ok = /^image\/(jpeg|png|webp|gif)$/i.test(file.mimetype);
+    cb(ok ? null : new Error("Only images are allowed"), ok);
+  },
+});
+
 /* -------------------- Public stats (for homepage) -------------------- */
 
 let __userCountCache = { value: 0, fetchedAt: 0 };
@@ -199,16 +248,19 @@ const RecSchema = z
     return { ...v, rating: r };
   });
 
+// --- phone helper (very light) ---
 function cleanPhone(input) {
   if (!input) return null;
   const s = String(input).trim();
   if (!s) return null;
+  // keep + and digits; strip spaces/dashes/brackets
   const compact = s.replace(/[^\d+]/g, "");
   return compact || null;
 }
 
 /* -------------------- Projects CRUD -------------------- */
 
+// Create (default pending)
 app.post("/api/projects", authMiddleware(admin), (req, res) => {
   const CreateProjectSchema = ProjectSchema.extend({
     bedrooms: z.coerce.number().int().min(0).max(20),
@@ -256,6 +308,7 @@ app.post("/api/projects", authMiddleware(admin), (req, res) => {
   res.json({ project });
 });
 
+// List (filters + pagination consolidated)
 app.get("/api/projects", authMiddleware(admin), (req, res) => {
   const uid = req.user.uid;
   const tab = req.query.tab === "recommended" ? "recommended" : "mine";
@@ -361,6 +414,7 @@ app.get("/api/me", authMiddleware(admin), (req, res) => {
 
 /* -------------------- Profile (location) -------------------- */
 
+// Get my profile
 app.get("/api/profile", authMiddleware(admin), (req, res) => {
   const uid = req.user.uid;
   const row = db
@@ -372,6 +426,7 @@ app.get("/api/profile", authMiddleware(admin), (req, res) => {
   res.json({ profile: row || null });
 });
 
+// Update my location (body: { location: string })
 app.post("/api/profile", authMiddleware(admin), (req, res) => {
   const uid = req.user.uid;
   const loc = String(req.body?.location ?? "").trim();
@@ -424,12 +479,13 @@ app.post("/api/projects/:id/publish", authMiddleware(admin), (req, res) => {
     return res
       .status(400)
       .json({ error: "Project is archived. Unarchive before publishing." });
-  if (status === "live") return res.json({ project: existing });
+  if (status === "live") return res.json({ project: existing }); // already live — do nothing
 
   db.prepare(`UPDATE projects SET status='live' WHERE id=?`).run(id);
   const updated = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
   res.json({ project: updated });
 
+  // Target local users (profile area match) + logged-in recommenders in the same area (exclude owner)
   const locTokens = extractLocationTokens(updated.location);
   const whereParts = [];
   const areaParams = {};
@@ -488,6 +544,8 @@ app.post("/api/projects/:id/publish", authMiddleware(admin), (req, res) => {
 
 /* -------------------- Read / Update / Archive -------------------- */
 
+// IMPORTANT: optionalAuth here so LIVE projects can be read without a token.
+// If no/invalid token and the project is not live, you’ll get 401.
 app.get("/api/projects/:id", optionalAuth(admin), (req, res) => {
   const id = Number(req.params.id);
   if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });
@@ -496,6 +554,7 @@ app.get("/api/projects/:id", optionalAuth(admin), (req, res) => {
   if (!project) return res.status(404).json({ error: "Not found" });
 
   if (!req.user) {
+    // no token — allow read only if live
     if ((project.status || "").toLowerCase() !== "live") {
       return res.status(401).json({ error: "Missing bearer token" });
     }
@@ -703,6 +762,21 @@ app.get("/api/recommendations/magic/:token", (req, res) => {
 app.post(
   "/api/recommendations/magic/:token",
   optionalAuth(admin),
+  (req, res, next) => {
+    // If multipart, run multer; otherwise continue to JSON handler
+    const ct = (req.headers["content-type"] || "").toLowerCase();
+    if (ct.startsWith("multipart/form-data")) {
+      upload.array("photos", 8)(req, res, (err) => {
+        if (err)
+          return res
+            .status(400)
+            .json({ error: err.message || "Upload failed" });
+        next();
+      });
+    } else {
+      next();
+    }
+  },
   (req, res) => {
     const { token } = req.params;
     const link = db
@@ -726,7 +800,20 @@ app.post(
         .json({ error: "This project is not accepting recommendations yet." });
     }
 
-    const parsed = RecSchema.safeParse(req.body);
+    // Accept from JSON (req.body) or multipart (req.body fields + req.files)
+    const asNumber = (v) =>
+      v === undefined || v === null || v === "" ? undefined : Number(v);
+    const payload = {
+      name: String(req.body?.name ?? "").trim(),
+      email: String(req.body?.email ?? "").trim() || undefined,
+      phone: String(req.body?.phone ?? "").trim() || undefined,
+      company: String(req.body?.company ?? "").trim(),
+      // rating kept for compatibility; you may map hireAgain=>like on the client
+      rating: asNumber(req.body?.rating) ?? 5,
+      comment: String(req.body?.comment ?? "").trim(),
+    };
+
+    const parsed = RecSchema.safeParse(payload);
     if (!parsed.success) {
       console.warn("[magic-post] bad payload", parsed.error.flatten());
       return res
@@ -734,19 +821,17 @@ app.post(
         .json({ error: "Invalid payload", issues: parsed.error.issues });
     }
 
-    const { name, email, phone, company, comment, hireAgain } = parsed.data;
+    const { name, email, phone, company, rating, comment } = parsed.data;
     const now = new Date().toISOString();
     const uid = req.user?.uid ?? null;
     const isAnonymous = uid ? 0 : 1;
 
-    // store a benign rating (not used by UI)
-    const storedRating = hireAgain ? 5 : 1;
-
     const info = db
       .prepare(
         `INSERT INTO recommendations
-   (projectId, recommenderUserId, createdAt, name, email, phone, company, rating, comment, isAnonymous, source)
-   VALUES (@projectId, @uid, @createdAt, @name, @email, @phone, @company, @rating, @comment, @isAnonymous, 'magic')`
+        (projectId, recommenderUserId, createdAt, name, email, phone, company, rating, comment, isAnonymous, source)
+       VALUES
+        (@projectId, @uid, @createdAt, @name, @email, @phone, @company, @rating, @comment, @isAnonymous, 'magic')`
       )
       .run({
         projectId: link.projectId,
@@ -756,25 +841,34 @@ app.post(
         email: email ?? null,
         phone: cleanPhone(phone),
         company,
-        rating: storedRating,
+        rating,
         comment,
         isAnonymous,
       });
 
-    // If they’d hire again, count it as a like (one per person).
-    if (hireAgain) {
-      const voterId = uid || `anon:${crypto.randomBytes(8).toString("hex")}`;
-      db.prepare(
-        `INSERT OR IGNORE INTO recommendation_votes (recommendationId, userId, value) VALUES (?, ?, 1)`
-      ).run(info.lastInsertRowid, voterId);
+    const recommendationId = info.lastInsertRowid;
+
+    // Persist photos if any
+    const files = Array.isArray(req.files) ? req.files : [];
+    if (files.length) {
+      const stmt = db.prepare(
+        `INSERT INTO recommendation_photos (recommendationId, filePath, mime, sizeBytes, createdAt)
+         VALUES (?, ?, ?, ?, ?)`
+      );
+      for (const f of files) {
+        const rel = path.relative(UPLOAD_DIR, f.path).split(path.sep).join("/");
+        stmt.run(recommendationId, `/uploads/${rel}`, f.mimetype, f.size, now);
+      }
     }
 
     console.log("[magic-post] recommendation created", {
       token,
       pid: link.projectId,
       uid: uid || "anon",
+      photos: files.length,
     });
-    return res.status(201).json({ ok: true });
+
+    return res.status(201).json({ ok: true, recommendationId });
   }
 );
 
@@ -794,7 +888,7 @@ app.get("/api/debug/reclinks/:projectId", authMiddleware(admin), (req, res) => {
   res.json({ rows });
 });
 
-/* -------------------- Shortlist w/ votes -------------------- */
+/* -------------------- Shortlist w/ likes -------------------- */
 
 app.get(
   "/api/projects/:id/recommendations",
@@ -815,7 +909,7 @@ app.get(
 
     let allowed = !!isOwner;
     if (!allowed) {
-      if (isLive) allowed = !!uid;
+      if (isLive) allowed = !!uid; // any logged-in user on live projects
       else {
         const hasRec = db
           .prepare(
@@ -838,11 +932,12 @@ app.get(
       .prepare(`SELECT COUNT(*) AS c FROM recommendations WHERE projectId = ?`)
       .get(id);
 
+    // include likes + myLike and keep location/profile join; also select phone
     const raw = db
       .prepare(
         `
         SELECT
-          r.id, r.name, r.email, r.company, r.comment, r.isAnonymous, r.createdAt, r.source,
+          r.id, r.name, r.email, r.phone, r.company, r.comment, r.isAnonymous, r.createdAt, r.source,
           r.recommenderUserId,
           up.postcode AS up_postcode,
           up.postcodeSector AS up_sector,
@@ -884,17 +979,13 @@ app.get(
       id: r.id,
       name: r.name,
       email: r.email,
+      phone: r.phone,
       company: r.company,
-      rating: r.rating,
       comment: r.comment,
       isAnonymous: r.isAnonymous,
       createdAt: r.createdAt,
       fromFriend: String(r.source || "magic") === "magic" ? 1 : 0,
       fromCommunity: communityMatch(r),
-      votesUp: r.votesUp,
-      votesDown: r.votesDown,
-      score: r.score,
-      myVote: r.myVote,
       likes: r.likes,
       myLike: r.myLike ? 1 : 0,
     }));
@@ -908,74 +999,82 @@ app.get(
 app.post(
   "/api/projects/:id/recommendations",
   authMiddleware(admin),
+  (req, res, next) => {
+    const ct = (req.headers["content-type"] || "").toLowerCase();
+    if (ct.startsWith("multipart/form-data")) {
+      upload.array("photos", 8)(req, res, (err) => {
+        if (err)
+          return res
+            .status(400)
+            .json({ error: err.message || "Upload failed" });
+        next();
+      });
+    } else {
+      next();
+    }
+  },
   (req, res) => {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id))
+    const projectId = Number(req.params.id);
+    if (!Number.isFinite(projectId))
       return res.status(400).json({ error: "Invalid id" });
 
-    const proj = db
-      .prepare(`SELECT id, name, location, status FROM projects WHERE id=?`)
-      .get(id);
-    if (!proj) return res.status(404).json({ error: "Not found" });
-    if ((proj.status || "").toLowerCase() !== "live") {
-      return res.status(400).json({ error: "Project is not live." });
-    }
+    const asNumber = (v) =>
+      v === undefined || v === null || v === "" ? undefined : Number(v);
+    const payload = {
+      name: String(req.body?.name ?? "").trim(),
+      email: String(req.body?.email ?? "").trim() || undefined,
+      phone: String(req.body?.phone ?? "").trim() || undefined,
+      company: String(req.body?.company ?? "").trim(),
+      rating: asNumber(req.body?.rating) ?? 5,
+      comment: String(req.body?.comment ?? "").trim(),
+    };
 
-    const parsed = RecSchema.safeParse(req.body);
+    const parsed = RecSchema.safeParse(payload);
     if (!parsed.success) {
       return res
         .status(400)
         .json({ error: "Invalid payload", issues: parsed.error.issues });
     }
 
-    const me = db
-      .prepare(`SELECT * FROM user_profiles WHERE userId=?`)
-      .get(req.user.uid);
-    const pTok = extractLocationTokens(proj.location);
-    const match =
-      (pTok.full && me?.postcode === pTok.full) ||
-      (pTok.sector && me?.postcodeSector === pTok.sector) ||
-      (pTok.outward && me?.postcodeOutward === pTok.outward) ||
-      (pTok.city &&
-        me?.city &&
-        me.city.toLowerCase() === pTok.city.toLowerCase());
-
-    if (!match) {
-      return res.status(403).json({
-        error: "You can only recommend builders for projects in your area.",
-      });
-    }
-
-    const { name, email, phone, company, comment, hireAgain } = parsed.data;
+    const { name, email, phone, company, rating, comment } = parsed.data;
     const now = new Date().toISOString();
-    const storedRating = hireAgain ? 5 : 1;
+    const uid = req.user?.uid ?? null;
 
     const info = db
       .prepare(
         `INSERT INTO recommendations
-   (projectId, recommenderUserId, createdAt, name, email, phone, company, rating, comment, isAnonymous, source)
-   VALUES (@projectId, @uid, @createdAt, @name, @email, @phone, @company, @rating, @comment, 0, 'platform')`
+        (projectId, recommenderUserId, createdAt, name, email, phone, company, rating, comment, isAnonymous, source)
+       VALUES
+        (@projectId, @uid, @createdAt, @name, @email, @phone, @company, @rating, @comment, 0, 'platform')`
       )
       .run({
-        projectId: id,
-        uid: req.user.uid,
+        projectId,
+        uid,
         createdAt: now,
         name,
         email: email ?? null,
         phone: cleanPhone(phone),
         company,
-        rating: storedRating,
+        rating,
         comment,
       });
 
-    // If hireAgain=yes, auto-like once by this user
-    if (hireAgain) {
-      db.prepare(
-        `INSERT OR IGNORE INTO recommendation_votes (recommendationId, userId, value) VALUES (?, ?, 1)`
-      ).run(info.lastInsertRowid, req.user.uid);
+    const recommendationId = info.lastInsertRowid;
+
+    // photos
+    const files = Array.isArray(req.files) ? req.files : [];
+    if (files.length) {
+      const stmt = db.prepare(
+        `INSERT INTO recommendation_photos (recommendationId, filePath, mime, sizeBytes, createdAt)
+         VALUES (?, ?, ?, ?, ?)`
+      );
+      for (const f of files) {
+        const rel = path.relative(UPLOAD_DIR, f.path).split(path.sep).join("/");
+        stmt.run(recommendationId, `/uploads/${rel}`, f.mimetype, f.size, now);
+      }
     }
 
-    res.status(201).json({ ok: true });
+    return res.status(201).json({ ok: true, recommendationId });
   }
 );
 
@@ -987,6 +1086,7 @@ app.post("/api/projects/:id/recommend", (req, res) => {
 
 /* -------------------- Notifications API & SSE -------------------- */
 
+// SSE with token (EventSource can’t send headers in all browsers; we accept ?token=)
 app.get("/api/notifications/stream", async (req, res) => {
   let token = "";
   const auth = req.headers.authorization || "";
@@ -1042,6 +1142,7 @@ app.get("/api/notifications/stream", async (req, res) => {
   });
 });
 
+// List / mark read
 app.get("/api/notifications", authMiddleware(admin), (req, res) => {
   const uid = req.user.uid;
   const items = db
@@ -1077,7 +1178,7 @@ app.post("/api/notifications/read-all", authMiddleware(admin), (req, res) => {
   res.json({ ok: true });
 });
 
-/* -------------------- Voting -------------------- */
+/* -------------------- Voting (likes) -------------------- */
 
 // POST /api/recommendations/:id/like  (one like per user; no unlike)
 app.post("/api/recommendations/:id/like", authMiddleware(admin), (req, res) => {
@@ -1119,6 +1220,87 @@ app.post("/api/recommendations/:id/like", authMiddleware(admin), (req, res) => {
     likes: row.likes || 0,
     myLike,
   });
+});
+
+// GET /api/recommendations/:id  -> returns one recommendation with likes/myLike and project info (+ photos)
+app.get("/api/recommendations/:id", optionalAuth(admin), (req, res) => {
+  const recId = Number(req.params.id);
+  if (!Number.isFinite(recId))
+    return res.status(400).json({ error: "Invalid id" });
+
+  const row = db
+    .prepare(
+      `
+    SELECT r.*, p.id AS projectId, p.name AS projectName, p.ownerUserId, p.status AS projectStatus,
+      COALESCE((
+        SELECT COUNT(*) FROM recommendation_votes v
+        WHERE v.recommendationId = r.id AND v.value = 1
+      ), 0) AS likes
+    FROM recommendations r
+    JOIN projects p ON p.id = r.projectId
+    WHERE r.id = ?
+  `
+    )
+    .get(recId);
+
+  if (!row) return res.status(404).json({ error: "Not found" });
+
+  const uid = req.user?.uid || null;
+  const isOwner = uid && uid === row.ownerUserId;
+  const isLive = String(row.projectStatus || "").toLowerCase() === "live";
+
+  // Access rules: if project is live -> anyone can read; otherwise owner or the recommender may read.
+  if (!isLive) {
+    const isRecommender = uid && uid === row.recommenderUserId;
+    if (!isOwner && !isRecommender)
+      return res.status(403).json({ error: "Forbidden" });
+  }
+
+  // myLike
+  const myLike = uid
+    ? db
+        .prepare(
+          `SELECT 1 FROM recommendation_votes WHERE recommendationId = ? AND userId = ? AND value = 1`
+        )
+        .get(recId, uid)
+      ? 1
+      : 0
+    : 0;
+
+  // Photos → build absolute URLs so Next (port 3000) can load from API (port 8787)
+  const photoRows = db
+    .prepare(
+      `SELECT id, filePath AS fp, mime
+       FROM recommendation_photos
+       WHERE recommendationId = ?
+       ORDER BY id ASC`
+    )
+    .all(recId);
+
+  const photos = photoRows.map((p) => {
+    const abs = new URL(p.fp, PUBLIC_API_BASE).toString(); // e.g. http://localhost:8787/uploads/abc.jpg
+    return { id: String(p.id), url: abs, thumb: abs };
+  });
+
+  const recommendation = {
+    id: row.id,
+    company: row.company,
+    comment: row.comment,
+    createdAt: row.createdAt,
+    name: row.name,
+    email: row.email,
+    phone: row.phone || null,
+    isAnonymous: row.isAnonymous,
+    likes: row.likes,
+    myLike,
+    rating: row.rating ?? null,
+    fromFriend: String(row.source || "magic") === "magic" ? 1 : 0,
+    fromCommunity: 0, // (optional) compute like shortlist if desired
+    photos,
+    project: { id: row.projectId, name: row.projectName },
+  };
+
+  res.json({ recommendation });
 });
 
 app.listen(PORT, () => console.log(`[server] http://localhost:${PORT}`));

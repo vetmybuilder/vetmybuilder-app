@@ -17,6 +17,13 @@ export default function RecommendOnPlatform() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
+  // photos
+  const [photos, setPhotos] = useState<File[]>([]);
+  const onPickPhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []).slice(0, 8);
+    setPhotos(files);
+  };
+
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -61,13 +68,13 @@ export default function RecommendOnPlatform() {
   }, [api, id]);
 
   // Prefill & lock identity ONLY when logged in.
-  // We wait until authLoading is false so we don't lock empty fields on reload.
+  // Wait until authLoading is false so we don't lock empty fields on reload.
   useEffect(() => {
     if (authLoading) return;
 
     if (user && !prefilledRef.current) {
       (async () => {
-        // try server profile first (requires token; api helper should attach it)
+        // Try server profile first
         try {
           const me = await api.get("/api/me");
           const serverEmail = me?.data?.email ?? me?.data?.user?.email ?? "";
@@ -85,7 +92,7 @@ export default function RecommendOnPlatform() {
           prefilledRef.current = true;
           return;
         } catch {
-          // ignore 401/other; fall back to firebase user
+          // ignore and fall back to Firebase
         }
 
         try {
@@ -119,20 +126,52 @@ export default function RecommendOnPlatform() {
     if (!id || submitting) return;
     setSubmitting(true);
     try {
-      await api.post(`/api/projects/${id}/recommendations`, {
-        name: form.name,
-        email: form.email || undefined,
-        phone: form.phone || undefined,
-        company: form.company,
-        hireAgain: form.hireAgain, // <-- server maps to rating
-        comment: form.comment,
-      });
+      // Map hireAgain → rating for backward compatibility.
+      // (Server can ignore rating for ranking, but schema still expects it.)
+      const ratingFromHire = form.hireAgain === "yes" ? 5 : 1;
+
+      let recommendationId: number | undefined;
+
+      if (photos.length > 0) {
+        const fd = new FormData();
+        fd.set("name", form.name);
+        if (form.email) fd.set("email", form.email);
+        if (form.phone) fd.set("phone", form.phone);
+        fd.set("company", form.company);
+        fd.set("rating", String(ratingFromHire));
+        fd.set("comment", form.comment);
+        photos.forEach((f) => fd.append("photos", f));
+
+        const { data } = await api.post(
+          `/api/projects/${id}/recommendations`,
+          fd
+        );
+        recommendationId = data?.recommendationId;
+      } else {
+        const { data } = await api.post(`/api/projects/${id}/recommendations`, {
+          name: form.name,
+          email: form.email || undefined,
+          phone: form.phone || undefined,
+          company: form.company,
+          rating: ratingFromHire,
+          comment: form.comment,
+        });
+        recommendationId = data?.recommendationId;
+      }
+
+      // If hireAgain = yes, count it as a like immediately (best-effort).
+      if (form.hireAgain === "yes" && recommendationId) {
+        try {
+          await api.post(`/api/recommendations/${recommendationId}/like`);
+        } catch {
+          // non-fatal; proceed
+        }
+      }
+
       alert("Thanks! Your recommendation has been submitted.");
       router.replace(`/projects/${id}`);
     } catch (e: any) {
-      const msg = e?.response?.data?.error || "Failed to submit recommendation";
-      const issues = e?.response?.data?.issues;
-      alert(msg + (issues ? "\n" + JSON.stringify(issues, null, 2) : ""));
+      alert(e?.response?.data?.error || "Failed to submit recommendation");
     } finally {
       setSubmitting(false);
     }
@@ -230,6 +269,35 @@ export default function RecommendOnPlatform() {
                     “Yes” counts as a like. “No” does not add a negative score.
                   </p>
                 </fieldset>
+
+                {/* Photos */}
+                <label className="text-sm">
+                  Photos (up to 8, max 8MB each)
+                </label>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="input"
+                  onChange={onPickPhotos}
+                />
+                {photos.length > 0 && (
+                  <div className="mt-2 grid grid-cols-4 gap-2">
+                    {photos.map((f, i) => (
+                      <div
+                        key={i}
+                        className="aspect-square overflow-hidden rounded border border-zinc-800"
+                        title={f.name}
+                      >
+                        <img
+                          src={URL.createObjectURL(f)}
+                          className="h-full w-full object-cover"
+                          alt={f.name}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <label className="text-sm">Comment (min 10 characters)</label>
                 <textarea
