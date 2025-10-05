@@ -64,7 +64,7 @@ export default function Footer() {
             <div>
               <div className="font-semibold">Vetmybuilder</div>
               <div className="text-sm text-zinc-400">
-                Find trusted builders, fast.
+                Powered by your community.
               </div>
             </div>
           </div>

@@ -1,9 +1,10 @@
-// pages/builders/[id].tsx
+// web/pages/builders/[id].tsx
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
-import Layout from "@/components/Layout";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
+import AuthedOnly from "@/components/AuthedOnly";
+import Link from "next/link";
 
 type Photo = { id: string; url: string; thumb?: string; alt?: string };
 type Builder = {
@@ -37,14 +38,14 @@ function Badge({
   color?: "green" | "red" | "indigo" | "orange";
 }) {
   const shades: Record<string, string> = {
-    green: "bg-green-500/15 text-green-300 border-green-600/40",
-    red: "bg-red-500/15 text-red-300 border-red-600/40",
-    indigo: "bg-indigo-500/15 text-indigo-300 border-indigo-600/40",
-    orange: "bg-orange-500/15 text-orange-300 border-orange-600/40",
+    green: "bg-green-500/15 text-green-700 ring-1 ring-green-200",
+    red: "bg-rose-500/15 text-rose-700 ring-1 ring-rose-200",
+    indigo: "bg-indigo-500/15 text-indigo-700 ring-1 ring-indigo-200",
+    orange: "bg-amber-500/15 text-amber-700 ring-1 ring-amber-200",
   };
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs border ${shades[color]}`}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${shades[color]}`}
     >
       {children}
     </span>
@@ -91,7 +92,7 @@ export default function BuilderProfile() {
   const router = useRouter();
   const { id } = router.query;
   const api = useApi();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const [builder, setBuilder] = useState<Builder | null>(null);
   const [loading, setLoading] = useState(true);
@@ -112,26 +113,38 @@ export default function BuilderProfile() {
     };
   }, [lightboxOpen]);
 
+  // Fetch builder – wait for router + auth ready (prevents 401 "missing bearer token" on reload)
   useEffect(() => {
-    if (!id) return;
+    if (!router.isReady || authLoading || !user || !id) return;
+
     let alive = true;
+    setLoading(true);
+    setErr(null);
+
     (async () => {
       try {
         const { data } = await api.get(`/api/recommendations/${id}`);
         if (!alive) return;
         setBuilder(data.recommendation);
-        setErr(null);
       } catch (e: any) {
         if (!alive) return;
-        setErr(e?.response?.data?.error || "Failed to load builder");
+        const status = e?.status ?? e?.response?.status;
+        const msg =
+          e?.data?.error || e?.response?.data?.error || e?.message || "";
+        if (status === 401 || /bearer token/i.test(String(msg))) {
+          setErr("You need to sign in again to view this builder.");
+        } else {
+          setErr("Failed to load builder");
+        }
       } finally {
         if (alive) setLoading(false);
       }
     })();
+
     return () => {
       alive = false;
     };
-  }, [api, id]);
+  }, [api, id, router.isReady, authLoading, user]);
 
   // like once
   const [liking, setLiking] = useState(false);
@@ -158,24 +171,46 @@ export default function BuilderProfile() {
   const photos = normalizePhotos(builder);
 
   return (
-    <Layout>
-      <div className="mx-auto max-w-5xl">
+    <AuthedOnly>
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-semibold">Builder profile</h1>
           {builder?.project && (
-            <button
-              className="btn"
-              onClick={() => router.push(`/projects/${builder.project!.id}`)}
+            <Link
+              href="/projects"
+              aria-label="Back to my projects"
+              title="Back to my projects"
+              className="btn-back"
             >
-              Back to project
-            </button>
+              <svg
+                viewBox="0 0 24 24"
+                className="icon-24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M10 19l-7-7 7-7" />
+                <path d="M3 12h18" />
+              </svg>
+              <span className="sr-only">Back to my projects</span>
+            </Link>
           )}
         </div>
 
-        {loading ? (
+        {authLoading || loading ? (
           <div className="card">Loading…</div>
         ) : err ? (
-          <div className="card text-red-400">{err}</div>
+          <div className="card text-red-600">
+            {err}
+            <div className="mt-3">
+              <Link href="/login" className="btn">
+                Go to sign in
+              </Link>
+            </div>
+          </div>
         ) : !builder ? (
           <div className="card">Not found</div>
         ) : (
@@ -198,7 +233,7 @@ export default function BuilderProfile() {
                 </div>
 
                 <div className="flex flex-col items-end">
-                  <div className="text-sm text-zinc-300 flex items-center gap-2">
+                  <div className="text-sm text-zinc-500 flex items-center gap-2">
                     <LikeIcon className="h-4 w-4" />
                     <span className="tabular-nums">{builder.likes ?? 0}</span>
                   </div>
@@ -206,8 +241,8 @@ export default function BuilderProfile() {
                     className={`mt-2 h-9 px-3 rounded-full border text-sm transition
                       ${
                         builder.myLike === 1
-                          ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-300 cursor-default"
-                          : "border-zinc-700 hover:bg-zinc-800"
+                          ? "bg-indigo-50 border-indigo-200 text-indigo-600 cursor-default"
+                          : "border-slate-300 hover:bg-slate-50"
                       }
                       ${!user ? "opacity-60 cursor-not-allowed" : ""}`}
                     disabled={!user || builder.myLike === 1 || liking}
@@ -219,7 +254,7 @@ export default function BuilderProfile() {
               </div>
 
               {builder.comment && (
-                <p className="text-sm text-zinc-200 mt-3 whitespace-pre-wrap">
+                <p className="text-sm text-slate-700 mt-3 whitespace-pre-wrap">
                   {builder.comment}
                 </p>
               )}
@@ -227,19 +262,19 @@ export default function BuilderProfile() {
               {/* Details */}
               <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div className="space-y-1">
-                  <div className="text-zinc-400">Recommender</div>
+                  <div className="text-slate-500">Recommender</div>
                   <div>
                     {builder.isAnonymous ? "Anonymous" : builder.name || "—"}
                     {builder.email ? ` · ${builder.email}` : ""}
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <div className="text-zinc-400">Submitted</div>
+                  <div className="text-slate-500">Submitted</div>
                   <div>{new Date(builder.createdAt).toLocaleString()}</div>
                 </div>
                 {builder.phone ? (
                   <div className="space-y-1">
-                    <div className="text-zinc-400">Tradesperson phone</div>
+                    <div className="text-slate-500">Tradesperson phone</div>
                     <div>{builder.phone}</div>
                   </div>
                 ) : null}
@@ -250,13 +285,13 @@ export default function BuilderProfile() {
             <div className="card">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-lg font-semibold">Gallery</h3>
-                <span className="text-xs text-zinc-400">
+                <span className="text-xs text-slate-500">
                   {photos.length} photo{photos.length === 1 ? "" : "s"}
                 </span>
               </div>
 
               {photos.length === 0 ? (
-                <p className="text-sm text-zinc-400">
+                <p className="text-sm text-slate-500">
                   No photos yet. Upload images when submitting a recommendation
                   to showcase the work.
                 </p>
@@ -265,7 +300,7 @@ export default function BuilderProfile() {
                   {photos.map((p, i) => (
                     <button
                       key={p.id}
-                      className="relative aspect-square overflow-hidden rounded-lg border border-zinc-800 hover:opacity-90"
+                      className="relative aspect-square overflow-hidden rounded-lg border border-slate-200 hover:opacity-90"
                       onClick={() => setLightboxIdx(i)}
                       aria-label={`Open image ${i + 1} of ${photos.length}`}
                     >
@@ -294,7 +329,7 @@ export default function BuilderProfile() {
           </div>
         )}
       </div>
-    </Layout>
+    </AuthedOnly>
   );
 }
 
@@ -372,7 +407,7 @@ function Lightbox({
           alt={current.alt || ""}
           className="mx-auto max-h-[80vh] w-auto object-contain rounded-lg shadow-2xl"
         />
-        <div className="mt-2 text-center text-xs text-zinc-300">
+        <div className="mt-2 text-center text-xs text-white/80">
           {index + 1} / {photos.length}
         </div>
       </div>

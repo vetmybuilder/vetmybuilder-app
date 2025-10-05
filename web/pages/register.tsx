@@ -1,51 +1,150 @@
 // web/pages/register.tsx
-import Layout from '@/components/Layout'
-import { initFirebase } from '@/utils/firebase'
-import { createUserWithEmailAndPassword } from 'firebase/auth'
-import { useRouter } from 'next/router'
-import Link from 'next/link'
-import { useState } from 'react'
+import Head from "next/head";
+import Link from "next/link";
+import { useState } from "react";
+import { useRouter } from "next/router";
+import { useApi } from "@/utils/api";
+import { initFirebase } from "@/utils/firebase";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 
-export default function Register(){
-  const auth = initFirebase()
-  const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [err, setErr] = useState<string|null>(null)
-  const [busy, setBusy] = useState(false)
+export default function Register() {
+  const api = useApi();
+  const router = useRouter();
+
+  const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    username: "",
+    email: "",
+    password: "",
+  });
+  const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const set = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
 
   const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setBusy(true); setErr(null)
+    e.preventDefault();
+    setErr(null);
+    setLoading(true);
+
     try {
-      await createUserWithEmailAndPassword(auth, email, password)
-      router.replace('/projects')
+      const { firstName, lastName, username, email, password } = form;
+
+      // 1) Create Firebase user
+      const auth = initFirebase();
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+
+      // 2) Optional — set display name in Firebase
+      try {
+        await updateProfile(cred.user, {
+          displayName: `${firstName} ${lastName}`.trim(),
+        });
+      } catch {
+        // Not fatal if this fails in some environments
+      }
+
+      // 3) Save names/username in your DB
+      await api.post("/api/account", { firstName, lastName, username });
+
+      // 4) Go to projects
+      router.replace("/projects");
     } catch (e: any) {
-      setErr(e.message || 'Failed to register')
+      setErr(e?.message || "Registration failed");
     } finally {
-      setBusy(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
-    <Layout>
-      <div className="card max-w-md mx-auto">
-        <h1 className="text-xl font-semibold mb-4">Register</h1>
-        <form onSubmit={onSubmit} className="space-y-3">
-          <input className="input" placeholder="Email" type="email" value={email} onChange={e=>setEmail(e.target.value)} required />
-          <input className="input" placeholder="Password (min 6)" type="password" value={password} onChange={e=>setPassword(e.target.value)} required />
-          {err && <p className="text-red-400 text-sm">{err}</p>}
-          <button className="btn w-full" disabled={busy}>{busy ? 'Creating...' : 'Create account'}</button>
-        </form>
+    <>
+      <Head>
+        <title>Create account</title>
+      </Head>
+      <div className="mx-auto max-w-md">
+        <h1 className="text-2xl font-semibold mb-4">Create account</h1>
 
-        {/* Added sign-in hint */}
-        <p className="text-sm text-zinc-400 mt-4">
-          Already a member?{' '}
-          <Link href="/login" className="text-indigo-300 hover:text-indigo-200 underline underline-offset-4">
-            Sign in
-          </Link>
-        </p>
+        <form className="grid gap-3" onSubmit={onSubmit} noValidate>
+          <label className="text-sm" htmlFor="reg-fn">
+            First name
+          </label>
+          <input
+            id="reg-fn"
+            className="input"
+            value={form.firstName}
+            onChange={(e) => set("firstName", e.target.value)}
+            required
+            placeholder="First name"
+            autoComplete="given-name"
+          />
+
+          <label className="text-sm" htmlFor="reg-ln">
+            Last name
+          </label>
+          <input
+            id="reg-ln"
+            className="input"
+            value={form.lastName}
+            onChange={(e) => set("lastName", e.target.value)}
+            required
+            placeholder="Last name"
+            autoComplete="family-name"
+          />
+
+          <label className="text-sm" htmlFor="reg-un">
+            Username
+          </label>
+          <input
+            id="reg-un"
+            className="input"
+            value={form.username}
+            onChange={(e) => set("username", e.target.value)}
+            placeholder="Username"
+            autoComplete="username"
+          />
+
+          <label className="text-sm" htmlFor="reg-email">
+            Email
+          </label>
+          <input
+            id="reg-email"
+            type="email"
+            className="input"
+            value={form.email}
+            onChange={(e) => set("email", e.target.value)}
+            required
+            placeholder="you@example.com"
+            autoComplete="email"
+          />
+
+          <label className="text-sm" htmlFor="reg-pass">
+            Password
+          </label>
+          <input
+            id="reg-pass"
+            type="password"
+            className="input"
+            value={form.password}
+            onChange={(e) => set("password", e.target.value)}
+            required
+            placeholder="••••••••"
+            autoComplete="new-password"
+          />
+
+          {err && <p className="text-red-600">{err}</p>}
+
+          <button className="btn" disabled={loading}>
+            {loading ? "Creating…" : "Create account"}
+          </button>
+
+          <p className="text-sm text-slate-600">
+            Already have an account?{" "}
+            <Link className="link" href="/login">
+              Sign in
+            </Link>
+          </p>
+        </form>
       </div>
-    </Layout>
-  )
+    </>
+  );
 }

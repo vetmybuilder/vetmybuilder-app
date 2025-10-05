@@ -3,7 +3,7 @@ import Head from "next/head";
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useAuth, signOutUser } from "@/utils/auth";
+import { useAuth } from "@/utils/auth";
 import Footer from "@/components/Footer";
 import { Rubik } from "next/font/google";
 
@@ -12,7 +12,6 @@ const rubik = Rubik({
   weight: ["500", "700", "800", "900"],
 });
 
-// Optional: centralize API base if you later split web/api origins.
 function getApiBase() {
   return process.env.NEXT_PUBLIC_API_BASE || "";
 }
@@ -77,7 +76,6 @@ function IconShortlist(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-/** Simple, dependency-free count-up that starts when visible */
 function CountUp({
   end,
   durationMs = 1200,
@@ -88,42 +86,46 @@ function CountUp({
   className?: string;
 }) {
   const [val, setVal] = useState(0);
+  const [visible, setVisible] = useState(false);
   const ref = useRef<HTMLSpanElement | null>(null);
-  const started = useRef(false);
-  const fmt = useMemo(() => new Intl.NumberFormat(), []);
+  const startedRef = useRef(false);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-
-    const onStart = () => {
-      if (started.current) return;
-      started.current = true;
-
-      const start = performance.now();
-      const from = 0;
-      const to = end;
-
-      function tick(now: number) {
-        const p = Math.min(1, (now - start) / durationMs);
-        const eased = 1 - Math.pow(1 - p, 3); // easeOutCubic
-        setVal(Math.round(from + (to - from) * eased));
-        if (p < 1) requestAnimationFrame(tick);
-      }
-      requestAnimationFrame(tick);
-    };
-
     const io = new IntersectionObserver(
-      (entries) => entries.forEach((e) => e.isIntersecting && onStart()),
+      (entries) => entries.forEach((e) => setVisible(e.isIntersecting)),
       { threshold: 0.3 }
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [end, durationMs]);
+  }, []);
+
+  useEffect(() => {
+    if (!visible || startedRef.current || end <= 0) return;
+    startedRef.current = true;
+    const startTs = performance.now();
+    const from = 0;
+    const to = end;
+    function tick(now: number) {
+      const p = Math.min(1, (now - startTs) / durationMs);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setVal(Math.round(from + (to - from) * eased));
+      if (p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }, [visible, end, durationMs]);
+
+  useEffect(() => {
+    if (end > 0) {
+      startedRef.current = false;
+      setVal(0);
+    }
+  }, [end]);
 
   return (
     <span ref={ref} className={className}>
-      {fmt.format(val)}
+      {val}
     </span>
   );
 }
@@ -131,7 +133,6 @@ function CountUp({
 export default function Home() {
   const { user } = useAuth();
 
-  // === Live stats from API ===
   const [stats, setStats] = useState({
     communityMembers: 0,
     recommendations: 0,
@@ -142,7 +143,6 @@ export default function Home() {
     let cancelled = false;
     (async () => {
       try {
-        // NEW: use the public stats endpoint
         const res = await fetch(`${getApiBase()}/api/stats/public`);
         if (!res.ok) throw new Error("stats fetch failed");
         const json = await res.json();
@@ -153,9 +153,7 @@ export default function Home() {
             shortlists: Number(json.shortlists) || 0,
           });
         }
-      } catch {
-        // keep defaults on error
-      }
+      } catch {}
     })();
     return () => {
       cancelled = true;
@@ -169,74 +167,64 @@ export default function Home() {
         <meta name="description" content="Find trusted builders, fast." />
       </Head>
 
-      {/* MAIN PAGE */}
       <main className="bg-white text-black">
         {/* HERO */}
-        <section className="relative isolate overflow-hidden" aria-label="Hero">
-          <div className="absolute inset-0">
+        <section className="relative isolate overflow-hidden -mt-14 pt-14" aria-label="Hero">
+          {/* Desktop background */}
+          <div className="absolute inset-0 hidden lg:block">
             <Image
-              src="/hero.png"
+              src="/hero-desktop.webp" /* wide crop for desktop */
               alt=""
               priority
               fill
               className="object-cover object-center"
               sizes="100vw"
             />
-            {/* Optional readability wash: <div className="absolute inset-0 bg-white/40" /> */}
+          </div>
+
+          {/* Mobile & tablet background */}
+          <div className="absolute inset-0 lg:hidden">
+            <Image
+              src="/hero-mobile.webp" /* tall crop for mobile/tablet */
+              alt=""
+              priority
+              fill
+              className="object-cover object-center"
+              sizes="100vw"
+            />
           </div>
 
           <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <header className="py-5 flex items-center justify-between">
-              <Link href="/" className="inline-flex items-center gap-2">
-                <span className="inline-block h-7 w-7 rounded-lg bg-indigo-600" />
-                <span className="font-semibold tracking-tight text-lg text-black">
-                  Vetmybuilder
-                </span>
-              </Link>
+            {/* NOTE: page-level header removed; global header from Layout is now used */}
 
-              {user && (
-                <button
-                  onClick={async () => {
-                    try {
-                      await signOutUser();
-                    } finally {
-                      window.location.href = "/";
-                    }
-                  }}
-                  className="inline-flex items-center justify-center rounded-xl px-4 py-2
-                             bg-red-600 text-white border border-red-600/30
-                             hover:bg-red-500 transition
-                             focus:outline-none focus:ring-2 focus:ring-red-400"
-                >
-                  Logout
-                </button>
-              )}
-            </header>
+            {/* Mobile: copy in a white card; Desktop: overlay text */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center py-10 sm:py-16 lg:py-20 min-h-[60vh]">
+              <div className="max-w-2xl">
+                <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6 lg:bg-transparent lg:p-0 lg:shadow-none">
+                  <h1 className="text-3xl sm:text-5xl lg:text-6xl font-semibold tracking-tight leading-tight">
+                    And just like that — you’re hiring the right builder.
+                  </h1>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center py-12 sm:py-16 lg:py-20 min-h-[70vh] md:min-h-[calc(100svh-96px)]">
-              <div className="max-w-2xl text-black">
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight leading-tight">
-                  And just like that — you’re hiring the right builder.
-                </h1>
-
-                <p
-                  className={`${rubik.className} mt-5 text-lg sm:text-xl leading-relaxed text-zinc-900 tracking-tight`}
-                >
-                  powered by your <span className="font-black">community</span>.
-                  Start a project, gather recommendations from friends and
-                  nearby members, and turn real experiences into a shortlist you
-                  can trust.
-                </p>
-
-                <div className="mt-8">
-                  <Link
-                    href={user ? "/projects/new" : "/register"}
-                    className="inline-flex items-center justify-center rounded-xl px-5 py-3
-                           bg-indigo-600 text-white hover:bg-indigo-500 transition
-                           focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  <p
+                    className={`${rubik.className} mt-4 sm:mt-5 text-base sm:text-lg lg:text-xl leading-relaxed text-zinc-900 tracking-tight`}
                   >
-                    {user ? "Get started" : "Join our growing community"}
-                  </Link>
+                    Powered by your{" "}
+                    <span className="font-black">community</span>. Start a
+                    project, gather recommendations from friends and nearby
+                    members, and turn real experiences into a shortlist you can
+                    trust.
+                  </p>
+
+                  <div className="mt-6 sm:mt-8">
+                    <Link
+                      href={user ? "/projects/new" : "/register"}
+                      className="inline-flex items-center justify-center rounded-xl px-5 py-3
+                                 bg-indigo-600 text-white hover:bg-indigo-500 transition
+                                 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    >
+                      {user ? "Get started" : "Join our growing community"}
+                    </Link>
+                  </div>
                 </div>
               </div>
 
@@ -245,7 +233,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* HIGHLIGHTS / STATS (live from /api/stats/public) */}
+        {/* HIGHLIGHTS / STATS */}
         <section className="bg-white">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 sm:py-12">
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
@@ -308,7 +296,6 @@ export default function Home() {
             </div>
 
             <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-5">
-              {/* Step 1 */}
               <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm hover:shadow-md transition">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
@@ -327,7 +314,6 @@ export default function Home() {
                 </p>
               </div>
 
-              {/* Step 2 */}
               <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm hover:shadow-md transition">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-xl bg-green-50 text-green-700 flex items-center justify-center">
@@ -346,7 +332,6 @@ export default function Home() {
                 </p>
               </div>
 
-              {/* Step 3 */}
               <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm hover:shadow-md transition">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">

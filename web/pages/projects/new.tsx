@@ -1,4 +1,3 @@
-import Layout from "@/components/Layout";
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import { useMemo, useRef, useState } from "react";
@@ -120,7 +119,6 @@ export default function NewProject() {
     }
   }
 
-  // advance/back helpers
   const next = () => {
     if (step < maxStep && isStepValid(step)) {
       setErr(null);
@@ -132,12 +130,10 @@ export default function NewProject() {
     setStep((s) => Math.max(0, s - 1));
   };
 
-  // one ref so we can focus the active input if desired later
   const inputRef = useRef<
     HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null
   >(null);
 
-  // unify Enter behavior: advance exactly one step; never “submit” until review
   const handleEnter = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -145,189 +141,253 @@ export default function NewProject() {
     }
   };
 
-  return (
-    <Layout>
-      <AuthedOnly>
-        <div className="mx-auto max-w-3xl">
-          {/* Header row */}
-          <div className="mb-4 flex items-center justify-between">
-            <h1 className="text-xl font-semibold">Create Project</h1>
-            <Link
-              href="/projects"
-              className="inline-flex items-center rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 hover:bg-zinc-800"
-            >
-              ← Back to projects
-            </Link>
-          </div>
+  // accessible ids (stable across renders)
+  const ids = useMemo(
+    () => ({
+      name: "np-name",
+      type: "np-type",
+      location: "np-location",
+      propertyType: "np-property",
+      bedrooms: "np-beds",
+      description: "np-desc",
+    }),
+    []
+  );
 
-          {/* Progress */}
-          <div className="mb-5 flex items-center justify-center gap-2">
-            {STEPS.map((_, i) => (
-              <span
-                key={i}
-                className={`h-1.5 w-8 rounded-full transition ${
-                  i <= step ? "bg-indigo-500" : "bg-zinc-800"
-                }`}
-              />
+  return (
+    <AuthedOnly>
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Create Project
+            </h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Tell us about the work you need and we’ll get the ball rolling.
+            </p>
+          </div>
+          <Link
+            href="/projects"
+            aria-label="Back to my projects"
+            title="Back to my projects"
+            className="btn-back"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="icon-24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M10 19l-7-7 7-7" />
+              <path d="M3 12h18" />
+            </svg>
+            <span className="sr-only">Back to my projects</span>
+          </Link>
+        </div>
+
+        <div className="mb-6 flex items-center gap-2">
+          {STEPS.map((_, i) => (
+            <span
+              key={i}
+              className={`h-1.5 flex-1 rounded-full transition ${
+                i <= step ? "bg-blue-600" : "bg-gray-200"
+              }`}
+            />
+          ))}
+        </div>
+
+        <div className="relative w-full overflow-hidden rounded-2xl bg-white border border-gray-200">
+          <div
+            className="flex w-full transition-transform duration-300 ease-out"
+            style={{ transform: `translateX(-${step * 100}%)` }}
+          >
+            {STEPS.map((s) => (
+              <section
+                key={s.key}
+                className="w-full shrink-0 px-6 py-6 sm:px-10 sm:py-10"
+              >
+                <h2 className="text-lg font-semibold">{s.title}</h2>
+                {"hint" in s && s.hint && (
+                  <p className="mt-1 text-sm text-gray-500">{s.hint}</p>
+                )}
+
+                <div className="mt-5 grid max-w-3xl gap-4">
+                  {s.key === "name" && (
+                    <>
+                      <label htmlFor={ids.name} className="sr-only">
+                        Project name
+                      </label>
+                      <input
+                        id={ids.name}
+                        ref={inputRef as any}
+                        className="input"
+                        placeholder="Project name"
+                        value={form.name}
+                        onChange={(e) => set("name", e.target.value)}
+                        onKeyDown={handleEnter}
+                      />
+                    </>
+                  )}
+
+                  {s.key === "type" && (
+                    <>
+                      <label htmlFor={ids.type} className="sr-only">
+                        Type of work
+                      </label>
+                      <input
+                        id={ids.type}
+                        ref={inputRef as any}
+                        className="input"
+                        placeholder="Type (e.g., Kitchen remodel)"
+                        value={form.type}
+                        onChange={(e) => set("type", e.target.value)}
+                        onKeyDown={handleEnter}
+                      />
+                    </>
+                  )}
+
+                  {s.key === "location" && (
+                    <>
+                      <label htmlFor={ids.location} className="sr-only">
+                        Location
+                      </label>
+                      <input
+                        id={ids.location}
+                        ref={inputRef as any}
+                        className="input"
+                        placeholder="Location (postcode, borough, city)"
+                        value={form.location}
+                        onChange={(e) => set("location", e.target.value)}
+                        onKeyDown={handleEnter}
+                      />
+                    </>
+                  )}
+
+                  {s.key === "propertyType" && (
+                    <>
+                      <label htmlFor={ids.propertyType} className="sr-only">
+                        Property type
+                      </label>
+                      <select
+                        id={ids.propertyType}
+                        ref={inputRef as any}
+                        className="input"
+                        value={form.propertyType}
+                        onChange={(e) => set("propertyType", e.target.value)}
+                        onKeyDown={handleEnter}
+                      >
+                        <option value="" disabled>
+                          Select property type
+                        </option>
+                        {PROPERTY_TYPES.map((pt) => (
+                          <option key={pt} value={pt}>
+                            {pt}
+                          </option>
+                        ))}
+                      </select>
+                    </>
+                  )}
+
+                  {s.key === "bedrooms" && (
+                    <>
+                      <label htmlFor={ids.bedrooms} className="sr-only">
+                        Bedrooms
+                      </label>
+                      <input
+                        id={ids.bedrooms}
+                        ref={inputRef as any}
+                        className="input"
+                        placeholder="Bedrooms"
+                        type="number"
+                        min={0}
+                        value={form.bedrooms}
+                        onChange={(e) => set("bedrooms", e.target.value)}
+                        onKeyDown={handleEnter}
+                      />
+                    </>
+                  )}
+
+                  {s.key === "description" && (
+                    <>
+                      <label htmlFor={ids.description} className="sr-only">
+                        Description
+                      </label>
+                      <textarea
+                        id={ids.description}
+                        ref={inputRef as any}
+                        className="input min-h-36"
+                        placeholder="Brief description of the work"
+                        value={form.description}
+                        onChange={(e) => set("description", e.target.value)}
+                        onKeyDown={handleEnter}
+                      />
+                    </>
+                  )}
+
+                  {s.key === "review" && (
+                    <div className="space-y-3 text-sm">
+                      <ReviewRow label="Project name" value={form.name} />
+                      <ReviewRow label="Type of work" value={form.type} />
+                      <ReviewRow label="Location" value={form.location} />
+                      <ReviewRow
+                        label="Property type"
+                        value={form.propertyType}
+                      />
+                      <ReviewRow
+                        label="Bedrooms"
+                        value={String(form.bedrooms || 0)}
+                      />
+                      <ReviewRow
+                        label="Description"
+                        value={form.description}
+                        multiline
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {err && <p className="mt-3 text-sm text-red-600">{err}</p>}
+
+                <div className="mt-8 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={back}
+                    disabled={step === 0 || busy}
+                    className="btn-outline disabled:opacity-50"
+                  >
+                    Back
+                  </button>
+
+                  {step < maxStep ? (
+                    <button
+                      type="button"
+                      onClick={next}
+                      disabled={!isStepValid(step) || busy}
+                      className="btn disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={onCreate}
+                      disabled={!isStepValid(step) || busy}
+                      className="btn disabled:opacity-50"
+                    >
+                      {busy ? "Creating..." : "Create Project"}
+                    </button>
+                  )}
+                </div>
+              </section>
             ))}
           </div>
-
-          {/* Slider viewport */}
-          <div className="relative w-full overflow-hidden rounded-2xl">
-            {/* The sliding track */}
-            <div
-              className="flex w-full transition-transform duration-300 ease-out"
-              style={{ transform: `translateX(-${step * 100}%)` }}
-            >
-              {STEPS.map((s, idx) => (
-                <section key={s.key} className="w-full shrink-0 px-0">
-                  <div className="card mx-auto max-w-xl">
-                    <h2 className="text-lg font-semibold">{s.title}</h2>
-                    {"hint" in s && s.hint && (
-                      <p className="mt-1 text-sm text-zinc-400">{s.hint}</p>
-                    )}
-
-                    {/* Fields */}
-                    <div className="mt-4 space-y-3">
-                      {s.key === "name" && (
-                        <input
-                          ref={inputRef as any}
-                          className="input"
-                          placeholder="Project name"
-                          value={form.name}
-                          onChange={(e) => set("name", e.target.value)}
-                          onKeyDown={handleEnter}
-                        />
-                      )}
-
-                      {s.key === "type" && (
-                        <input
-                          ref={inputRef as any}
-                          className="input"
-                          placeholder="Type (e.g., Kitchen remodel)"
-                          value={form.type}
-                          onChange={(e) => set("type", e.target.value)}
-                          onKeyDown={handleEnter}
-                        />
-                      )}
-
-                      {s.key === "location" && (
-                        <input
-                          ref={inputRef as any}
-                          className="input"
-                          placeholder="Location (postcode, borough, city)"
-                          value={form.location}
-                          onChange={(e) => set("location", e.target.value)}
-                          onKeyDown={handleEnter}
-                        />
-                      )}
-
-                      {s.key === "propertyType" && (
-                        <select
-                          ref={inputRef as any}
-                          className="input"
-                          value={form.propertyType}
-                          onChange={(e) => set("propertyType", e.target.value)}
-                          onKeyDown={handleEnter}
-                        >
-                          <option value="" disabled>
-                            Select property type
-                          </option>
-                          {PROPERTY_TYPES.map((pt) => (
-                            <option key={pt} value={pt}>
-                              {pt}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-
-                      {s.key === "bedrooms" && (
-                        <input
-                          ref={inputRef as any}
-                          className="input"
-                          placeholder="Bedrooms"
-                          type="number"
-                          min={0}
-                          value={form.bedrooms}
-                          onChange={(e) => set("bedrooms", e.target.value)}
-                          onKeyDown={handleEnter}
-                        />
-                      )}
-
-                      {s.key === "description" && (
-                        <textarea
-                          ref={inputRef as any}
-                          className="input min-h-32"
-                          placeholder="Brief description of the work"
-                          value={form.description}
-                          onChange={(e) => set("description", e.target.value)}
-                          onKeyDown={handleEnter}
-                        />
-                      )}
-
-                      {s.key === "review" && (
-                        <div className="space-y-3 text-sm">
-                          <ReviewRow label="Project name" value={form.name} />
-                          <ReviewRow label="Type of work" value={form.type} />
-                          <ReviewRow label="Location" value={form.location} />
-                          <ReviewRow
-                            label="Property type"
-                            value={form.propertyType}
-                          />
-                          <ReviewRow
-                            label="Bedrooms"
-                            value={String(form.bedrooms || 0)}
-                          />
-                          <ReviewRow
-                            label="Description"
-                            value={form.description}
-                            multiline
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    {err && <p className="mt-2 text-sm text-red-400">{err}</p>}
-
-                    {/* Actions */}
-                    <div className="mt-6 flex items-center justify-between">
-                      <button
-                        type="button"
-                        onClick={back}
-                        disabled={step === 0 || busy}
-                        className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
-                      >
-                        Back
-                      </button>
-
-                      {step < maxStep ? (
-                        <button
-                          type="button"
-                          onClick={next}
-                          disabled={!isStepValid(step) || busy}
-                          className="btn disabled:opacity-50"
-                        >
-                          Next
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={onCreate}
-                          disabled={!isStepValid(step) || busy}
-                          className="btn disabled:opacity-50"
-                        >
-                          {busy ? "Creating..." : "Create Project"}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </section>
-              ))}
-            </div>
-          </div>
         </div>
-      </AuthedOnly>
-    </Layout>
+      </div>
+    </AuthedOnly>
   );
 }
 
@@ -342,15 +402,15 @@ function ReviewRow({
 }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-wide text-zinc-500">
+      <div className="text-xs uppercase tracking-wide text-gray-500">
         {label}
       </div>
       {multiline ? (
-        <p className="mt-1 whitespace-pre-wrap rounded-lg border border-zinc-800 bg-zinc-900/40 p-3 text-zinc-200">
+        <p className="mt-1 whitespace-pre-wrap rounded-lg border border-gray-200 bg-gray-50 p-3 text-gray-900">
           {value || "—"}
         </p>
       ) : (
-        <div className="mt-1 rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-zinc-200">
+        <div className="mt-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-gray-900">
           {value || "—"}
         </div>
       )}

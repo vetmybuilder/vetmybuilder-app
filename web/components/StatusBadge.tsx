@@ -1,17 +1,48 @@
-export default function StatusBadge({ value }: { value: string }) {
-  const v = (value || "").toLowerCase();
-  const map: Record<string, string> = {
-    live: "bg-green-900/30 text-green-200 border-green-700/50",
-    pending: "bg-orange-900/30 text-orange-200 border-orange-700/50",
-    draft: "bg-orange-900/30 text-orange-200 border-orange-700/50",
-    archived: "bg-red-900/30 text-red-200 border-red-700/50", // <-- red
-  };
-  const cls = map[v] || "bg-zinc-800 text-zinc-200 border-zinc-700";
+// web/components/StatusBadge.tsx
+type Props = {
+  value: string;
+};
+
+export default function StatusBadge({ value }: Props) {
+  const v = String(value || "").toLowerCase();
+
+  // Pill + dot color mappings (light theme, high contrast)
+  const tone =
+    v === "live"
+      ? {
+          pill: "bg-emerald-100 text-emerald-800 ring-1 ring-inset ring-emerald-200",
+          dot: "bg-emerald-500",
+          label: "Live",
+        }
+      : v === "pending" || v === "draft"
+      ? {
+          pill: "bg-amber-100 text-amber-900 ring-1 ring-inset ring-amber-200",
+          dot: "bg-amber-500",
+          label: v === "draft" ? "Draft" : "Pending",
+        }
+      : v === "archived"
+      ? {
+          pill: "bg-rose-100 text-rose-800 ring-1 ring-inset ring-rose-200",
+          dot: "bg-rose-500",
+          label: "Archived",
+        }
+      : {
+          pill: "bg-zinc-100 text-zinc-800 ring-1 ring-inset ring-zinc-200",
+          dot: "bg-zinc-400",
+          label: v || "Unknown",
+        };
+
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs capitalize ${cls}`}
+      role="status"
+      aria-label={`Status: ${tone.label}`}
+      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${tone.pill}`}
     >
-      {v || "unknown"}
+      <span
+        aria-hidden="true"
+        className={`h-2.5 w-2.5 rounded-full ${tone.dot}`}
+      />
+      <span className="capitalize">{tone.label}</span>
     </span>
   );
 }

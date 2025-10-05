@@ -1,4 +1,4 @@
-import Layout from "@/components/Layout";
+// web/pages/projects/[id]/shortlist.tsx
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
@@ -15,10 +15,13 @@ type Recommendation = {
   comment: string | null;
   isAnonymous: 0 | 1;
   createdAt: string;
-
-  // like aggregates (must be provided by API)
-  likes?: number; // total likes
-  myLike?: 0 | 1; // whether the current user has liked
+  likes?: number;
+  myLike?: 0 | 1;
+  /** server adds these */
+  fromFriend?: 0 | 1;
+  fromCommunity?: 0 | 1;
+  /** NEW: use rating from server when present (1–5) */
+  rating?: number | null;
 };
 
 type ProjectLite = {
@@ -27,13 +30,14 @@ type ProjectLite = {
   ownerUserId: string;
 };
 
-// Yellow star rating
+/* ---------------- UI bits ---------------- */
+
 function StarRating({ value }: { value: number | null | undefined }) {
   const v = Math.max(0, Math.min(5, Math.round(Number(value ?? 0))));
   return (
     <div className="flex gap-0.5" aria-label={`${v} out of 5`}>
       {[1, 2, 3, 4, 5].map((i) => (
-        <span key={i} className={i <= v ? "text-yellow-400" : "text-white/30"}>
+        <span key={i} className={i <= v ? "text-yellow-400" : "text-gray-300"}>
           ★
         </span>
       ))}
@@ -41,19 +45,47 @@ function StarRating({ value }: { value: number | null | undefined }) {
   );
 }
 
-// Facebook-style heart/like icon
 const LikeIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
     <path d="M12.1 21.35c-.32 0-.63-.1-.9-.3l-1.2-.9C5.2 16.54 2 13.76 2 10.28 2 7.5 4.2 5.3 7 5.3c1.45 0 2.86.63 3.8 1.7.94-1.07 2.35-1.7 3.8-1.7 2.8 0 5 2.2 5 4.98 0 3.48-3.2 6.26-7 9.88l-1.2.9c-.27.2-.58.3-.9.3z" />
   </svg>
 );
 
-// Map likes to 0–5 stars (relative to current list’s max likes)
+const CameraIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
+    <path d="M9 3a1 1 0 0 0-.9.56L7.38 5H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V8a3 3 0 0 0-3-3h-2.38l-.72-1.44A1 1 0 0 0 14 3H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM6.5 9.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
+  </svg>
+);
+
+function Badge({
+  children,
+  className = "",
+  title,
+  "aria-label": ariaLabel,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  title?: string;
+  "aria-label"?: string;
+}) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${className}`}
+      title={title}
+      aria-label={ariaLabel || title}
+    >
+      {children}
+    </span>
+  );
+}
+
 function starsFromLikes(likes: number, maxLikes: number) {
   if (maxLikes <= 0) return 0;
-  const pct = likes / maxLikes; // 0..1
+  const pct = likes / maxLikes;
   return Math.max(1, Math.round(pct * 5));
 }
+
+/* ---------------- Page ---------------- */
 
 export default function ShortlistPage() {
   const api = useApi();
@@ -71,10 +103,13 @@ export default function ShortlistPage() {
   const [err, setErr] = useState<string | null>(null);
   const [likingId, setLikingId] = useState<number | null>(null);
 
+  // recId -> hasPhotos
+  const [hasPhotos, setHasPhotos] = useState<Record<number, boolean>>({});
+
   const isOwner = !!(user && project && project.ownerUserId === user.uid);
   const canLike = !!user && !!project && !isOwner;
 
-  // Fetch project (to know owner + nice header)
+  // load project shell
   useEffect(() => {
     if (!router.isReady || authLoading || !user || !id) return;
     let alive = true;
@@ -87,9 +122,7 @@ export default function ShortlistPage() {
           name: data.project.name,
           ownerUserId: data.project.ownerUserId,
         });
-      } catch {
-        // header is nice-to-have only
-      }
+      } catch {}
     })();
     return () => {
       alive = false;
@@ -105,7 +138,7 @@ export default function ShortlistPage() {
     setErr(null);
   }
 
-  // Fetch shortlist (paginated)
+  // load list
   useEffect(() => {
     if (!router.isReady || authLoading || !user || !id) return;
     let alive = true;
@@ -136,101 +169,164 @@ export default function ShortlistPage() {
     };
   }, [api, id, page, pageSize, router.isReady, authLoading, user]);
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  // fetch photo flags for listed items
+  useEffect(() => {
+    if (items.length === 0) {
+      setHasPhotos({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        items.map(async (r) => {
+          try {
+            const { data } = await api.get(`/api/recommendations/${r.id}`);
+            const has = Array.isArray(data?.recommendation?.photos)
+              ? data.recommendation.photos.length > 0
+              : false;
+            return [r.id, has] as const;
+          } catch {
+            return [r.id, false] as const;
+          }
+        })
+      );
+      if (!cancelled) {
+        const map: Record<number, boolean> = {};
+        for (const [rid, has] of entries) map[rid] = has;
+        setHasPhotos(map);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [api, items]);
 
-  // Like once (POST /api/recommendations/:id/like), optimistic then re-sync
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const maxLikes = Math.max(0, ...items.map((r) => r.likes ?? 0));
+
   const likeOnce = async (rec: Recommendation) => {
     if (!canLike || likingId || rec.myLike === 1) return;
     setLikingId(rec.id);
-
-    // optimistic bump + lock
     setItems((prev) =>
       prev.map((r) =>
         r.id === rec.id ? { ...r, myLike: 1, likes: (r.likes ?? 0) + 1 } : r
       )
     );
-
     try {
       await api.post(`/api/recommendations/${rec.id}/like`);
-      await loadPage(page); // ensure tallies + ordering correct
+      await loadPage(page);
     } catch (e: any) {
-      await loadPage(page); // revert to server truth
+      await loadPage(page);
       alert(e?.response?.data?.error || "Unable to like right now");
     } finally {
       setLikingId(null);
     }
   };
 
-  const maxLikes = Math.max(0, ...items.map((r) => r.likes ?? 0));
-
   return (
-    <Layout>
-      <AuthedOnly>
-        <div className="mx-auto max-w-4xl">
-          <div className="flex items-center justify-between mb-4">
+    <AuthedOnly>
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+        {/* Header band */}
+        <div className="mb-6 rounded-2xl border border-gray-200 bg-white/80 backdrop-blur px-6 py-5 shadow-sm">
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-semibold">
+              <h1 className="text-2xl font-semibold tracking-tight">
                 Shortlist{project ? ` · ${project.name}` : ""}
               </h1>
-              <p className="text-sm text-zinc-400">
-                A list of builders recommended by friends and the community.
+              <p className="mt-1 text-sm text-slate-500">
+                The top recommendations, ranked by the community.
               </p>
             </div>
-            <Link className="btn" href={`/projects/${id}`}>
-              Back to project
+            <Link
+              href={`/projects/${id}`}
+              aria-label="Back to project details"
+              title="Back to project details"
+              className="btn-back"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className="icon-24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M10 19l-7-7 7-7" />
+                <path d="M3 12h18" />
+              </svg>
+              <span className="sr-only">Back to project details</span>
             </Link>
           </div>
+        </div>
 
-          {loading ? (
-            <p>Loading…</p>
-          ) : err ? (
-            <p className="text-red-400">{err}</p>
-          ) : items.length === 0 ? (
-            <div className="card">No builders have yet been recommended.</div>
-          ) : (
-            <div className="space-y-3">
-              {items.map((r) => {
-                const likes = r.likes ?? 0;
-                const hasLiked = r.myLike === 1;
-                const stars = likes > 0 ? starsFromLikes(likes, maxLikes) : 0;
+        {loading ? (
+          <p>Loading…</p>
+        ) : err ? (
+          <p className="text-red-600">{err}</p>
+        ) : items.length === 0 ? (
+          <div className="card">No builders have yet been recommended.</div>
+        ) : (
+          <div className="space-y-3">
+            {items.map((r) => {
+              const likes = r.likes ?? 0;
+              const hasLiked = r.myLike === 1;
 
-                return (
-                  <div key={r.id} className="card">
-                    <div className="flex items-start gap-3">
-                      {/* Like column (hidden for owner) */}
-                      {!isOwner && (
-                        <div className="w-14 flex-none flex flex-col items-center">
-                          <button
-                            onClick={() => likeOnce(r)}
-                            disabled={!canLike || hasLiked || likingId === r.id}
-                            className={`h-9 w-9 rounded-full grid place-items-center border transition
-                              ${
-                                hasLiked
-                                  ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-300 cursor-default"
-                                  : "border-zinc-700 hover:bg-zinc-800"
-                              }
-                              ${!canLike ? "opacity-60" : ""}`}
-                            aria-label="Like"
-                            title={
-                              !canLike
-                                ? "Sign in to like"
-                                : hasLiked
-                                ? "You’ve liked this"
-                                : "Like"
+              // ⭐️ Prefer explicit rating from server (1–5).
+              // If missing, fall back to likes→stars scaling.
+              const stars =
+                r.rating != null && !Number.isNaN(Number(r.rating))
+                  ? Math.max(1, Math.min(5, Math.round(Number(r.rating))))
+                  : likes > 0
+                  ? starsFromLikes(likes, maxLikes)
+                  : 0;
+
+              const showPhotos = !!hasPhotos[r.id];
+              const isFriend = r.fromFriend === 1;
+              const isCommunity = r.fromCommunity === 1;
+
+              return (
+                <div
+                  key={r.id}
+                  className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm hover:shadow-md transition p-5"
+                >
+                  <div className="flex items-start gap-4">
+                    {/* Like column (hidden for owner) */}
+                    {!isOwner && (
+                      <div className="w-12 flex-none flex flex-col items-center">
+                        <button
+                          onClick={() => likeOnce(r)}
+                          disabled={!canLike || hasLiked || likingId === r.id}
+                          className={`h-9 w-9 rounded-full grid place-items-center border transition
+                            ${
+                              hasLiked
+                                ? "bg-indigo-50 border-indigo-200 text-indigo-600 cursor-default"
+                                : "border-slate-200 hover:bg-slate-50"
                             }
-                          >
-                            <LikeIcon className="h-4 w-4" />
-                          </button>
-                          <div className="mt-1 text-xs tabular-nums text-zinc-300">
-                            {likes}
-                          </div>
+                            ${!canLike ? "opacity-60" : ""}`}
+                          aria-label="Like recommendation"
+                          title={
+                            !canLike
+                              ? "Sign in to like"
+                              : hasLiked
+                              ? "You’ve liked this"
+                              : "Like"
+                          }
+                        >
+                          <LikeIcon className="h-4 w-4" />
+                        </button>
+                        <div className="mt-1 text-xs tabular-nums text-slate-600">
+                          {likes}
                         </div>
-                      )}
+                      </div>
+                    )}
 
-                      {/* Body */}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="font-medium">
+                    {/* Body */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="font-medium truncate">
                             <Link
                               href={`/builders/${r.id}`}
                               className="hover:underline decoration-indigo-400/60"
@@ -238,58 +334,90 @@ export default function ShortlistPage() {
                               {r.company}
                             </Link>
                           </div>
-                          <div className="flex items-center gap-3 shrink-0 whitespace-nowrap">
-                            <div className="text-xs text-zinc-400 tabular-nums flex items-center gap-1">
-                              <LikeIcon className="h-3.5 w-3.5 -mt-px" />{" "}
-                              {likes}
-                            </div>
-                            <StarRating value={stars} />
+
+                          {/* badges row */}
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            {isFriend && (
+                              <Badge
+                                className="border border-blue-200 bg-blue-50 text-blue-700"
+                                title="From a friend"
+                              >
+                                Friend
+                              </Badge>
+                            )}
+                            {isCommunity && (
+                              <Badge
+                                className="border border-emerald-200 bg-emerald-50 text-emerald-700"
+                                title="From the local community"
+                              >
+                                Community
+                              </Badge>
+                            )}
+                            {showPhotos && (
+                              <Badge
+                                className="border border-indigo-200 bg-indigo-50 text-indigo-700"
+                                title="Includes photos"
+                                aria-label="Includes photos"
+                              >
+                                <CameraIcon className="h-3.5 w-3.5" />
+                                Photos
+                              </Badge>
+                            )}
                           </div>
                         </div>
 
-                        {r.comment && (
-                          <p className="text-sm text-zinc-300 mt-1 whitespace-pre-wrap">
-                            {r.comment}
-                          </p>
-                        )}
-
-                        <div className="text-xs text-zinc-400 mt-2 flex items-center justify-between">
-                          <span>
-                            {r.isAnonymous ? "Anonymous" : r.name || "—"}
-                            {r.email ? ` · ${r.email}` : ""}
-                            {r.phone ? ` · ${r.phone}` : ""}
-                          </span>
-                          <span>{new Date(r.createdAt).toLocaleString()}</span>
+                        <div className="flex items-center gap-3 shrink-0 whitespace-nowrap">
+                          <div className="text-xs text-slate-500 tabular-nums flex items-center gap-1">
+                            <LikeIcon className="h-3.5 w-3.5 -mt-px" /> {likes}
+                          </div>
+                          <StarRating value={stars} />
                         </div>
+                      </div>
+
+                      {r.comment && (
+                        <p className="text-sm text-slate-700 mt-2 whitespace-pre-wrap">
+                          {r.comment}
+                        </p>
+                      )}
+
+                      <div className="text-xs text-slate-500 mt-3 flex items-center justify-between">
+                        <span>
+                          {r.isAnonymous ? "Anonymous" : r.name || "—"}
+                          {r.email ? ` · ${r.email}` : ""}
+                          {r.phone ? ` · ${r.phone}` : ""}
+                        </span>
+                        <span>{new Date(r.createdAt).toLocaleString()}</span>
                       </div>
                     </div>
                   </div>
-                );
-              })}
-
-              <div className="flex items-center justify-between pt-2">
-                <button
-                  className="btn disabled:opacity-50"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  Prev
-                </button>
-                <div className="text-sm">
-                  Page {page} / {totalPages} • Total: {total}
                 </div>
-                <button
-                  className="btn disabled:opacity-50"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  Next
-                </button>
+              );
+            })}
+
+            <div className="flex items-center justify-between pt-2">
+              <button
+                className="btn disabled:opacity-50"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                aria-label="Previous page"
+              >
+                Prev
+              </button>
+              <div className="text-sm text-slate-600">
+                Page {page} / {totalPages} • Total: {total}
               </div>
+              <button
+                className="btn disabled:opacity-50"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+                aria-label="Next page"
+              >
+                Next
+              </button>
             </div>
-          )}
-        </div>
-      </AuthedOnly>
-    </Layout>
+          </div>
+        )}
+      </div>
+    </AuthedOnly>
   );
 }

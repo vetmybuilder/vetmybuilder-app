@@ -1,8 +1,8 @@
-import Layout from "@/components/Layout";
+// web/pages/projects/index.tsx
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import StatusBadge from "@/components/StatusBadge";
 import { useAuth } from "@/utils/auth";
 
@@ -144,44 +144,63 @@ export default function ProjectsPage() {
       setOrder((o) => (o === "asc" ? "desc" : "asc"));
     } else {
       setSort(col);
-      setOrder(col === "createdAt" ? "desc" : "asc"); // sensible defaults
+      setOrder(col === "createdAt" ? "desc" : "asc");
     }
   };
   const sortIcon = (col: "name" | "createdAt") => {
     if (sort !== col) return "↕︎";
     return order === "asc" ? "▲" : "▼";
-  };
+    };
+
+  // --- Tab button UI (high contrast) ---
+  const tabBtnBase =
+    "inline-flex items-center rounded-full px-4 sm:px-5 py-2 text-sm font-medium transition";
+  const active =
+    "bg-indigo-600 text-white shadow ring-1 ring-indigo-500";
+  const inactive =
+    "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 hover:bg-indigo-100";
 
   return (
-    <Layout>
-      <AuthedOnly>
+    <AuthedOnly>
+      {/* PAGE CONTAINER — same width as before */}
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-semibold">Projects</h1>
           <Link className="btn" href="/projects/new">
-            Create
+            Create a new Project
           </Link>
         </div>
 
         {/* Tabs */}
-        <div className="mb-3 flex gap-2">
+        <div
+          className="mb-4 flex gap-2"
+          role="tablist"
+          aria-label="Projects tabs"
+        >
           <button
-            className={`btn ${tab === "mine" ? "" : "opacity-60"}`}
+            role="tab"
+            aria-selected={tab === "mine"}
+            className={`${tabBtnBase} ${tab === "mine" ? active : inactive}`}
             onClick={() => setTab("mine")}
           >
             My Projects
           </button>
           <button
-            className={`btn ${tab === "recommended" ? "" : "opacity-60"}`}
+            role="tab"
+            aria-selected={tab === "recommended"}
+            className={`${tabBtnBase} ${
+              tab === "recommended" ? active : inactive
+            }`}
             onClick={() => setTab("recommended")}
           >
-            Recommended
+            My Recommendations
           </button>
         </div>
 
         {/* Filters */}
         <div className="card mb-3 grid grid-cols-1 md:grid-cols-5 gap-2">
           <div>
-            <label className="text-xs text-zinc-400">Name</label>
+            <label className="text-xs text-zinc-500">Name</label>
             <input
               className="input"
               value={fName}
@@ -190,7 +209,7 @@ export default function ProjectsPage() {
             />
           </div>
           <div>
-            <label className="text-xs text-zinc-400">Type</label>
+            <label className="text-xs text-zinc-500">Type</label>
             <input
               className="input"
               value={fType}
@@ -199,7 +218,7 @@ export default function ProjectsPage() {
             />
           </div>
           <div>
-            <label className="text-xs text-zinc-400">Location</label>
+            <label className="text-xs text-zinc-500">Location</label>
             <input
               className="input"
               value={fLocation}
@@ -208,7 +227,7 @@ export default function ProjectsPage() {
             />
           </div>
           <div>
-            <label className="text-xs text-zinc-400">Property</label>
+            <label className="text-xs text-zinc-500">Property</label>
             <input
               className="input"
               value={fProperty}
@@ -217,7 +236,7 @@ export default function ProjectsPage() {
             />
           </div>
           <div>
-            <label className="text-xs text-zinc-400">Status</label>
+            <label className="text-xs text-zinc-500">Status</label>
             <select
               className="input"
               value={status}
@@ -235,56 +254,58 @@ export default function ProjectsPage() {
           <p>Loading...</p>
         ) : (
           <div className="card">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th
-                    className="cursor-pointer select-none"
-                    onClick={() => toggleSort("name")}
-                  >
-                    Name <span className="text-xs">{sortIcon("name")}</span>
-                  </th>
-                  <th>Type</th>
-                  <th>Location</th>
-                  <th>Property</th>
-                  <th>Beds</th>
-                  <th
-                    className="cursor-pointer select-none"
-                    onClick={() => toggleSort("createdAt")}
-                  >
-                    Created{" "}
-                    <span className="text-xs">{sortIcon("createdAt")}</span>
-                  </th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.items.map((p) => (
-                  <tr key={p.id}>
-                    <td>
-                      <Link className="link" href={`/projects/${p.id}`}>
-                        {p.name}
-                      </Link>
-                    </td>
-                    <td>{p.type}</td>
-                    <td>{p.location}</td>
-                    <td className="capitalize">{p.propertyType}</td>
-                    <td>{p.bedrooms}</td>
-                    <td>{new Date(p.createdAt).toLocaleString()}</td>
-                    <td>
-                      <StatusBadge value={p.status || "pending"} />
-                    </td>
-                  </tr>
-                ))}
-                {data.items.length === 0 && (
+            <div className="overflow-x-auto">
+              <table className="table min-w-full">
+                <thead>
                   <tr>
-                    <td colSpan={7} className="text-sm text-zinc-400">
-                      No projects.
-                    </td>
+                    <th
+                      className="cursor-pointer select-none"
+                      onClick={() => toggleSort("name")}
+                    >
+                      Name <span className="text-xs">{sortIcon("name")}</span>
+                    </th>
+                    <th>Type</th>
+                    <th>Location</th>
+                    <th>Property</th>
+                    <th>Beds</th>
+                    <th
+                      className="cursor-pointer select-none"
+                      onClick={() => toggleSort("createdAt")}
+                    >
+                      Created{" "}
+                      <span className="text-xs">{sortIcon("createdAt")}</span>
+                    </th>
+                    <th>Status</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {data.items.map((p) => (
+                    <tr key={p.id}>
+                      <td>
+                        <Link className="link" href={`/projects/${p.id}`}>
+                          {p.name}
+                        </Link>
+                      </td>
+                      <td>{p.type}</td>
+                      <td>{p.location}</td>
+                      <td className="capitalize">{p.propertyType}</td>
+                      <td>{p.bedrooms}</td>
+                      <td>{new Date(p.createdAt).toLocaleString()}</td>
+                      <td>
+                        <StatusBadge value={p.status || "pending"} size="sm" />
+                      </td>
+                    </tr>
+                  ))}
+                  {data.items.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="text-sm text-zinc-400">
+                        No projects.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
 
             {/* Pagination */}
             <div className="flex items-center justify-between mt-4">
@@ -308,7 +329,7 @@ export default function ProjectsPage() {
             </div>
           </div>
         )}
-      </AuthedOnly>
-    </Layout>
+      </div>
+    </AuthedOnly>
   );
 }
