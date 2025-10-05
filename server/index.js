@@ -14,6 +14,7 @@ const fs = require("fs");
 const multer = require("multer");
 
 const app = express();
+app.set("trust proxy", true);
 app.set("etag", false);
 const PORT = process.env.PORT || 8787;
 
@@ -909,7 +910,7 @@ app.post(
         `SELECT id, token, createdAt
          FROM recommendation_links
         WHERE projectId = ?
-     ORDER BY id DESC
+        ORDER BY id DESC
         LIMIT 1`
       )
       .get(projectId);
@@ -926,9 +927,9 @@ app.post(
         .prepare(
           `SELECT id, token, createdAt
            FROM recommendation_links
-          WHERE projectId = ?
-       ORDER BY id DESC
-          LIMIT 1`
+           WHERE projectId = ?
+           ORDER BY id DESC
+           LIMIT 1`
         )
         .get(projectId);
 
@@ -951,8 +952,34 @@ app.post(
       console.log("[magic-link] existing", { projectId, token: link.token });
     }
 
-    const base = process.env.NEXT_PUBLIC_WEB_BASE || "http://localhost:3000";
-    const url = new URL(`/r/${link.token}`, base).toString();
+    // --- Build a public, absolute URL that works in both prod and local ---
+    function getWebBase(req) {
+      // Prefer reverse-proxy headers (Next.js rewrites, Cloud Run, LB, etc.)
+      const xfProto = String(req.headers["x-forwarded-proto"] || "")
+        .split(",")[0]
+        .trim();
+      const xfHost = String(req.headers["x-forwarded-host"] || "")
+        .split(",")[0]
+        .trim();
+      if (xfHost) {
+        return `${xfProto || req.protocol || "http"}://${xfHost}`;
+      }
+
+      // Direct host (no proxy)
+      if (req.headers.host) {
+        return `${req.protocol || "http"}://${req.headers.host}`;
+      }
+
+      // Explicit env override (set in prod if needed)
+      if (process.env.NEXT_PUBLIC_WEB_BASE)
+        return process.env.NEXT_PUBLIC_WEB_BASE;
+
+      // Dev fallback
+      return "http://localhost:3000";
+    }
+
+    const webBase = getWebBase(req);
+    const url = new URL(`/r/${link.token}`, webBase).toString();
 
     return res
       .status(200)
