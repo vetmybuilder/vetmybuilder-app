@@ -10,13 +10,14 @@ type NotifItem = {
   type: string;
   message: string;
   projectId: number | null;
-  linkPath: string | null; // e.g., "/projects/123" or "/builders/55"
+  linkPath: string | null;
   createdAt: string;
   readAt?: string | null;
 };
 
 export default function NotificationsBell() {
-  // Don’t render on the server to keep SSG/SSR happy
+  // Extra guard; component is dynamically imported with ssr: false,
+  // but keep this in case it’s ever rendered on the server.
   if (typeof window === "undefined") return null;
 
   const { user } = useAuth();
@@ -34,13 +35,11 @@ export default function NotificationsBell() {
   const esRef = useRef<EventSource | null>(null);
   const refreshTimer = useRef<number | null>(null);
 
-  // Resolve API base in the browser
   useEffect(() => {
     const envBase = process.env.NEXT_PUBLIC_API_BASE || "";
     setApiBase(envBase || window.location.origin);
   }, []);
 
-  // Close dropdown on outside click / ESC
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
       if (!open) return;
@@ -69,7 +68,6 @@ export default function NotificationsBell() {
     }
   }
 
-  // Bootstrap (REST) + SSE
   useEffect(() => {
     let cancelled = false;
 
@@ -93,11 +91,9 @@ export default function NotificationsBell() {
         return;
       }
 
-      // Initial list
       await refreshList();
       if (cancelled) return;
 
-      // SSE
       try {
         const token =
           typeof (user as any)?.getIdToken === "function"
@@ -117,9 +113,7 @@ export default function NotificationsBell() {
             if (cancelled) return;
             setUnread(payload.unread ?? 0);
             setItems(payload.latest ?? []);
-          } catch {
-            /* noop */
-          }
+          } catch {}
         });
 
         es.addEventListener("notification", () => {
@@ -137,9 +131,7 @@ export default function NotificationsBell() {
             es.close();
           } catch {}
         };
-      } catch {
-        /* ignore */
-      }
+      } catch {}
     }
 
     start();
@@ -168,7 +160,6 @@ export default function NotificationsBell() {
   }
 
   async function onClickItem(n: NotifItem) {
-    // Optimistic local update: if unread, decrement by 1
     if (!n.readAt) {
       setUnread((u) => Math.max(0, u - 1));
       setItems((prev) =>
@@ -176,13 +167,10 @@ export default function NotificationsBell() {
           i.id === n.id ? { ...i, readAt: new Date().toISOString() } : i
         )
       );
-      // Best-effort server mark-read
       if (n.id > 0) {
         try {
           await api.post(`/api/notifications/${n.id}/read`);
-        } catch {
-          /* ignore */
-        }
+        } catch {}
       } else {
         refreshList();
       }
@@ -198,7 +186,8 @@ export default function NotificationsBell() {
         : "/projects";
 
     // Prefer SPA nav
-    router.push(href).catch(() => {
+    const { push } = useRouter();
+    push(href).catch(() => {
       window.location.assign(href);
     });
   }

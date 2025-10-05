@@ -1,8 +1,14 @@
 // web/components/Layout.tsx
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { useAuth, signOutUser } from "@/utils/auth";
-import NotificationsBell from "@/components/NotificationsBell";
+
+// ⬇️ Import bell client-only to avoid SSR hook errors
+const NotificationsBell = dynamic(
+  () => import("@/components/NotificationsBell"),
+  { ssr: false, loading: () => null }
+);
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -72,6 +78,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </Link>
 
             <div className="flex items-center gap-3">
+              {/* Client-only bell */}
               {user && <NotificationsBell />}
 
               {!user ? (
