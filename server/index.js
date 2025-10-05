@@ -952,33 +952,40 @@ app.post(
       console.log("[magic-link] existing", { projectId, token: link.token });
     }
 
-    // --- Build a public, absolute URL that works in both prod and local ---
-    function getWebBase(req) {
-      // Prefer reverse-proxy headers (Next.js rewrites, Cloud Run, LB, etc.)
-      const xfProto = String(req.headers["x-forwarded-proto"] || "")
-        .split(",")[0]
-        .trim();
-      const xfHost = String(req.headers["x-forwarded-host"] || "")
-        .split(",")[0]
-        .trim();
-      if (xfHost) {
-        return `${xfProto || req.protocol || "http"}://${xfHost}`;
+    // --- Build a public, absolute URL that points to the WEB app ---
+    function resolveWebBase(req) {
+      // 1) Explicit server-side config (best)
+      const explicit =
+        process.env.WEB_PUBLIC_BASE || process.env.NEXT_PUBLIC_WEB_BASE;
+      if (explicit) return String(explicit).replace(/\/+$/, "");
+
+      // 2) Production fallback: derive from API host, fix common port mismatch
+      if (process.env.NODE_ENV === "production") {
+        const proto =
+          String(req.headers["x-forwarded-proto"] || req.protocol || "http")
+            .split(",")[0]
+            .trim() || "http";
+
+        // first try forwarded host if present
+        let host = String(
+          req.headers["x-forwarded-host"] || req.headers.host || ""
+        )
+          .split(",")[0]
+          .trim();
+
+        if (!host) return `${proto}://localhost:3000`;
+
+        // If we’re on the API port, rewrite to the web port
+        host = host.replace(/:8787$/, ":3000");
+
+        return `${proto}://${host}`;
       }
 
-      // Direct host (no proxy)
-      if (req.headers.host) {
-        return `${req.protocol || "http"}://${req.headers.host}`;
-      }
-
-      // Explicit env override (set in prod if needed)
-      if (process.env.NEXT_PUBLIC_WEB_BASE)
-        return process.env.NEXT_PUBLIC_WEB_BASE;
-
-      // Dev fallback
+      // 3) Dev fallback
       return "http://localhost:3000";
     }
 
-    const webBase = getWebBase(req);
+    const webBase = resolveWebBase(req);
     const url = new URL(`/r/${link.token}`, webBase).toString();
 
     return res
