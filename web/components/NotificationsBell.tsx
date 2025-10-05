@@ -15,9 +15,10 @@ type NotifItem = {
   readAt?: string | null;
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
-
 export default function NotificationsBell() {
+  // Don’t render on the server to keep SSG/SSR happy
+  if (typeof window === "undefined") return null;
+
   const { user } = useAuth();
   const api = useApi();
   const router = useRouter();
@@ -26,11 +27,18 @@ export default function NotificationsBell() {
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<NotifItem[]>([]);
   const [busy, setBusy] = useState(false);
+  const [apiBase, setApiBase] = useState<string>("");
 
   const btnRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const esRef = useRef<EventSource | null>(null);
   const refreshTimer = useRef<number | null>(null);
+
+  // Resolve API base in the browser
+  useEffect(() => {
+    const envBase = process.env.NEXT_PUBLIC_API_BASE || "";
+    setApiBase(envBase || window.location.origin);
+  }, []);
 
   // Close dropdown on outside click / ESC
   useEffect(() => {
@@ -90,42 +98,48 @@ export default function NotificationsBell() {
       if (cancelled) return;
 
       // SSE
-      const token =
-        typeof (user as any)?.getIdToken === "function"
-          ? await (user as any).getIdToken()
-          : undefined;
-      if (!token) return;
+      try {
+        const token =
+          typeof (user as any)?.getIdToken === "function"
+            ? await (user as any).getIdToken()
+            : undefined;
+        if (!token || !apiBase) return;
 
-      const url = `${API_BASE}/api/notifications/stream?token=${encodeURIComponent(
-        token
-      )}`;
-      const es = new EventSource(url);
-      esRef.current = es;
+        const url = `${apiBase}/api/notifications/stream?token=${encodeURIComponent(
+          token
+        )}`;
+        const es = new EventSource(url);
+        esRef.current = es;
 
-      es.addEventListener("bootstrap", (ev: MessageEvent) => {
-        try {
-          const payload = JSON.parse(ev.data);
+        es.addEventListener("bootstrap", (ev: MessageEvent) => {
+          try {
+            const payload = JSON.parse(ev.data);
+            if (cancelled) return;
+            setUnread(payload.unread ?? 0);
+            setItems(payload.latest ?? []);
+          } catch {
+            /* noop */
+          }
+        });
+
+        es.addEventListener("notification", () => {
           if (cancelled) return;
-          setUnread(payload.unread ?? 0);
-          setItems(payload.latest ?? []);
-        } catch {}
-      });
+          setUnread((u) => u + 1);
+          if (refreshTimer.current) window.clearTimeout(refreshTimer.current);
+          refreshTimer.current = window.setTimeout(() => {
+            refreshList();
+            refreshTimer.current = null;
+          }, 250);
+        });
 
-      es.addEventListener("notification", () => {
-        if (cancelled) return;
-        setUnread((u) => u + 1);
-        if (refreshTimer.current) window.clearTimeout(refreshTimer.current);
-        refreshTimer.current = window.setTimeout(() => {
-          refreshList();
-          refreshTimer.current = null;
-        }, 250);
-      });
-
-      es.onerror = () => {
-        try {
-          es.close();
-        } catch {}
-      };
+        es.onerror = () => {
+          try {
+            es.close();
+          } catch {}
+        };
+      } catch {
+        /* ignore */
+      }
     }
 
     start();
@@ -134,7 +148,7 @@ export default function NotificationsBell() {
       cancelled = true;
       cleanup();
     };
-  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, apiBase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function markAllRead() {
     if (busy || unread === 0) return;
@@ -185,7 +199,6 @@ export default function NotificationsBell() {
 
     // Prefer SPA nav
     router.push(href).catch(() => {
-      // Fallback (very unlikely)
       window.location.assign(href);
     });
   }
