@@ -1,9 +1,17 @@
 // web/components/StatusBadge.tsx
+type Size = "xs" | "sm" | "md";
+
 type Props = {
   value: string;
+  size?: Size; // NEW: control badge sizing
+  className?: string; // optional extra classes
 };
 
-export default function StatusBadge({ value }: Props) {
+export default function StatusBadge({
+  value,
+  size = "md",
+  className = "",
+}: Props) {
   const v = String(value || "").toLowerCase();
 
   // Pill + dot color mappings (light theme, high contrast)
@@ -32,15 +40,26 @@ export default function StatusBadge({ value }: Props) {
           label: v || "Unknown",
         };
 
+  // Size styles
+  const sizeCls =
+    size === "xs"
+      ? "text-[10px] px-2 py-0.5"
+      : size === "sm"
+      ? "text-xs px-2.5 py-0.5"
+      : "text-sm px-3 py-1"; // md (default)
+
+  const dotCls =
+    size === "xs" ? "h-1.5 w-1.5" : size === "sm" ? "h-2 w-2" : "h-2.5 w-2.5";
+
   return (
     <span
       role="status"
       aria-label={`Status: ${tone.label}`}
-      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${tone.pill}`}
+      className={`inline-flex items-center gap-2 rounded-full font-medium ${sizeCls} ${tone.pill} ${className}`}
     >
       <span
         aria-hidden="true"
-        className={`h-2.5 w-2.5 rounded-full ${tone.dot}`}
+        className={`${dotCls} rounded-full ${tone.dot}`}
       />
       <span className="capitalize">{tone.label}</span>
     </span>
