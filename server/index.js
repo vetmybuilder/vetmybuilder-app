@@ -14,20 +14,14 @@ const fs = require("fs");
 const multer = require("multer");
 
 const app = express();
+app.set("etag", false);
 const PORT = process.env.PORT || 8787;
 
 // Public API origin used to build absolute file URLs for images
 const PUBLIC_API_BASE =
   process.env.NEXT_PUBLIC_API_BASE || `http://localhost:${PORT}`;
 
-app.use(
-  cors({
-    origin: process.env.NEXT_PUBLIC_WEB_BASE || "http://localhost:3000",
-    methods: ["GET", "POST", "PUT", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: false,
-  })
-);
+app.use(cors());
 app.options("*", cors());
 app.use(express.json());
 
@@ -281,10 +275,8 @@ async function backfillUsersFromFirebaseIfEmpty(db, adminInstance) {
 
 async function handlePublicStats(_req, res) {
   try {
-    // Count from local users table (fast, updated on authed calls)
     const communityMembers =
       db.prepare(`SELECT COUNT(*) AS c FROM users`).get().c || 0;
-
     const recommendations =
       db.prepare(`SELECT COUNT(*) AS c FROM recommendations`).get().c || 0;
     const shortlists =
@@ -292,14 +284,24 @@ async function handlePublicStats(_req, res) {
         .prepare(`SELECT COUNT(DISTINCT projectId) AS c FROM recommendations`)
         .get().c || 0;
 
-    res.json({ communityMembers, recommendations, shortlists });
+    // 👇 important when hitting cross-origin in dev/prod
+    res.set("Access-Control-Allow-Origin", "*");
+
+    // prevent 304 / stale bodies
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
+
+    return res
+      .status(200)
+      .json({ communityMembers, recommendations, shortlists });
   } catch (e) {
     console.error("stats error", e);
-    res.status(500).json({ error: "Failed to load stats" });
+    return res.status(500).json({ error: "Failed to load stats" });
   }
 }
-app.get("/api/stats/public", handlePublicStats);
 app.get("/api/stats", handlePublicStats);
+app.get("/api/stats/public", handlePublicStats);
 
 /* -------------------- Validation -------------------- */
 
@@ -737,7 +739,7 @@ app.post(
           AND (${areaWhere})
           AND r.recommenderUserId != @owner`
       )
-      .all({ ...areaParams, pid: id, owner: updated.ownerUserUserId })
+      .all({ ...areaParams, pid: id, owner: updated.ownerUserId })
       .map((r) => r.uid);
 
     const targets = Array.from(new Set([...areaUsers, ...recUsers]));

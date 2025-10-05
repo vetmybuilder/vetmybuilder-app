@@ -13,6 +13,10 @@ const rubik = Rubik({
 });
 
 function getApiBase() {
+  if (typeof window !== "undefined") {
+    const h = window.location.hostname;
+    if (h === "localhost" || h === "127.0.0.1") return ""; // same-origin in dev
+  }
   return process.env.NEXT_PUBLIC_API_BASE || "";
 }
 
@@ -143,8 +147,11 @@ export default function Home() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`${getApiBase()}/api/stats/public`);
-        if (!res.ok) throw new Error("stats fetch failed");
+        const res = await fetch(`${getApiBase()}/api/stats`, {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-store" },
+        });
+        if (!res.ok) throw new Error(`stats fetch failed: ${res.status}`);
         const json = await res.json();
         if (!cancelled) {
           setStats({
@@ -153,7 +160,9 @@ export default function Home() {
             shortlists: Number(json.shortlists) || 0,
           });
         }
-      } catch {}
+      } catch (e) {
+        console.warn("stats error", e);
+      }
     })();
     return () => {
       cancelled = true;
@@ -169,7 +178,10 @@ export default function Home() {
 
       <main className="bg-white text-black">
         {/* HERO */}
-        <section className="relative isolate overflow-hidden -mt-14 pt-14" aria-label="Hero">
+        <section
+          className="relative isolate overflow-hidden -mt-14 pt-14"
+          aria-label="Hero"
+        >
           {/* Desktop background */}
           <div className="absolute inset-0 hidden lg:block">
             <Image
