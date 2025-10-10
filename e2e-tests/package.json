@@ -1,0 +1,19 @@
+{
+  "name": "vmb-e2e-tests",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "test": "playwright test -c playwright.config.ts --workers=1",
+    "test:headed": "playwright test -c playwright.config.ts --headed --project=chromium --workers=1",
+    "test:ui": "playwright test -c playwright.config.ts --ui"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.47.2",
+    "@types/chance": "^1.1.7",
+    "dotenv": "^16.4.5",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "chance": "^1.1.13"
+  }
+}

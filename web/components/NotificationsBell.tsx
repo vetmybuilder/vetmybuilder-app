@@ -185,11 +185,12 @@ export default function NotificationsBell() {
         ? `/projects/${n.projectId}`
         : "/projects";
 
-    // Prefer SPA nav
-    const { push } = useRouter();
-    push(href).catch(() => {
+    // Prefer SPA nav (use the top-level router instance)
+    try {
+      await router.push(href);
+    } catch {
       window.location.assign(href);
-    });
+    }
   }
 
   const count = Math.min(99, Math.max(0, unread));

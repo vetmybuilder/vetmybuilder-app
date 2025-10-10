@@ -141,7 +141,6 @@ export default function NewProject() {
     }
   };
 
-  // accessible ids (stable across renders)
   const ids = useMemo(
     () => ({
       name: "np-name",
@@ -156,10 +155,16 @@ export default function NewProject() {
 
   return (
     <AuthedOnly>
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+      <div
+        className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8"
+        data-testid="create-project-page"
+      >
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
+            <h1
+              className="text-2xl font-semibold tracking-tight"
+              data-testid="create-project-title"
+            >
               Create Project
             </h1>
             <p className="mt-1 text-sm text-gray-500">
@@ -171,6 +176,7 @@ export default function NewProject() {
             aria-label="Back to my projects"
             title="Back to my projects"
             className="btn-back"
+            data-testid="btn-back-to-projects"
           >
             <svg
               viewBox="0 0 24 24"
@@ -189,201 +195,261 @@ export default function NewProject() {
           </Link>
         </div>
 
-        <div className="mb-6 flex items-center gap-2">
+        <div
+          className="mb-6 flex items-center gap-2"
+          aria-label="Progress"
+          data-testid="wizard-progress"
+        >
           {STEPS.map((_, i) => (
             <span
               key={i}
               className={`h-1.5 flex-1 rounded-full transition ${
                 i <= step ? "bg-blue-600" : "bg-gray-200"
               }`}
+              aria-current={i === step ? "step" : undefined}
             />
           ))}
         </div>
 
-        <div className="relative w-full overflow-hidden rounded-2xl bg-white border border-gray-200">
+        <div
+          className="relative w-full overflow-hidden rounded-2xl bg-white border border-gray-200"
+          data-testid="wizard"
+          data-current-step={STEPS[step].key}
+        >
           <div
             className="flex w-full transition-transform duration-300 ease-out"
             style={{ transform: `translateX(-${step * 100}%)` }}
           >
-            {STEPS.map((s) => (
-              <section
-                key={s.key}
-                className="w-full shrink-0 px-6 py-6 sm:px-10 sm:py-10"
-              >
-                <h2 className="text-lg font-semibold">{s.title}</h2>
-                {"hint" in s && s.hint && (
-                  <p className="mt-1 text-sm text-gray-500">{s.hint}</p>
-                )}
-
-                <div className="mt-5 grid max-w-3xl gap-4">
-                  {s.key === "name" && (
-                    <>
-                      <label htmlFor={ids.name} className="sr-only">
-                        Project name
-                      </label>
-                      <input
-                        id={ids.name}
-                        ref={inputRef as any}
-                        className="input"
-                        placeholder="Project name"
-                        value={form.name}
-                        onChange={(e) => set("name", e.target.value)}
-                        onKeyDown={handleEnter}
-                      />
-                    </>
+            {STEPS.map((s, i) => {
+              const active = i === step;
+              const titleId = `step-${s.key}-title`;
+              return (
+                <section
+                  key={s.key}
+                  role="region"
+                  aria-labelledby={titleId}
+                  aria-hidden={active ? undefined : true}
+                  className="w-full shrink-0 px-6 py-6 sm:px-10 sm:py-10"
+                >
+                  <h2 id={titleId} className="text-lg font-semibold">
+                    {s.title}
+                  </h2>
+                  {"hint" in s && s.hint && (
+                    <p className="mt-1 text-sm text-gray-500">{s.hint}</p>
                   )}
 
-                  {s.key === "type" && (
-                    <>
-                      <label htmlFor={ids.type} className="sr-only">
-                        Type of work
-                      </label>
-                      <input
-                        id={ids.type}
-                        ref={inputRef as any}
-                        className="input"
-                        placeholder="Type (e.g., Kitchen remodel)"
-                        value={form.type}
-                        onChange={(e) => set("type", e.target.value)}
-                        onKeyDown={handleEnter}
-                      />
-                    </>
-                  )}
+                  <div className="mt-5 grid max-w-3xl gap-4">
+                    {s.key === "name" && (
+                      <>
+                        <label htmlFor={ids.name} className="sr-only">
+                          Project name
+                        </label>
+                        <input
+                          id={ids.name}
+                          ref={inputRef as any}
+                          className="input"
+                          placeholder="Project name"
+                          aria-label="Project name"
+                          value={form.name}
+                          onChange={(e) => set("name", e.target.value)}
+                          onKeyDown={handleEnter}
+                          data-testid="field-name"
+                        />
+                      </>
+                    )}
 
-                  {s.key === "location" && (
-                    <>
-                      <label htmlFor={ids.location} className="sr-only">
-                        Location
-                      </label>
-                      <input
-                        id={ids.location}
-                        ref={inputRef as any}
-                        className="input"
-                        placeholder="Location (postcode, borough, city)"
-                        value={form.location}
-                        onChange={(e) => set("location", e.target.value)}
-                        onKeyDown={handleEnter}
-                      />
-                    </>
-                  )}
+                    {s.key === "type" && (
+                      <>
+                        <label htmlFor={ids.type} className="sr-only">
+                          Type of work
+                        </label>
+                        <input
+                          id={ids.type}
+                          ref={inputRef as any}
+                          className="input"
+                          placeholder="Type (e.g., Kitchen remodel)"
+                          aria-label="Type of work"
+                          value={form.type}
+                          onChange={(e) => set("type", e.target.value)}
+                          onKeyDown={handleEnter}
+                          data-testid="field-type"
+                        />
+                      </>
+                    )}
 
-                  {s.key === "propertyType" && (
-                    <>
-                      <label htmlFor={ids.propertyType} className="sr-only">
-                        Property type
-                      </label>
-                      <select
-                        id={ids.propertyType}
-                        ref={inputRef as any}
-                        className="input"
-                        value={form.propertyType}
-                        onChange={(e) => set("propertyType", e.target.value)}
-                        onKeyDown={handleEnter}
-                      >
-                        <option value="" disabled>
-                          Select property type
-                        </option>
-                        {PROPERTY_TYPES.map((pt) => (
-                          <option key={pt} value={pt}>
-                            {pt}
+                    {s.key === "location" && (
+                      <>
+                        <label htmlFor={ids.location} className="sr-only">
+                          Location
+                        </label>
+                        <input
+                          id={ids.location}
+                          ref={inputRef as any}
+                          className="input"
+                          placeholder="Location (postcode, borough, city)"
+                          aria-label="Location"
+                          value={form.location}
+                          onChange={(e) => set("location", e.target.value)}
+                          onKeyDown={handleEnter}
+                          data-testid="field-location"
+                        />
+                      </>
+                    )}
+
+                    {s.key === "propertyType" && (
+                      <>
+                        <label htmlFor={ids.propertyType} className="sr-only">
+                          Property type
+                        </label>
+                        <select
+                          id={ids.propertyType}
+                          ref={inputRef as any}
+                          className="input"
+                          aria-label="Property type"
+                          value={form.propertyType}
+                          onChange={(e) => set("propertyType", e.target.value)}
+                          onKeyDown={handleEnter}
+                          data-testid="field-property"
+                        >
+                          <option value="" disabled>
+                            Select property type
                           </option>
-                        ))}
-                      </select>
-                    </>
+                          {PROPERTY_TYPES.map((pt) => (
+                            <option key={pt} value={pt}>
+                              {pt}
+                            </option>
+                          ))}
+                        </select>
+                      </>
+                    )}
+
+                    {s.key === "bedrooms" && (
+                      <>
+                        <label htmlFor={ids.bedrooms} className="sr-only">
+                          Bedrooms
+                        </label>
+                        <input
+                          id={ids.bedrooms}
+                          ref={inputRef as any}
+                          className="input"
+                          placeholder="Bedrooms"
+                          aria-label="Bedrooms"
+                          type="number"
+                          min={0}
+                          value={form.bedrooms}
+                          onChange={(e) => set("bedrooms", e.target.value)}
+                          onKeyDown={handleEnter}
+                          data-testid="field-bedrooms"
+                        />
+                      </>
+                    )}
+
+                    {s.key === "description" && (
+                      <>
+                        <label htmlFor={ids.description} className="sr-only">
+                          Description
+                        </label>
+                        <textarea
+                          id={ids.description}
+                          ref={inputRef as any}
+                          className="input min-h-36"
+                          placeholder="Brief description of the work"
+                          aria-label="Description"
+                          value={form.description}
+                          onChange={(e) => set("description", e.target.value)}
+                          onKeyDown={handleEnter}
+                          data-testid="field-description"
+                        />
+                      </>
+                    )}
+
+                    {/* review section */}
+                    {s.key === "review" && (
+                      <div className="space-y-3 text-sm" data-testid="review">
+                        <ReviewRow
+                          label="Project name"
+                          value={form.name}
+                          dataTestId="review-name"
+                        />
+                        <ReviewRow
+                          label="Type of work"
+                          value={form.type}
+                          dataTestId="review-type"
+                        />
+                        <ReviewRow
+                          label="Location"
+                          value={form.location}
+                          dataTestId="review-location"
+                        />
+                        <ReviewRow
+                          label="Property type"
+                          value={form.propertyType}
+                          dataTestId="review-property"
+                        />
+                        <ReviewRow
+                          label="Bedrooms"
+                          value={String(form.bedrooms || 0)}
+                          dataTestId="review-bedrooms"
+                        />
+                        <ReviewRow
+                          label="Description"
+                          value={form.description}
+                          multiline
+                          dataTestId="review-description"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {err && (
+                    <p
+                      className="mt-3 text-sm text-red-600"
+                      role="alert"
+                      data-testid="create-error"
+                    >
+                      {err}
+                    </p>
                   )}
 
-                  {s.key === "bedrooms" && (
-                    <>
-                      <label htmlFor={ids.bedrooms} className="sr-only">
-                        Bedrooms
-                      </label>
-                      <input
-                        id={ids.bedrooms}
-                        ref={inputRef as any}
-                        className="input"
-                        placeholder="Bedrooms"
-                        type="number"
-                        min={0}
-                        value={form.bedrooms}
-                        onChange={(e) => set("bedrooms", e.target.value)}
-                        onKeyDown={handleEnter}
-                      />
-                    </>
-                  )}
-
-                  {s.key === "description" && (
-                    <>
-                      <label htmlFor={ids.description} className="sr-only">
-                        Description
-                      </label>
-                      <textarea
-                        id={ids.description}
-                        ref={inputRef as any}
-                        className="input min-h-36"
-                        placeholder="Brief description of the work"
-                        value={form.description}
-                        onChange={(e) => set("description", e.target.value)}
-                        onKeyDown={handleEnter}
-                      />
-                    </>
-                  )}
-
-                  {s.key === "review" && (
-                    <div className="space-y-3 text-sm">
-                      <ReviewRow label="Project name" value={form.name} />
-                      <ReviewRow label="Type of work" value={form.type} />
-                      <ReviewRow label="Location" value={form.location} />
-                      <ReviewRow
-                        label="Property type"
-                        value={form.propertyType}
-                      />
-                      <ReviewRow
-                        label="Bedrooms"
-                        value={String(form.bedrooms || 0)}
-                      />
-                      <ReviewRow
-                        label="Description"
-                        value={form.description}
-                        multiline
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {err && <p className="mt-3 text-sm text-red-600">{err}</p>}
-
-                <div className="mt-8 flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={back}
-                    disabled={step === 0 || busy}
-                    className="btn-outline disabled:opacity-50"
-                  >
-                    Back
-                  </button>
-
-                  {step < maxStep ? (
+                  <div className="mt-8 flex items-center justify-between">
                     <button
                       type="button"
-                      onClick={next}
-                      disabled={!isStepValid(step) || busy}
-                      className="btn disabled:opacity-50"
+                      onClick={back}
+                      disabled={step === 0 || busy}
+                      className="btn-outline disabled:opacity-50"
+                      aria-label="Back"
+                      data-testid="wizard-back"
                     >
-                      Next
+                      Back
                     </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={onCreate}
-                      disabled={!isStepValid(step) || busy}
-                      className="btn disabled:opacity-50"
-                    >
-                      {busy ? "Creating..." : "Create Project"}
-                    </button>
-                  )}
-                </div>
-              </section>
-            ))}
+
+                    {step < maxStep ? (
+                      <button
+                        type="button"
+                        onClick={next}
+                        disabled={!isStepValid(step) || busy}
+                        className="btn disabled:opacity-50"
+                        aria-label={`Next: ${s.title}`}
+                        data-testid="wizard-next"
+                      >
+                        Next
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={onCreate}
+                        disabled={!isStepValid(step) || busy}
+                        className="btn disabled:opacity-50"
+                        aria-label="Create Project"
+                        data-testid="wizard-create"
+                      >
+                        {busy ? "Creating..." : "Create Project"}
+                      </button>
+                    )}
+                  </div>
+                </section>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -395,10 +461,12 @@ function ReviewRow({
   label,
   value,
   multiline,
+  dataTestId,
 }: {
   label: string;
   value: string;
   multiline?: boolean;
+  dataTestId: string;
 }) {
   return (
     <div>
@@ -406,11 +474,17 @@ function ReviewRow({
         {label}
       </div>
       {multiline ? (
-        <p className="mt-1 whitespace-pre-wrap rounded-lg border border-gray-200 bg-gray-50 p-3 text-gray-900">
+        <p
+          className="mt-1 whitespace-pre-wrap rounded-lg border border-gray-200 bg-gray-50 p-3 text-gray-900"
+          data-testid={dataTestId} // ← correct attribute
+        >
           {value || "—"}
         </p>
       ) : (
-        <div className="mt-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-gray-900">
+        <div
+          className="mt-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-gray-900"
+          data-testid={dataTestId} // ← correct attribute
+        >
           {value || "—"}
         </div>
       )}

@@ -28,7 +28,7 @@ uploads/
 
 # Defensive ignores (if any DBs escape the folder)
 /*.sqlite
-/*.db
+server/data/*.db
 /*.db-shm
 /*.db-wal
 **/*.sqlite

@@ -1,5 +1,21 @@
-/* Express API for Vetmybuilder v1 */
+/* Express API for vetmybuilder v1 */
+const path = require("node:path");
 require("dotenv").config();
+require("dotenv").config({
+  path: path.resolve(process.cwd(), "web/.env.local"),
+});
+
+// Helper to resolve the Firebase Web API key from either FIREBASE_API_KEY or NEXT_PUBLIC_FIREBASE_CONFIG_JSON
+function resolveFirebaseApiKey() {
+  if (process.env.FIREBASE_API_KEY) return process.env.FIREBASE_API_KEY;
+  try {
+    const raw = process.env.NEXT_PUBLIC_FIREBASE_CONFIG_JSON || "{}";
+    const cfg = JSON.parse(raw);
+    return cfg.apiKey;
+  } catch {
+    return undefined;
+  }
+}
 
 const express = require("express");
 const cors = require("cors");
@@ -9,9 +25,14 @@ const { runMigrations } = require("./lib/migrate");
 const { authMiddleware } = require("./lib/middleware");
 const { z } = require("zod");
 const crypto = require("crypto");
-const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
+// ---- Robust notifyUsers fallback (defer implementation until DB is ready) ----
+let notifyUsers = null;
+try {
+  const mod = require("./lib/notify");
+  notifyUsers = mod.notifyUsers || mod;
+} catch (_) {}
 
 const app = express();
 app.set("trust proxy", true);
@@ -22,9 +43,62 @@ const PORT = process.env.PORT || 8787;
 const PUBLIC_API_BASE =
   process.env.NEXT_PUBLIC_API_BASE || `http://localhost:${PORT}`;
 
-app.use(cors());
+app.use(
+  cors({
+    origin: true,
+    methods: ["GET", "POST", "PUT", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: false,
+  })
+);
 app.options("*", cors());
 app.use(express.json());
+
+// ---- TEST-ONLY helpers (disabled by default) ----
+const TEST_ROUTES_ENABLED =
+  process.env.NODE_ENV === "test" || process.env.ENABLE_TEST_ROUTES === "1";
+const TEST_SECRET = process.env.E2E_TEST_SECRET || "";
+
+function assertTestAccess(req, res) {
+  if (!TEST_ROUTES_ENABLED) return res.status(404).json({ error: "Not found" });
+  const hdr = req.header("X-Test-Secret") || "";
+  if (!TEST_SECRET || hdr !== TEST_SECRET) {
+    return res.status(401).json({ error: "Unauthorized (test)" });
+  }
+  return true;
+}
+
+function wipeAllRows(db) {
+  try {
+    db.pragma("foreign_keys = OFF");
+    db.exec("BEGIN");
+    const tables = db
+      .prepare(
+        `SELECT name FROM sqlite_master
+         WHERE type='table' AND name NOT LIKE 'sqlite_%'`
+      )
+      .all()
+      .map((r) => r.name);
+
+    const keep = new Set(["migrations"]);
+
+    for (const name of tables) {
+      if (keep.has(name)) continue;
+      db.prepare(`DELETE FROM "${name}"`).run();
+      try {
+        db.prepare(`DELETE FROM sqlite_sequence WHERE name = ?`).run(name);
+      } catch {}
+    }
+    db.exec("COMMIT");
+  } catch (e) {
+    try {
+      db.exec("ROLLBACK");
+    } catch {}
+    throw e;
+  } finally {
+    db.pragma("foreign_keys = ON");
+  }
+}
 
 /* -------------------- SSE hub -------------------- */
 
@@ -35,59 +109,91 @@ function sseSend(res, event, payload) {
   res.write(`data: ${JSON.stringify(payload)}\n\n`);
 }
 
-function notifyUsers(db, userIds, payload) {
-  if (!userIds || !userIds.length) return;
-  const now = new Date().toISOString();
-  const stmt = db.prepare(`
-    INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
-  for (const uid of new Set(userIds)) {
-    const info = stmt.run(
-      uid,
-      payload.type,
-      payload.message,
-      payload.projectId ?? null,
-      payload.linkPath ?? null,
-      now
-    );
-    const insertedId = info.lastInsertRowid;
-    const bucket = clientsByUser.get(uid);
-    if (bucket) {
-      for (const res of bucket) {
-        sseSend(res, "notification", {
-          id: Number(insertedId),
-          ...payload,
-          projectId: payload.projectId ?? null,
-          linkPath: payload.linkPath ?? null,
-          createdAt: now,
-        });
-      }
-    }
-  }
-}
-
 /* -------------------- Location helpers -------------------- */
 function extractLocationTokens(raw) {
-  const s = String(raw || "").trim();
-  if (!s)
+  const sRaw = String(raw || "").trim();
+  if (!sRaw) {
     return { full: null, sector: null, outward: null, city: null, raw: "" };
-
-  const m = s.toUpperCase().match(/^([A-Z]{1,2}\d{1,2}[A-Z]?)\s*(\d[A-Z]{2})$/);
-  if (m) {
-    const outward = m[1];
-    const inward = m[2];
-    const full = `${outward} ${inward}`;
-    const sector = `${outward} ${inward[0]}`;
-    return { full, sector, outward, city: null, raw: s };
   }
+
+  const s = sRaw.toUpperCase();
+
+  // 1) FULL UK postcode (outward + inward), eg "E4 6JH", "SW1A 1AA"
+  //   acceptable outward forms: A9, A9A, A99, AA9, AA9A
+  const fullRe =
+    /^(?<outward>(?:[A-Z]{1,2}\d{1,2}[A-Z]?))\s*(?<inward>\d[A-Z]{2})$/;
+  const mFull = s.match(fullRe);
+  if (mFull && mFull.groups) {
+    const outward = mFull.groups.outward;
+    const inward = mFull.groups.inward;
+    const full = `${outward} ${inward}`;
+    const sector = `${outward} ${inward[0]}`; // outward + first digit of inward
+    return {
+      full,
+      sector,
+      outward,
+      city: null,
+      raw: sRaw,
+    };
+  }
+
+  // 2) SECTOR form, eg "E4 6", "SW1A 1"
+  const sectorRe = /^(?<outward>(?:[A-Z]{1,2}\d{1,2}[A-Z]?))\s*(?<digit>\d)$/;
+  const mSector = s.match(sectorRe);
+  if (mSector && mSector.groups) {
+    const outward = mSector.groups.outward;
+    const sector = `${outward} ${mSector.groups.digit}`;
+    return {
+      full: null,
+      sector,
+      outward,
+      city: null,
+      raw: sRaw,
+    };
+  }
+
+  // 3) OUTWARD-ONLY form, eg "E4", "SW1A", "EC1"
+  const outwardRe = /^(?<outward>(?:[A-Z]{1,2}\d{1,2}[A-Z]?))$/;
+  const mOut = s.match(outwardRe);
+  if (mOut && mOut.groups) {
+    const outward = mOut.groups.outward;
+    return {
+      full: null,
+      sector: null,
+      outward,
+      city: null,
+      raw: sRaw,
+    };
+  }
+
+  // 4) Otherwise treat as a city/area string
   return {
     full: null,
     sector: null,
     outward: null,
-    city: s.toLowerCase(),
-    raw: s,
+    city: sRaw.toLowerCase(),
+    raw: sRaw,
   };
+}
+
+function updateUserLocation(db, uid, location) {
+  const t = extractLocationTokens(String(location ?? "").trim());
+  db.prepare(
+    `UPDATE users SET
+       locationRaw=@raw,
+       postcode=@full,
+       postcodeSector=@sector,
+       postcodeOutward=@outward,
+       city=@city
+     WHERE uid=@uid`
+  ).run({
+    uid,
+    raw: t.raw,
+    full: t.full,
+    sector: t.sector,
+    outward: t.outward,
+    city: t.city,
+  });
 }
 
 /* -------------------- Firebase -------------------- */
@@ -103,13 +209,13 @@ function extractLocationTokens(raw) {
     admin.initializeApp({ credential: admin.credential.cert(creds) });
 })();
 
-function optionalAuth(admin) {
+function optionalAuth(adminInstance) {
   return async (req, _res, next) => {
     try {
       const h = req.headers?.authorization || "";
       if (h.startsWith("Bearer ")) {
         const token = h.slice(7);
-        const decoded = await admin.auth().verifyIdToken(token);
+        const decoded = await adminInstance.auth().verifyIdToken(token);
         req.user = { uid: decoded.uid, email: decoded.email || null };
       }
     } catch (_e) {
@@ -124,7 +230,71 @@ function optionalAuth(admin) {
 const db = initDb(process.env.DATABASE_URL || "./data/app.db");
 if (runMigrations) runMigrations(db);
 
-// Ensure users table exists & backfill if empty
+// If no external notifyUsers module is available, install a minimal in-file fallback *now*
+// (db is available at this point)
+if (!notifyUsers) {
+  // ensure a notifications table exists
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      userId TEXT NOT NULL,
+      type TEXT NOT NULL,
+      message TEXT NOT NULL,
+      projectId INTEGER,
+      linkPath TEXT,
+      createdAt TEXT NOT NULL,
+      readAt TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(userId, createdAt DESC);
+  
+  CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications(userId, readAt);
+`);
+
+  notifyUsers = function fallbackNotifyUsers(dbConn, uids, payload) {
+    const now = new Date().toISOString();
+    const ins = dbConn.prepare(`
+      INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
+      VALUES (@uid, @type, @message, @projectId, @linkPath, @createdAt)
+    `);
+
+    const tx = dbConn.transaction((ids) => {
+      ids.forEach((uid) => {
+        ins.run({
+          uid,
+          type: payload.type || "info",
+          message: String(payload.message || ""),
+          projectId:
+            typeof payload.projectId === "number" ? payload.projectId : null,
+          linkPath: payload.linkPath || null,
+          createdAt: now,
+        });
+
+        // push to any live SSE clients
+        const set = clientsByUser.get(uid);
+        if (set && set.size) {
+          for (const res of set) {
+            try {
+              sseSend(res, "notification", {
+                type: payload.type || "info",
+                message: String(payload.message || ""),
+                projectId:
+                  typeof payload.projectId === "number"
+                    ? payload.projectId
+                    : null,
+                linkPath: payload.linkPath || null,
+                createdAt: now,
+              });
+            } catch {}
+          }
+        }
+      });
+    });
+
+    tx(uids || []);
+  };
+}
+
+// Ensure users table has location fields
 ensureUsersTable(db);
 backfillUsersFromFirebaseIfEmpty(db, admin).catch(() => {});
 
@@ -140,7 +310,7 @@ function getUsersPkCol(db) {
     const cols = db.prepare("PRAGMA table_info(users)").all();
     const candidates = ["id", "userId", "uid"];
     const found = candidates.find((c) => cols.some((r) => r.name === c));
-    __USERS_PK_COL = found || "id"; // default if newly migrated
+    __USERS_PK_COL = found || "id";
   } catch {
     __USERS_PK_COL = "id";
   }
@@ -149,12 +319,10 @@ function getUsersPkCol(db) {
 
 /* -------------------- Uploads (photos) -------------------- */
 
-// Serve uploaded files
 const UPLOAD_DIR = path.resolve(process.cwd(), "uploads");
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 app.use("/uploads", express.static(UPLOAD_DIR, { maxAge: "7d", index: false }));
 
-// Ensure photos table (defensive, in case migration hasn't run)
 db.exec(`
   CREATE TABLE IF NOT EXISTS recommendation_photos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -192,7 +360,6 @@ const upload = multer({
 /* -------------------- Users table helpers -------------------- */
 
 function ensureUsersTable(db) {
-  // base
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       uid TEXT PRIMARY KEY,
@@ -200,20 +367,43 @@ function ensureUsersTable(db) {
       createdAt TEXT NOT NULL,
       firstName TEXT,
       lastName TEXT,
-      username TEXT
+      username TEXT,
+      locationRaw TEXT,
+      postcode TEXT,
+      postcodeSector TEXT,
+      postcodeOutward TEXT,
+      city TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_users_createdAt ON users(createdAt);
+    CREATE INDEX IF NOT EXISTS idx_users_city ON users(city);
+    CREATE INDEX IF NOT EXISTS idx_users_postcode ON users(postcode);
+    CREATE INDEX IF NOT EXISTS idx_users_postcodeSector ON users(postcodeSector);
+    CREATE INDEX IF NOT EXISTS idx_users_postcodeOutward ON users(postcodeOutward);
   `);
-  // add missing columns safely for older DBs
   try {
     db.exec(`ALTER TABLE users ADD COLUMN firstName TEXT;`);
-  } catch (_) {}
+  } catch {}
   try {
     db.exec(`ALTER TABLE users ADD COLUMN lastName TEXT;`);
-  } catch (_) {}
+  } catch {}
   try {
     db.exec(`ALTER TABLE users ADD COLUMN username TEXT;`);
-  } catch (_) {}
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN locationRaw TEXT;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN postcode TEXT;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN postcodeSector TEXT;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN postcodeOutward TEXT;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN city TEXT;`);
+  } catch {}
 }
 
 function touchUserRow(db, { uid, email }) {
@@ -229,7 +419,6 @@ function touchUserRow(db, { uid, email }) {
   });
 }
 
-// Middleware to run AFTER authMiddleware(admin)
 function touchUser(db) {
   return (req, _res, next) => {
     if (req.user?.uid) {
@@ -239,7 +428,6 @@ function touchUser(db) {
   };
 }
 
-// Convenience: apply auth + user upsert
 const authed = (handler) => [authMiddleware(admin), touchUser(db), handler];
 
 // One-time backfill if the users table is empty (from Firebase Admin)
@@ -285,10 +473,7 @@ async function handlePublicStats(_req, res) {
         .prepare(`SELECT COUNT(DISTINCT projectId) AS c FROM recommendations`)
         .get().c || 0;
 
-    // 👇 important when hitting cross-origin in dev/prod
     res.set("Access-Control-Allow-Origin", "*");
-
-    // prevent 304 / stale bodies
     res.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
     res.set("Pragma", "no-cache");
     res.set("Expires", "0");
@@ -315,7 +500,6 @@ const ProjectSchema = z.object({
   bedrooms: z.number().int().min(0).max(20),
 });
 
-// Accepts either rating (1–5) or hireAgain ("yes" | "no"); rating is coerced.
 const RecSchema = z
   .object({
     name: z.string().min(1).max(120),
@@ -350,9 +534,8 @@ function cleanPhone(input) {
   return compact || null;
 }
 
-/* -------------------- Account (names) -------------------- */
+/* -------------------- Account (names + location) -------------------- */
 
-// GET current account
 app.get(
   "/api/account",
   ...authed((req, res) => {
@@ -361,18 +544,18 @@ app.get(
     const user =
       db
         .prepare(
-          `SELECT uid, email, firstName, lastName, username
-       FROM users
-      WHERE uid = ?`
+          `SELECT uid, email, firstName, lastName, username,
+                  locationRaw, postcode, postcodeSector, postcodeOutward, city
+           FROM users
+           WHERE uid = ?`
         )
         .get(uid) || null;
 
     const profile =
       db
         .prepare(
-          `SELECT userId, locationRaw, postcode, postcodeSector, postcodeOutward, city, updatedAt
-       FROM user_profiles
-      WHERE userId = ?`
+          `SELECT uid AS userId, locationRaw, postcode, postcodeSector, postcodeOutward, city, createdAt AS updatedAt
+           FROM users WHERE uid = ?`
         )
         .get(uid) || null;
 
@@ -380,7 +563,6 @@ app.get(
   })
 );
 
-// POST update editable fields (first/last/location)
 app.post(
   "/api/account",
   ...authed((req, res) => {
@@ -391,7 +573,6 @@ app.post(
     const username = (req.body?.username ?? "").toString().trim() || null;
     const location = (req.body?.location ?? "").toString();
 
-    // enforce username uniqueness if provided
     if (username) {
       const taken = db
         .prepare(`SELECT 1 FROM users WHERE username = ? AND uid <> ?`)
@@ -402,111 +583,125 @@ app.post(
           .json({ error: "That username is already taken." });
     }
 
-    // keep existing email/createdAt if row exists
     const existing = db
       .prepare(`SELECT email, createdAt FROM users WHERE uid = ?`)
       .get(uid);
 
     const now = new Date().toISOString();
 
-    // upsert users by uid
     db.prepare(
       `INSERT INTO users (uid, email, createdAt, firstName, lastName, username)
-     VALUES (@uid, @email, @createdAt, @firstName, @lastName, @username)
-     ON CONFLICT(uid) DO UPDATE SET
-       firstName = excluded.firstName,
-       lastName  = excluded.lastName,
-       username  = excluded.username`
+       VALUES (@uid, @email, @createdAt, @firstName, @lastName, @username)
+       ON CONFLICT(uid) DO UPDATE SET
+         email=excluded.email,
+         firstName=excluded.firstName,
+         lastName=excluded.lastName,
+         username=excluded.username`
     ).run({
       uid,
-      email: existing?.email ?? null,
+      email: existing?.email ?? req.user.email ?? null,
       createdAt: existing?.createdAt ?? now,
       firstName,
       lastName,
       username,
     });
 
-    // upsert profile/location
-    const t = extractLocationTokens(location);
-    db.prepare(
-      `INSERT INTO user_profiles
-       (userId, locationRaw, postcode, postcodeSector, postcodeOutward, city, updatedAt)
-     VALUES (@userId, @raw, @full, @sector, @outward, @city, @updatedAt)
-     ON CONFLICT(userId) DO UPDATE SET
-       locationRaw     = excluded.locationRaw,
-       postcode        = excluded.postcode,
-       postcodeSector  = excluded.postcodeSector,
-       postcodeOutward = excluded.postcodeOutward,
-       city            = excluded.city,
-       updatedAt       = excluded.updatedAt`
-    ).run({
-      userId: uid,
-      raw: t.raw,
-      full: t.full,
-      sector: t.sector,
-      outward: t.outward,
-      city: t.city,
-      updatedAt: now,
-    });
-
+    updateUserLocation(db, uid, location);
     res.json({ ok: true });
   })
 );
 
-/* -------------------- Projects CRUD -------------------- */
+/* -------------------- Profile (legacy path; proxies users) -------------------- */
 
-// Create (default pending)
-app.post(
-  "/api/projects",
+app.get(
+  "/api/profile",
   ...authed((req, res) => {
-    const CreateProjectSchema = ProjectSchema.extend({
-      bedrooms: z.coerce.number().int().min(0).max(20),
-    });
-
-    const data = {
-      name: String(req.body?.name ?? "").trim(),
-      type: String(req.body?.type ?? "").trim(),
-      location: String(req.body?.location ?? "").trim(),
-      description: String(req.body?.description ?? "").trim(),
-      propertyType: String(req.body?.propertyType ?? "").trim(),
-      bedrooms: req.body?.bedrooms,
-    };
-
-    const parsed = CreateProjectSchema.safeParse(data);
-    if (!parsed.success) {
-      return res
-        .status(400)
-        .json({ error: "Invalid payload", issues: parsed.error.issues });
-    }
-
-    const now = new Date().toISOString();
-    const ownerUserId = req.user.uid;
-
-    const info = db
+    const uid = req.user.uid;
+    const row = db
       .prepare(
-        `INSERT INTO projects
-         (name, type, location, description, propertyType, bedrooms, ownerUserId, status, createdAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)`
+        `SELECT uid AS userId, locationRaw, postcode, postcodeSector, postcodeOutward, city, createdAt AS updatedAt
+         FROM users WHERE uid = ?`
       )
-      .run(
-        parsed.data.name,
-        parsed.data.type,
-        parsed.data.location,
-        parsed.data.description,
-        parsed.data.propertyType,
-        parsed.data.bedrooms,
-        ownerUserId,
-        now
-      );
-
-    const project = db
-      .prepare(`SELECT * FROM projects WHERE id = ?`)
-      .get(info.lastInsertRowid);
-    res.json({ project });
+      .get(uid);
+    res.json({ profile: row || null });
   })
 );
 
-// List (filters + pagination consolidated)
+app.post(
+  "/api/profile",
+  ...authed((req, res) => {
+    const uid = req.user.uid;
+    const loc = String(req.body?.location ?? "").trim();
+    updateUserLocation(db, uid, loc);
+    const row = db
+      .prepare(
+        `SELECT uid AS userId, locationRaw, postcode, postcodeSector, postcodeOutward, city, createdAt AS updatedAt
+         FROM users WHERE uid=?`
+      )
+      .get(uid);
+
+    res.json({ profile: row });
+  })
+);
+
+app.get(
+  "/api/me",
+  ...authed(async (req, res) => {
+    const uid = req.user.uid;
+
+    // pull name fields from your users table
+    const row =
+      db
+        .prepare(
+          `SELECT uid, email, firstName, lastName, username
+           FROM users WHERE uid = ?`
+        )
+        .get(uid) || {};
+
+    const email = row.email || req.user.email || null;
+    const firstName = row.firstName || null;
+    const lastName = row.lastName || null;
+    const username = row.username || null;
+
+    // compute displayName + initials on the server (optional but handy)
+    const displayName =
+      [firstName, lastName].filter(Boolean).join(" ") ||
+      username ||
+      email ||
+      uid;
+
+    const initials =
+      firstName || lastName
+        ? `${(firstName || "").slice(0, 1)}${(lastName || "").slice(
+            0,
+            1
+          )}`.toUpperCase()
+        : username
+        ? username
+            .split(/[.\-_ ]+/)
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((s) => s[0])
+            .join("")
+            .toUpperCase()
+        : undefined;
+
+    res.set("Cache-Control", "no-store");
+    res.json({
+      uid,
+      email,
+      firstName,
+      lastName,
+      username,
+      displayName,
+      initials,
+    });
+  })
+);
+
+/* -------------------- Projects: CRUD -------------------- */
+
+/** List my projects */
 app.get(
   "/api/projects",
   ...authed((req, res) => {
@@ -609,156 +804,52 @@ app.get(
   })
 );
 
-app.get(
-  "/api/me",
-  ...authed((req, res) => {
-    res.json({ uid: req.user.uid, email: req.user.email || null });
-  })
-);
-
-/* -------------------- Profile (location) -------------------- */
-
-// Get my profile
-app.get(
-  "/api/profile",
-  ...authed((req, res) => {
-    const uid = req.user.uid;
-    const row = db
-      .prepare(
-        `SELECT userId, locationRaw, postcode, postcodeSector, postcodeOutward, city, updatedAt
-         FROM user_profiles WHERE userId=?`
-      )
-      .get(uid);
-    res.json({ profile: row || null });
-  })
-);
-
-// Update my location (body: { location: string })
+/** Create a project (owner = current user) */
 app.post(
-  "/api/profile",
+  "/api/projects",
   ...authed((req, res) => {
     const uid = req.user.uid;
-    const loc = String(req.body?.location ?? "").trim();
-    const t = extractLocationTokens(loc);
-    const now = new Date().toISOString();
 
+    let body;
+    try {
+      body = ProjectSchema.parse({
+        name: req.body?.name,
+        type: req.body?.type,
+        location: req.body?.location,
+        description: req.body?.description,
+        propertyType: req.body?.propertyType,
+        bedrooms: req.body?.bedrooms,
+      });
+    } catch (e) {
+      return res.status(400).json({ error: "Invalid payload" });
+    }
+
+    const now = new Date().toISOString();
     db.prepare(
-      `INSERT INTO user_profiles (userId, locationRaw, postcode, postcodeSector, postcodeOutward, city, updatedAt)
-       VALUES (@userId, @raw, @full, @sector, @outward, @city, @updatedAt)
-       ON CONFLICT(userId) DO UPDATE SET
-         locationRaw=excluded.locationRaw,
-         postcode=excluded.postcode,
-         postcodeSector=excluded.postcodeSector,
-         postcodeOutward=excluded.postcodeOutward,
-         city=excluded.city,
-         updatedAt=excluded.updatedAt`
+      `INSERT INTO projects
+        (name, type, location, description, propertyType, bedrooms, status, createdAt, ownerUserId)
+       VALUES (@name, @type, @location, @description, @propertyType, @bedrooms, 'pending', @createdAt, @owner)`
     ).run({
-      userId: uid,
-      raw: t.raw,
-      full: t.full,
-      sector: t.sector,
-      outward: t.outward,
-      city: t.city,
-      updatedAt: now,
+      ...body,
+      createdAt: now,
+      owner: uid,
     });
 
-    const row = db
+    const project = db
       .prepare(
-        `SELECT userId, locationRaw, postcode, postcodeSector, postcodeOutward, city, updatedAt
-         FROM user_profiles WHERE userId=?`
+        `SELECT *
+           FROM projects
+          WHERE ownerUserId = @owner
+          ORDER BY id DESC
+          LIMIT 1`
       )
-      .get(uid);
+      .get({ owner: uid });
 
-    res.json({ profile: row });
+    res.status(201).json({ project });
   })
 );
 
-/* -------------------- Publish + local notifications -------------------- */
-
-app.post(
-  "/api/projects/:id/publish",
-  ...authed((req, res) => {
-    const id = Number(req.params.id);
-    if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });
-
-    const existing = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
-    if (!existing) return res.status(404).json({ error: "Not found" });
-    if (existing.ownerUserId !== req.user.uid)
-      return res.status(403).json({ error: "Forbidden" });
-
-    const status = (existing.status || "").toLowerCase();
-    if (status === "archived")
-      return res
-        .status(400)
-        .json({ error: "Project is archived. Unarchive before publishing." });
-    if (status === "live") return res.json({ project: existing }); // already live — do nothing
-
-    db.prepare(`UPDATE projects SET status='live' WHERE id=?`).run(id);
-    const updated = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
-    res.json({ project: updated });
-
-    // Target local users...
-    const locTokens = extractLocationTokens(updated.location);
-    const whereParts = [];
-    const areaParams = {};
-    if (locTokens.full) {
-      whereParts.push("up.postcode = @full");
-      areaParams.full = locTokens.full;
-    }
-    if (locTokens.sector) {
-      whereParts.push("up.postcodeSector = @sector");
-      areaParams.sector = locTokens.sector;
-    }
-    if (locTokens.outward) {
-      whereParts.push("up.postcodeOutward = @outward");
-      areaParams.outward = locTokens.outward;
-    }
-    if (locTokens.city) {
-      whereParts.push("up.city = @city");
-      areaParams.city = locTokens.city.toLowerCase();
-    }
-    if (!whereParts.length) return;
-
-    const areaWhere = whereParts.join(" OR ");
-
-    const areaUsers = db
-      .prepare(
-        `SELECT up.userId AS uid
-         FROM user_profiles up
-        WHERE (${areaWhere}) AND up.userId != @owner`
-      )
-      .all({ ...areaParams, owner: updated.ownerUserId })
-      .map((r) => r.uid);
-
-    const recUsers = db
-      .prepare(
-        `SELECT DISTINCT r.recommenderUserId AS uid
-         FROM recommendations r
-         JOIN user_profiles up ON up.userId = r.recommenderUserId
-        WHERE r.projectId = @pid
-          AND r.recommenderUserId IS NOT NULL
-          AND (${areaWhere})
-          AND r.recommenderUserId != @owner`
-      )
-      .all({ ...areaParams, pid: id, owner: updated.ownerUserId })
-      .map((r) => r.uid);
-
-    const targets = Array.from(new Set([...areaUsers, ...recUsers]));
-    if (targets.length) {
-      notifyUsers(db, targets, {
-        type: "project_live_local",
-        message: `A new project “${updated.name}” in your area is now live`,
-        projectId: id,
-        linkPath: `/projects/${id}`,
-      });
-    }
-  })
-);
-
-/* -------------------- Read / Update / Archive -------------------- */
-
-// IMPORTANT: optionalAuth here so LIVE projects can be read without a token.
-// ...
+/** Read single project (public if live) */
 app.get("/api/projects/:id", optionalAuth(admin), (req, res) => {
   const id = Number(req.params.id);
   if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });
@@ -772,92 +863,90 @@ app.get("/api/projects/:id", optionalAuth(admin), (req, res) => {
   res.json({ project });
 });
 
+/** Update a project (owner only) */
 app.put(
   "/api/projects/:id",
   ...authed((req, res) => {
+    const uid = req.user.uid;
     const id = Number(req.params.id);
-    if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+    if (!Number.isFinite(id))
+      return res.status(400).json({ error: "Invalid id" });
 
-    const existing = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
-    if (!existing) return res.status(404).json({ error: "Not found" });
-    if (existing.ownerUserId !== req.user.uid)
+    const current = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
+    if (!current) return res.status(404).json({ error: "Not found" });
+    if (current.ownerUserId !== uid)
       return res.status(403).json({ error: "Forbidden" });
 
-    const parse = ProjectSchema.partial().safeParse(req.body);
-    if (!parse.success) {
-      return res
-        .status(400)
-        .json({ error: "Invalid payload", issues: parse.error.issues });
+    // Partial update – reuse schema but allow blanks -> coerce to current values
+    const fields = {
+      name: String(req.body?.name ?? current.name),
+      type: String(req.body?.type ?? current.type),
+      location: String(req.body?.location ?? current.location),
+      description: String(req.body?.description ?? current.description),
+      propertyType: String(req.body?.propertyType ?? current.propertyType),
+      bedrooms: Number(
+        req.body?.bedrooms !== undefined ? req.body.bedrooms : current.bedrooms
+      ),
+    };
+
+    try {
+      ProjectSchema.parse(fields);
+    } catch {
+      return res.status(400).json({ error: "Invalid payload" });
     }
 
-    const f = { ...existing, ...parse.data };
     db.prepare(
-      `UPDATE projects
-          SET name=?, type=?, location=?, description=?, propertyType=?, bedrooms=?
-        WHERE id=?`
-    ).run(
-      f.name,
-      f.type,
-      f.location,
-      f.description,
-      f.propertyType,
-      f.bedrooms,
-      id
-    );
+      `UPDATE projects SET
+         name=@name,
+         type=@type,
+         location=@location,
+         description=@description,
+         propertyType=@propertyType,
+         bedrooms=@bedrooms
+       WHERE id=@id`
+    ).run({ ...fields, id });
 
-    const updated = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
+    const updated = db.prepare(`SELECT * FROM projects WHERE id=?`).get(id);
     res.json({ project: updated });
   })
 );
 
-app.post("/api/projects/:id/close", (req, res) => {
-  req.url = req.url.replace("/close", "/archive");
-  return app._router.handle(req, res);
-});
-
+/** Archive (owner only) */
 app.post(
   "/api/projects/:id/archive",
   ...authed((req, res) => {
+    const uid = req.user.uid;
     const id = Number(req.params.id);
-    if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+    if (!Number.isFinite(id))
+      return res.status(400).json({ error: "Invalid id" });
 
-    const existing = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
-    if (!existing) return res.status(404).json({ error: "Not found" });
-    if (existing.ownerUserId !== req.user.uid)
+    const current = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
+    if (!current) return res.status(404).json({ error: "Not found" });
+    if (current.ownerUserId !== uid)
       return res.status(403).json({ error: "Forbidden" });
 
-    if (existing.status === "archived") return res.json({ project: existing });
-
-    db.prepare(
-      `UPDATE projects SET status='archived', archivedAt=? WHERE id=?`
-    ).run(new Date().toISOString(), id);
-
-    const updated = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
+    db.prepare(`UPDATE projects SET status='archived' WHERE id=?`).run(id);
+    const updated = db.prepare(`SELECT * FROM projects WHERE id=?`).get(id);
     res.json({ project: updated });
   })
 );
 
+/** Unarchive (owner only) */
 app.post(
   "/api/projects/:id/unarchive",
   ...authed((req, res) => {
+    const uid = req.user.uid;
     const id = Number(req.params.id);
-    if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+    if (!Number.isFinite(id))
+      return res.status(400).json({ error: "Invalid id" });
 
-    const existing = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
-    if (!existing) return res.status(404).json({ error: "Not found" });
-    if (existing.ownerUserId !== req.user.uid)
+    const current = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
+    if (!current) return res.status(404).json({ error: "Not found" });
+    if (current.ownerUserId !== uid)
       return res.status(403).json({ error: "Forbidden" });
 
-    if (existing.status !== "archived") {
-      return res
-        .status(400)
-        .json({ error: "Only archived projects can be unarchived." });
-    }
-
-    db.prepare(
-      `UPDATE projects SET status='pending', archivedAt=NULL WHERE id=?`
-    ).run(id);
-    const updated = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
+    db.prepare(`UPDATE projects SET status='pending' WHERE id=?`).run(id);
+    const updated = db.prepare(`SELECT * FROM projects WHERE id=?`).get(id);
     res.json({ project: updated });
   })
 );
@@ -1070,6 +1159,9 @@ app.post(
       comment: String(req.body?.comment ?? "").trim(),
     };
 
+    // Allow anonymous name
+    if (!payload.name) payload.name = "Anonymous";
+
     const parsed = RecSchema.safeParse(payload);
     if (!parsed.success) {
       console.warn("[magic-post] bad payload", parsed.error.flatten());
@@ -1133,13 +1225,11 @@ app.post(
       }
     }
 
-    /* === NEW: notify project owner === */
+    /* Notify owner */
     try {
       const ownerRow = db
         .prepare(`SELECT ownerUserId, name FROM projects WHERE id=?`)
         .get(link.projectId);
-
-      // For magic links, submitter may be anonymous; never notify self
       if (ownerRow && ownerRow.ownerUserId) {
         const submitter = uid || null;
         if (ownerRow.ownerUserId !== submitter) {
@@ -1153,9 +1243,20 @@ app.post(
       }
     } catch (e) {
       console.warn("[notify-owner magic] failed", e);
-      // non-blocking
     }
-    /* === END NEW === */
+
+    // Auto-like when hireAgain = yes, even if anonymous (one like per token/uid)
+    try {
+      if (hireAgainRaw !== "no") {
+        const voterId = uid || `magic:${token}`;
+        db.prepare(
+          `INSERT OR IGNORE INTO recommendation_votes (recommendationId, userId, value)
+           VALUES (?, ?, 1)`
+        ).run(recommendationId, voterId);
+      }
+    } catch (e) {
+      console.warn("[magic-post] auto-like failed", e);
+    }
 
     console.log("[magic-post] recommendation created", {
       token,
@@ -1168,6 +1269,7 @@ app.post(
     return res.status(201).json({ ok: true, recommendationId });
   }
 );
+
 
 // Debug helper (owner only): list rec-links for a project
 app.get(
@@ -1192,219 +1294,86 @@ app.get(
 
 /* -------------------- Shortlist w/ likes -------------------- */
 
-app.get(
-  "/api/projects/:id/recommendations",
+/** Publish (owner only) + notifications */
+app.post(
+  "/api/projects/:id/publish",
   ...authed((req, res) => {
     const id = Number(req.params.id);
     if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });
 
-    const proj = db
-      .prepare(`SELECT ownerUserId, status, location FROM projects WHERE id=?`)
-      .get(id);
-    if (!proj) return res.status(404).json({ error: "Not found" });
-    const pTok = extractLocationTokens(proj.location);
+    const existing = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
+    if (!existing) return res.status(404).json({ error: "Not found" });
+    if (existing.ownerUserId !== req.user.uid)
+      return res.status(403).json({ error: "Forbidden" });
 
-    const uid = req.user?.uid || null;
-    const isOwner = uid && uid === proj.ownerUserId;
-    const isLive = (proj.status || "").toLowerCase() === "live";
-
-    let allowed = !!isOwner;
-    if (!allowed) {
-      if (isLive) allowed = !!uid; // any logged-in user on live projects
-      else {
-        const hasRec = db
-          .prepare(
-            `SELECT 1 FROM recommendations WHERE projectId = ? AND recommenderUserId = ? LIMIT 1`
-          )
-          .get(id, uid);
-        if (hasRec) allowed = true;
-      }
-    }
-    if (!allowed) return res.status(403).json({ error: "Forbidden" });
-
-    const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
-    const pageSize = Math.max(
-      1,
-      Math.min(50, parseInt(String(req.query.pageSize ?? "10"), 10))
-    );
-    const offset = (page - 1) * pageSize;
-
-    const totalRow = db
-      .prepare(`SELECT COUNT(*) AS c FROM recommendations WHERE projectId = ?`)
-      .get(id);
-
-    // include likes + myLike and keep location/profile join; also select phone
-    const raw = db
-      .prepare(
-        `
-        SELECT
-          r.id, r.name, r.email, r.phone, r.company, r.comment, r.isAnonymous, r.createdAt, r.source,
-          r.recommenderUserId,
-          r.rating,
-          up.postcode AS up_postcode,
-          up.postcodeSector AS up_sector,
-          up.postcodeOutward AS up_outward,
-          up.city AS up_city,
-          COALESCE(v.likes, 0) AS likes,
-          CASE WHEN mv.userId IS NULL THEN 0 ELSE 1 END AS myLike
-        FROM recommendations r
-        LEFT JOIN (
-          SELECT recommendationId, COUNT(*) AS likes
-          FROM recommendation_votes
-          WHERE value = 1
-          GROUP BY recommendationId
-        ) v ON v.recommendationId = r.id
-        LEFT JOIN recommendation_votes mv
-          ON mv.recommendationId = r.id AND mv.userId = ?
-        LEFT JOIN user_profiles up ON up.userId = r.recommenderUserId
-        WHERE r.projectId = ?
-        ORDER BY likes DESC, r.createdAt DESC
-        LIMIT ? OFFSET ?
-      `
-      )
-      .all(uid || "", id, pageSize, offset);
-
-    function communityMatch(row) {
-      if (!row.recommenderUserId) return 0;
-      return Number(
-        (pTok.full && row.up_postcode === pTok.full) ||
-          (pTok.sector && row.up_sector === pTok.sector) ||
-          (pTok.outward && row.up_outward === pTok.outward) ||
-          (pTok.city &&
-            row.up_city &&
-            String(row.up_city).toLowerCase() ===
-              String(pTok.city || "").toLowerCase())
-      );
-    }
-
-    const items = raw.map((r) => ({
-      id: r.id,
-      name: r.name,
-      email: r.email,
-      phone: r.phone,
-      company: r.company,
-      comment: r.comment,
-      isAnonymous: r.isAnonymous,
-      createdAt: r.createdAt,
-      fromFriend: String(r.source || "magic") === "magic" ? 1 : 0,
-      fromCommunity: communityMatch(r),
-      likes: r.likes,
-      myLike: r.myLike ? 1 : 0,
-      rating: r.rating ?? null,
-    }));
-
-    res.json({ items, total: totalRow.c || 0, page, pageSize });
-  })
-);
-
-/* -------------------- Logged-in recommendation submission -------------- */
-/* Canonical endpoint */
-app.post(
-  "/api/projects/:id/recommendations",
-  ...authed((req, res, next) => {
-    const ct = (req.headers["content-type"] || "").toLowerCase();
-    if (ct.startsWith("multipart/form-data")) {
-      upload.array("photos", 8)(req, res, (err) => {
-        if (err)
-          return res
-            .status(400)
-            .json({ error: err.message || "Upload failed" });
-        next();
-      });
-    } else {
-      next();
-    }
-  }),
-  (req, res) => {
-    const projectId = Number(req.params.id);
-    if (!Number.isFinite(projectId))
-      return res.status(400).json({ error: "Invalid id" });
-
-    const asNumber = (v) =>
-      v === undefined || v === null || v === "" ? undefined : Number(v);
-    const payload = {
-      name: String(req.body?.name ?? "").trim(),
-      email: String(req.body?.email ?? "").trim() || undefined,
-      phone: String(req.body?.phone ?? "").trim() || undefined,
-      company: String(req.body?.company ?? "").trim(),
-      rating: asNumber(req.body?.rating) ?? 5,
-      comment: String(req.body?.comment ?? "").trim(),
-    };
-
-    const parsed = RecSchema.safeParse(payload);
-    if (!parsed.success) {
+    const status = (existing.status || "").toLowerCase();
+    if (status === "archived")
       return res
         .status(400)
-        .json({ error: "Invalid payload", issues: parsed.error.issues });
+        .json({ error: "Project is archived. Unarchive before publishing." });
+    if (status === "live") return res.json({ project: existing });
+
+    db.prepare(`UPDATE projects SET status='live' WHERE id=?`).run(id);
+    const updated = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
+    res.json({ project: updated });
+
+    // Target local users using users table location fields
+    const locTokens = extractLocationTokens(updated.location);
+    const whereParts = [];
+    const areaParams = {};
+    if (locTokens.full) {
+      whereParts.push("u.postcode = @full");
+      areaParams.full = locTokens.full;
     }
+    if (locTokens.sector) {
+      whereParts.push("u.postcodeSector = @sector");
+      areaParams.sector = locTokens.sector;
+    }
+    if (locTokens.outward) {
+      whereParts.push("u.postcodeOutward = @outward");
+      areaParams.outward = locTokens.outward;
+    }
+    if (locTokens.city) {
+      whereParts.push("u.city = @city");
+      areaParams.city = locTokens.city.toLowerCase();
+    }
+    if (!whereParts.length) return;
 
-    const { name, email, phone, company, rating, comment } = parsed.data;
-    const now = new Date().toISOString();
-    const uid = req.user?.uid ?? null;
+    const areaWhere = whereParts.join(" OR ");
 
-    const info = db
+    const areaUsers = db
       .prepare(
-        `INSERT INTO recommendations
-        (projectId, recommenderUserId, createdAt, name, email, phone, company, rating, comment, isAnonymous, source)
-       VALUES
-        (@projectId, @uid, @createdAt, @name, @email, @phone, @company, @rating, @comment, 0, 'platform')`
+        `SELECT u.uid AS uid
+         FROM users u
+         WHERE (${areaWhere}) AND u.uid != @owner`
       )
-      .run({
-        projectId,
-        uid,
-        createdAt: now,
-        name,
-        email: email ?? null,
-        phone: cleanPhone(phone),
-        company,
-        rating,
-        comment,
+      .all({ ...areaParams, owner: updated.ownerUserId })
+      .map((r) => r.uid);
+
+    const recUsers = db
+      .prepare(
+        `SELECT DISTINCT r.recommenderUserId AS uid
+         FROM recommendations r
+         JOIN users u ON u.uid = r.recommenderUserId
+         WHERE r.projectId = @pid
+           AND r.recommenderUserId IS NOT NULL
+           AND (${areaWhere})
+           AND r.recommenderUserId != @owner`
+      )
+      .all({ ...areaParams, pid: id, owner: updated.ownerUserId })
+      .map((r) => r.uid);
+
+    const targets = Array.from(new Set([...areaUsers, ...recUsers]));
+    if (targets.length) {
+      notifyUsers(db, targets, {
+        type: "project_live_local",
+        message: `A new project “${updated.name}” in your area is now live`,
+        projectId: id,
+        linkPath: `/projects/${id}`,
       });
-
-    const recommendationId = info.lastInsertRowid;
-
-    // photos
-    const files = Array.isArray(req.files) ? req.files : [];
-    if (files.length) {
-      const stmt = db.prepare(
-        `INSERT INTO recommendation_photos (recommendationId, filePath, mime, sizeBytes, createdAt)
-         VALUES (?, ?, ?, ?, ?)`
-      );
-      for (const f of files) {
-        const rel = path.relative(UPLOAD_DIR, f.path).split(path.sep).join("/");
-        stmt.run(recommendationId, `/uploads/${rel}`, f.mimetype, f.size, now);
-      }
     }
-
-    /* === Notify project owner (platform) -> open builders/<recommendationId> === */
-    try {
-      const ownerRow = db
-        .prepare(`SELECT ownerUserId, name FROM projects WHERE id=?`)
-        .get(projectId);
-
-      if (ownerRow && ownerRow.ownerUserId && ownerRow.ownerUserId !== uid) {
-        notifyUsers(db, [ownerRow.ownerUserId], {
-          type: "recommendation_new",
-          message: `Someone has recommended a tradesperson to your project “${ownerRow.name}”`,
-          projectId, // keep for context
-          linkPath: `/builders/${recommendationId}`, // <-- go to builder detail
-        });
-      }
-    } catch (e) {
-      console.warn("[notify-owner platform] failed", e);
-    }
-
-    /* === END NEW === */
-
-    return res.status(201).json({ ok: true, recommendationId });
-  }
+  })
 );
-
-/* Back-compat alias for clients calling /recommend (singular) */
-app.post("/api/projects/:id/recommend", (req, res) => {
-  req.url = req.url.replace("/recommend", "/recommendations");
-  return app._router.handle(req, res);
-});
 
 /* -------------------- Notifications API & SSE -------------------- */
 
@@ -1560,7 +1529,214 @@ app.post(
   })
 );
 
-// GET /api/recommendations/:id  -> returns one recommendation with likes/myLike and project info (+ photos)
+/* -------------------- Recommendations (join users, not user_profiles) -------------------- */
+
+app.get(
+  "/api/projects/:id/recommendations",
+  ...authed((req, res) => {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+
+    const proj = db
+      .prepare(`SELECT ownerUserId, status, location FROM projects WHERE id=?`)
+      .get(id);
+    if (!proj) return res.status(404).json({ error: "Not found" });
+    const pTok = extractLocationTokens(proj.location);
+
+    const uid = req.user?.uid || null;
+    const isOwner = uid && uid === proj.ownerUserId;
+    const isLive = (proj.status || "").toLowerCase() === "live";
+
+    let allowed = !!isOwner;
+    if (!allowed) {
+      if (isLive) allowed = !!uid; // any logged-in user on live projects
+      else {
+        const hasRec = db
+          .prepare(
+            `SELECT 1 FROM recommendations WHERE projectId = ? AND recommenderUserId = ? LIMIT 1`
+          )
+          .get(id, uid);
+        if (hasRec) allowed = true;
+      }
+    }
+    if (!allowed) return res.status(403).json({ error: "Forbidden" });
+
+    const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
+    const pageSize = Math.max(
+      1,
+      Math.min(50, parseInt(String(req.query.pageSize ?? "10"), 10))
+    );
+    const offset = (page - 1) * pageSize;
+
+    const totalRow = db
+      .prepare(`SELECT COUNT(*) AS c FROM recommendations WHERE projectId = ?`)
+      .get(id);
+
+    // include likes + myLike and keep location/profile join; also select phone
+    const raw = db
+      .prepare(
+        `
+        SELECT
+          r.id, r.name, r.email, r.phone, r.company, r.comment, r.isAnonymous, r.createdAt, r.source,
+          r.recommenderUserId,
+          r.rating,
+          up.postcode AS up_postcode,
+          up.postcodeSector AS up_sector,
+          up.postcodeOutward AS up_outward,
+          up.city AS up_city,
+          COALESCE(v.likes, 0) AS likes,
+          CASE WHEN mv.userId IS NULL THEN 0 ELSE 1 END AS myLike
+        FROM recommendations r
+        LEFT JOIN (
+          SELECT recommendationId, COUNT(*) AS likes
+          FROM recommendation_votes
+          WHERE value = 1
+          GROUP BY recommendationId
+        ) v ON v.recommendationId = r.id
+        LEFT JOIN recommendation_votes mv
+          ON mv.recommendationId = r.id AND mv.userId = ?
+        LEFT JOIN user_profiles up ON up.userId = r.recommenderUserId
+        WHERE r.projectId = ?
+        ORDER BY likes DESC, r.createdAt DESC
+        LIMIT ? OFFSET ?
+      `
+      )
+      .all(uid || "", id, pageSize, offset);
+
+    function communityMatch(row) {
+      if (!row.recommenderUserId) return 0;
+      return Number(
+        (pTok.full && row.up_postcode === pTok.full) ||
+          (pTok.sector && row.up_sector === pTok.sector) ||
+          (pTok.outward && row.up_outward === pTok.outward) ||
+          (pTok.city &&
+            row.up_city &&
+            String(row.up_city).toLowerCase() ===
+              String(pTok.city || "").toLowerCase())
+      );
+    }
+
+    const items = raw.map((r) => ({
+      id: r.id,
+      name: r.name,
+      email: r.email,
+      phone: r.phone == null ? null : String(r.phone),
+      company: r.company,
+      comment: r.comment,
+      isAnonymous: r.isAnonymous,
+      createdAt: r.createdAt,
+      fromFriend: String(r.source || "magic") === "magic" ? 1 : 0,
+      fromCommunity: communityMatch(r),
+      likes: r.likes,
+      myLike: r.myLike ? 1 : 0,
+      rating: r.rating ?? null,
+    }));
+
+    res.json({ items, total: totalRow.c || 0, page, pageSize });
+  })
+);
+
+app.post(
+  "/api/projects/:id/recommendations",
+  ...authed((req, res, next) => {
+    const ct = (req.headers["content-type"] || "").toLowerCase();
+    if (ct.startsWith("multipart/form-data")) {
+      upload.array("photos", 8)(req, res, (err) => {
+        if (err)
+          return res
+            .status(400)
+            .json({ error: err.message || "Upload failed" });
+        next();
+      });
+    } else {
+      next();
+    }
+  }),
+  (req, res) => {
+    const projectId = Number(req.params.id);
+    if (!Number.isFinite(projectId))
+      return res.status(400).json({ error: "Invalid id" });
+
+    const asNumber = (v) =>
+      v === undefined || v === null || v === "" ? undefined : Number(v);
+    const payload = {
+      name: String(req.body?.name ?? "").trim(),
+      email: String(req.body?.email ?? "").trim() || undefined,
+      phone: String(req.body?.phone ?? "").trim() || undefined,
+      company: String(req.body?.company ?? "").trim(),
+      rating: asNumber(req.body?.rating) ?? 5,
+      comment: String(req.body?.comment ?? "").trim(),
+    };
+
+    const parsed = RecSchema.safeParse(payload);
+    if (!parsed.success) {
+      return res
+        .status(400)
+        .json({ error: "Invalid payload", issues: parsed.error.issues });
+    }
+
+    const { name, email, phone, company, rating, comment } = parsed.data;
+    const now = new Date().toISOString();
+    const uid = req.user?.uid ?? null;
+
+    const info = db
+      .prepare(
+        `INSERT INTO recommendations
+        (projectId, recommenderUserId, createdAt, name, email, phone, company, rating, comment, isAnonymous, source)
+       VALUES
+        (@projectId, @uid, @createdAt, @name, @email, @phone, @company, @rating, @comment, 0, 'platform')`
+      )
+      .run({
+        projectId,
+        uid,
+        createdAt: now,
+        name,
+        email: email ?? null,
+        phone: cleanPhone(phone),
+        company,
+        rating,
+        comment,
+      });
+
+    const recommendationId = info.lastInsertRowid;
+
+    // photos
+    const files = Array.isArray(req.files) ? req.files : [];
+    if (files.length) {
+      const stmt = db.prepare(
+        `INSERT INTO recommendation_photos (recommendationId, filePath, mime, sizeBytes, createdAt)
+         VALUES (?, ?, ?, ?, ?)`
+      );
+      for (const f of files) {
+        const rel = path.relative(UPLOAD_DIR, f.path).split(path.sep).join("/");
+        stmt.run(recommendationId, `/uploads/${rel}`, f.mimetype, f.size, now);
+      }
+    }
+
+    /* === Notify project owner (platform) -> open builders/<recommendationId> === */
+    try {
+      const ownerRow = db
+        .prepare(`SELECT ownerUserId, name FROM projects WHERE id=?`)
+        .get(projectId);
+
+      if (ownerRow && ownerRow.ownerUserId && ownerRow.ownerUserId !== uid) {
+        notifyUsers(db, [ownerRow.ownerUserId], {
+          type: "recommendation_new",
+          message: `Someone has recommended a tradesperson to your project “${ownerRow.name}”`,
+          projectId, // keep for context
+          linkPath: `/builders/${recommendationId}`, // <-- go to builder detail
+        });
+      }
+    } catch (e) {
+      console.warn("[notify-owner platform] failed", e);
+    }
+
+    /* === END NEW === */
+
+    return res.status(201).json({ ok: true, recommendationId });
+  }
+);
+
 app.get("/api/recommendations/:id", optionalAuth(admin), (req, res) => {
   const recId = Number(req.params.id);
   if (!Number.isFinite(recId))
@@ -1627,7 +1803,7 @@ app.get("/api/recommendations/:id", optionalAuth(admin), (req, res) => {
     createdAt: row.createdAt,
     name: row.name,
     email: row.email,
-    phone: row.phone || null,
+    phone: row.phone == null ? null : String(row.phone),
     isAnonymous: row.isAnonymous,
     likes: row.likes,
     myLike,
@@ -1639,6 +1815,156 @@ app.get("/api/recommendations/:id", optionalAuth(admin), (req, res) => {
   };
 
   res.json({ recommendation });
+});
+
+/* -------------------- Test-only endpoints -------------------- */
+
+app.post("/api/__test__/db/clear", (req, res) => {
+  if (assertTestAccess(req, res) !== true) return;
+  wipeAllRows(db);
+  res.json({ ok: true });
+});
+
+app.post("/api/__test__/users", async (req, res) => {
+  if (assertTestAccess(req, res) !== true) return;
+
+  try {
+    const {
+      uid: incomingUid,
+      email,
+      password,
+      firstName,
+      lastName,
+      username,
+      location = "",
+    } = req.body || {};
+
+    if (!email || typeof email !== "string")
+      return res.status(400).json({ error: "email is required" });
+
+    let uid = incomingUid;
+    if (!uid && admin?.apps?.length && password) {
+      try {
+        const userRec = await admin.auth().createUser({
+          email,
+          password,
+          emailVerified: true,
+        });
+        uid = userRec.uid;
+      } catch (e) {
+        try {
+          const existing = await admin.auth().getUserByEmail(email);
+          uid = existing.uid;
+        } catch (_) {
+          console.warn(
+            "[test users] Firebase create/get failed",
+            e?.message || e
+          );
+        }
+      }
+    }
+    if (!uid) uid = crypto.randomBytes(16).toString("base64url");
+
+    const now = new Date().toISOString();
+    const t = extractLocationTokens(location);
+
+    db.prepare(
+      `INSERT INTO users
+         (uid, email, createdAt, firstName, lastName, username,
+          locationRaw, postcode, postcodeSector, postcodeOutward, city)
+       VALUES
+         (@uid, @email, @createdAt, @firstName, @lastName, @username,
+          @raw, @full, @sector, @outward, @city)
+       ON CONFLICT(uid) DO UPDATE SET
+         email=excluded.email,
+         firstName=excluded.firstName,
+         lastName=excluded.lastName,
+         username=excluded.username,
+         locationRaw=excluded.locationRaw,
+         postcode=excluded.postcode,
+         postcodeSector=excluded.postcodeSector,
+         postcodeOutward=excluded.postcodeOutward,
+         city=excluded.city`
+    ).run({
+      uid,
+      email,
+      createdAt: now,
+      firstName: firstName ?? null,
+      lastName: lastName ?? null,
+      username: username ?? null,
+      raw: t.raw,
+      full: t.full,
+      sector: t.sector,
+      outward: t.outward,
+      city: t.city,
+    });
+
+    res.status(201).json({
+      ok: true,
+      uid,
+      email,
+      createdFirebase: Boolean(password && admin?.apps?.length),
+    });
+  } catch (e) {
+    console.error("[test users] create error", e);
+    res.status(500).json({ error: "Failed to create user" });
+  }
+});
+
+app.post("/api/__test__/auth/custom-token", async (req, res) => {
+  if (assertTestAccess(req, res) !== true) return;
+
+  const uid = String(req.body?.uid || "").trim();
+  if (!uid) return res.status(400).json({ error: "uid required" });
+
+  if (!admin?.apps?.length) {
+    return res.status(503).json({ error: "firebase admin not initialised" });
+  }
+
+  try {
+    const token = await admin.auth().createCustomToken(uid);
+    res.json({ ok: true, token });
+  } catch (e) {
+    console.error("[test] custom-token error", e);
+    res.status(500).json({ error: "failed to mint token" });
+  }
+});
+
+// In server/index.js (test-only):
+app.post("/api/__test__/auth/id-token", async (req, res) => {
+  if (assertTestAccess(req, res) !== true) return;
+  try {
+    const uid = String(req.body?.uid || "").trim();
+    if (!uid) return res.status(400).json({ error: "uid required" });
+    if (!admin?.apps?.length)
+      return res.status(503).json({ error: "firebase admin not initialised" });
+
+    const apiKey = resolveFirebaseApiKey?.() || process.env.FIREBASE_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: "Missing Web API key" });
+
+    // 1) Custom token
+    const customToken = await admin.auth().createCustomToken(uid);
+
+    // 2) Exchange for ID token via REST
+    const resp = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: customToken, returnSecureToken: true }),
+      }
+    );
+
+    const data = await resp.json();
+    if (!resp.ok) {
+      return res.status(500).json({ error: "exchange failed", details: data });
+    }
+
+    res.json({ ok: true, idToken: data.idToken });
+  } catch (e) {
+    console.error("[test] id-token error", e);
+    res.status(500).json({ error: "failed to mint id token" });
+  }
 });
 
 app.listen(PORT, () => console.log(`[server] http://localhost:${PORT}`));

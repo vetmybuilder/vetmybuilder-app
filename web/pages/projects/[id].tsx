@@ -98,6 +98,20 @@ export default function ProjectView() {
   // eligibility to add recommendation
   const [canAddRec, setCanAddRec] = useState(false);
 
+  // busy flag for archive/unarchive/publish
+  const [busy, setBusy] = useState(false);
+
+  // flash banner (auto-dismiss)
+  const [flash, setFlash] = useState<{
+    kind: "success" | "error";
+    text: string;
+  } | null>(null);
+  useEffect(() => {
+    if (!flash) return;
+    const t = setTimeout(() => setFlash(null), 50000);
+    return () => clearTimeout(t);
+  }, [flash]);
+
   /* Load project — wait for auth & router readiness */
   useEffect(() => {
     if (!router.isReady || authLoading || !user || !id) return;
@@ -136,49 +150,106 @@ export default function ProjectView() {
   const canPublish = isOwner && !isArchived && !isLive;
 
   const onPublish = async () => {
-    if (!project) return;
+    if (!project || busy) return;
+    setBusy(true);
     try {
       const { data } = await api.post(`/api/projects/${project.id}/publish`);
       setProject(data.project);
+      setFlash({ kind: "success", text: "Project published" });
     } catch (e: any) {
-      alert(e?.response?.data?.error || "Failed to publish");
+      setFlash({
+        kind: "error",
+        text: e?.response?.data?.error || "Failed to publish",
+      });
+    } finally {
+      setBusy(false);
     }
   };
+
+  // Archive immediately; show banner
   const onArchive = async () => {
-    if (!project) return;
-    if (!confirm("Archive this project? You’ll find it in Archived projects."))
-      return;
+    if (!project || busy) return;
+    setBusy(true);
     try {
       const { data } = await api.post(`/api/projects/${project.id}/archive`);
       setProject(data.project);
+      setFlash({ kind: "success", text: "Project archived" });
     } catch (e: any) {
-      alert(e?.response?.data?.error || "Failed to archive");
+      setFlash({
+        kind: "error",
+        text: e?.response?.data?.error || e?.message || "Failed to archive",
+      });
+    } finally {
+      setBusy(false);
     }
   };
+
   const onUnarchive = async () => {
-    if (!project) return;
+    if (!project || busy) return;
+    setBusy(true);
     try {
       const { data } = await api.post(`/api/projects/${project.id}/unarchive`);
       setProject(data.project);
+      setFlash({ kind: "success", text: "Project unarchived" });
     } catch (e: any) {
-      alert(e?.response?.data?.error || "Failed to unarchive");
+      setFlash({
+        kind: "error",
+        text: e?.response?.data?.error || e?.message || "Failed to unarchive",
+      });
+    } finally {
+      setBusy(false);
     }
   };
+
+  // Updated: copy invite shows flash message like onUnarchive; no window.prompt/alert
   const onCopyInvite = async () => {
-    if (!project) return;
+    if (!project || busy) return;
+    setBusy(true);
     try {
       const { data } = await api.post(`/api/projects/${project.id}/magic-link`);
       if (!data?.url) throw new Error("No URL returned");
+
+      let copied = false;
+
+      // Try modern clipboard API first
       try {
         await navigator.clipboard.writeText(data.url);
-        alert("Invite link copied:\n" + data.url);
+        copied = true;
       } catch {
-        window.prompt("Copy this invite link:", data.url);
+        // Fallback: invisible textarea + execCommand
+        try {
+          const ta = document.createElement("textarea");
+          ta.value = String(data.url);
+          ta.setAttribute("readonly", "");
+          ta.style.position = "fixed";
+          ta.style.top = "-10000px";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          copied = document.execCommand("copy");
+          document.body.removeChild(ta);
+        } catch {
+          copied = false;
+        }
+      }
+
+      if (copied) {
+        setFlash({ kind: "success", text: "Invite link copied to clipboard" });
+      } else {
+        // Still successful in generating; provide URL visibly as a fallback
+        setFlash({
+          kind: "success",
+          text: `Invite link: ${data.url}`,
+        });
       }
     } catch (e: any) {
-      alert(
-        e?.response?.data?.error || e?.message || "Failed to generate link"
-      );
+      setFlash({
+        kind: "error",
+        text:
+          e?.response?.data?.error || e?.message || "Failed to generate link",
+      });
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -300,42 +371,64 @@ export default function ProjectView() {
   /* ===== Render ===== */
   return (
     <AuthedOnly>
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+      <div
+        className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8"
+        data-testid="project-view-page"
+      >
         {authLoading || (router.isReady && loading) ? (
-          <p className="py-10 text-sm text-slate-500">Loading…</p>
+          <p
+            className="py-10 text-sm text-slate-500"
+            data-testid="project-loading"
+          >
+            Loading…
+          </p>
         ) : err ? (
-          <div className="py-10">
+          <div className="py-10" data-testid="project-error">
             <p className="text-red-600">{err}</p>
-            <Link href="/login" className="btn mt-3" aria-label="Go to sign in">
+            <Link
+              href="/login"
+              className="btn mt-3"
+              aria-label="Go to sign in"
+              data-testid="btn-go-signin"
+            >
               Go to sign in
             </Link>
           </div>
         ) : project ? (
           <>
             {/* Header band */}
-            <div className="mb-6 rounded-2xl border border-gray-200 bg-white/80 backdrop-blur px-6 py-5 shadow-sm">
+            <div
+              className="mb-6 rounded-2xl border border-gray-200 bg-white/80 backdrop-blur px-6 py-5 shadow-sm"
+              data-testid="project-header"
+            >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div aria-labelledby="project-title">
                   <h1
                     id="project-title"
                     className="text-2xl font-semibold tracking-tight"
+                    data-testid="project-title"
                   >
                     {project.name}
                   </h1>
-                  <p className="mt-1 text-sm text-slate-500" aria-live="polite">
+                  <p
+                    className="mt-1 text-sm text-slate-500"
+                    aria-live="polite"
+                    data-testid="project-created"
+                  >
                     Created {new Date(project.createdAt).toLocaleString()}
                   </p>
                 </div>
                 <div
                   className="flex flex-wrap gap-2"
                   aria-label="Project actions"
+                  data-testid="project-actions"
                 >
-                  {/* Removed "Add recommendation" from here */}
                   <Link
                     href="/projects"
                     aria-label="Back to my projects"
                     title="Back to my projects"
                     className="btn-back"
+                    data-testid="btn-back-to-projects"
                   >
                     <svg
                       viewBox="0 0 24 24"
@@ -362,8 +455,25 @@ export default function ProjectView() {
               <section
                 className="lg:col-span-6"
                 aria-labelledby="details-heading"
+                data-testid="project-details"
               >
                 <div className="card">
+                  {/* Flash banner (auto hides) */}
+                  {!!flash && (
+                    <div
+                      role="alert"
+                      aria-live="assertive"
+                      className={`mb-3 rounded-lg px-3 py-2 text-sm ${
+                        flash.kind === "success"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-red-50 text-red-700"
+                      } transition-opacity`}
+                      data-testid="flash-message"
+                    >
+                      {flash.text}
+                    </div>
+                  )}
+
                   <h2 id="details-heading" className="sr-only">
                     Project details
                   </h2>
@@ -372,11 +482,13 @@ export default function ProjectView() {
                     <div
                       className="mb-4 flex flex-wrap gap-2"
                       aria-label="Owner actions"
+                      data-testid="owner-actions"
                     >
                       <Link
                         className="btn"
                         href={`/projects/${project.id}/edit`}
                         aria-label="Edit project"
+                        data-testid="btn-edit"
                       >
                         Edit
                       </Link>
@@ -385,26 +497,34 @@ export default function ProjectView() {
                           className="btn"
                           onClick={onPublish}
                           aria-label="Publish project"
+                          disabled={busy}
+                          aria-busy={busy}
+                          data-testid="btn-publish"
                         >
                           Publish
                         </button>
                       )}
-                      {!isArchived && (
+                      {!isArchived ? (
                         <button
                           className="btn-danger"
                           onClick={onArchive}
                           aria-label="Archive project"
+                          disabled={busy}
+                          aria-busy={busy}
+                          data-testid="btn-archive"
                         >
-                          Archive
+                          {busy ? "Archiving…" : "Archive"}
                         </button>
-                      )}
-                      {isArchived && (
+                      ) : (
                         <button
                           className="btn"
                           onClick={onUnarchive}
                           aria-label="Unarchive project"
+                          disabled={busy}
+                          aria-busy={busy}
+                          data-testid="btn-unarchive"
                         >
-                          Unarchive
+                          {busy ? "Unarchiving…" : "Unarchive"}
                         </button>
                       )}
                       {isLive && (
@@ -412,6 +532,7 @@ export default function ProjectView() {
                           className="btn"
                           onClick={onCopyInvite}
                           aria-label="Copy invite link"
+                          data-testid="btn-copy-invite"
                         >
                           Copy Invite Link
                         </button>
@@ -424,11 +545,13 @@ export default function ProjectView() {
                     className="flex flex-wrap gap-2 mb-4"
                     role="list"
                     aria-label="Project attributes"
+                    data-testid="project-badges"
                   >
                     <span
                       role="listitem"
                       className="badge blue"
                       aria-label={`Type: ${project.type}`}
+                      data-testid="badge-type"
                     >
                       {project.type}
                     </span>
@@ -436,6 +559,7 @@ export default function ProjectView() {
                       role="listitem"
                       className="badge gray"
                       aria-label={`Location: ${project.location}`}
+                      data-testid="badge-location"
                     >
                       {project.location}
                     </span>
@@ -443,6 +567,7 @@ export default function ProjectView() {
                       role="listitem"
                       className="badge orange capitalize"
                       aria-label={`Property: ${project.propertyType}`}
+                      data-testid="badge-property"
                     >
                       {project.propertyType}
                     </span>
@@ -450,12 +575,14 @@ export default function ProjectView() {
                       role="listitem"
                       className="badge green"
                       aria-label={`Bedrooms: ${project.bedrooms}`}
+                      data-testid="badge-bedrooms"
                     >
                       {project.bedrooms} bed
                     </span>
                     <span
                       role="listitem"
                       aria-label={`Project ${project.status}`}
+                      data-testid="badge-status"
                     >
                       <StatusBadge value={project.status} />
                     </span>
@@ -463,53 +590,69 @@ export default function ProjectView() {
 
                   <div className="divider" />
 
-                  <dl className="grid grid-cols-2 gap-4">
+                  <dl
+                    className="grid grid-cols-2 gap-4"
+                    data-testid="project-fields"
+                  >
                     <div>
                       <dt className="text-slate-500 text-sm">Type</dt>
-                      <dd className="font-medium">{project.type}</dd>
+                      <dd className="font-medium" data-testid="field-type">
+                        {project.type}
+                      </dd>
                     </div>
                     <div>
                       <dt className="text-slate-500 text-sm">Location</dt>
-                      <dd className="font-medium">{project.location}</dd>
+                      <dd className="font-medium" data-testid="field-location">
+                        {project.location}
+                      </dd>
                     </div>
                     <div>
                       <dt className="text-slate-500 text-sm">Property</dt>
-                      <dd className="font-medium capitalize">
+                      <dd
+                        className="font-medium capitalize"
+                        data-testid="field-property"
+                      >
                         {project.propertyType}
                       </dd>
                     </div>
                     <div>
                       <dt className="text-slate-500 text-sm">Bedrooms</dt>
-                      <dd className="font-medium">{project.bedrooms}</dd>
+                      <dd className="font-medium" data-testid="field-bedrooms">
+                        {project.bedrooms}
+                      </dd>
                     </div>
                     <div>
                       <dt className="text-slate-500 text-sm">Status</dt>
-                      <dd className="font-medium capitalize">
+                      <dd
+                        className="font-medium capitalize"
+                        data-testid="field-status"
+                      >
                         <StatusBadge value={project.status} />
                       </dd>
                     </div>
                   </dl>
 
-                  <div className="mt-5">
+                  <div className="mt-5" data-testid="project-description-block">
                     <h3 className="font-semibold mb-1" id="desc-heading">
                       Description
                     </h3>
                     <p
                       className="whitespace-pre-wrap text-slate-700"
                       aria-labelledby="desc-heading"
+                      data-testid="field-description"
                     >
                       {project.description}
                     </p>
                   </div>
                 </div>
 
-                {/* Moved “Add recommendation” here, under the left card */}
                 {canAddRec && !isOwner && (
                   <div className="mt-4">
                     <Link
                       className="btn"
                       href={`/projects/${project.id}/recommend`}
                       aria-label="Add recommendation"
+                      data-testid="btn-add-recommendation"
                     >
                       Add recommendation
                     </Link>
@@ -521,6 +664,7 @@ export default function ProjectView() {
               <aside
                 className="lg:col-span-6"
                 aria-labelledby="shortlist-heading"
+                data-testid="project-shortlist"
               >
                 <div className="card">
                   <div className="flex items-start justify-between">
@@ -540,9 +684,17 @@ export default function ProjectView() {
                   <div className="mt-4" />
 
                   {recsErr ? (
-                    <p className="text-sm text-red-600">{recsErr}</p>
+                    <p
+                      className="text-sm text-red-600"
+                      data-testid="shortlist-error"
+                    >
+                      {recsErr}
+                    </p>
                   ) : !recs || recs.length === 0 ? (
-                    <p className="text-sm text-slate-500">
+                    <p
+                      className="text-sm text-slate-500"
+                      data-testid="shortlist-empty"
+                    >
                       No builders have yet been recommended.
                     </p>
                   ) : (
@@ -550,11 +702,11 @@ export default function ProjectView() {
                       <ul
                         className="space-y-3"
                         aria-label="Top recommendations"
+                        data-testid="shortlist-list"
                       >
                         {recs.map((r) => {
                           const likes = r.likes ?? 0;
                           const hasLiked = r.myLike === 1;
-                          // AFTER — prefer explicit rating, else derive from likes
                           const stars =
                             (r.rating ?? 0) > 0
                               ? Math.max(
@@ -571,11 +723,15 @@ export default function ProjectView() {
                             <li
                               key={r.id}
                               className="rounded-xl border border-slate-200 bg-white/80 hover:bg-white shadow-sm hover:shadow-md transition p-3"
+                              data-testid="shortlist-item"
                             >
                               <div className="flex items-start gap-3">
                                 <div className="min-w-0 flex-1">
                                   <div className="flex items-center gap-3">
-                                    <div className="font-medium truncate flex-1 min-w-0">
+                                    <div
+                                      className="font-medium truncate flex-1 min-w-0"
+                                      data-testid="shortlist-company"
+                                    >
                                       <Link
                                         href={`/builders/${r.id}`}
                                         className="hover:underline decoration-indigo-400/60"
@@ -584,13 +740,12 @@ export default function ProjectView() {
                                         {r.company}
                                       </Link>
                                     </div>
-
-                                    {/* score + likes */}
                                     <div className="shrink-0 flex items-center gap-3 whitespace-nowrap">
                                       <StarRating value={stars} />
                                       <div
                                         className="text-xs text-slate-500 tabular-nums flex items-center gap-1"
                                         aria-label={`${likes} likes`}
+                                        data-testid="shortlist-likes"
                                       >
                                         <LikeIcon className="h-3.5 w-3.5" />{" "}
                                         {likes}
@@ -599,7 +754,10 @@ export default function ProjectView() {
                                   </div>
 
                                   {r.comment && (
-                                    <p className="text-sm text-slate-700 mt-1 line-clamp-3">
+                                    <p
+                                      className="text-sm text-slate-700 mt-1 line-clamp-3"
+                                      data-testid="shortlist-comment"
+                                    >
                                       {r.comment}
                                     </p>
                                   )}
@@ -610,6 +768,7 @@ export default function ProjectView() {
                                         <span
                                           className="badge blue"
                                           aria-label="From a friend"
+                                          data-testid="shortlist-badge-friend"
                                         >
                                           Friend
                                         </span>
@@ -618,6 +777,7 @@ export default function ProjectView() {
                                         <span
                                           className="badge green"
                                           aria-label="From the community"
+                                          data-testid="shortlist-badge-community"
                                         >
                                           Community
                                         </span>
@@ -627,13 +787,17 @@ export default function ProjectView() {
                                           className="inline-flex items-center gap-1 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-0.5 text-xs"
                                           title="Includes photos"
                                           aria-label="Includes photos"
+                                          data-testid="shortlist-badge-photos"
                                         >
                                           <CameraIcon className="h-3.5 w-3.5" />
                                           Gallery
                                         </span>
                                       )}
                                     </div>
-                                    <div className="text-xs text-slate-500">
+                                    <div
+                                      className="text-xs text-slate-500"
+                                      data-testid="shortlist-date"
+                                    >
                                       {new Date(
                                         r.createdAt
                                       ).toLocaleDateString()}
@@ -643,6 +807,7 @@ export default function ProjectView() {
                                   <div
                                     className="text-xs text-slate-500 mt-1"
                                     aria-label="Recommender"
+                                    data-testid="shortlist-recommender"
                                   >
                                     {displayRecommender(r)}
                                     {r.email ? ` · ${r.email}` : ""}
@@ -678,12 +843,14 @@ export default function ProjectView() {
                                           ? "You have liked this"
                                           : "Like"
                                       }
+                                      data-testid="shortlist-like-button"
                                     >
                                       <LikeIcon className="h-4 w-4" />
                                     </button>
                                     <div
                                       className="mt-1 text-xs tabular-nums text-slate-600"
                                       aria-live="polite"
+                                      data-testid="shortlist-like-count"
                                     >
                                       {likes}
                                     </div>
@@ -701,6 +868,7 @@ export default function ProjectView() {
                             className="btn"
                             href={`/projects/${project.id}/shortlist`}
                             aria-label="View more recommendations"
+                            data-testid="btn-shortlist-view-more"
                           >
                             View more
                           </Link>

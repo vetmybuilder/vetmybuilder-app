@@ -1,18 +1,21 @@
 // web/pages/logout.tsx
 import { useEffect } from "react";
 import { signOutUser } from "@/utils/auth";
-import { useRouter } from "next/router";
 
 export default function Logout() {
-  const router = useRouter();
   useEffect(() => {
     (async () => {
       try {
-        await signOutUser();
+        await signOutUser(); // Firebase sign out (clears client state)
+        // Best-effort: clear any server cookies if route exists
+        try {
+          await fetch("/api/logout", { method: "POST", cache: "no-store" });
+        } catch {}
       } finally {
-        router.replace("/");
+        // Hard reload ensures header shows logged-out state immediately
+        window.location.replace("/?signedOut=1");
       }
     })();
-  }, [router]);
+  }, []);
   return <p className="p-6 text-zinc-300">Signing you out…</p>;
 }

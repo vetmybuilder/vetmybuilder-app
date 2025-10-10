@@ -2,10 +2,40 @@ import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode, RefObject } from "react";
 import Link from "next/link";
 import { useAuth } from "@/utils/auth";
 
 type Project = { id: number; name: string; location: string; status: string };
+
+function StatusBanner({
+  kind,
+  children,
+  focusRef,
+}: {
+  kind: "success" | "error" | "info";
+  children: ReactNode;
+  focusRef?: RefObject<HTMLDivElement | null>;
+}) {
+  const styles =
+    kind === "success"
+      ? "bg-green-50 border-green-200 text-green-800"
+      : kind === "error"
+      ? "bg-red-50 border-red-200 text-red-800"
+      : "bg-blue-50 border-blue-200 text-blue-800";
+  const role = kind === "error" ? "alert" : "status";
+  return (
+    <div
+      ref={focusRef}
+      tabIndex={-1}
+      role={role}
+      aria-live={kind === "error" ? "assertive" : "polite"}
+      className={`mb-4 rounded-xl border px-4 py-3 ${styles} outline-none`}
+    >
+      {children}
+    </div>
+  );
+}
 
 export default function RecommendOnPlatform() {
   const api = useApi();
@@ -15,7 +45,7 @@ export default function RecommendOnPlatform() {
 
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
 
   const [photos, setPhotos] = useState<File[]>([]);
   const onPickPhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -33,19 +63,14 @@ export default function RecommendOnPlatform() {
   });
   const [lockIdentity, setLockIdentity] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const prefilledRef = useRef(false);
 
-  const nameFromEmail = (email?: string | null) => {
-    if (!email) return "";
-    const local = email.split("@")[0] || "";
-    return local
-      .replace(/[._-]+/g, " ")
-      .trim()
-      .split(" ")
-      .filter(Boolean)
-      .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-      .join(" ");
-  };
+  // Inline banners
+  const [notice, setNotice] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const successRef = useRef<HTMLDivElement>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
+
+  const prefilledRef = useRef(false);
 
   useEffect(() => {
     if (!id) return;
@@ -54,13 +79,14 @@ export default function RecommendOnPlatform() {
         const { data } = await api.get(`/api/projects/${id}`);
         setProject(data.project);
       } catch (e: any) {
-        setErr(e?.response?.data?.error || "Failed to load");
+        setPageError(e?.response?.data?.error || "Failed to load");
       } finally {
         setLoading(false);
       }
     })();
   }, [api, id]);
 
+  // Prefill identity: prefer server firstName/lastName (no email-derived names).
   useEffect(() => {
     if (authLoading) return;
 
@@ -68,34 +94,45 @@ export default function RecommendOnPlatform() {
       (async () => {
         try {
           const me = await api.get("/api/me");
-          const serverEmail = me?.data?.email ?? me?.data?.user?.email ?? "";
-          const serverName =
-            me?.data?.name ??
-            me?.data?.user?.name ??
-            nameFromEmail(serverEmail);
+          const serverEmail: string =
+            me?.data?.email ?? me?.data?.user?.email ?? "";
+
+          const firstName: string =
+            me?.data?.firstName ?? me?.data?.user?.firstName ?? "";
+          const lastName: string =
+            me?.data?.lastName ?? me?.data?.user?.lastName ?? "";
+          const fullName = [firstName, lastName]
+            .filter(Boolean)
+            .join(" ")
+            .trim();
 
           setForm((prev) => ({
             ...prev,
-            name: prev.name || serverName || "",
+            name: prev.name || fullName || "",
             email: prev.email || serverEmail || "",
           }));
-          setLockIdentity(true);
+
+          // Lock when we know either a real name OR an email
+          setLockIdentity(Boolean(fullName || serverEmail));
           prefilledRef.current = true;
           return;
-        } catch {}
+        } catch {
+          // Fall back to Firebase client only for displayName/email
+        }
 
         try {
           const { getAuth } = await import("firebase/auth");
           const u = getAuth().currentUser;
+          const displayName = (u?.displayName || "").trim();
           const email = u?.email || "";
-          const displayName =
-            u?.displayName || nameFromEmail(email) || form.name;
+
           setForm((prev) => ({
             ...prev,
             name: prev.name || displayName || "",
             email: prev.email || email || "",
           }));
-          setLockIdentity(true);
+
+          setLockIdentity(Boolean(displayName || email));
           prefilledRef.current = true;
         } catch {
           setLockIdentity(false);
@@ -111,10 +148,12 @@ export default function RecommendOnPlatform() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id || submitting) return;
+    setFormError(null);
+    setNotice(null);
     setSubmitting(true);
+
     try {
       const ratingFromHire = form.hireAgain === "yes" ? 5 : 1;
-
       let recommendationId: number | undefined;
 
       if (photos.length > 0) {
@@ -144,22 +183,40 @@ export default function RecommendOnPlatform() {
         recommendationId = data?.recommendationId;
       }
 
-      if (form.hireAgain === "yes" && recommendationId) {
-        try {
-          await api.post(`/api/recommendations/${recommendationId}/like`);
-        } catch {}
+      // Verify we received a valid id
+      if (!recommendationId) {
+        throw new Error("Recommendation was not saved. Please try again.");
       }
 
-      alert("Thanks! Your recommendation has been submitted.");
-      router.replace(`/projects/${id}`);
+      // Inline success + focus for SR users
+      setNotice("Thanks! Your recommendation has been submitted.");
+      setTimeout(() => successRef.current?.focus(), 10000);
+
+      // Optional like: non-blocking
+      if (form.hireAgain === "yes") {
+        try {
+          await api.post(`/api/recommendations/${recommendationId}/like`);
+        } catch {
+          // ignore like errors
+        }
+      }
+
+      // Small delay so the user can read the message, then go back
+      setTimeout(() => {
+        router.replace(`/projects/${id}`);
+      }, 1000);
     } catch (e: any) {
-      alert(e?.response?.data?.error || "Failed to submit recommendation");
+      const msg =
+        e?.response?.data?.error ||
+        e?.message ||
+        "Failed to submit recommendation";
+      setFormError(msg);
+      setTimeout(() => errorRef.current?.focus(), 0);
     } finally {
       setSubmitting(false);
     }
   };
 
-  // IDs to hook labels
   const ids = useMemo(
     () => ({
       name: "plat-name",
@@ -218,166 +275,183 @@ export default function RecommendOnPlatform() {
           </div>
         </div>
 
-        <div className="card">
+        <div className="card" data-testid="recommendation-card">
+          {pageError && (
+            <StatusBanner kind="error" focusRef={errorRef}>
+              {pageError}
+            </StatusBanner>
+          )}
+
           {loading ? (
             <p>Loading…</p>
-          ) : err ? (
-            <p className="text-red-600">{err}</p>
           ) : !project ? (
             <p>Not found</p>
           ) : (
-            <form onSubmit={submit} className="grid grid-cols-1 gap-3">
-              <label htmlFor={ids.name} className="text-sm">
-                Your name
-              </label>
-              <input
-                id={ids.name}
-                className={`input ${
-                  lockIdentity ? "opacity-60 cursor-not-allowed" : ""
-                }`}
-                placeholder="Your name"
-                value={form.name}
-                onChange={(e) => set("name", e.target.value)}
-                required
-                disabled={lockIdentity}
-                readOnly={lockIdentity}
-              />
-
-              <label htmlFor={ids.email} className="text-sm">
-                Your email
-              </label>
-              <input
-                id={ids.email}
-                className={`input ${
-                  lockIdentity ? "opacity-60 cursor-not-allowed" : ""
-                }`}
-                placeholder="Your email"
-                type="email"
-                value={form.email}
-                onChange={(e) => set("email", e.target.value)}
-                required
-                disabled={lockIdentity}
-                readOnly={lockIdentity}
-              />
-
-              <label htmlFor={ids.company} className="text-sm">
-                Company / Tradesperson
-              </label>
-              <input
-                id={ids.company}
-                className="input"
-                placeholder="Company / Tradesperson"
-                value={form.company}
-                onChange={(e) => set("company", e.target.value)}
-                required
-              />
-
-              <label htmlFor={ids.phone} className="text-sm">
-                Company / Tradesperson phone (optional)
-              </label>
-              <input
-                id={ids.phone}
-                className="input"
-                placeholder="Company / Tradesperson phone (optional)"
-                value={form.phone}
-                onChange={(e) => set("phone", e.target.value)}
-                inputMode="tel"
-                pattern="[\d +()-]*"
-              />
-
-              <fieldset className="mt-1">
-                <legend className="text-sm mb-1">Hire again?</legend>
-                <div className="flex gap-4">
-                  <label
-                    htmlFor={ids.yes}
-                    className="inline-flex items-center gap-2"
-                  >
-                    <input
-                      id={ids.yes}
-                      type="radio"
-                      name="hireAgain"
-                      className="accent-indigo-500"
-                      value="yes"
-                      checked={form.hireAgain === "yes"}
-                      onChange={() => set("hireAgain", "yes")}
-                    />
-                    Yes
-                  </label>
-                  <label
-                    htmlFor={ids.no}
-                    className="inline-flex items-center gap-2"
-                  >
-                    <input
-                      id={ids.no}
-                      type="radio"
-                      name="hireAgain"
-                      className="accent-indigo-500"
-                      value="no"
-                      checked={form.hireAgain === "no"}
-                      onChange={() => set("hireAgain", "no")}
-                    />
-                    No
-                  </label>
-                </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  “Yes” counts as a like. “No” does not add a negative score.
-                </p>
-              </fieldset>
-
-              <label htmlFor={ids.photos} className="text-sm">
-                Photos (up to 8, max 8MB each)
-              </label>
-              <input
-                id={ids.photos}
-                type="file"
-                multiple
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                className="input"
-                onChange={onPickPhotos}
-              />
-              {photos.length > 0 && (
-                <div className="mt-2 grid grid-cols-4 gap-2">
-                  {photos.map((f, i) => (
-                    <div
-                      key={i}
-                      className="aspect-square overflow-hidden rounded border border-gray-200"
-                      title={f.name}
-                    >
-                      <img
-                        src={URL.createObjectURL(f)}
-                        className="h-full w-full object-cover"
-                        alt={f.name}
-                      />
-                    </div>
-                  ))}
-                </div>
+            <>
+              {formError && (
+                <StatusBanner kind="error" focusRef={errorRef}>
+                  {formError}
+                </StatusBanner>
+              )}
+              {notice && (
+                <StatusBanner kind="success" focusRef={successRef}>
+                  {notice}
+                </StatusBanner>
               )}
 
-              <label htmlFor={ids.comment} className="text-sm">
-                Comment (min 10 characters)
-              </label>
-              <textarea
-                id={ids.comment}
-                aria-describedby={ids.commentHelp}
-                className="input min-h-32"
-                placeholder="Comment"
-                value={form.comment}
-                onChange={(e) => set("comment", e.target.value)}
-                required
-              />
-              <p id={ids.commentHelp} className="text-xs text-red-600">
-                {commentTooShort
-                  ? "Please write at least 10 characters."
-                  : "\u00A0"}
-              </p>
+              <form onSubmit={submit} className="grid grid-cols-1 gap-3">
+                <label htmlFor={ids.name} className="text-sm">
+                  Your name
+                </label>
+                <input
+                  id={ids.name}
+                  className={`input ${
+                    lockIdentity ? "opacity-60 cursor-not-allowed" : ""
+                  }`}
+                  placeholder="Your name"
+                  value={form.name}
+                  onChange={(e) => set("name", e.target.value)}
+                  required
+                  disabled={lockIdentity}
+                  readOnly={lockIdentity}
+                />
 
-              <button
-                className="btn disabled:opacity-50"
-                disabled={submitting || commentTooShort}
-              >
-                {submitting ? "Sending…" : "Send recommendation"}
-              </button>
-            </form>
+                <label htmlFor={ids.email} className="text-sm">
+                  Your email
+                </label>
+                <input
+                  id={ids.email}
+                  className={`input ${
+                    lockIdentity ? "opacity-60 cursor-not-allowed" : ""
+                  }`}
+                  placeholder="Your email"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => set("email", e.target.value)}
+                  required
+                  disabled={lockIdentity}
+                  readOnly={lockIdentity}
+                />
+
+                <label htmlFor={ids.company} className="text-sm">
+                  Company / Tradesperson
+                </label>
+                <input
+                  id={ids.company}
+                  className="input"
+                  placeholder="Company / Tradesperson"
+                  value={form.company}
+                  onChange={(e) => set("company", e.target.value)}
+                  required
+                />
+
+                <label htmlFor={ids.phone} className="text-sm">
+                  Company / Tradesperson phone (optional)
+                </label>
+                <input
+                  id={ids.phone}
+                  className="input"
+                  placeholder="Company / Tradesperson phone (optional)"
+                  value={form.phone}
+                  onChange={(e) => set("phone", e.target.value)}
+                  inputMode="tel"
+                  pattern="[\d +()-]*"
+                />
+
+                <fieldset className="mt-1">
+                  <legend className="text-sm mb-1">Hire again?</legend>
+                  <div className="flex gap-4">
+                    <label
+                      htmlFor={ids.yes}
+                      className="inline-flex items-center gap-2"
+                    >
+                      <input
+                        id={ids.yes}
+                        type="radio"
+                        name="hireAgain"
+                        className="accent-indigo-500"
+                        value="yes"
+                        checked={form.hireAgain === "yes"}
+                        onChange={() => set("hireAgain", "yes")}
+                      />
+                      Yes
+                    </label>
+                    <label
+                      htmlFor={ids.no}
+                      className="inline-flex items-center gap-2"
+                    >
+                      <input
+                        id={ids.no}
+                        type="radio"
+                        name="hireAgain"
+                        className="accent-indigo-500"
+                        value="no"
+                        checked={form.hireAgain === "no"}
+                        onChange={() => set("hireAgain", "no")}
+                      />
+                      No
+                    </label>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    “Yes” counts as a like. “No” does not add a negative score.
+                  </p>
+                </fieldset>
+
+                <label htmlFor={ids.photos} className="text-sm">
+                  Photos (up to 8, max 8MB each)
+                </label>
+                <input
+                  id={ids.photos}
+                  type="file"
+                  multiple
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="input"
+                  onChange={onPickPhotos}
+                />
+                {photos.length > 0 && (
+                  <div className="mt-2 grid grid-cols-4 gap-2">
+                    {photos.map((f, i) => (
+                      <div
+                        key={i}
+                        className="aspect-square overflow-hidden rounded border border-gray-200"
+                        title={f.name}
+                      >
+                        <img
+                          src={URL.createObjectURL(f)}
+                          className="h-full w-full object-cover"
+                          alt={f.name}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <label htmlFor={ids.comment} className="text-sm">
+                  Comment (min 10 characters)
+                </label>
+                <textarea
+                  id={ids.comment}
+                  aria-describedby={ids.commentHelp}
+                  className="input min-h-32"
+                  placeholder="Comment"
+                  value={form.comment}
+                  onChange={(e) => set("comment", e.target.value)}
+                  required
+                />
+                <p id={ids.commentHelp} className="text-xs text-red-600">
+                  {commentTooShort
+                    ? "Please write at least 10 characters."
+                    : "\u00A0"}
+                </p>
+
+                <button
+                  className="btn disabled:opacity-50"
+                  disabled={submitting || commentTooShort}
+                >
+                  {submitting ? "Sending…" : "Send recommendation"}
+                </button>
+              </form>
+            </>
           )}
         </div>
       </div>

@@ -62,7 +62,6 @@ const LikeIcon = (props: React.SVGProps<SVGSVGElement>) => (
 function normalizePhotos(payload: Builder | null): Photo[] {
   if (!payload) return [];
   const src = payload.photos ?? payload.photoUrls ?? [];
-  // Array of strings (urls)
   if (Array.isArray(src) && src.every((s) => typeof s === "string")) {
     return (src as string[]).map((url, i) => ({
       id: String(i + 1),
@@ -70,7 +69,6 @@ function normalizePhotos(payload: Builder | null): Photo[] {
       thumb: url,
     }));
   }
-  // Array of objects with at least a url
   if (Array.isArray(src)) {
     return src
       .map((p: any, i: number) => {
@@ -88,6 +86,35 @@ function normalizePhotos(payload: Builder | null): Photo[] {
   return [];
 }
 
+/* ---------------- Small auth-race retry helpers ---------------- */
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+function looksLikeAuthRace(err: any) {
+  const status = err?.response?.status ?? err?.status;
+  const msg =
+    err?.response?.data?.error ?? err?.data?.error ?? err?.message ?? "";
+  return status === 401 || /missing bearer token/i.test(String(msg));
+}
+async function getWithAuthRetry<T>(
+  fn: () => Promise<T>,
+  attempts = 3,
+  baseDelayMs = 250
+): Promise<T> {
+  let lastErr: any;
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      if (!looksLikeAuthRace(e) || i === attempts) break;
+      await sleep(baseDelayMs * i);
+    }
+  }
+  throw lastErr;
+}
+
 export default function BuilderProfile() {
   const router = useRouter();
   const { id } = router.query;
@@ -98,11 +125,9 @@ export default function BuilderProfile() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  // lightbox state
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const lightboxOpen = lightboxIdx !== null;
 
-  // client-only lock body scroll for lightbox (avoid useLayoutEffect SSR warning)
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!lightboxOpen) return;
@@ -113,7 +138,7 @@ export default function BuilderProfile() {
     };
   }, [lightboxOpen]);
 
-  // Fetch builder – wait for router + auth ready (prevents 401 "missing bearer token" on reload)
+  // Fetch builder with auth-race retry
   useEffect(() => {
     if (!router.isReady || authLoading || !user || !id) return;
 
@@ -123,7 +148,9 @@ export default function BuilderProfile() {
 
     (async () => {
       try {
-        const { data } = await api.get(`/api/recommendations/${id}`);
+        const { data } = await getWithAuthRetry(() =>
+          api.get(`/api/recommendations/${id}`)
+        );
         if (!alive) return;
         setBuilder(data.recommendation);
       } catch (e: any) {
@@ -146,7 +173,6 @@ export default function BuilderProfile() {
     };
   }, [api, id, router.isReady, authLoading, user]);
 
-  // like once
   const [liking, setLiking] = useState(false);
   const likeOnce = async () => {
     if (!builder || !user || liking || builder.myLike === 1) return;
@@ -215,7 +241,6 @@ export default function BuilderProfile() {
           <div className="card">Not found</div>
         ) : (
           <div className="space-y-5">
-            {/* Header card */}
             <div className="card">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -259,7 +284,6 @@ export default function BuilderProfile() {
                 </p>
               )}
 
-              {/* Details */}
               <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div className="space-y-1">
                   <div className="text-slate-500">Recommender</div>
@@ -281,7 +305,6 @@ export default function BuilderProfile() {
               </div>
             </div>
 
-            {/* Gallery card */}
             <div className="card">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-lg font-semibold">Gallery</h3>
@@ -317,7 +340,6 @@ export default function BuilderProfile() {
               )}
             </div>
 
-            {/* Lightbox */}
             {lightboxOpen && photos[lightboxIdx as number] && (
               <Lightbox
                 photos={photos}

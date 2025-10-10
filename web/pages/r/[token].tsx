@@ -14,6 +14,21 @@ function getApiBase() {
   return process.env.NEXT_PUBLIC_API_BASE || "";
 }
 
+/** Try to obtain a Firebase ID token from a variety of user shapes. */
+async function resolveIdToken(user: any): Promise<string | undefined> {
+  try {
+    if (!user) return undefined;
+    if (typeof user.getIdToken === "function") {
+      return await user.getIdToken();
+    }
+    const maybe = user?.stsTokenManager?.accessToken;
+    if (typeof maybe === "string" && maybe) return maybe;
+  } catch {
+    // ignore
+  }
+  return undefined;
+}
+
 export default function RecommendViaMagicLink() {
   const api = useApi();
   const { user } = useAuth();
@@ -43,15 +58,22 @@ export default function RecommendViaMagicLink() {
   };
 
   const set = (k: string, v: any) => setForm((p) => ({ ...p, [k]: v }));
-  const commentTooShort = form.comment.trim().length < 10;
 
-  // Prefill from our DB account when logged in; lock name/email so they can’t edit
+  const commentTooShort = form.comment.trim().length < 10;
+  const nameRequired = !lockIdentity; // if identity is locked, name is provided by account
+  const formInvalid =
+    (nameRequired && !form.name.trim()) ||
+    !form.company.trim() ||
+    commentTooShort;
+
+  // Prefill from account when logged in; lock identity
   useEffect(() => {
     (async () => {
       if (!user) return;
       try {
         const { data } = await api.get("/api/account");
-        const acc = data?.account || {};
+        // server returns { user, profile }
+        const acc = data?.user || {};
         const fullName = `${acc.firstName || ""} ${acc.lastName || ""}`.trim();
         setForm((prev) => ({
           ...prev,
@@ -60,7 +82,6 @@ export default function RecommendViaMagicLink() {
         }));
         setLockIdentity(true);
       } catch {
-        // fallback to Firebase values if API fails
         setForm((prev) => ({
           ...prev,
           name: prev.name || user.displayName || "",
@@ -71,6 +92,7 @@ export default function RecommendViaMagicLink() {
     })();
   }, [user, api]);
 
+  // Resolve the magic link
   useEffect(() => {
     if (!token) return;
     (async () => {
@@ -88,8 +110,26 @@ export default function RecommendViaMagicLink() {
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!info || submitting) return;
+
+    // Block invalid HTML5 constraints (e.g., required name)
+    const formEl = e.currentTarget;
+    if (!formEl.checkValidity()) {
+      formEl.reportValidity();
+      return;
+    }
+    if (formInvalid) {
+      // Defensive guard (mirrors the disabled state)
+      formEl.reportValidity();
+      return;
+    }
+
     setSubmitting(true);
     setErr(null);
+
+    // Turn off redirect via ?noRedirect=1 or env var
+    const disableRedirect =
+      router.query.noRedirect === "1" ||
+      process.env.NEXT_PUBLIC_DISABLE_MAGIC_REDIRECT === "1";
 
     try {
       const rating = form.hireAgain === "yes" ? 5 : 1;
@@ -97,12 +137,10 @@ export default function RecommendViaMagicLink() {
         info.token
       }`;
 
-      // Optional auth header (only if user is logged in)
-      let authHeaders: HeadersInit | undefined;
-      if (user) {
-        const idToken = await user.getIdToken();
-        authHeaders = { Authorization: `Bearer ${idToken}` };
-      }
+      const idToken = await resolveIdToken(user);
+      const authHeaders: HeadersInit | undefined = idToken
+        ? { Authorization: `Bearer ${idToken}` }
+        : undefined;
 
       let recommendationId: number | undefined;
 
@@ -163,20 +201,25 @@ export default function RecommendViaMagicLink() {
         } catch {}
       }
 
-      // Like when “Yes”, same as platform page
-      if (form.hireAgain === "yes" && recommendationId && user) {
+      // Auto-like is handled server-side for anonymous users.
+      // For logged-in users, do it client-side as well (idempotent).
+      if (form.hireAgain === "yes" && recommendationId && idToken) {
         try {
           const likeEndpoint = `${getApiBase()}/api/recommendations/${recommendationId}/like`;
-          const idToken = await user.getIdToken();
           await fetch(likeEndpoint, {
             method: "POST",
             headers: { Authorization: `Bearer ${idToken}` },
           });
-        } catch {}
+        } catch {
+          /* non-blocking */
+        }
       }
 
       setSubmitted(true);
-      setTimeout(() => router.replace("/"), 3000);
+
+      if (!disableRedirect) {
+        setTimeout(() => router.replace("/"), 3000);
+      }
     } catch (e: any) {
       setErr(e?.message || "Failed to submit recommendation");
     } finally {
@@ -219,26 +262,44 @@ export default function RecommendViaMagicLink() {
           )}
         </div>
 
-        <div className="card">
+        <div
+          className="card"
+          data-testid="recommendation-submitted-confirmation"
+        >
           {loading ? (
-            <p>Loading…</p>
+            <p data-testid="magic-loading">Loading…</p>
           ) : err ? (
-            <p className="text-red-600">{err}</p>
+            <p className="text-red-600" data-testid="magic-error">
+              {err}
+            </p>
           ) : !info ? (
-            <p>Not found</p>
+            <p data-testid="magic-not-found">Not found</p>
           ) : submitted ? (
-            <div className="text-center py-8">
+            <div className="text-center py-8" data-testid="magic-submitted">
               <h2 className="text-xl font-semibold mb-2">Thanks!</h2>
-              <p>Your recommendation has been sent.</p>
-              <p className="text-slate-500 mt-1">
-                Redirecting to the homepage…
+              <p data-testid="magic-submitted-message">
+                Your recommendation has been sent.
               </p>
+
+              {!(
+                router.query.noRedirect === "1" ||
+                process.env.NEXT_PUBLIC_DISABLE_MAGIC_REDIRECT === "1"
+              ) ? (
+                <p className="text-slate-500 mt-1" data-testid="magic-redirect">
+                  Redirecting to the homepage…
+                </p>
+              ) : (
+                <p className="text-slate-500 mt-1" data-testid="magic-stay">
+                  You can close this tab or go back to the project.
+                </p>
+              )}
             </div>
           ) : (
             <form
               onSubmit={submit}
               noValidate
               className="grid grid-cols-1 gap-3"
+              data-testid="magic-form"
             >
               <label htmlFor={ids.name} className="text-sm">
                 Your name
@@ -290,7 +351,7 @@ export default function RecommendViaMagicLink() {
                 value={form.phone}
                 onChange={(e) => set("phone", e.target.value)}
                 inputMode="tel"
-                pattern="[\d +()-]*"
+                pattern="^[0-9 +()\\-]*$"
               />
 
               <fieldset className="mt-1">
@@ -366,7 +427,7 @@ export default function RecommendViaMagicLink() {
 
               <button
                 className="btn disabled:opacity-50"
-                disabled={submitting || commentTooShort}
+                disabled={submitting || formInvalid}
               >
                 {submitting ? "Sending…" : "Send recommendation"}
               </button>
