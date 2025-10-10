@@ -14,7 +14,7 @@
     "start:web": "cd web && next start -p 3000",
     "start:server": "node server/index.js",
     "test:api": "vitest run -c vitest.config.ts",
-    "test:web": "vitest run -c vitest.web.config.ts",
+    "test:web": "vitest run -c vitest.web.config.mts",
     "test": "npm run test:api && npm run test:web && npm run posttest",
     "posttest": "node -e \"const fs=require('fs'),path=require('path'),os=require('os');const del=(dir,prefix)=>{try{for(const e of fs.readdirSync(dir,{withFileTypes:true})){if(e.isDirectory()&&e.name.startsWith(prefix)){fs.rmSync(path.join(dir,e.name),{recursive:true,force:true});}}}catch{}};del(process.cwd(),'.tmpdb-');del(os.tmpdir(),'vmb-tmpdb-');\""
   },

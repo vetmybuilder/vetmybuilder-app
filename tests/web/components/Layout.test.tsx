@@ -1,17 +1,84 @@
-import { render, screen } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
-import React from 'react';
+// tests/web/components/Layout.test.tsx
+import { render, screen, within, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import React from "react";
 
-vi.mock('../../../web/utils/auth', () => ({
-  useAuth: () => ({ user: null, loading: false })
+// Mock auth so we can control logged-out / logged-in states
+const useAuthMock = vi.fn();
+const signOutUserMock = vi.fn().mockResolvedValue(undefined);
+vi.mock("@/utils/auth", () => ({
+  useAuth: () => useAuthMock(),
+  signOutUser: (...args: any[]) => signOutUserMock(...args),
 }));
 
-import Layout from '../../../web/components/Layout';
+// Mock next/dynamic so the dynamic NotificationsBell doesn't complicate this test.
+// It returns a dummy component (null) for any dynamic import used by Layout.
+vi.mock("next/dynamic", () => ({
+  default: (loader: any) => {
+    // You could return loader() if you want to render the real component,
+    // but for Layout tests we don't need it.
+    return () => null;
+  },
+}));
 
-describe('<Layout />', () => {
-  it('shows "Not signed in" when no user', () => {
-    render(<Layout><div>content</div></Layout>);
-    expect(screen.getByText(/Not signed in/i)).toBeInTheDocument();
-    expect(screen.getByText(/content/i)).toBeInTheDocument();
+import Layout from "../../../web/components/Layout";
+
+describe("<Layout />", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders “Sign in” CTA when logged out", () => {
+    useAuthMock.mockReturnValue({ user: null, loading: false });
+
+    render(
+      <Layout>
+        <div>content</div>
+      </Layout>
+    );
+
+    // Header shows "Sign in"
+    expect(screen.getByTestId("nav-sign-in")).toBeInTheDocument();
+
+    // Main content renders. Use the main region to avoid confusion with "Skip to content".
+    const main = screen.getByTestId("main-content");
+    expect(within(main).getByText(/content/i)).toBeInTheDocument();
+
+    // No account menu when logged out
+    expect(screen.queryByTestId("account-button")).not.toBeInTheDocument();
+  });
+
+  it("shows account button and initials when signed in", () => {
+    useAuthMock.mockReturnValue({
+      user: { firstName: "Chris", lastName: "Morris" },
+      loading: false,
+    });
+
+    render(<Layout>content</Layout>);
+
+    // Account button and initials
+    expect(screen.getByTestId("account-button")).toBeInTheDocument();
+    expect(screen.getByTestId("account-initials")).toHaveTextContent("CM");
+
+    // No "Sign in" when logged in
+    expect(screen.queryByTestId("nav-sign-in")).not.toBeInTheDocument();
+  });
+
+  it("opens the account menu and can click Logout", async () => {
+    useAuthMock.mockReturnValue({
+      user: { firstName: "Chris", lastName: "Morris" },
+      loading: false,
+    });
+
+    render(<Layout>content</Layout>);
+
+    // Open menu
+    fireEvent.click(screen.getByTestId("account-button"));
+    const menu = await screen.findByTestId("account-menu");
+    expect(menu).toBeInTheDocument();
+
+    // Click logout
+    fireEvent.click(screen.getByTestId("menu-logout"));
+    expect(signOutUserMock).toHaveBeenCalledTimes(1);
   });
 });

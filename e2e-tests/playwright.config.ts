@@ -4,9 +4,10 @@ export default defineConfig({
   testDir: ".", // tests live alongside this config
   timeout: 60_000,
   retries: process.env.CI ? 2 : 1,
+  workers: 1,
+  reporter: process.env.CI ? [["list"], ["blob"], ["html"]] : "html",
   expect: { timeout: 15_000 },
   fullyParallel: true,
-  reporter: [["list"]],
   use: {
     // Your dev Next runs on :3000 via `npm run dev`
     baseURL: process.env.E2E_BASE_URL || "http://localhost:3000",
