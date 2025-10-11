@@ -1,5 +1,12 @@
 // web/utils/auth.tsx
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+} from "react";
 import { initFirebase } from "./firebase";
 import { onIdTokenChanged, signOut, type User as FbUser } from "firebase/auth";
 
@@ -29,6 +36,8 @@ type Ctx = {
     username?: string | null;
     email?: string | null;
   }) => void;
+  /** NEW: merge profile fields locally so UI (e.g. initials) updates instantly */
+  mergeUser: (u: Partial<AccountUser>) => void;
 };
 
 const AuthCtx = createContext<Ctx>({
@@ -36,6 +45,7 @@ const AuthCtx = createContext<Ctx>({
   token: null,
   loading: true,
   hydrateFromSignup: () => {},
+  mergeUser: () => {},
 });
 
 /* ---------- helpers (NO email/uid fallbacks) ---------- */
@@ -112,24 +122,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   // optimistically seed names right after signup (optional helper)
-  const hydrateFromSignup: Ctx["hydrateFromSignup"] = ({
-    firstName = null,
-    lastName = null,
-    username = null,
-    email = null,
-  }) => {
+  const hydrateFromSignup: Ctx["hydrateFromSignup"] = useCallback(
+    ({ firstName = null, lastName = null, username = null, email = null }) => {
+      setUser((prev) => {
+        if (!prev) return prev;
+        return buildExtendedUser(prev as FbUser, {
+          uid: prev.uid,
+          email: email ?? prev.email ?? null,
+          firstName,
+          lastName,
+          username,
+        });
+      });
+    },
+    []
+  );
+
+  /** NEW: merge fields locally after /account save so initials/update instantly */
+  const mergeUser: Ctx["mergeUser"] = useCallback((patch) => {
     setUser((prev) => {
       if (!prev) return prev;
-      const merged = buildExtendedUser(prev as FbUser, {
+      return buildExtendedUser(prev as FbUser, {
         uid: prev.uid,
-        email: email ?? prev.email ?? null,
-        firstName,
-        lastName,
-        username,
+        email: patch.email ?? prev.email ?? null,
+        firstName: patch.firstName ?? prev.firstName ?? null,
+        lastName: patch.lastName ?? prev.lastName ?? null,
+        username: patch.username ?? prev.username ?? null,
       });
-      return merged;
     });
-  };
+  }, []);
 
   useEffect(() => {
     const auth = initFirebase();
@@ -221,8 +242,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, token, loading, hydrateFromSignup }),
-    [user, token, loading]
+    () => ({ user, token, loading, hydrateFromSignup, mergeUser }),
+    [user, token, loading, hydrateFromSignup, mergeUser]
   );
 
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;

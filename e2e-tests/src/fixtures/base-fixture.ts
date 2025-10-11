@@ -12,6 +12,7 @@ import { CreateProjectPage } from "../pages/CreateProjectPage";
 import { BasePage } from "../pages/BasePage";
 import { ProjectsPage } from "../pages/ProjectsPage";
 import { ProjectRecommendPage } from "../pages/ProjectRecommendPage";
+import { AccountPage } from "../pages/AccountPage";
 
 type LoginOpts = {
   redirect?: string;
@@ -32,6 +33,7 @@ type Fixtures = {
   basePage: BasePage;
   projectsPage: ProjectsPage;
   projectRecommendPage: ProjectRecommendPage;
+  accountPage: AccountPage;
 
   usersApi: UsersApi;
   authApi: AuthApi;
@@ -198,6 +200,9 @@ export const test = base.extend<Fixtures>({
   },
   projectRecommendPage: async ({ page }, use) => {
     await use(new ProjectRecommendPage(page));
+  },
+  accountPage: async ({ page }, use) => {
+    await use(new AccountPage(page));
   },
 
   // ----- APIs -----

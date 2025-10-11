@@ -27,7 +27,7 @@ type AccountProfile = {
 export default function ManageAccount() {
   const api = useApi();
   const router = useRouter();
-  const { loading: authLoading } = useAuth();
+  const { loading: authLoading, mergeUser } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -98,18 +98,35 @@ export default function ManageAccount() {
     setErr(null);
     setSaved(false);
 
+    const payload = {
+      firstName: form.firstName.trim() || null,
+      lastName: form.lastName.trim() || null,
+      username: form.username.trim() || null,
+      location: form.location.trim() || "",
+    };
+
     try {
-      await api.post("/api/account", {
-        firstName: form.firstName.trim() || null,
-        lastName: form.lastName.trim() || null,
-        username: form.username.trim() || null,
-        location: form.location.trim() || "",
+      await api.post("/api/account", payload);
+
+      // Instantly update the Auth context so header initials/name re-render now.
+      mergeUser({
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        username: payload.username,
       });
 
       setSaved(true);
-      const t = setTimeout(() => router.replace("/projects"), 1200);
-      // cleanup if user navigates early
-      return () => clearTimeout(t);
+
+      // Soft redirect after a short confirmation window
+      const t = window.setTimeout(() => {
+        router.replace("/projects");
+      }, 1200);
+      // If the component unmounts early, clear the timer
+      const cn = () => window.clearTimeout(t);
+      // Attach once per submit
+      window.addEventListener("beforeunload", cn, { once: true });
+      // Cleanup if user navigates within SPA before timeout
+      setTimeout(() => window.removeEventListener("beforeunload", cn), 1300);
     } catch (e: any) {
       const msg =
         e?.response?.data?.error ||
@@ -126,18 +143,27 @@ export default function ManageAccount() {
         <title>Manage account</title>
       </Head>
 
-      <div className="mx-auto max-w-2xl px-4 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-semibold tracking-tight mb-2">
+      <div
+        className="mx-auto max-w-2xl px-4 sm:px-6 lg:px-8"
+        data-testid="account-page"
+      >
+        <h1
+          className="text-3xl font-semibold tracking-tight mb-2"
+          data-testid="account-title"
+        >
           Manage account
         </h1>
-        <p className="text-slate-500 mb-6">Update your profile info.</p>
+        <p className="text-slate-500 mb-6" data-testid="account-subtitle">
+          Update your profile info.
+        </p>
 
-        <div className="card">
+        <div className="card" data-testid="account-card">
           {saved && (
             <div
               role="status"
               aria-live="polite"
               className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-800 text-sm"
+              data-testid="account-alert-success"
             >
               Details updated. Redirecting…
             </div>
@@ -146,16 +172,25 @@ export default function ManageAccount() {
             <div
               role="alert"
               className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm"
+              data-testid="account-alert-error"
             >
               {err}
             </div>
           )}
 
           {loading ? (
-            <p>Loading…</p>
+            <p data-testid="account-loading">Loading…</p>
           ) : (
-            <form onSubmit={onSubmit} className="grid grid-cols-1 gap-3">
-              <label htmlFor={ids.first} className="text-sm">
+            <form
+              onSubmit={onSubmit}
+              className="grid grid-cols-1 gap-3"
+              data-testid="account-form"
+            >
+              <label
+                htmlFor={ids.first}
+                className="text-sm"
+                data-testid="label-first-name"
+              >
                 First name
               </label>
               <input
@@ -164,9 +199,14 @@ export default function ManageAccount() {
                 placeholder="First name"
                 value={form.firstName}
                 onChange={(e) => set("firstName", e.target.value)}
+                data-testid="input-first-name"
               />
 
-              <label htmlFor={ids.last} className="text-sm">
+              <label
+                htmlFor={ids.last}
+                className="text-sm"
+                data-testid="label-last-name"
+              >
                 Last name
               </label>
               <input
@@ -175,9 +215,14 @@ export default function ManageAccount() {
                 placeholder="Last name"
                 value={form.lastName}
                 onChange={(e) => set("lastName", e.target.value)}
+                data-testid="input-last-name"
               />
 
-              <label htmlFor={ids.email} className="text-sm">
+              <label
+                htmlFor={ids.email}
+                className="text-sm"
+                data-testid="label-email"
+              >
                 Email
               </label>
               <input
@@ -187,9 +232,14 @@ export default function ManageAccount() {
                 value={form.email}
                 disabled
                 readOnly
+                data-testid="input-email"
               />
 
-              <label htmlFor={ids.username} className="text-sm">
+              <label
+                htmlFor={ids.username}
+                className="text-sm"
+                data-testid="label-username"
+              >
                 Username
               </label>
               <input
@@ -198,9 +248,14 @@ export default function ManageAccount() {
                 placeholder="Username"
                 value={form.username}
                 onChange={(e) => set("username", e.target.value)}
+                data-testid="input-username"
               />
 
-              <label htmlFor={ids.location} className="text-sm">
+              <label
+                htmlFor={ids.location}
+                className="text-sm"
+                data-testid="label-location"
+              >
                 Location (postcode or city)
               </label>
               <input
@@ -209,9 +264,14 @@ export default function ManageAccount() {
                 placeholder="E4 6JH, SW1, London…"
                 value={form.location}
                 onChange={(e) => set("location", e.target.value)}
+                data-testid="input-location"
               />
 
-              <button className="btn mt-2 disabled:opacity-50" disabled={busy}>
+              <button
+                className="btn mt-2 disabled:opacity-50"
+                disabled={busy}
+                data-testid="btn-save"
+              >
                 {busy ? "Saving…" : "Save changes"}
               </button>
             </form>

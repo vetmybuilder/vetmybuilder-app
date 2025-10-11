@@ -20,4 +20,10 @@ export class HomePage extends BasePage {
     // Adjust if your homepage has a different stable element to assert
     await expect(this.page).toHaveURL("/");
   }
+
+  async clickEditAccount(): Promise<AccountPage> {
+    await this.page.getByTestId("account-button").click();
+    await this.page.getByTestId("menu-manage-account").click();
+    await this.page.waitForURL("**/account");
+  }
 }
