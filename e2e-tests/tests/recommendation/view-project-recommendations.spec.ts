@@ -1,4 +1,4 @@
-// e2e-tests/tests/recommendation/test.with-photos.spec.ts
+// e2e-tests/tests/recommendation/view-project-recommendations.spec.ts
 import { test, expect } from "../../src/fixtures/base-fixture";
 import { ProjectsApi } from "../../src/api-utils/projects-api";
 import Project from "../../src/models/Project";
@@ -10,76 +10,13 @@ function photoBuffer() {
   );
 }
 
-test.describe("View shortlist", () => {
-  test("should display a shortlist", async ({
+test.describe("View all project recommendations", () => {
+  test("should display all recommendations", async ({
     usersApi,
     authApi,
     loginAsUid,
     projectViewPage,
-    recommendationsApiForUser,
-  }) => {
-    const { api: ownerApi, uid: ownerUid } =
-      await ProjectsApi.createForNewOwner({
-        usersApi,
-        authApi,
-        loginInBrowser: false,
-      });
-
-    const project = Project.aProject();
-    (project as any).location = "E4";
-    await ownerApi.createProject(project);
-    await ownerApi.publish(project);
-
-    // --- Create a recommender whose location matches the project (=> community) ---
-    const { uid: recUid } = await usersApi.createUser({
-      email: `e2e+${Date.now()}@example.com`,
-      password: "Passw0rd1",
-      location: "E4", // <- MUST match project area
-    });
-
-    const recApi = await recommendationsApiForUser({ uid: recUid });
-
-    await recApi.createManySmart(project.id!, [
-      {
-        name: "Chris Morris",
-        email: "morris@example.com",
-        phone: "02071234567",
-        company: "Builder A",
-        comment: "Excellent job, tidy and on time.",
-        rating: 5,
-        source: "magic",
-        photos: [
-          {
-            name: "a.png",
-            mimeType: "image/png",
-            buffer: photoBuffer(),
-          },
-        ],
-      },
-    ]);
-
-    await loginAsUid(ownerUid!, { redirect: `/projects/${project.id}` });
-    await projectViewPage.hasShortlist([
-      {
-        company: "Builder A",
-        rating: 5,
-        likes: 1,
-        comment: "Excellent job, tidy and on time.",
-        labels: ["friend", "community"],
-        recommenderName: "Chris Morris",
-        email: "morris@example.com",
-        phone: "02071234567",
-        hasGallery: true,
-      },
-    ]);
-    await expect(projectViewPage.viewMoreBtn).not.toBeVisible();
-  });
-
-  test("display show more button where there are 4 or more recommendations", async ({
-    usersApi,
-    authApi,
-    loginAsUid,
-    projectViewPage,
+    recommendationsPage,
     recommendationsApiForUser,
   }) => {
     const { api: ownerApi, uid: ownerUid } =
@@ -113,11 +50,7 @@ test.describe("View shortlist", () => {
         rating: 5,
         source: "platform",
         photos: [
-          {
-            name: "a.png",
-            mimeType: "image/png",
-            buffer: photoBuffer(),
-          },
+          { name: "a.png", mimeType: "image/png", buffer: photoBuffer() },
         ],
       },
       {
@@ -129,11 +62,7 @@ test.describe("View shortlist", () => {
         rating: 4,
         source: "platform",
         photos: [
-          {
-            name: "b.png",
-            mimeType: "image/png",
-            buffer: photoBuffer(),
-          },
+          { name: "b.png", mimeType: "image/png", buffer: photoBuffer() },
         ],
       },
       {
@@ -145,11 +74,7 @@ test.describe("View shortlist", () => {
         rating: 5,
         source: "platform",
         photos: [
-          {
-            name: "c.png",
-            mimeType: "image/png",
-            buffer: photoBuffer(),
-          },
+          { name: "c.png", mimeType: "image/png", buffer: photoBuffer() },
         ],
       },
       {
@@ -164,7 +89,13 @@ test.describe("View shortlist", () => {
     ]);
 
     await loginAsUid(ownerUid!, { redirect: `/projects/${project.id}` });
-    await projectViewPage.hasShortlist([
+
+    await projectViewPage.viewMoreBtn.click();
+    await expect(recommendationsPage.page).toHaveURL(
+      /\/projects\/\d+\/shortlist/
+    );
+    await recommendationsPage.hasHeading(project.name);
+    await recommendationsPage.hasRecommendations([
       {
         company: "Builder D",
         rating: 5,
@@ -198,7 +129,17 @@ test.describe("View shortlist", () => {
         phone: "02071234561",
         hasGallery: true,
       },
+      {
+        company: "Builder A",
+        rating: 5,
+        likes: 1,
+        comment: "Excellent job, tidy and on time.",
+        label: "community",
+        recommenderName: "Chris Morris",
+        email: "morris@example.com",
+        phone: "02071234567",
+        hasGallery: true,
+      },
     ]);
-    await expect(projectViewPage.viewMoreBtn).toBeVisible();
   });
 });

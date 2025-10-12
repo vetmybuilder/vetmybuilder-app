@@ -17,10 +17,8 @@ type Recommendation = {
   createdAt: string;
   likes?: number;
   myLike?: 0 | 1;
-  /** server adds these */
   fromFriend?: 0 | 1;
   fromCommunity?: 0 | 1;
-  /** NEW: use rating from server when present (1–5) */
   rating?: number | null;
 };
 
@@ -35,7 +33,11 @@ type ProjectLite = {
 function StarRating({ value }: { value: number | null | undefined }) {
   const v = Math.max(0, Math.min(5, Math.round(Number(value ?? 0))));
   return (
-    <div className="flex gap-0.5" aria-label={`${v} out of 5`}>
+    <div
+      className="flex gap-0.5"
+      aria-label={`${v} out of 5`}
+      data-testid="rec-stars"
+    >
       {[1, 2, 3, 4, 5].map((i) => (
         <span key={i} className={i <= v ? "text-yellow-400" : "text-gray-300"}>
           ★
@@ -62,17 +64,20 @@ function Badge({
   className = "",
   title,
   "aria-label": ariaLabel,
+  testId,
 }: {
   children: React.ReactNode;
   className?: string;
   title?: string;
   "aria-label"?: string;
+  testId?: string;
 }) {
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${className}`}
       title={title}
       aria-label={ariaLabel || title}
+      data-testid={testId}
     >
       {children}
     </span>
@@ -103,13 +108,11 @@ export default function ShortlistPage() {
   const [err, setErr] = useState<string | null>(null);
   const [likingId, setLikingId] = useState<number | null>(null);
 
-  // recId -> hasPhotos
   const [hasPhotos, setHasPhotos] = useState<Record<number, boolean>>({});
 
   const isOwner = !!(user && project && project.ownerUserId === user.uid);
   const canLike = !!user && !!project && !isOwner;
 
-  // load project shell
   useEffect(() => {
     if (!router.isReady || authLoading || !user || !id) return;
     let alive = true;
@@ -138,7 +141,6 @@ export default function ShortlistPage() {
     setErr(null);
   }
 
-  // load list
   useEffect(() => {
     if (!router.isReady || authLoading || !user || !id) return;
     let alive = true;
@@ -169,7 +171,6 @@ export default function ShortlistPage() {
     };
   }, [api, id, page, pageSize, router.isReady, authLoading, user]);
 
-  // fetch photo flags for listed items
   useEffect(() => {
     if (items.length === 0) {
       setHasPhotos({});
@@ -225,13 +226,19 @@ export default function ShortlistPage() {
 
   return (
     <AuthedOnly>
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+      <div
+        className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8"
+        data-testid="recommendations-page"
+      >
         {/* Header band */}
-        <div className="mb-6 rounded-2xl border border-gray-200 bg-white/80 backdrop-blur px-6 py-5 shadow-sm">
+        <div className="mb-6 rounded-2xl border border-gray-200 bg-white/80 backdrop-blur px-6 py-5 shadow-sm heading-band" data-testid="heading-band">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">
-                Shortlist{project ? ` · ${project.name}` : ""}
+              <h1
+                className="text-2xl font-semibold tracking-tight"
+                data-testid="recommendations-title"
+              >
+                All recommendations{project ? ` · ${project.name}` : ""}
               </h1>
               <p className="mt-1 text-sm text-slate-500">
                 The top recommendations, ranked by the community.
@@ -242,6 +249,7 @@ export default function ShortlistPage() {
               aria-label="Back to project details"
               title="Back to project details"
               className="btn-back"
+              data-testid="back-to-project"
             >
               <svg
                 viewBox="0 0 24 24"
@@ -268,13 +276,11 @@ export default function ShortlistPage() {
         ) : items.length === 0 ? (
           <div className="card">No builders have yet been recommended.</div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3" data-testid="recommendations-list">
             {items.map((r) => {
               const likes = r.likes ?? 0;
               const hasLiked = r.myLike === 1;
 
-              // ⭐️ Prefer explicit rating from server (1–5).
-              // If missing, fall back to likes→stars scaling.
               const stars =
                 r.rating != null && !Number.isNaN(Number(r.rating))
                   ? Math.max(1, Math.min(5, Math.round(Number(r.rating))))
@@ -290,6 +296,7 @@ export default function ShortlistPage() {
                 <div
                   key={r.id}
                   className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm hover:shadow-md transition p-5"
+                  data-testid="recommendation-card"
                 >
                   <div className="flex items-start gap-4">
                     {/* Like column (hidden for owner) */}
@@ -313,10 +320,15 @@ export default function ShortlistPage() {
                               ? "You’ve liked this"
                               : "Like"
                           }
+                          data-testid="rec-like-btn"
                         >
                           <LikeIcon className="h-4 w-4" />
                         </button>
-                        <div className="mt-1 text-xs tabular-nums text-slate-600">
+                        <div
+                          className="mt-1 text-xs tabular-nums text-slate-600"
+                          data-testid="rec-like-count"
+                          aria-label="Likes"
+                        >
                           {likes}
                         </div>
                       </div>
@@ -326,7 +338,10 @@ export default function ShortlistPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="font-medium truncate">
+                          <div
+                            className="font-medium truncate"
+                            data-testid="rec-company"
+                          >
                             <Link
                               href={`/builders/${r.id}`}
                               className="hover:underline decoration-indigo-400/60"
@@ -341,6 +356,7 @@ export default function ShortlistPage() {
                               <Badge
                                 className="border border-blue-200 bg-blue-50 text-blue-700"
                                 title="From a friend"
+                                testId="rec-badge-friend"
                               >
                                 Friend
                               </Badge>
@@ -349,6 +365,7 @@ export default function ShortlistPage() {
                               <Badge
                                 className="border border-emerald-200 bg-emerald-50 text-emerald-700"
                                 title="From the local community"
+                                testId="rec-badge-community"
                               >
                                 Community
                               </Badge>
@@ -358,6 +375,7 @@ export default function ShortlistPage() {
                                 className="border border-indigo-200 bg-indigo-50 text-indigo-700"
                                 title="Includes photos"
                                 aria-label="Includes photos"
+                                testId="rec-badge-photos"
                               >
                                 <CameraIcon className="h-3.5 w-3.5" />
                                 Photos
@@ -367,7 +385,11 @@ export default function ShortlistPage() {
                         </div>
 
                         <div className="flex items-center gap-3 shrink-0 whitespace-nowrap">
-                          <div className="text-xs text-slate-500 tabular-nums flex items-center gap-1">
+                          <div
+                            className="text-xs text-slate-500 tabular-nums flex items-center gap-1"
+                            aria-label="Total likes"
+                            data-testid="rec-like-count-top"
+                          >
                             <LikeIcon className="h-3.5 w-3.5 -mt-px" /> {likes}
                           </div>
                           <StarRating value={stars} />
@@ -375,18 +397,23 @@ export default function ShortlistPage() {
                       </div>
 
                       {r.comment && (
-                        <p className="text-sm text-slate-700 mt-2 whitespace-pre-wrap">
+                        <p
+                          className="text-sm text-slate-700 mt-2 whitespace-pre-wrap"
+                          data-testid="rec-comment"
+                        >
                           {r.comment}
                         </p>
                       )}
 
                       <div className="text-xs text-slate-500 mt-3 flex items-center justify-between">
-                        <span>
+                        <span data-testid="rec-meta">
                           {r.isAnonymous ? "Anonymous" : r.name || "—"}
                           {r.email ? ` · ${r.email}` : ""}
                           {r.phone ? ` · ${r.phone}` : ""}
                         </span>
-                        <span>{new Date(r.createdAt).toLocaleString()}</span>
+                        <span data-testid="rec-created">
+                          {new Date(r.createdAt).toLocaleString()}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -394,23 +421,44 @@ export default function ShortlistPage() {
               );
             })}
 
-            <div className="flex items-center justify-between pt-2">
+            <div
+              className="flex items-center justify-between pt-2"
+              data-testid="pager"
+            >
               <button
                 className="btn disabled:opacity-50"
                 disabled={page <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 aria-label="Previous page"
+                data-testid="pager-prev"
               >
                 Prev
               </button>
-              <div className="text-sm text-slate-600">
-                Page {page} / {totalPages} • Total: {total}
+
+              <div
+                className="text-sm text-slate-600"
+                data-testid="pager-status"
+              >
+                Page{" "}
+                <span data-testid="pager-page" aria-label="current page">
+                  {page}
+                </span>{" "}
+                /{" "}
+                <span data-testid="pager-pages" aria-label="total pages">
+                  {totalPages}
+                </span>{" "}
+                • Total:{" "}
+                <span data-testid="pager-total" aria-label="total results">
+                  {total}
+                </span>
               </div>
+
               <button
                 className="btn disabled:opacity-50"
                 disabled={page >= totalPages}
                 onClick={() => setPage((p) => p + 1)}
                 aria-label="Next page"
+                data-testid="pager-next"
               >
                 Next
               </button>

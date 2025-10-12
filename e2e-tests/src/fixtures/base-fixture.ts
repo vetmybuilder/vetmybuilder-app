@@ -11,6 +11,7 @@ import { CreateProjectPage } from "../pages/CreateProjectPage";
 import { BasePage } from "../pages/BasePage";
 import { ProjectsPage } from "../pages/ProjectsPage";
 import { ProjectRecommendPage } from "../pages/ProjectRecommendPage";
+import { RecommendationsPage } from "../pages/RecommendationsPage";
 import { AccountPage } from "../pages/AccountPage";
 
 type LoginOpts = {
@@ -89,6 +90,7 @@ type Fixtures = {
   basePage: BasePage;
   projectsPage: ProjectsPage;
   projectRecommendPage: ProjectRecommendPage;
+  recommendationsPage: RecommendationsPage;
   accountPage: AccountPage;
 
   usersApi: UsersApi;
@@ -254,6 +256,9 @@ export const test = base.extend<Fixtures>({
   },
   projectRecommendPage: async ({ page }, use) => {
     await use(new ProjectRecommendPage(page));
+  },
+  recommendationsPage: async ({ page }, use) => {
+    await use(new RecommendationsPage(page));
   },
   accountPage: async ({ page }, use) => {
     await use(new AccountPage(page));
