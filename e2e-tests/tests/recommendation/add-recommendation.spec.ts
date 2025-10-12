@@ -96,11 +96,9 @@ test.describe("Recommendation", () => {
     await ownerApi.publish(project);
     project.status = "Live";
 
-    // Owner logs in just to copy the magic link
     await loginAsUid(ownerUid!, { redirect: `/projects/${project.id}` });
     const { path } = await projectViewPage.copyMagicLinkToClipboard();
 
-    // Recommender user (same location)
     const recommender = User.aUser()
       .withFirstName("Bobby")
       .withLastName("Brown")
@@ -109,12 +107,9 @@ test.describe("Recommendation", () => {
       .withPassword("Passw0rd1");
     const { uid: recommenderUid } = await usersApi.createUser(recommender);
 
-    // Log in as recommender directly to the invite path
     await loginAsUid(recommenderUid!, { redirect: "/projects" });
     await projectsPage.hasNoRecommendations();
     await projectsPage.visit({ url: path });
-
-    // Name & email should be prefilled/locked on the magic-link recommendation page
     await expect(projectRecommendPage.name).toHaveValue(
       `${recommender.firstName} ${recommender.lastName}`
     );
@@ -123,8 +118,6 @@ test.describe("Recommendation", () => {
     await expect(projectRecommendPage.email).toBeDisabled();
     await expect(projectRecommendPage.name).toHaveAttribute("readonly", "");
     await expect(projectRecommendPage.email).toHaveAttribute("readonly", "");
-
-    // Fill, attach photo, submit
     await projectRecommendPage.addRecommendationViaForm({
       company: "Builder A",
       phone: "0207 123 4567",
@@ -139,7 +132,6 @@ test.describe("Recommendation", () => {
       "Thanks!Your recommendation has been sent.Redirecting to the homepage…"
     );
 
-    // Go back to the project page to verify shortlist shows the new recommendation
     await projectsPage.page.goto(`/projects/${project.id}`);
     await projectViewPage.hasShortlist({
       company: "Builder A",
@@ -164,7 +156,6 @@ test.describe("Recommendation", () => {
     projectViewPage,
     projectRecommendPage,
   }) => {
-    // Owner creates & publishes
     const { api: ownerApi, uid: ownerUid } =
       await ProjectsApi.createForNewOwner({
         usersApi,
@@ -178,7 +169,6 @@ test.describe("Recommendation", () => {
     await ownerApi.publish(project);
     project.status = "Live";
 
-    // Owner logs in just to copy the magic link
     await loginAsUid(ownerUid!, { redirect: `/projects/${project.id}` });
     const { path } = await projectViewPage.copyMagicLinkToClipboard();
 
@@ -188,8 +178,6 @@ test.describe("Recommendation", () => {
     await expect(projectRecommendPage.email).toBeEnabled();
     await expect(projectRecommendPage.name).toBeEmpty();
     await expect(projectRecommendPage.email).toBeEmpty();
-
-    // Fill, attach photo, submit
     await projectRecommendPage.addRecommendationViaForm({
       name: "Chris Morris",
       email: "morris@example.com",
@@ -206,7 +194,6 @@ test.describe("Recommendation", () => {
       "Thanks!Your recommendation has been sent.Redirecting to the homepage…"
     );
 
-    // Go back to the project page to verify shortlist shows the new recommendation
     await loginAsUid(ownerUid!, { redirect: `/projects/${project.id}` });
     await projectViewPage.hasShortlist({
       company: "Builder A",

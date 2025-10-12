@@ -4,6 +4,20 @@ import { BasePage } from "./BasePage";
 import Project from "../models/Project";
 import { expect } from "../fixtures/expect-extend";
 
+type ShortlistExpectation = {
+  company: string;
+  rating?: number;
+  likes?: number;
+  comment?: string;
+  recommenderName?: string;
+  anonymous?: boolean;
+  email?: string;
+  phone?: string;
+  hasGallery?: boolean;
+  label?: "friend" | "community";
+  labels?: Array<"friend" | "community">;
+};
+
 export class ProjectViewPage extends BasePage {
   readonly title: Locator;
   readonly createdAt: Locator;
@@ -27,6 +41,8 @@ export class ProjectViewPage extends BasePage {
   readonly copyInviteLinkBtn: Locator;
   readonly publishBtn: Locator;
   readonly addRecommendationBtn: Locator;
+  readonly viewMoreBtn: Locator;
+  readonly shortlistSection: Locator;
 
   constructor(page: Page) {
     super(page);
@@ -47,6 +63,7 @@ export class ProjectViewPage extends BasePage {
     this.fieldBedrooms = page.getByTestId("field-bedrooms");
     this.fieldStatus = page.getByTestId("field-status");
     this.fieldDescription = page.getByTestId("field-description");
+
     this.backToMyProjectsButton = page.getByLabel("Back to my projects");
     this.archiveBtn = page.getByTestId("project-details").getByLabel("Archive");
     this.unarchiveBtn = page
@@ -58,6 +75,8 @@ export class ProjectViewPage extends BasePage {
       .getByLabel("Copy invite link");
     this.publishBtn = page.getByTestId("project-details").getByLabel("Publish");
     this.addRecommendationBtn = page.getByLabel("Add recommendation");
+    this.viewMoreBtn = page.getByLabel("View more recommendations");
+    this.shortlistSection = page.getByTestId("shortlist-item");
   }
 
   async goto(id: number | string) {
@@ -71,7 +90,6 @@ export class ProjectViewPage extends BasePage {
   async hasProjectData(project: Project) {
     const p = project.toJSON();
 
-    // headings / badges / fields
     await expect(this.title).toHaveText(p.name);
 
     await expect(this.badgeType).toHaveText(p.type);
@@ -82,25 +100,21 @@ export class ProjectViewPage extends BasePage {
     await expect(this.fieldType).toHaveText(p.type);
     await expect(this.fieldLocation).toHaveText(p.location);
     await expect(this.fieldProperty).toHaveText(p.propertyType);
-    await expect(this.fieldBedrooms).toHaveText(String(p.bedrooms));
+    await expect(this.fieldBedrooms).toHaveText(p.bedrooms.toString());
     await expect(this.fieldDescription).toHaveText(p.description);
 
     const expected = (project as any).status ?? "Pending";
-
     await expect(this.badgeStatus).toContainText(expected);
     await expect(this.fieldStatus).toContainText(expected);
 
-    // created timestamp visible
     await expect(this.createdAt).toBeVisible();
   }
 
   async editProject(project: Project): Promise<void> {
     await this.projectDetailsCard.getByLabel("Edit").click();
-    // form should appear
     await expect(this.page).toHaveURL(/\/projects\/\d+\/edit$/);
     await expect(this.page.getByTestId("project-edit-form")).toBeVisible();
 
-    // fill (labels first)
     await this.page.getByLabel("Name").fill(project.name);
     await this.page.getByLabel("Type", { exact: true }).fill(project.type);
     await this.page.getByLabel("Location").fill(project.location);
@@ -109,30 +123,35 @@ export class ProjectViewPage extends BasePage {
       .selectOption({ label: project.propertyType });
     await this.page.getByLabel("Bedrooms").fill(String(project.bedrooms ?? 0));
     await this.page.getByLabel("Description").fill(project.description ?? "");
-
-    // save
     await this.page.getByRole("button", { name: /^save changes$/i }).click();
   }
 
-  async hasShortlist(exp: {
-    company: string;
-    rating?: number; // e.g. 5 -> "Rating: 5 out of 5"
-    likes?: number; // the chip next to the stars
-    comment?: string;
-    recommenderName?: string; // e.g. "Bobby Brown"
-    anonymous?: boolean; // if true, asserts "Anonymous"
-    email?: string;
-    phone?: string;
-    hasGallery?: boolean;
-  }) {
+  async hasShortlist(
+    exp: ShortlistExpectation | ShortlistExpectation[],
+    opts: { strictCount?: boolean } = { strictCount: true }
+  ) {
     const section = this.page.getByTestId("project-shortlist");
     await this.page.waitForLoadState("networkidle");
     await expect(section.getByTestId("shortlist-list")).toBeVisible();
 
-    const item = section
-      .getByTestId("shortlist-item")
-      .filter({ hasText: exp.company })
-      .first();
+    if (Array.isArray(exp)) {
+      const items = section.getByTestId("shortlist-item");
+      if (opts.strictCount !== false) {
+        await expect(items).toHaveCount(exp.length);
+      }
+      for (const e of exp) {
+        await this.assertShortlistItem(e);
+      }
+      return;
+    }
+
+    await this.assertShortlistItem(exp);
+  }
+
+  // ---------- private helpers ----------
+
+  private async assertShortlistItem(exp: ShortlistExpectation) {
+    const item = this.shortlistSection.filter({ hasText: exp.company }).first();
 
     await expect(item).toBeVisible();
     await expect(item.getByTestId("shortlist-company")).toHaveText(exp.company);
@@ -142,13 +161,13 @@ export class ProjectViewPage extends BasePage {
         item.getByLabel(`Rating: ${exp.rating} out of 5`)
       ).toBeVisible();
     }
+
     if (typeof exp.likes === "number") {
       await expect(item.getByTestId("shortlist-likes")).toContainText(
         String(exp.likes)
-      )
-      // optional: right column count (not always visible for owner)
-      // await expect(item.getByTestId("shortlist-like-count")).toHaveText(String(exp.likes));
+      );
     }
+
     if (exp.comment) {
       await expect(item.getByTestId("shortlist-comment")).toContainText(
         exp.comment
@@ -172,7 +191,38 @@ export class ProjectViewPage extends BasePage {
 
     if (exp.hasGallery) {
       await expect(item.getByTestId("shortlist-badge-photos")).toBeVisible();
+    } else {
+      // ok if not present at all or hidden
+      await expect(
+        item.getByTestId("shortlist-badge-photos")
+      ).not.toBeVisible();
     }
+
+    // Labels (friend/community)
+    const labels = exp.labels ?? (exp.label ? [exp.label] : []);
+    for (const lab of labels) {
+      await this.assertLabel(item, lab);
+    }
+  }
+
+  private async assertLabel(item: Locator, lab: "friend" | "community") {
+    if (lab === "friend") {
+      const byId = item.getByTestId("shortlist-badge-friend");
+      if ((await byId.count()) > 0) {
+        await expect(byId).toBeVisible();
+        return;
+      }
+      await expect(item).toContainText(/friend/i);
+      return;
+    }
+
+    // community
+    const byId = item.getByTestId("shortlist-badge-community");
+    if ((await byId.count()) > 0) {
+      await expect(byId).toBeVisible();
+      return;
+    }
+    await expect(item).toContainText(/(community|local resident)/i);
   }
 
   async copyMagicLinkToClipboard(): Promise<{
@@ -180,35 +230,26 @@ export class ProjectViewPage extends BasePage {
     path: string;
     token: string;
   }> {
-    // ensure we can read/write clipboard in this test context
     await this.page
       .context()
       .grantPermissions(["clipboard-read", "clipboard-write"]);
 
-    // click the copy button (wait for it to be ready just in case)
     await this.copyInviteLinkBtn.waitFor({ state: "visible" });
     await this.copyInviteLinkBtn.click();
-    await expect (this.page.getByTestId('flash-message')).toHaveText('Invite link copied to clipboard')
+    await expect(this.page.getByTestId("flash-message")).toHaveText(
+      "Invite link copied to clipboard"
+    );
 
-    // read from clipboard
     const copied = await this.page.evaluate(async () => {
-      // some browsers require a microtask after write; small wait is ok
       return await navigator.clipboard.readText();
     });
-
-    // if (!copied || typeof copied !== "string") {
-    //   throw new Error("Magic link copy failed: clipboard was empty.");
-    // }
 
     const absUrl = new URL(copied, this.page.url()).toString();
     const path = new URL(absUrl).pathname + new URL(absUrl).search;
 
-    // extract token if you need it ("/r/<token>")
     const m = path.match(/\/r\/([A-Za-z0-9\-_]+)/);
     const token = m?.[1] ?? "";
-
     if (!token) {
-      // not fatal, but usually we expect a token
       throw new Error(`Magic link looked invalid: "${absUrl}"`);
     }
 

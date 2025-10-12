@@ -1270,7 +1270,6 @@ app.post(
   }
 );
 
-
 // Debug helper (owner only): list rec-links for a project
 app.get(
   "/api/debug/reclinks/:projectId",
@@ -1549,7 +1548,7 @@ app.get(
 
     let allowed = !!isOwner;
     if (!allowed) {
-      if (isLive) allowed = !!uid; // any logged-in user on live projects
+      if (isLive) allowed = !!uid;
       else {
         const hasRec = db
           .prepare(
@@ -1572,7 +1571,7 @@ app.get(
       .prepare(`SELECT COUNT(*) AS c FROM recommendations WHERE projectId = ?`)
       .get(id);
 
-    // include likes + myLike and keep location/profile join; also select phone
+    // ✅ Join the *users* table (not user_profiles) to access location fields
     const raw = db
       .prepare(
         `
@@ -1580,10 +1579,10 @@ app.get(
           r.id, r.name, r.email, r.phone, r.company, r.comment, r.isAnonymous, r.createdAt, r.source,
           r.recommenderUserId,
           r.rating,
-          up.postcode AS up_postcode,
-          up.postcodeSector AS up_sector,
-          up.postcodeOutward AS up_outward,
-          up.city AS up_city,
+          u.postcode        AS u_postcode,
+          u.postcodeSector  AS u_sector,
+          u.postcodeOutward AS u_outward,
+          u.city            AS u_city,
           COALESCE(v.likes, 0) AS likes,
           CASE WHEN mv.userId IS NULL THEN 0 ELSE 1 END AS myLike
         FROM recommendations r
@@ -1595,7 +1594,8 @@ app.get(
         ) v ON v.recommendationId = r.id
         LEFT JOIN recommendation_votes mv
           ON mv.recommendationId = r.id AND mv.userId = ?
-        LEFT JOIN user_profiles up ON up.userId = r.recommenderUserId
+        LEFT JOIN users u
+          ON u.uid = r.recommenderUserId
         WHERE r.projectId = ?
         ORDER BY likes DESC, r.createdAt DESC
         LIMIT ? OFFSET ?
@@ -1606,12 +1606,12 @@ app.get(
     function communityMatch(row) {
       if (!row.recommenderUserId) return 0;
       return Number(
-        (pTok.full && row.up_postcode === pTok.full) ||
-          (pTok.sector && row.up_sector === pTok.sector) ||
-          (pTok.outward && row.up_outward === pTok.outward) ||
+        (pTok.full && row.u_postcode === pTok.full) ||
+          (pTok.sector && row.u_sector === pTok.sector) ||
+          (pTok.outward && row.u_outward === pTok.outward) ||
           (pTok.city &&
-            row.up_city &&
-            String(row.up_city).toLowerCase() ===
+            row.u_city &&
+            String(row.u_city).toLowerCase() ===
               String(pTok.city || "").toLowerCase())
       );
     }
@@ -1625,7 +1625,8 @@ app.get(
       comment: r.comment,
       isAnonymous: r.isAnonymous,
       createdAt: r.createdAt,
-      fromFriend: String(r.source || "magic") === "magic" ? 1 : 0,
+      fromFriend:
+        String(r.source || "platform").toLowerCase() === "magic" ? 1 : 0,
       fromCommunity: communityMatch(r),
       likes: r.likes,
       myLike: r.myLike ? 1 : 0,
@@ -1679,12 +1680,18 @@ app.post(
     const now = new Date().toISOString();
     const uid = req.user?.uid ?? null;
 
+    // Allow caller to hint the source. We only recognize "magic".
+    const rawSource = String(req.body?.source ?? "")
+      .trim()
+      .toLowerCase();
+    const source = rawSource === "magic" ? "magic" : "platform";
+
     const info = db
       .prepare(
         `INSERT INTO recommendations
-        (projectId, recommenderUserId, createdAt, name, email, phone, company, rating, comment, isAnonymous, source)
-       VALUES
-        (@projectId, @uid, @createdAt, @name, @email, @phone, @company, @rating, @comment, 0, 'platform')`
+         (projectId, recommenderUserId, createdAt, name, email, phone, company, rating, comment, isAnonymous, source)
+         VALUES
+         (@projectId, @uid, @createdAt, @name, @email, @phone, @company, @rating, @comment, 0, @source)`
       )
       .run({
         projectId,
@@ -1696,9 +1703,30 @@ app.post(
         company,
         rating,
         comment,
+        source,
       });
 
     const recommendationId = info.lastInsertRowid;
+
+    // --- Auto-like by the recommender (unless they are the owner) ---
+    try {
+      if (uid) {
+        const ownerRow = db
+          .prepare(`SELECT ownerUserId FROM projects WHERE id=?`)
+          .get(projectId);
+        if (!ownerRow || ownerRow.ownerUserId !== uid) {
+          // one like per user; ignore if already exists
+          db.prepare(
+            `INSERT OR IGNORE INTO recommendation_votes (recommendationId, userId, value)
+             VALUES (?, ?, 1)`
+          ).run(recommendationId, uid);
+        }
+      }
+    } catch (e) {
+      // don’t fail the main request if this write flakes
+      console.warn("[recommendation auto-like] failed", e);
+    }
+    // --- End auto-like ---
 
     // photos
     const files = Array.isArray(req.files) ? req.files : [];
@@ -1713,7 +1741,7 @@ app.post(
       }
     }
 
-    /* === Notify project owner (platform) -> open builders/<recommendationId> === */
+    /* Notify project owner */
     try {
       const ownerRow = db
         .prepare(`SELECT ownerUserId, name FROM projects WHERE id=?`)
@@ -1723,15 +1751,13 @@ app.post(
         notifyUsers(db, [ownerRow.ownerUserId], {
           type: "recommendation_new",
           message: `Someone has recommended a tradesperson to your project “${ownerRow.name}”`,
-          projectId, // keep for context
-          linkPath: `/builders/${recommendationId}`, // <-- go to builder detail
+          projectId,
+          linkPath: `/builders/${recommendationId}`,
         });
       }
     } catch (e) {
       console.warn("[notify-owner platform] failed", e);
     }
-
-    /* === END NEW === */
 
     return res.status(201).json({ ok: true, recommendationId });
   }
@@ -1808,8 +1834,9 @@ app.get("/api/recommendations/:id", optionalAuth(admin), (req, res) => {
     likes: row.likes,
     myLike,
     rating: row.rating ?? null,
-    fromFriend: String(row.source || "magic") === "magic" ? 1 : 0,
-    fromCommunity: 0,
+    fromFriend: String(row.source || "").toLowerCase() === "magic" ? 1 : 0,
+    fromCommunity:
+      String(row.source || "").toLowerCase() === "community" ? 1 : 0,
     photos,
     project: { id: row.projectId, name: row.projectName },
   };

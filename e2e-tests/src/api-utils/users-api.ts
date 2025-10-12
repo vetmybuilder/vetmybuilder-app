@@ -2,34 +2,51 @@
 import type { APIRequestContext, APIResponse } from "@playwright/test";
 import { expect } from "@playwright/test";
 import { ApiBase } from "./api-base";
-import User, { UserBuilder, type UserCreatePayload } from "../models/User";
+import User, { type UserCreatePayload } from "../models/User";
 
 type CreateUserResponse = {
   ok: boolean;
   uid?: string;
 };
 
-// Accept any of these as input to createUser/createUsers
-type CreateInput = User | UserBuilder | UserCreatePayload;
+// Accept any of these as input to createUser/createUsers:
+// - Your existing User model instance (must have toJSON())
+// - A builder-like object that exposes toCreatePayload()
+// - A plain UserCreatePayload
+type BuilderLike = { toCreatePayload: () => UserCreatePayload };
+type CreateInput = User | BuilderLike | UserCreatePayload;
 
-function isUserBuilder(x: any): x is UserBuilder {
-  return x && typeof x === "object" && typeof x.toCreatePayload === "function";
+function isUserInstance(x: unknown): x is User {
+  return (
+    !!x && typeof x === "object" && typeof (x as any).toJSON === "function"
+  );
 }
 
-function isPlainPayload(x: any): x is UserCreatePayload {
+function isBuilderLike(x: unknown): x is BuilderLike {
   return (
-    x && typeof x === "object" && !("toJSON" in x) && !("toCreatePayload" in x)
+    !!x &&
+    typeof x === "object" &&
+    typeof (x as any).toCreatePayload === "function"
+  );
+}
+
+function isPlainPayload(x: unknown): x is UserCreatePayload {
+  return (
+    !!x &&
+    typeof x === "object" &&
+    !("toJSON" in (x as any)) &&
+    !("toCreatePayload" in (x as any))
   );
 }
 
 /** Normalize any accepted input into the payload the test route expects */
 function toPayload(input: CreateInput): UserCreatePayload {
-  if (input instanceof User) {
-    // Your existing model; send its JSON (no location unless caller set it elsewhere)
+  if (isUserInstance(input)) {
+    // Your existing model; send its JSON
     return input.toJSON() as UserCreatePayload;
   }
-  if (isUserBuilder(input)) {
-    // Our fluent builder
+  if (isBuilderLike(input)) {
+    // Fluent builder
     return input.toCreatePayload();
   }
   if (isPlainPayload(input)) {
@@ -44,7 +61,7 @@ export class UsersApi extends ApiBase {
     super(request);
   }
 
-  /** Create one or many users. Works with User, UserBuilder, or plain payloads. */
+  /** Create one or many users. Works with User, builder-like, or plain payloads. */
   async createUser(input: CreateInput): Promise<CreateUserResponse>;
   async createUser(input: CreateInput[]): Promise<CreateUserResponse[]>;
   async createUser(
