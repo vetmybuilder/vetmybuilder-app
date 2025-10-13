@@ -13,8 +13,11 @@ type Project = {
   propertyType: string;
   bedrooms: number;
   createdAt: string;
-  status?: string;
+  status?: "pending" | "live" | "archived";
+  ownerUserId?: string;
+  isFavourite?: 0 | 1 | boolean;
 };
+
 type ApiList = {
   items: Project[];
   total: number;
@@ -31,11 +34,41 @@ function useDebounced<T>(value: T, delay = 300) {
   return v;
 }
 
+// ➜ Add "recommended" back
+type TabKey = "mine" | "recommended" | "community" | "favourites" | "archived";
+
+/** Small icons */
+function InfoIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden {...props}>
+      <path d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm0-11a1 1 0 1 1 0-2 1 1 0 0 1 0 2ZM9 9a1 1 0 0 1 1-1h1a1 1 0 1 1 0 2v4h1a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2h2V9Z" />
+    </svg>
+  );
+}
+function XIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      aria-hidden
+      {...props}
+    >
+      <path
+        d="M18 6 6 18M6 6l12 12"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export default function ProjectsPage() {
   const api = useApi();
   const { user, loading: authLoading } = useAuth();
 
-  const [tab, setTab] = useState<"mine" | "recommended">("mine");
+  const [tab, setTab] = useState<TabKey>("mine");
 
   const [fName, setFName] = useState("");
   const [fType, setFType] = useState("");
@@ -64,9 +97,11 @@ export default function ProjectsPage() {
   });
   const [loading, setLoading] = useState(true);
 
+  // reset page & clear status for community/favourites
   useEffect(() => {
     setPage(1);
-  }, [tab, dName, dType, dLocation, dProperty, status, sort, order]);
+    if (tab === "community" || tab === "favourites") setStatus("all");
+  }, [tab]);
 
   useEffect(() => {
     if (authLoading || !user) return;
@@ -130,16 +165,11 @@ export default function ProjectsPage() {
   );
 
   const toggleSort = (col: "name" | "createdAt") => {
-    if (sort === col) {
-      setOrder((o) => (o === "asc" ? "desc" : "asc"));
-    } else {
+    if (sort === col) setOrder((o) => (o === "asc" ? "desc" : "asc"));
+    else {
       setSort(col);
       setOrder(col === "createdAt" ? "desc" : "asc");
     }
-  };
-  const sortIcon = (col: "name" | "createdAt") => {
-    if (sort !== col) return "↕︎";
-    return order === "asc" ? "▲" : "▼";
   };
 
   const ids = {
@@ -149,6 +179,90 @@ export default function ProjectsPage() {
     property: "proj-filter-property",
     status: "proj-filter-status",
   };
+
+  // optimistic favourite/unfavourite
+  async function onAddFavourite(p: Project) {
+    try {
+      setData((prev) => ({
+        ...prev,
+        items: prev.items.map((it) =>
+          it.id === p.id ? { ...it, isFavourite: 1 } : it
+        ),
+      }));
+      await api.post(`/api/projects/${p.id}/favourite`);
+      if (tab === "community") {
+        setData((prev) => ({
+          ...prev,
+          items: prev.items.filter((it) => it.id !== p.id),
+          total: Math.max(0, prev.total - 1),
+        }));
+      }
+    } catch {
+      setData((prev) => ({
+        ...prev,
+        items: prev.items.map((it) =>
+          it.id === p.id ? { ...it, isFavourite: 0 } : it
+        ),
+      }));
+    }
+  }
+
+  async function onRemoveFavourite(p: Project) {
+    try {
+      setData((prev) => ({
+        ...prev,
+        items: prev.items.map((it) =>
+          it.id === p.id ? { ...it, isFavourite: 0 } : it
+        ),
+      }));
+      await api.post(`/api/projects/${p.id}/unfavourite`);
+      if (tab === "favourites") {
+        setData((prev) => ({
+          ...prev,
+          items: prev.items.filter((it) => it.id !== p.id),
+          total: Math.max(0, prev.total - 1),
+        }));
+      }
+    } catch {
+      setData((prev) => ({
+        ...prev,
+        items: prev.items.map((it) =>
+          it.id === p.id ? { ...it, isFavourite: 1 } : it
+        ),
+      }));
+    }
+  }
+
+  // tab pill styles
+  const tabStyle = (
+    active: boolean,
+    theme: "indigo" | "emerald" | "amber" | "rose"
+  ) => {
+    const activeMap = {
+      indigo: "bg-indigo-600 text-white shadow ring-1 ring-indigo-500",
+      emerald: "bg-emerald-600 text-white shadow ring-1 ring-emerald-500",
+      amber: "bg-amber-600 text-white shadow ring-1 ring-amber-500",
+      rose: "bg-rose-600 text-white shadow ring-1 ring-rose-500",
+    } as const;
+    const idleMap = {
+      indigo:
+        "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 hover:bg-indigo-100",
+      emerald:
+        "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100",
+      amber:
+        "bg-amber-50 text-amber-800 ring-1 ring-amber-200 hover:bg-amber-100",
+      rose: "bg-rose-50 text-rose-700 ring-1 ring-rose-200 hover:bg-rose-100",
+    } as const;
+    return `inline-flex items-center rounded-full px-4 sm:px-5 py-2 text-sm font-medium transition ${
+      active ? activeMap[theme] : idleMap[theme]
+    }`;
+  };
+
+  // compact, brand-aligned controls (no global .btn)
+  const ctaAdd =
+    "inline-flex items-center justify-center rounded-md bg-amber-500 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-amber-400 shadow-sm hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition";
+  const iconGhost =
+    "inline-flex items-center justify-center w-8 h-8 rounded-full bg-white text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 transition";
 
   return (
     <AuthedOnly>
@@ -172,8 +286,9 @@ export default function ProjectsPage() {
           </Link>
         </div>
 
+        {/* Tabs — with My Recommendations added back and ordered per your spec */}
         <div
-          className="mb-4 flex gap-2"
+          className="mb-4 flex flex-wrap gap-2"
           role="tablist"
           aria-label="Projects tabs"
           data-testid="projects-tabs"
@@ -181,36 +296,61 @@ export default function ProjectsPage() {
           <button
             role="tab"
             aria-selected={tab === "mine"}
-            className={`inline-flex items-center rounded-full px-4 sm:px-5 py-2 text-sm font-medium transition ${
-              tab === "mine"
-                ? "bg-indigo-600 text-white shadow ring-1 ring-indigo-500"
-                : "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 hover:bg-indigo-100"
-            }`}
+            className={tabStyle(tab === "mine", "indigo")}
             onClick={() => setTab("mine")}
             id="tab-my-projects"
             data-testid="tab-my-projects"
-            name="tab-my-projects"
           >
             My Projects
           </button>
+
           <button
             role="tab"
             aria-selected={tab === "recommended"}
-            className={`inline-flex items-center rounded-full px-4 sm:px-5 py-2 text-sm font-medium transition ${
-              tab === "recommended"
-                ? "bg-indigo-600 text-white shadow ring-1 ring-indigo-500"
-                : "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 hover:bg-indigo-100"
-            }`}
+            className={tabStyle(tab === "recommended", "indigo")}
             onClick={() => setTab("recommended")}
             id="tab-my-recommendations"
             data-testid="tab-my-recommendations"
-            name="tab-my-recommendations"
             aria-label="My Recommendations"
           >
             My Recommendations
           </button>
+
+          <button
+            role="tab"
+            aria-selected={tab === "community"}
+            className={tabStyle(tab === "community", "emerald")}
+            onClick={() => setTab("community")}
+            id="tab-community-projects"
+            data-testid="tab-community-projects"
+          >
+            Community Projects
+          </button>
+
+          <button
+            role="tab"
+            aria-selected={tab === "favourites"}
+            className={tabStyle(tab === "favourites", "amber")}
+            onClick={() => setTab("favourites")}
+            id="tab-favourites"
+            data-testid="tab-favourites"
+          >
+            Favourites
+          </button>
+
+          <button
+            role="tab"
+            aria-selected={tab === "archived"}
+            className={tabStyle(tab === "archived", "rose")}
+            onClick={() => setTab("archived")}
+            id="tab-archived"
+            data-testid="tab-archived"
+          >
+            Archived
+          </button>
         </div>
 
+        {/* Filters */}
         <div
           className="card mb-3 grid grid-cols-1 md:grid-cols-5 gap-2"
           data-testid="projects-filters"
@@ -271,26 +411,31 @@ export default function ProjectsPage() {
               data-testid="filter-property"
             />
           </div>
-          <div>
-            <label className="text-xs text-zinc-500" htmlFor={ids.status}>
-              Status
-            </label>
-            <select
-              id={ids.status}
-              name="status"
-              className="input"
-              value={status}
-              onChange={(e) => setStatus(e.target.value as any)}
-              data-testid="filter-status"
-            >
-              <option value="all">All</option>
-              <option value="pending">Pending</option>
-              <option value="live">Live</option>
-              <option value="archived">Archived</option>
-            </select>
-          </div>
+
+          {/* Status filter visible for My Projects, My Recommendations, Archived */}
+          {(tab === "mine" || tab === "archived" || tab === "recommended") && (
+            <div>
+              <label className="text-xs text-zinc-500" htmlFor={ids.status}>
+                Status
+              </label>
+              <select
+                id={ids.status}
+                name="status"
+                className="input"
+                value={status}
+                onChange={(e) => setStatus(e.target.value as any)}
+                data-testid="filter-status"
+              >
+                <option value="all">All</option>
+                <option value="pending">Pending</option>
+                <option value="live">Live</option>
+                <option value="archived">Archived</option>
+              </select>
+            </div>
+          )}
         </div>
 
+        {/* Table */}
         {loading ? (
           <p data-testid="projects-loading">Loading...</p>
         ) : (
@@ -309,18 +454,8 @@ export default function ProjectsPage() {
                       data-testid="th-name"
                       id="th-name"
                       data-colname="Name"
-                      aria-sort={
-                        sort === "name"
-                          ? order === "asc"
-                            ? "ascending"
-                            : "descending"
-                          : "none"
-                      }
                     >
-                      <span className="label">Name</span>{" "}
-                      <span className="text-xs" aria-hidden="true">
-                        {sortIcon("name")}
-                      </span>
+                      <span className="label">Name</span>
                     </th>
                     <th data-testid="th-type" id="th-type" data-colname="Type">
                       <span className="label">Type</span>
@@ -348,18 +483,8 @@ export default function ProjectsPage() {
                       data-testid="th-created"
                       id="th-created"
                       data-colname="Created"
-                      aria-sort={
-                        sort === "createdAt"
-                          ? order === "asc"
-                            ? "ascending"
-                            : "descending"
-                          : "none"
-                      }
                     >
-                      <span className="label">Created</span>{" "}
-                      <span className="text-xs" aria-hidden="true">
-                        {sortIcon("createdAt")}
-                      </span>
+                      <span className="label">Created</span>
                     </th>
                     <th
                       data-testid="th-status"
@@ -368,47 +493,110 @@ export default function ProjectsPage() {
                     >
                       <span className="label">Status</span>
                     </th>
+
+                    {(tab === "community" || tab === "favourites") && (
+                      <th
+                        data-testid="th-actions"
+                        id="th-actions"
+                        data-colname="Actions"
+                        className="w-40"
+                      >
+                        <span className="label">Actions</span>
+                        {tab === "favourites" && (
+                          <button
+                            type="button"
+                            className="ml-2 inline-flex align-middle text-slate-400 hover:text-slate-600"
+                            title="Removing a favourite moves it back to Community Projects"
+                            aria-label="Actions help"
+                            tabIndex={0}
+                            data-testid="actions-tooltip"
+                            onClick={(e) => e.preventDefault()}
+                          >
+                            <InfoIcon className="h-4 w-4" />
+                          </button>
+                        )}
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
-                  {data.items.map((p) => (
-                    <tr
-                      key={p.id}
-                      data-testid={`row-${p.id}`}
-                      id={`row-${p.id}`}
-                    >
-                      <td data-testid={`cell-${p.id}-name`}>
-                        <Link
-                          className="link"
-                          href={`/projects/${p.id}`}
-                          data-testid={`link-${p.id}-name`}
-                          id={`link-${p.id}-name`}
-                          aria-label={`Open project ${p.name}`}
-                          data-name={`project-${p.id}-link`}
-                        >
-                          {p.name}
-                        </Link>
-                      </td>
-                      <td data-testid={`cell-${p.id}-type`}>{p.type}</td>
-                      <td data-testid={`cell-${p.id}-location`}>
-                        {p.location}
-                      </td>
-                      <td data-testid={`cell-${p.id}-property`}>
-                        {p.propertyType}
-                      </td>
-                      <td data-testid={`cell-${p.id}-beds`}>{p.bedrooms}</td>
-                      <td data-testid={`cell-${p.id}-created`}>
-                        {new Date(p.createdAt).toLocaleString()}
-                      </td>
-                      <td data-testid={`cell-${p.id}-status`}>
-                        <StatusBadge value={p.status || "pending"} size="sm" />
-                      </td>
-                    </tr>
-                  ))}
+                  {data.items.map((p) => {
+                    const isFav = p.isFavourite === 1 || p.isFavourite === true;
+                    return (
+                      <tr
+                        key={p.id}
+                        data-testid={`row-${p.id}`}
+                        id={`row-${p.id}`}
+                      >
+                        <td data-testid={`cell-${p.id}-name`}>
+                          <Link
+                            className="link"
+                            href={`/projects/${p.id}`}
+                            data-testid={`link-${p.id}-name`}
+                            id={`link-${p.id}-name`}
+                            aria-label={`Open project ${p.name}`}
+                            data-name={`project-${p.id}-link`}
+                          >
+                            {p.name}
+                          </Link>
+                        </td>
+                        <td data-testid={`cell-${p.id}-type`}>{p.type}</td>
+                        <td data-testid={`cell-${p.id}-location`}>
+                          {p.location}
+                        </td>
+                        <td data-testid={`cell-${p.id}-property`}>
+                          {p.propertyType}
+                        </td>
+                        <td data-testid={`cell-${p.id}-beds`}>{p.bedrooms}</td>
+                        <td data-testid={`cell-${p.id}-created`}>
+                          {new Date(p.createdAt).toLocaleString()}
+                        </td>
+                        <td data-testid={`cell-${p.id}-status`}>
+                          <StatusBadge
+                            value={p.status || "pending"}
+                            size="sm"
+                          />
+                        </td>
+
+                        {(tab === "community" || tab === "favourites") && (
+                          <td
+                            data-testid={`cell-${p.id}-actions`}
+                            className="py-2"
+                          >
+                            {tab === "community" ? (
+                              <button
+                                onClick={() => onAddFavourite(p)}
+                                aria-label="Add to favourites"
+                                data-testid={`btn-${p.id}-add-favourite`}
+                                className="inline-flex items-center justify-center rounded-md bg-amber-500 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-amber-400 shadow-sm hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition"
+                              >
+                                Add to favourites
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => onRemoveFavourite(p)}
+                                aria-label="Remove from favourites (moves back to Community Projects)"
+                                title="Remove from favourites — moves back to Community Projects"
+                                data-testid={`btn-${p.id}-remove-favourite`}
+                                className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 transition"
+                              >
+                                <XIcon className="h-5 w-5" />
+                                <span className="sr-only">
+                                  Remove from favourites
+                                </span>
+                              </button>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
                   {data.items.length === 0 && (
                     <tr>
                       <td
-                        colSpan={7}
+                        colSpan={
+                          tab === "community" || tab === "favourites" ? 8 : 7
+                        }
                         className="text-sm text-zinc-400"
                         data-testid="projects-empty"
                       >
@@ -430,7 +618,6 @@ export default function ProjectsPage() {
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 id="pager-prev"
                 data-testid="pager-prev"
-                name="pager-prev"
               >
                 Prev
               </button>
@@ -447,7 +634,6 @@ export default function ProjectsPage() {
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 id="pager-next"
                 data-testid="pager-next"
-                name="pager-next"
               >
                 Next
               </button>

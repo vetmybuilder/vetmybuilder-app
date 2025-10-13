@@ -15,9 +15,23 @@ type NotifItem = {
   readAt?: string | null;
 };
 
+// How many notifications we keep client-side and ask the server for
+const NOTIF_LIMIT = 200;
+
+function dedupeAndSort(items: NotifItem[], limit = NOTIF_LIMIT) {
+  const byId = new Map<number, NotifItem>();
+  for (const it of items) {
+    const existing = byId.get(it.id);
+    // Prefer the one that has readAt (ensures read state isn’t lost)
+    if (!existing || (!!it.readAt && !existing.readAt)) byId.set(it.id, it);
+  }
+  return Array.from(byId.values())
+    .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
+    .slice(0, limit);
+}
+
 export default function NotificationsBell() {
-  // Extra guard; component is dynamically imported with ssr: false,
-  // but keep this in case it’s ever rendered on the server.
+  // Guard for any SSR rendering path
   if (typeof window === "undefined") return null;
 
   const { user } = useAuth();
@@ -60,8 +74,9 @@ export default function NotificationsBell() {
 
   async function refreshList() {
     try {
-      const { data } = await api.get("/api/notifications");
-      setItems(data.items || []);
+      // Ask the API for more than the old default of 50
+      const { data } = await api.get(`/api/notifications?limit=${NOTIF_LIMIT}`);
+      setItems((prev) => dedupeAndSort([...(data.items || []), ...prev]));
       setUnread(data.unread || 0);
     } catch {
       /* ignore */
@@ -101,7 +116,8 @@ export default function NotificationsBell() {
             : undefined;
         if (!token || !apiBase) return;
 
-        const url = `${apiBase}/api/notifications/stream?token=${encodeURIComponent(
+        // Include limit on SSE bootstrap too
+        const url = `${apiBase}/api/notifications/stream?limit=${NOTIF_LIMIT}&token=${encodeURIComponent(
           token
         )}`;
         const es = new EventSource(url);
@@ -112,13 +128,19 @@ export default function NotificationsBell() {
             const payload = JSON.parse(ev.data);
             if (cancelled) return;
             setUnread(payload.unread ?? 0);
-            setItems(payload.latest ?? []);
-          } catch {}
+            // Merge latest with what we already have (in case fetch already ran)
+            setItems((prev) =>
+              dedupeAndSort([...(payload.latest ?? []), ...prev])
+            );
+          } catch {
+            /* ignore */
+          }
         });
 
         es.addEventListener("notification", () => {
           if (cancelled) return;
           setUnread((u) => u + 1);
+          // Throttle a refresh that also asks with a higher limit
           if (refreshTimer.current) window.clearTimeout(refreshTimer.current);
           refreshTimer.current = window.setTimeout(() => {
             refreshList();
@@ -131,7 +153,9 @@ export default function NotificationsBell() {
             es.close();
           } catch {}
         };
-      } catch {}
+      } catch {
+        /* ignore */
+      }
     }
 
     start();
@@ -147,6 +171,7 @@ export default function NotificationsBell() {
     setBusy(true);
     try {
       await api.post("/api/notifications/read-all");
+      // Clear dot and reflect read state locally
       setUnread(0);
       setItems((prev) =>
         prev.map((i) => ({
@@ -170,7 +195,9 @@ export default function NotificationsBell() {
       if (n.id > 0) {
         try {
           await api.post(`/api/notifications/${n.id}/read`);
-        } catch {}
+        } catch {
+          /* ignore */
+        }
       } else {
         refreshList();
       }
@@ -185,7 +212,6 @@ export default function NotificationsBell() {
         ? `/projects/${n.projectId}`
         : "/projects";
 
-    // Prefer SPA nav (use the top-level router instance)
     try {
       await router.push(href);
     } catch {
@@ -193,14 +219,14 @@ export default function NotificationsBell() {
     }
   }
 
-  const count = Math.min(99, Math.max(0, unread));
+  const showDot = unread > 0; // big red dot on the bell
 
   return (
     <div className="relative">
       <button
         ref={btnRef}
         type="button"
-        aria-label={count ? `${count} unread notifications` : "Notifications"}
+        aria-label={showDot ? "Notifications (unread)" : "Notifications"}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
@@ -220,14 +246,13 @@ export default function NotificationsBell() {
             strokeLinejoin="round"
           />
         </svg>
-        {count > 0 && (
+
+        {/* Big red dot indicator (no number) */}
+        {showDot && (
           <span
             aria-hidden
-            className="absolute -top-1 -right-1 inline-flex min-w-[18px] items-center justify-center rounded-full
-                       bg-rose-600 px-1.5 text-[10px] font-semibold text-white shadow ring-1 ring-rose-400/60"
-          >
-            {count}
-          </span>
+            className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-rose-600 ring-2 ring-white shadow"
+          />
         )}
       </button>
 
@@ -236,14 +261,18 @@ export default function NotificationsBell() {
           ref={menuRef}
           role="menu"
           aria-label="Notifications"
-          className="absolute right-0 mt-2 w-80 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg ring-1 ring-black/5"
+          className="absolute right-0 mt-2 w-96 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg ring-1 ring-black/5"
         >
           <div className="flex items-center justify-between px-3 py-2">
-            <div className="text-sm font-medium">Notifications</div>
+            {/* Top-left: show count of loaded items */}
+            <div className="text-sm font-semibold text-gray-900">
+              {items.length} Notifications
+            </div>
+
             <button
               className="text-xs rounded-md px-2 py-1 ring-1 ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
               onClick={markAllRead}
-              disabled={busy || count === 0}
+              disabled={busy || unread === 0}
             >
               Mark all read
             </button>
@@ -255,21 +284,36 @@ export default function NotificationsBell() {
                 You’re all caught up.
               </div>
             ) : (
-              items.map((n) => (
-                <button
-                  key={`${n.id}-${n.createdAt}`}
-                  role="menuitem"
-                  className={`w-full text-left px-3 py-3 hover:bg-gray-50 ${
-                    !n.readAt ? "bg-indigo-50/60" : ""
-                  }`}
-                  onClick={() => onClickItem(n)}
-                >
-                  <div className="text-sm text-gray-900">{n.message}</div>
-                  <div className="mt-1 text-xs text-gray-500">
-                    {new Date(n.createdAt).toLocaleString()}
-                  </div>
-                </button>
-              ))
+              items.map((n) => {
+                const isUnread = !n.readAt;
+                return (
+                  <button
+                    key={`${n.id}-${n.createdAt}`}
+                    role="menuitem"
+                    className={`w-full text-left px-3 py-3 hover:bg-gray-50 transition
+                      ${
+                        isUnread
+                          ? "bg-amber-50/80 border-l-4 border-amber-500"
+                          : ""
+                      }
+                    `}
+                    onClick={() => onClickItem(n)}
+                  >
+                    <div
+                      className={`text-sm ${
+                        isUnread
+                          ? "text-gray-900 font-semibold"
+                          : "text-gray-900"
+                      }`}
+                    >
+                      {n.message}
+                    </div>
+                    <div className="mt-1 text-xs text-gray-500">
+                      {new Date(n.createdAt).toLocaleString()}
+                    </div>
+                  </button>
+                );
+              })
             )}
           </div>
 

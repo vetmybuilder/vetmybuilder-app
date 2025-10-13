@@ -1,4 +1,3 @@
-// web/pages/projects/[id].tsx
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
@@ -18,7 +17,7 @@ type Project = {
   bedrooms: number;
   createdAt: string;
   ownerUserId: string;
-  status: string; // "pending" | "live" | "archived"
+  status: "pending" | "live" | "archived";
 };
 
 type Recommendation = {
@@ -59,8 +58,6 @@ const LikeIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <path d="M12.1 21.35c-.32 0-.63-.1-.9-.3l-1.2-.9C5.2 16.54 2 13.76 2 10.28 2 7.5 4.2 5.3 7 5.3c1.45 0 2.86.63 3.8 1.7.94-1.07 2.35-1.7 3.8-1.7 2.8 0 5 2.2 5 4.98 0 3.48-3.2 6.26-7 9.88l-1.2.9c-.27.2-.58.3-.9.3z" />
   </svg>
 );
-
-/* small camera icon used for “Gallery” badge in shortlist */
 const CameraIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
     <path d="M9 3a1 1 0 0 0-.9.56L7.38 5H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V8a3 3 0 0 0-3-3h-2.38l-.72-1.44A1 1 0 0 0 14 3H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM6.5 9.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
@@ -112,7 +109,7 @@ export default function ProjectView() {
     return () => clearTimeout(t);
   }, [flash]);
 
-  /* Load project — wait for auth & router readiness */
+  /* Load project */
   useEffect(() => {
     if (!router.isReady || authLoading || !user || !id) return;
     let alive = true;
@@ -166,9 +163,8 @@ export default function ProjectView() {
     }
   };
 
-  // Archive immediately; show banner
   const onArchive = async () => {
-    if (!project || busy) return;
+    if (!project || busy || !isOwner) return;
     setBusy(true);
     try {
       const { data } = await api.post(`/api/projects/${project.id}/archive`);
@@ -185,7 +181,7 @@ export default function ProjectView() {
   };
 
   const onUnarchive = async () => {
-    if (!project || busy) return;
+    if (!project || busy || !isOwner) return;
     setBusy(true);
     try {
       const { data } = await api.post(`/api/projects/${project.id}/unarchive`);
@@ -201,7 +197,7 @@ export default function ProjectView() {
     }
   };
 
-  // Updated: copy invite shows flash message like onUnarchive; no window.prompt/alert
+  // Updated: copy invite shows flash message like onUnarchive
   const onCopyInvite = async () => {
     if (!project || busy) return;
     setBusy(true);
@@ -210,13 +206,10 @@ export default function ProjectView() {
       if (!data?.url) throw new Error("No URL returned");
 
       let copied = false;
-
-      // Try modern clipboard API first
       try {
         await navigator.clipboard.writeText(data.url);
         copied = true;
       } catch {
-        // Fallback: invisible textarea + execCommand
         try {
           const ta = document.createElement("textarea");
           ta.value = String(data.url);
@@ -232,16 +225,12 @@ export default function ProjectView() {
           copied = false;
         }
       }
-
-      if (copied) {
-        setFlash({ kind: "success", text: "Invite link copied to clipboard" });
-      } else {
-        // Still successful in generating; provide URL visibly as a fallback
-        setFlash({
-          kind: "success",
-          text: `Invite link: ${data.url}`,
-        });
-      }
+      setFlash({
+        kind: "success",
+        text: copied
+          ? "Invite link copied to clipboard"
+          : `Invite link: ${data.url}`,
+      });
     } catch (e: any) {
       setFlash({
         kind: "error",
@@ -288,7 +277,7 @@ export default function ProjectView() {
     };
   }, [api, router.isReady, authLoading, user, project?.id]);
 
-  /* Fetch "has photos" flags for the current shortlist (light N calls) */
+  /* Fetch photos flags */
   useEffect(() => {
     if (!recs || recs.length === 0) return;
     let cancelled = false;
@@ -317,7 +306,10 @@ export default function ProjectView() {
     };
   }, [api, recs]);
 
-  /* Can add recommendation? */
+  /* Can add recommendation?
+     - Only when project is LIVE
+     - And user profile has a location (unchanged)
+     - And project is NOT archived (extra guard) */
   useEffect(() => {
     if (!router.isReady || authLoading || !user || !project) return;
     let alive = true;
@@ -329,7 +321,7 @@ export default function ProjectView() {
           !!data?.profile?.postcodeSector ||
           !!data?.profile?.postcodeOutward ||
           !!data?.profile?.city;
-        if (alive) setCanAddRec(isLive && hasLoc);
+        if (alive) setCanAddRec(isLive && !isArchived && hasLoc);
       } catch {
         if (alive) setCanAddRec(false);
       }
@@ -337,16 +329,14 @@ export default function ProjectView() {
     return () => {
       alive = false;
     };
-  }, [api, router.isReady, authLoading, user, project, isLive]);
+  }, [api, router.isReady, authLoading, user, project, isLive, isArchived]);
 
-  /* Like (one per user; no unlike) */
+  /* Likes */
   const canLike = !!user && !!project && !isOwner;
   const likeOnce = async (rec: Recommendation) => {
     if (!canLike || !project || likingId) return;
     if (rec.myLike === 1) return;
     setLikingId(rec.id);
-
-    // optimistic bump
     setRecs((prev) =>
       (prev || []).map((r) =>
         r.id === rec.id
@@ -354,13 +344,11 @@ export default function ProjectView() {
           : r
       )
     );
-
     try {
       await api.post(`/api/recommendations/${rec.id}/like`);
       await loadRecs(project.id);
-    } catch (e: any) {
+    } catch {
       await loadRecs(project.id);
-      alert(e?.response?.data?.error || "Unable to like right now");
     } finally {
       setLikingId(null);
     }
@@ -458,7 +446,6 @@ export default function ProjectView() {
                 data-testid="project-details"
               >
                 <div className="card">
-                  {/* Flash banner (auto hides) */}
                   {!!flash && (
                     <div
                       role="alert"
@@ -646,7 +633,8 @@ export default function ProjectView() {
                   </div>
                 </div>
 
-                {canAddRec && !isOwner && (
+                {/* Add recommendation button: only if LIVE, not owner, and not archived */}
+                {canAddRec && !isOwner && !isArchived && (
                   <div className="mt-4">
                     <Link
                       className="btn"
@@ -676,7 +664,7 @@ export default function ProjectView() {
                         Shortlist
                       </h2>
                       <p className="mt-1 text-sm text-slate-500">
-                        The top recommendations, ranked by the community.
+                        Top 3 recommendations, ranked by the community.
                       </p>
                     </div>
                   </div>

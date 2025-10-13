@@ -706,14 +706,25 @@ app.get(
   "/api/projects",
   ...authed((req, res) => {
     const uid = req.user.uid;
-    const tab = req.query.tab === "recommended" ? "recommended" : "mine";
 
+    const allowedTabs = new Set([
+      "mine",
+      "community",
+      "favourites",
+      "archived",
+      "recommended",
+    ]);
+    const tabRaw = String(req.query.tab || "mine").toLowerCase();
+    const tab = allowedTabs.has(tabRaw) ? tabRaw : "mine";
+
+    // Filters
     const qName = String(req.query.name ?? "").trim();
     const qType = String(req.query.type ?? "").trim();
     const qLocation = String(req.query.location ?? "").trim();
     const qProperty = String(req.query.property ?? "").trim();
     const rawStatus = String(req.query.status ?? "all").toLowerCase();
 
+    // Sorting
     const allowedSort = new Set(["createdAt", "name"]);
     const sort = allowedSort.has(String(req.query.sort))
       ? String(req.query.sort)
@@ -721,6 +732,7 @@ app.get(
     const order =
       String(req.query.order).toLowerCase() === "asc" ? "ASC" : "DESC";
 
+    // Paging
     const page = Math.max(1, parseInt(req.query.page ?? "1", 10));
     const pageSize = Math.min(
       50,
@@ -728,79 +740,283 @@ app.get(
     );
     const offset = (page - 1) * pageSize;
 
-    const where = [];
-    const params = [];
+    // Common WHERE builder (free text filters)
+    const whereParts = [];
+    const whereParams = [];
 
-    if (rawStatus !== "all") {
-      where.push(`p.status = ?`);
-      params.push(rawStatus);
-    }
     if (qName) {
-      where.push(`p.name LIKE ? COLLATE NOCASE`);
-      params.push(`%${qName}%`);
+      whereParts.push(`p.name LIKE ? COLLATE NOCASE`);
+      whereParams.push(`%${qName}%`);
     }
     if (qType) {
-      where.push(`p.type LIKE ? COLLATE NOCASE`);
-      params.push(`%${qType}%`);
+      whereParts.push(`p.type LIKE ? COLLATE NOCASE`);
+      whereParams.push(`%${qType}%`);
     }
     if (qLocation) {
-      where.push(`p.location LIKE ? COLLATE NOCASE`);
-      params.push(`%${qLocation}%`);
+      whereParts.push(`p.location LIKE ? COLLATE NOCASE`);
+      whereParams.push(`%${qLocation}%`);
     }
     if (qProperty) {
-      where.push(`p.propertyType LIKE ? COLLATE NOCASE`);
-      params.push(`%${qProperty}%`);
+      whereParts.push(`p.propertyType LIKE ? COLLATE NOCASE`);
+      whereParams.push(`%${qProperty}%`);
     }
 
-    const whereSql = where.length ? `AND ${where.join(" AND ")}` : "";
+    const applyWhere = (extraParts = [], extraParams = []) => {
+      const parts = [...extraParts, ...whereParts];
+      const sql = parts.length ? `WHERE ${parts.join(" AND ")}` : "";
+      const params = [...extraParams, ...whereParams];
+      return { sql, params };
+    };
 
+    const respond = (rows, total) =>
+      res.json({ items: rows, total, page, pageSize });
+
+    // --- MINE ---
     if (tab === "mine") {
+      const extra = [];
+      const extraParams = [];
+      if (rawStatus !== "all") {
+        extra.push(`p.status = ?`);
+        extraParams.push(rawStatus);
+      }
+      const { sql, params } = applyWhere(extra, extraParams);
+
       const countRow = db
         .prepare(
           `SELECT COUNT(*) AS c
-           FROM projects p
-          WHERE p.ownerUserId = ?
-            ${whereSql}`
+             FROM projects p
+            ${
+              sql
+                ? sql.replace("WHERE", "WHERE p.ownerUserId = ? AND")
+                : "WHERE p.ownerUserId = ?"
+            }`
         )
         .get(uid, ...params);
 
       const rows = db
         .prepare(
-          `SELECT p.*
-           FROM projects p
-          WHERE p.ownerUserId = ?
-            ${whereSql}
-          ORDER BY p.${sort} ${order}
-          LIMIT ? OFFSET ?`
+          `SELECT p.*,
+                  CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite
+             FROM projects p
+             LEFT JOIN favourites f
+               ON f.projectId = p.id AND f.userId = ?
+            ${
+              sql
+                ? sql.replace("WHERE", "WHERE p.ownerUserId = ? AND")
+                : "WHERE p.ownerUserId = ?"
+            }
+            ORDER BY p.${sort} ${order}
+            LIMIT ? OFFSET ?`
         )
-        .all(uid, ...params, pageSize, offset);
+        .all(uid, uid, ...params, pageSize, offset);
 
-      return res.json({ items: rows, total: countRow.c, page, pageSize });
-    } else {
-      const countRow = db
-        .prepare(
-          `SELECT COUNT(*) AS c
-           FROM recommendations r
-           JOIN projects p ON p.id = r.projectId
-          WHERE r.recommenderUserId = ?
-            ${whereSql}`
-        )
-        .get(uid, ...params);
-
-      const rows = db
-        .prepare(
-          `SELECT p.*
-           FROM recommendations r
-           JOIN projects p ON p.id = r.projectId
-          WHERE r.recommenderUserId = ?
-            ${whereSql}
-          ORDER BY p.${sort} ${order}
-          LIMIT ? OFFSET ?`
-        )
-        .all(uid, ...params, pageSize, offset);
-
-      return res.json({ items: rows, total: countRow.c, page, pageSize });
+      return respond(rows, countRow.c);
     }
+
+    // --- ARCHIVED (mine only) ---
+    if (tab === "archived") {
+      const extra = [`p.ownerUserId = ?`, `p.status = 'archived'`];
+      const extraParams = [uid];
+      const { sql, params } = applyWhere(extra, extraParams);
+
+      const countRow = db
+        .prepare(`SELECT COUNT(*) AS c FROM projects p ${sql}`)
+        .get(...params);
+
+      const rows = db
+        .prepare(
+          `SELECT p.*,
+                  CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite
+             FROM projects p
+             LEFT JOIN favourites f
+               ON f.projectId = p.id AND f.userId = ?
+            ${sql}
+            ORDER BY p.${sort} ${order}
+            LIMIT ? OFFSET ?`
+        )
+        .all(uid, ...params, pageSize, offset);
+
+      return respond(rows, countRow.c);
+    }
+
+    // --- COMMUNITY ---
+    if (tab === "community") {
+      // Read full user row; pull any usable location tokens
+      const me =
+        db.prepare(`SELECT * FROM users WHERE uid = ?`).get(uid) || null;
+
+      const candidateKeys = [
+        "location",
+        "postcodeOutward",
+        "postcodeSector",
+        "postcode",
+        "city",
+      ];
+      const tokens = [];
+      if (me && typeof me === "object") {
+        for (const k of candidateKeys) {
+          if (Object.prototype.hasOwnProperty.call(me, k)) {
+            const v = String(me[k] ?? "").trim();
+            if (v) tokens.push(v);
+          }
+        }
+      }
+      if (tokens.length === 0) return respond([], 0);
+
+      const norm = (s) =>
+        String(s || "")
+          .toLowerCase()
+          .replace(/\s+/g, "");
+      const normTokens = Array.from(new Set(tokens.map(norm))).filter(Boolean);
+
+      const areaOr = normTokens
+        .map(() => `REPLACE(LOWER(p.location),' ','') LIKE '%' || ? || '%'`)
+        .join(" OR ");
+      const areaParams = normTokens;
+
+      // Base: live, not mine, IN AREA, and **NOT ALREADY FAVOURITED**
+      const baseParts = [
+        `p.status = 'live'`,
+        `p.ownerUserId <> ?`,
+        `NOT EXISTS (SELECT 1 FROM favourites fx WHERE fx.projectId = p.id AND fx.userId = ?)`,
+      ];
+      const baseParams = [uid, uid];
+
+      if (areaOr) {
+        baseParts.push(`(${areaOr})`);
+        baseParams.push(...areaParams);
+      }
+
+      const { sql, params } = applyWhere(baseParts, baseParams);
+
+      const countRow = db
+        .prepare(`SELECT COUNT(*) AS c FROM projects p ${sql}`)
+        .get(...params);
+
+      const rows = db
+        .prepare(
+          `SELECT p.*,
+                  0 AS isFavourite
+             FROM projects p
+            ${sql}
+            ORDER BY p.${sort} ${order}
+            LIMIT ? OFFSET ?`
+        )
+        .all(...params, pageSize, offset);
+
+      return respond(rows, countRow.c);
+    }
+
+    // --- FAVOURITES ---
+    if (tab === "favourites") {
+      const whereSQL = whereParts.length
+        ? `AND ${whereParts.join(" AND ")}`
+        : "";
+
+      const countRow = db
+        .prepare(
+          `SELECT COUNT(*) AS c
+             FROM favourites f
+             JOIN projects p ON p.id = f.projectId
+            WHERE f.userId = ?
+              ${whereSQL}`
+        )
+        .get(uid, ...whereParams);
+
+      const rows = db
+        .prepare(
+          `SELECT p.*,
+                  1 AS isFavourite
+             FROM favourites f
+             JOIN projects p ON p.id = f.projectId
+            WHERE f.userId = ?
+              ${whereSQL}
+            ORDER BY p.${sort} ${order}
+            LIMIT ? OFFSET ?`
+        )
+        .all(uid, ...whereParams, pageSize, offset);
+
+      return respond(rows, countRow.c);
+    }
+
+    // --- Legacy: RECOMMENDED (kept) ---
+    if (tab === "recommended") {
+      const extra = [];
+      if (rawStatus !== "all") {
+        extra.push(`p.status = ?`);
+        whereParams.push(rawStatus);
+      }
+      const whereSql =
+        whereParts.length || extra.length
+          ? `AND ${[...extra, ...whereParts].join(" AND ")}`
+          : "";
+
+      const countRow = db
+        .prepare(
+          `SELECT COUNT(*) AS c
+             FROM recommendations r
+             JOIN projects p ON p.id = r.projectId
+            WHERE r.recommenderUserId = ?
+              ${whereSql}`
+        )
+        .get(uid, ...whereParams);
+
+      const rows = db
+        .prepare(
+          `SELECT p.*,
+                  CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite
+             FROM recommendations r
+             JOIN projects p ON p.id = r.projectId
+             LEFT JOIN favourites f
+               ON f.projectId = p.id AND f.userId = ?
+            WHERE r.recommenderUserId = ?
+              ${whereSql}
+            ORDER BY p.${sort} ${order}
+            LIMIT ? OFFSET ?`
+        )
+        .all(uid, uid, ...whereParams, pageSize, offset);
+
+      return respond(rows, countRow.c);
+    }
+
+    return respond([], 0);
+  })
+);
+
+// ---- Favourite / Unfavourite (unchanged) ----
+app.post(
+  "/api/projects/:id/favourite",
+  ...authed((req, res) => {
+    const uid = req.user.uid;
+    const pid = Number(req.params.id);
+    if (!Number.isFinite(pid))
+      return res.status(400).json({ error: "Invalid id" });
+
+    const project = db.prepare(`SELECT id FROM projects WHERE id = ?`).get(pid);
+    if (!project) return res.status(404).json({ error: "Project not found" });
+
+    db.prepare(
+      `INSERT OR IGNORE INTO favourites (userId, projectId) VALUES (?, ?)`
+    ).run(uid, pid);
+
+    res.json({ ok: true });
+  })
+);
+
+app.post(
+  "/api/projects/:id/unfavourite",
+  ...authed((req, res) => {
+    const uid = req.user.uid;
+    const pid = Number(req.params.id);
+    if (!Number.isFinite(pid))
+      return res.status(400).json({ error: "Invalid id" });
+
+    db.prepare(`DELETE FROM favourites WHERE userId = ? AND projectId = ?`).run(
+      uid,
+      pid
+    );
+
+    res.json({ ok: true });
   })
 );
 
@@ -1376,7 +1592,12 @@ app.post(
 
 /* -------------------- Notifications API & SSE -------------------- */
 
-// SSE with token (EventSource can’t send headers in all browsers; we accept ?token=)
+function parseLimit(v, def = 50, min = 1, max = 500) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return def;
+  return Math.max(min, Math.min(max, Math.trunc(n)));
+}
+
 app.get("/api/notifications/stream", async (req, res) => {
   let token = "";
   const auth = req.headers.authorization || "";
@@ -1392,6 +1613,8 @@ app.get("/api/notifications/stream", async (req, res) => {
     }
   } catch (_) {}
   if (!uid) return res.status(401).json({ error: "Missing/invalid token" });
+
+  const limit = parseLimit(req.query.limit, /*def*/ 50);
 
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
@@ -1416,12 +1639,12 @@ app.get("/api/notifications/stream", async (req, res) => {
   const latest = db
     .prepare(
       `SELECT id, type, message, projectId, linkPath, createdAt, readAt
-       FROM notifications
-      WHERE userId=?
-      ORDER BY createdAt DESC
-      LIMIT 5`
+         FROM notifications
+        WHERE userId=?
+        ORDER BY createdAt DESC
+        LIMIT ?`
     )
-    .all(uid);
+    .all(uid, limit);
 
   sseSend(res, "bootstrap", { unread, latest });
 
@@ -1437,16 +1660,25 @@ app.get(
   "/api/notifications",
   ...authed((req, res) => {
     const uid = req.user.uid;
+
+    const limit = parseLimit(req.query.limit, /*def*/ 50);
+
     const items = db
       .prepare(
         `SELECT id, type, message, projectId, linkPath, createdAt, readAt
-         FROM notifications
-        WHERE userId=?
-        ORDER BY createdAt DESC
-        LIMIT 50`
+           FROM notifications
+          WHERE userId=?
+          ORDER BY createdAt DESC
+          LIMIT ?`
       )
-      .all(uid);
-    const unread = items.filter((i) => !i.readAt).length;
+      .all(uid, limit);
+
+    const unread = db
+      .prepare(
+        `SELECT COUNT(*) AS c FROM notifications WHERE userId=? AND readAt IS NULL`
+      )
+      .get(uid).c;
+
     res.json({ items, unread });
   })
 );
@@ -1461,6 +1693,7 @@ app.post(
       .get(id);
     if (!row || row.userId !== req.user.uid)
       return res.status(404).json({ error: "Not found" });
+
     db.prepare(`UPDATE notifications SET readAt=? WHERE id=?`).run(
       new Date().toISOString(),
       id
