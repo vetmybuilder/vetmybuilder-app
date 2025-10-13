@@ -14,13 +14,13 @@ type ProjectRecord = {
   propertyType: string;
   bedrooms: number;
   status: string;
-  createdAt: string; // ISO datetime
+  createdAt: string;
   ownerUserId: string;
 };
 
 type CreateProjectResponseBody = { project: ProjectRecord };
+type FavouriteResponse = { ok?: boolean };
 
-/** Minimal shapes so we don't import test fixtures here */
 type UsersApiLike = {
   createUser(u: User): Promise<{ uid?: string }>;
 };
@@ -31,7 +31,6 @@ type AuthApiLike = {
 
 const DEFAULT_API_BASE = process.env.E2E_API_BASE || "http://localhost:8787";
 
-/** Track open APIRequestContexts so we can auto-dispose them in fixture teardown */
 const __openContexts = new Set<() => Promise<void>>();
 export async function __disposeAllProjectApiContexts() {
   const disposers = Array.from(__openContexts);
@@ -57,10 +56,6 @@ export class ProjectsApi extends ApiBase {
     (target as any).ownerUserId = src.ownerUserId;
   }
 
-  /**
-   * Create a project via real endpoint POST /api/projects.
-   * Requires the APIRequestContext to be authenticated (Bearer ID token or cookie).
-   */
   async createProject(
     project: Project,
     extraHeaders?: Record<string, string>
@@ -112,7 +107,6 @@ export class ProjectsApi extends ApiBase {
     return res;
   }
 
-  /** Convenience: return parsed body directly. */
   async createProjectBody(
     project: Project,
     extraHeaders?: Record<string, string>
@@ -121,7 +115,6 @@ export class ProjectsApi extends ApiBase {
     return (await res.json()) as CreateProjectResponseBody;
   }
 
-  /** Create many projects in sequence (preserves order). */
   async createProjects(
     projects: Project[],
     extraHeaders?: Record<string, string>
@@ -134,23 +127,16 @@ export class ProjectsApi extends ApiBase {
     return out;
   }
 
-  /**
-   * Publish by project id. Validates JSON and surfaces clear errors (403/404, etc.).
-   * Server endpoint: POST /api/projects/:id/publish
-   */
   async publishProject(projectId: number): Promise<APIResponse> {
     const res = await this.request.post(`/api/projects/${projectId}/publish`, {
       headers: { "Content-Type": "application/json" },
     });
     const raw = await res.text();
 
-    // Try to parse JSON for better messages
     let json: any = undefined;
     try {
       json = raw ? JSON.parse(raw) : undefined;
-    } catch {
-      // keep going; assertion below will show the HTML snippet if non-JSON
-    }
+    } catch {}
 
     expect(
       res.ok(),
@@ -169,7 +155,6 @@ export class ProjectsApi extends ApiBase {
     return res;
   }
 
-  /** Publish and return parsed body */
   async publishProjectBody(
     projectId: number
   ): Promise<{ project: ProjectRecord }> {
@@ -177,7 +162,6 @@ export class ProjectsApi extends ApiBase {
     return (await res.json()) as { project: ProjectRecord };
   }
 
-  /** Publish a Project instance and hydrate it from the server response. */
   async publish(project: Project): Promise<APIResponse> {
     if (!project.id)
       throw new Error("publish(project): project.id is required");
@@ -187,12 +171,52 @@ export class ProjectsApi extends ApiBase {
     return res;
   }
 
-  // ===== Lazy factory helpers (tests can ignore dispose; fixture will auto-clean) =====
-
   /**
-   * Create an authenticated ProjectsApi for an existing UID.
-   * Useful if your test already created a user elsewhere.
+   * Favourite a project via POST /api/projects/:id/favourite and poll until the API returns { ok: true }.
+   * Uses Playwright's expect.poll with a configurable timeout and polling interval.
+   * @param projectId Project ID to favourite.
+   * @param opts.timeoutMs Total time to wait (default 5000ms).
+   * @param opts.intervalMs Polling interval (default 250ms).
    */
+  async favouriteProject(
+    projectId: number,
+    opts: { timeoutMs?: number; intervalMs?: number } = {}
+  ): Promise<void> {
+    const timeout = opts.timeoutMs ?? 5_000;
+    const interval = opts.intervalMs ?? 250;
+
+    await expect
+      .poll(
+        async () => {
+          const res = await this.request.post(
+            `/api/projects/${projectId}/favourite`,
+            { headers: { "Content-Type": "application/json" } }
+          );
+          try {
+            const json = (await res.json()) as FavouriteResponse;
+            return json?.ok === true;
+          } catch {
+            return false;
+          }
+        },
+        {
+          timeout,
+          intervals: [interval],
+          message: `POST /api/projects/${projectId}/favourite did not yield { ok: true } within ${timeout}ms`,
+        }
+      )
+      .toBe(true);
+  }
+
+  async favourite(
+    project: { id?: number },
+    opts?: { timeoutMs?: number; intervalMs?: number }
+  ): Promise<void> {
+    if (!project.id)
+      throw new Error("favourite(project): project.id is required");
+    await this.favouriteProject(project.id, opts);
+  }
+
   static async createForUid(opts: {
     uid: string;
     authApi: AuthApiLike;
@@ -219,19 +243,14 @@ export class ProjectsApi extends ApiBase {
     return { api: new ProjectsApi(ctx), dispose: disposer };
   }
 
-  /**
-   * Create an authenticated ProjectsApi tied to a fresh owner user.
-   * Optionally logs the browser in as that owner (single redirect), if you pass `page`.
-   * Nothing runs until you call this method from your test.
-   */
   static async createForNewOwner(opts: {
     usersApi: UsersApiLike;
     authApi: AuthApiLike;
-    page?: Page; // provide to perform browser login
-    loginInBrowser?: boolean; // default false
-    redirect?: string; // default "/projects"
-    owner?: User; // default: generated user
-    baseURL?: string; // default: E2E_API_BASE or http://localhost:8787
+    page?: Page;
+    loginInBrowser?: boolean;
+    redirect?: string;
+    owner?: User;
+    baseURL?: string;
     headers?: Record<string, string>;
   }): Promise<{
     api: ProjectsApi;
@@ -253,11 +272,9 @@ export class ProjectsApi extends ApiBase {
       headers = {},
     } = opts;
 
-    // 1) Create owner
     const { uid } = await usersApi.createUser(owner);
     if (!uid) throw new Error("owner uid missing");
 
-    // 2) Optional browser login for UI flows
     if (loginInBrowser) {
       if (!page) throw new Error("page is required when loginInBrowser=true");
       const customToken = await authApi.customToken(uid);
@@ -269,7 +286,6 @@ export class ProjectsApi extends ApiBase {
       await page.waitForLoadState("networkidle");
     }
 
-    // 3) Authenticated APIRequestContext
     const idToken = await authApi.idTokenForUid(uid);
     const ctx = await pwRequest.newContext({
       baseURL,
@@ -290,7 +306,7 @@ export class ProjectsApi extends ApiBase {
       api: new ProjectsApi(ctx),
       uid,
       owner,
-      dispose: disposer, // optional for specs; fixture can auto-clean by calling __disposeAllProjectApiContexts()
+      dispose: disposer,
     };
   }
 }

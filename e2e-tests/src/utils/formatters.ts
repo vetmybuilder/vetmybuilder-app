@@ -34,3 +34,11 @@ export const looseEqualsRegex = (s: string): RegExp => {
   const pattern = parts.join("[\\s-]*"); // matches “Semi Detached”, “Semi-Detached”, etc.
   return new RegExp(`^${pattern}$`, "i");
 };
+
+export const statusLabel = (s: any) => {
+  const v = String(s ?? "")
+    .trim()
+    .toLowerCase();
+  if (!v) return "Pending";
+  return v.charAt(0).toUpperCase() + v.slice(1);
+};

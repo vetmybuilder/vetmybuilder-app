@@ -3,6 +3,7 @@ import { Page, Locator } from "@playwright/test";
 import { BasePage } from "./BasePage";
 import Project from "../models/Project";
 import { expect } from "../fixtures/expect-extend";
+import { statusLabel } from "../../src/utils/formatters";
 
 export class ProjectsPage extends BasePage {
   readonly heading: Locator;
@@ -101,8 +102,46 @@ export class ProjectsPage extends BasePage {
     await this.statusFilter.selectOption("all").catch(() => {});
   }
 
-  async hasProjects(projects: Array<Project>): Promise<void> {
-    const headers = [
+  // async hasProjects(projects: Array<Project>): Promise<void> {
+  //   const headers = [
+  //     "Name",
+  //     "Type",
+  //     "Location",
+  //     "Property",
+  //     "Beds",
+  //     "Created",
+  //     "Status",
+  //   ];
+
+  //   const rows = projects.map((proj) => {
+  //     // Use toJSON() for display fields, but read status from the object itself
+  //     const p =
+  //       typeof (proj as any).toJSON === "function"
+  //         ? (proj as any).toJSON()
+  //         : proj;
+  //     const expectedStatus = (proj as any).status ?? "Pending";
+
+  //     return [
+  //       p.name,
+  //       p.type,
+  //       p.location,
+  //       p.propertyType,
+  //       String(p.bedrooms),
+  //       expect.any(String),
+  //       expectedStatus,
+  //     ];
+  //   });
+
+  //   await expect(this.table).toHaveTableData([headers, ...rows]);
+  // }
+
+  // PageObject
+  async hasProjects(
+    projects: Array<Project>,
+    headers?: string[],
+    actionsText?: string
+  ): Promise<void> {
+    const defaultHeaders = [
       "Name",
       "Type",
       "Location",
@@ -112,26 +151,32 @@ export class ProjectsPage extends BasePage {
       "Status",
     ];
 
+    const hdrs = headers?.length ? headers : defaultHeaders;
+    const includeActions = hdrs.includes("Actions");
     const rows = projects.map((proj) => {
-      // Use toJSON() for display fields, but read status from the object itself
       const p =
         typeof (proj as any).toJSON === "function"
           ? (proj as any).toJSON()
           : proj;
-      const expectedStatus = (proj as any).status ?? "Pending";
 
-      return [
+      const row: any[] = [
         p.name,
         p.type,
         p.location,
         p.propertyType,
         String(p.bedrooms),
         expect.any(String),
-        expectedStatus,
+        statusLabel((proj as any).status),
       ];
+
+      if (includeActions) {
+        row.push(actionsText ?? expect.any(String));
+      }
+
+      return row;
     });
 
-    await expect(this.table).toHaveTableData([headers, ...rows]);
+    await expect(this.table).toHaveTableData([hdrs, ...rows]);
   }
 
   TableRow(name: string): Locator {
@@ -157,7 +202,23 @@ export class ProjectsPage extends BasePage {
   }
 
   async hasNoProjects(): Promise<void> {
-    await this.page.getByRole('tab', {name: "My Projects"}).click();
+    await this.page.getByRole("tab", { name: "My Projects" }).click();
     await expect(this.projectEmpty).toBeVisible();
+  }
+
+  async addToFavourites(projectOrId: number | { id: number }): Promise<void> {
+    const id = typeof projectOrId === "number" ? projectOrId : projectOrId.id;
+    await this.page
+      .getByTestId(`row-${id}`)
+      .getByTestId(`btn-${id}-add-favourite`)
+      .click();
+  }
+
+  async removeFromFavourites(projectOrId: number | { id: number }): Promise<void> {
+    const id = typeof projectOrId === "number" ? projectOrId : projectOrId.id;
+    await this.page
+      .getByTestId(`row-${id}`)
+      .getByTestId(`btn-${id}-remove-favourite`)
+      .click();
   }
 }
