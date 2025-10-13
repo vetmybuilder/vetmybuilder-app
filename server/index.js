@@ -775,10 +775,15 @@ app.get(
     if (tab === "mine") {
       const extra = [];
       const extraParams = [];
-      if (rawStatus !== "all") {
+
+      // Exclude archived by default from My Projects
+      if (rawStatus === "all") {
+        extra.push(`p.status <> 'archived'`);
+      } else {
         extra.push(`p.status = ?`);
         extraParams.push(rawStatus);
       }
+
       const { sql, params } = applyWhere(extra, extraParams);
 
       const countRow = db
@@ -796,7 +801,8 @@ app.get(
       const rows = db
         .prepare(
           `SELECT p.*,
-                  CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite
+                  CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite,
+                  0 AS canFavourite
              FROM projects p
              LEFT JOIN favourites f
                ON f.projectId = p.id AND f.userId = ?
@@ -826,7 +832,8 @@ app.get(
       const rows = db
         .prepare(
           `SELECT p.*,
-                  CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite
+                  CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite,
+                  0 AS canFavourite
              FROM projects p
              LEFT JOIN favourites f
                ON f.projectId = p.id AND f.userId = ?
@@ -896,7 +903,8 @@ app.get(
       const rows = db
         .prepare(
           `SELECT p.*,
-                  0 AS isFavourite
+                  0 AS isFavourite,
+                  1 AS canFavourite
              FROM projects p
             ${sql}
             ORDER BY p.${sort} ${order}
@@ -926,7 +934,8 @@ app.get(
       const rows = db
         .prepare(
           `SELECT p.*,
-                  1 AS isFavourite
+                  1 AS isFavourite,
+                  0 AS canFavourite
              FROM favourites f
              JOIN projects p ON p.id = f.projectId
             WHERE f.userId = ?
@@ -939,7 +948,7 @@ app.get(
       return respond(rows, countRow.c);
     }
 
-    // --- Legacy: RECOMMENDED (kept) ---
+    // --- RECOMMENDED (legacy kept, but favouriting disabled in UI) ---
     if (tab === "recommended") {
       const extra = [];
       if (rawStatus !== "all") {
@@ -964,7 +973,8 @@ app.get(
       const rows = db
         .prepare(
           `SELECT p.*,
-                  CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite
+                  CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite,
+                  0 AS canFavourite
              FROM recommendations r
              JOIN projects p ON p.id = r.projectId
              LEFT JOIN favourites f
@@ -983,25 +993,41 @@ app.get(
   })
 );
 
-// ---- Favourite / Unfavourite (unchanged) ----
+// ---- Favourite / Unfavourite (updated) ----
 app.post(
   "/api/projects/:id/favourite",
   ...authed((req, res) => {
     const uid = req.user.uid;
     const pid = Number(req.params.id);
-    if (!Number.isFinite(pid))
+    if (!Number.isFinite(pid)) {
       return res.status(400).json({ error: "Invalid id" });
+    }
 
-    const project = db.prepare(`SELECT id FROM projects WHERE id = ?`).get(pid);
-    if (!project) return res.status(404).json({ error: "Project not found" });
+    // Fetch owner to enforce "can't favourite your own project"
+    const project = db
+      .prepare(`SELECT id, ownerUserId FROM projects WHERE id = ?`)
+      .get(pid);
 
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
+    if (String(project.ownerUserId) === String(uid)) {
+      return res
+        .status(400)
+        .json({ error: "You cannot favourite your own project." });
+    }
+
+    // (Optional hard-guard: ensure it's not already favourited)
     db.prepare(
       `INSERT OR IGNORE INTO favourites (userId, projectId) VALUES (?, ?)`
     ).run(uid, pid);
 
-    res.json({ ok: true });
+    return res.json({ ok: true });
   })
 );
+
+// (Leaving your existing DELETE /api/projects/:id/favourite as-is, if you have it)
 
 app.post(
   "/api/projects/:id/unfavourite",
@@ -1065,18 +1091,36 @@ app.post(
   })
 );
 
-/** Read single project (public if live) */
+/** Read single project (public if live; non-owners blocked for non-live) */
 app.get("/api/projects/:id", optionalAuth(admin), (req, res) => {
   const id = Number(req.params.id);
-  if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+  if (!Number.isFinite(id))
+    return res.status(400).json({ error: "Invalid id" });
+
   const project = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
   if (!project) return res.status(404).json({ error: "Not found" });
-  if (!req.user) {
-    if ((project.status || "").toLowerCase() !== "live") {
-      return res.status(401).json({ error: "Missing bearer token" });
-    }
+
+  const status = String(project.status || "").toLowerCase();
+  const isLive = status === "live";
+  const viewerUid = req.user?.uid ?? null;
+  const isOwner =
+    viewerUid && String(project.ownerUserId) === String(viewerUid);
+
+  // Unauthenticated viewers: only live projects are visible
+  if (!viewerUid) {
+    if (!isLive) return res.status(401).json({ error: "Missing bearer token" });
+    res.set("Cache-Control", "no-store");
+    return res.json({ project });
   }
-  res.json({ project });
+
+  // Authenticated viewers: only owner or live
+  if (!isOwner && !isLive) {
+    // Use 404 to avoid leaking the project's existence
+    return res.status(404).json({ error: "Not found" });
+  }
+
+  res.set("Cache-Control", "no-store");
+  return res.json({ project });
 });
 
 /** Update a project (owner only) */
@@ -1147,23 +1191,27 @@ app.post(
   })
 );
 
-/** Unarchive (owner only) */
+/** Unarchive (owner only → status: pending) */
 app.post(
   "/api/projects/:id/unarchive",
   ...authed((req, res) => {
     const uid = req.user.uid;
     const id = Number(req.params.id);
-    if (!Number.isFinite(id))
+    if (!Number.isFinite(id)) {
       return res.status(400).json({ error: "Invalid id" });
+    }
 
     const current = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
     if (!current) return res.status(404).json({ error: "Not found" });
-    if (current.ownerUserId !== uid)
+    if (String(current.ownerUserId) !== String(uid)) {
       return res.status(403).json({ error: "Forbidden" });
+    }
 
-    db.prepare(`UPDATE projects SET status='pending' WHERE id=?`).run(id);
-    const updated = db.prepare(`SELECT * FROM projects WHERE id=?`).get(id);
-    res.json({ project: updated });
+    // Move it out of Archive, back into My Projects as "pending"
+    db.prepare(`UPDATE projects SET status = 'pending' WHERE id = ?`).run(id);
+
+    const updated = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
+    return res.json({ project: updated });
   })
 );
 
@@ -1767,31 +1815,28 @@ app.get(
   "/api/projects/:id/recommendations",
   ...authed((req, res) => {
     const id = Number(req.params.id);
-    if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+    if (!Number.isFinite(id))
+      return res.status(400).json({ error: "Invalid id" });
 
     const proj = db
-      .prepare(`SELECT ownerUserId, status, location FROM projects WHERE id=?`)
+      .prepare(
+        `SELECT ownerUserId, status, location FROM projects WHERE id = ?`
+      )
       .get(id);
     if (!proj) return res.status(404).json({ error: "Not found" });
-    const pTok = extractLocationTokens(proj.location);
 
+    const status = String(proj.status || "").toLowerCase();
+    const isLive = status === "live";
     const uid = req.user?.uid || null;
-    const isOwner = uid && uid === proj.ownerUserId;
-    const isLive = (proj.status || "").toLowerCase() === "live";
+    const isOwner = uid && String(uid) === String(proj.ownerUserId);
 
-    let allowed = !!isOwner;
-    if (!allowed) {
-      if (isLive) allowed = !!uid;
-      else {
-        const hasRec = db
-          .prepare(
-            `SELECT 1 FROM recommendations WHERE projectId = ? AND recommenderUserId = ? LIMIT 1`
-          )
-          .get(id, uid);
-        if (hasRec) allowed = true;
-      }
+    // Visibility rule: only owner OR live
+    if (!isOwner && !isLive) {
+      // Hide existence
+      return res.status(404).json({ error: "Not found" });
     }
-    if (!allowed) return res.status(403).json({ error: "Forbidden" });
+
+    const pTok = extractLocationTokens(proj.location);
 
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
     const pageSize = Math.max(
@@ -1804,7 +1849,6 @@ app.get(
       .prepare(`SELECT COUNT(*) AS c FROM recommendations WHERE projectId = ?`)
       .get(id);
 
-    // ✅ Join the *users* table (not user_profiles) to access location fields
     const raw = db
       .prepare(
         `
@@ -1866,7 +1910,7 @@ app.get(
       rating: r.rating ?? null,
     }));
 
-    res.json({ items, total: totalRow.c || 0, page, pageSize });
+    return res.json({ items, total: totalRow.c || 0, page, pageSize });
   })
 );
 

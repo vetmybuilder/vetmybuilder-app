@@ -34,7 +34,6 @@ function useDebounced<T>(value: T, delay = 300) {
   return v;
 }
 
-// ➜ Add "recommended" back
 type TabKey = "mine" | "recommended" | "community" | "favourites" | "archived";
 
 /** Small icons */
@@ -97,11 +96,22 @@ export default function ProjectsPage() {
   });
   const [loading, setLoading] = useState(true);
 
-  // reset page & clear status for community/favourites
+  // reset page & clear status for tabs that don't use it
   useEffect(() => {
     setPage(1);
-    if (tab === "community" || tab === "favourites") setStatus("all");
+    if (tab === "community" || tab === "favourites" || tab === "archived" || tab === "recommended") {
+      setStatus("all");
+    }
   }, [tab]);
+
+  // Normalize status sent to API:
+  // - Only "mine" honors the status filter (and never sends "archived").
+  // - All other tabs force "all" to rely on server-side tab filtering.
+  const effectiveStatus = useMemo(() => {
+    if (tab !== "mine") return "all";
+    if (status === "archived") return "all";
+    return status;
+  }, [tab, status]);
 
   useEffect(() => {
     if (authLoading || !user) return;
@@ -110,7 +120,7 @@ export default function ProjectsPage() {
 
     const params = new URLSearchParams({
       tab,
-      status,
+      status: effectiveStatus,
       name: dName,
       type: dType,
       location: dLocation,
@@ -153,7 +163,7 @@ export default function ProjectsPage() {
     dType,
     dLocation,
     dProperty,
-    status,
+    effectiveStatus,
     sort,
     order,
     page,
@@ -286,7 +296,7 @@ export default function ProjectsPage() {
           </Link>
         </div>
 
-        {/* Tabs — with My Recommendations added back and ordered per your spec */}
+        {/* Tabs */}
         <div
           className="mb-4 flex flex-wrap gap-2"
           role="tablist"
@@ -412,8 +422,11 @@ export default function ProjectsPage() {
             />
           </div>
 
-          {/* Status filter visible for My Projects, My Recommendations, Archived */}
-          {(tab === "mine" || tab === "archived" || tab === "recommended") && (
+          {/* Status filter:
+              - Visible ONLY for My Projects
+              - Hidden for My Recommendations, Archived, Community, Favourites
+              - In My Projects: options are All, Pending, Live (no Archived) */}
+          {tab === "mine" && (
             <div>
               <label className="text-xs text-zinc-500" htmlFor={ids.status}>
                 Status
@@ -429,7 +442,6 @@ export default function ProjectsPage() {
                 <option value="all">All</option>
                 <option value="pending">Pending</option>
                 <option value="live">Live</option>
-                <option value="archived">Archived</option>
               </select>
             </div>
           )}

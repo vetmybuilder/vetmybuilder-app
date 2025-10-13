@@ -27,11 +27,12 @@ test.describe("Projects — archive", () => {
     await expect(projectViewPage.notificationMessage).toHaveText(
       "Project archived"
     );
+    project.status = "Archived";
+    await projectViewPage.hasProjectData(project);
     await expect(projectViewPage.copyInviteLinkBtn).not.toBeVisible();
     await projectViewPage.backToMyProjectsButton.click();
-    
-    project.status = "Archived";
-
+    await projectsPage.hasNoProjects();
+    await projectsPage.tabArchived.click();
     await projectsPage.hasProjects([project]);
   });
 });

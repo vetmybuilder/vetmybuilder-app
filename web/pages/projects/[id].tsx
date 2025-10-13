@@ -3,7 +3,7 @@ import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useAuth } from "@/utils/auth";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import StatusBadge from "@/components/StatusBadge";
 
 /* ===== Types ===== */
@@ -77,11 +77,26 @@ export default function ProjectView() {
   const api = useApi();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const { id } = router.query;
+
+  const projectId = useMemo(() => {
+    const raw = router.query.id;
+    const n = Number(Array.isArray(raw) ? raw[0] : raw);
+    return Number.isFinite(n) ? n : null;
+  }, [router.query.id]);
+
+  // detect the source tab so we only allow favourites from community
+  type Tab = "mine" | "community" | "favourites" | "archived" | "recommended";
+  const tabParam = Array.isArray(router.query.tab)
+    ? router.query.tab[0]
+    : router.query.tab;
+  const sourceTab = (typeof tabParam === "string" ? tabParam : undefined) as
+    | Tab
+    | undefined;
+  const isFromCommunity = sourceTab === "community";
 
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
 
   // shortlist
   const [recs, setRecs] = useState<Recommendation[] | null>(null);
@@ -95,8 +110,11 @@ export default function ProjectView() {
   // eligibility to add recommendation
   const [canAddRec, setCanAddRec] = useState(false);
 
-  // busy flag for archive/unarchive/publish
+  // busy flag for archive/unarchive/publish and favourite
   const [busy, setBusy] = useState(false);
+
+  // track adding to favourites to hide/disable after success
+  const [addedToFavourites, setAddedToFavourites] = useState(false);
 
   // flash banner (auto-dismiss)
   const [flash, setFlash] = useState<{
@@ -105,32 +123,27 @@ export default function ProjectView() {
   } | null>(null);
   useEffect(() => {
     if (!flash) return;
-    const t = setTimeout(() => setFlash(null), 50000);
+    const t = setTimeout(() => setFlash(null), 5000);
     return () => clearTimeout(t);
   }, [flash]);
 
   /* Load project */
   useEffect(() => {
-    if (!router.isReady || authLoading || !user || !id) return;
+    if (!router.isReady || authLoading || !user || !projectId) return;
     let alive = true;
     setLoading(true);
-    setErr(null);
+    setErrorStatus(null);
 
     (async () => {
       try {
-        const { data } = await api.get(`/api/projects/${id}`);
+        const { data } = await api.get(`/api/projects/${projectId}`);
         if (!alive) return;
         setProject(data.project);
       } catch (e: any) {
         if (!alive) return;
-        const status = e?.status ?? e?.response?.status;
-        const message =
-          e?.data?.error || e?.response?.data?.error || e?.message || "";
-        if (status === 401 || /bearer token/i.test(String(message))) {
-          setErr("You need to sign in again to view this project.");
-        } else {
-          setErr("Failed to load project");
-        }
+        const status = e?.status ?? e?.response?.status ?? 500;
+        setErrorStatus(status);
+        setProject(null);
       } finally {
         if (alive) setLoading(false);
       }
@@ -139,7 +152,7 @@ export default function ProjectView() {
     return () => {
       alive = false;
     };
-  }, [api, id, router.isReady, authLoading, user]);
+  }, [api, projectId, router.isReady, authLoading, user]);
 
   const isOwner = !!(user && project && user.uid === project.ownerUserId);
   const isArchived = (project?.status || "").toLowerCase() === "archived";
@@ -197,7 +210,7 @@ export default function ProjectView() {
     }
   };
 
-  // Updated: copy invite shows flash message like onUnarchive
+  // Copy invite (unchanged pattern)
   const onCopyInvite = async () => {
     if (!project || busy) return;
     setBusy(true);
@@ -236,6 +249,27 @@ export default function ProjectView() {
         kind: "error",
         text:
           e?.response?.data?.error || e?.message || "Failed to generate link",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Add to favourites is only permitted from the Community tab, not owner, not archived
+  const canShowAddFavourite =
+    isFromCommunity && !isOwner && !isArchived && !addedToFavourites;
+
+  const onAddToFavourites = async () => {
+    if (!project || !canShowAddFavourite || busy) return;
+    setBusy(true);
+    try {
+      await api.post(`/api/projects/${project.id}/favourite`);
+      setAddedToFavourites(true);
+      setFlash({ kind: "success", text: "Added to favourites" });
+    } catch (e: any) {
+      setFlash({
+        kind: "error",
+        text: e?.response?.data?.error || e?.message || "Could not favourite",
       });
     } finally {
       setBusy(false);
@@ -306,10 +340,7 @@ export default function ProjectView() {
     };
   }, [api, recs]);
 
-  /* Can add recommendation?
-     - Only when project is LIVE
-     - And user profile has a location (unchanged)
-     - And project is NOT archived (extra guard) */
+  /* Can add recommendation? */
   useEffect(() => {
     if (!router.isReady || authLoading || !user || !project) return;
     let alive = true;
@@ -363,6 +394,7 @@ export default function ProjectView() {
         className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8"
         data-testid="project-view-page"
       >
+        {/* Loading */}
         {authLoading || (router.isReady && loading) ? (
           <p
             className="py-10 text-sm text-slate-500"
@@ -370,19 +402,83 @@ export default function ProjectView() {
           >
             Loading…
           </p>
-        ) : err ? (
-          <div className="py-10" data-testid="project-error">
-            <p className="text-red-600">{err}</p>
-            <Link
-              href="/login"
-              className="btn mt-3"
-              aria-label="Go to sign in"
-              data-testid="btn-go-signin"
-            >
-              Go to sign in
-            </Link>
-          </div>
-        ) : project ? (
+        ) : null}
+
+        {/* Error states */}
+        {!loading && errorStatus === 401 && (
+          <EmptyState
+            title="Sign in required"
+            description="You need to sign in to view projects."
+            actions={
+              <Link
+                href="/login"
+                className="btn mt-3"
+                aria-label="Go to sign in"
+                data-testid="btn-go-signin"
+              >
+                Go to sign in
+              </Link>
+            }
+            dataTestId="project-error-401"
+          />
+        )}
+
+        {!loading && errorStatus === 404 && (
+          <EmptyState
+            title="Project not found or not visible"
+            description="This project either doesn’t exist or isn’t visible to you. It may be pending or archived by its owner."
+            actions={
+              <div className="flex gap-3">
+                <Link
+                  href="/projects"
+                  className="btn"
+                  data-testid="btn-back-to-my-projects"
+                >
+                  Back to My Projects
+                </Link>
+              </div>
+            }
+            dataTestId="project-error-404"
+          />
+        )}
+
+        {!loading &&
+          errorStatus != null &&
+          errorStatus !== 401 &&
+          errorStatus !== 404 && (
+            <EmptyState
+              title="Failed to load project"
+              description="Something went wrong while fetching this project."
+              actions={
+                <button
+                  className="btn mt-3"
+                  onClick={() => {
+                    // re-run initial load
+                    if (projectId) {
+                      setErrorStatus(null);
+                      setLoading(true);
+                      api
+                        .get(`/api/projects/${projectId}`)
+                        .then(({ data }) => setProject(data.project))
+                        .catch((e: any) =>
+                          setErrorStatus(
+                            e?.status ?? e?.response?.status ?? 500
+                          )
+                        )
+                        .finally(() => setLoading(false));
+                    }
+                  }}
+                  data-testid="btn-retry"
+                >
+                  Try again
+                </button>
+              }
+              dataTestId="project-error-generic"
+            />
+          )}
+
+        {/* Happy path */}
+        {!loading && !errorStatus && project && (
           <>
             {/* Header band */}
             <div
@@ -412,7 +508,7 @@ export default function ProjectView() {
                   data-testid="project-actions"
                 >
                   <Link
-                    href="/projects"
+                    href={`/projects${sourceTab ? `?tab=${sourceTab}` : ""}`}
                     aria-label="Back to my projects"
                     title="Back to my projects"
                     className="btn-back"
@@ -433,6 +529,24 @@ export default function ProjectView() {
                     </svg>
                     <span className="sr-only">Back to my projects</span>
                   </Link>
+
+                  {/* Add to Favourites — ONLY when from 'community', not owner, not archived */}
+                  {isFromCommunity &&
+                    !isOwner &&
+                    !isArchived &&
+                    !addedToFavourites && (
+                      <button
+                        className="inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium ring-1 shadow-sm transition bg-amber-500 text-white ring-amber-400 hover:bg-amber-600 disabled:opacity-60"
+                        onClick={onAddToFavourites}
+                        disabled={busy}
+                        aria-busy={busy}
+                        data-testid="btn-add-to-favourites"
+                        aria-label="Add to favourites"
+                        title="Add to favourites"
+                      >
+                        Add to favourites
+                      </button>
+                    )}
                 </div>
               </div>
             </div>
@@ -868,8 +982,48 @@ export default function ProjectView() {
               </aside>
             </div>
           </>
-        ) : null}
+        )}
       </div>
     </AuthedOnly>
+  );
+}
+
+/* ---------- small presentational bits ---------- */
+function EmptyState({
+  title,
+  description,
+  actions,
+  dataTestId,
+}: {
+  title: string;
+  description?: string;
+  actions?: React.ReactNode;
+  dataTestId?: string;
+}) {
+  return (
+    <div
+      className="mx-auto max-w-3xl p-6"
+      data-testid={dataTestId ?? "empty-state"}
+      aria-live="polite"
+      role="status"
+    >
+      <div className="rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
+        <p
+          className="text-red-600 font-semibold"
+          data-testid="empty-state-title"
+        >
+          {title}
+        </p>
+        {description && (
+          <p
+            className="mt-2 text-slate-700" // darker text for white background
+            data-testid="empty-state-description"
+          >
+            {description}
+          </p>
+        )}
+        {actions && <div className="mt-4">{actions}</div>}
+      </div>
+    </div>
   );
 }

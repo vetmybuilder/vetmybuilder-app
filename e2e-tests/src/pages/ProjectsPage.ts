@@ -11,6 +11,9 @@ export class ProjectsPage extends BasePage {
   readonly notification: Locator;
   // top actions / tabs
   readonly tabMyProjects: Locator;
+  readonly tabArchived: Locator;
+  readonly tabFavourites: Locator;
+  readonly tabCommunityProjects: Locator;
   readonly tabMyRecommendations: Locator;
   readonly createNewProjectBtn: Locator;
 
@@ -40,6 +43,9 @@ export class ProjectsPage extends BasePage {
     // tabs & CTA
     this.tabMyProjects = page.getByTestId("tab-my-projects");
     this.tabMyRecommendations = page.getByTestId("tab-my-recommendations");
+    this.tabArchived = page.getByTestId("tab-archived");
+    this.tabFavourites = page.getByTestId("tab-favourites");
+    this.tabCommunityProjects = page.getByTestId("tab-community-projects");
     this.createNewProjectBtn = page.getByTestId("btn-create-project");
 
     // filters (use testids)
@@ -147,6 +153,11 @@ export class ProjectsPage extends BasePage {
 
   async hasNoRecommendations(): Promise<void> {
     await this.page.getByLabel("My Recommendations").click();
+    await expect(this.projectEmpty).toBeVisible();
+  }
+
+  async hasNoProjects(): Promise<void> {
+    await this.page.getByRole('tab', {name: "My Projects"}).click();
     await expect(this.projectEmpty).toBeVisible();
   }
 }
