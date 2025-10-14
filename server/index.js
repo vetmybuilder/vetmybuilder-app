@@ -27,6 +27,12 @@ const { z } = require("zod");
 const crypto = require("crypto");
 const fs = require("fs");
 const multer = require("multer");
+const {
+  getCompanyProfile,
+  searchCompanies,
+  matchByName,
+  chDiag,
+} = require("./lib/companiesHouse");
 // ---- Robust notifyUsers fallback (defer implementation until DB is ready) ----
 let notifyUsers = null;
 try {
@@ -174,6 +180,67 @@ function extractLocationTokens(raw) {
     city: sRaw.toLowerCase(),
     raw: sRaw,
   };
+}
+
+function queueCompanyVerification({ recId, name, locationHint }) {
+  if (!recId || !name) return;
+
+  // Seed a 'queued' row so the UI can show "pending" immediately
+  db.prepare(
+    `
+    INSERT INTO company_verifications (recommendationId, status, checkedAt)
+    VALUES (?, 'queued', ?)
+    ON CONFLICT(recommendationId) DO NOTHING
+  `
+  ).run(recId, new Date().toISOString());
+
+  // Background job to resolve a verdict and persist it
+  setImmediate(async () => {
+    try {
+      db.prepare(
+        `UPDATE company_verifications SET status='running' WHERE recommendationId=?`
+      ).run(recId);
+
+      const result = await matchByName({ name, locationHint });
+
+      const payload = {
+        status: result.verdict, // verified | ambiguous | no_match
+        companyNumber: result.best?.number ?? null,
+        companyName: result.best?.name ?? null,
+        score: result.best?.score ?? null,
+        sicCodes: JSON.stringify(result.best?.sicCodes || []),
+        raw: JSON.stringify(result), // keep for support/debug
+        errorMessage: null,
+        checkedAt: new Date().toISOString(),
+        recommendationId: recId,
+      };
+
+      db.prepare(
+        `
+        UPDATE company_verifications
+           SET status=@status,
+               companyNumber=@companyNumber,
+               companyName=@companyName,
+               score=@score,
+               sicCodes=@sicCodes,
+               raw=@raw,
+               errorMessage=@errorMessage,
+               checkedAt=@checkedAt
+         WHERE recommendationId=@recommendationId
+      `
+      ).run(payload);
+    } catch (e) {
+      db.prepare(
+        `
+        UPDATE company_verifications
+           SET status='error',
+               errorMessage=?,
+               checkedAt=?
+         WHERE recommendationId=?
+      `
+      ).run(String(e?.message || e), new Date().toISOString(), recId);
+    }
+  });
 }
 
 function updateUserLocation(db, uid, location) {
@@ -1476,6 +1543,26 @@ app.post(
 
     const recommendationId = info.lastInsertRowid;
 
+    // --- NEW: Companies House verification (fire-and-forget) ---
+    try {
+      const projectRow = db
+        .prepare(`SELECT location FROM projects WHERE id = ?`)
+        .get(link.projectId);
+      const locationHint =
+        String(
+          req.body?.postcode || req.body?.city || projectRow?.location || ""
+        ).trim() || undefined;
+
+      queueCompanyVerification({
+        recId: recommendationId,
+        name: String(company),
+        locationHint,
+      });
+    } catch (e) {
+      console.warn("[magic-post] queueCompanyVerification failed", e);
+    }
+    // -----------------------------------------------------------
+
     // Persist photos if any
     const files = Array.isArray(req.files) ? req.files : [];
     if (files.length) {
@@ -1985,6 +2072,26 @@ app.post(
 
     const recommendationId = info.lastInsertRowid;
 
+    // --- NEW: Companies House verification (fire-and-forget) ---
+    try {
+      const projectRow = db
+        .prepare(`SELECT location FROM projects WHERE id = ?`)
+        .get(projectId);
+      const locationHint =
+        String(
+          req.body?.postcode || req.body?.city || projectRow?.location || ""
+        ).trim() || undefined;
+
+      queueCompanyVerification({
+        recId: recommendationId,
+        name: String(company),
+        locationHint,
+      });
+    } catch (e) {
+      console.warn("[platform-post] queueCompanyVerification failed", e);
+    }
+    // -----------------------------------------------------------
+
     // --- Auto-like by the recommender (unless they are the owner) ---
     try {
       if (uid) {
@@ -1992,7 +2099,6 @@ app.post(
           .prepare(`SELECT ownerUserId FROM projects WHERE id=?`)
           .get(projectId);
         if (!ownerRow || ownerRow.ownerUserId !== uid) {
-          // one like per user; ignore if already exists
           db.prepare(
             `INSERT OR IGNORE INTO recommendation_votes (recommendationId, userId, value)
              VALUES (?, ?, 1)`
@@ -2000,7 +2106,6 @@ app.post(
         }
       }
     } catch (e) {
-      // don’t fail the main request if this write flakes
       console.warn("[recommendation auto-like] failed", e);
     }
     // --- End auto-like ---
@@ -2120,6 +2225,357 @@ app.get("/api/recommendations/:id", optionalAuth(admin), (req, res) => {
 
   res.json({ recommendation });
 });
+
+/* -------------------- Companies House verification -------------------- */
+/**
+ * Env (server only):
+ *   CH_KEY   - required (LIVE key)
+ *   CH_ENV   - "live" (default) or "sandbox"
+ *
+ * GET /api/verify-company
+ *   ?companyNumber=12758227
+ *   OR
+ *   ?name=Elegant%20Building%20Services%20Limited&postcode=E4[&scored=1]
+ *
+ * Requires auth (Bearer) so your CH key never leaves the server.
+ */
+
+// --- Companies House verification cache (one row per recommendation) ---
+db.exec(`
+  CREATE TABLE IF NOT EXISTS company_verifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    recommendationId INTEGER NOT NULL,
+    status TEXT NOT NULL,                        -- queued | running | verified | ambiguous | no_match | error
+    companyNumber TEXT,
+    companyName TEXT,
+    score INTEGER,
+    sicCodes TEXT,                               -- JSON string array
+    raw TEXT,                                    -- raw JSON of best/candidates for support/debug
+    errorMessage TEXT,
+    checkedAt TEXT NOT NULL,                     -- ISO timestamp
+    UNIQUE(recommendationId)
+  );
+  CREATE INDEX IF NOT EXISTS idx_cv_rec ON company_verifications(recommendationId);
+`);
+
+/* ---------- internal helpers (fallback, rough scoring) ---------- */
+function _normName(s = "") {
+  return String(s)
+    .toLowerCase()
+    .replace(/[.,'"]/g, "")
+    .replace(/\b(limited|ltd|llp|plc)\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+function _roughNameScore(aTitle, qName) {
+  const a = _normName(aTitle);
+  const b = _normName(qName);
+  if (!a || !b) return 0;
+  if (a === b) return 100;
+  if (a.startsWith(b) || b.startsWith(a)) return 85;
+  if (a.includes(b) || b.includes(a)) return 70;
+  return 0;
+}
+
+/* ---------- background queue helper (call this after INSERT) ---------- */
+function queueCompanyVerification({ recId, name, locationHint }) {
+  if (!recId || !name) return;
+
+  // Seed a 'queued' row so the UI can show "pending" immediately
+  db.prepare(
+    `INSERT INTO company_verifications (recommendationId, status, checkedAt)
+     VALUES (?, 'queued', ?)
+     ON CONFLICT(recommendationId) DO NOTHING`
+  ).run(recId, new Date().toISOString());
+
+  // Background verification
+  setImmediate(async () => {
+    try {
+      db.prepare(
+        `UPDATE company_verifications SET status='running' WHERE recommendationId=?`
+      ).run(recId);
+
+      const result = await matchByName({ name, locationHint });
+
+      const payload = {
+        status: result.verdict, // verified | ambiguous | no_match
+        companyNumber: result.best?.number ?? null,
+        companyName: result.best?.name ?? null,
+        score: result.best?.score ?? null,
+        sicCodes: JSON.stringify(result.best?.sicCodes || []),
+        raw: JSON.stringify(result),
+        errorMessage: null,
+        checkedAt: new Date().toISOString(),
+        recommendationId: recId,
+      };
+
+      db.prepare(
+        `UPDATE company_verifications
+            SET status=@status,
+                companyNumber=@companyNumber,
+                companyName=@companyName,
+                score=@score,
+                sicCodes=@sicCodes,
+                raw=@raw,
+                errorMessage=@errorMessage,
+                checkedAt=@checkedAt
+          WHERE recommendationId=@recommendationId`
+      ).run(payload);
+    } catch (e) {
+      db.prepare(
+        `UPDATE company_verifications
+            SET status='error',
+                errorMessage=?,
+                checkedAt=?
+          WHERE recommendationId=?`
+      ).run(String(e?.message || e), new Date().toISOString(), recId);
+    }
+  });
+}
+// Expose for use elsewhere in this file if you need:
+// module.exports.queueCompanyVerification = queueCompanyVerification;
+
+/* ---------- /api/verify-company (server-only proxy) ---------- */
+app.get(
+  "/api/verify-company",
+  ...authed(async (req, res) => {
+    try {
+      const companyNumber =
+        String(req.query.companyNumber || "").trim() || undefined;
+      const name = String(req.query.name || "").trim() || undefined;
+      const postcode = String(req.query.postcode || "").trim() || undefined;
+
+      const scored =
+        String(req.query.scored || "").trim() === "1" ||
+        String(req.query.strategy || "")
+          .trim()
+          .toLowerCase() === "match";
+
+      // 1) Direct number path
+      if (companyNumber) {
+        const profile = await getCompanyProfile(companyNumber);
+        return res.json({
+          ok: true,
+          method: "number",
+          matchScore: 100,
+          company: {
+            number: profile.company_number,
+            name: profile.company_name,
+            status: profile.company_status ?? null,
+            dateOfCreation: profile.date_of_creation ?? null,
+            address: profile.registered_office_address ?? null,
+            sicCodes: profile.sic_codes ?? [],
+          },
+        });
+      }
+
+      if (!name) {
+        return res
+          .status(400)
+          .json({ ok: false, error: "Missing 'name' or 'companyNumber'." });
+      }
+
+      // 2) Scored (top candidates with verdict)
+      if (scored) {
+        const result = await matchByName({
+          name,
+          locationHint: postcode || undefined,
+        });
+        return res.json({ ok: true, ...result });
+      }
+
+      // 3) Non-scored fallback: search then fetch profile for the best rough match
+      const search = await searchCompanies({ name, itemsPerPage: 50 });
+      const items = Array.isArray(search.items) ? search.items : [];
+      if (items.length === 0) {
+        return res.json({ ok: false, error: "No matches" });
+      }
+
+      const ranked = items
+        .filter((i) => i.title && i.company_number)
+        .map((i) => ({ ...i, _score: _roughNameScore(i.title, name) }))
+        .sort((a, b) => b._score - a._score);
+
+      const best = ranked[0];
+      if (!best) return res.json({ ok: false, error: "No matches" });
+      if (best._score < 70) {
+        return res.json({
+          ok: false,
+          error: "No confident match",
+          bestGuess: {
+            number: best.company_number,
+            title: best.title,
+            score: best._score,
+          },
+        });
+      }
+
+      const profile = await getCompanyProfile(best.company_number);
+      return res.json({
+        ok: true,
+        method: "search",
+        matchScore: best._score,
+        company: {
+          number: profile.company_number,
+          name: profile.company_name,
+          status: profile.company_status ?? null,
+          dateOfCreation: profile.date_of_creation ?? null,
+          address: profile.registered_office_address ?? null,
+          sicCodes: profile.sic_codes ?? [],
+        },
+      });
+    } catch (e) {
+      const status = e?.status || 500;
+      return res.status(status).json({
+        ok: false,
+        error: e?.message || "CH error",
+        status,
+        body: e?.body,
+      });
+    }
+  })
+);
+
+/* ---------- Read verification for a recommendation ---------- */
+app.get(
+  "/api/recommendations/:id/verification",
+  ...authed((req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "Bad id" });
+
+    const row = db
+      .prepare(
+        `SELECT recommendationId, status, companyNumber, companyName, score, sicCodes, checkedAt, errorMessage
+           FROM company_verifications
+          WHERE recommendationId = ?`
+      )
+      .get(id);
+
+    if (!row)
+      return res.json({
+        verification: { recommendationId: id, status: "queued" },
+      });
+
+    let sicCodes = [];
+    try {
+      sicCodes = row.sicCodes ? JSON.parse(row.sicCodes) : [];
+    } catch {}
+
+    return res.json({
+      verification: {
+        recommendationId: row.recommendationId,
+        status: row.status,
+        companyNumber: row.companyNumber,
+        companyName: row.companyName,
+        score: row.score,
+        sicCodes,
+        checkedAt: row.checkedAt,
+        errorMessage: row.errorMessage || null,
+      },
+    });
+  })
+);
+
+/* ---------- TEST-ONLY passthrough (no auth; guarded by X-Test-Secret) ---------- */
+app.get("/api/verify-company/test", async (req, res) => {
+  const ok = assertTestAccess(req, res);
+  if (ok !== true) return;
+
+  try {
+    const companyNumber =
+      String(req.query.companyNumber || "").trim() || undefined;
+    const name = String(req.query.name || "").trim() || undefined;
+    const postcode = String(req.query.postcode || "").trim() || undefined;
+    const scored =
+      String(req.query.scored || "").trim() === "1" ||
+      String(req.query.strategy || "")
+        .trim()
+        .toLowerCase() === "match";
+
+    if (companyNumber) {
+      const profile = await getCompanyProfile(companyNumber);
+      return res.json({
+        ok: true,
+        method: "number",
+        matchScore: 100,
+        company: {
+          number: profile.company_number,
+          name: profile.company_name,
+          status: profile.company_status ?? null,
+          dateOfCreation: profile.date_of_creation ?? null,
+          address: profile.registered_office_address ?? null,
+          sicCodes: profile.sic_codes ?? [],
+        },
+      });
+    }
+
+    if (!name) {
+      return res
+        .status(400)
+        .json({ ok: false, error: "Missing 'name' or 'companyNumber'." });
+    }
+
+    if (scored) {
+      const result = await matchByName({
+        name,
+        locationHint: postcode || undefined,
+      });
+      return res.json({ ok: true, ...result });
+    }
+
+    const search = await searchCompanies({ name, itemsPerPage: 50 });
+    const items = Array.isArray(search.items) ? search.items : [];
+    if (items.length === 0) return res.json({ ok: false, error: "No matches" });
+
+    const ranked = items
+      .filter((i) => i.title && i.company_number)
+      .map((i) => ({ ...i, _score: _roughNameScore(i.title, name) }))
+      .sort((a, b) => b._score - a._score);
+
+    const best = ranked[0];
+    if (!best) return res.json({ ok: false, error: "No matches" });
+    if (best._score < 70) {
+      return res.json({
+        ok: false,
+        error: "No confident match",
+        bestGuess: {
+          number: best.company_number,
+          title: best.title,
+          score: best._score,
+        },
+      });
+    }
+
+    const profile = await getCompanyProfile(best.company_number);
+    return res.json({
+      ok: true,
+      method: "search",
+      matchScore: best._score,
+      company: {
+        number: profile.company_number,
+        name: profile.company_name,
+        status: profile.company_status ?? null,
+        dateOfCreation: profile.date_of_creation ?? null,
+        address: profile.registered_office_address ?? null,
+        sicCodes: profile.sic_codes ?? [],
+      },
+    });
+  } catch (e) {
+    const status = e?.status || 500;
+    return res.status(status).json({
+      ok: false,
+      error: e?.message || "CH error",
+      status,
+      body: e?.body,
+    });
+  }
+});
+
+// Diagnostics (server-only; safe to leave on)
+app.get("/api/__ch/diag", (_req, res) => {
+  res.json(chDiag());
+});
+/* ------------------ end Companies House verification ------------------ */
 
 /* -------------------- Test-only endpoints -------------------- */
 

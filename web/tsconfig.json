@@ -28,7 +28,7 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx"
-  ],
+, "../server/lib/companiesHouse.js"  ],
   "exclude": [
     "node_modules"
   ]
