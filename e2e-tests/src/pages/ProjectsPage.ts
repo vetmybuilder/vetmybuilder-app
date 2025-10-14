@@ -197,7 +197,7 @@ export class ProjectsPage extends BasePage {
   }
 
   async hasNoRecommendations(): Promise<void> {
-    await this.page.getByLabel("My Recommendations").click();
+    await this.page.getByRole('tab', {name: "My Recommendations"}).click();
     await expect(this.projectEmpty).toBeVisible();
   }
 

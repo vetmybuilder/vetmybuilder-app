@@ -13,7 +13,7 @@ function photoBuffer() {
 }
 
 test.describe("Header", () => {
-  test.skip("check notification", async ({
+  test("check notification", async ({
     usersApi,
     authApi,
     loginAsUid,
@@ -42,7 +42,7 @@ test.describe("Header", () => {
 
     const recApi = await recommendationsApiForUser({ uid: recUid });
 
-    const recommendations = Array.from({ length: 100 }, (_v, i) => ({
+    const recommendations = Array.from({ length: 17 }, (_v, i) => ({
       name: randomOf(names),
       email: `e2e+${now}-${i}@example.com`, // uses Date.now + index
       phone: phoneFor(i),
