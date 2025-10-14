@@ -18,7 +18,7 @@ const tabs: Array<{
   label: string;
   // underline + active icon/text color
   color: string;
-  Icon: (props: React.SVGProps<SVGSVGElement>) => JSX.Element;
+  Icon: (props: React.SVGProps<SVGSVGElement>) => React.JSX.Element;
   testId: string;
 }> = [
   {
