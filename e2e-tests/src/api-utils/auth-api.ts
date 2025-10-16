@@ -1,8 +1,8 @@
-// e2e-tests/src/api-utils/auth-api.ts
 import type { APIRequestContext } from "@playwright/test";
 import { expect } from "@playwright/test";
 
 const API_BASE = process.env.E2E_API_BASE || "http://localhost:8787";
+const API_PREFIX = process.env.E2E_API_PREFIX || "/api";
 const TEST_SECRET = process.env.E2E_TEST_SECRET || "";
 
 function snippet(s: string, n = 400) {
@@ -15,7 +15,7 @@ export class AuthApi {
   /** Mint a Firebase custom token for a UID (test-only route). */
   async customToken(uid: string): Promise<string> {
     const res = await this.request.post(
-      `${API_BASE}/api/__test__/auth/custom-token`,
+      `${API_BASE}${API_PREFIX}/__test__/auth/custom-token`,
       {
         headers: {
           "X-Test-Secret": TEST_SECRET,
@@ -43,7 +43,7 @@ export class AuthApi {
   /** Exchange a UID for a Firebase ID token (test-only route). */
   async idTokenForUid(uid: string): Promise<string> {
     const res = await this.request.post(
-      `${API_BASE}/api/__test__/auth/id-token`,
+      `${API_BASE}${API_PREFIX}/__test__/auth/id-token`,
       {
         headers: {
           "X-Test-Secret": TEST_SECRET,
@@ -61,7 +61,7 @@ export class AuthApi {
       throw new Error(
         `[idTokenForUid] Expected JSON, got ${res.status()}: ${snippet(
           raw
-        )}\nHint: ensure POST /api/__test__/auth/id-token exists and returns { idToken }`
+        )}\nHint: ensure POST ${API_PREFIX}/__test__/auth/id-token exists and returns { idToken }`
       );
     }
 

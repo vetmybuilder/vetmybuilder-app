@@ -116,6 +116,12 @@ type Fixtures = {
 };
 
 const API_BASE = process.env.E2E_API_BASE || "http://localhost:8787";
+/**
+ * IMPORTANT:
+ * - If you mounted v2 router at /api/v2, set E2E_API_PREFIX=/api/v2
+ * - If you mounted it also at /api (legacy), leave default /api
+ */
+const API_PREFIX = process.env.E2E_API_PREFIX || "/api";
 const TEST_SECRET = process.env.E2E_TEST_SECRET || "";
 
 /* ------------------ flake hardening ------------------ */
@@ -222,7 +228,7 @@ export const test = base.extend<Fixtures>({
       await runSerialized(async () => {
         const res = await postWithRetry(
           request,
-          `${API_BASE}/api/__test__/db/clear`
+          `${API_BASE}${API_PREFIX}/__test__/db/clear`
         );
         expect(res.ok(), "Failed to clear DB").toBeTruthy();
       });
@@ -327,7 +333,7 @@ export const test = base.extend<Fixtures>({
       const client: RecommendationsApiLike = {
         async createOne(projectId, input) {
           const res = await ctx.post(
-            `/api/projects/${projectId}/recommendations`,
+            `${API_PREFIX}/projects/${projectId}/recommendations`,
             {
               headers: { "Content-Type": "application/json" },
               data: {
@@ -371,7 +377,7 @@ export const test = base.extend<Fixtures>({
           }
 
           const res = await ctx.post(
-            `/api/projects/${projectId}/recommendations`,
+            `${API_PREFIX}/projects/${projectId}/recommendations`,
             { multipart: fields }
           );
           expect(
@@ -404,7 +410,7 @@ export const test = base.extend<Fixtures>({
 
         async like(recommendationId) {
           const res = await ctx.post(
-            `/api/recommendations/${recommendationId}/like`,
+            `${API_PREFIX}/recommendations/${recommendationId}/like`,
             { data: { value: 1 } }
           );
           expect(

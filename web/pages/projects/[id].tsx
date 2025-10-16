@@ -444,7 +444,7 @@ export default function ProjectView() {
     switch (status) {
       case "verified":
         // ORANGE for verified, to differentiate from green "Community"
-        return "bg-orange-100 text-orange-700 border-orange-200";
+        return "bg-green-300 text-orange-700 border-green-200 font-bold";
       case "ambiguous":
         return "bg-amber-100 text-amber-700 border-amber-200";
       case "no_match":

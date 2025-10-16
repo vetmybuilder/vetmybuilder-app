@@ -1,4 +1,3 @@
-// e2e-tests/src/api-utils/projects-api.ts
 import type { APIRequestContext, APIResponse, Page } from "@playwright/test";
 import { expect, request as pwRequest } from "@playwright/test";
 import { ApiBase } from "./api-base";
@@ -30,6 +29,7 @@ type AuthApiLike = {
 };
 
 const DEFAULT_API_BASE = process.env.E2E_API_BASE || "http://localhost:8787";
+const API_PREFIX = process.env.E2E_API_PREFIX || "/api";
 
 const __openContexts = new Set<() => Promise<void>>();
 export async function __disposeAllProjectApiContexts() {
@@ -74,7 +74,7 @@ export class ProjectsApi extends ApiBase {
       bedrooms: Number(src.bedrooms ?? 0),
     };
 
-    const res = await this.request.post(`/api/projects`, {
+    const res = await this.request.post(`${API_PREFIX}/projects`, {
       data: payload,
       headers: { "Content-Type": "application/json", ...(extraHeaders || {}) },
     });
@@ -128,9 +128,12 @@ export class ProjectsApi extends ApiBase {
   }
 
   async publishProject(projectId: number): Promise<APIResponse> {
-    const res = await this.request.post(`/api/projects/${projectId}/publish`, {
-      headers: { "Content-Type": "application/json" },
-    });
+    const res = await this.request.post(
+      `${API_PREFIX}/projects/${projectId}/publish`,
+      {
+        headers: { "Content-Type": "application/json" },
+      }
+    );
     const raw = await res.text();
 
     let json: any = undefined;
@@ -171,13 +174,6 @@ export class ProjectsApi extends ApiBase {
     return res;
   }
 
-  /**
-   * Favourite a project via POST /api/projects/:id/favourite and poll until the API returns { ok: true }.
-   * Uses Playwright's expect.poll with a configurable timeout and polling interval.
-   * @param projectId Project ID to favourite.
-   * @param opts.timeoutMs Total time to wait (default 5000ms).
-   * @param opts.intervalMs Polling interval (default 250ms).
-   */
   async favouriteProject(
     projectId: number,
     opts: { timeoutMs?: number; intervalMs?: number } = {}
@@ -189,7 +185,7 @@ export class ProjectsApi extends ApiBase {
       .poll(
         async () => {
           const res = await this.request.post(
-            `/api/projects/${projectId}/favourite`,
+            `${API_PREFIX}/projects/${projectId}/favourite`,
             { headers: { "Content-Type": "application/json" } }
           );
           try {
@@ -202,7 +198,7 @@ export class ProjectsApi extends ApiBase {
         {
           timeout,
           intervals: [interval],
-          message: `POST /api/projects/${projectId}/favourite did not yield { ok: true } within ${timeout}ms`,
+          message: `POST ${API_PREFIX}/projects/${projectId}/favourite did not yield { ok: true } within ${timeout}ms`,
         }
       )
       .toBe(true);

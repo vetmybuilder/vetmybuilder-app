@@ -1,7 +1,7 @@
 // pages/__test__/login-with-token.tsx
 import { useEffect } from "react";
 import { useRouter } from "next/router";
-import { initFirebase } from "@/utils/firebase"; // your existing helper
+import { initFirebase } from "@/utils/firebase";
 import {
   signInWithCustomToken,
   onAuthStateChanged,
@@ -11,37 +11,34 @@ import {
 
 export default function LoginWithToken() {
   if (process.env.NODE_ENV === "production") return null;
+
   const router = useRouter();
-  const { token, redirect = "/" } = router.query as {
-    token?: string;
-    redirect?: string;
-  };
+  const q = router.query as Record<string, string | string[] | undefined>;
+  const token = Array.isArray(q.token) ? q.token[0] : q.token;
+  const redirect = Array.isArray(q.redirect)
+    ? q.redirect[0]
+    : q.redirect || "/";
 
   useEffect(() => {
     (async () => {
       if (!token) return;
       const auth = initFirebase();
-
-      // persist across navigation so the app sees you're logged in
       await setPersistence(auth, browserLocalPersistence);
 
       try {
         await signInWithCustomToken(auth, token);
-        // Wait for auth state so the cookie/localStorage settle before redirect
         await new Promise<void>((resolve) => {
           const unsub = onAuthStateChanged(auth, () => {
             unsub();
             resolve();
           });
         });
-        router.replace(redirect || "/");
+        router.replace(redirect);
       } catch (e) {
         console.error("[__test__] signInWithCustomToken failed", e);
-        // show a simple error (optional)
-        alert("Test login failed");
       }
     })();
-  }, [token, router]);
+  }, [token, redirect, router]);
 
-  return <p>Signing in…</p>;
+  return <p data-testid="test-login-status">Signing in…</p>;
 }

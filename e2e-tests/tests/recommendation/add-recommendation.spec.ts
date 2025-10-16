@@ -52,7 +52,7 @@ test.describe("Recommendation", () => {
     await expect(projectRecommendPage.email).toHaveAttribute("readonly", "");
 
     await projectRecommendPage.addRecommendationViaForm({
-      company: "Roof Bros Ltd",
+      company: "Elegant building services limited",
       phone: "0207 123 4567",
       hireAgain: "yes",
       comment: "Excellent job, tidy and on time.",
@@ -63,7 +63,7 @@ test.describe("Recommendation", () => {
       "Thanks! Your recommendation has been submitted."
     );
     await projectViewPage.hasShortlist({
-      company: "Roof Bros Ltd",
+      company: "Elegant building services limited",
       rating: 5,
       likes: 1,
       comment: "Excellent job, tidy and on time.",

@@ -48,7 +48,7 @@ const tabs: Array<{
   {
     key: "community",
     label: "Community Projects",
-    color: "#34d399", // emerald
+    color: "#d334c6ff", // emerald
     Icon: (p) => (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...p}>
         <circle cx="12" cy="12" r="9" strokeWidth="1.75" />
