@@ -1,4 +1,4 @@
-Vetmybuilder Ops Runbook (quick reference)
+Vetmybuilder Ops Runbook (quick reference).
 
 App paths:
 - Repo: ~/apps/vmb/vetmybuilder-app
