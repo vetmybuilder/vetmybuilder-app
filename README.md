@@ -1,42 +1,37 @@
-Vetmybuilder Ops Runbook (quick reference)
+# Vetmybuilder v1.3 (POC)
 
-App paths:
-- Repo: ~/apps/vmb/vetmybuilder-app
-- SQLite DB: ~/apps/vmb/vetmybuilder-app/server/data/app.db
-- Backups: /opt/vmb-backups/
+**Next.js (web)** + **Express (server)** + **SQLite** + **Firebase Auth**.
+Node 20+. Tailwind for styling.
 
-Processes (PM2):
-- List: pm2 ls
-- Logs: pm2 logs vmb-server / pm2 logs vmb-web
-- Restart: pm2 restart vmb-server --update-env && pm2 restart vmb-web
-- Save boot config: pm2 save
+## Contents
+- `web/` – Next.js 14 + TypeScript + Tailwind UI
+- `server/` – Express API + Firebase Admin + SQLite + migrations
+- `data/` – local SQLite DB file (created automatically)
 
-Deploy:
-- Manual: /usr/local/bin/vmb-deploy
-- Nightly cron: 04:10 daily → /var/log/vmb-deploy.log
+## Quick start
+1. Copy `.env.sample` → `.env` at repo root (server vars) **and** `web/.env.local.sample` → `web/.env.local` (web vars). Fill both.
+2. Install deps: `npm install`
+3. Run both apps: `npm run dev`
+   - Web: http://localhost:3000
+   - API: http://localhost:8787
 
-Secrets (GCP Secret Manager):
-- FIREBASE_ADMIN_CREDENTIALS_JSON
-- CH_KEY
-(Refresh into .env then restart server with --update-env)
+## Environment variables
+See `.env.sample` for all options. You **must** set:
+- `NEXT_PUBLIC_FIREBASE_CONFIG_JSON` – JSON string of your web Firebase config
+- `FIREBASE_ADMIN_CREDENTIALS_JSON` – JSON string of your Firebase service account
 
-Health checks:
-- API: https://vetmybuilder.com/api/health
-- Status summary: /usr/local/bin/vmb-status
+## Scripts
+- `npm run dev` – runs Next dev server and API together
+- `npm run build` – builds the Next.js app
+- `npm run start` – starts API and Next in prod modes
 
-Nginx:
-- Test & reload: sudo nginx -t && sudo systemctl reload nginx
-- Site config: /etc/nginx/sites-available/vmb
+## Project scope (Phase 1)
+- Register/Login via Firebase
+- Create Project (name, type, location, description, propertyType, bedrooms)
+- Projects List (My Projects / Recommended)
+- Project View
 
-Certs (Let’s Encrypt):
-- Renew dry-run: sudo certbot renew --dry-run
-- Install (existing): sudo certbot install --nginx --cert-name vetmybuilder.com
-
-Backups:
-- On-demand: sudo /usr/local/bin/vmb-sqlite-backup
-- Retention: 14 days
-
-Security:
-- Firewall: ufw enabled (OpenSSH, Nginx Full)
-- Fail2ban: enabled for sshd
-- SSH password auth: disabled
+## Where to read more
+- `server/README.md` – API routes, auth, DB, migrations
+- `server/MIGRATIONS.md` – how to write and apply migrations
+- `web/README.md` – pages, components, auth flow, styling
