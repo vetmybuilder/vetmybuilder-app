@@ -1,6 +1,6 @@
 name: Deploy to VM
 on:
-  push: { branches: [main] }
+  push: { branches: [main, master] }
   workflow_dispatch:
 concurrency: { group: deploy-to-vm, cancel-in-progress: true }
 jobs:
