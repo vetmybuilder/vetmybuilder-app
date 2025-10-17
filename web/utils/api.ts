@@ -2,7 +2,7 @@ import axios from "axios";
 import { initFirebase } from "./firebase";
 import { useEffect, useMemo } from "react";
 
-const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8787";
+const base = process.env.NEXT_PUBLIC_API_BASE || "/api";
 
 export function useApi() {
   const client = useMemo(() => axios.create({ baseURL: base }), []);
