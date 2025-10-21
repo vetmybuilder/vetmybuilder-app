@@ -1,4 +1,3 @@
-// server/v2/routes/projects/projects.get.js
 /**
  * GET /api/v2/projects   (also /api/projects if you mounted v2 there)
  * Auth: required
@@ -17,17 +16,13 @@ module.exports = (router, ctx) => {
   router.get("/projects", auth, touchUserMw, (req, res) => {
     const uid = req.user.uid;
 
-    // Make tab switches fetch fresh data
-    res.set("Cache-Control", "no-store");
-    res.set("Vary", "Authorization, Cookie");
-
     const allowedTabs = new Set([
       "mine",
       "community",
       "favourites",
       "archived",
       "completed",
-      "completedcommunity", // note: tab is compared lower-cased
+      "completedCommunity", // NEW
       "recommended",
     ]);
     const tabRaw = String(req.query.tab || "mine").toLowerCase();
@@ -92,6 +87,7 @@ module.exports = (router, ctx) => {
       const extra = [];
       const extraParams = [];
 
+      // Exclude archived by default from My Projects
       if (rawStatus === "all") {
         extra.push(`p.status <> 'archived'`);
       } else {
@@ -178,15 +174,16 @@ module.exports = (router, ctx) => {
           `SELECT
               p.*,
               pc.winnerRecommendationId AS _winnerRecommendationId,
-              EXISTS(
-                SELECT 1
-                FROM project_closure_photos cpp
-                WHERE cpp.projectId = p.id
-              ) AS _hasClosurePhotos,
+              /* resolve winner builder id for UI linking (best-effort if present) */
+              COALESCE(r.builderUserId, r.builderId, r.tradesmanId, r.tradesmanUserId, r.userId) AS _winnerBuilderId,
+              /* tell UI whether there are any closure photos */
+              EXISTS(SELECT 1 FROM project_closure_photos cpp WHERE cpp.projectId = p.id) AS _hasClosurePhotos,
+              /* favourites info (legacy fields kept for UI compatibility) */
               CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite,
               0 AS canFavourite
            FROM projects p
            LEFT JOIN project_closures pc ON pc.projectId = p.id
+           LEFT JOIN recommendations r ON r.id = pc.winnerRecommendationId
            LEFT JOIN favourites f ON f.projectId = p.id AND f.userId = ?
            ${sql}
            ORDER BY p.${sort} ${order}
@@ -197,9 +194,9 @@ module.exports = (router, ctx) => {
       return respond(rows, countRow.c);
     }
 
-    // --- COMPLETED COMMUNITY (others in my area, not mine) ---
-    if (tab === "completedcommunity") {
-      // derive viewer area (same as community tab)
+    // --- COMPLETED COMMUNITY (same area, not mine) ---
+    if (tab === "completedCommunity") {
+      // Pull viewer location tokens
       const me =
         db.prepare(`SELECT * FROM users WHERE uid = ?`).get(uid) || null;
 
@@ -232,6 +229,7 @@ module.exports = (router, ctx) => {
         .join(" OR ");
       const areaParams = normTokens;
 
+      // Base: completed, not mine, IN AREA
       const baseParts = [`p.status = 'completed'`, `p.ownerUserId <> ?`];
       const baseParams = [uid];
 
@@ -246,32 +244,27 @@ module.exports = (router, ctx) => {
         .prepare(`SELECT COUNT(*) AS c FROM projects p ${sql}`)
         .get(...params);
 
-      // IMPORTANT: return the SAME shape as "completed" tab
+      // Return similar fields as "completed" for UI parity
       const rows = db
         .prepare(
           `SELECT
               p.*,
               pc.winnerRecommendationId AS _winnerRecommendationId,
-              EXISTS(
-                SELECT 1
-                FROM project_closure_photos cpp
-                WHERE cpp.projectId = p.id
-              ) AS _hasClosurePhotos,
-              CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite,
+              EXISTS(SELECT 1 FROM project_closure_photos cpp WHERE cpp.projectId = p.id) AS _hasClosurePhotos,
+              0 AS isFavourite,
               0 AS canFavourite
            FROM projects p
            LEFT JOIN project_closures pc ON pc.projectId = p.id
-           LEFT JOIN favourites f ON f.projectId = p.id AND f.userId = ?
            ${sql}
            ORDER BY p.${sort} ${order}
            LIMIT ? OFFSET ?`
         )
-        .all(uid, ...params, pageSize, offset);
+        .all(...params, pageSize, offset);
 
       return respond(rows, countRow.c);
     }
 
-    // --- COMMUNITY (live, not mine, in my area, not already favourited) ---
+    // --- COMMUNITY ---
     if (tab === "community") {
       const me =
         db.prepare(`SELECT * FROM users WHERE uid = ?`).get(uid) || null;
@@ -371,7 +364,7 @@ module.exports = (router, ctx) => {
       return respond(rows, countRow.c);
     }
 
-    // --- RECOMMENDED (legacy) ---
+    // --- RECOMMENDED ---
     if (tab === "recommended") {
       const extra = [];
       if (rawStatus !== "all") {

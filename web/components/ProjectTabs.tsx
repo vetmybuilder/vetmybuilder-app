@@ -2,10 +2,10 @@ import * as React from "react";
 
 export type ProjectTabKey =
   | "mine"
+  | "archived" // keep in type so URLs & parent can use it
   | "recommended"
-  | "community"
-  | "favourites"
-  | "archived";
+  | "completed" // My Completed Projects
+  | "completedCommunity"; // Completed Community Projects
 
 type Props = {
   value: ProjectTabKey;
@@ -13,81 +13,98 @@ type Props = {
   className?: string;
 };
 
+// NOTE: 'archived' is DELIBERATELY OMITTED in this visible list.
+// The page can still handle ?tab=archived, but the pill won't be shown.
 const tabs: Array<{
-  key: ProjectTabKey;
+  key: Exclude<ProjectTabKey, "archived">;
   label: string;
-  // underline + active icon/text color
-  color: string;
+  color: string; // underline + active icon/text color
   Icon: (props: React.SVGProps<SVGSVGElement>) => React.JSX.Element;
   testId: string;
 }> = [
+  // My Projects — toolbox
   {
     key: "mine",
     label: "My Projects",
     color: "#22c55e", // green
     Icon: (p) => (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...p}>
-        <path d="M3 10.5 12 4l9 6.5" strokeWidth="1.75" />
-        <path d="M5 10v9h14v-9" strokeWidth="1.75" />
-        <path d="M9 19v-5h6v5" strokeWidth="1.75" />
+        <path d="M9 7V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1" strokeWidth="1.75" />
+        <rect x="3.5" y="7" width="17" height="11" rx="2" strokeWidth="1.75" />
+        <path d="M3.5 11.5h17" strokeWidth="1.75" />
+        <path d="M11.25 11.5v2.5h1.5v-2.5" strokeWidth="1.75" />
       </svg>
     ),
     testId: "tab-my-projects",
   },
+
+  // My Recommendations — people/collection
   {
     key: "recommended",
     label: "My Recommendations",
     color: "#6366f1", // indigo
     Icon: (p) => (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...p}>
-        <path d="m5 13 4 4L19 7" strokeWidth="1.75" strokeLinecap="round" />
+        <circle cx="8" cy="9" r="2.5" strokeWidth="1.75" />
+        <circle cx="16" cy="9" r="2.5" strokeWidth="1.75" />
+        <path
+          d="M4.5 15c.7-2 2.9-3.5 5.5-3.5S14.8 13 15.5 15"
+          strokeWidth="1.75"
+        />
+        <circle cx="12" cy="6.5" r="1.8" strokeWidth="1.5" />
+        <path d="M10.2 11c.4-1.4 1.7-2.3 3.3-2.3" strokeWidth="1.5" />
       </svg>
     ),
     testId: "tab-my-recommendations",
   },
+
+  // My Completed Projects
   {
-    key: "community",
-    label: "Community Projects",
-    color: "#d334c6ff", // emerald
+    key: "completed",
+    label: "My Completed Projects",
+    color: "#0ea5e9", // sky
     Icon: (p) => (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...p}>
-        <circle cx="12" cy="12" r="9" strokeWidth="1.75" />
-        <path d="M3 12h18M12 3v18" strokeWidth="1.75" />
+        <path
+          d="M12 3l7 3v5c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6l7-3z"
+          strokeWidth="1.75"
+        />
+        <path
+          d="M8.5 12.5l2.5 2.5 4.5-5"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+        />
       </svg>
     ),
-    testId: "tab-community-projects",
+    testId: "tab-my-completed-projects",
   },
+
+  // Completed Community Projects
   {
-    key: "favourites",
-    label: "Favourites",
-    color: "#f59e0b", // amber (yellowish)
-    Icon: (p) => (
-      <svg viewBox="0 0 24 24" fill="currentColor" {...p}>
-        <path d="M12 21s-6.5-4.2-8.7-7.1C1 11.2 2 7.5 5.5 6.8A4.3 4.3 0 0 1 12 8a4.3 4.3 0 0 1 6.5-1.2c3.5.7 4.5 4.4 2.2 7.1C18.4 16.8 12 21 12 21z" />
-      </svg>
-    ),
-    testId: "tab-favourites",
-  },
-  {
-    key: "archived",
-    label: "Archived",
-    color: "#ef4444", // red
+    key: "completedCommunity",
+    label: "Completed Community Projects",
+    color: "#10b981", // emerald
     Icon: (p) => (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...p}>
-        <rect x="3" y="5" width="18" height="4" rx="1.5" strokeWidth="1.75" />
-        <path d="M6 9v10h12V9" strokeWidth="1.75" />
-        <path d="M10 13h4" strokeWidth="1.75" strokeLinecap="round" />
+        <circle cx="8" cy="10" r="2.5" strokeWidth="1.75" />
+        <circle cx="16" cy="10" r="2.5" strokeWidth="1.75" />
+        <path
+          d="M4.5 17c.6-2 2.8-3.5 5.5-3.5S15 15 15.5 17"
+          strokeWidth="1.75"
+        />
+        <rect x="15.5" y="4" width="5" height="4" rx="0.75" strokeWidth="1.75" />
+        <path
+          d="M16.5 6l1.2 1.2L20 5"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+        />
       </svg>
     ),
-    testId: "tab-archived",
+    testId: "tab-completed-community-projects",
   },
 ];
 
-export default function ProjectTabs({
-  value,
-  onChange,
-  className = "",
-}: Props) {
+export default function ProjectTabs({ value, onChange, className = "" }: Props) {
   return (
     <div
       className={`w-full flex items-center justify-center gap-6 sm:gap-8 mb-4 ${className}`}
@@ -96,7 +113,7 @@ export default function ProjectTabs({
       data-testid="projects-tabs"
     >
       {tabs.map((t) => {
-        const active = value === t.key;
+        const active = value === t.key; // If value === 'archived', no pill is highlighted (by design)
         return (
           <button
             key={t.key}
@@ -105,30 +122,19 @@ export default function ProjectTabs({
             onClick={() => onChange(t.key)}
             data-testid={t.testId}
             className={[
-              // base container
               "relative select-none inline-flex items-center gap-3",
               "rounded-xl px-4 sm:px-5 py-2.5",
               "bg-white/70 hover:bg-white transition",
-              "border border-transparent", // <- no colored borders
+              "border border-transparent",
               "shadow-sm hover:shadow",
-              "text-slate-600",
+              active ? "text-slate-900" : "text-slate-600",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-300",
-              active ? "text-slate-900" : "",
             ].join(" ")}
-            style={
-              active
-                ? {
-                    // tint icon/text when active
-                    color: t.color,
-                  }
-                : undefined
-            }
+            style={active ? { color: t.color } : undefined}
             title={t.label}
           >
             <t.Icon className="h-5 w-5" aria-hidden />
             <span className="font-medium whitespace-nowrap">{t.label}</span>
-
-            {/* colored underline when active (no border around the tab) */}
             {active && (
               <span
                 aria-hidden

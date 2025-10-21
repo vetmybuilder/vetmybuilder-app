@@ -102,6 +102,11 @@ function buildRouter(ctx) {
   require("./routes/projects/project.put")(router, ctx);
   require("./routes/projects/archive.post")(router, ctx);
   require("./routes/projects/unarchive.post")(router, ctx);
+  require("./routes/projects/close.post")(router, ctx);
+  require("./routes/projects/close.photos.post")(router, ctx);
+  require("./routes/projects/close.photos.get")(router, ctx);
+  require("./routes/projects/close.post")(router, ctx);
+  require("./routes/projects/project-closure.get")(router, ctx);
   require("./routes/projects/magic-link.post")(router, ctx);
 
   // Project recommendations
@@ -112,9 +117,11 @@ function buildRouter(ctx) {
   // Public via magic link
   require("./routes/recommendations/magic.post")(router, ctx);
   require("./routes/recommendations/magic.get")(router, ctx);
+  require("./routes/recommendations/like.post")(router, ctx);
+  require("./routes/recommendations/ratings.recommendations.get")(router, ctx);
 
   // Authed rec routes
-  require("./routes/recommendations/like.post")(router, ctx);
+
   require("./routes/recommendations/recommendation.get")(router, ctx);
   require("./routes/recommendations/verification.get")(router, ctx);
 

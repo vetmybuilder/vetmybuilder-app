@@ -1,6 +1,5 @@
-// web/pages/builders/[id].tsx
 import { useRouter } from "next/router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
 import AuthedOnly from "@/components/AuthedOnly";
@@ -18,8 +17,8 @@ type Builder = {
   phone?: string | null;
   isAnonymous: 0 | 1;
   // aggregates
-  likes?: number;
-  myLike?: 0 | 1;
+  likes?: number;    // treat as votes
+  myLike?: 0 | 1;    // 1 if I already voted
   // gallery
   photos?: any;
   photoUrls?: string[];
@@ -28,6 +27,8 @@ type Builder = {
   fromCommunity?: 0 | 1;
   // back to project
   project?: { id: number; name: string };
+  // VMB ranking score
+  score?: number;
 };
 
 type VerificationStatus =
@@ -71,26 +72,37 @@ function Badge({
   );
 }
 
-const LikeIcon = (props: React.SVGProps<SVGSVGElement>) => (
+/** Thumbs up icon (vote) */
+const ThumbsUpIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
-    <path d="M12.1 21.35c-.32 0-.63-.1-.9-.3l-1.2-.9C5.2 16.54 2 13.76 2 10.28 2 7.5 4.2 5.3 7 5.3c1.45 0 2.86.63 3.8 1.7.94-1.07 2.35-1.7 3.8-1.7 2.8 0 5 2.2 5 4.98 0 3.48-3.2 6.26-7 9.88l-1.2.9c-.27.2-.58.3-.9.3z" />
+    <path d="M2 10h4v12H2V10zm7.5 12h6.27c1.02 0 1.94-.64 2.29-1.6l2.41-6.52a2 2 0 0 0-1.24-2.55c-.2-.07-.42-.11-.64-.11h-4.6l.62-3.02.02-.23a2 2 0 0 0-.59-1.42L13.2 4 8.9 8.29A3 3 0 0 0 8 10.4V20a2 2 0 0 0 1.5 2z" />
   </svg>
 );
 
-/** Brighter, high-contrast check (white check on vibrant green circle) */
-const VibrantCheckIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg viewBox="0 0 24 24" aria-hidden {...props}>
-    <circle cx="12" cy="12" r="10" fill="#22C55E" />
-    <path
-      d="M7.5 12.5l3 3 6-6"
-      fill="none"
-      stroke="white"
-      strokeWidth={2.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
+/** Compact VMB score pill. Shows “—” if unknown. */
+function ScoreChip({ value }: { value?: number }) {
+  if (value == null || Number.isNaN(Number(value))) {
+    return (
+      <span className="rounded-full px-2 py-0.5 text-xs font-medium border border-slate-200 text-slate-600">
+        VMB —
+      </span>
+    );
+  }
+  const n = Number(value);
+  const label =
+    n <= 5 ? n.toFixed(1).replace(/\.0$/, "") : String(Math.round(n));
+  return (
+    <span
+      className="rounded-full px-2 py-0.5 text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200"
+      title={`VMB score: ${label}`}
+      aria-label={`VMB score ${label}`}
+      data-testid="builder-vmb-score"
+    >
+      VMB {label}
+    </span>
+  );
+}
+
 const ClockIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
     <path d="M12 2a10 10 0 1 0 .001 20.001A10 10 0 0 0 12 2zm1 11h5v-2h-4V6h-2v7z" />
@@ -197,6 +209,20 @@ export default function BuilderProfile() {
   const [verr, setVerr] = useState<string | null>(null);
   const [vLoading, setVLoading] = useState(false);
 
+  // VMB score (ranking)
+  const [score, setScore] = useState<number | undefined>(undefined);
+  const [scoreErr, setScoreErr] = useState<string | null>(null);
+
+  // Project owner (to hide vote button if I'm the owner)
+  const [projectOwnerId, setProjectOwnerId] = useState<string | null>(null);
+
+  // Derived permission: can I vote?
+  const isOwner = useMemo(
+    () => !!(user && projectOwnerId && String(user.uid) === String(projectOwnerId)),
+    [user, projectOwnerId]
+  );
+  const canVote = !!user && !isOwner;
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!lightboxOpen) return;
@@ -207,7 +233,7 @@ export default function BuilderProfile() {
     };
   }, [lightboxOpen]);
 
-  // Fetch builder with auth-race retry
+  // Fetch builder
   useEffect(() => {
     if (!router.isReady || authLoading || !user || !id) return;
 
@@ -222,6 +248,11 @@ export default function BuilderProfile() {
         );
         if (!alive) return;
         setBuilder(data.recommendation);
+        setScore(
+          typeof data?.recommendation?.score === "number"
+            ? data.recommendation.score
+            : undefined
+        );
       } catch (e: any) {
         if (!alive) return;
         const status = e?.status ?? e?.response?.status;
@@ -242,7 +273,26 @@ export default function BuilderProfile() {
     };
   }, [api, id, router.isReady, authLoading, user]);
 
-  // Fetch Companies House verification for this recommendation
+  // Fetch project owner (so we can hide the vote button for owners)
+  useEffect(() => {
+    if (!builder?.project?.id || !user) return;
+    let alive = true;
+    (async () => {
+      try {
+        const { data } = await api.get(`/api/projects/${builder.project.id}`);
+        if (!alive) return;
+        setProjectOwnerId(data?.project?.ownerUserId ?? null);
+      } catch {
+        if (!alive) return;
+        setProjectOwnerId(null);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [api, builder?.project?.id, user]);
+
+  // Companies House verification
   useEffect(() => {
     if (!router.isReady || authLoading || !user || !id) return;
     let alive = true;
@@ -268,24 +318,71 @@ export default function BuilderProfile() {
     };
   }, [api, id, router.isReady, authLoading, user]);
 
-  const [liking, setLiking] = useState(false);
-  const likeOnce = async () => {
-    if (!builder || !user || liking || builder.myLike === 1) return;
-    setLiking(true);
-    setBuilder((b) => (b ? { ...b, myLike: 1, likes: (b.likes || 0) + 1 } : b));
+  // Fetch VMB score for this recommendation (server-calculated)
+  useEffect(() => {
+    if (!router.isReady || authLoading || !user || !id) return;
+    let alive = true;
+    setScoreErr(null);
+    (async () => {
+      try {
+        const { data } = await getWithAuthRetry(() =>
+          api.get(`/api/v2/recommendations/ratings?recommendationId=${id}`)
+        );
+        if (!alive) return;
+        const v =
+          (data && typeof data.item?.score === "number" && data.item.score) ??
+          (Array.isArray(data?.items) &&
+          typeof data.items[0]?.score === "number"
+            ? data.items[0].score
+            : undefined);
+        setScore(typeof v === "number" ? v : undefined);
+      } catch {
+        if (!alive) return;
+        setScoreErr("Could not load score");
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [api, id, router.isReady, authLoading, user]);
+
+  // Vote up (thumbs)
+  const [voting, setVoting] = useState(false);
+  const voteUpOnce = async () => {
+    if (!builder || !user || voting || builder.myLike === 1 || !canVote) return;
+    setVoting(true);
+    // optimistic update
+    setBuilder((b) =>
+      b ? { ...b, myLike: 1, likes: (b.likes || 0) + 1 } : b
+    );
     try {
       await api.post(`/api/recommendations/${builder.id}/like`);
       const { data } = await api.get(`/api/recommendations/${builder.id}`);
       setBuilder(data.recommendation);
+
+      // refresh score too
+      try {
+        const { data: r } = await api.get(
+          `/api/v2/recommendations/ratings?recommendationId=${builder.id}`
+        );
+        const v =
+          (r && typeof r.item?.score === "number" && r.item.score) ??
+          (Array.isArray(r?.items) &&
+          typeof r.items[0]?.score === "number"
+            ? r.items[0].score
+            : undefined);
+        if (typeof v === "number") setScore(v);
+      } catch {}
     } catch (e: any) {
+      // revert on failure
       setBuilder((b) =>
         b && b.myLike === 1
           ? { ...b, myLike: 0, likes: Math.max(0, (b.likes || 1) - 1) }
           : b
       );
-      alert(e?.response?.data?.error || "Unable to like right now");
+      alert(e?.response?.data?.error || "Unable to vote right now");
     } finally {
-      setLiking(false);
+      setVoting(false);
     }
   };
 
@@ -301,7 +398,17 @@ export default function BuilderProfile() {
           aria-label="Companies House: Verified"
           title="Verified"
         >
-          <VibrantCheckIcon className="h-5 w-5" />
+          <svg viewBox="0 0 24 24" aria-hidden className="h-5 w-5">
+            <circle cx="12" cy="12" r="10" fill="#22C55E" />
+            <path
+              d="M7.5 12.5l3 3 6-6"
+              fill="none"
+              stroke="white"
+              strokeWidth={2.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
           <span className="sr-only">Verified</span>
         </span>
       );
@@ -339,7 +446,6 @@ export default function BuilderProfile() {
         </span>
       );
     }
-    // error / unknown
     return (
       <span
         className="inline-flex items-center gap-1 text-sm text-rose-700"
@@ -425,7 +531,7 @@ export default function BuilderProfile() {
           </div>
         ) : (
           <div className="space-y-5">
-            {/* TOP: Gallery (full width) */}
+            {/* TOP: Gallery */}
             <section
               className="card"
               data-testid="gallery-card"
@@ -439,7 +545,8 @@ export default function BuilderProfile() {
                   className="text-xs text-slate-500"
                   data-testid="gallery-count"
                 >
-                  {photos.length} photo{photos.length === 1 ? "" : "s"}
+                  {normalizePhotos(builder).length} photo
+                  {normalizePhotos(builder).length === 1 ? "" : "s"}
                 </span>
               </div>
 
@@ -474,9 +581,9 @@ export default function BuilderProfile() {
               )}
             </section>
 
-            {/* BOTTOM ROW: Summary (left) + Verifications (right) */}
+            {/* Summary + Verifications */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* LEFT: Builder summary/details */}
+              {/* LEFT: summary */}
               <section
                 className="card"
                 data-testid="builder-summary-card"
@@ -505,32 +612,63 @@ export default function BuilderProfile() {
                   </div>
 
                   <div className="flex flex-col items-end">
-                    <div
-                      className="text-sm text-zinc-500 flex items-center gap-2"
-                      data-testid="builder-likes"
-                      aria-label={`Likes: ${builder.likes ?? 0}`}
-                    >
-                      <LikeIcon className="h-4 w-4" />
-                      <span className="tabular-nums">{builder.likes ?? 0}</span>
+                    <div className="flex items-center gap-3">
+                      {/* Votes count (icon + number) */}
+                      <div
+                        className="text-sm text-zinc-500 flex items-center gap-1"
+                        data-testid="builder-votes"
+                        aria-label={`Votes: ${builder.likes ?? 0}`}
+                        title={`${builder.likes ?? 0} vote${
+                          (builder.likes ?? 0) === 1 ? "" : "s"
+                        }`}
+                      >
+                        <ThumbsUpIcon className="h-4 w-4" />
+                        <span className="tabular-nums">
+                          {builder.likes ?? 0}
+                        </span>
+                      </div>
+                      {/* VMB score */}
+                      <ScoreChip value={score ?? builder.score} />
                     </div>
-                    <button
-                      className={`mt-2 h-9 px-3 rounded-full border text-sm transition
-                        ${
-                          builder.myLike === 1
-                            ? "bg-indigo-50 border-indigo-200 text-indigo-600 cursor-default"
-                            : "border-slate-300 hover:bg-slate-50"
+
+                    {/* Vote button: hidden for project owner */}
+                    {!isOwner && (
+                      <button
+                        className={`mt-2 h-9 w-9 rounded-full border grid place-items-center text-sm transition
+                          ${
+                            builder.myLike === 1
+                              ? "bg-indigo-50 border-indigo-200 text-indigo-600 cursor-default"
+                              : "border-slate-300 hover:bg-slate-50"
+                          }
+                          ${!user ? "opacity-60 cursor-not-allowed" : ""}`}
+                        disabled={!user || builder.myLike === 1 || voting || !canVote}
+                        onClick={voteUpOnce}
+                        data-testid="btn-vote-up"
+                        aria-pressed={builder.myLike === 1}
+                        title={
+                          !user
+                            ? "Sign in to vote"
+                            : builder.myLike === 1
+                            ? "You’ve voted"
+                            : "Vote up"
                         }
-                        ${!user ? "opacity-60 cursor-not-allowed" : ""}`}
-                      disabled={!user || builder.myLike === 1 || liking}
-                      onClick={likeOnce}
-                      data-testid="btn-like"
-                      aria-pressed={builder.myLike === 1}
-                      title={
-                        builder.myLike === 1 ? "You’ve liked this" : "Like"
-                      }
-                    >
-                      {builder.myLike === 1 ? "Liked" : "Like"}
-                    </button>
+                        aria-label={
+                          !user
+                            ? "Sign in to vote"
+                            : builder.myLike === 1
+                            ? "You have voted"
+                            : "Vote up"
+                        }
+                      >
+                        <ThumbsUpIcon className="h-4 w-4" />
+                      </button>
+                    )}
+
+                    {scoreErr && (
+                      <div className="mt-1 text-xs text-rose-600">
+                        {scoreErr}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -611,7 +749,7 @@ export default function BuilderProfile() {
                     </div>
                   </div>
 
-                  {/* Google row (hard-coded for now) */}
+                  {/* Google row (placeholder) */}
                   <div
                     className="py-3 flex items-center justify-between gap-4"
                     data-testid="verification-google-row"
@@ -620,7 +758,17 @@ export default function BuilderProfile() {
                       <GoogleMark />
                     </div>
                     <div className="shrink-0">
-                      <GoogleStars />
+                      {/* Placeholder visual only */}
+                      <span className="inline-flex items-center gap-2 text-sm">
+                        <span className="font-medium">5.0</span>
+                        <span aria-hidden className="flex gap-0.5">
+                          <span className="text-yellow-400">★</span>
+                          <span className="text-yellow-400">★</span>
+                          <span className="text-yellow-400">★</span>
+                          <span className="text-yellow-400">★</span>
+                          <span className="text-yellow-400">★</span>
+                        </span>
+                      </span>
                     </div>
                   </div>
                 </div>

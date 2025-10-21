@@ -4,35 +4,43 @@
  * Auth: required
  * Visibility: owner OR project is live; else 404
  * Query: page, pageSize
- * Response: { items, total, page, pageSize }
+ *
+ * Returns recommendations already RANKED by the composite `score`
+ * (from SQL view: v_recommendation_scores) and includes:
+ *   - likes, myLike (for current user)
+ *   - fromCommunity (as exposed by the view)
+ *   - score (rounded)
  */
 module.exports = (router, ctx) => {
   const { db, auth, extractLocationTokens } = ctx;
 
   router.get("/projects/:id/recommendations", auth, (req, res) => {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id)) {
+    const projectId = Number(req.params.id);
+    if (!Number.isFinite(projectId)) {
       return res.status(400).json({ error: "Invalid id" });
     }
 
+    // visibility
     const proj = db
       .prepare(
-        `SELECT ownerUserId, status, location FROM projects WHERE id = ?`
+        `SELECT ownerUserId, status, location
+           FROM projects
+          WHERE id = ?`
       )
-      .get(id);
+      .get(projectId);
+
     if (!proj) return res.status(404).json({ error: "Not found" });
 
     const status = String(proj.status || "").toLowerCase();
     const isLive = status === "live";
     const uid = req.user?.uid || null;
-    const isOwner = uid && String(uid) === String(proj.ownerUserId);
+    const isOwner = !!uid && String(uid) === String(proj.ownerUserId);
 
     if (!isOwner && !isLive) {
       return res.status(404).json({ error: "Not found" });
     }
 
-    const pTok = extractLocationTokens(proj.location);
-
+    // paging
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
     const pageSize = Math.max(
       1,
@@ -40,55 +48,67 @@ module.exports = (router, ctx) => {
     );
     const offset = (page - 1) * pageSize;
 
-    const totalRow = db
-      .prepare(`SELECT COUNT(*) AS c FROM recommendations WHERE projectId = ?`)
-      .get(id);
+    // total
+    const total =
+      db
+        .prepare(
+          `SELECT COUNT(*) AS c FROM recommendations WHERE projectId = ?`
+        )
+        .get(projectId).c || 0;
 
-    const raw = db
+    // ranked list
+    // NOTE:
+    //  - v_recommendation_scores exposes:
+    //      recommendationId, score, likes_count, photos_count, completed_count,
+    //      would_use_again_count, fromCommunity
+    //  - myLike is per-user from recommendation_votes
+    const userId = String(uid || "");
+
+    const rows = db
       .prepare(
         `
         SELECT
-          r.id, r.name, r.email, r.phone, r.company, r.comment, r.isAnonymous, r.createdAt, r.source,
-          r.recommenderUserId,
+          r.id,
+          r.projectId,
+          r.createdAt,
+          r.name,
+          r.email,
+          r.phone,
+          r.company,
+          r.comment,
+          r.isAnonymous,
           r.rating,
-          u.postcode        AS u_postcode,
-          u.postcodeSector  AS u_sector,
-          u.postcodeOutward AS u_outward,
-          u.city            AS u_city,
-          COALESCE(v.likes, 0) AS likes,
-          CASE WHEN mv.userId IS NULL THEN 0 ELSE 1 END AS myLike
+          -- aggregates / derived
+          COALESCE(vrs.likes_count, 0)                 AS likes,
+          CASE
+            WHEN EXISTS (
+              SELECT 1
+                FROM recommendation_votes rv
+               WHERE rv.recommendationId = r.id
+                 AND rv.userId = ?
+                 AND rv.value = 1
+            ) THEN 1 ELSE 0
+          END                                           AS myLike,
+          COALESCE(vrs.fromCommunity, 0)               AS fromCommunity,
+          ROUND(COALESCE(vrs.score, 0), 3)             AS score
         FROM recommendations r
-        LEFT JOIN (
-          SELECT recommendationId, COUNT(*) AS likes
-            FROM recommendation_votes
-           WHERE value = 1
-           GROUP BY recommendationId
-        ) v ON v.recommendationId = r.id
-        LEFT JOIN recommendation_votes mv
-               ON mv.recommendationId = r.id AND mv.userId = ?
-        LEFT JOIN users u
-               ON u.uid = r.recommenderUserId
+        LEFT JOIN v_recommendation_scores vrs
+               ON vrs.recommendationId = r.id
         WHERE r.projectId = ?
-        ORDER BY likes DESC, r.createdAt DESC
+        ORDER BY
+          COALESCE(vrs.score, 0) DESC,
+          COALESCE(vrs.likes_count, 0) DESC,
+          r.createdAt DESC
         LIMIT ? OFFSET ?
-      `
+        `
       )
-      .all(uid || "", id, pageSize, offset);
+      .all(userId, projectId, pageSize, offset);
 
-    function communityMatch(row) {
-      if (!row.recommenderUserId) return 0;
-      return Number(
-        (pTok.full && row.u_postcode === pTok.full) ||
-          (pTok.sector && row.u_sector === pTok.sector) ||
-          (pTok.outward && row.u_outward === pTok.outward) ||
-          (pTok.city &&
-            row.u_city &&
-            String(row.u_city).toLowerCase() ===
-              String(pTok.city || "").toLowerCase())
-      );
-    }
+    // (Keep extractLocationTokens around if other callers use it, but our
+    // ranking now comes from the SQL view so we don't recompute here.)
+    void extractLocationTokens; // silence unused warning if your linter complains
 
-    const items = raw.map((r) => ({
+    const items = rows.map((r) => ({
       id: r.id,
       name: r.name,
       email: r.email,
@@ -97,14 +117,13 @@ module.exports = (router, ctx) => {
       comment: r.comment,
       isAnonymous: r.isAnonymous,
       createdAt: r.createdAt,
-      fromFriend:
-        String(r.source || "platform").toLowerCase() === "magic" ? 1 : 0,
-      fromCommunity: communityMatch(r),
+      rating: r.rating ?? null,
       likes: r.likes,
       myLike: r.myLike ? 1 : 0,
-      rating: r.rating ?? null,
+      fromCommunity: r.fromCommunity ? 1 : 0,
+      score: Number(r.score) || 0,
     }));
 
-    return res.json({ items, total: totalRow.c || 0, page, pageSize });
+    return res.json({ items, total, page, pageSize });
   });
 };

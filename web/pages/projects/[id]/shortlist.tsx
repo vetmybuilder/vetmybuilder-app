@@ -1,11 +1,12 @@
-// web/pages/projects/[id]/shortlist.tsx
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useAuth } from "@/utils/auth";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { fetchVmbRatings, voteUpRecommendation } from "@/utils/vmb";
 
+/* ===== Types ===== */
 type Recommendation = {
   id: number;
   name: string | null;
@@ -15,11 +16,12 @@ type Recommendation = {
   comment: string | null;
   isAnonymous: 0 | 1;
   createdAt: string;
-  likes?: number;
-  myLike?: 0 | 1;
+  likes?: number; // votes
+  myLike?: 0 | 1; // I have voted
   fromFriend?: 0 | 1;
   fromCommunity?: 0 | 1;
   rating?: number | null;
+  score?: number; // VMB score
 };
 
 type ProjectLite = {
@@ -47,9 +49,9 @@ function StarRating({ value }: { value: number | null | undefined }) {
   );
 }
 
-const LikeIcon = (props: React.SVGProps<SVGSVGElement>) => (
+const ThumbsUpIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
-    <path d="M12.1 21.35c-.32 0-.63-.1-.9-.3l-1.2-.9C5.2 16.54 2 13.76 2 10.28 2 7.5 4.2 5.3 7 5.3c1.45 0 2.86.63 3.8 1.7.94-1.07 2.35-1.7 3.8-1.7 2.8 0 5 2.2 5 4.98 0 3.48-3.2 6.26-7 9.88l-1.2.9c-.27.2-.58.3-.9.3z" />
+    <path d="M2 10h4v12H2V10zm7.5 12h6.27c1.02 0 1.94-.64 2.29-1.6l2.41-6.52a2 2 0 0 0-1.24-2.55c-.2-.07-.42-.11-.64-.11h-4.6l.62-3.02.02-.23a2 2 0 0 0-.59-1.42L13.2 4 8.9 8.29A3 3 0 0 0 8 10.4V20a2 2 0 0 0 1.5 2z" />
   </svg>
 );
 
@@ -84,10 +86,44 @@ function Badge({
   );
 }
 
+/** VMB score chip (shows exact value like 2.8; drops .0) */
+function ScoreChip({ value }: { value?: number }) {
+  if (value == null || Number.isNaN(Number(value))) {
+    return (
+      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border border-slate-200 text-slate-600">
+        VMB —
+      </span>
+    );
+  }
+  const n = Number(value);
+  const label = n.toFixed(1).replace(/\.0$/, "");
+  return (
+    <span
+      className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200"
+      title={`VMB score: ${label}`}
+      aria-label={`VMB score ${label}`}
+      data-testid="rec-vmb-score"
+    >
+      VMB {label}
+    </span>
+  );
+}
+
 function starsFromLikes(likes: number, maxLikes: number) {
   if (maxLikes <= 0) return 0;
   const pct = likes / maxLikes;
   return Math.max(1, Math.round(pct * 5));
+}
+
+/* ---------------- Type guards for fetchVmbRatings result ---------------- */
+type VmbListOk = { items: Recommendation[]; total?: number };
+type VmbSingleOk = { item?: Recommendation | null };
+
+function hasItems(res: unknown): res is VmbListOk {
+  return !!res && typeof res === "object" && "items" in (res as any);
+}
+function hasItem(res: unknown): res is VmbSingleOk {
+  return !!res && typeof res === "object" && "item" in (res as any);
 }
 
 /* ---------------- Page ---------------- */
@@ -106,12 +142,12 @@ export default function ShortlistPage() {
 
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-  const [likingId, setLikingId] = useState<number | null>(null);
+  const [votingId, setVotingId] = useState<number | null>(null);
 
   const [hasPhotos, setHasPhotos] = useState<Record<number, boolean>>({});
 
   const isOwner = !!(user && project && project.ownerUserId === user.uid);
-  const canLike = !!user && !!project && !isOwner;
+  const canVote = !!user && !!project && !isOwner;
 
   useEffect(() => {
     if (!router.isReady || authLoading || !user || !id) return;
@@ -133,11 +169,30 @@ export default function ShortlistPage() {
   }, [api, id, router.isReady, authLoading, user]);
 
   async function loadPage(p: number) {
-    const { data } = await api.get(
-      `/api/projects/${id}/recommendations?page=${p}&pageSize=${pageSize}`
-    );
-    setItems(data.items || []);
-    setTotal(data.total || 0);
+    const pid = Number(Array.isArray(id) ? id[0] : id);
+    if (!Number.isFinite(pid)) return;
+
+    // Use ratings endpoint via util (keeps score logic consistent)
+    const offset = Math.max(0, (p - 1) * pageSize);
+    const res = await fetchVmbRatings(api, { projectId: pid, offset, limit: pageSize });
+
+    if (hasItems(res)) {
+      setItems(res.items ?? []);
+      setTotal(res.total ?? (res.items ? res.items.length : 0));
+      setErr(null);
+      return;
+    }
+    if (hasItem(res)) {
+      const item = res.item ?? null;
+      setItems(item ? [item] : []);
+      setTotal(item ? 1 : 0);
+      setErr(null);
+      return;
+    }
+
+    // Fallback
+    setItems([]);
+    setTotal(0);
     setErr(null);
   }
 
@@ -205,22 +260,22 @@ export default function ShortlistPage() {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const maxLikes = Math.max(0, ...items.map((r) => r.likes ?? 0));
 
-  const likeOnce = async (rec: Recommendation) => {
-    if (!canLike || likingId || rec.myLike === 1) return;
-    setLikingId(rec.id);
+  const voteUpOnce = async (rec: Recommendation) => {
+    if (!canVote || votingId || rec.myLike === 1) return;
+    setVotingId(rec.id);
     setItems((prev) =>
       prev.map((r) =>
         r.id === rec.id ? { ...r, myLike: 1, likes: (r.likes ?? 0) + 1 } : r
       )
     );
     try {
-      await api.post(`/api/recommendations/${rec.id}/like`);
-      await loadPage(page);
+      await voteUpRecommendation(api, rec.id); // uses same like endpoint internally
+      await loadPage(page); // refresh with server score
     } catch (e: any) {
       await loadPage(page);
-      alert(e?.response?.data?.error || "Unable to like right now");
+      alert(e?.response?.data?.error || "Unable to vote right now");
     } finally {
-      setLikingId(null);
+      setVotingId(null);
     }
   };
 
@@ -241,7 +296,7 @@ export default function ShortlistPage() {
                 All recommendations{project ? ` · ${project.name}` : ""}
               </h1>
               <p className="mt-1 text-sm text-slate-500">
-                The top recommendations, ranked by the community.
+                Ranked by the VMB score. Vote to boost great builders.
               </p>
             </div>
             <Link
@@ -278,14 +333,14 @@ export default function ShortlistPage() {
         ) : (
           <div className="space-y-3" data-testid="recommendations-list">
             {items.map((r) => {
-              const likes = r.likes ?? 0;
-              const hasLiked = r.myLike === 1;
+              const votes = r.likes ?? 0;
+              const hasVoted = r.myLike === 1;
 
               const stars =
                 r.rating != null && !Number.isNaN(Number(r.rating))
                   ? Math.max(1, Math.min(5, Math.round(Number(r.rating))))
-                  : likes > 0
-                  ? starsFromLikes(likes, maxLikes)
+                  : votes > 0
+                  ? starsFromLikes(votes, maxLikes)
                   : 0;
 
               const showPhotos = !!hasPhotos[r.id];
@@ -299,37 +354,38 @@ export default function ShortlistPage() {
                   data-testid="recommendation-card"
                 >
                   <div className="flex items-start gap-4">
-                    {/* Like column (hidden for owner) */}
+                    {/* Vote column (hidden for owner) */}
                     {!isOwner && (
                       <div className="w-12 flex-none flex flex-col items-center">
                         <button
-                          onClick={() => likeOnce(r)}
-                          disabled={!canLike || hasLiked || likingId === r.id}
+                          onClick={() => voteUpOnce(r)}
+                          disabled={!canVote || hasVoted || votingId === r.id}
                           className={`h-9 w-9 rounded-full grid place-items-center border transition
                             ${
-                              hasLiked
+                              hasVoted
                                 ? "bg-indigo-50 border-indigo-200 text-indigo-600 cursor-default"
                                 : "border-slate-200 hover:bg-slate-50"
                             }
-                            ${!canLike ? "opacity-60" : ""}`}
-                          aria-label="Like recommendation"
+                            ${!canVote ? "opacity-60" : ""}`}
+                          aria-label="Vote up"
                           title={
-                            !canLike
-                              ? "Sign in to like"
-                              : hasLiked
-                              ? "You’ve liked this"
-                              : "Like"
+                            !canVote
+                              ? "Sign in to vote"
+                              : hasVoted
+                              ? "You’ve voted"
+                              : "Vote up"
                           }
-                          data-testid="rec-like-btn"
+                          data-testid="rec-vote-btn"
                         >
-                          <LikeIcon className="h-4 w-4" />
+                          <ThumbsUpIcon className="h-4 w-4" />
                         </button>
                         <div
                           className="mt-1 text-xs tabular-nums text-slate-600"
-                          data-testid="rec-like-count"
-                          aria-label="Likes"
+                          data-testid="rec-vote-count"
+                          aria-label="Votes"
+                          title={`${votes} vote${votes === 1 ? "" : "s"}`}
                         >
-                          {likes}
+                          {votes}
                         </div>
                       </div>
                     )}
@@ -387,12 +443,14 @@ export default function ShortlistPage() {
                         <div className="flex items-center gap-3 shrink-0 whitespace-nowrap">
                           <div
                             className="text-xs text-slate-500 tabular-nums flex items-center gap-1"
-                            aria-label="Total likes"
-                            data-testid="rec-like-count-top"
+                            aria-label="Total votes"
+                            data-testid="rec-vote-count-top"
+                            title={`${votes} vote${votes === 1 ? "" : "s"}`}
                           >
-                            <LikeIcon className="h-3.5 w-3.5 -mt-px" /> {likes}
+                            <ThumbsUpIcon className="h-3.5 w-3.5 -mt-px" />{" "}
+                            {votes}
                           </div>
-                          <StarRating value={stars} />
+                          <ScoreChip value={r.score} />
                         </div>
                       </div>
 
