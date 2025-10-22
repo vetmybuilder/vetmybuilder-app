@@ -1,7 +1,15 @@
-// server/lib/companiesHouse.js
 /* eslint-disable */
 const LIVE_BASE = "https://api.company-information.service.gov.uk";
 const SANDBOX_BASE = "https://api-sandbox.company-information.service.gov.uk";
+
+// --- NEW: fuzzy matching libs
+const Fuse = require("fuse.js");
+const removeAccents = require("remove-accents");
+const jaroWinkler =
+  require("talisman/metrics/jaro-winkler").default ||
+  require("talisman/metrics/jaro-winkler");
+const dice =
+  require("talisman/metrics/dice").default || require("talisman/metrics/dice");
 
 /** Build correct Basic header: base64("<key>:") */
 function buildAuthHeader(rawKey) {
@@ -74,8 +82,20 @@ const FINE_SIC_WHITELIST = new Set([
   "43390",
   "43910",
   "43991",
-  "43999"
+  "43999",
 ]);
+
+// --- helpers for name normalization ---
+function deCamel(s = "") {
+  // PRHenryBuilder -> PR Henry Builder, XMLParserX -> XML Parser X
+  return String(s)
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+    .replace(/([a-z])([A-Z])/g, "$1 $2");
+}
+
+function compact(s = "") {
+  return String(s).replace(/\s+/g, "");
+}
 
 function normName(s = "") {
   return String(s)
@@ -88,11 +108,39 @@ function normName(s = "") {
 
 function nameScore(aTitle, qName) {
   const a = normName(aTitle);
-  const b = normName(qName);
-  if (!a || !b) return 0;
-  if (a === b) return 70;
-  if (a.startsWith(b) || b.startsWith(a)) return 55;
-  if (a.includes(b) || b.includes(a)) return 35;
+  const b0 = normName(qName);
+  const b = normName(deCamel(qName)); // try de-camelized query
+
+  if (!a || !(b || b0)) return 0;
+
+  // Exact/starts/includes on normalized names
+  if (a === b || a === b0) return 70;
+  if (
+    a.startsWith(b) ||
+    b.startsWith(a) ||
+    a.startsWith(b0) ||
+    b0.startsWith(a)
+  )
+    return 55;
+  if (a.includes(b) || b.includes(a) || a.includes(b0) || b0.includes(a))
+    return 35;
+
+  // Compact (no-space) comparisons catch PRHenryBuilder vs "pr henry builder"
+  const ac = compact(a);
+  const bc = compact(b || b0);
+  if (ac === bc) return 70;
+  if (ac.startsWith(bc) || bc.startsWith(ac)) return 55;
+  if (ac.includes(bc) || bc.includes(ac)) return 35;
+
+  // Token overlap (Jaccard-ish) gives partial credit on shuffled words
+  const aT = new Set(a.split(" ").filter(Boolean));
+  const bT = new Set((b || b0).split(" ").filter(Boolean));
+  const inter = [...aT].filter((t) => bT.has(t)).length;
+  const j = inter / Math.max(1, bT.size);
+  if (j >= 0.8) return 60;
+  if (j >= 0.6) return 45;
+  if (j >= 0.4) return 30;
+
   return 0;
 }
 
@@ -136,6 +184,15 @@ function statusScore(profile) {
   return 0;
 }
 
+function hasStrongEvidence({ item, profile, qName, locHint }) {
+  const active =
+    String(profile?.company_status || "").toLowerCase() === "active";
+  const inConstruction = hasConstructionSIC(profile?.sic_codes);
+  const nameOK = nameScore(item.title, qName) >= 60; // solid name match
+  const locOK = addressMatchesHint(profile, locHint); // optional
+  return active && inConstruction && (nameOK || locOK);
+}
+
 function buildScore({ item, profile, qName, locHint }) {
   let score = 0;
   score += nameScore(item.title, qName);
@@ -143,6 +200,12 @@ function buildScore({ item, profile, qName, locHint }) {
   if (hasConstructionSIC(profile?.sic_codes)) score += 10;
   if (addressMatchesHint(profile, locHint)) score += 5;
   score += companyAgeBoost(profile);
+
+  // NEW: if it's clearly the right, active construction company, bump to Verified threshold
+  if (hasStrongEvidence({ item, profile, qName, locHint })) {
+    score = Math.max(score, 85);
+  }
+
   return Math.max(0, Math.min(score, 100));
 }
 
@@ -159,14 +222,119 @@ function serialize(entry) {
   };
 }
 
-// Public: best-effort verify by name(+optional postcode/city)
-async function matchByName({ name, locationHint }) {
-  const search = await searchCompanies({ name });
-  const items = Array.isArray(search?.items) ? search.items : [];
-  if (!items.length) return { verdict: "no_match", best: null, candidates: [] };
+/* ---------------- NEW: Fuzzy shortlist helpers ---------------- */
 
-  // Fetch profiles for top 10 search hits
-  const top = items.slice(0, 10).filter((i) => i?.company_number);
+const SUFFIX_RE =
+  /\b(limited|ltd|llp|plc|company|co\.?|service|services|builder|builders)\b/gi;
+
+function normalizeForFuse(s = "") {
+  return removeAccents(
+    deCamel(String(s))
+      .replace(/&/g, " and ")
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .replace(SUFFIX_RE, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+  ).toLowerCase();
+}
+
+function compactNoSpace(s = "") {
+  return normalizeForFuse(s).replace(/\s+/g, "");
+}
+
+// 0..100 combined score (tuned for company names)
+function fuzzyNameScore(query, candidate) {
+  const q = normalizeForFuse(query);
+  const c = normalizeForFuse(candidate);
+  if (!q || !c) return 0;
+
+  const jw = jaroWinkler(compactNoSpace(q), compactNoSpace(c)); // 0..1
+  const d = dice(q.split(" "), c.split(" ")); // 0..1
+  return Math.round((0.7 * jw + 0.3 * d) * 100);
+}
+
+function pickBestCompany(userInput, chItems) {
+  const fuse = new Fuse(chItems, {
+    keys: ["title", "company_name"],
+    includeScore: true,
+    threshold: 0.4,
+    ignoreLocation: true,
+    minMatchCharLength: 2,
+  });
+
+  const shortlist = fuse
+    .search(userInput)
+    .map((r) => r.item)
+    .slice(0, 20);
+  const pool = shortlist.length ? shortlist : chItems.slice(0, 50);
+
+  const ranked = pool
+    .map((item) => {
+      const name = item.title || item.company_name || "";
+      return { item, score: fuzzyNameScore(userInput, name) };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  const best = ranked[0];
+  const verdict = !best
+    ? "no_match"
+    : best.score >= 85
+    ? "verified"
+    : best.score >= 70
+    ? "ambiguous"
+    : "ambiguous";
+
+  return { verdict, best: best || null, ranked: ranked.slice(0, 5) };
+}
+
+function buildQueryVariants(name) {
+  const base = deCamel(name);
+  const stripped = base.replace(SUFFIX_RE, " ").replace(/\s+/g, " ").trim();
+  const unique = (arr) => [...new Set(arr.filter(Boolean))];
+  return unique([name, base, stripped]);
+}
+
+/* ---------------- Matching ---------------- */
+
+// Public: best-effort verify by name(+optional postcode/city)
+// Uses fuzzy shortlist (Fuse+Talisman) then your buildScore to finalize.
+async function matchByName({ name, locationHint }) {
+  // 1) Query CH with a few variants to be tolerant of PRHenryBuilder, LTD/LLP noise, etc.
+  const variants = buildQueryVariants(name);
+  const allItems = [];
+  const seen = new Set();
+
+  for (const q of variants) {
+    try {
+      const search = await searchCompanies({ name: q });
+      const items = Array.isArray(search?.items) ? search.items : [];
+      for (const it of items) {
+        const key = String(it?.company_number || "").trim();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        // normalize property to "title" for consistency
+        if (!it.title && it.company_name) it.title = it.company_name;
+        allItems.push(it);
+      }
+    } catch {
+      // ignore this variant and continue
+    }
+  }
+
+  if (!allItems.length) {
+    return { verdict: "no_match", best: null, candidates: [] };
+  }
+
+  // 2) Fuzzy shortlist/rank by name similarity
+  const ranked = pickBestCompany(name, allItems); // { verdict, best, ranked }
+
+  // Take up to 10 best-ranked items for profiles (fallback to raw if empty)
+  const topItems =
+    (ranked.ranked || []).map((x) => x.item).slice(0, 10) ||
+    allItems.slice(0, 10);
+  const top = topItems.filter((i) => i && i.company_number);
+
+  // 3) Fetch profiles for the shortlist
   const profs = await Promise.all(
     top.map(async (i) => {
       try {
@@ -177,25 +345,36 @@ async function matchByName({ name, locationHint }) {
     })
   );
 
+  // 4) Final scoring using your existing buildScore (keeps SIC/status/age/location signals)
   const scored = top
     .map((it, idx) => {
       const profile = profs[idx];
       const score = profile
-        ? buildScore({ item: it, profile, qName: name, locHint: locationHint })
+        ? buildScore({
+            item: it,
+            profile,
+            // use the original search text; your buildScore normalizer handles spacing
+            qName: name,
+            locHint: locationHint,
+          })
         : 0;
       return { item: it, profile, score };
     })
     .sort((a, b) => b.score - a.score);
 
   const best = scored[0] || null;
-  if (!best || best.score < 70) {
+
+  // 5) Thresholds unchanged (70/85)
+  if (!best) {
+    return { verdict: "no_match", best: null, candidates: [] };
+  }
+  if (best.score < 70) {
     return {
-      verdict: best ? "ambiguous" : "no_match",
-      best: best ? serialize(best) : null,
+      verdict: "ambiguous",
+      best: serialize(best),
       candidates: scored.slice(0, 3).map(serialize),
     };
   }
-
   return {
     verdict: best.score >= 85 ? "verified" : "ambiguous",
     best: serialize(best),

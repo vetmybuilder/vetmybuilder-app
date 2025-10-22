@@ -99,18 +99,38 @@ module.exports = (router, ctx) => {
 
       // Companies House verification (fire-and-forget)
       try {
-        const projectRow = db
-          .prepare(`SELECT location FROM projects WHERE id = ?`)
-          .get(projectId);
-        const locationHint =
-          String(
-            req.body?.postcode || req.body?.city || projectRow?.location || ""
-          ).trim() || undefined;
+        // 1) Prefer explicit hint if caller provided it
+        const explicitHint = String(
+          (req.body?.locationHint ||
+            req.body?.companyPostcode ||
+            req.body?.companyCity ||
+            ""
+          ).toString()
+        ).trim();
+
+        let locationHint = "";
+        if (explicitHint) {
+          locationHint = explicitHint;
+        } else {
+          // 2) OPTIONAL: if the project owner is submitting, allow project's location as a weak hint
+          try {
+            const proj = db
+              .prepare(
+                `SELECT ownerUserId, location FROM projects WHERE id = ?`
+              )
+              .get(projectId);
+            const isOwner =
+              uid && proj && String(uid) === String(proj.ownerUserId);
+            if (isOwner && proj?.location) {
+              locationHint = String(proj.location);
+            }
+          } catch {}
+        }
 
         queueCompanyVerification({
           recId: recommendationId,
           name: String(company),
-          locationHint,
+          locationHint: locationHint || undefined, // pass undefined when empty
         });
       } catch (e) {
         console.warn("[platform-post] queueCompanyVerification failed", e);

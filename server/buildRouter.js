@@ -39,6 +39,7 @@ function buildRouter(ctx) {
 
   // Companies House
   {
+    const ch = require("./lib/companiesHouse");
     ctx.getCompanyProfile = ctx.getCompanyProfile || ch.getCompanyProfile;
     ctx.searchCompanies = ctx.searchCompanies || ch.searchCompanies;
     ctx.matchByName = ctx.matchByName || ch.matchByName;
@@ -132,6 +133,7 @@ function buildRouter(ctx) {
 
   // ---------------- Debug ----------------
   require("./routes/debug/reclinks.get")(router, ctx);
+  require("./routes/debug/leaderboard.get")(router, ctx);
 
   return router;
 }

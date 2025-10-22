@@ -4,8 +4,14 @@ import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
 import AuthedOnly from "@/components/AuthedOnly";
 import Link from "next/link";
+import {
+  getAggregateVmbForCompany,
+  fetchVmbRatings,
+  type FetchRecsFn,
+} from "@/utils/vmb";
 
 type Photo = { id: string; url: string; thumb?: string; alt?: string };
+
 type Builder = {
   id: number;
   company: string;
@@ -14,11 +20,11 @@ type Builder = {
   // recommender
   name: string | null;
   email: string | null;
-  phone?: string | null;
+  phone?: string | null; // <-- this is the BUILDER’S phone
   isAnonymous: 0 | 1;
   // aggregates
-  likes?: number;    // treat as votes
-  myLike?: 0 | 1;    // 1 if I already voted
+  likes?: number;
+  myLike?: 0 | 1;
   // gallery
   photos?: any;
   photoUrls?: string[];
@@ -29,6 +35,9 @@ type Builder = {
   project?: { id: number; name: string };
   // VMB ranking score
   score?: number;
+
+  // Optional: item-level Companies House verification already present
+  companyVerification?: Verification | null;
 };
 
 type VerificationStatus =
@@ -49,6 +58,30 @@ type Verification = {
   checkedAt?: string;
   errorMessage?: string | null;
 };
+
+function shouldUseChName(status?: VerificationStatus) {
+  return status === "verified" || status === "ambiguous";
+}
+
+/** Prefer item-level CH name, then loaded verification; fallback to entered name. */
+function resolveCompanyNameForBuilder(
+  b: Builder | null,
+  v: Verification | null | undefined
+) {
+  const vItem = (b as any)?.companyVerification as
+    | Verification
+    | null
+    | undefined;
+  const picked =
+    vItem && shouldUseChName(vItem.status) && vItem.companyName
+      ? vItem
+      : v && shouldUseChName(v.status) && v.companyName
+      ? v
+      : null;
+
+  if (picked?.companyName) return picked.companyName.trim().toUpperCase();
+  return b?.company ?? "";
+}
 
 function Badge({
   children,
@@ -114,7 +147,7 @@ const ExclamationTriangleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-/** Simple Google mark for clarity (four-color squares + label) */
+/** Simple Google mark (visual only) */
 function GoogleMark() {
   return (
     <span className="inline-flex items-center gap-1.5">
@@ -162,6 +195,73 @@ function normalizePhotos(payload: Builder | null): Photo[] {
   return [];
 }
 
+/* ---------------- Aggregation helpers ---------------- */
+
+function companyKey(s: string) {
+  return (s || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function recommenderLabel(r: { name: string | null; isAnonymous: 0 | 1 }) {
+  if (r.isAnonymous === 1) return "Anonymous user";
+  const n = (r.name || "").trim();
+  return n || "Guest";
+}
+
+// Try hard to load ALL recs for a given project (for photos/names/phones aggregation)
+async function fetchProjectRecommendations(
+  api: any,
+  projectId: number
+): Promise<any[]> {
+  const tryRoutes = [
+    `/api/projects/${projectId}/recommendations`,
+    `/api/v2/projects/${projectId}/recommendations`,
+    `/api/projects/${projectId}`, // sometimes embeds recommendations
+  ];
+  for (const path of tryRoutes) {
+    try {
+      const { data } = await api.get(path);
+      if (Array.isArray(data?.recommendations)) return data.recommendations;
+      if (Array.isArray(data?.project?.recommendations))
+        return data.project.recommendations;
+      if (Array.isArray(data?.items)) return data.items;
+      if (Array.isArray(data?.project?.items)) return data.project.items;
+    } catch {}
+  }
+
+  // Fallback: pull ids from ratings, then hydrate each
+  try {
+    const { data } = await api.get(
+      `/api/v2/recommendations/ratings?projectId=${projectId}&limit=200&offset=0`
+    );
+    const ids: number[] = Array.isArray(data?.items)
+      ? data.items.map((x: any) => Number(x?.id)).filter(Number.isFinite)
+      : [];
+    if (!ids.length) return [];
+    const hydrate = async (id: number) => {
+      try {
+        const { data } = await api.get(`/api/recommendations/${id}`);
+        return data?.recommendation || null;
+      } catch {
+        return null;
+      }
+    };
+    const results: any[] = [];
+    const concurrency = 6;
+    for (let i = 0; i < ids.length; i += concurrency) {
+      const chunk = ids.slice(i, i + concurrency);
+      const got = await Promise.all(chunk.map(hydrate));
+      results.push(...got.filter(Boolean));
+    }
+    return results;
+  } catch {
+    return [];
+  }
+}
+
 /* ---------------- Small auth-race retry helpers ---------------- */
 
 function sleep(ms: number) {
@@ -201,6 +301,12 @@ export default function BuilderProfile() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
+  // Aggregated (same company in the same project)
+  const [aggPhones, setAggPhones] = useState<string[]>([]);
+  const [aggNames, setAggNames] = useState<string[]>([]);
+  const [aggPhotos, setAggPhotos] = useState<Photo[]>([]);
+  const [aggUpdatedAt, setAggUpdatedAt] = useState<string | null>(null);
+
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const lightboxOpen = lightboxIdx !== null;
 
@@ -209,7 +315,7 @@ export default function BuilderProfile() {
   const [verr, setVerr] = useState<string | null>(null);
   const [vLoading, setVLoading] = useState(false);
 
-  // VMB score (ranking)
+  // VMB score (will be replaced with aggregate when applicable)
   const [score, setScore] = useState<number | undefined>(undefined);
   const [scoreErr, setScoreErr] = useState<string | null>(null);
 
@@ -218,7 +324,8 @@ export default function BuilderProfile() {
 
   // Derived permission: can I vote?
   const isOwner = useMemo(
-    () => !!(user && projectOwnerId && String(user.uid) === String(projectOwnerId)),
+    () =>
+      !!(user && projectOwnerId && String(user.uid) === String(projectOwnerId)),
     [user, projectOwnerId]
   );
   const canVote = !!user && !isOwner;
@@ -275,11 +382,12 @@ export default function BuilderProfile() {
 
   // Fetch project owner (so we can hide the vote button for owners)
   useEffect(() => {
-    if (!builder?.project?.id || !user) return;
+    const projectId = builder?.project?.id;
+    if (!projectId || !user) return;
     let alive = true;
     (async () => {
       try {
-        const { data } = await api.get(`/api/projects/${builder.project.id}`);
+        const { data } = await api.get(`/api/projects/${projectId}`);
         if (!alive) return;
         setProjectOwnerId(data?.project?.ownerUserId ?? null);
       } catch {
@@ -318,7 +426,7 @@ export default function BuilderProfile() {
     };
   }, [api, id, router.isReady, authLoading, user]);
 
-  // Fetch VMB score for this recommendation (server-calculated)
+  // Fetch VMB score for this recommendation (server-calculated, single)
   useEffect(() => {
     if (!router.isReady || authLoading || !user || !id) return;
     let alive = true;
@@ -335,7 +443,7 @@ export default function BuilderProfile() {
           typeof data.items[0]?.score === "number"
             ? data.items[0].score
             : undefined);
-        setScore(typeof v === "number" ? v : undefined);
+        if (typeof v === "number") setScore(v);
       } catch {
         if (!alive) return;
         setScoreErr("Could not load score");
@@ -346,15 +454,161 @@ export default function BuilderProfile() {
     };
   }, [api, id, router.isReady, authLoading, user]);
 
-  // Vote up (thumbs)
+  // Compute aggregate VMB (shared util) when there are multiple recs for the same company
+  useEffect(() => {
+    const projectId = builder?.project?.id;
+    const companyName = builder?.company || "";
+    if (!projectId || !companyName) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        // Bridge function to the ratings endpoint -> RecLite[]
+        const ratingsFetcher: FetchRecsFn = async ({
+          projectId,
+          offset = 0,
+          limit = 250,
+        }) => {
+          const res: any = await fetchVmbRatings(api, {
+            projectId,
+            offset,
+            limit,
+          });
+          const items =
+            (res?.items || []).map((it: any) => ({
+              id: it.id,
+              company: it.company,
+              score: it.score,
+            })) ?? [];
+          const total = Number.isFinite(res?.total) ? res.total : items.length;
+          return { items, total };
+        };
+
+        // Use whatever single score we currently have as the fallback
+        const singleScore =
+          typeof score === "number"
+            ? score
+            : typeof builder?.score === "number"
+            ? builder.score
+            : undefined;
+
+        const agg = await getAggregateVmbForCompany(
+          ratingsFetcher,
+          projectId,
+          companyName,
+          singleScore
+        );
+
+        if (!cancelled && typeof agg === "number") {
+          setScore(agg);
+        }
+      } catch {
+        // ignore — keep whatever score we had
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally *not* depending on `score` to avoid loops.
+    // We provide a stable fallback above (uses latest known score/builder.score).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [api, builder?.project?.id, builder?.company]);
+
+  // Aggregate same-company recs within the same project for phones/names/photos/date
+  useEffect(() => {
+    if (!builder) return;
+
+    (async () => {
+      const pid = builder?.project?.id;
+      const baseCompany = builder?.company || "";
+
+      if (!pid || !baseCompany) {
+        setAggPhones(builder?.phone ? [builder.phone] : []);
+        setAggNames([recommenderLabel(builder)]);
+        setAggPhotos(normalizePhotos(builder));
+        setAggUpdatedAt(builder?.createdAt || null);
+        return;
+      }
+
+      const allRecs = await fetchProjectRecommendations(api, pid);
+
+      const key = companyKey(baseCompany);
+      const byId = new Map<number, any>();
+      const source = [builder, ...allRecs].filter(Boolean);
+      for (const r of source) {
+        if (!r || typeof r.id !== "number") continue;
+        if (companyKey(r.company || "") !== key) continue;
+        if (!byId.has(r.id)) byId.set(r.id, r);
+      }
+      const group = Array.from(byId.values());
+      if (group.length === 0) group.push(builder);
+
+      const phones = Array.from(
+        new Set(
+          group
+            .map((r) => String(r.phone || "").trim())
+            .filter((p) => p && p.length >= 7)
+        )
+      );
+
+      const names = Array.from(new Set(group.map((r) => recommenderLabel(r))));
+
+      const latestMs = Math.max(
+        ...group
+          .map((r) => +new Date(r.createdAt))
+          .filter((n) => Number.isFinite(n))
+      );
+      const latestIso = Number.isFinite(latestMs)
+        ? new Date(latestMs).toISOString()
+        : builder.createdAt;
+
+      // Merge photos, hydrating per-rec if needed to get URLs + alt
+      const photoLists = await Promise.all(
+        group.map(async (r) => {
+          try {
+            const { data } = await api.get(`/api/recommendations/${r.id}`);
+            const rec = data?.recommendation || r;
+            const ph = normalizePhotos(rec);
+            const by = recommenderLabel(rec);
+            return ph.map((p: any) => ({
+              ...p,
+              alt:
+                p.alt && p.alt.trim()
+                  ? p.alt
+                  : `${rec.company} — photo from ${by}`,
+            }));
+          } catch {
+            return [] as Photo[];
+          }
+        })
+      );
+      const seen = new Set<string>();
+      const merged: Photo[] = [];
+      for (const arr of photoLists) {
+        for (const p of arr) {
+          const k = p.url || p.thumb || "";
+          if (!k || seen.has(k)) continue;
+          seen.add(k);
+          merged.push(p);
+        }
+      }
+
+      setAggPhones(phones);
+      setAggNames(names);
+      setAggPhotos(merged.length ? merged : normalizePhotos(builder));
+      setAggUpdatedAt(latestIso || builder.createdAt || null);
+    })();
+  }, [api, builder]);
+
+  // Lightbox
+  const photos = aggPhotos;
   const [voting, setVoting] = useState(false);
   const voteUpOnce = async () => {
     if (!builder || !user || voting || builder.myLike === 1 || !canVote) return;
     setVoting(true);
-    // optimistic update
-    setBuilder((b) =>
-      b ? { ...b, myLike: 1, likes: (b.likes || 0) + 1 } : b
-    );
+    setBuilder((b) => (b ? { ...b, myLike: 1, likes: (b.likes || 0) + 1 } : b));
     try {
       await api.post(`/api/recommendations/${builder.id}/like`);
       const { data } = await api.get(`/api/recommendations/${builder.id}`);
@@ -367,14 +621,12 @@ export default function BuilderProfile() {
         );
         const v =
           (r && typeof r.item?.score === "number" && r.item.score) ??
-          (Array.isArray(r?.items) &&
-          typeof r.items[0]?.score === "number"
+          (Array.isArray(r?.items) && typeof r.items[0]?.score === "number"
             ? r.items[0].score
             : undefined);
         if (typeof v === "number") setScore(v);
       } catch {}
     } catch (e: any) {
-      // revert on failure
       setBuilder((b) =>
         b && b.myLike === 1
           ? { ...b, myLike: 0, likes: Math.max(0, (b.likes || 1) - 1) }
@@ -385,8 +637,6 @@ export default function BuilderProfile() {
       setVoting(false);
     }
   };
-
-  const photos = normalizePhotos(builder);
 
   function renderCHStatus(v?: Verification | null) {
     const status = v?.status ?? (vLoading ? "running" : "queued");
@@ -457,25 +707,6 @@ export default function BuilderProfile() {
     );
   }
 
-  function GoogleStars() {
-    return (
-      <span
-        className="inline-flex items-center gap-2 text-sm"
-        data-testid="verification-google"
-        aria-label="Google rating 5.0 out of 5"
-      >
-        <span className="font-medium">5.0</span>
-        <span aria-hidden className="flex gap-0.5">
-          <span className="text-yellow-400">★</span>
-          <span className="text-yellow-400">★</span>
-          <span className="text-yellow-400">★</span>
-          <span className="text-yellow-400">★</span>
-          <span className="text-yellow-400">★</span>
-        </span>
-      </span>
-    );
-  }
-
   return (
     <AuthedOnly>
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
@@ -531,7 +762,7 @@ export default function BuilderProfile() {
           </div>
         ) : (
           <div className="space-y-5">
-            {/* TOP: Gallery */}
+            {/* TOP: Gallery (aggregated) */}
             <section
               className="card"
               data-testid="gallery-card"
@@ -545,8 +776,7 @@ export default function BuilderProfile() {
                   className="text-xs text-slate-500"
                   data-testid="gallery-count"
                 >
-                  {normalizePhotos(builder).length} photo
-                  {normalizePhotos(builder).length === 1 ? "" : "s"}
+                  {photos.length} photo{photos.length === 1 ? "" : "s"}
                 </span>
               </div>
 
@@ -589,15 +819,21 @@ export default function BuilderProfile() {
                 data-testid="builder-summary-card"
                 aria-labelledby="builder-summary-heading"
               >
-                <div className="flex items-start justify-between gap-3">
+                <div className="grid grid-cols-[1fr_auto] items-start gap-3">
+                  {/* Left: company + badges */}
                   <div className="min-w-0">
                     <h2
                       id="builder-summary-heading"
                       className="text-xl font-semibold truncate"
                       data-testid="builder-company"
+                      title={resolveCompanyNameForBuilder(
+                        builder,
+                        verification
+                      )}
                     >
-                      {builder.company}
+                      {resolveCompanyNameForBuilder(builder, verification)}
                     </h2>
+
                     <div
                       className="mt-2 flex items-center gap-2"
                       data-testid="builder-badges"
@@ -611,9 +847,9 @@ export default function BuilderProfile() {
                     </div>
                   </div>
 
-                  <div className="flex flex-col items-end">
+                  {/* Right: votes + VMB */}
+                  <div className="justify-self-end shrink-0 flex flex-col items-end">
                     <div className="flex items-center gap-3">
-                      {/* Votes count (icon + number) */}
                       <div
                         className="text-sm text-zinc-500 flex items-center gap-1"
                         data-testid="builder-votes"
@@ -627,21 +863,21 @@ export default function BuilderProfile() {
                           {builder.likes ?? 0}
                         </span>
                       </div>
-                      {/* VMB score */}
                       <ScoreChip value={score ?? builder.score} />
                     </div>
 
-                    {/* Vote button: hidden for project owner */}
                     {!isOwner && (
                       <button
                         className={`mt-2 h-9 w-9 rounded-full border grid place-items-center text-sm transition
-                          ${
-                            builder.myLike === 1
-                              ? "bg-indigo-50 border-indigo-200 text-indigo-600 cursor-default"
-                              : "border-slate-300 hover:bg-slate-50"
-                          }
-                          ${!user ? "opacity-60 cursor-not-allowed" : ""}`}
-                        disabled={!user || builder.myLike === 1 || voting || !canVote}
+            ${
+              builder.myLike === 1
+                ? "bg-indigo-50 border-indigo-200 text-indigo-600 cursor-default"
+                : "border-slate-300 hover:bg-slate-50"
+            }
+            ${!user ? "opacity-60 cursor-not-allowed" : ""}`}
+                        disabled={
+                          !user || builder.myLike === 1 || voting || !canVote
+                        }
                         onClick={voteUpOnce}
                         data-testid="btn-vote-up"
                         aria-pressed={builder.myLike === 1}
@@ -681,26 +917,47 @@ export default function BuilderProfile() {
                   </p>
                 )}
 
+                {/* Meta rows */}
                 <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                  {/* Recommenders (names only, aggregated) */}
                   <div className="space-y-1">
                     <div className="text-slate-500">Recommender</div>
                     <div data-testid="builder-recommender">
-                      {builder.isAnonymous ? "Anonymous" : builder.name || "—"}
-                      {builder.email ? ` · ${builder.email}` : ""}
+                      {aggNames.length === 0 ? (
+                        "—"
+                      ) : (
+                        <ul className="list-disc list-inside">
+                          {aggNames.map((n, i) => (
+                            <li key={`${n}-${i}`}>Recommended by {n}</li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
                   </div>
+
+                  {/* Date updated (latest createdAt across group) */}
                   <div className="space-y-1">
-                    <div className="text-slate-500">Submitted</div>
-                    <time data-testid="builder-submitted">
-                      {new Date(builder.createdAt).toLocaleString()}
+                    <div className="text-slate-500">Date updated</div>
+                    <time data-testid="builder-updated">
+                      {aggUpdatedAt
+                        ? new Date(aggUpdatedAt).toLocaleString()
+                        : new Date(builder.createdAt).toLocaleString()}
                     </time>
                   </div>
-                  {builder.phone ? (
+
+                  {/* Builder phone(s) (aggregated) */}
+                  {aggPhones.length > 0 && (
                     <div className="space-y-1">
-                      <div className="text-slate-500">Tradesperson phone</div>
-                      <div data-testid="builder-phone">{builder.phone}</div>
+                      <div className="text-slate-500">Builder phone</div>
+                      <div data-testid="builder-phone" className="tabular-nums">
+                        <ul className="space-y-0.5">
+                          {aggPhones.map((p, i) => (
+                            <li key={`${p}-${i}`}>{p}</li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
-                  ) : null}
+                  )}
                 </div>
               </section>
 
@@ -724,7 +981,7 @@ export default function BuilderProfile() {
                 </p>
 
                 <div className="mt-4 divide-y divide-slate-100">
-                  {/* Companies House row */}
+                  {/* Companies House (single block) */}
                   <div
                     className="py-3 flex items-center justify-between gap-4"
                     data-testid="verification-companies-house"
@@ -749,7 +1006,7 @@ export default function BuilderProfile() {
                     </div>
                   </div>
 
-                  {/* Google row (placeholder) */}
+                  {/* Google row (placeholder visual only) */}
                   <div
                     className="py-3 flex items-center justify-between gap-4"
                     data-testid="verification-google-row"
@@ -758,7 +1015,6 @@ export default function BuilderProfile() {
                       <GoogleMark />
                     </div>
                     <div className="shrink-0">
-                      {/* Placeholder visual only */}
                       <span className="inline-flex items-center gap-2 text-sm">
                         <span className="font-medium">5.0</span>
                         <span aria-hidden className="flex gap-0.5">

@@ -3,58 +3,83 @@ import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useAuth } from "@/utils/auth";
-import { useEffect, useMemo, useState } from "react";
-import { fetchVmbRatings, voteUpRecommendation } from "@/utils/vmb";
+import { useEffect, useState } from "react";
+import {
+  fetchVmbRatings,
+  fetchAllProjectRecs,
+  computeAggregateScore,
+  normalizedCompanyKey,
+  type FetchRecsFn,
+  voteUpRecommendation,
+} from "@/utils/vmb";
 
 /* ===== Types ===== */
 type Recommendation = {
   id: number;
   name: string | null;
   email: string | null;
-  phone?: string | null;
+  phone?: string | null; // <- builder phone
   company: string;
   comment: string | null;
   isAnonymous: 0 | 1;
   createdAt: string;
-  likes?: number; // votes
-  myLike?: 0 | 1; // I have voted
+  likes?: number;
+  myLike?: 0 | 1;
   fromFriend?: 0 | 1;
   fromCommunity?: 0 | 1;
   rating?: number | null;
-  score?: number; // VMB score
+  score?: number;
+  companyVerification?: Verification | null;
 };
 
-type ProjectLite = {
-  id: number;
-  name: string;
-  ownerUserId: string;
+type ProjectLite = { id: number; name: string; ownerUserId: string };
+
+/* ===== Companies House verification ===== */
+type VerificationStatus =
+  | "queued"
+  | "running"
+  | "verified"
+  | "ambiguous"
+  | "no_match"
+  | "error";
+type Verification = {
+  recommendationId: number;
+  status: VerificationStatus;
+  companyNumber?: string | null;
+  companyName?: string | null;
+  score?: number | null;
+  sicCodes?: string[];
+  checkedAt?: string;
+  errorMessage?: string | null;
 };
 
-/* ---------------- UI bits ---------------- */
-
-function StarRating({ value }: { value: number | null | undefined }) {
-  const v = Math.max(0, Math.min(5, Math.round(Number(value ?? 0))));
-  return (
-    <div
-      className="flex gap-0.5"
-      aria-label={`${v} out of 5`}
-      data-testid="rec-stars"
-    >
-      {[1, 2, 3, 4, 5].map((i) => (
-        <span key={i} className={i <= v ? "text-yellow-400" : "text-gray-300"}>
-          ★
-        </span>
-      ))}
-    </div>
-  );
+function shouldUseChName(status?: VerificationStatus) {
+  return status === "verified" || status === "ambiguous";
+}
+function resolveCompanyName(
+  r: Recommendation & { companyVerification?: Verification | null },
+  verMap: Record<number, Verification>
+) {
+  const v = r.companyVerification || verMap[r.id];
+  if (v && v.companyName && shouldUseChName(v.status)) {
+    return v.companyName.trim().toUpperCase();
+  }
+  return r.company;
 }
 
+/* ---------- recommender wording helpers ---------- */
+function recommenderText(r: Recommendation) {
+  if (r.isAnonymous === 1) return "Recommended by an Anonymous user";
+  const name = (r.name ?? "").trim();
+  return name ? `Recommended by ${name}` : "Recommended by a Guest";
+}
+
+/* ---------------- UI bits ---------------- */
 const ThumbsUpIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
     <path d="M2 10h4v12H2V10zm7.5 12h6.27c1.02 0 1.94-.64 2.29-1.6l2.41-6.52a2 2 0 0 0-1.24-2.55c-.2-.07-.42-.11-.64-.11h-4.6l.62-3.02.02-.23a2 2 0 0 0-.59-1.42L13.2 4 8.9 8.29A3 3 0 0 0 8 10.4V20a2 2 0 0 0 1.5 2z" />
   </svg>
 );
-
 const CameraIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
     <path d="M9 3a1 1 0 0 0-.9.56L7.38 5H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V8a3 3 0 0 0-3-3h-2.38l-.72-1.44A1 1 0 0 0 14 3H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM6.5 9.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
@@ -86,7 +111,6 @@ function Badge({
   );
 }
 
-/** VMB score chip (shows exact value like 2.8; drops .0) */
 function ScoreChip({ value }: { value?: number }) {
   if (value == null || Number.isNaN(Number(value))) {
     return (
@@ -109,16 +133,9 @@ function ScoreChip({ value }: { value?: number }) {
   );
 }
 
-function starsFromLikes(likes: number, maxLikes: number) {
-  if (maxLikes <= 0) return 0;
-  const pct = likes / maxLikes;
-  return Math.max(1, Math.round(pct * 5));
-}
-
-/* ---------------- Type guards for fetchVmbRatings result ---------------- */
+/* ---------------- Type guards ---------------- */
 type VmbListOk = { items: Recommendation[]; total?: number };
 type VmbSingleOk = { item?: Recommendation | null };
-
 function hasItems(res: unknown): res is VmbListOk {
   return !!res && typeof res === "object" && "items" in (res as any);
 }
@@ -127,7 +144,6 @@ function hasItem(res: unknown): res is VmbSingleOk {
 }
 
 /* ---------------- Page ---------------- */
-
 export default function ShortlistPage() {
   const api = useApi();
   const router = useRouter();
@@ -145,6 +161,17 @@ export default function ShortlistPage() {
   const [votingId, setVotingId] = useState<number | null>(null);
 
   const [hasPhotos, setHasPhotos] = useState<Record<number, boolean>>({});
+  const [recVerification, setRecVerification] = useState<
+    Record<number, Verification>
+  >({});
+
+  // NEW: per-card phone visibility
+  const [phoneVisible, setPhoneVisible] = useState<Record<number, boolean>>({});
+
+  // NEW: per-company aggregate VMB (companyKey -> score)
+  const [aggVmbByCompany, setAggVmbByCompany] = useState<
+    Record<string, number>
+  >({});
 
   const isOwner = !!(user && project && project.ownerUserId === user.uid);
   const canVote = !!user && !!project && !isOwner;
@@ -168,32 +195,75 @@ export default function ShortlistPage() {
     };
   }, [api, id, router.isReady, authLoading, user]);
 
+  // Bridge for the shared aggregator to pull *all* recs & scores for the project.
+  const ratingsFetcher: FetchRecsFn = async ({
+    projectId,
+    offset = 0,
+    limit = 250,
+  }) => {
+    const res = await fetchVmbRatings(api, { projectId, offset, limit });
+    if (!hasItems(res)) {
+      return { items: [], total: 0 };
+    }
+    const items =
+      res.items?.map((it) => ({
+        id: it.id,
+        company: it.company,
+        score: it.score,
+      })) ?? [];
+    const total = typeof res.total === "number" ? res.total : items.length;
+    return { items, total };
+  };
+
+  // Compute aggregate map once per project (and after page loads/changes)
+  async function computeAggregates(pid: number) {
+    try {
+      const { items: all } = await fetchAllProjectRecs(ratingsFetcher, pid);
+      const byCompany = new Map<string, number[]>();
+      for (const it of all) {
+        const key = normalizedCompanyKey(it.company || "");
+        const arr = byCompany.get(key);
+        const s = typeof it.score === "number" ? it.score : null;
+        if (arr) arr.push(s as any);
+        else byCompany.set(key, [s as any]);
+      }
+      const out: Record<string, number> = {};
+      for (const [key, scores] of byCompany.entries()) {
+        if (scores.length >= 2) {
+          out[key] = computeAggregateScore(scores as any, scores.length);
+        }
+      }
+      setAggVmbByCompany(out);
+    } catch {
+      setAggVmbByCompany({});
+    }
+  }
+
   async function loadPage(p: number) {
     const pid = Number(Array.isArray(id) ? id[0] : id);
     if (!Number.isFinite(pid)) return;
-
-    // Use ratings endpoint via util (keeps score logic consistent)
     const offset = Math.max(0, (p - 1) * pageSize);
-    const res = await fetchVmbRatings(api, { projectId: pid, offset, limit: pageSize });
-
+    const res = await fetchVmbRatings(api, {
+      projectId: pid,
+      offset,
+      limit: pageSize,
+    });
     if (hasItems(res)) {
       setItems(res.items ?? []);
       setTotal(res.total ?? (res.items ? res.items.length : 0));
       setErr(null);
-      return;
-    }
-    if (hasItem(res)) {
+    } else if (hasItem(res)) {
       const item = res.item ?? null;
       setItems(item ? [item] : []);
       setTotal(item ? 1 : 0);
       setErr(null);
-      return;
+    } else {
+      setItems([]);
+      setTotal(0);
+      setErr(null);
     }
-
-    // Fallback
-    setItems([]);
-    setTotal(0);
-    setErr(null);
+    // Recompute aggregates after any load
+    await computeAggregates(pid);
   }
 
   useEffect(() => {
@@ -214,9 +284,7 @@ export default function ShortlistPage() {
           setItems([]);
           setTotal(0);
           setErr(null);
-        } else {
-          setErr("Failed to load shortlist");
-        }
+        } else setErr("Failed to load shortlist");
       } finally {
         if (alive) setLoading(false);
       }
@@ -226,9 +294,11 @@ export default function ShortlistPage() {
     };
   }, [api, id, page, pageSize, router.isReady, authLoading, user]);
 
+  // Fetch CH verification + photos
   useEffect(() => {
     if (items.length === 0) {
       setHasPhotos({});
+      setRecVerification({});
       return;
     }
     let cancelled = false;
@@ -236,20 +306,36 @@ export default function ShortlistPage() {
       const entries = await Promise.all(
         items.map(async (r) => {
           try {
-            const { data } = await api.get(`/api/recommendations/${r.id}`);
-            const has = Array.isArray(data?.recommendation?.photos)
-              ? data.recommendation.photos.length > 0
-              : false;
-            return [r.id, has] as const;
+            const verRes = await api.get(
+              `/api/recommendations/${r.id}/verification`
+            );
+            const ver: Verification | null = verRes?.data?.verification ?? null;
+            let has = false;
+            try {
+              const { data } = await api.get(`/api/recommendations/${r.id}`);
+              has =
+                Array.isArray(data?.recommendation?.photos) &&
+                data.recommendation.photos.length > 0;
+            } catch {}
+            return [r.id, has, ver] as const;
           } catch {
-            return [r.id, false] as const;
+            return [r.id, false, null] as const;
           }
         })
       );
       if (!cancelled) {
-        const map: Record<number, boolean> = {};
-        for (const [rid, has] of entries) map[rid] = has;
-        setHasPhotos(map);
+        const photosMap: Record<number, boolean> = {};
+        const verMap: Record<number, Verification> = {};
+        for (const [rid, has, ver] of entries) {
+          photosMap[rid] = has;
+          if (ver)
+            verMap[rid] = {
+              ...ver,
+              recommendationId: ver.recommendationId ?? rid,
+            };
+        }
+        setHasPhotos(photosMap);
+        setRecVerification(verMap);
       }
     })();
     return () => {
@@ -258,7 +344,6 @@ export default function ShortlistPage() {
   }, [api, items]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const maxLikes = Math.max(0, ...items.map((r) => r.likes ?? 0));
 
   const voteUpOnce = async (rec: Recommendation) => {
     if (!canVote || votingId || rec.myLike === 1) return;
@@ -269,11 +354,11 @@ export default function ShortlistPage() {
       )
     );
     try {
-      await voteUpRecommendation(api, rec.id); // uses same like endpoint internally
-      await loadPage(page); // refresh with server score
-    } catch (e: any) {
+      await voteUpRecommendation(api, rec.id);
+      await loadPage(page); // refresh items + aggregates
+    } catch {
       await loadPage(page);
-      alert(e?.response?.data?.error || "Unable to vote right now");
+      alert("Unable to vote right now");
     } finally {
       setVotingId(null);
     }
@@ -286,14 +371,18 @@ export default function ShortlistPage() {
         data-testid="recommendations-page"
       >
         {/* Header band */}
-        <div className="mb-6 rounded-2xl border border-gray-200 bg-white/80 backdrop-blur px-6 py-5 shadow-sm heading-band" data-testid="heading-band">
+        <div
+          className="mb-6 rounded-2xl border border-gray-200 bg-white/80 backdrop-blur px-6 py-5 shadow-sm heading-band"
+          data-testid="heading-band"
+        >
           <div className="flex items-center justify-between">
             <div>
               <h1
                 className="text-2xl font-semibold tracking-tight"
                 data-testid="recommendations-title"
               >
-                All recommendations{project ? ` · ${project.name}` : ""}
+                All recommendations for your
+                {project ? ` · ${project.name}` : ""}
               </h1>
               <p className="mt-1 text-sm text-slate-500">
                 Ranked by the VMB score. Vote to boost great builders.
@@ -335,17 +424,20 @@ export default function ShortlistPage() {
             {items.map((r) => {
               const votes = r.likes ?? 0;
               const hasVoted = r.myLike === 1;
-
-              const stars =
-                r.rating != null && !Number.isNaN(Number(r.rating))
-                  ? Math.max(1, Math.min(5, Math.round(Number(r.rating))))
-                  : votes > 0
-                  ? starsFromLikes(votes, maxLikes)
-                  : 0;
-
               const showPhotos = !!hasPhotos[r.id];
               const isFriend = r.fromFriend === 1;
               const isCommunity = r.fromCommunity === 1;
+
+              // Display name might prefer CH, but aggregation is keyed by entered company (consistent with other pages)
+              const displayCompanyName = resolveCompanyName(r, recVerification);
+              const companyKey = normalizedCompanyKey(r.company || "");
+              const scoreToShow =
+                aggVmbByCompany[companyKey] != null
+                  ? aggVmbByCompany[companyKey]
+                  : r.score;
+
+              const phone = (r.phone ?? "").trim();
+              const isPhoneVisible = !!phoneVisible[r.id];
 
               return (
                 <div
@@ -368,6 +460,7 @@ export default function ShortlistPage() {
                             }
                             ${!canVote ? "opacity-60" : ""}`}
                           aria-label="Vote up"
+                          data-testid="rec-vote-btn"
                           title={
                             !canVote
                               ? "Sign in to vote"
@@ -375,7 +468,6 @@ export default function ShortlistPage() {
                               ? "You’ve voted"
                               : "Vote up"
                           }
-                          data-testid="rec-vote-btn"
                         >
                           <ThumbsUpIcon className="h-4 w-4" />
                         </button>
@@ -402,7 +494,12 @@ export default function ShortlistPage() {
                               href={`/builders/${r.id}`}
                               className="hover:underline decoration-indigo-400/60"
                             >
-                              {r.company}
+                              <span
+                                data-testid="rec-company-name"
+                                aria-label="Company name"
+                              >
+                                {displayCompanyName}
+                              </span>
                             </Link>
                           </div>
 
@@ -450,7 +547,7 @@ export default function ShortlistPage() {
                             <ThumbsUpIcon className="h-3.5 w-3.5 -mt-px" />{" "}
                             {votes}
                           </div>
-                          <ScoreChip value={r.score} />
+                          <ScoreChip value={scoreToShow} />
                         </div>
                       </div>
 
@@ -463,16 +560,48 @@ export default function ShortlistPage() {
                         </p>
                       )}
 
+                      {/* ------- UPDATED META: “Recommended by …” + reveal builder phone ------- */}
                       <div className="text-xs text-slate-500 mt-3 flex items-center justify-between">
-                        <span data-testid="rec-meta">
-                          {r.isAnonymous ? "Anonymous" : r.name || "—"}
-                          {r.email ? ` · ${r.email}` : ""}
-                          {r.phone ? ` · ${r.phone}` : ""}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span data-testid="rec-meta">
+                            {recommenderText(r)}
+                          </span>
+                          {phone && (
+                            <>
+                              {isPhoneVisible && (
+                                <span
+                                  id={`builder-phone-${r.id}`}
+                                  data-testid="rec-builder-phone"
+                                  className="tabular-nums"
+                                >
+                                  · <strong>Builder phone:</strong> {phone}
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPhoneVisible((m) => ({
+                                    ...m,
+                                    [r.id]: !m[r.id],
+                                  }))
+                                }
+                                className="text-indigo-600 hover:underline"
+                                data-testid="rec-toggle-phone"
+                                aria-expanded={isPhoneVisible}
+                                aria-controls={`builder-phone-${r.id}`}
+                              >
+                                {isPhoneVisible
+                                  ? "Hide builder contact"
+                                  : "Show builder contact"}
+                              </button>
+                            </>
+                          )}
+                        </div>
                         <span data-testid="rec-created">
                           {new Date(r.createdAt).toLocaleString()}
                         </span>
                       </div>
+                      {/* ----------------------------------------------------------------------- */}
                     </div>
                   </div>
                 </div>
@@ -492,28 +621,19 @@ export default function ShortlistPage() {
               >
                 Prev
               </button>
-
               <div
                 className="text-sm text-slate-600"
                 data-testid="pager-status"
               >
-                Page{" "}
-                <span data-testid="pager-page" aria-label="current page">
-                  {page}
+                Page <span data-testid="pager-page">{page}</span> /{" "}
+                <span data-testid="pager-pages">
+                  {Math.max(1, Math.ceil(total / pageSize))}
                 </span>{" "}
-                /{" "}
-                <span data-testid="pager-pages" aria-label="total pages">
-                  {totalPages}
-                </span>{" "}
-                • Total:{" "}
-                <span data-testid="pager-total" aria-label="total results">
-                  {total}
-                </span>
+                • Total: <span data-testid="pager-total">{total}</span>
               </div>
-
               <button
                 className="btn disabled:opacity-50"
-                disabled={page >= totalPages}
+                disabled={page >= Math.max(1, Math.ceil(total / pageSize))}
                 onClick={() => setPage((p) => p + 1)}
                 aria-label="Next page"
                 data-testid="pager-next"

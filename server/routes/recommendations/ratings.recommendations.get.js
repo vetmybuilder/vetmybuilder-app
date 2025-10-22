@@ -1,6 +1,6 @@
-// server/v2/routes/recommendations/ratings.recommendations.get.js
+// server/routes/recommendations/ratings.recommendations.get.js
 /**
- * GET /api/v2/recommendations/ratings
+ * GET /api/recommendations/ratings
  *
  * Query (one of):
  *   - projectId: number   -> returns ranked items for a project
@@ -19,7 +19,7 @@
 module.exports = (router, ctx) => {
   const { db, auth, admin, extractLocationTokens } = ctx;
 
-  // optional auth (used for recommendationId variant)
+  // ---------- auth helpers ----------
   function optionalAuth(adminInstance) {
     return async (req, _res, next) => {
       try {
@@ -34,11 +34,13 @@ module.exports = (router, ctx) => {
     };
   }
 
-  // ---------- helpers ----------
-  function toNum(v) {
+  // ---------- tiny utils ----------
+  const toNum = (v) => {
     const n = Number(v);
     return Number.isFinite(n) ? n : null;
-  }
+  };
+
+  // ---------- counters ----------
   function likesFor(recId) {
     const row = db
       .prepare(
@@ -47,6 +49,7 @@ module.exports = (router, ctx) => {
       .get(recId);
     return Number(row?.c || 0);
   }
+
   function recPhotoCount(recId) {
     const row = db
       .prepare(
@@ -55,6 +58,8 @@ module.exports = (router, ctx) => {
       .get(recId);
     return Number(row?.c || 0);
   }
+
+  // project closures (legacy “winner” + wouldUseAgain)
   function closuresWonCount(recId) {
     const row = db
       .prepare(
@@ -63,8 +68,7 @@ module.exports = (router, ctx) => {
       .get(recId);
     return Number(row?.c || 0);
   }
-  function wouldUseAgainCount(recId) {
-    // column added in migration 020_project_closures_would_use_again.sql
+  function closuresWouldAgainCount(recId) {
     const row = db
       .prepare(
         `SELECT COUNT(*) AS c
@@ -75,37 +79,127 @@ module.exports = (router, ctx) => {
     return Number(row?.c || 0);
   }
 
-  // score model (simple, tunable)
+  // project completions (newer flow)
+  function completionRows(recId) {
+    // returns all completions for this recommendation
+    return db
+      .prepare(
+        `SELECT id, projectId, didWorkGoAhead, wouldHireAgain
+           FROM project_completions
+          WHERE recommendationId=?`
+      )
+      .all(recId);
+  }
+  function completionPhotoCountFor(recId) {
+    const rows = completionRows(recId);
+    if (!rows || rows.length === 0) return 0;
+    const ids = rows.map((r) => r.id);
+    const placeholders = ids.map(() => "?").join(",");
+    const row = db
+      .prepare(
+        `SELECT COUNT(*) AS c
+           FROM project_completion_photos
+          WHERE completionId IN (${placeholders})`
+      )
+      .get(...ids);
+    return Number(row?.c || 0);
+  }
+  function completionWinsCount(recId) {
+    // treat “didWorkGoAhead=1” completions as wins
+    const rows = completionRows(recId);
+    return rows.reduce(
+      (n, r) => n + (Number(r?.didWorkGoAhead || 0) === 1 ? 1 : 0),
+      0
+    );
+  }
+  function completionWouldAgainCount(recId) {
+    const rows = completionRows(recId);
+    return rows.reduce(
+      (n, r) => n + (Number(r?.wouldHireAgain || 0) === 1 ? 1 : 0),
+      0
+    );
+  }
+
+  // Companies House — take the latest verification for the recommendation
+  function companyVerification(recId) {
+    const row = db
+      .prepare(
+        `SELECT status, score, companyNumber, companyName, checkedAt
+           FROM company_verifications
+          WHERE recommendationId=?
+          ORDER BY COALESCE(checkedAt,'') DESC, id DESC
+          LIMIT 1`
+      )
+      .get(recId);
+    if (!row) return null;
+    return {
+      status: String(row.status || ""),
+      score: row.score == null ? null : Number(row.score),
+      companyNumber: row.companyNumber || null,
+      companyName: row.companyName || null,
+      checkedAt: row.checkedAt || null,
+    };
+  }
+
+  // ---------- scoring ----------
+  /**
+   * Scoring model (tunable).
+   * All additions are small “bonuses” with diminishing returns where it makes sense.
+   */
   function computeScore({
     isRecommended, // 0/1
+    fromFriend, // 0/1
+    fromCommunity, // 0/1
     likes, // int
-    wins, // completed projects as winner
-    photos, // recommendation photos count
-    wouldUseAgain, // count of positive "would use again"
+    wins, // completed jobs count (closures + completions)
+    recPhotos, // photos attached to recommendation
+    completionPhotos, // photos attached to completion(s)
+    wouldAgain, // positive “would hire/use again” count
+    ch, // {status, score?}
   }) {
     let s = 0;
-    // 1) was recommended (exists)
+
+    // 1) Exists (baseline)
     s += isRecommended ? 1.0 : 0;
 
-    // 2) completed projects (diminishing returns)
-    s += Math.min(3, Math.log2(1 + wins)) * 0.8;
+    // 2) Provenance
+    if (fromFriend) s += 0.2;
+    if (fromCommunity) s += 0.4;
 
-    // 3) community likes (diminishing)
-    s += Math.min(3, Math.log2(1 + likes)) * 0.6;
+    // 3) Completed jobs (diminishing)
+    s += Math.min(4, Math.log2(1 + wins)) * 0.8; // up to +3.2
 
-    // 4) photos (threshold bump + mild scale)
-    if (photos >= 2) s += 0.5 + Math.min(2, Math.log2(photos)) * 0.25;
+    // 4) Vote ups (diminishing)
+    s += Math.min(4, Math.log2(1 + likes)) * 0.5; // up to +2.0
 
-    // 5) would use again (each is strong signal)
-    s += wouldUseAgain * 0.7;
+    // 5) Recommendation photos (diminishing)
+    if (recPhotos > 0) s += Math.min(3, Math.log2(1 + recPhotos)) * 0.35;
 
-    // keep one decimal place
+    // 6) Completion photos (usually fewer; still reward them)
+    if (completionPhotos > 0)
+      s += Math.min(3, Math.log2(1 + completionPhotos)) * 0.25;
+
+    // 7) Would hire/use again — strong signal
+    s += wouldAgain * 0.7;
+
+    // 8) Companies House (status boost + optional numeric score scaling)
+    if (ch) {
+      const st = String(ch.status || "").toLowerCase();
+      if (st === "verified") s += 0.6;
+      else if (st === "ambiguous") s += 0.15;
+      else if (st === "no_match") s += 0; // no bump
+      // numeric CH score (0..100?) — add up to +0.5
+      if (Number.isFinite(ch.score))
+        s += Math.min(0.5, (Number(ch.score) / 100) * 0.5);
+    }
+
+    // keep one decimal place (like “VMB 2.9”)
     return Math.round(s * 20) / 20;
   }
 
   // ------------- project-wide ranking -------------
   router.get("/recommendations/ratings", auth, (req, res, next) => {
-    // If projectId present, handle here; otherwise pass to next handler below
+    // If projectId present, handle here; otherwise pass to next handler
     const projectId = toNum(req.query.projectId);
     if (!projectId) return next();
 
@@ -174,16 +268,33 @@ module.exports = (router, ctx) => {
 
     const enriched = rows.map((r) => {
       const likes = Number(r.likes || 0);
-      const photos = recPhotoCount(r.id);
-      const wins = closuresWonCount(r.id);
-      const wouldAgain = wouldUseAgainCount(r.id);
+      const recPhotos = recPhotoCount(r.id);
+
+      // Completions / photos from completions
+      const compWins = completionWinsCount(r.id);
+      const compPhotos = completionPhotoCountFor(r.id);
+
+      // Also still count “closures” (older flow) to not lose past data
+      const legacyWins = closuresWonCount(r.id);
+      const wouldAgainLegacy = closuresWouldAgainCount(r.id);
+
+      const wouldAgainNew = completionWouldAgainCount(r.id);
+
+      const ch = companyVerification(r.id);
+
       const score = computeScore({
         isRecommended: 1,
+        fromFriend:
+          String(r.source || "platform").toLowerCase() === "magic" ? 1 : 0,
+        fromCommunity: communityMatch(r),
         likes,
-        wins,
-        photos,
-        wouldUseAgain: wouldAgain,
+        wins: compWins + legacyWins,
+        recPhotos,
+        completionPhotos: compPhotos,
+        wouldAgain: wouldAgainLegacy + wouldAgainNew,
+        ch,
       });
+
       return {
         id: r.id,
         name: r.name,
@@ -213,7 +324,7 @@ module.exports = (router, ctx) => {
 
     return res.json({
       items: enriched,
-      total: totalRow.c || 0,
+      total: Number(totalRow?.c || 0),
       page,
       pageSize,
     });
@@ -230,10 +341,11 @@ module.exports = (router, ctx) => {
 
     const row = db
       .prepare(
-        `SELECT r.id, r.recommenderUserId, p.ownerUserId, p.status
-             FROM recommendations r
-             JOIN projects p ON p.id = r.projectId
-            WHERE r.id = ?`
+        `SELECT r.id, r.recommenderUserId, r.source,
+                p.ownerUserId, p.status, p.location
+           FROM recommendations r
+           JOIN projects p ON p.id = r.projectId
+          WHERE r.id = ?`
       )
       .get(recId);
 
@@ -248,16 +360,48 @@ module.exports = (router, ctx) => {
       return res.status(403).json({ error: "Forbidden" });
     }
 
+    // recompute with the same ingredients
     const likes = likesFor(recId);
-    const photos = recPhotoCount(recId);
-    const wins = closuresWonCount(recId);
-    const wouldAgain = wouldUseAgainCount(recId);
+    const recPhotos = recPhotoCount(recId);
+    const compWins = completionWinsCount(recId);
+    const compPhotos = completionPhotoCountFor(recId);
+    const legacyWins = closuresWonCount(recId);
+    const wouldAgainLegacy = closuresWouldAgainCount(recId);
+    const wouldAgainNew = completionWouldAgainCount(recId);
+    const ch = companyVerification(recId);
+
+    // community flag not important for single, but keep logic consistent
+    let fromCommunity = 0;
+    if (row.recommenderUserId && extractLocationTokens) {
+      const pTok = extractLocationTokens(row.location || "");
+      const u = db
+        .prepare(
+          `SELECT postcode, postcodeSector, postcodeOutward, city
+             FROM users WHERE uid=?`
+        )
+        .get(row.recommenderUserId);
+      fromCommunity = Number(
+        (pTok?.full && u?.postcode === pTok.full) ||
+          (pTok?.sector && u?.postcodeSector === pTok.sector) ||
+          (pTok?.outward && u?.postcodeOutward === pTok.outward) ||
+          (pTok?.city &&
+            u?.city &&
+            String(u.city).toLowerCase() ===
+              String(pTok.city || "").toLowerCase())
+      );
+    }
+
     const score = computeScore({
       isRecommended: 1,
+      fromFriend:
+        String(row.source || "platform").toLowerCase() === "magic" ? 1 : 0,
+      fromCommunity,
       likes,
-      wins,
-      photos,
-      wouldUseAgain: wouldAgain,
+      wins: compWins + legacyWins,
+      recPhotos,
+      completionPhotos: compPhotos,
+      wouldAgain: wouldAgainLegacy + wouldAgainNew,
+      ch,
     });
 
     return res.json({ item: { recommendationId: recId, score } });
