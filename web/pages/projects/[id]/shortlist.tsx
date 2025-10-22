@@ -3,7 +3,7 @@ import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useAuth } from "@/utils/auth";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   fetchVmbRatings,
   fetchAllProjectRecs,
@@ -143,6 +143,67 @@ function hasItem(res: unknown): res is VmbSingleOk {
   return !!res && typeof res === "object" && "item" in (res as any);
 }
 
+/* --------- grouping (like ShortlistSection) --------- */
+function pickTop(items: Recommendation[]) {
+  return [...items].sort((a, b) => {
+    const sa = typeof a.score === "number" ? a.score : -1;
+    const sb = typeof b.score === "number" ? b.score : -1;
+    if (sb !== sa) return sb - sa;
+    const la = a.likes ?? 0;
+    const lb = b.likes ?? 0;
+    if (lb !== la) return lb - la;
+    return +new Date(b.createdAt) - +new Date(a.createdAt);
+  })[0];
+}
+
+type Grouped = {
+  key: string;
+  company: string;
+  top: Recommendation;
+  items: Recommendation[];
+  extraCount: number;
+  aggLikes: number;
+  aggScore?: number;
+};
+
+function groupByCompany(items: Recommendation[]): Grouped[] {
+  const map = new Map<string, Recommendation[]>();
+  for (const it of items) {
+    const key = normalizedCompanyKey(it.company || "");
+    const arr = map.get(key);
+    if (arr) arr.push(it);
+    else map.set(key, [it]);
+  }
+  const groups: Grouped[] = [];
+  for (const [key, arr] of map.entries()) {
+    const top = pickTop(arr);
+    const scores = arr.map((i) =>
+      typeof i.score === "number" ? i.score : null
+    );
+    const aggScore =
+      arr.length >= 2 ? computeAggregateScore(scores, arr.length) : top.score;
+    const aggLikes = arr.reduce((s, it) => s + (it.likes ?? 0), 0);
+    groups.push({
+      key,
+      company: top.company,
+      top,
+      items: arr,
+      extraCount: Math.max(0, arr.length - 1),
+      aggLikes,
+      aggScore,
+    });
+  }
+  // sort groups by agg score, then likes, then newest top
+  groups.sort((a, b) => {
+    const sa = typeof a.aggScore === "number" ? a.aggScore : -1;
+    const sb = typeof b.aggScore === "number" ? b.aggScore : -1;
+    if (sb !== sa) return sb - sa;
+    if (b.aggLikes !== a.aggLikes) return b.aggLikes - a.aggLikes;
+    return +new Date(b.top.createdAt) - +new Date(a.top.createdAt);
+  });
+  return groups;
+}
+
 /* ---------------- Page ---------------- */
 export default function ShortlistPage() {
   const api = useApi();
@@ -165,13 +226,8 @@ export default function ShortlistPage() {
     Record<number, Verification>
   >({});
 
-  // NEW: per-card phone visibility
+  // per-card phone visibility (still per top-rec card)
   const [phoneVisible, setPhoneVisible] = useState<Record<number, boolean>>({});
-
-  // NEW: per-company aggregate VMB (companyKey -> score)
-  const [aggVmbByCompany, setAggVmbByCompany] = useState<
-    Record<string, number>
-  >({});
 
   const isOwner = !!(user && project && project.ownerUserId === user.uid);
   const canVote = !!user && !!project && !isOwner;
@@ -195,7 +251,7 @@ export default function ShortlistPage() {
     };
   }, [api, id, router.isReady, authLoading, user]);
 
-  // Bridge for the shared aggregator to pull *all* recs & scores for the project.
+  // Bridge for the shared aggregator to pull *all* recs & scores for the project (for pagination & consistency).
   const ratingsFetcher: FetchRecsFn = async ({
     projectId,
     offset = 0,
@@ -214,30 +270,6 @@ export default function ShortlistPage() {
     const total = typeof res.total === "number" ? res.total : items.length;
     return { items, total };
   };
-
-  // Compute aggregate map once per project (and after page loads/changes)
-  async function computeAggregates(pid: number) {
-    try {
-      const { items: all } = await fetchAllProjectRecs(ratingsFetcher, pid);
-      const byCompany = new Map<string, number[]>();
-      for (const it of all) {
-        const key = normalizedCompanyKey(it.company || "");
-        const arr = byCompany.get(key);
-        const s = typeof it.score === "number" ? it.score : null;
-        if (arr) arr.push(s as any);
-        else byCompany.set(key, [s as any]);
-      }
-      const out: Record<string, number> = {};
-      for (const [key, scores] of byCompany.entries()) {
-        if (scores.length >= 2) {
-          out[key] = computeAggregateScore(scores as any, scores.length);
-        }
-      }
-      setAggVmbByCompany(out);
-    } catch {
-      setAggVmbByCompany({});
-    }
-  }
 
   async function loadPage(p: number) {
     const pid = Number(Array.isArray(id) ? id[0] : id);
@@ -262,8 +294,6 @@ export default function ShortlistPage() {
       setTotal(0);
       setErr(null);
     }
-    // Recompute aggregates after any load
-    await computeAggregates(pid);
   }
 
   useEffect(() => {
@@ -294,7 +324,7 @@ export default function ShortlistPage() {
     };
   }, [api, id, page, pageSize, router.isReady, authLoading, user]);
 
-  // Fetch CH verification + photos
+  // Fetch CH verification + photos for items on the current page (use top rec id in groups when rendering).
   useEffect(() => {
     if (items.length === 0) {
       setHasPhotos({});
@@ -355,7 +385,7 @@ export default function ShortlistPage() {
     );
     try {
       await voteUpRecommendation(api, rec.id);
-      await loadPage(page); // refresh items + aggregates
+      await loadPage(page); // refresh
     } catch {
       await loadPage(page);
       alert("Unable to vote right now");
@@ -363,6 +393,9 @@ export default function ShortlistPage() {
       setVotingId(null);
     }
   };
+
+  // Build grouped view from the *current page* items
+  const groups = useMemo(() => groupByCompany(items), [items]);
 
   return (
     <AuthedOnly>
@@ -385,7 +418,7 @@ export default function ShortlistPage() {
                 {project ? ` · ${project.name}` : ""}
               </h1>
               <p className="mt-1 text-sm text-slate-500">
-                Ranked by the VMB score. Vote to boost great builders.
+                Grouped by company and ranked by the VMB score.
               </p>
             </div>
             <Link
@@ -417,31 +450,30 @@ export default function ShortlistPage() {
           <p>Loading…</p>
         ) : err ? (
           <p className="text-red-600">{err}</p>
-        ) : items.length === 0 ? (
+        ) : groups.length === 0 ? (
           <div className="card">No builders have yet been recommended.</div>
         ) : (
           <div className="space-y-3" data-testid="recommendations-list">
-            {items.map((r) => {
-              const votes = r.likes ?? 0;
+            {groups.map((g) => {
+              const r = g.top; // lead rec
+              const votes = g.aggLikes; // aggregated likes across group
               const hasVoted = r.myLike === 1;
               const showPhotos = !!hasPhotos[r.id];
               const isFriend = r.fromFriend === 1;
               const isCommunity = r.fromCommunity === 1;
 
-              // Display name might prefer CH, but aggregation is keyed by entered company (consistent with other pages)
               const displayCompanyName = resolveCompanyName(r, recVerification);
               const companyKey = normalizedCompanyKey(r.company || "");
               const scoreToShow =
-                aggVmbByCompany[companyKey] != null
-                  ? aggVmbByCompany[companyKey]
-                  : r.score;
+                g.aggScore ??
+                (typeof r.score === "number" ? r.score : undefined);
 
               const phone = (r.phone ?? "").trim();
               const isPhoneVisible = !!phoneVisible[r.id];
 
               return (
                 <div
-                  key={r.id}
+                  key={companyKey}
                   className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm hover:shadow-md transition p-5"
                   data-testid="recommendation-card"
                 >
@@ -560,13 +592,24 @@ export default function ShortlistPage() {
                         </p>
                       )}
 
-                      {/* ------- UPDATED META: “Recommended by …” + reveal builder phone ------- */}
+                      {/* ------- META: “Recommended by …” + reveal phone + +N more ------- */}
                       <div className="text-xs text-slate-500 mt-3 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span data-testid="rec-meta">
                             {recommenderText(r)}
                           </span>
-                          {phone && (
+                          {g.extraCount > 0 && (
+                            <span
+                              className="text-slate-500"
+                              data-testid="rec-extra-count"
+                              title={`${g.extraCount} more recommendation${
+                                g.extraCount === 1 ? "" : "s"
+                              } for this builder`}
+                            >
+                              · +{g.extraCount} more
+                            </span>
+                          )}
+                          {(r.phone ?? "").trim() && (
                             <>
                               {isPhoneVisible && (
                                 <span
@@ -574,7 +617,8 @@ export default function ShortlistPage() {
                                   data-testid="rec-builder-phone"
                                   className="tabular-nums"
                                 >
-                                  · <strong>Builder phone:</strong> {phone}
+                                  · <strong>Builder phone:</strong>{" "}
+                                  {(r.phone ?? "").trim()}
                                 </span>
                               )}
                               <button
@@ -626,14 +670,12 @@ export default function ShortlistPage() {
                 data-testid="pager-status"
               >
                 Page <span data-testid="pager-page">{page}</span> /{" "}
-                <span data-testid="pager-pages">
-                  {Math.max(1, Math.ceil(total / pageSize))}
-                </span>{" "}
-                • Total: <span data-testid="pager-total">{total}</span>
+                <span data-testid="pager-pages">{totalPages}</span> • Total:{" "}
+                <span data-testid="pager-total">{total}</span>
               </div>
               <button
                 className="btn disabled:opacity-50"
-                disabled={page >= Math.max(1, Math.ceil(total / pageSize))}
+                disabled={page >= totalPages}
                 onClick={() => setPage((p) => p + 1)}
                 aria-label="Next page"
                 data-testid="pager-next"
