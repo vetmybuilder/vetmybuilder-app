@@ -1,4 +1,3 @@
-// server/routes/recommendations/ratings.recommendations.get.js
 /**
  * GET /api/recommendations/ratings
  *
@@ -7,7 +6,7 @@
  *   - recommendationId: number (alias: recId, id) -> returns a single score row
  *
  * Visibility:
- *  - For projectId: owner OR project is live; else 404
+ *  - For projectId: owner OR project is live OR completed; else 404
  *  - For recommendationId: if its project is live -> anyone; else owner or recommender only
  *
  * Response:
@@ -142,10 +141,6 @@ module.exports = (router, ctx) => {
   }
 
   // ---------- scoring ----------
-  /**
-   * Scoring model (tunable).
-   * All additions are small “bonuses” with diminishing returns where it makes sense.
-   */
   function computeScore({
     isRecommended, // 0/1
     fromFriend, // 0/1
@@ -188,7 +183,6 @@ module.exports = (router, ctx) => {
       if (st === "verified") s += 0.6;
       else if (st === "ambiguous") s += 0.15;
       else if (st === "no_match") s += 0; // no bump
-      // numeric CH score (0..100?) — add up to +0.5
       if (Number.isFinite(ch.score))
         s += Math.min(0.5, (Number(ch.score) / 100) * 0.5);
     }
@@ -199,34 +193,51 @@ module.exports = (router, ctx) => {
 
   // ------------- project-wide ranking -------------
   router.get("/recommendations/ratings", auth, (req, res, next) => {
-    // If projectId present, handle here; otherwise pass to next handler
     const projectId = toNum(req.query.projectId);
-    if (!projectId) return next();
+    if (!projectId) return next(); // let the single-rec handler run
 
+    // Visibility
     const proj = db
       .prepare(`SELECT ownerUserId, status, location FROM projects WHERE id=?`)
       .get(projectId);
     if (!proj) return res.status(404).json({ error: "Not found" });
 
-    const uid = req.user?.uid || null;
-    const isOwner = uid && String(uid) === String(proj.ownerUserId);
-    const isLive = String(proj.status || "").toLowerCase() === "live";
-    if (!isOwner && !isLive)
+    const viewerUid = req.user?.uid || null;
+    const isOwner = !!viewerUid && String(viewerUid) === String(proj.ownerUserId);
+    const statusLc = String(proj.status || "").toLowerCase();
+    const isLive = statusLc === "live";
+    const isCompleted = statusLc === "completed";
+    if (!isOwner && !isLive && !isCompleted) {
       return res.status(404).json({ error: "Not found" });
+    }
 
-    const pTok = extractLocationTokens?.(proj.location) || {};
+    // Location tokens (defensive)
+    const pTok =
+      typeof extractLocationTokens === "function"
+        ? extractLocationTokens(proj.location || "")
+        : {};
 
-    const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
-    const pageSize = Math.max(
+    // Paging: support page/pageSize OR offset/limit
+    const hasOffsetLimit = req.query.offset != null || req.query.limit != null;
+    const limitRaw = toNum(req.query.limit);
+    const offsetRaw = toNum(req.query.offset);
+    const pageRaw = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
+    const pageSizeRaw = Math.max(
       1,
-      Math.min(50, parseInt(String(req.query.pageSize ?? "50"), 10))
+      Math.min(250, parseInt(String(req.query.pageSize ?? "50"), 10))
     );
-    const offset = (page - 1) * pageSize;
+    const pageSize = hasOffsetLimit
+      ? Math.max(1, Math.min(250, limitRaw ?? 50))
+      : pageSizeRaw;
+    const offset = hasOffsetLimit
+      ? Math.max(0, offsetRaw ?? 0)
+      : (pageRaw - 1) * pageSize;
 
     const totalRow = db
       .prepare(`SELECT COUNT(*) AS c FROM recommendations WHERE projectId=?`)
       .get(projectId);
 
+    const uidForLike = String(viewerUid || "");
     const rows = db
       .prepare(
         `
@@ -251,7 +262,7 @@ module.exports = (router, ctx) => {
         LIMIT ? OFFSET ?
       `
       )
-      .all(uid || "", projectId, pageSize, offset);
+      .all(uidForLike, projectId, pageSize, offset);
 
     function communityMatch(row) {
       if (!row.recommenderUserId) return 0;
@@ -274,7 +285,7 @@ module.exports = (router, ctx) => {
       const compWins = completionWinsCount(r.id);
       const compPhotos = completionPhotoCountFor(r.id);
 
-      // Also still count “closures” (older flow) to not lose past data
+      // Legacy closures (do not lose past data)
       const legacyWins = closuresWonCount(r.id);
       const wouldAgainLegacy = closuresWouldAgainCount(r.id);
 
@@ -325,7 +336,7 @@ module.exports = (router, ctx) => {
     return res.json({
       items: enriched,
       total: Number(totalRow?.c || 0),
-      page,
+      page: hasOffsetLimit ? Math.floor(offset / pageSize) + 1 : pageRaw,
       pageSize,
     });
   });
@@ -351,9 +362,10 @@ module.exports = (router, ctx) => {
 
     if (!row) return res.status(404).json({ error: "Not found" });
 
-    const uid = req.user?.uid || null;
-    const isOwner = uid && String(uid) === String(row.ownerUserId);
-    const isRecommender = uid && String(uid) === String(row.recommenderUserId);
+    const viewerUid = req.user?.uid || null;
+    const isOwner = !!viewerUid && String(viewerUid) === String(row.ownerUserId);
+    const isRecommender =
+      !!viewerUid && String(viewerUid) === String(row.recommenderUserId);
     const isLive = String(row.status || "").toLowerCase() === "live";
 
     if (!isLive && !isOwner && !isRecommender) {

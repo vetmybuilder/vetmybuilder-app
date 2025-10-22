@@ -32,11 +32,11 @@ module.exports = (router, ctx) => {
     if (!proj) return res.status(404).json({ error: "Not found" });
 
     const status = String(proj.status || "").toLowerCase();
-    const isLive = status === "live";
+    const isLive = status === "completed";
     const uid = req.user?.uid || null;
     const isOwner = !!uid && String(uid) === String(proj.ownerUserId);
 
-    if (!isOwner && !isLive) {
+    if (!isOwner && !isLive &&!isCompleted) {
       return res.status(404).json({ error: "Not found" });
     }
 

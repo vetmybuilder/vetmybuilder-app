@@ -4,11 +4,7 @@ import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
 import AuthedOnly from "@/components/AuthedOnly";
 import Link from "next/link";
-import {
-  getAggregateVmbForCompany,
-  fetchVmbRatings,
-  type FetchRecsFn,
-} from "@/utils/vmb";
+import { getAggregateVmbForCompany, type FetchRecsFn } from "@/utils/vmb";
 
 type Photo = { id: string; url: string; thumb?: string; alt?: string };
 
@@ -138,7 +134,7 @@ function ScoreChip({ value }: { value?: number }) {
 
 const ClockIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
-    <path d="M12 2a10 10 0 1 0 .001 20.001A10 10 0 0 0 12 2zm1 11h5v-2h-4V6h-2v7z" />
+    <path d="M12 2a10 10 0 1 0 .001 20.001A10 10 0 0 0 12 2zm1 11h5v-2h-2V6h-2v7z" />
   </svg>
 );
 const ExclamationTriangleIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -216,9 +212,9 @@ async function fetchProjectRecommendations(
   api: any,
   projectId: number
 ): Promise<any[]> {
+  // Only use non-v2 routes
   const tryRoutes = [
     `/api/projects/${projectId}/recommendations`,
-    `/api/v2/projects/${projectId}/recommendations`,
     `/api/projects/${projectId}`, // sometimes embeds recommendations
   ];
   for (const path of tryRoutes) {
@@ -232,10 +228,10 @@ async function fetchProjectRecommendations(
     } catch {}
   }
 
-  // Fallback: pull ids from ratings, then hydrate each
+  // Fallback: pull ids from ratings, then hydrate each (non-v2)
   try {
     const { data } = await api.get(
-      `/api/v2/recommendations/ratings?projectId=${projectId}&limit=200&offset=0`
+      `/api/recommendations/ratings?projectId=${projectId}&limit=200&offset=0`
     );
     const ids: number[] = Array.isArray(data?.items)
       ? data.items.map((x: any) => Number(x?.id)).filter(Number.isFinite)
@@ -426,7 +422,7 @@ export default function BuilderProfile() {
     };
   }, [api, id, router.isReady, authLoading, user]);
 
-  // Fetch VMB score for this recommendation (server-calculated, single)
+  // Fetch VMB score for this recommendation (server-calculated, single) — non-v2
   useEffect(() => {
     if (!router.isReady || authLoading || !user || !id) return;
     let alive = true;
@@ -434,7 +430,7 @@ export default function BuilderProfile() {
     (async () => {
       try {
         const { data } = await getWithAuthRetry(() =>
-          api.get(`/api/v2/recommendations/ratings?recommendationId=${id}`)
+          api.get(`/api/recommendations/ratings?recommendationId=${id}`)
         );
         if (!alive) return;
         const v =
@@ -454,7 +450,7 @@ export default function BuilderProfile() {
     };
   }, [api, id, router.isReady, authLoading, user]);
 
-  // Compute aggregate VMB (shared util) when there are multiple recs for the same company
+  // Compute aggregate VMB when there are multiple recs for the same company (uses ONLY non-v2)
   useEffect(() => {
     const projectId = builder?.project?.id;
     const companyName = builder?.company || "";
@@ -470,18 +466,18 @@ export default function BuilderProfile() {
           offset = 0,
           limit = 250,
         }) => {
-          const res: any = await fetchVmbRatings(api, {
-            projectId,
-            offset,
-            limit,
-          });
+          const { data } = await api.get(
+            `/api/recommendations/ratings?projectId=${projectId}&offset=${offset}&limit=${limit}`
+          );
           const items =
-            (res?.items || []).map((it: any) => ({
+            (data?.items || []).map((it: any) => ({
               id: it.id,
               company: it.company,
               score: it.score,
             })) ?? [];
-          const total = Number.isFinite(res?.total) ? res.total : items.length;
+          const total = Number.isFinite(data?.total)
+            ? data.total
+            : items.length;
           return { items, total };
         };
 
@@ -511,8 +507,6 @@ export default function BuilderProfile() {
     return () => {
       cancelled = true;
     };
-    // Intentionally *not* depending on `score` to avoid loops.
-    // We provide a stable fallback above (uses latest known score/builder.score).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, builder?.project?.id, builder?.company]);
 
@@ -614,10 +608,10 @@ export default function BuilderProfile() {
       const { data } = await api.get(`/api/recommendations/${builder.id}`);
       setBuilder(data.recommendation);
 
-      // refresh score too
+      // refresh score too (non-v2)
       try {
         const { data: r } = await api.get(
-          `/api/v2/recommendations/ratings?recommendationId=${builder.id}`
+          `/api/recommendations/ratings?recommendationId=${builder.id}`
         );
         const v =
           (r && typeof r.item?.score === "number" && r.item.score) ??

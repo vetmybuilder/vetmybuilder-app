@@ -36,7 +36,7 @@ module.exports = (router, ctx) => {
     if (!project) return res.status(404).json({ error: "Not found" });
 
     const status = String(project.status || "").toLowerCase();
-    const isLive = status === "live";
+    const isLive = status === "completed";
     const viewerUid = req.user?.uid ?? null;
     const isOwner =
       !!viewerUid && String(project.ownerUserId) === String(viewerUid);
@@ -50,7 +50,7 @@ module.exports = (router, ctx) => {
     }
 
     // Authenticated viewers: only owner or live
-    if (!isOwner && !isLive) {
+    if (!isOwner && !isLive && !isCompleted) {
       // Use 404 to avoid leaking the project's existence
       return res.status(404).json({ error: "Not found" });
     }

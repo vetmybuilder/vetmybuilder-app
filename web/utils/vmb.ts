@@ -283,7 +283,7 @@ export async function fetchVmbRatings(
     qs.set("recommendationId", String(params.recommendationId));
   }
   const { data } = await api.get(
-    `/api/v2/recommendations/ratings?${qs.toString()}`
+    `/api/recommendations/ratings?${qs.toString()}`
   );
   return data;
 }
