@@ -19,7 +19,17 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      // Use Playwright's bundled Chromium (no extensions) instead of system Chrome
+      use: {
+        ...devices["Desktop Chromium"],
+        launchOptions: {
+          args: [
+            "--disable-extensions",
+            "--disable-component-extensions-with-background-pages",
+            "--disable-background-networking",
+          ],
+        },
+      },
     },
   ],
 });

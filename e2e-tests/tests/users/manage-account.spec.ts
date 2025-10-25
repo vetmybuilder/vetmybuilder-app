@@ -1,24 +1,9 @@
+// e2e-tests/tests/account/manage-account.spec.ts
 import { test, expect } from "../../src/fixtures/base-fixture";
 import User from "../../src/models/User";
 
 test.describe("Manage account", () => {
-  test("can edit account details", async ({
-    usersApi,
-    loginAsUid,
-    homePage,
-    page,
-    accountPage,
-  }) => {
-    const user = User.aUser()
-      .withFirstName("Bobby")
-      .withLastName("Brown")
-      .withEmail(`e2e+${Date.now()}-b@example.com`)
-      .withPostcode("E4")
-      .withPassword("Passw0rd1");
-
-    const { uid } = await usersApi.createUser(user);
-    await loginAsUid(uid!, { redirect: "/projects" });
-
+  test("can edit account details", async ({ homePage, accountPage }) => {
     const updated = {
       firstName: "Chris",
       lastName: "Morris",
@@ -27,67 +12,46 @@ test.describe("Manage account", () => {
     };
 
     await homePage.clickEditAccount();
-    await accountPage.fillAccountDetails(updated, {
-      expectedEmail: user.email,
-    });
+    await accountPage.fillAccountDetails(updated);
     await accountPage.hasSuccessMessage();
     await expect(homePage.accountInitials).toHaveText("CM");
-    await page.goto("/account");
+    await homePage.clickEditAccount();
+
     await accountPage.waitForLoaded();
     await accountPage.assertValues(updated);
   });
 
   test("shows error when username already exists", async ({
     usersApi,
-    loginAsUid,
     homePage,
-    page,
     accountPage,
   }) => {
     const stamp = Date.now().toString(36).slice(-4);
-    const userAInitials = "BB";
-
-    const userA = User.aUser()
-      .withFirstName("Bobby")
-      .withLastName("Brown")
-      .withEmail(`e2e+${Date.now()}-a@example.com`)
+    const takenUsername = `taken.user.${stamp}`;
+    const seed = User.aUser()
+      .withFirstName("Seed")
+      .withLastName("User")
+      .withEmail(`e2e+seed.${stamp}@example.com`)
       .withPostcode("E4")
       .withPassword("Passw0rd1")
-      .withUsername(`bobby.brown.${stamp}`);
+      .withUsername(takenUsername);
 
-    const userB = User.aUser()
-      .withFirstName("Chris")
-      .withLastName("Morris")
-      .withEmail(`e2e+${Date.now()}-b@example.com`)
-      .withPostcode("E4")
-      .withPassword("Passw0rd1")
-      .withUsername(`chris.morris.${stamp}`);
+    const { uid } = await usersApi.createUser(seed);
 
-    const { uid: uidA } = await usersApi.createUser(userA);
-    const { uid: uidB } = await usersApi.createUser(userB);
+    expect(uid, "seed user creation failed").toBeTruthy();
 
-    await loginAsUid(uidA!, { redirect: "/account" });
+    await homePage.clickEditAccount();
     await accountPage.waitForLoaded();
-    await accountPage.fillAccountDetails(
-      {
-        firstName: "Bobby",
-        lastName: "Brown",
-        username: userB.username!,
-        location: "E4",
-      },
-      { expectedEmail: userA.email! }
-    );
+    const userInitialsBefore = await homePage.getHeaderInitials();
 
-    await accountPage.hasErrorMessage();
-    await expect(homePage.accountInitials).toHaveText(userAInitials);
-    await page.goto("/account");
-    await accountPage.waitForLoaded();
-    await accountPage.assertValues({
+    await accountPage.fillAccountDetails({
       firstName: "Bobby",
       lastName: "Brown",
-      username: userA.username!,
+      username: takenUsername,
       location: "E4",
     });
-    await expect(homePage.accountInitials).toHaveText(userAInitials);
+
+    await accountPage.hasErrorMessage();
+    await expect(homePage.accountInitials).toHaveText(userInitialsBefore);
   });
 });

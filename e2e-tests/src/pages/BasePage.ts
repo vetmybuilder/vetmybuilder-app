@@ -1,6 +1,11 @@
 // e2e-tests/src/pages/BasePage.ts
 import { Page, Locator, expect } from "@playwright/test";
 
+const API_BASE = process.env.E2E_API_BASE || "http://localhost:8787";
+const API_PREFIX = process.env.E2E_API_PREFIX || "/api";
+const TEST_SECRET = process.env.E2E_TEST_SECRET || "";
+const TEST_UID = process.env.E2E_TEST_UID || "BpSvMxVVpnQeG211hiY8cNPbDCW2";
+
 export class BasePage {
   readonly page: Page;
   readonly notificationMessage: Locator;
@@ -27,13 +32,17 @@ export class BasePage {
     await expect(this.accountInitials).toHaveText(text);
   }
 
+  /** Read the current header initials text (trimmed). */
+  async getHeaderInitials(): Promise<string> {
+    const t = await this.accountInitials.textContent();
+    return (t || "").trim();
+  }
+
   async visit({
     url = this.PAGE_URL,
     qs,
   }: { url?: string; qs?: string } = {}): Promise<void> {
-    if (qs) {
-      url += qs;
-    }
+    if (qs) url += qs;
     await this.page.goto(url);
   }
 
@@ -55,7 +64,6 @@ export class BasePage {
         localStorage.clear();
         sessionStorage.clear();
       } catch {}
-      // mark as cleared for future navigation's in this browser context
       document.cookie = "__e2e_cleared=1; path=/; max-age=31536000";
     });
 
