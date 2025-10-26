@@ -1,10 +1,10 @@
 // e2e-tests/src/pages/BasePage.ts
 import { Page, Locator, expect } from "@playwright/test";
 
-const API_BASE = process.env.E2E_API_BASE || "http://localhost:8787";
-const API_PREFIX = process.env.E2E_API_PREFIX || "/api";
-const TEST_SECRET = process.env.E2E_TEST_SECRET || "";
-const TEST_UID = process.env.E2E_TEST_UID || "BpSvMxVVpnQeG211hiY8cNPbDCW2";
+// const API_BASE = process.env.E2E_API_BASE || "http://localhost:8787";
+// const API_PREFIX = process.env.E2E_API_PREFIX || "/api";
+// const TEST_SECRET = process.env.E2E_TEST_SECRET || "";
+// const TEST_UID = process.env.E2E_TEST_UID || "BpSvMxVVpnQeG211hiY8cNPbDCW2";
 
 export class BasePage {
   readonly page: Page;
@@ -36,6 +36,14 @@ export class BasePage {
   async getHeaderInitials(): Promise<string> {
     const t = await this.accountInitials.textContent();
     return (t || "").trim();
+  }
+
+  async hasHeaderInitials(expected: string): Promise<void> {
+    await expect
+      .poll(async () => this.getHeaderInitials(), {
+        message: `Header initials should be "${expected}"`,
+      })
+      .toBe(expected);
   }
 
   async visit({
@@ -88,5 +96,18 @@ export class BasePage {
       '[data-testid="nav-sign-in"], [aria-label="Sign in"]',
       { state: "visible" }
     );
+  }
+
+  async ensureServerSession(): Promise<void> {
+    const PATH = process.env.E2E_SESSION_CHECK_PATH || "/api/__test__/auth/me";
+    try {
+      const res = await this.page.request.get(PATH);
+      // If your check endpoint doesn't exist in some envs, just skip quietly
+      if (!res.ok() && res.status() !== 404) {
+        throw new Error(
+          `ensureServerSession(${PATH}) failed: ${res.status()} ${await res.text()}`
+        );
+      }
+    } catch {}
   }
 }

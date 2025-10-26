@@ -15,6 +15,7 @@ export class ProjectsPage extends BasePage {
   readonly tabArchived: Locator;
   readonly tabFavourites: Locator;
   readonly tabCommunityProjects: Locator;
+  readonly tabCompletedCommunityProjects: Locator;
   readonly tabMyRecommendations: Locator;
   readonly createNewProjectBtn: Locator;
 
@@ -47,6 +48,9 @@ export class ProjectsPage extends BasePage {
     this.tabArchived = page.getByTestId("tab-archived");
     this.tabFavourites = page.getByTestId("tab-favourites");
     this.tabCommunityProjects = page.getByTestId("tab-community-projects");
+    this.tabCompletedCommunityProjects = page.getByTestId(
+      "tab-completed-community-projects"
+    );
     this.createNewProjectBtn = page.getByTestId("btn-create-project");
 
     // filters (use testids)
@@ -68,8 +72,16 @@ export class ProjectsPage extends BasePage {
     await this.page.goto("/projects");
   }
 
+  /** Open the projects list and wait for the shell to load. */
+  async gotoList() {
+    await this.page.goto("/projects");
+    await this.page.waitForLoadState("networkidle");
+    await this.expectLoaded();
+  }
+
   async viewForProjectId(id: number) {
     await this.expectLoaded();
+    await this.ensureServerSession();
     await this.page.goto(`/projects/${id}`);
     await this.page.waitForLoadState("networkidle");
   }
@@ -101,39 +113,6 @@ export class ProjectsPage extends BasePage {
     await this.propertyFilter.clear();
     await this.statusFilter.selectOption("all").catch(() => {});
   }
-
-  // async hasProjects(projects: Array<Project>): Promise<void> {
-  //   const headers = [
-  //     "Name",
-  //     "Type",
-  //     "Location",
-  //     "Property",
-  //     "Beds",
-  //     "Created",
-  //     "Status",
-  //   ];
-
-  //   const rows = projects.map((proj) => {
-  //     // Use toJSON() for display fields, but read status from the object itself
-  //     const p =
-  //       typeof (proj as any).toJSON === "function"
-  //         ? (proj as any).toJSON()
-  //         : proj;
-  //     const expectedStatus = (proj as any).status ?? "Pending";
-
-  //     return [
-  //       p.name,
-  //       p.type,
-  //       p.location,
-  //       p.propertyType,
-  //       String(p.bedrooms),
-  //       expect.any(String),
-  //       expectedStatus,
-  //     ];
-  //   });
-
-  //   await expect(this.table).toHaveTableData([headers, ...rows]);
-  // }
 
   // PageObject
   async hasProjects(
@@ -197,7 +176,7 @@ export class ProjectsPage extends BasePage {
   }
 
   async hasNoRecommendations(): Promise<void> {
-    await this.page.getByRole('tab', {name: "My Recommendations"}).click();
+    await this.page.getByRole("tab", { name: "My Recommendations" }).click();
     await expect(this.projectEmpty).toBeVisible();
   }
 
@@ -214,11 +193,62 @@ export class ProjectsPage extends BasePage {
       .click();
   }
 
-  async removeFromFavourites(projectOrId: number | { id: number }): Promise<void> {
+  async removeFromFavourites(
+    projectOrId: number | { id: number }
+  ): Promise<void> {
     const id = typeof projectOrId === "number" ? projectOrId : projectOrId.id;
     await this.page
       .getByTestId(`row-${id}`)
       .getByTestId(`btn-${id}-remove-favourite`)
       .click();
   }
+
+  /* -------------------- NEW HELPERS (no reload) -------------------- */
+
+  /** Locator for a project link/row by its display name. */
+  rowByName(name: string): Locator {
+    // Adjust if your link text differs
+    return this.page.getByRole("link", { name, exact: false });
+  }
+
+  /**
+   * Client-side refresh: toggle tabs to trigger the SPA to refetch,
+   * avoiding full page reload (which logs you out).
+   */
+  private async softRefreshViaTabs() {
+    // Toggle to "My Recommendations" and back to "My Projects"
+    await this.tabMyRecommendations.click();
+    await this.page.waitForLoadState("networkidle");
+    await this.tabMyProjects.click();
+    await this.page.waitForLoadState("networkidle");
+  }
+
+  /** Open a project by name after ensuring it is visible in the list. */
+  async openProjectByName(name: string) {
+    await this.rowByName(name).click();
+    await this.page.waitForLoadState("networkidle");
+    await expect(this.page).toHaveURL(/\/projects\/\d+$/);
+  }
+
+  async filterByNameAndWait(name: string) {
+    await this.nameFilter.fill(name);
+    await this.page.waitForLoadState("networkidle");
+
+    expect
+      .poll(
+        async () => {
+          const rowCount = await this.table
+            .getByRole("row")
+            .count()
+            .catch(() => 0);
+          return rowCount >= 1;
+        },
+        {
+          message: `Expected at least one project row to be visible after filtering by name "${name}"`,
+        }
+      )
+      .toBe(true);
+  }
 }
+
+export default ProjectsPage;

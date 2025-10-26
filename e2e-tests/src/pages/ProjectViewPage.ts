@@ -79,6 +79,13 @@ export class ProjectViewPage extends BasePage {
     this.shortlistSection = page.getByTestId("shortlist-item");
   }
 
+    async hasNotificationMessage(message: string) {
+    const notification = this.page.getByRole("alert").filter({
+      hasText: message,
+    });
+    await expect(notification).toBeVisible();
+  }
+  
   async goto(id: number | string) {
     await this.page.goto(`/projects/${id}`);
   }

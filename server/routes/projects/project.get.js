@@ -1,15 +1,13 @@
-// server/v2/routes/projects/project.get.js
+// server/routes/projects/project.get.js   (use same content for v2 if needed)
 /**
- * GET /api/v2/projects/:id  (also /api/projects/:id if mounted there)
+ * GET /api/projects/:id
  * Auth: optional
- * - Anonymous: only live projects visible (401 if not live)
- * - Authenticated: owner or live (404 if not owner & not live)
- * Response: { project }
+ * - Anonymous: only LIVE projects visible (401 if not live)
+ * - Authenticated: owner OR (live|completed). Others get 404 to avoid leaking existence.
  */
 module.exports = (router, ctx) => {
   const { db, admin, touchUserMw } = ctx;
 
-  // optional auth middleware (mirrors your server/index.js helper)
   function optionalAuth(adminInstance) {
     return async (req, _res, next) => {
       try {
@@ -36,22 +34,23 @@ module.exports = (router, ctx) => {
     if (!project) return res.status(404).json({ error: "Not found" });
 
     const status = String(project.status || "").toLowerCase();
-    const isLive = status === "completed";
+    const isLive = status === "live";
+    const isCompleted = status === "completed";
     const viewerUid = req.user?.uid ?? null;
     const isOwner =
       !!viewerUid && String(project.ownerUserId) === String(viewerUid);
 
-    // Unauthenticated viewers: only live projects are visible
+    // Anonymous viewers: only LIVE projects are visible
     if (!viewerUid) {
-      if (!isLive)
+      if (!isLive) {
         return res.status(401).json({ error: "Missing bearer token" });
+      }
       res.set("Cache-Control", "no-store");
       return res.json({ project });
     }
 
-    // Authenticated viewers: only owner or live
+    // Authenticated viewers: owner OR (live|completed)
     if (!isOwner && !isLive && !isCompleted) {
-      // Use 404 to avoid leaking the project's existence
       return res.status(404).json({ error: "Not found" });
     }
 

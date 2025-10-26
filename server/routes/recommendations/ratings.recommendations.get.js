@@ -1,24 +1,7 @@
-/**
- * GET /api/recommendations/ratings
- *
- * Query (one of):
- *   - projectId: number   -> returns ranked items for a project
- *   - recommendationId: number (alias: recId, id) -> returns a single score row
- *
- * Visibility:
- *  - For projectId: owner OR project is live OR completed; else 404
- *  - For recommendationId: if its project is live -> anyone; else owner or recommender only
- *
- * Response:
- *   - projectId: { items: Array<{id, name, email, phone, company, comment, isAnonymous, createdAt,
- *                               fromFriend, fromCommunity, likes, myLike, rating, score}>,
- *                  total, page, pageSize }
- *   - recommendationId: { item: { recommendationId, score } }
- */
+// server/routes/recommendations/ratings.recommendations.get.js
 module.exports = (router, ctx) => {
   const { db, auth, admin, extractLocationTokens } = ctx;
 
-  // ---------- auth helpers ----------
   function optionalAuth(adminInstance) {
     return async (req, _res, next) => {
       try {
@@ -33,11 +16,23 @@ module.exports = (router, ctx) => {
     };
   }
 
-  // ---------- tiny utils ----------
+  // ---------- helpers ----------
   const toNum = (v) => {
     const n = Number(v);
     return Number.isFinite(n) ? n : null;
   };
+
+  // ---- table feature-detection (SQLite safe) ----
+  function hasTable(name) {
+    try {
+      const rows = db.prepare(`PRAGMA table_info(${name})`).all();
+      return Array.isArray(rows) && rows.length > 0;
+    } catch {
+      return false;
+    }
+  }
+  const HAS_COMPLETIONS = hasTable("project_completions");
+  const HAS_COMPLETION_PHOTOS = hasTable("project_completion_photos");
 
   // ---------- counters ----------
   function likesFor(recId) {
@@ -58,7 +53,7 @@ module.exports = (router, ctx) => {
     return Number(row?.c || 0);
   }
 
-  // project closures (legacy “winner” + wouldUseAgain)
+  // legacy closures (still present in your DB)
   function closuresWonCount(recId) {
     const row = db
       .prepare(
@@ -78,9 +73,9 @@ module.exports = (router, ctx) => {
     return Number(row?.c || 0);
   }
 
-  // project completions (newer flow)
+  // ---- new “completions” flow (guarded if tables don’t exist) ----
   function completionRows(recId) {
-    // returns all completions for this recommendation
+    if (!HAS_COMPLETIONS) return [];
     return db
       .prepare(
         `SELECT id, projectId, didWorkGoAhead, wouldHireAgain
@@ -89,9 +84,11 @@ module.exports = (router, ctx) => {
       )
       .all(recId);
   }
+
   function completionPhotoCountFor(recId) {
+    if (!HAS_COMPLETION_PHOTOS) return 0;
     const rows = completionRows(recId);
-    if (!rows || rows.length === 0) return 0;
+    if (!rows.length) return 0;
     const ids = rows.map((r) => r.id);
     const placeholders = ids.map(() => "?").join(",");
     const row = db
@@ -103,14 +100,15 @@ module.exports = (router, ctx) => {
       .get(...ids);
     return Number(row?.c || 0);
   }
+
   function completionWinsCount(recId) {
-    // treat “didWorkGoAhead=1” completions as wins
     const rows = completionRows(recId);
     return rows.reduce(
       (n, r) => n + (Number(r?.didWorkGoAhead || 0) === 1 ? 1 : 0),
       0
     );
   }
+
   function completionWouldAgainCount(recId) {
     const rows = completionRows(recId);
     return rows.reduce(
@@ -119,7 +117,7 @@ module.exports = (router, ctx) => {
     );
   }
 
-  // Companies House — take the latest verification for the recommendation
+  // Companies House (unchanged)
   function companyVerification(recId) {
     const row = db
       .prepare(
@@ -140,70 +138,51 @@ module.exports = (router, ctx) => {
     };
   }
 
-  // ---------- scoring ----------
+  // ---------- scoring (unchanged) ----------
   function computeScore({
-    isRecommended, // 0/1
-    fromFriend, // 0/1
-    fromCommunity, // 0/1
-    likes, // int
-    wins, // completed jobs count (closures + completions)
-    recPhotos, // photos attached to recommendation
-    completionPhotos, // photos attached to completion(s)
-    wouldAgain, // positive “would hire/use again” count
-    ch, // {status, score?}
+    isRecommended,
+    fromFriend,
+    fromCommunity,
+    likes,
+    wins,
+    recPhotos,
+    completionPhotos,
+    wouldAgain,
+    ch,
   }) {
     let s = 0;
-
-    // 1) Exists (baseline)
     s += isRecommended ? 1.0 : 0;
-
-    // 2) Provenance
     if (fromFriend) s += 0.2;
     if (fromCommunity) s += 0.4;
-
-    // 3) Completed jobs (diminishing)
-    s += Math.min(4, Math.log2(1 + wins)) * 0.8; // up to +3.2
-
-    // 4) Vote ups (diminishing)
-    s += Math.min(4, Math.log2(1 + likes)) * 0.5; // up to +2.0
-
-    // 5) Recommendation photos (diminishing)
+    s += Math.min(4, Math.log2(1 + wins)) * 0.8;
+    s += Math.min(4, Math.log2(1 + likes)) * 0.5;
     if (recPhotos > 0) s += Math.min(3, Math.log2(1 + recPhotos)) * 0.35;
-
-    // 6) Completion photos (usually fewer; still reward them)
     if (completionPhotos > 0)
       s += Math.min(3, Math.log2(1 + completionPhotos)) * 0.25;
-
-    // 7) Would hire/use again — strong signal
     s += wouldAgain * 0.7;
-
-    // 8) Companies House (status boost + optional numeric score scaling)
     if (ch) {
       const st = String(ch.status || "").toLowerCase();
       if (st === "verified") s += 0.6;
       else if (st === "ambiguous") s += 0.15;
-      else if (st === "no_match") s += 0; // no bump
       if (Number.isFinite(ch.score))
         s += Math.min(0.5, (Number(ch.score) / 100) * 0.5);
     }
-
-    // keep one decimal place (like “VMB 2.9”)
     return Math.round(s * 20) / 20;
   }
 
   // ------------- project-wide ranking -------------
   router.get("/recommendations/ratings", auth, (req, res, next) => {
     const projectId = toNum(req.query.projectId);
-    if (!projectId) return next(); // let the single-rec handler run
+    if (!projectId) return next();
 
-    // Visibility
     const proj = db
       .prepare(`SELECT ownerUserId, status, location FROM projects WHERE id=?`)
       .get(projectId);
     if (!proj) return res.status(404).json({ error: "Not found" });
 
     const viewerUid = req.user?.uid || null;
-    const isOwner = !!viewerUid && String(viewerUid) === String(proj.ownerUserId);
+    const isOwner =
+      !!viewerUid && String(viewerUid) === String(proj.ownerUserId);
     const statusLc = String(proj.status || "").toLowerCase();
     const isLive = statusLc === "live";
     const isCompleted = statusLc === "completed";
@@ -211,13 +190,11 @@ module.exports = (router, ctx) => {
       return res.status(404).json({ error: "Not found" });
     }
 
-    // Location tokens (defensive)
     const pTok =
       typeof extractLocationTokens === "function"
         ? extractLocationTokens(proj.location || "")
         : {};
 
-    // Paging: support page/pageSize OR offset/limit
     const hasOffsetLimit = req.query.offset != null || req.query.limit != null;
     const limitRaw = toNum(req.query.limit);
     const offsetRaw = toNum(req.query.offset);
@@ -281,11 +258,11 @@ module.exports = (router, ctx) => {
       const likes = Number(r.likes || 0);
       const recPhotos = recPhotoCount(r.id);
 
-      // Completions / photos from completions
+      // guarded “new flow”
       const compWins = completionWinsCount(r.id);
       const compPhotos = completionPhotoCountFor(r.id);
 
-      // Legacy closures (do not lose past data)
+      // legacy closures
       const legacyWins = closuresWonCount(r.id);
       const wouldAgainLegacy = closuresWouldAgainCount(r.id);
 
@@ -325,7 +302,6 @@ module.exports = (router, ctx) => {
       };
     });
 
-    // sort by score desc, then likes desc, then newest
     enriched.sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
       if ((b.likes || 0) !== (a.likes || 0))
@@ -363,7 +339,8 @@ module.exports = (router, ctx) => {
     if (!row) return res.status(404).json({ error: "Not found" });
 
     const viewerUid = req.user?.uid || null;
-    const isOwner = !!viewerUid && String(viewerUid) === String(row.ownerUserId);
+    const isOwner =
+      !!viewerUid && String(viewerUid) === String(row.ownerUserId);
     const isRecommender =
       !!viewerUid && String(viewerUid) === String(row.recommenderUserId);
     const isLive = String(row.status || "").toLowerCase() === "live";
@@ -372,7 +349,6 @@ module.exports = (router, ctx) => {
       return res.status(403).json({ error: "Forbidden" });
     }
 
-    // recompute with the same ingredients
     const likes = likesFor(recId);
     const recPhotos = recPhotoCount(recId);
     const compWins = completionWinsCount(recId);
@@ -382,7 +358,6 @@ module.exports = (router, ctx) => {
     const wouldAgainNew = completionWouldAgainCount(recId);
     const ch = companyVerification(recId);
 
-    // community flag not important for single, but keep logic consistent
     let fromCommunity = 0;
     if (row.recommenderUserId && extractLocationTokens) {
       const pTok = extractLocationTokens(row.location || "");

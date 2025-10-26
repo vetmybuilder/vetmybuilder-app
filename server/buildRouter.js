@@ -78,6 +78,7 @@ function buildRouter(ctx) {
   require("./routes/__test__/users.post")(router, ctx);
   require("./routes/__test__/auth/custom-token.post")(router, ctx);
   require("./routes/__test__/auth/id-token.post")(router, ctx);
+  require("./routes/__test__/auth/session.post")(router, ctx);
 
   // ---------------- Notifications & SSE ----------------
   require("./routes/notifications/stream.get")(router, ctx);

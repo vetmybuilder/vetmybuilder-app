@@ -1,21 +1,53 @@
+// e2e-tests/tests/recommendation.spec.ts
+import { test, expect } from "../../src/fixtures/base-fixture";
+import Project from "../../src/models/Project";
+
+test.describe("Completed Community projects", () => {
+  test("community user in same area should NOT see archived project", async ({
+    page,
+    loginAsNewUser,
+    projectsApi,
+    projectsPage,
+  }) => {
+    // Owner (auto-logged-in) creates & publishes
+    const project = Project.aProject().withPostcode("E4");
+    await projectsApi.createProject(project);
+    await projectsApi.publish(project);
+
+    // Close as 'did not go ahead' (becomes ARCHIVED)
+    await projectsApi.close(project, {
+      didGoAhead: false,
+      reasons: ["budget"],
+      waitForStatus: "archived",
+    });
+
+    // Login as a different user in the same area
+    await loginAsNewUser({ postcode: project.location, redirect: "/projects" });
+    await projectsPage.expectLoaded();
+
+    // Completed Community Projects should NOT include archived projects
+    await projectsPage.tabCompletedCommunityProjects.click();
+    await expect(
+      page.getByRole("link", { name: project.name, exact: true })
+    ).toHaveCount(0);
+  });
+});
+
 // // tests/specs/recommendation.spec.ts
 // import { test } from "../../src/fixtures/base-fixture";
 // import { ProjectsApi } from "../../src/api-utils/projects-api";
 // import Project from "../../src/models/Project";
 // import User from "../../src/models/User";
 
-// test.describe("Community projects", () => {
+// test.describe("Completed Community projects", () => {
 //   let project: Project;
 //   let communityMemberUid!: string;
 //   const headersWithActions = [
-//     "Name",
 //     "Type",
 //     "Location",
-//     "Property",
-//     "Beds",
-//     "Created",
-//     "Status",
-//     "Actions",
+//     "Date Closed",
+//     "Tradesman",
+//     "Gallery",
 //   ];
 
 //   test.beforeEach(async ({ usersApi, authApi, loginAsUid }) => {
@@ -41,28 +73,7 @@
 //     await loginAsUid(communityMemberUid, { redirect: "/projects" });
 //   });
 
-//   test("can add a community project to favorites", async ({ projectsPage }) => {
-//     // Favourites initially empty
-//     await projectsPage.tabFavourites.click();
-//     await projectsPage.hasNoProjects();
-
-//     // Community shows the project with Actions
-//     await projectsPage.tabCommunityProjects.click();
-//     await projectsPage.hasProjects(
-//       [project],
-//       headersWithActions,
-//       "Add to favourites"
-//     );
-
-//     // Add to favourites via UI and verify it moves
-//     await projectsPage.addToFavourites(project.id!);
-//     await projectsPage.hasNoProjects(); // community now empty
-
-//     await projectsPage.tabFavourites.click();
-//     await projectsPage.hasProjects([project], headersWithActions);
-//   });
-
-//   test("can remove a community project from favourites", async ({
+//   test("Can see projects in the same location", async ({
 //     authApi,
 //     projectsPage,
 //   }) => {

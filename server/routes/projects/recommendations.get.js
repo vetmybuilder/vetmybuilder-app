@@ -1,8 +1,7 @@
-// server/v2/routes/projects/recommendations.get.js
 /**
  * GET /api/v2/projects/:id/recommendations
  * Auth: required
- * Visibility: owner OR project is live; else 404
+ * Visibility: owner OR project is live OR completed; else 404
  * Query: page, pageSize
  *
  * Returns recommendations already RANKED by the composite `score`
@@ -31,12 +30,13 @@ module.exports = (router, ctx) => {
 
     if (!proj) return res.status(404).json({ error: "Not found" });
 
-    const status = String(proj.status || "").toLowerCase();
-    const isLive = status === "completed";
+    const statusLc = String(proj.status || "").toLowerCase();
+    const isLive = statusLc === "live";           // ✅ live means "live"
+    const isCompleted = statusLc === "completed"; // ✅ add missing variable
     const uid = req.user?.uid || null;
     const isOwner = !!uid && String(uid) === String(proj.ownerUserId);
 
-    if (!isOwner && !isLive &&!isCompleted) {
+    if (!isOwner && !isLive && !isCompleted) {
       return res.status(404).json({ error: "Not found" });
     }
 
@@ -49,12 +49,10 @@ module.exports = (router, ctx) => {
     const offset = (page - 1) * pageSize;
 
     // total
-    const total =
-      db
-        .prepare(
-          `SELECT COUNT(*) AS c FROM recommendations WHERE projectId = ?`
-        )
-        .get(projectId).c || 0;
+    const totalRow = db
+      .prepare(`SELECT COUNT(*) AS c FROM recommendations WHERE projectId = ?`)
+      .get(projectId);
+    const total = Number(totalRow?.c || 0);
 
     // ranked list
     // NOTE:
@@ -104,9 +102,9 @@ module.exports = (router, ctx) => {
       )
       .all(userId, projectId, pageSize, offset);
 
-    // (Keep extractLocationTokens around if other callers use it, but our
+    // (Keep extractLocationTokens around if other callers use it,
     // ranking now comes from the SQL view so we don't recompute here.)
-    void extractLocationTokens; // silence unused warning if your linter complains
+    void extractLocationTokens;
 
     const items = rows.map((r) => ({
       id: r.id,

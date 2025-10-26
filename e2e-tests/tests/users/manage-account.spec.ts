@@ -1,4 +1,3 @@
-// e2e-tests/tests/account/manage-account.spec.ts
 import { test, expect } from "../../src/fixtures/base-fixture";
 import User from "../../src/models/User";
 
@@ -12,11 +11,11 @@ test.describe("Manage account", () => {
     };
 
     await homePage.clickEditAccount();
+    await accountPage.waitForLoaded();
     await accountPage.fillAccountDetails(updated);
     await accountPage.hasSuccessMessage();
-    await expect(homePage.accountInitials).toHaveText("CM");
+    await homePage.hasHeaderInitials("CM");
     await homePage.clickEditAccount();
-
     await accountPage.waitForLoaded();
     await accountPage.assertValues(updated);
   });
@@ -28,6 +27,7 @@ test.describe("Manage account", () => {
   }) => {
     const stamp = Date.now().toString(36).slice(-4);
     const takenUsername = `taken.user.${stamp}`;
+
     const seed = User.aUser()
       .withFirstName("Seed")
       .withLastName("User")
@@ -37,7 +37,6 @@ test.describe("Manage account", () => {
       .withUsername(takenUsername);
 
     const { uid } = await usersApi.createUser(seed);
-
     expect(uid, "seed user creation failed").toBeTruthy();
 
     await homePage.clickEditAccount();
@@ -52,6 +51,6 @@ test.describe("Manage account", () => {
     });
 
     await accountPage.hasErrorMessage();
-    await expect(homePage.accountInitials).toHaveText(userInitialsBefore);
+    await homePage.hasHeaderInitials(userInitialsBefore);
   });
 });

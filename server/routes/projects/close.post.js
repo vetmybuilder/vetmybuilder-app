@@ -23,6 +23,28 @@
 module.exports = (router, ctx) => {
   const { db, auth } = ctx;
 
+  // --- Ensure projects table has columns used by this route (SQLite-safe, idempotent) ---
+  (function ensureProjectsTimestamps() {
+    try {
+      const cols = db
+        .prepare("PRAGMA table_info(projects)")
+        .all()
+        .map((c) => c.name);
+      const tx = db.transaction(() => {
+        if (!cols.includes("archivedAt")) {
+          db.prepare("ALTER TABLE projects ADD COLUMN archivedAt TEXT").run();
+        }
+        if (!cols.includes("completedAt")) {
+          db.prepare("ALTER TABLE projects ADD COLUMN completedAt TEXT").run();
+        }
+      });
+      tx();
+    } catch (e) {
+      // non-fatal in test env; logs to aid debugging
+      console.warn("ensureProjectsTimestamps failed:", e?.message || e);
+    }
+  })();
+
   // NOTE: router is mounted under /api, so do NOT prefix with /api here
   router.post("/projects/:id/close", auth, (req, res) => {
     try {
@@ -99,7 +121,7 @@ module.exports = (router, ctx) => {
         wouldUseAgainNorm = null; // absent/unknown
       }
 
-      // Status transitions
+      // ---- Status transitions (guarantee completedAt when completed) ----
       if (!did) {
         db.prepare(
           `UPDATE projects
@@ -109,7 +131,9 @@ module.exports = (router, ctx) => {
       } else if (winnerFromCommunityNum === 1) {
         db.prepare(
           `UPDATE projects
-             SET status='completed', completedAt=?, archivedAt=archivedAt
+             SET status='completed',
+                 completedAt=COALESCE(completedAt, ?),
+                 archivedAt=archivedAt
            WHERE id=?`
         ).run(now, id);
       } else {
@@ -165,7 +189,13 @@ module.exports = (router, ctx) => {
         );
       }
 
-      const project = db.prepare("SELECT * FROM projects WHERE id=?").get(id);
+      // Final safety: if row is completed but completedAt is NULL, backfill it now
+      let project = db.prepare("SELECT * FROM projects WHERE id=?").get(id);
+      if (project && project.status === "completed" && !project.completedAt) {
+        db.prepare(`UPDATE projects SET completedAt=? WHERE id=?`).run(now, id);
+        project = db.prepare("SELECT * FROM projects WHERE id=?").get(id);
+      }
+
       return res.json({ ok: true, project });
     } catch (err) {
       console.error("close project error:", err);

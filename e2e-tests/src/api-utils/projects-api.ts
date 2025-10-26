@@ -1,8 +1,9 @@
-import type { APIRequestContext, APIResponse, Page } from "@playwright/test";
-import { expect, request as pwRequest } from "@playwright/test";
-import { ApiBase } from "./api-base";
+// e2e-tests/src/api-utils/projects-api.ts
+import type { APIResponse } from "@playwright/test";
+import { expect } from "@playwright/test";
 import Project from "../models/Project";
-import User from "../models/User";
+
+/* ---------- Types ---------- */
 
 type ProjectRecord = {
   id: number;
@@ -18,30 +19,46 @@ type ProjectRecord = {
 };
 
 type CreateProjectResponseBody = { project: ProjectRecord };
-type FavouriteResponse = { ok?: boolean };
 
-type UsersApiLike = {
-  createUser(u: User): Promise<{ uid?: string }>;
-};
-type AuthApiLike = {
-  idTokenForUid(uid: string): Promise<string>;
-  customToken(uid: string): Promise<string>;
+/**
+ * Minimal request-like interface so we can pass in a session-bound client
+ * (e.g. the wrapper built on top of `page.request`).
+ */
+type RequestLike = {
+  get: (url: string, opts?: Record<string, any>) => Promise<APIResponse>;
+  post: (url: string, opts?: Record<string, any>) => Promise<APIResponse>;
+  put: (url: string, opts?: Record<string, any>) => Promise<APIResponse>;
+  delete: (url: string, opts?: Record<string, any>) => Promise<APIResponse>;
 };
 
-const DEFAULT_API_BASE = process.env.E2E_API_BASE || "http://localhost:8787";
+// --- add near the other top-level types ---
+export type CloseProjectOptions = {
+  didGoAhead: boolean;
+  reasons?: Array<
+    "budget" | "no_show" | "quote_too_high" | "other" | "tradesman_unavailable"
+  >;
+  otherReason?: string;
+  selectedRecommendationId?: number;
+  winnerFromCommunity?: boolean | 0 | 1 | "0" | "1" | "true" | "false";
+  wouldUseAgain?: boolean | 0 | 1 | "0" | "1" | "true" | "false" | null;
+  /** When provided, waits until project reaches this status after close (e.g. "archived" | "completed") */
+  waitForStatus?: string;
+};
+
+export type ClosePhotosInput = Array<{
+  name: string;
+  mimeType: string;
+  buffer: Buffer;
+}>;
+
+/* ---------- Env ---------- */
+
 const API_PREFIX = process.env.E2E_API_PREFIX || "/api";
 
-const __openContexts = new Set<() => Promise<void>>();
-export async function __disposeAllProjectApiContexts() {
-  const disposers = Array.from(__openContexts);
-  __openContexts.clear();
-  await Promise.all(disposers.map((fn) => fn()));
-}
+/* ---------- API Client ---------- */
 
-export class ProjectsApi extends ApiBase {
-  constructor(request: APIRequestContext) {
-    super(request);
-  }
+export class ProjectsApi {
+  constructor(private readonly request: RequestLike) {}
 
   private hydrate(target: Project, src: ProjectRecord) {
     target.id = src.id;
@@ -56,10 +73,42 @@ export class ProjectsApi extends ApiBase {
     (target as any).ownerUserId = src.ownerUserId;
   }
 
+  private async waitForProjectPersisted(
+    id: number,
+    opts: { timeoutMs?: number; intervalMs?: number } = {}
+  ): Promise<void> {
+    const timeout = opts.timeoutMs ?? 5000;
+    const interval = opts.intervalMs ?? 200;
+
+    await expect
+      .poll(
+        async () => {
+          const res = await this.request.get(`${API_PREFIX}/projects/${id}`);
+          if (!res.ok()) return null;
+          try {
+            const json: any = await res.json();
+            return json?.project?.id ?? json?.id ?? null;
+          } catch {
+            return null;
+          }
+        },
+        {
+          timeout,
+          intervals: [interval],
+          message: `Project ${id} not readable at GET ${API_PREFIX}/projects/${id}`,
+        }
+      )
+      .toBe(id);
+  }
+
+  /**
+   * Creates a project using the SAME session as the browser (when passed a session-bound request).
+   * Asserts 201, hydrates the given Project model, and waits until the project is readable.
+   */
   async createProject(
     project: Project,
     extraHeaders?: Record<string, string>
-  ): Promise<APIResponse> {
+  ): Promise<void> {
     const src: any =
       typeof (project as any).toJSON === "function"
         ? (project as any).toJSON()
@@ -74,45 +123,57 @@ export class ProjectsApi extends ApiBase {
       bedrooms: Number(src.bedrooms ?? 0),
     };
 
-    const res = await this.request.post(`${API_PREFIX}/projects`, {
+    const url = `${API_PREFIX}/projects`;
+    const res = await this.request.post(url, {
       data: payload,
       headers: { "Content-Type": "application/json", ...(extraHeaders || {}) },
     });
 
     const raw = await res.text();
-    let body: CreateProjectResponseBody | undefined;
 
+    expect(
+      res.status(),
+      `Project not created — status=${res.status()} url=${url} body=${raw.slice(
+        0,
+        500
+      )}`
+    ).toBe(201);
+
+    let body: CreateProjectResponseBody | undefined;
     try {
       body = raw ? (JSON.parse(raw) as CreateProjectResponseBody) : undefined;
     } catch {
-      expect(
-        res.ok(),
-        `Project create returned non-JSON. status=${res.status()} body=${raw.slice(
-          0,
-          300
-        )}`
-      ).toBeTruthy();
+      expect(false, `Non-JSON response from ${url}: ${raw.slice(0, 500)}`).toBe(
+        true
+      );
     }
 
     expect(
-      res.ok(),
-      `Project not created successfully — status=${res.status()} body=${raw}`
-    ).toBeTruthy();
-    expect(
-      body && body.project,
-      `Response missing 'project' field — body=${raw}`
+      body?.project,
+      `Response missing 'project' — body=${raw.slice(0, 500)}`
     ).toBeTruthy();
 
     this.hydrate(project, body!.project);
-    return res;
+    expect(
+      project.id,
+      "project.id should be hydrated after creation"
+    ).toBeTruthy();
+
+    // Ensure the new project is readable before returning
+    await this.waitForProjectPersisted(project.id!);
   }
 
   async createProjectBody(
     project: Project,
     extraHeaders?: Record<string, string>
   ): Promise<CreateProjectResponseBody> {
-    const res = await this.createProject(project, extraHeaders);
-    return (await res.json()) as CreateProjectResponseBody;
+    await this.createProject(project, extraHeaders);
+    // Re-fetch body for callers that need it (GET by id for consistency)
+    const res = await this.request.get(`${API_PREFIX}/projects/${project.id}`);
+    const json = (await res.json()) as any;
+    return (
+      json?.project ? json : { project: json }
+    ) as CreateProjectResponseBody;
   }
 
   async createProjects(
@@ -121,188 +182,201 @@ export class ProjectsApi extends ApiBase {
   ): Promise<CreateProjectResponseBody[]> {
     const out: CreateProjectResponseBody[] = [];
     for (const p of projects) {
-      const res = await this.createProject(p, extraHeaders);
-      out.push((await res.json()) as CreateProjectResponseBody);
+      await this.createProject(p, extraHeaders);
+      const res = await this.request.get(`${API_PREFIX}/projects/${p.id}`);
+      const json = (await res.json()) as any;
+      out.push(json?.project ? json : { project: json });
     }
     return out;
   }
 
-  async publishProject(projectId: number): Promise<APIResponse> {
-    const res = await this.request.post(
-      `${API_PREFIX}/projects/${projectId}/publish`,
-      {
-        headers: { "Content-Type": "application/json" },
-      }
-    );
-    const raw = await res.text();
-
-    let json: any = undefined;
-    try {
-      json = raw ? JSON.parse(raw) : undefined;
-    } catch {}
-
-    expect(
-      res.ok(),
-      `Publish failed — status=${res.status()} body=${raw.slice(0, 300)}`
-    ).toBeTruthy();
-
-    if (!json?.project) {
-      throw new Error(
-        `Publish succeeded but response missing 'project' — body=${raw.slice(
-          0,
-          300
-        )}`
-      );
-    }
-
-    return res;
-  }
-
-  async publishProjectBody(
-    projectId: number
-  ): Promise<{ project: ProjectRecord }> {
-    const res = await this.publishProject(projectId);
-    return (await res.json()) as { project: ProjectRecord };
-  }
-
-  async publish(project: Project): Promise<APIResponse> {
-    if (!project.id)
-      throw new Error("publish(project): project.id is required");
-    const res = await this.publishProject(project.id);
-    const body = (await res.json()) as { project: ProjectRecord };
-    if (body?.project) this.hydrate(project, body.project);
-    return res;
-  }
-
-  async favouriteProject(
-    projectId: number,
+  /** Poll until a project reaches a specific status */
+  private async waitForProjectStatus(
+    id: number,
+    expectedStatus: string,
     opts: { timeoutMs?: number; intervalMs?: number } = {}
   ): Promise<void> {
-    const timeout = opts.timeoutMs ?? 5_000;
-    const interval = opts.intervalMs ?? 250;
+    const timeout = opts.timeoutMs ?? 5000;
+    const interval = opts.intervalMs ?? 200;
 
     await expect
       .poll(
         async () => {
-          const res = await this.request.post(
-            `${API_PREFIX}/projects/${projectId}/favourite`,
-            { headers: { "Content-Type": "application/json" } }
-          );
+          const res = await this.request.get(`${API_PREFIX}/projects/${id}`);
+          if (!res.ok()) return null;
           try {
-            const json = (await res.json()) as FavouriteResponse;
-            return json?.ok === true;
+            const json: any = await res.json();
+            const p = json?.project ?? json;
+            return p?.status ?? null;
           } catch {
-            return false;
+            return null;
           }
         },
         {
           timeout,
           intervals: [interval],
-          message: `POST ${API_PREFIX}/projects/${projectId}/favourite did not yield { ok: true } within ${timeout}ms`,
+          message: `Project ${id} did not reach status "${expectedStatus}"`,
         }
       )
-      .toBe(true);
+      .toBe(expectedStatus);
   }
 
-  async favourite(
-    project: { id?: number },
-    opts?: { timeoutMs?: number; intervalMs?: number }
-  ): Promise<void> {
-    if (!project.id)
-      throw new Error("favourite(project): project.id is required");
-    await this.favouriteProject(project.id, opts);
-  }
-
-  static async createForUid(opts: {
-    uid: string;
-    authApi: AuthApiLike;
-    baseURL?: string;
-    headers?: Record<string, string>;
-  }): Promise<{ api: ProjectsApi; dispose: () => Promise<void> }> {
-    const baseURL = opts.baseURL ?? DEFAULT_API_BASE;
-    const idToken = await opts.authApi.idTokenForUid(opts.uid);
-    const ctx = await pwRequest.newContext({
-      baseURL,
-      extraHTTPHeaders: {
-        Authorization: `Bearer ${idToken}`,
-        "Content-Type": "application/json",
-        ...(opts.headers || {}),
-      },
+  /** Publish by ID and return the published record */
+  async publishProject(
+    projectId: number,
+    extraHeaders?: Record<string, string>,
+    opts: { waitForStatus?: string } = {}
+  ): Promise<ProjectRecord> {
+    const url = `${API_PREFIX}/projects/${projectId}/publish`;
+    const res = await this.request.post(url, {
+      headers: { "Content-Type": "application/json", ...(extraHeaders || {}) },
     });
 
-    const disposer = async () => {
-      await ctx.dispose();
-      __openContexts.delete(disposer);
-    };
-    __openContexts.add(disposer);
+    const raw = await res.text();
+    expect(
+      res.ok(),
+      `Publish failed — status=${res.status()} body=${raw.slice(0, 500)}`
+    ).toBeTruthy();
 
-    return { api: new ProjectsApi(ctx), dispose: disposer };
-  }
-
-  static async createForNewOwner(opts: {
-    usersApi: UsersApiLike;
-    authApi: AuthApiLike;
-    page?: Page;
-    loginInBrowser?: boolean;
-    redirect?: string;
-    owner?: User;
-    baseURL?: string;
-    headers?: Record<string, string>;
-  }): Promise<{
-    api: ProjectsApi;
-    uid: string;
-    owner: User;
-    dispose: () => Promise<void>;
-  }> {
-    const {
-      usersApi,
-      authApi,
-      page,
-      loginInBrowser = false,
-      redirect = "/projects",
-      owner = User.aUser()
-        .withEmail(`e2e+${Date.now()}@example.com`)
-        .withPostcode("E4")
-        .withPassword("Passw0rd1"),
-      baseURL = DEFAULT_API_BASE,
-      headers = {},
-    } = opts;
-
-    const { uid } = await usersApi.createUser(owner);
-    if (!uid) throw new Error("owner uid missing");
-
-    if (loginInBrowser) {
-      if (!page) throw new Error("page is required when loginInBrowser=true");
-      const customToken = await authApi.customToken(uid);
-      await page.goto(
-        `/__test__/login-with-token?token=${encodeURIComponent(
-          customToken
-        )}&redirect=${encodeURIComponent(redirect)}`
+    let body: { project?: ProjectRecord } | undefined;
+    try {
+      body = raw ? (JSON.parse(raw) as { project?: ProjectRecord }) : undefined;
+    } catch {
+      expect(false, `Non-JSON response from ${url}: ${raw.slice(0, 500)}`).toBe(
+        true
       );
-      await page.waitForLoadState("networkidle");
     }
 
-    const idToken = await authApi.idTokenForUid(uid);
-    const ctx = await pwRequest.newContext({
-      baseURL,
-      extraHTTPHeaders: {
-        Authorization: `Bearer ${idToken}`,
-        "Content-Type": "application/json",
-        ...headers,
-      },
+    expect(
+      body?.project,
+      `Publish response missing 'project' — body=${raw.slice(0, 500)}`
+    ).toBeTruthy();
+
+    if (opts.waitForStatus) {
+      await this.waitForProjectStatus(projectId, opts.waitForStatus);
+    }
+
+    return body!.project!;
+  }
+
+  /** Publish and hydrate a Project model instance */
+  async publish(
+    project: Project,
+    extraHeaders?: Record<string, string>,
+    opts: { waitForStatus?: string } = { waitForStatus: "live" }
+  ): Promise<void> {
+    if (!project.id) {
+      throw new Error("publish(project): project.id is required");
+    }
+    const rec = await this.publishProject(project.id, extraHeaders, opts);
+    this.hydrate(project, rec);
+  }
+  /** Close a project by ID; returns the updated record. */
+  async closeProject(
+    projectId: number,
+    opts: CloseProjectOptions,
+    extraHeaders?: Record<string, string>
+  ): Promise<ProjectRecord> {
+    const url = `${API_PREFIX}/projects/${projectId}/close`;
+
+    const payload = {
+      didGoAhead: !!opts.didGoAhead,
+      ...(opts.reasons ? { reasons: opts.reasons } : {}),
+      ...(opts.otherReason ? { otherReason: opts.otherReason } : {}),
+      ...(Number.isFinite(opts.selectedRecommendationId)
+        ? { selectedRecommendationId: Number(opts.selectedRecommendationId) }
+        : {}),
+      ...(typeof opts.winnerFromCommunity !== "undefined"
+        ? { winnerFromCommunity: opts.winnerFromCommunity as any }
+        : {}),
+      ...(typeof opts.wouldUseAgain !== "undefined"
+        ? { wouldUseAgain: opts.wouldUseAgain as any }
+        : {}),
+    };
+
+    const res = await this.request.post(url, {
+      data: payload,
+      headers: { "Content-Type": "application/json", ...(extraHeaders || {}) },
     });
 
-    const disposer = async () => {
-      await ctx.dispose();
-      __openContexts.delete(disposer);
-    };
-    __openContexts.add(disposer);
+    const raw = await res.text();
+    expect(
+      res.ok(),
+      `Close failed — status=${res.status()} body=${raw.slice(0, 500)}`
+    ).toBeTruthy();
 
-    return {
-      api: new ProjectsApi(ctx),
-      uid,
-      owner,
-      dispose: disposer,
-    };
+    let body: { ok?: boolean; project?: ProjectRecord } | undefined;
+    try {
+      body = raw ? (JSON.parse(raw) as any) : undefined;
+    } catch {
+      expect(false, `Non-JSON response from ${url}: ${raw.slice(0, 500)}`).toBe(
+        true
+      );
+    }
+
+    expect(body?.ok, `Close response missing { ok:true } — body=${raw}`).toBe(
+      true
+    );
+    expect(
+      body?.project,
+      `Close response missing 'project' — body=${raw}`
+    ).toBeTruthy();
+
+    if (opts.waitForStatus) {
+      await this.waitForProjectStatus(projectId, opts.waitForStatus);
+    }
+
+    return body!.project!;
+  }
+
+  /** Close and hydrate a Project model instance. */
+  async close(
+    project: Project,
+    opts: CloseProjectOptions,
+    extraHeaders?: Record<string, string>
+  ): Promise<void> {
+    if (!project.id) throw new Error("close(project): project.id is required");
+    const rec = await this.closeProject(project.id, opts, extraHeaders);
+    this.hydrate(project, rec);
+  }
+
+  /**
+   * Attach closure photos. If `photos` is empty/omitted, this no-ops successfully.
+   * Returns `{ ok: boolean, count: number }`.
+   */
+
+  /** Upload one or more closure photos (loops: one file per request). */
+  async closeProjectPhotos(
+    projectId: number,
+    photos?: ClosePhotosInput
+  ): Promise<{ ok: boolean; count: number }> {
+    const url = `${API_PREFIX}/projects/${projectId}/close/photos`;
+
+    // No files? server treats non-multipart as a no-op
+    if (!photos || photos.length === 0) {
+      const res = await this.request.post(url);
+      expect(res.ok(), `Close photos failed: ${await res.text()}`).toBeTruthy();
+      return (await res.json()) as { ok: boolean; count: number };
+    }
+
+    let total = 0;
+    for (const f of photos) {
+      const res = await this.request.post(url, {
+        multipart: {
+          photos: {
+            name: f.name,
+            mimeType: f.mimeType,
+            buffer: f.buffer,
+          },
+        },
+      });
+      expect(res.ok(), `Close photos failed: ${await res.text()}`).toBeTruthy();
+      const json = (await res.json()) as { ok: boolean; count: number };
+      total += json.count ?? 0;
+    }
+
+    return { ok: true, count: total };
   }
 }
+
+export default ProjectsApi;
