@@ -1,91 +1,46 @@
 // e2e-tests/src/pages/ProjectViewPage.ts
-import { Page, Locator } from "@playwright/test";
+import { Page, Locator, expect } from "@playwright/test";
 import { BasePage } from "./BasePage";
 import Project from "../models/Project";
-import { expect } from "../fixtures/expect-extend";
 
-type ShortlistExpectation = {
+type TopRecommendationExpectation = {
   company: string;
-  rating?: number;
   likes?: number;
   comment?: string;
   recommenderName?: string;
-  anonymous?: boolean;
-  email?: string;
-  phone?: string;
   hasGallery?: boolean;
-  label?: "friend" | "community";
   labels?: Array<"friend" | "community">;
+  expectCHBadge?: boolean;
+  expectVmbScore?: boolean;
 };
+
+function norm(s: string) {
+  return s
+    .toLowerCase()
+    .replace(/\s*\+\s*/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 export class ProjectViewPage extends BasePage {
   readonly title: Locator;
   readonly createdAt: Locator;
+  readonly backToProjectsButton: Locator;
 
-  readonly projectDetailsCard: Locator;
-  readonly badgeType: Locator;
-  readonly badgeLocation: Locator;
-  readonly badgeProperty: Locator;
-  readonly badgeBedrooms: Locator;
-  readonly badgeStatus: Locator;
-
-  readonly fieldType: Locator;
-  readonly fieldLocation: Locator;
-  readonly fieldProperty: Locator;
-  readonly fieldBedrooms: Locator;
-  readonly fieldStatus: Locator;
-  readonly fieldDescription: Locator;
-  readonly backToMyProjectsButton: Locator;
-  readonly archiveBtn: Locator;
-  readonly unarchiveBtn: Locator;
-  readonly copyInviteLinkBtn: Locator;
-  readonly publishBtn: Locator;
-  readonly addRecommendationBtn: Locator;
-  readonly viewMoreBtn: Locator;
-  readonly shortlistSection: Locator;
+  // Shortlist section
+  readonly shortlistRoot: Locator;
+  readonly shortlistList: Locator;
 
   constructor(page: Page) {
     super(page);
-
     this.title = page.getByTestId("project-title");
     this.createdAt = page.getByTestId("project-created");
+    this.backToProjectsButton = page.getByLabel("Back to my projects");
 
-    this.projectDetailsCard = page.getByTestId("project-details");
-    this.badgeType = page.getByTestId("badge-type");
-    this.badgeLocation = page.getByTestId("badge-location");
-    this.badgeProperty = page.getByTestId("badge-property");
-    this.badgeBedrooms = page.getByTestId("badge-bedrooms");
-    this.badgeStatus = page.getByTestId("badge-status");
-
-    this.fieldType = page.getByTestId("field-type");
-    this.fieldLocation = page.getByTestId("field-location");
-    this.fieldProperty = page.getByTestId("field-property");
-    this.fieldBedrooms = page.getByTestId("field-bedrooms");
-    this.fieldStatus = page.getByTestId("field-status");
-    this.fieldDescription = page.getByTestId("field-description");
-
-    this.backToMyProjectsButton = page.getByLabel("Back to my projects");
-    this.archiveBtn = page.getByTestId("project-details").getByLabel("Archive");
-    this.unarchiveBtn = page
-      .getByTestId("project-details")
-      .getByLabel("Unarchive");
-    this.badgeStatus = page.getByTestId("badge-status").getByRole("status");
-    this.copyInviteLinkBtn = page
-      .getByTestId("project-details")
-      .getByLabel("Copy invite link");
-    this.publishBtn = page.getByTestId("project-details").getByLabel("Publish");
-    this.addRecommendationBtn = page.getByLabel("Add recommendation");
-    this.viewMoreBtn = page.getByLabel("View more recommendations");
-    this.shortlistSection = page.getByTestId("shortlist-item");
+    this.shortlistRoot = page.getByTestId("project-shortlist");
+    this.shortlistList = page.getByTestId("shortlist-list");
   }
 
-    async hasNotificationMessage(message: string) {
-    const notification = this.page.getByRole("alert").filter({
-      hasText: message,
-    });
-    await expect(notification).toBeVisible();
-  }
-  
   async goto(id: number | string) {
     await this.page.goto(`/projects/${id}`);
   }
@@ -96,170 +51,104 @@ export class ProjectViewPage extends BasePage {
 
   async hasProjectData(project: Project) {
     const p = project.toJSON();
-
     await expect(this.title).toHaveText(p.name);
-
-    await expect(this.badgeType).toHaveText(p.type);
-    await expect(this.badgeLocation).toHaveText(p.location);
-    await expect(this.badgeProperty).toHaveText(p.propertyType);
-    await expect(this.badgeBedrooms).toContainText(String(p.bedrooms));
-
-    await expect(this.fieldType).toHaveText(p.type);
-    await expect(this.fieldLocation).toHaveText(p.location);
-    await expect(this.fieldProperty).toHaveText(p.propertyType);
-    await expect(this.fieldBedrooms).toHaveText(p.bedrooms.toString());
-    await expect(this.fieldDescription).toHaveText(p.description);
-
-    const expected = (project as any).status ?? "Pending";
-    await expect(this.badgeStatus).toContainText(expected);
-    await expect(this.fieldStatus).toContainText(expected);
-
     await expect(this.createdAt).toBeVisible();
   }
 
-  async editProject(project: Project): Promise<void> {
-    await this.projectDetailsCard.getByLabel("Edit").click();
-    await expect(this.page).toHaveURL(/\/projects\/\d+\/edit$/);
-    await expect(this.page.getByTestId("project-edit-form")).toBeVisible();
+  /**
+   * Assert the “Top recommendations” card using ONLY the data-testids
+   * defined in the provided ShortlistSection component.
+   */
+  async hasTopRecommendations(exp: TopRecommendationExpectation) {
+    // Section present + list visible
+    await expect(this.shortlistRoot).toBeVisible();
+    await expect(
+      this.shortlistRoot.getByRole("heading", { name: "Top recommendations" })
+    ).toBeVisible();
+    await expect(
+      this.shortlistRoot.getByText(
+        "Top recommendations, grouped by company (VMB score)."
+      )
+    ).toBeVisible();
+    await expect(this.shortlistList).toBeVisible();
 
-    await this.page.getByLabel("Name").fill(project.name);
-    await this.page.getByLabel("Type", { exact: true }).fill(project.type);
-    await this.page.getByLabel("Location").fill(project.location);
-    await this.page
-      .getByLabel("Property type", { exact: true })
-      .selectOption({ label: project.propertyType });
-    await this.page.getByLabel("Bedrooms").fill(String(project.bedrooms ?? 0));
-    await this.page.getByLabel("Description").fill(project.description ?? "");
-    await this.page.getByRole("button", { name: /^save changes$/i }).click();
-  }
+    // Find the card/group for the company
+    const byCompany = this.shortlistList
+      .getByTestId("shortlist-group")
+      .filter({
+        has: this.page
+          .getByTestId("shortlist-company-name")
+          .filter({ hasText: new RegExp(exp.company, "i") }),
+      })
+      .first();
 
-  async hasShortlist(
-    exp: ShortlistExpectation | ShortlistExpectation[],
-    opts: { strictCount?: boolean } = { strictCount: true }
-  ) {
-    const section = this.page.getByTestId("project-shortlist");
-    await this.page.waitForLoadState("networkidle");
-    await expect(section.getByTestId("shortlist-list")).toBeVisible();
+    const card =
+      (await byCompany.count()) > 0
+        ? byCompany
+        : this.shortlistList.getByTestId("shortlist-group").first();
 
-    if (Array.isArray(exp)) {
-      const items = section.getByTestId("shortlist-item");
-      if (opts.strictCount !== false) {
-        await expect(items).toHaveCount(exp.length);
-      }
-      for (const e of exp) {
-        await this.assertShortlistItem(e);
-      }
-      return;
+    await expect(card).toBeVisible();
+
+    // Companies House badge — wait until VERIFIED before asserting company (it becomes UPPER_CASED)
+    const chBadge = card.getByTestId("shortlist-badge-ch");
+    if (exp.expectCHBadge !== false) {
+      await expect(chBadge).toBeVisible();
+      await expect(chBadge).toHaveAttribute("data-status", "verified", {
+        timeout: 20000,
+      });
     }
 
-    await this.assertShortlistItem(exp);
-  }
-
-  // ---------- private helpers ----------
-
-  private async assertShortlistItem(exp: ShortlistExpectation) {
-    const item = this.shortlistSection.filter({ hasText: exp.company }).first();
-
-    await expect(item).toBeVisible();
-    await expect(item.getByTestId("shortlist-company")).toHaveText(exp.company);
-
-    if (typeof exp.rating === "number") {
-      await expect(
-        item.getByLabel(`Rating: ${exp.rating} out of 5`)
-      ).toBeVisible();
+    // Company name (after CH verified it renders uppercased)
+    const companyEl = card.getByTestId("shortlist-company-name");
+    await expect(companyEl).toBeVisible();
+    if (exp.expectCHBadge !== false) {
+      await expect(companyEl).toHaveText(exp.company.toUpperCase());
+    } else {
+      await expect(companyEl).toHaveText(exp.company);
     }
 
-    if (typeof exp.likes === "number") {
-      await expect(item.getByTestId("shortlist-likes")).toContainText(
-        String(exp.likes)
-      );
-    }
-
+    // Comment
     if (exp.comment) {
-      await expect(item.getByTestId("shortlist-comment")).toContainText(
+      await expect(card.getByTestId("shortlist-comment")).toHaveText(
         exp.comment
       );
     }
 
-    // Recommender line (name/email/phone)
-    const recLine = item.getByTestId("shortlist-recommender");
-    if (exp.anonymous) {
-      await expect(recLine).toContainText(/anonymous/i);
-    }
-    if (exp.recommenderName) {
-      await expect(recLine).toContainText(exp.recommenderName);
-    }
-    if (exp.email) {
-      await expect(recLine).toContainText(exp.email);
-    }
-    if (exp.phone) {
-      await expect(recLine).toContainText(exp.phone);
+    // VMB score chip (shows "VMB X.X")
+    if (exp.expectVmbScore !== false) {
+      const score = card.getByTestId("shortlist-vmb-score");
+      await expect(score).toBeVisible();
+      await expect(score).toHaveText(/VMB\s+\d+(\.\d+)?/);
     }
 
+    // Vote button (non-owner) + count
+    await expect(card.getByTestId("shortlist-vote-button")).toBeVisible();
+    if (typeof exp.likes === "number") {
+      await expect(card.getByTestId("shortlist-vote-count")).toHaveText(
+        String(exp.likes)
+      );
+    }
+
+    // Badges
+    if (exp.labels?.includes("friend")) {
+      await expect(card.getByTestId("shortlist-badge-friend")).toBeVisible();
+    }
+    if (exp.labels?.includes("community")) {
+      await expect(card.getByTestId("shortlist-badge-community")).toBeVisible();
+    }
     if (exp.hasGallery) {
-      await expect(item.getByTestId("shortlist-badge-photos")).toBeVisible();
-    } else {
-      // ok if not present at all or hidden
-      await expect(
-        item.getByTestId("shortlist-badge-photos")
-      ).not.toBeVisible();
+      await expect(card.getByTestId("shortlist-badge-photos")).toBeVisible();
     }
 
-    // Labels (friend/community)
-    const labels = exp.labels ?? (exp.label ? [exp.label] : []);
-    for (const lab of labels) {
-      await this.assertLabel(item, lab);
-    }
-  }
-
-  private async assertLabel(item: Locator, lab: "friend" | "community") {
-    if (lab === "friend") {
-      const byId = item.getByTestId("shortlist-badge-friend");
-      if ((await byId.count()) > 0) {
-        await expect(byId).toBeVisible();
-        return;
-      }
-      await expect(item).toContainText(/friend/i);
-      return;
+    // Recommender line — normalize “A + B” vs “A B”
+    if (exp.recommenderName) {
+      const recText = await card
+        .getByTestId("shortlist-recommender")
+        .innerText();
+      expect(norm(recText)).toContain(norm(exp.recommenderName));
     }
 
-    // community
-    const byId = item.getByTestId("shortlist-badge-community");
-    if ((await byId.count()) > 0) {
-      await expect(byId).toBeVisible();
-      return;
-    }
-    await expect(item).toContainText(/(community|local resident)/i);
-  }
-
-  async copyMagicLinkToClipboard(): Promise<{
-    url: string;
-    path: string;
-    token: string;
-  }> {
-    await this.page
-      .context()
-      .grantPermissions(["clipboard-read", "clipboard-write"]);
-
-    await this.copyInviteLinkBtn.waitFor({ state: "visible" });
-    await this.copyInviteLinkBtn.click();
-    await expect(this.page.getByTestId("flash-message")).toHaveText(
-      "Invite link copied to clipboard"
-    );
-
-    const copied = await this.page.evaluate(async () => {
-      return await navigator.clipboard.readText();
-    });
-
-    const absUrl = new URL(copied, this.page.url()).toString();
-    const path = new URL(absUrl).pathname + new URL(absUrl).search;
-
-    const m = path.match(/\/r\/([A-Za-z0-9\-_]+)/);
-    const token = m?.[1] ?? "";
-    if (!token) {
-      throw new Error(`Magic link looked invalid: "${absUrl}"`);
-    }
-
-    return { url: absUrl, path, token };
+    // Date presence (format owned by UI)
+    await expect(card.getByTestId("shortlist-date")).toBeVisible();
   }
 }

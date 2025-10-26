@@ -14,7 +14,7 @@ export class ProjectsPage extends BasePage {
   readonly tabMyProjects: Locator;
   readonly tabArchived: Locator;
   readonly tabFavourites: Locator;
-  readonly tabCommunityProjects: Locator;
+  readonly tabMyCompletedProjects: Locator;
   readonly tabCompletedCommunityProjects: Locator;
   readonly tabMyRecommendations: Locator;
   readonly createNewProjectBtn: Locator;
@@ -28,6 +28,7 @@ export class ProjectsPage extends BasePage {
 
   // table / grid
   readonly table: Locator;
+  readonly completedTable: Locator;
   readonly emptyState: Locator;
   readonly prevBtn: Locator;
   readonly nextBtn: Locator;
@@ -47,7 +48,7 @@ export class ProjectsPage extends BasePage {
     this.tabMyRecommendations = page.getByTestId("tab-my-recommendations");
     this.tabArchived = page.getByTestId("tab-archived");
     this.tabFavourites = page.getByTestId("tab-favourites");
-    this.tabCommunityProjects = page.getByTestId("tab-community-projects");
+    this.tabMyCompletedProjects = page.getByTestId("tab-my-completed-projects");
     this.tabCompletedCommunityProjects = page.getByTestId(
       "tab-completed-community-projects"
     );
@@ -62,6 +63,7 @@ export class ProjectsPage extends BasePage {
 
     // table area
     this.table = page.getByTestId("projects-table");
+    this.completedTable = page.getByTestId("projects-table-completed");
     this.emptyState = page.getByTestId("projects-empty");
     this.prevBtn = page.getByTestId("pager-prev");
     this.nextBtn = page.getByTestId("pager-next");
@@ -156,6 +158,40 @@ export class ProjectsPage extends BasePage {
     });
 
     await expect(this.table).toHaveTableData([hdrs, ...rows]);
+  }
+
+  async hasCompletedProjects(
+    projects: Array<{
+      type: string;
+      location: string;
+      tradesman: string;
+      hasGallery?: boolean;
+      dateClosedText?: string;
+    }>,
+    headers?: string[]
+  ): Promise<void> {
+    const defaultHeaders = [
+      "Type",
+      "Location",
+      "Date Closed",
+      "Tradesman",
+      "Gallery",
+    ];
+    const hdrs = headers?.length ? headers : defaultHeaders;
+
+    const rows = projects.map((p) => {
+      return [
+        p.type,
+        p.location,
+        p.dateClosedText ?? expect.any(String),
+        expect.stringContaining(p.tradesman),
+        p.hasGallery
+          ? expect.stringMatching(/view gallery/i)
+          : expect.any(String),
+      ];
+    });
+
+    await expect(this.completedTable).toHaveTableData([hdrs, ...rows]);
   }
 
   TableRow(name: string): Locator {

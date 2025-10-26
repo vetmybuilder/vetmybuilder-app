@@ -50,20 +50,26 @@ test.describe("Recommendation", () => {
     });
 
     const rec = Recommendation.aRecommendation()
+      .withRecommenderName(`${firstName} ${lastName}`)
       .withTradesman("Pro Builders Ltd")
       .withComment("Clean, on time, and on budget.")
-      .withRating(5)
       .withPictures([
         mkPic("after.jpg", "image/jpeg"),
         mkPic("invoice.png", "image/png"),
         mkPic("kitchen.webp", "image/webp"),
       ]);
     await recApi.create(project.id!, rec.toInput());
+    await projectsPage.tabMyRecommendations.click();
+    await projectsPage.viewProject(project.name);
 
-    // (Optional) quick UI smoke
-    // await projectsPage.filterByName(project.name);
-    // await projectsPage.viewProject(project.name);
-    // await expect(page.getByText("Pro Builders Ltd")).toBeVisible();
-    // await expect(page.getByText("Clean, on time, and on budget.")).toBeVisible();
+    // 4) Verify recommendation is visible in UI
+    await projectViewPage.hasTopRecommendations({
+      company: "Pro Builders Ltd",
+      likes: 1,
+      comment: "Clean, on time, and on budget.",
+      recommenderName: `Recommended by ${firstName} + ${lastName}`,
+      hasGallery: true,
+      labels: ["community"],
+    });
   });
 });

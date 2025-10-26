@@ -129,6 +129,12 @@ export default class Recommendation implements RecommendationInput {
     this.company = companyName;
     return this;
   }
+
+  withRecommenderName(name: string) {
+    this.name = name;
+    return this;
+  }
+
   withCompany(v: string) {
     this.company = v;
     return this;

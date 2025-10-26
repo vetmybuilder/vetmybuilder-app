@@ -16,6 +16,8 @@ type ProjectRecord = {
   status: string;
   createdAt: string;
   ownerUserId: string;
+  archivedAt?: string | null;
+  completedAt?: string | null;
 };
 
 type CreateProjectResponseBody = { project: ProjectRecord };
@@ -31,18 +33,35 @@ type RequestLike = {
   delete: (url: string, opts?: Record<string, any>) => Promise<APIResponse>;
 };
 
-// --- add near the other top-level types ---
 export type CloseProjectOptions = {
+  /** true if the work went ahead */
   didGoAhead: boolean;
+
+  /** optional reasons array when work did NOT go ahead */
   reasons?: Array<
     "budget" | "no_show" | "quote_too_high" | "other" | "tradesman_unavailable"
   >;
+
   otherReason?: string;
+
+  /** winner recommendation id (the tradesman who did the work) */
   selectedRecommendationId?: number;
+
+  /**
+   * IMPORTANT: on your server, completed status is only set when
+   * didGoAhead === true AND winnerFromCommunity is truthy.
+   * Otherwise status becomes 'archived'.
+   */
   winnerFromCommunity?: boolean | 0 | 1 | "0" | "1" | "true" | "false";
+
+  /** legacy “would use again” on closure */
   wouldUseAgain?: boolean | 0 | 1 | "0" | "1" | "true" | "false" | null;
-  /** When provided, waits until project reaches this status after close (e.g. "archived" | "completed") */
+
+  /** When provided, waits until project reaches this status (e.g. "completed" | "archived") */
   waitForStatus?: string;
+
+  /** Optional extra headers */
+  extraHeaders?: Record<string, string>;
 };
 
 export type ClosePhotosInput = Array<{
@@ -71,6 +90,8 @@ export class ProjectsApi {
     (target as any).status = src.status;
     (target as any).createdAt = src.createdAt;
     (target as any).ownerUserId = src.ownerUserId;
+    (target as any).archivedAt = src.archivedAt ?? null;
+    (target as any).completedAt = src.completedAt ?? null;
   }
 
   private async waitForProjectPersisted(
@@ -99,6 +120,38 @@ export class ProjectsApi {
         }
       )
       .toBe(id);
+  }
+
+  /** Poll until a project reaches a specific status */
+  private async waitForProjectStatus(
+    id: number,
+    expectedStatus: string,
+    opts: { timeoutMs?: number; intervalMs?: number } = {}
+  ): Promise<void> {
+    const timeout = opts.timeoutMs ?? 5000;
+    const interval = opts.intervalMs ?? 200;
+    const want = String(expectedStatus || "").toLowerCase();
+
+    await expect
+      .poll(
+        async () => {
+          const res = await this.request.get(`${API_PREFIX}/projects/${id}`);
+          if (!res.ok()) return null;
+          try {
+            const json: any = await res.json();
+            const p = json?.project ?? json;
+            return p?.status ? String(p.status).toLowerCase() : null;
+          } catch {
+            return null;
+          }
+        },
+        {
+          timeout,
+          intervals: [interval],
+          message: `Project ${id} did not reach status "${expectedStatus}"`,
+        }
+      )
+      .toBe(want);
   }
 
   /**
@@ -190,37 +243,6 @@ export class ProjectsApi {
     return out;
   }
 
-  /** Poll until a project reaches a specific status */
-  private async waitForProjectStatus(
-    id: number,
-    expectedStatus: string,
-    opts: { timeoutMs?: number; intervalMs?: number } = {}
-  ): Promise<void> {
-    const timeout = opts.timeoutMs ?? 5000;
-    const interval = opts.intervalMs ?? 200;
-
-    await expect
-      .poll(
-        async () => {
-          const res = await this.request.get(`${API_PREFIX}/projects/${id}`);
-          if (!res.ok()) return null;
-          try {
-            const json: any = await res.json();
-            const p = json?.project ?? json;
-            return p?.status ?? null;
-          } catch {
-            return null;
-          }
-        },
-        {
-          timeout,
-          intervals: [interval],
-          message: `Project ${id} did not reach status "${expectedStatus}"`,
-        }
-      )
-      .toBe(expectedStatus);
-  }
-
   /** Publish by ID and return the published record */
   async publishProject(
     projectId: number,
@@ -271,11 +293,11 @@ export class ProjectsApi {
     const rec = await this.publishProject(project.id, extraHeaders, opts);
     this.hydrate(project, rec);
   }
+
   /** Close a project by ID; returns the updated record. */
   async closeProject(
     projectId: number,
-    opts: CloseProjectOptions,
-    extraHeaders?: Record<string, string>
+    opts: CloseProjectOptions
   ): Promise<ProjectRecord> {
     const url = `${API_PREFIX}/projects/${projectId}/close`;
 
@@ -296,7 +318,10 @@ export class ProjectsApi {
 
     const res = await this.request.post(url, {
       data: payload,
-      headers: { "Content-Type": "application/json", ...(extraHeaders || {}) },
+      headers: {
+        "Content-Type": "application/json",
+        ...(opts.extraHeaders || {}),
+      },
     });
 
     const raw = await res.text();
@@ -322,6 +347,9 @@ export class ProjectsApi {
       `Close response missing 'project' — body=${raw}`
     ).toBeTruthy();
 
+    // IMPORTANT:
+    // - didGoAhead === true AND winnerFromCommunity truthy -> status 'completed'
+    // - otherwise -> 'archived'
     if (opts.waitForStatus) {
       await this.waitForProjectStatus(projectId, opts.waitForStatus);
     }
@@ -330,22 +358,17 @@ export class ProjectsApi {
   }
 
   /** Close and hydrate a Project model instance. */
-  async close(
-    project: Project,
-    opts: CloseProjectOptions,
-    extraHeaders?: Record<string, string>
-  ): Promise<void> {
+  async close(project: Project, opts: CloseProjectOptions): Promise<void> {
     if (!project.id) throw new Error("close(project): project.id is required");
-    const rec = await this.closeProject(project.id, opts, extraHeaders);
+    const rec = await this.closeProject(project.id, opts);
     this.hydrate(project, rec);
   }
 
   /**
-   * Attach closure photos. If `photos` is empty/omitted, this no-ops successfully.
+   * Attach closure photos (route: /projects/:id/close/photos).
+   * If `photos` is empty/omitted, this no-ops successfully.
    * Returns `{ ok: boolean, count: number }`.
    */
-
-  /** Upload one or more closure photos (loops: one file per request). */
   async closeProjectPhotos(
     projectId: number,
     photos?: ClosePhotosInput
@@ -376,6 +399,44 @@ export class ProjectsApi {
     }
 
     return { ok: true, count: total };
+  }
+
+  /**
+   * One-shot helper:
+   * - POST /projects/:id/close (select winner + flags)
+   * - POST /projects/:id/close/photos (optional)
+   * - optionally wait for final status (e.g. "completed")
+   *
+   * To end up as COMPLETED per your server rules, call with:
+   *   didGoAhead: true AND winnerFromCommunity: true
+   */
+  async closeWithPhotosById(
+    projectId: number,
+    args: CloseProjectOptions & { photos?: ClosePhotosInput }
+  ): Promise<ProjectRecord> {
+    const { photos, waitForStatus, ...rest } = args;
+
+    // Close first (don’t wait yet)
+    const rec = await this.closeProject(projectId, {
+      ...rest,
+      waitForStatus: undefined,
+    });
+
+    // Then attach photos (optional)
+    if (photos && photos.length > 0) {
+      await this.closeProjectPhotos(projectId, photos);
+    }
+
+    // Finally, wait for the target status if requested
+    if (waitForStatus) {
+      await this.waitForProjectStatus(projectId, waitForStatus);
+      // Return the freshest record
+      const res = await this.request.get(`${API_PREFIX}/projects/${projectId}`);
+      const json = (await res.json()) as any;
+      return (json?.project ?? json) as ProjectRecord;
+    }
+
+    return rec;
   }
 }
 
