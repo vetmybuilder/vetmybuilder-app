@@ -915,14 +915,26 @@ export default function BuilderProfile() {
                 <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                   {/* Recommenders (names only, aggregated) */}
                   <div className="space-y-1">
-                    <div className="text-slate-500">Recommender</div>
+                    <div className="text-slate-500">
+                      {aggNames.length > 1 ? "Recommenders" : "Recommender"}
+                    </div>
                     <div data-testid="builder-recommender">
                       {aggNames.length === 0 ? (
                         "—"
                       ) : (
-                        <ul className="list-disc list-inside">
+                        <ul className="space-y-1">
                           {aggNames.map((n, i) => (
-                            <li key={`${n}-${i}`}>Recommended by {n}</li>
+                            <li
+                              key={`${n}-${i}`}
+                              className="flex items-start gap-2"
+                            >
+                              {/* branded bullet */}
+                              <span
+                                aria-hidden
+                                className="mt-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500"
+                              />
+                              <span className="text-slate-700">{n}</span>
+                            </li>
                           ))}
                         </ul>
                       )}

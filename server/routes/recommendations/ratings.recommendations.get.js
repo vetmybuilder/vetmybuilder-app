@@ -345,7 +345,38 @@ module.exports = (router, ctx) => {
       !!viewerUid && String(viewerUid) === String(row.recommenderUserId);
     const isLive = String(row.status || "").toLowerCase() === "live";
 
-    if (!isLive && !isOwner && !isRecommender) {
+    // --- NEW: local discovery allowance (CH-verified + same area as project) ---
+    let allowLocalDiscovery = false;
+    if (!isLive && !isOwner && !isRecommender && viewerUid) {
+      // 1) must be CH-verified
+      const ch = companyVerification(recId);
+      const isVerified = String(ch?.status || "").toLowerCase() === "verified";
+
+      if (isVerified && typeof extractLocationTokens === "function") {
+        // 2) viewer location intersects project location (outward/sector/full/city)
+        const pTok = extractLocationTokens(row.location || "");
+        const viewer = db
+          .prepare(
+            `SELECT postcode, postcodeSector, postcodeOutward, city
+               FROM users WHERE uid=?`
+          )
+          .get(viewerUid);
+
+        allowLocalDiscovery =
+          !!viewer &&
+          !!(
+            (pTok.full && viewer.postcode === pTok.full) ||
+            (pTok.sector && viewer.postcodeSector === pTok.sector) ||
+            (pTok.outward && viewer.postcodeOutward === pTok.outward) ||
+            (pTok.city &&
+              viewer.city &&
+              String(viewer.city).toLowerCase() ===
+                String(pTok.city || "").toLowerCase())
+          );
+      }
+    }
+
+    if (!isLive && !isOwner && !isRecommender && !allowLocalDiscovery) {
       return res.status(403).json({ error: "Forbidden" });
     }
 
@@ -358,6 +389,7 @@ module.exports = (router, ctx) => {
     const wouldAgainNew = completionWouldAgainCount(recId);
     const ch = companyVerification(recId);
 
+    // For the single item we still include fromCommunity based on recommender vs project locality (unchanged)
     let fromCommunity = 0;
     if (row.recommenderUserId && extractLocationTokens) {
       const pTok = extractLocationTokens(row.location || "");

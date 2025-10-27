@@ -5,22 +5,54 @@
  * Body:
  *   - JSON or multipart/form-data (field: photos[] up to 8)
  *   - { name?, email?, phone?, company, rating?, comment, hireAgain? }
+ *
  * Behavior:
+ *   - Resolves the company name BEFORE insert:
+ *       1) local DB exact (case-insensitive) match in recommendations
+ *       2) Companies House best match (when helpers available)
  *   - Anonymous name defaults to "Anonymous"
  *   - rating: prefers numeric; else maps hireAgain=no -> 1, default 5; clamped [1..5]
  *   - Stores photos under UPLOAD_DIR and records rows
  *   - Notifies project owner (if different from submitter)
  *   - Auto-like if hireAgain !== "no"
- * Response: 201 { ok: true, recommendationId }
+ * Response: 201 { ok: true, recommendationId, resolvedCompany, resolvedBy }
  */
 module.exports = (router, ctx) => {
   const { db, admin, notifyUsers } = ctx;
 
   // --- deps (with safe fallbacks if not provided on ctx) ---
   const z = require("zod");
-  const crypto = require("node:crypto"); // not directly used here, but fine to keep available
   const path = ctx.path || require("node:path");
-  const UPLOAD_DIR = ctx.UPLOAD_DIR || path.resolve(process.cwd(), "uploads"); // fallback to same default
+  const crypto = require("node:crypto");
+  const UPLOAD_DIR = ctx.UPLOAD_DIR || path.resolve(process.cwd(), "uploads");
+
+  const { _roughNameScore } = (() => {
+    try {
+      return require("../lib/companyVerifyHelpers");
+    } catch {
+      return { _roughNameScore: () => 0 };
+    }
+  })();
+
+  // Optional CH helpers (if available on ctx)
+  const matchByName = ctx.matchByName;
+  const searchCompanies = ctx.searchCompanies;
+  const getCompanyProfile = ctx.getCompanyProfile;
+
+  // queueCompanyVerification (no-op fallback if missing)
+  const queueCompanyVerification =
+    ctx.queueCompanyVerification || /* no-op */ (() => {});
+
+  // cleanPhone helper
+  const cleanPhone =
+    ctx.cleanPhone ||
+    function cleanPhone(input) {
+      if (!input) return null;
+      const s = String(input).trim();
+      if (!s) return null;
+      const compact = s.replace(/[^\d+]/g, "");
+      return compact || null;
+    };
 
   // RecSchema (reuse from ctx if provided; otherwise recreate)
   const RecSchema =
@@ -44,20 +76,9 @@ module.exports = (router, ctx) => {
         comment: z.string().min(10).max(2000),
       })
       .transform((v) => {
-        const r = typeof v.rating === "number" ? v.rating : undefined; // we'll finish mapping below
+        const r = typeof v.rating === "number" ? v.rating : undefined;
         return { ...v, rating: r };
       });
-
-  // cleanPhone helper
-  const cleanPhone =
-    ctx.cleanPhone ||
-    function cleanPhone(input) {
-      if (!input) return null;
-      const s = String(input).trim();
-      if (!s) return null;
-      const compact = s.replace(/[^\d+]/g, "");
-      return compact || null;
-    };
 
   // optionalAuth helper (same semantics as monolith)
   function optionalAuth(adminInstance) {
@@ -91,7 +112,7 @@ module.exports = (router, ctx) => {
           const base =
             Date.now().toString(36) +
             "-" +
-            require("node:crypto").randomBytes(6).toString("base64url");
+            crypto.randomBytes(6).toString("base64url");
           cb(null, `${base}${ext || ""}`);
         },
       });
@@ -104,9 +125,6 @@ module.exports = (router, ctx) => {
         },
       });
     })();
-
-  const queueCompanyVerification =
-    ctx.queueCompanyVerification || /* no-op fallback */ (() => {});
 
   // --- middleware to conditionally parse multipart like in monolith ---
   const multipartGate = (req, res, next) => {
@@ -129,180 +147,251 @@ module.exports = (router, ctx) => {
     "/recommendations/magic/:token",
     optionalAuth(admin),
     multipartGate,
-    (req, res) => {
-      const { token } = req.params;
-
-      const link = db
-        .prepare(`SELECT * FROM recommendation_links WHERE token = ?`)
-        .get(token);
-      if (!link) {
-        console.warn("[magic-post] token not found", { token });
-        return res
-          .status(404)
-          .json({ error: "Invalid or expired link token." });
-      }
-
-      const proj = db
-        .prepare(`SELECT status FROM projects WHERE id = ?`)
-        .get(link.projectId);
-      if (!proj || String(proj.status || "").toLowerCase() !== "live") {
-        console.warn("[magic-post] project not live", {
-          token,
-          pid: link.projectId,
-        });
-        return res.status(400).json({
-          error: "This project is not accepting recommendations yet.",
-        });
-      }
-
-      const asNumber = (v) =>
-        v === undefined || v === null || v === "" ? undefined : Number(v);
-
-      // Build payload (works for multipart & json)
-      const payload = {
-        name: String(req.body?.name ?? "").trim(),
-        email: String(req.body?.email ?? "").trim() || undefined,
-        phone: String(req.body?.phone ?? "").trim() || undefined,
-        company: String(req.body?.company ?? "").trim(),
-        rating: asNumber(req.body?.rating), // may be undefined; we map later
-        comment: String(req.body?.comment ?? "").trim(),
-      };
-
-      if (!payload.name) payload.name = "Anonymous";
-
-      const parsed = RecSchema.safeParse(payload);
-      if (!parsed.success) {
-        console.warn("[magic-post] bad payload", parsed.error.flatten());
-        return res
-          .status(400)
-          .json({ error: "Invalid payload", issues: parsed.error.issues });
-      }
-
-      const { name, email, phone, company, comment } = parsed.data;
-
-      // rating mapping
-      const rawParsedRating = parsed.data.rating;
-      const hireAgainRaw =
-        typeof req.body?.hireAgain === "string"
-          ? req.body.hireAgain.toLowerCase()
-          : undefined;
-
-      let ratingNum = Number.isFinite(rawParsedRating)
-        ? Number(rawParsedRating)
-        : hireAgainRaw === "no"
-        ? 1
-        : 5;
-      ratingNum = Math.max(1, Math.min(5, ratingNum));
-
-      const now = new Date().toISOString();
-      const uid = req.user?.uid ?? null;
-      const isAnonymous = uid ? 0 : 1;
-
-      const info = db
-        .prepare(
-          `INSERT INTO recommendations
-           (projectId, recommenderUserId, createdAt, name, email, phone, company, rating, comment, isAnonymous, source)
-           VALUES
-           (@projectId, @uid, @createdAt, @name, @email, @phone, @company, @rating, @comment, @isAnonymous, 'magic')`
-        )
-        .run({
-          projectId: link.projectId,
-          uid,
-          createdAt: now,
-          name,
-          email: email ?? null,
-          phone: cleanPhone(phone),
-          company,
-          rating: ratingNum,
-          comment,
-          isAnonymous,
-        });
-
-      const recommendationId = info.lastInsertRowid;
-
-      // Companies House verification (fire-and-forget)
+    /** @type {import('express').RequestHandler} */
+    async (req, res) => {
       try {
-        const projectRow = db
-          .prepare(`SELECT location FROM projects WHERE id = ?`)
+        const { token } = req.params;
+
+        const link = db
+          .prepare(`SELECT * FROM recommendation_links WHERE token = ?`)
+          .get(token);
+        if (!link) {
+          return res
+            .status(404)
+            .json({ error: "Invalid or expired link token." });
+        }
+
+        const proj = db
+          .prepare(`SELECT status, location FROM projects WHERE id = ?`)
           .get(link.projectId);
+        if (!proj || String(proj.status || "").toLowerCase() !== "live") {
+          return res
+            .status(400)
+            .json({
+              error: "This project is not accepting recommendations yet.",
+            });
+        }
+
+        const asNumber = (v) =>
+          v === undefined || v === null || v === "" ? undefined : Number(v);
+
+        // Build payload (works for multipart & json)
+        const payload = {
+          name: String(req.body?.name ?? "").trim(),
+          email: String(req.body?.email ?? "").trim() || undefined,
+          phone: String(req.body?.phone ?? "").trim() || undefined,
+          company: String(req.body?.company ?? "").trim(),
+          rating: asNumber(req.body?.rating), // may be undefined; we map later
+          comment: String(req.body?.comment ?? "").trim(),
+        };
+
+        if (!payload.name) payload.name = "Anonymous";
+
+        const parsed = RecSchema.safeParse(payload);
+        if (!parsed.success) {
+          return res
+            .status(400)
+            .json({ error: "Invalid payload", issues: parsed.error.issues });
+        }
+
+        const { name, email, phone, company, comment } = parsed.data;
+
+        // rating mapping
+        const rawParsedRating = parsed.data.rating;
+        const hireAgainRaw =
+          typeof req.body?.hireAgain === "string"
+            ? req.body.hireAgain.toLowerCase()
+            : undefined;
+
+        let ratingNum = Number.isFinite(rawParsedRating)
+          ? Number(rawParsedRating)
+          : hireAgainRaw === "no"
+          ? 1
+          : 5;
+        ratingNum = Math.max(1, Math.min(5, ratingNum));
+
+        const now = new Date().toISOString();
+        const uid = req.user?.uid ?? null;
+        const isAnonymous = uid ? 0 : 1;
+
+        /* ---------- Resolve company name BEFORE insert ---------- */
+
+        // location hint: explicit (postcode/city) OR project location
         const locationHint =
           String(
-            req.body?.postcode || req.body?.city || projectRow?.location || ""
+            req.body?.postcode || req.body?.city || proj?.location || ""
           ).trim() || undefined;
 
-        queueCompanyVerification({
-          recId: recommendationId,
-          name: String(company),
-          locationHint,
-        });
-      } catch (e) {
-        console.warn("[magic-post] queueCompanyVerification failed", e);
-      }
-
-      // Persist photos if any (store relative path)
-      const files = Array.isArray(req.files) ? req.files : [];
-      if (files.length) {
-        const stmt = db.prepare(
-          `INSERT INTO recommendation_photos (recommendationId, filePath, mime, sizeBytes, createdAt)
-           VALUES (?, ?, ?, ?, ?)`
-        );
-        for (const f of files) {
-          const rel = path
-            .relative(UPLOAD_DIR, f.path)
-            .split(path.sep)
-            .join("/");
-          stmt.run(
-            recommendationId,
-            `/uploads/${rel}`,
-            f.mimetype,
-            f.size,
-            now
-          );
+        // 1) Try local DB exact match (case-insensitive)
+        let resolvedCompany = company;
+        let resolvedBy = "input"; // 'db' | 'ch' | 'input'
+        try {
+          const local = db
+            .prepare(
+              `SELECT company
+                 FROM recommendations
+                WHERE LOWER(company) = LOWER(?)
+                ORDER BY id DESC
+                LIMIT 1`
+            )
+            .get(company);
+          if (local?.company) {
+            resolvedCompany = String(local.company).trim();
+            resolvedBy = "db";
+          }
+        } catch {
+          // ignore local lookup errors
         }
-      }
 
-      // Notify owner
-      try {
-        const ownerRow = db
-          .prepare(`SELECT ownerUserId, name FROM projects WHERE id=?`)
-          .get(link.projectId);
-        if (ownerRow && ownerRow.ownerUserId) {
-          const submitter = uid || null;
-          if (ownerRow.ownerUserId !== submitter) {
-            notifyUsers?.(db, [ownerRow.ownerUserId], {
-              type: "recommendation_new",
-              message: `Someone has recommended a tradesperson to your project “${ownerRow.name}”`,
-              projectId: link.projectId,
-              linkPath: `/projects/${link.projectId}`,
-            });
+        // 2) If not found locally AND CH helpers exist, try Companies House
+        if (
+          resolvedBy === "input" &&
+          (typeof matchByName === "function" ||
+            (typeof searchCompanies === "function" &&
+              typeof getCompanyProfile === "function"))
+        ) {
+          try {
+            if (typeof matchByName === "function") {
+              const result = await matchByName({
+                name: company,
+                locationHint,
+              });
+              if (result && result.ok && result.company?.name) {
+                resolvedCompany = String(result.company.name).trim();
+                resolvedBy = "ch";
+              }
+            } else {
+              // Fallback: search -> rough rank -> profile
+              const search = await searchCompanies({
+                name: company,
+                itemsPerPage: 50,
+              });
+              const items = Array.isArray(search?.items) ? search.items : [];
+              const ranked = items
+                .filter((i) => i?.title && i?.company_number)
+                .map((i) => ({
+                  ...i,
+                  _score: _roughNameScore(i.title, company),
+                }))
+                .sort((a, b) => b._score - a._score);
+              const best = ranked[0];
+              if (best && best._score >= 70) {
+                const profile = await getCompanyProfile(best.company_number);
+                const chName = profile?.company_name || best.title;
+                if (chName) {
+                  resolvedCompany = String(chName).trim();
+                  resolvedBy = "ch";
+                }
+              }
+            }
+          } catch (e) {
+            // Non-fatal; still insert with input/local name
+            console.warn("[magic.post] CH resolve failed:", e?.message || e);
           }
         }
-      } catch (e) {
-        console.warn("[notify-owner magic] failed", e);
-      }
 
-      // Auto-like when hireAgain != "no"
-      try {
-        if (hireAgainRaw !== "no") {
-          const voterId = uid || `magic:${token}`;
-          db.prepare(
-            `INSERT OR IGNORE INTO recommendation_votes (recommendationId, userId, value)
-             VALUES (?, ?, 1)`
-          ).run(recommendationId, voterId);
+        /* ---------- Insert recommendation ---------- */
+
+        const info = db
+          .prepare(
+            `INSERT INTO recommendations
+             (projectId, recommenderUserId, createdAt, name, email, phone, company, rating, comment, isAnonymous, source)
+             VALUES
+             (@projectId, @uid, @createdAt, @name, @email, @phone, @company, @rating, @comment, @isAnonymous, 'magic')`
+          )
+          .run({
+            projectId: link.projectId,
+            uid,
+            createdAt: now,
+            name,
+            email: email ?? null,
+            phone: cleanPhone(phone),
+            company: resolvedCompany, // <-- store resolved name
+            rating: ratingNum,
+            comment,
+            isAnonymous,
+          });
+
+        const recommendationId = info.lastInsertRowid;
+
+        // Queue CH verification for badge/status
+        try {
+          queueCompanyVerification({
+            recId: recommendationId,
+            name: String(resolvedCompany || company),
+            locationHint,
+          });
+        } catch (e) {
+          console.warn("[magic-post] queueCompanyVerification failed", e);
         }
-      } catch (e) {
-        console.warn("[magic-post] auto-like failed", e);
+
+        // Persist photos
+        const files = Array.isArray(req.files) ? req.files : [];
+        if (files.length) {
+          const stmt = db.prepare(
+            `INSERT INTO recommendation_photos (recommendationId, filePath, mime, sizeBytes, createdAt)
+             VALUES (?, ?, ?, ?, ?)`
+          );
+          for (const f of files) {
+            const rel = path
+              .relative(UPLOAD_DIR, f.path)
+              .split(path.sep)
+              .join("/");
+            stmt.run(
+              recommendationId,
+              `/uploads/${rel}`,
+              f.mimetype,
+              f.size,
+              now
+            );
+          }
+        }
+
+        // Notify owner
+        try {
+          const ownerRow = db
+            .prepare(`SELECT ownerUserId, name FROM projects WHERE id=?`)
+            .get(link.projectId);
+          if (ownerRow && ownerRow.ownerUserId) {
+            const submitter = uid || null;
+            if (ownerRow.ownerUserId !== submitter) {
+              notifyUsers?.(db, [ownerRow.ownerUserId], {
+                type: "recommendation_new",
+                message: `Someone has recommended a tradesperson to your project “${ownerRow.name}”`,
+                projectId: link.projectId,
+                linkPath: `/projects/${link.projectId}`,
+              });
+            }
+          }
+        } catch (e) {
+          console.warn("[notify-owner magic] failed", e);
+        }
+
+        // Auto-like when hireAgain != "no"
+        try {
+          if (hireAgainRaw !== "no") {
+            const voterId = uid || `magic:${token}`;
+            db.prepare(
+              `INSERT OR IGNORE INTO recommendation_votes (recommendationId, userId, value)
+               VALUES (?, ?, 1)`
+            ).run(recommendationId, voterId);
+          }
+        } catch (e) {
+          console.warn("[magic-post] auto-like failed", e);
+        }
+
+        return res.status(201).json({
+          ok: true,
+          recommendationId,
+          resolvedCompany: resolvedCompany || company,
+          resolvedBy, // 'db' | 'ch' | 'input'
+        });
+      } catch (err) {
+        console.error("magic.post error:", err);
+        return res
+          .status(500)
+          .json({ error: "Internal error creating recommendation via magic" });
       }
-
-      console.log("[magic-post] recommendation created", {
-        token,
-        pid: link.projectId,
-        uid: uid || "anon",
-        photos: files.length,
-        rating: ratingNum,
-      });
-
-      return res.status(201).json({ ok: true, recommendationId });
     }
   );
 };

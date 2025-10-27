@@ -143,7 +143,7 @@ function hasItem(res: unknown): res is VmbSingleOk {
   return !!res && typeof res === "object" && "item" in (res as any);
 }
 
-/* --------- grouping (like ShortlistSection) --------- */
+/* --------- grouping (companyNumber first, then normalized name) --------- */
 function pickTop(items: Recommendation[]) {
   return [...items].sort((a, b) => {
     const sa = typeof a.score === "number" ? a.score : -1;
@@ -159,6 +159,7 @@ function pickTop(items: Recommendation[]) {
 type Grouped = {
   key: string;
   company: string;
+  companyNumber?: string | null;
   top: Recommendation;
   items: Recommendation[];
   extraCount: number;
@@ -166,33 +167,69 @@ type Grouped = {
   aggScore?: number;
 };
 
-function groupByCompany(items: Recommendation[]): Grouped[] {
-  const map = new Map<string, Recommendation[]>();
+function groupByCompany(
+  items: Recommendation[],
+  verMap: Record<number, Verification>
+): Grouped[] {
+  type Bucket = {
+    key: string;
+    company: string;
+    companyNumber?: string | null;
+    items: Recommendation[];
+  };
+  const map = new Map<string, Bucket>();
+
   for (const it of items) {
-    const key = normalizedCompanyKey(it.company || "");
-    const arr = map.get(key);
-    if (arr) arr.push(it);
-    else map.set(key, [it]);
+    const v = verMap[it.id];
+    const chNumber = (v?.companyNumber || "").trim() || null;
+    const candidateName = (v?.companyName || it.company || "").trim();
+    const nameKey = normalizedCompanyKey(candidateName);
+    const key = chNumber ? `#${chNumber}` : `n:${nameKey}`;
+
+    let bucket = map.get(key);
+    if (!bucket) {
+      bucket = {
+        key,
+        company: candidateName,
+        companyNumber: chNumber,
+        items: [],
+      };
+      map.set(key, bucket);
+    } else {
+      // prefer canonical CH name if we later learn it
+      if (v?.companyName && bucket.company !== v.companyName) {
+        bucket.company = v.companyName;
+      }
+      if (!bucket.companyNumber && chNumber) {
+        bucket.companyNumber = chNumber;
+      }
+    }
+    bucket.items.push(it);
   }
+
   const groups: Grouped[] = [];
-  for (const [key, arr] of map.entries()) {
-    const top = pickTop(arr);
-    const scores = arr.map((i) =>
+  for (const b of map.values()) {
+    const top = pickTop(b.items);
+    const scores = b.items.map((i) =>
       typeof i.score === "number" ? i.score : null
     );
     const aggScore =
-      arr.length >= 2 ? computeAggregateScore(scores, arr.length) : top.score;
-    const aggLikes = arr.reduce((s, it) => s + (it.likes ?? 0), 0);
+      b.items.length >= 2
+        ? computeAggregateScore(scores, b.items.length)
+        : top.score;
+    const aggLikes = b.items.reduce((s, it) => s + (it.likes ?? 0), 0);
     groups.push({
-      key,
-      company: top.company,
+      key: b.key,
+      company: b.company,
+      companyNumber: b.companyNumber,
       top,
-      items: arr,
-      extraCount: Math.max(0, arr.length - 1),
+      items: b.items,
+      extraCount: Math.max(0, b.items.length - 1),
       aggLikes,
       aggScore,
     });
   }
+
   // sort groups by agg score, then likes, then newest top
   groups.sort((a, b) => {
     const sa = typeof a.aggScore === "number" ? a.aggScore : -1;
@@ -201,6 +238,7 @@ function groupByCompany(items: Recommendation[]): Grouped[] {
     if (b.aggLikes !== a.aggLikes) return b.aggLikes - a.aggLikes;
     return +new Date(b.top.createdAt) - +new Date(a.top.createdAt);
   });
+
   return groups;
 }
 
@@ -394,8 +432,11 @@ export default function ShortlistPage() {
     }
   };
 
-  // Build grouped view from the *current page* items
-  const groups = useMemo(() => groupByCompany(items), [items]);
+  // Build grouped view from the *current page* items (CH number first)
+  const groups = useMemo(
+    () => groupByCompany(items, recVerification),
+    [items, recVerification]
+  );
 
   return (
     <AuthedOnly>
@@ -463,7 +504,6 @@ export default function ShortlistPage() {
               const isCommunity = r.fromCommunity === 1;
 
               const displayCompanyName = resolveCompanyName(r, recVerification);
-              const companyKey = normalizedCompanyKey(r.company || "");
               const scoreToShow =
                 g.aggScore ??
                 (typeof r.score === "number" ? r.score : undefined);
@@ -473,10 +513,22 @@ export default function ShortlistPage() {
 
               return (
                 <div
-                  key={companyKey}
-                  className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm hover:shadow-md transition p-5"
+                  key={g.key}
+                  className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm hover:shadow-md transition p-5 relative"
                   data-testid="recommendation-card"
                 >
+                  {g.extraCount > 0 && (
+                    <span
+                      className="absolute -top-2 -right-2 z-20 rounded-full bg-indigo-600 text-white text-[11px] leading-none px-2 py-1 shadow-md"
+                      title={`${g.extraCount} more recommendation${
+                        g.extraCount === 1 ? "" : "s"
+                      } in this stack`}
+                      data-testid="rec-stack-count"
+                    >
+                      +{g.extraCount} more
+                    </span>
+                  )}
+
                   <div className="flex items-start gap-4">
                     {/* Vote column (hidden for owner) */}
                     {!isOwner && (
@@ -592,23 +644,13 @@ export default function ShortlistPage() {
                         </p>
                       )}
 
-                      {/* ------- META: “Recommended by …” + reveal phone + +N more ------- */}
+                      {/* ------- META: “Recommended by …” + reveal phone ------- */}
                       <div className="text-xs text-slate-500 mt-3 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span data-testid="rec-meta">
                             {recommenderText(r)}
                           </span>
-                          {g.extraCount > 0 && (
-                            <span
-                              className="text-slate-500"
-                              data-testid="rec-extra-count"
-                              title={`${g.extraCount} more recommendation${
-                                g.extraCount === 1 ? "" : "s"
-                              } for this builder`}
-                            >
-                              · +{g.extraCount} more
-                            </span>
-                          )}
+
                           {(r.phone ?? "").trim() && (
                             <>
                               {isPhoneVisible && (
@@ -645,7 +687,6 @@ export default function ShortlistPage() {
                           {new Date(r.createdAt).toLocaleString()}
                         </span>
                       </div>
-                      {/* ----------------------------------------------------------------------- */}
                     </div>
                   </div>
                 </div>

@@ -61,6 +61,24 @@ type Verification = {
   errorMessage?: string | null;
 };
 
+/* ===== Discover (nearby tradespeople) ===== */
+type TradesmanLite = {
+  companyNumber?: string | null;
+  companyName: string;
+  topRecId?: number | null; // use to link to profile
+  votes?: number; // aggregated likes
+  score?: number | null; // VMB score if available
+  area?: string | null; // optional area/city
+  photos?: string[] | { filePath: string }[] | null;
+};
+
+function asPhotoUrl(p?: string | { filePath?: string } | null) {
+  if (!p) return null;
+  if (typeof p === "string") return p;
+  if (typeof p === "object" && p.filePath) return p.filePath;
+  return null;
+}
+
 /* ===== Page ===== */
 export default function ProjectView() {
   const api = useApi();
@@ -262,9 +280,7 @@ export default function ProjectView() {
           ta.select();
           copied = document.execCommand("copy");
           document.body.removeChild(ta);
-        } catch {
-          copied = false;
-        }
+        } catch {}
       }
       setFlash({
         kind: "success",
@@ -498,6 +514,39 @@ export default function ProjectView() {
     }
   }
 
+  /* ===== Discover: load nearby verified tradespeople ===== */
+  const [nearby, setNearby] = useState<TradesmanLite[]>([]);
+  const [nearbyLoading, setNearbyLoading] = useState(false);
+  const [nearbyErr, setNearbyErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!router.isReady || authLoading || !user || !project?.location) return;
+    let killed = false;
+    (async () => {
+      try {
+        setNearbyLoading(true);
+        setNearbyErr(null);
+        const { data } = await api.get("/api/tradesmen/discover", {
+          params: { near: project.location, limit: 6 },
+        });
+        if (killed) return;
+        const items: TradesmanLite[] = Array.isArray(data?.items)
+          ? data.items
+          : [];
+        setNearby(items);
+      } catch (e: any) {
+        if (killed) return;
+        setNearby([]);
+        setNearbyErr(null); // stay quiet if endpoint isn’t ready
+      } finally {
+        if (!killed) setNearbyLoading(false);
+      }
+    })();
+    return () => {
+      killed = true;
+    };
+  }, [api, router.isReady, authLoading, user, project?.location]);
+
   /* ===== Render ===== */
   return (
     <AuthedOnly>
@@ -632,6 +681,144 @@ export default function ProjectView() {
                 recVerification={recVerification}
               />
             </div>
+
+            {/* ===== Discover inline section (underneath) ===== */}
+            {nearby.length > 0 && (
+              <section
+                className="mt-8"
+                data-testid="discover-inline"
+                aria-labelledby="discover-inline-title"
+              >
+                <div className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h2
+                        id="discover-inline-title"
+                        className="text-xl font-semibold tracking-tight"
+                        data-testid="discover-inline-heading"
+                      >
+                        Discover trusted tradespeople near you
+                      </h2>
+                      <p className="mt-1 text-sm text-slate-600">
+                        Here are some nearby tradesmen we think could help with
+                        your home project.
+                      </p>
+                    </div>
+                    <Link
+                      href="/builders/discover"
+                      className="btn"
+                      data-testid="discover-inline-view-all"
+                      aria-label="View all nearby tradespeople"
+                    >
+                      View all
+                    </Link>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {nearby.slice(0, 6).map((t, idx) => {
+                      const photoSrc = asPhotoUrl(
+                        Array.isArray(t.photos) ? t.photos[0] : null
+                      );
+                      const href = t.topRecId
+                        ? `/builders/${t.topRecId}`
+                        : "/builders/discover";
+                      return (
+                        <Link
+                          key={`${t.companyNumber || t.companyName}-${idx}`}
+                          href={href}
+                          className="group relative rounded-xl border border-slate-200 bg-white/90 hover:bg-white shadow-sm hover:shadow-md transition p-4"
+                          data-testid="discover-card"
+                          aria-label={`Open ${t.companyName} profile`}
+                        >
+                          {/* avatar / thumb */}
+                          <div className="flex items-start gap-3">
+                            <div className="h-10 w-10 rounded-lg border border-slate-200 overflow-hidden bg-slate-50 text-slate-500 grid place-items-center">
+                              {photoSrc ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={photoSrc}
+                                  alt=""
+                                  className="h-full w-full object-cover"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <span className="font-semibold text-sm">
+                                  {t.companyName
+                                    .split(/\s+/)
+                                    .map((w) => w[0])
+                                    .join("")
+                                    .slice(0, 2)
+                                    .toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <div className="font-medium truncate">
+                                    {t.companyName}
+                                  </div>
+                                  <div className="text-xs text-slate-500 mt-0.5">
+                                    {t.companyNumber ? (
+                                      <span
+                                        data-testid="discover-ch-number"
+                                        className="rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 px-2 py-0.5"
+                                      >
+                                        CH #{t.companyNumber}
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-400">
+                                        Verified
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="shrink-0 text-right">
+                                  {typeof t.score === "number" ? (
+                                    <span
+                                      className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                      title={`VMB score: ${t.score}`}
+                                      data-testid="discover-vmb-score"
+                                    >
+                                      VMB{" "}
+                                      {Number(t.score)
+                                        .toFixed(1)
+                                        .replace(/\.0$/, "")}
+                                    </span>
+                                  ) : null}
+                                  {typeof t.votes === "number" ? (
+                                    <div
+                                      className="mt-1 text-xs text-slate-500 tabular-nums"
+                                      data-testid="discover-votes"
+                                      title={`${t.votes} vote${
+                                        t.votes === 1 ? "" : "s"
+                                      }`}
+                                    >
+                                      {t.votes} vote{t.votes === 1 ? "" : "s"}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </div>
+
+                              {t.area && (
+                                <div
+                                  className="mt-1 text-xs text-slate-500"
+                                  data-testid="discover-area"
+                                >
+                                  {t.area}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              </section>
+            )}
           </>
         )}
       </div>

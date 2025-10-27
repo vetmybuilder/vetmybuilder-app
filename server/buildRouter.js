@@ -136,6 +136,9 @@ function buildRouter(ctx) {
   require("./routes/debug/reclinks.get")(router, ctx);
   require("./routes/debug/leaderboard.get")(router, ctx);
 
+  // ---------------- Tradesmen / Builders ----------------
+  require("./routes/tradesmen/discover.get")(router, ctx);
+
   return router;
 }
 
