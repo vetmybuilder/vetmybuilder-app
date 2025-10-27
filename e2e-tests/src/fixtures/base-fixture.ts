@@ -32,6 +32,30 @@ const API_PREFIX = process.env.E2E_API_PREFIX || "/api";
 const TEST_SECRET = process.env.E2E_TEST_SECRET || "";
 const TEST_UID = process.env.E2E_TEST_UID || "BpSvMxVVpnQeG211hiY8cNPbDCW2"; // fallback UID
 
+/* ===== Small util to derive location tokens used by community filters ===== */
+function deriveLocationFields(raw?: string) {
+  const loc = String(raw || "")
+    .trim()
+    .toUpperCase(); // e.g. "E4", "E4 9AA"
+  if (!loc) {
+    return {
+      location: "",
+      postcode: null as string | null,
+      postcodeSector: null as string | null,
+      postcodeOutward: null as string | null,
+      city: null as string | null,
+    };
+  }
+  const outward = loc.split(/\s+/)[0];
+  return {
+    location: loc,
+    postcode: loc,
+    postcodeSector: outward,
+    postcodeOutward: outward,
+    city: null as string | null,
+  };
+}
+
 /* ===== Flake hardening helpers (kept tiny) ===== */
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
@@ -109,6 +133,8 @@ const runSerialized = (() => {
 type TestFixtures = {
   cleanUpTestData: void; // Auto: clears DB BEFORE each test
   login: void; // Auto: logs in a seeded user in the browser
+  ownerUid: string; // Auto: UID of the logged-in user
+  loginAsOwner: (opts?: { redirect?: string }) => Promise<void>; // Auto: helper for the owner
 
   // Pages
   homePage: HomePage;
@@ -152,6 +178,19 @@ type TestFixtures = {
 };
 
 export const test = base.extend<TestFixtures>({
+  ownerUid: async ({}, use) => {
+    await use(process.env.E2E_TEST_UID || "BpSvMxVVpnQeG211hiY8cNPbDCW2");
+  },
+
+  // small wrapper so specs don’t need to know the UID
+  loginAsOwner: async ({ page, testApi, ownerUid }, use) => {
+    await use(async (opts) => {
+      await testApi.loginAsUid(page, ownerUid, {
+        redirect: opts?.redirect ?? "/projects",
+      });
+    });
+  },
+
   /* ---------- Auto: clear DB BEFORE every test ---------- */
   cleanUpTestData: [
     async ({ request }, use) => {
@@ -188,8 +227,9 @@ export const test = base.extend<TestFixtures>({
       const api = await pwRequest.newContext({ baseURL: API_BASE });
       const seededEmail = `e2e+${Date.now()}@example.com`;
 
-      // 1) Upsert user row
+      // 1) Upsert user row (with derived location columns)
       {
+        const tokens = deriveLocationFields("E4");
         const res = await api.post(`${API_PREFIX}/__test__/users`, {
           headers: {
             "X-Test-Secret": TEST_SECRET,
@@ -202,7 +242,12 @@ export const test = base.extend<TestFixtures>({
             firstName: "E2E",
             lastName: "User",
             username: `e2e_user_${Date.now()}`,
-            location: "E4",
+            // base location + derived fields the server relies on
+            location: tokens.location,
+            postcode: tokens.postcode,
+            postcodeSector: tokens.postcodeSector,
+            postcodeOutward: tokens.postcodeOutward,
+            city: tokens.city,
           },
         });
         pwExpect(

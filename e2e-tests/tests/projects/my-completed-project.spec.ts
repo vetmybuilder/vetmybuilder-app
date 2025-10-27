@@ -13,7 +13,7 @@ test.describe("My completed project", () => {
   test("competed projects appear in my completed projects tab", async ({
     page,
     loginAsNewUser,
-    loginAsUid,
+    loginAsOwner,
     projectsPage,
     projectViewPage,
   }) => {
@@ -66,8 +66,7 @@ test.describe("My completed project", () => {
     const recId = await recApi.create(project.id!, rec.toInput());
 
     // 4) Switch BACK to the project owner (only owner can close)
-    const ownerUid = process.env.E2E_TEST_UID || "BpSvMxVVpnQeG211hiY8cNPbDCW2"; // same UID used by the auto-login fixture
-    await loginAsUid(ownerUid, { redirect: `/projects/${project.id}` });
+    await loginAsOwner({ redirect: `/projects/${project.id}` });
 
     // Recreate an owner-bound ProjectsApi (fresh idToken after re-login)
     const ownerProjectsApi = await createProjectsApiForPage(page);
@@ -97,6 +96,10 @@ test.describe("My completed project", () => {
     project.status = "Completed";
     await projectViewPage.backToProjectsButton.click();
     await projectsPage.hasProjects([project]);
+    await projectsPage.viewProject(project.name);
+    await projectViewPage.hasProjectData(project);
+    await projectViewPage.backToProjectsButton.click();
+    // 6) Verify in UI that the project is marked as completed
     await projectsPage.tabMyCompletedProjects.click();
     await projectsPage.hasCompletedProjects([
       {
@@ -106,14 +109,5 @@ test.describe("My completed project", () => {
         hasGallery: true,
       },
     ]);
-
-    // (Optional) small UI smoke check can go here
-    // await projectViewPage.goto(project.id!);
-    // await projectViewPage.hasTopRecommendations({
-    //   company: "PRO BUILDERS LTD",
-    //   comment: "Clean, on time, and on budget.",
-    //   hasGallery: true,
-    //   recommenderName: `Recommended by ${firstName} ${lastName}`,
-    // });
   });
 });

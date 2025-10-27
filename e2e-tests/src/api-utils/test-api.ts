@@ -3,6 +3,30 @@ import { type APIRequestContext, expect, type Page } from "@playwright/test";
 const API_PREFIX = process.env.E2E_API_PREFIX || "/api";
 const TEST_SECRET = process.env.E2E_TEST_SECRET || "";
 
+/* Keep server-friendly location tokens in every upsert */
+function deriveLocationFields(raw?: string) {
+  const loc = String(raw || "")
+    .trim()
+    .toUpperCase();
+  if (!loc) {
+    return {
+      location: "",
+      postcode: null as string | null,
+      postcodeSector: null as string | null,
+      postcodeOutward: null as string | null,
+      city: null as string | null,
+    };
+  }
+  const outward = loc.split(/\s+/)[0];
+  return {
+    location: loc,
+    postcode: loc,
+    postcodeSector: outward,
+    postcodeOutward: outward,
+    city: null as string | null,
+  };
+}
+
 export class TestApi {
   constructor(private readonly request: APIRequestContext) {}
 
@@ -13,7 +37,7 @@ export class TestApi {
     expect(res.ok(), `Failed to clear DB: ${await res.text()}`).toBeTruthy();
   }
 
-  /** Idempotent upsert by raw fields — sends ONLY provided fields (no default clobbering). */
+  /** Idempotent upsert by raw fields (now includes derived location cols) */
   async upsertUser(input: {
     uid?: string;
     email: string;
@@ -21,22 +45,29 @@ export class TestApi {
     firstName?: string;
     lastName?: string;
     username?: string;
-    location?: string;
+    location?: string; // e.g. "E4"
   }): Promise<{ uid: string }> {
-    const data: any = { email: input.email };
-    if (input.uid !== undefined) data.uid = input.uid;
-    if (input.password !== undefined) data.password = input.password;
-    if (input.firstName !== undefined) data.firstName = input.firstName;
-    if (input.lastName !== undefined) data.lastName = input.lastName;
-    if (input.username !== undefined) data.username = input.username;
-    if (input.location !== undefined) data.location = input.location;
+    const tokens = deriveLocationFields(input.location ?? "E4");
 
     const res = await this.request.post(`${API_PREFIX}/__test__/users`, {
       headers: {
         "X-Test-Secret": TEST_SECRET,
         "Content-Type": "application/json",
       },
-      data,
+      data: {
+        uid: input.uid,
+        email: input.email,
+        password: input.password ?? "Passw0rd1",
+        firstName: input.firstName ?? "E2E",
+        lastName: input.lastName ?? "User",
+        username: input.username ?? `e2e_user_${Date.now()}`,
+        // Set both the base and derived fields used by your server
+        location: tokens.location,
+        postcode: tokens.postcode,
+        postcodeSector: tokens.postcodeSector,
+        postcodeOutward: tokens.postcodeOutward,
+        city: tokens.city,
+      },
     });
     expect(res.ok(), `Upsert user failed: ${await res.text()}`).toBeTruthy();
     const json = await res.json();
@@ -80,7 +111,7 @@ export class TestApi {
 
   /* ---------------- Browser-login helpers ---------------- */
 
-  /** Logs the given page in as a specific uid (optional upsert with provided fields). */
+  /** Logs the given page in as a specific uid (clears storage, ensures user exists, navigates with token). */
   async loginAsUid(
     page: Page,
     uid: string,
@@ -88,7 +119,7 @@ export class TestApi {
       email?: string;
       displayName?: string;
       redirect?: string;
-      location?: string;
+      location?: string; // e.g. "E4"
       firstName?: string;
       lastName?: string;
       username?: string;
@@ -111,15 +142,15 @@ export class TestApi {
       } catch {}
     });
 
-    // Optionally ensure user row exists with the provided fields (no clobbering defaults internally)
     if (!opts?.skipUpsert) {
       await this.upsertUser({
         uid,
         email,
-        firstName: opts?.firstName,
-        lastName: opts?.lastName,
-        username: opts?.username,
-        location: opts?.location,
+        firstName: opts?.firstName ?? "E2E",
+        lastName: opts?.lastName ?? "User",
+        username: opts?.username ?? `e2e_user_${Date.now()}`,
+        location: opts?.location ?? "E4",
+        password: "Passw0rd1",
       });
     }
 
@@ -127,8 +158,7 @@ export class TestApi {
     const token = await this.customToken(
       uid,
       email,
-      opts?.displayName ??
-        `${opts?.firstName ?? "E2E"} ${opts?.lastName ?? "User"}`
+      opts?.displayName ?? "E2E User"
     );
     const redirect = opts?.redirect ?? "/projects";
     await page.goto(
@@ -140,8 +170,8 @@ export class TestApi {
   }
 
   /**
-   * Creates a new user (optionally with name/username/postcode) and logs in on the given page.
-   * Returns the uid and a minimal user-like object.
+   * Creates a new user (optionally in a postcode) and logs in on the given page.
+   * Returns the uid and a minimal user-like object (email/location).
    */
   async loginAsNewUser(
     page: Page,
@@ -153,10 +183,10 @@ export class TestApi {
       lastName?: string;
     }
   ): Promise<{ uid: string; user: any }> {
-    const firstName = opts?.firstName ?? "E2E";
-    const lastName = opts?.lastName ?? "User";
     const email = `e2e+${Date.now()}@example.com`;
     const username = opts?.username ?? `e2e_user_${Date.now()}`;
+    const firstName = opts?.firstName ?? "E2E";
+    const lastName = opts?.lastName ?? "User";
     const location = opts?.postcode ?? "E4";
 
     const { uid } = await this.upsertUser({
@@ -165,10 +195,9 @@ export class TestApi {
       firstName,
       lastName,
       location,
-      // optional password not needed for token-based login
+      password: "Passw0rd1",
     });
 
-    // Log in without re-upserting (prevents clobbering the names/username)
     await this.loginAsUid(page, uid, {
       email,
       displayName: `${firstName} ${lastName}`,
@@ -177,7 +206,7 @@ export class TestApi {
       firstName,
       lastName,
       username,
-      skipUpsert: true,
+      skipUpsert: true, // already upserted above
     });
 
     return { uid, user: { email, username, firstName, lastName, location } };
