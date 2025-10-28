@@ -1,44 +1,11 @@
 import Link from "next/link";
 import * as React from "react";
+import { ThumbsUpIcon, CameraIcon } from "@/components/ui/Icons";
+import { ScoreChip, chLabel, chBadgeClass, chIcon } from "@/components/ui/vmb";
+import type { Recommendation, Verification } from "@/types/vmb";
+import { displayRecommender, normalizeName } from "@/utils/recommendations";
 
-/* ===== Types (mirror your page types) ===== */
-export type Recommendation = {
-  id: number;
-  name: string | null;
-  email: string | null;
-  phone?: string | null;
-  company: string;
-  rating?: number | null;
-  comment: string | null;
-  isAnonymous: 0 | 1;
-  createdAt: string;
-  fromFriend?: 0 | 1;
-  fromCommunity?: 0 | 1;
-  likes?: number; // votes
-  myLike?: 0 | 1; // I’ve voted
-  score?: number; // VMB score
-};
-
-export type VerificationStatus =
-  | "queued"
-  | "running"
-  | "verified"
-  | "ambiguous"
-  | "no_match"
-  | "error";
-
-export type Verification = {
-  recommendationId: number;
-  status: VerificationStatus;
-  companyNumber?: string | null;
-  companyName?: string | null; // preferred display name when present
-  score?: number | null;
-  sicCodes?: string[];
-  checkedAt?: string;
-  errorMessage?: string | null;
-};
-
-/* ===== Props ===== */
+/* ===== Props (component-local API) ===== */
 type Props = {
   title?: string;
   subtitle?: string;
@@ -53,127 +20,6 @@ type Props = {
   recVerification?: Record<number, Verification>;
   "data-testid"?: string;
 };
-
-/* ===== Small UI bits ===== */
-const ThumbsUpIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
-    <path d="M2 10h4v12H2V10zm7.5 12h6.27c1.02 0 1.94-.64 2.29-1.6l2.41-6.52a2 2 0 0 0-1.24-2.55c-.2-.07-.42-.11-.64-.11h-4.6l.62-3.02.02-.23a2 2 0 0 0-.59-1.42L13.2 4 8.9 8.29A3 3 0 0 0 8 10.4V20a2 2 0 0 0 1.5 2z" />
-  </svg>
-);
-const CameraIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
-    <path d="M9 3a1 1 0 0 0-.9.56L7.38 5H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V8a3 3 0 0 0-3-3h-2.38l-.72-1.44A1 1 0 0 0 14 3H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM6.5 9.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
-  </svg>
-);
-
-function ScoreChip({ value }: { value?: number }) {
-  if (value == null || Number.isNaN(Number(value))) {
-    return (
-      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border border-slate-200 text-slate-600">
-        VMB —
-      </span>
-    );
-  }
-  const n = Number(value);
-  const label =
-    n <= 5 ? n.toFixed(1).replace(/\.0$/, "") : String(Math.round(n));
-  return (
-    <span
-      className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200"
-      title={`VMB score: ${label}`}
-      aria-label={`VMB score ${label}`}
-      data-testid="shortlist-vmb-score"
-    >
-      VMB {label}
-    </span>
-  );
-}
-
-/* Companies House badge helpers */
-function chLabel(status?: VerificationStatus) {
-  switch (status) {
-    case "verified":
-      return "Verified";
-    case "running":
-    case "queued":
-      return "Checking";
-    case "ambiguous":
-      return "Needs review";
-    case "no_match":
-      return "No match";
-    case "error":
-      return "Error";
-    default:
-      return "Checking";
-  }
-}
-function chBadgeClass(status?: VerificationStatus) {
-  switch (status) {
-    case "verified":
-      return "bg-green-300 text-orange-700 border-green-200 font-bold";
-    case "ambiguous":
-      return "bg-amber-100 text-amber-700 border-amber-200";
-    case "no_match":
-      return "bg-slate-100 text-slate-600 border-slate-200";
-    case "error":
-      return "bg-red-100 text-red-700 border-red-200";
-    case "queued":
-    case "running":
-    default:
-      return "bg-slate-100 text-slate-600 border-slate-200";
-  }
-}
-function CheckCircleIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
-      <path d="M12 2a10 10 0 1 0 .001 20.001A10 10 0 0 0 12 2zm-1.2 13.3-3.1-3.1 1.4-1.4 1.7 1.7 4-4 1.4 1.4-5.4 5.4z" />
-    </svg>
-  );
-}
-function ExclamationTriangleIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
-      <path d="M1 21h22L12 2 1 21zm12-3h-2v2h2v-2zm0-8h-2v6h2V10z" />
-    </svg>
-  );
-}
-function ClockIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
-      <path d="M12 2a10 10 0 1 0 .001 20.001A10 10 0 0 0 12 2zm1 11h5v-2h-2V6h-2v7z" />
-    </svg>
-  );
-}
-function chIcon(status?: VerificationStatus) {
-  switch (status) {
-    case "verified":
-      return <CheckCircleIcon className="h-3.5 w-3.5" />;
-    case "queued":
-    case "running":
-      return <ClockIcon className="h-3.5 w-3.5" />;
-    case "ambiguous":
-    case "no_match":
-    case "error":
-      return <ExclamationTriangleIcon className="h-3.5 w-3.5" />;
-    default:
-      return <ClockIcon className="h-3.5 w-3.5" />;
-  }
-}
-
-/* ===== helpers ===== */
-function displayRecommender(r: Recommendation) {
-  if (r.isAnonymous === 1) return "Recommended by an Anonymous user";
-  const name = (r.name ?? "").trim();
-  return name ? `Recommended by ${name}` : "Recommended by a Guest";
-}
-function normalizeName(s: string) {
-  return (s || "")
-    .toLowerCase()
-    .replace(/&/g, "and")
-    .replace(/[^\w\s]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 /* ===== Component ===== */
 export default function ShortlistSection({
@@ -267,23 +113,17 @@ export default function ShortlistSection({
 
   /* Little helper to render decorative stacked “tabs” behind the main card */
   function DeckLayers({ count }: { count: number }) {
-    // show up to 3 decorative layers behind the main card
     const layers = Math.min(Math.max(count - 1, 0), 3);
     if (layers === 0) return null;
-
-    // back-to-front colors (subtle, on-brand-ish)
     const palette = ["bg-emerald-100", "bg-lime-100", "bg-slate-100"];
-
     return (
       <>
         {Array.from({ length: layers }).map((_, idx) => {
-          // farthest layer first
-          const i = layers - idx; // 1..layers
-          const dx = i * 10; // px right
-          const dy = i * 8; // px up (negative)
-          const rot = i % 2 === 0 ? -2 : 2; // a tiny tilt
+          const i = layers - idx;
+          const dx = i * 10;
+          const dy = i * 8;
+          const rot = i % 2 === 0 ? -2 : 2;
           const color = palette[(idx + 1) % palette.length];
-
           return (
             <div
               key={`deck-${idx}`}
@@ -293,7 +133,6 @@ export default function ShortlistSection({
               }}
               aria-hidden="true"
             >
-              {/* top “tab” strip for extra card feel */}
               <div className="h-2 w-[55%] rounded-t-xl bg-white/70 border-b border-slate-200" />
             </div>
           );
@@ -354,10 +193,8 @@ export default function ShortlistSection({
                     data-testid="shortlist-group"
                     className="relative"
                   >
-                    {/* Decorative stacked deck behind the main card */}
                     <DeckLayers count={g.items.length} />
 
-                    {/* +N pill */}
                     {g.extraCount > 0 && (
                       <span
                         className="absolute -top-2 -right-2 z-20 rounded-full bg-indigo-600 text-white text-[11px] leading-none px-2 py-1 shadow-md"
@@ -369,7 +206,7 @@ export default function ShortlistSection({
                         +{g.extraCount} more
                       </span>
                     )}
-                    {/* Main card */}
+
                     <div className="rounded-xl border border-slate-200 bg-white/90 hover:bg-white shadow-sm hover:shadow-md transition p-3 relative z-10">
                       <div className="flex items-start gap-3">
                         <div className="min-w-0 flex-1">
@@ -417,7 +254,6 @@ export default function ShortlistSection({
 
                           <div className="mt-2 flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              {/* CH badge */}
                               <span
                                 className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${chBadgeClass(
                                   vStatus
@@ -477,7 +313,6 @@ export default function ShortlistSection({
                             </div>
                           </div>
 
-                          {/* Recommender + “+N more” */}
                           <div className="mt-2 flex items-center justify-between">
                             <div
                               className="text-xs text-slate-500"
@@ -489,7 +324,6 @@ export default function ShortlistSection({
                           </div>
                         </div>
 
-                        {/* Vote button — hidden for owner */}
                         {!isOwner && (
                           <div className="ml-3 shrink-0 flex flex-col items-center">
                             <button

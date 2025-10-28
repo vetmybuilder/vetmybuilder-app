@@ -38,25 +38,25 @@ const tabs: Array<{
     testId: "tab-my-projects",
   },
 
-  // My Recommendations — people/collection
-  {
-    key: "recommended",
-    label: "My Recommendations",
-    color: "#6366f1", // indigo
-    Icon: (p) => (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...p}>
-        <circle cx="8" cy="9" r="2.5" strokeWidth="1.75" />
-        <circle cx="16" cy="9" r="2.5" strokeWidth="1.75" />
-        <path
-          d="M4.5 15c.7-2 2.9-3.5 5.5-3.5S14.8 13 15.5 15"
-          strokeWidth="1.75"
-        />
-        <circle cx="12" cy="6.5" r="1.8" strokeWidth="1.5" />
-        <path d="M10.2 11c.4-1.4 1.7-2.3 3.3-2.3" strokeWidth="1.5" />
-      </svg>
-    ),
-    testId: "tab-my-recommendations",
-  },
+  // // My Recommendations — people/collection
+  // {
+  //   key: "recommended",
+  //   label: "My Recommendations",
+  //   color: "#6366f1", // indigo
+  //   Icon: (p) => (
+  //     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...p}>
+  //       <circle cx="8" cy="9" r="2.5" strokeWidth="1.75" />
+  //       <circle cx="16" cy="9" r="2.5" strokeWidth="1.75" />
+  //       <path
+  //         d="M4.5 15c.7-2 2.9-3.5 5.5-3.5S14.8 13 15.5 15"
+  //         strokeWidth="1.75"
+  //       />
+  //       <circle cx="12" cy="6.5" r="1.8" strokeWidth="1.5" />
+  //       <path d="M10.2 11c.4-1.4 1.7-2.3 3.3-2.3" strokeWidth="1.5" />
+  //     </svg>
+  //   ),
+  //   testId: "tab-my-recommendations",
+  // },
 
   // My Completed Projects
   {
