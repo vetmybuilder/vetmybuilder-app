@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 
 /* ===== Types ===== */
 type DiscoverItem = {
-  companyNumber: string;
+  companyNumber: string | null;
   companyName: string;
   sampleRecommendationId: number;
   recCount: number;
@@ -24,47 +24,13 @@ type DiscoverResponse = {
   pageSize: number;
 };
 
-/* Small pill component (brand-ish) */
-function Pill({
-  children,
-  testId,
-  title,
-}: {
-  children: React.ReactNode;
-  testId?: string;
-  title?: string;
-}) {
-  return (
-    <span
-      className="inline-flex items-center gap-1 rounded-full bg-indigo-600 text-white text-[11px] leading-none px-2 py-1 shadow-sm"
-      data-testid={testId}
-      title={title}
-    >
-      {children}
-    </span>
-  );
-}
-
-/* Camera glyph */
-function CameraIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-      <path d="M9 3a1 1 0 0 0-.9.56L7.38 5H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V8a3 3 0 0 0-3-3h-2.38l-.72-1.44A1 1 0 0 0 14 3H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM6.5 9.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
-    </svg>
-  );
-}
-
-/* Thumbs-up glyph */
-function ThumbIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-      <path d="M2 10h4v12H2V10zm7.5 12h6.27c1.02 0 1.94-.64 2.29-1.6l2.41-6.52a2 2 0 0 0-1.24-2.55c-.2-.07-.42-.11-.64-.11h-4.6l.62-3.02.02-.23a2 2 0 0 0-.59-1.42L13.2 4 8.9 8.29A3 3 0 0 0 8 10.4V20a2 2 0 0 0 1.5 2z" />
-    </svg>
-  );
-}
+type Props = {
+  /** Optional: pass current projectId so API can scope area from that project */
+  projectId?: number;
+};
 
 /* ===== Component ===== */
-export default function DiscoverBuilders() {
+export default function DiscoverBuilders({ projectId }: Props) {
   const api = useApi();
   const { user, loading: authLoading } = useAuth();
 
@@ -72,7 +38,7 @@ export default function DiscoverBuilders() {
   const [err, setErr] = useState<string | null>(null);
 
   const [items, setItems] = useState<DiscoverItem[]>([]);
-  const [resolvedArea, setResolvedArea] = useState<string>(""); // server echoed outward like "E4"
+  const [resolvedArea, setResolvedArea] = useState<string>("");
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
   const [total, setTotal] = useState(0);
@@ -87,14 +53,17 @@ export default function DiscoverBuilders() {
       const q = new URLSearchParams();
       q.set("page", String(p));
       q.set("pageSize", String(pageSize));
+      if (projectId) q.set("projectId", String(projectId));
       if (area && area.trim()) q.set("location", area.trim());
 
+      // Canonical path
       const { data } = await api.get<DiscoverResponse>(
-        `/api/builders/discover?${q.toString()}`
+        `/api/discover?${q.toString()}`
       );
+
       setItems(data.items || []);
       setResolvedArea(data.location || "");
-      setTotal(data.total || 0);
+      setTotal(data.total ?? 0);
     } catch (e: any) {
       const msg =
         e?.response?.data?.error || e?.message || "Failed to load results";
@@ -110,7 +79,7 @@ export default function DiscoverBuilders() {
     if (authLoading || !user) return;
     load(page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, user, page]);
+  }, [authLoading, user, page, projectId]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -174,9 +143,11 @@ export default function DiscoverBuilders() {
         <>
           <ul className="space-y-3" data-testid="discover-list">
             {items.map((it) => (
-              <li key={it.companyNumber} data-testid="discover-item">
+              <li
+                key={it.companyNumber ?? `rec-${it.sampleRecommendationId}`}
+                data-testid="discover-item"
+              >
                 <div className="rounded-2xl border border-slate-200 bg-white/85 hover:bg-white shadow-sm hover:shadow-md transition p-5 relative">
-                  {/* Blue +N pill (extra recs) */}
                   {it.recCount > 1 && (
                     <span
                       className="absolute -top-2 -right-2 z-20 rounded-full bg-indigo-600 text-white text-[11px] leading-none px-2 py-1 shadow-md"
@@ -201,13 +172,15 @@ export default function DiscoverBuilders() {
                             {it.companyName}
                           </Link>
                         </h2>
-                        <span
-                          className="text-xs text-slate-500"
-                          data-testid="discover-number"
-                          title="Companies House number"
-                        >
-                          · {it.companyNumber}
-                        </span>
+                        {it.companyNumber && (
+                          <span
+                            className="text-xs text-slate-500"
+                            data-testid="discover-number"
+                            title="Companies House number"
+                          >
+                            · {it.companyNumber}
+                          </span>
+                        )}
                       </div>
 
                       <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -291,15 +264,13 @@ export default function DiscoverBuilders() {
               data-testid="discover-status"
             >
               Page <span data-testid="discover-page">{page}</span> /{" "}
-              <span data-testid="discover-pages">
-                {Math.max(1, Math.ceil(total / pageSize))}
-              </span>{" "}
-              • Total: <span data-testid="discover-total">{total}</span>
+              <span data-testid="discover-pages">{totalPages}</span> • Total:{" "}
+              <span data-testid="discover-total">{total}</span>
             </div>
             <button
               className="btn disabled:opacity-50"
               onClick={() => setPage((p) => p + 1)}
-              disabled={page >= Math.max(1, Math.ceil(total / pageSize))}
+              disabled={page >= totalPages}
               data-testid="discover-next"
             >
               Next
