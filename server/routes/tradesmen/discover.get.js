@@ -1,6 +1,11 @@
 /**
  * GET  /api/builders/discover
  * ALSO /api/tradesmen/discover
+ *
+ * Query (optional):
+ *   projectId  → if provided, use that project's location to scope the area
+ *   location   → fallback if projectId is absent; otherwise we use the project's location
+ *   page, pageSize
  */
 module.exports = (router, ctx) => {
   const { db, auth } = ctx;
@@ -86,99 +91,160 @@ module.exports = (router, ctx) => {
   function handler(req, res) {
     try {
       const uid = req.user?.uid;
-      if (!uid)
-        return res.status(401).json({ ok: false, error: "Unauthorized" });
+      if (!uid) return res.status(401).json({ ok: false, error: "Unauthorized" });
 
       const page = clamp(req.query.page, 1, 999999, 1);
       const pageSize = clamp(req.query.pageSize, 1, 50, 10);
       const offset = (page - 1) * pageSize;
 
-      // location: query > user profile (read * to avoid missing-column errors)
-      let loc = String(req.query.location || "")
-        .toUpperCase()
-        .trim();
+      // ---- Area scoping priority: projectId → location query → user profile
+      let loc = String(req.query.location || "").toUpperCase().trim();
+
+      const pid = Number(req.query.projectId);
+      if (Number.isFinite(pid)) {
+        const projectRow = db.prepare("SELECT location FROM projects WHERE id = ?").get(pid);
+        if (projectRow?.location) {
+          loc = String(projectRow.location).toUpperCase().trim();
+        }
+      }
+
       if (!loc) {
-        const userRow = db
-          .prepare("SELECT * FROM users WHERE uid = ?")
-          .get(uid);
+        const userRow = db.prepare("SELECT * FROM users WHERE uid = ?").get(uid);
         loc = pickAreaFromUser(userRow);
       }
+
       const area = outward(loc);
       if (!area) {
-        return res
-          .status(400)
-          .json({ ok: false, error: "Missing or invalid location" });
+        return res.status(400).json({ ok: false, error: "Missing or invalid location" });
       }
       const like = area + "%";
 
-      let sql;
+      // ---- Build SQL (exclude ONLY the current viewer's own recommended companies)
+      let sql, totalSql, params = { like, limit: pageSize, offset, uid };
+
       if (useCV) {
-        // With Companies House verification available
+        // Use CH verification for dedupe (companyNumber)
         sql = `
-          WITH ver AS (
+          WITH base AS (
             SELECT
               r.id,
               r.createdAt,
-              UPPER(p.location) AS projectLocation,
-              ${cvNumberExpr} AS companyNumber,
-              ${cvNameExpr}   AS companyName,
-              ${likesExpr}    AS likes,
-              ${photosCountExpr} AS photoCount
+              UPPER(p.location)        AS projectLocation,
+              ${cvNumberExpr}          AS companyNumber,
+              ${cvNameExpr}            AS companyName,
+              ${likesExpr}             AS likes,
+              ${photosCountExpr}       AS photoCount
             FROM recommendations r
             JOIN projects p ON p.id = r.projectId
             JOIN company_verifications cv ON cv.recommendationId = r.id
             WHERE LOWER(cv.verdict) = 'verified'
               AND projectLocation LIKE @like
           ),
+          exclude AS (
+            SELECT DISTINCT
+              ${cvNumberExpr} AS companyNumber
+            FROM recommendations r
+            JOIN projects p ON p.id = r.projectId
+            JOIN company_verifications cv ON cv.recommendationId = r.id
+            WHERE p.ownerUserId = @uid
+              AND LOWER(cv.verdict) = 'verified'
+              AND ${cvNumberExpr} IS NOT NULL
+          ),
+          ver AS (
+            SELECT *
+            FROM base
+            WHERE (companyNumber NOT IN (SELECT companyNumber FROM exclude))
+               OR companyNumber IS NULL
+          ),
           grouped AS (
             SELECT
               companyNumber,
               companyName,
-              COUNT(*)                    AS recCount,
-              COALESCE(SUM(likes), 0)     AS totalLikes,
-              MAX(DATETIME(createdAt))    AS lastRecommendedAt,
-              MAX(photoCount)             AS maxPhotoCount,
+              COUNT(*)                 AS recCount,
+              COALESCE(SUM(likes),0)  AS totalLikes,
+              MAX(DATETIME(createdAt)) AS lastRecommendedAt,
+              MAX(photoCount)          AS maxPhotoCount,
               (SELECT id FROM ver v2
-                WHERE v2.companyNumber = ver.companyNumber
-                ORDER BY DATETIME(v2.createdAt) DESC, v2.id DESC
-                LIMIT 1)                  AS sampleRecommendationId
+               WHERE v2.companyNumber = ver.companyNumber
+               ORDER BY DATETIME(v2.createdAt) DESC, v2.id DESC
+               LIMIT 1)               AS sampleRecommendationId
             FROM ver
             GROUP BY companyNumber, companyName
           )
-          SELECT *
+          SELECT companyNumber, companyName, recCount, totalLikes, lastRecommendedAt, maxPhotoCount AS photoCount, sampleRecommendationId
           FROM grouped
           ORDER BY recCount DESC, totalLikes DESC, lastRecommendedAt DESC
           LIMIT @limit OFFSET @offset
         `;
+
+        totalSql = `
+          WITH base AS (
+            SELECT ${cvNumberExpr} AS companyNumber, UPPER(p.location) AS projectLocation
+            FROM recommendations r
+            JOIN projects p ON p.id = r.projectId
+            JOIN company_verifications cv ON cv.recommendationId = r.id
+            WHERE LOWER(cv.verdict) = 'verified'
+              AND projectLocation LIKE @like
+          ),
+          exclude AS (
+            SELECT DISTINCT ${cvNumberExpr} AS companyNumber
+            FROM recommendations r
+            JOIN projects p ON p.id = r.projectId
+            JOIN company_verifications cv ON cv.recommendationId = r.id
+            WHERE p.ownerUserId = @uid
+              AND LOWER(cv.verdict) = 'verified'
+              AND ${cvNumberExpr} IS NOT NULL
+          ),
+          ver AS (
+            SELECT * FROM base
+            WHERE (companyNumber NOT IN (SELECT companyNumber FROM exclude))
+               OR companyNumber IS NULL
+          )
+          SELECT COUNT(DISTINCT companyNumber) AS total
+          FROM ver
+        `;
       } else {
-        // Fallback: dedupe by normalized company name from recommendations only
+        // Fallback: dedupe by normalized company name (companyKey)
         sql = `
-          WITH ver AS (
+          WITH base AS (
             SELECT
               r.id,
               r.createdAt,
-              UPPER(p.location)          AS projectLocation,
-              r.company                  AS companyName,
-              UPPER(TRIM(r.company))     AS companyKey,
-              ${likesExpr}               AS likes,
-              ${photosCountExpr}         AS photoCount
+              UPPER(p.location)       AS projectLocation,
+              r.company               AS companyName,
+              UPPER(TRIM(r.company))  AS companyKey,
+              ${likesExpr}            AS likes,
+              ${photosCountExpr}      AS photoCount
             FROM recommendations r
             JOIN projects p ON p.id = r.projectId
             WHERE projectLocation LIKE @like
           ),
+          exclude AS (
+            SELECT DISTINCT UPPER(TRIM(r.company)) AS companyKey
+            FROM recommendations r
+            JOIN projects p ON p.id = r.projectId
+            WHERE p.ownerUserId = @uid
+              AND r.company IS NOT NULL
+          ),
+          ver AS (
+            SELECT *
+            FROM base
+            WHERE (companyKey NOT IN (SELECT companyKey FROM exclude))
+               OR companyKey IS NULL
+          ),
           grouped AS (
             SELECT
-              NULL                        AS companyNumber,
-              MAX(companyName)            AS companyName,
+              NULL                     AS companyNumber,
+              MAX(companyName)         AS companyName,
               companyKey,
-              COUNT(*)                    AS recCount,
-              COALESCE(SUM(likes), 0)     AS totalLikes,
-              MAX(DATETIME(createdAt))    AS lastRecommendedAt,
-              MAX(photoCount)             AS maxPhotoCount,
+              COUNT(*)                 AS recCount,
+              COALESCE(SUM(likes),0)   AS totalLikes,
+              MAX(DATETIME(createdAt)) AS lastRecommendedAt,
+              MAX(photoCount)          AS maxPhotoCount,
               (SELECT id FROM ver v2
-                WHERE v2.companyKey = ver.companyKey
-                ORDER BY DATETIME(v2.createdAt) DESC, v2.id DESC
-                LIMIT 1)                  AS sampleRecommendationId
+               WHERE v2.companyKey = ver.companyKey
+               ORDER BY DATETIME(v2.createdAt) DESC, v2.id DESC
+               LIMIT 1)                AS sampleRecommendationId
             FROM ver
             GROUP BY companyKey
           )
@@ -187,58 +253,47 @@ module.exports = (router, ctx) => {
           ORDER BY recCount DESC, totalLikes DESC, lastRecommendedAt DESC
           LIMIT @limit OFFSET @offset
         `;
+
+        totalSql = `
+          WITH base AS (
+            SELECT UPPER(TRIM(r.company)) AS companyKey, UPPER(p.location) AS projectLocation
+            FROM recommendations r
+            JOIN projects p ON p.id = r.projectId
+            WHERE projectLocation LIKE @like
+          ),
+          exclude AS (
+            SELECT DISTINCT UPPER(TRIM(r.company)) AS companyKey
+            FROM recommendations r
+            JOIN projects p ON p.id = r.projectId
+            WHERE p.ownerUserId = @uid
+              AND r.company IS NOT NULL
+          ),
+          ver AS (
+            SELECT * FROM base
+            WHERE (companyKey NOT IN (SELECT companyKey FROM exclude))
+               OR companyKey IS NULL
+          )
+          SELECT COUNT(DISTINCT companyKey) AS total
+          FROM ver
+        `;
       }
 
-      const rows = db.prepare(sql).all({ like, limit: pageSize, offset });
+      const rows = db.prepare(sql).all(params);
 
       const items = rows.map((row) => ({
         companyNumber:
-          String(row.companyNumber ?? "").replace(/^"|"$/g, "") || null,
+          (row.companyNumber != null
+            ? String(row.companyNumber).replace(/^"|"$/g, "")
+            : null) || null,
         companyName: String(row.companyName ?? "").replace(/^"|"$/g, ""),
         sampleRecommendationId: Number(row.sampleRecommendationId),
         recCount: Number(row.recCount) || 0,
         totalLikes: Number(row.totalLikes) || 0,
         lastRecommendedAt: row.lastRecommendedAt,
-        hasPhotos: Number(row.photoCount || row.maxPhotoCount || 0) > 0,
+        hasPhotos: Number(row.photoCount || 0) > 0,
       }));
 
-      // totals for pagination
-      let total;
-      if (useCV) {
-        total = Number(
-          db
-            .prepare(
-              `
-              WITH ver AS (
-                SELECT ${cvNumberExpr} AS companyNumber, UPPER(p.location) AS projectLocation
-                FROM recommendations r
-                JOIN projects p ON p.id = r.projectId
-                JOIN company_verifications cv ON cv.recommendationId = r.id
-                WHERE LOWER(cv.verdict) = 'verified'
-                  AND projectLocation LIKE @like
-              )
-              SELECT COUNT(DISTINCT companyNumber) AS total FROM ver
-            `
-            )
-            .get({ like })?.total || 0
-        );
-      } else {
-        total = Number(
-          db
-            .prepare(
-              `
-              WITH ver AS (
-                SELECT UPPER(TRIM(r.company)) AS companyKey, UPPER(p.location) AS projectLocation
-                FROM recommendations r
-                JOIN projects p ON p.id = r.projectId
-                WHERE projectLocation LIKE @like
-              )
-              SELECT COUNT(DISTINCT companyKey) AS total FROM ver
-            `
-            )
-            .get({ like })?.total || 0
-        );
-      }
+      const total = Number(db.prepare(totalSql).get(params)?.total || 0);
 
       res.json({ ok: true, location: area, items, total, page, pageSize });
     } catch (e) {
