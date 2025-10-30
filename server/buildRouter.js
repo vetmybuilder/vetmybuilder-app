@@ -139,6 +139,15 @@ function buildRouter(ctx) {
   // ---------------- Tradesmen / Builders ----------------
   require("./routes/tradesmen/discover.get")(router, ctx);
 
+  // ---------------- Project Types ----------------
+  require("./routes/project-types.queries.post")(router, ctx);
+  require("./routes/project-types.queries.get")(router, ctx);
+  require("./routes/project-types.post")(router, ctx);
+  require("./routes/project-types.synonyms.post")(router, ctx);
+  require("./routes/project-types.get")(router, ctx);
+  require("./routes/project-types.seed.post")(router, ctx);
+
+
   return router;
 }
 

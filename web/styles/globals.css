@@ -4,7 +4,7 @@
 
 /* ---------- Theme ---------- */
 :root {
-  --bg: #f4f6fb; /* subtle cool light */
+  --bg: #f1f2f5; /* soft off-white/grey background */
   --panel: #ffffff; /* cards */
   --text: #0f172a; /* slate-900 */
   --muted: #64748b; /* slate-500 */
@@ -24,14 +24,16 @@ body,
 }
 
 body {
-  background: radial-gradient(
+  /* Neutral, subtle vignette over a soft off-white base */
+  background:
+    radial-gradient(
       1200px 600px at 10% -10%,
-      rgba(99, 102, 241, 0.1),
+      rgba(15, 23, 42, 0.06),
       transparent 60%
     ),
     radial-gradient(
-      900px 500px at 100% 10%,
-      rgba(37, 99, 235, 0.08),
+      900px 500px at 110% 0%,
+      rgba(15, 23, 42, 0.04),
       transparent 55%
     ),
     var(--bg);

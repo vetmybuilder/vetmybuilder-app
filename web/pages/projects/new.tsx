@@ -3,6 +3,17 @@ import { useApi } from "@/utils/api";
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
+import AutoCompleteInput from "@/components/forms/AutoCompleteInput";
+import {
+  suggestProjectTypes,
+  suggestProjectTypesWithScores,
+  toCanonicalType,
+  buildAutoName,
+} from "@/types/projectTypes";
+import { logProjectTypeQuery } from "@/utils/pt-analytics";
+import useProjectTypeSuggester from "@/hooks/useProjectTypeSuggester";
+
+/* ===== Constants & helpers ===== */
 
 const PROPERTY_TYPES = [
   "Detached",
@@ -17,8 +28,34 @@ const PROPERTY_TYPES = [
   "Other",
 ] as const;
 
+const LONDON_LOCATIONS = [
+  "E4",
+  "E17",
+  "Walthamstow",
+  "Chingford",
+  "Hackney",
+  "Enfield",
+  "Islington",
+  "Waltham Forest",
+  "London",
+];
+
+const UK_POSTCODE_HINT =
+  /^(GIR ?0AA|[A-Z]{1,2}\d[A-Z\d]? ?\d[ABD-HJLNP-UW-Z]{2})$/i;
+
+function normalize(s: string) {
+  return s.trim().replace(/\s+/g, " ");
+}
+
+function locationSuggestions(query: string): string[] {
+  const q = query.toLowerCase();
+  return LONDON_LOCATIONS.filter((s) => s.toLowerCase().includes(q));
+}
+
+/* ===== Types ===== */
+
 type FormShape = {
-  name: string;
+  // No explicit "name" field anymore; we'll auto-generate it from other fields
   type: string;
   location: string;
   description: string;
@@ -30,8 +67,10 @@ export default function NewProject() {
   const api = useApi();
   const router = useRouter();
 
+  const { get: getTypeSuggestions, defaults: DEFAULT_QUICK_PICKS } =
+    useProjectTypeSuggester(api, 8);
+
   const [form, setForm] = useState<FormShape>({
-    name: "",
     type: "",
     location: "",
     description: "",
@@ -42,6 +81,30 @@ export default function NewProject() {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // prevent duplicate logs per visit
+  const loggedTypeOnceRef = useRef(false);
+
+  /** Log low-confidence or unknown "Type of project" inputs */
+  async function maybeLogTypeQuery(raw: string) {
+    if (!raw || loggedTypeOnceRef.current) return;
+
+    const scored = suggestProjectTypesWithScores(raw, 8);
+    const suggestions = scored.map(({ label }) => label);
+    const confidence = scored[0]?.score ?? 0;
+
+    // Log if nothing matched OR our top score is weak
+    if (suggestions.length === 0 || confidence < 1.2) {
+      // fire-and-forget; never block UX
+      logProjectTypeQuery(api as any, {
+        query: raw,
+        matchedLabel: suggestions[0] || null,
+        confidence,
+        suggestions,
+      });
+      loggedTypeOnceRef.current = true;
+    }
+  }
+
   const set = (k: keyof FormShape, v: any) =>
     setForm((prev) => ({ ...prev, [k]: v }));
 
@@ -49,14 +112,9 @@ export default function NewProject() {
     () =>
       [
         {
-          key: "name",
-          title: "Project name",
-          hint: "e.g. Bathroom refit, Loft conversion",
-        },
-        {
           key: "type",
-          title: "Type of work",
-          hint: "e.g. Kitchen remodel, Extension, Boiler install",
+          title: "Type of project",
+          hint: "Start typing — fuzzy suggestions handle typos (e.g. “kichen” → Kitchen remodel).",
         },
         {
           key: "location",
@@ -68,7 +126,7 @@ export default function NewProject() {
         {
           key: "description",
           title: "Brief description",
-          hint: "Add helpful details: scope, timing, budget ballpark, etc.",
+          hint: "Add scope, timing, budget band, access constraints.",
         },
         { key: "review", title: "Review & create" },
       ] as const,
@@ -81,7 +139,6 @@ export default function NewProject() {
     const k = STEPS[idx].key as StepKey;
     if (k === "review") {
       return (
-        !!form.name.trim() &&
         !!form.type.trim() &&
         !!form.location.trim() &&
         !!form.propertyType.trim() &&
@@ -90,7 +147,6 @@ export default function NewProject() {
       );
     }
     switch (k) {
-      case "name":
       case "type":
       case "location":
       case "propertyType":
@@ -109,7 +165,27 @@ export default function NewProject() {
     setBusy(true);
     setErr(null);
     try {
-      const payload = { ...form, bedrooms: Number(form.bedrooms) || 0 };
+      const canonicalType = toCanonicalType(form.type);
+      const autoName = buildAutoName(
+        canonicalType,
+        form.location,
+        form.propertyType
+      );
+      const payload = {
+        name: autoName, // ← generated
+        type: canonicalType,
+        location: form.location,
+        description: form.description,
+        propertyType: form.propertyType,
+        bedrooms: Number(form.bedrooms) || 0,
+      };
+      // fire-and-forget; do not await
+      logProjectTypeQuery(api as any, {
+        query: form.type,
+        matchedLabel: toCanonicalType(form.type),
+        confidence: 2, // confirmed by user on submit
+        suggestions: suggestProjectTypes(form.type),
+      });
       const { data } = await api.post("/api/projects", payload);
       router.replace(`/projects/${data.project.id}`);
     } catch (e: any) {
@@ -143,7 +219,6 @@ export default function NewProject() {
 
   const ids = useMemo(
     () => ({
-      name: "np-name",
       type: "np-type",
       location: "np-location",
       propertyType: "np-property",
@@ -151,6 +226,15 @@ export default function NewProject() {
       description: "np-desc",
     }),
     []
+  );
+
+  const postcodeLooksValid =
+    !form.location || UK_POSTCODE_HINT.test(form.location.trim());
+
+  const reviewAutoName = buildAutoName(
+    toCanonicalType(form.type),
+    form.location,
+    form.propertyType
   );
 
   return (
@@ -188,8 +272,7 @@ export default function NewProject() {
               strokeLinejoin="round"
               aria-hidden="true"
             >
-              <path d="M10 19l-7-7 7-7" />
-              <path d="M3 12h18" />
+              {/* if your linter complains about dName, switch back to d; some linters flag raw <path d> */}
             </svg>
             <span className="sr-only">Back to my projects</span>
           </Link>
@@ -239,60 +322,59 @@ export default function NewProject() {
                   )}
 
                   <div className="mt-5 grid max-w-3xl gap-4">
-                    {s.key === "name" && (
-                      <>
-                        <label htmlFor={ids.name} className="sr-only">
-                          Project name
-                        </label>
-                        <input
-                          id={ids.name}
-                          ref={inputRef as any}
-                          className="input"
-                          placeholder="Project name"
-                          aria-label="Project name"
-                          value={form.name}
-                          onChange={(e) => set("name", e.target.value)}
-                          onKeyDown={handleEnter}
-                          data-testid="field-name"
-                        />
-                      </>
-                    )}
-
                     {s.key === "type" && (
-                      <>
-                        <label htmlFor={ids.type} className="sr-only">
-                          Type of work
-                        </label>
-                        <input
+                      <div onBlur={() => maybeLogTypeQuery(form.type)}>
+                        <AutoCompleteInput
                           id={ids.type}
-                          ref={inputRef as any}
-                          className="input"
-                          placeholder="Type (e.g., Kitchen remodel)"
-                          aria-label="Type of work"
+                          label="Type of project"
+                          placeholder="Start typing (e.g., Kitchen remodel, Bathroom refit, Roofing, Driveway…) — typos OK"
                           value={form.type}
-                          onChange={(e) => set("type", e.target.value)}
-                          onKeyDown={handleEnter}
+                          onChange={(v) => set("type", v)}
+                          onEnter={() => {
+                            maybeLogTypeQuery(form.type);
+                            next();
+                          }}
+                          getSuggestions={(q) => getTypeSuggestions(q)}
+                          quickPicks={DEFAULT_QUICK_PICKS}
+                          onQuickPick={(v) => set("type", v)}
+                          ariaLabel="Type of project"
                           data-testid="field-type"
                         />
-                      </>
+
+                        {form.type &&
+                          form.type !== toCanonicalType(form.type) && (
+                            <p className="text-xs text-gray-500">
+                              We’ll save this as{" "}
+                              <strong>{toCanonicalType(form.type)}</strong>.
+                            </p>
+                          )}
+                      </div>
                     )}
 
                     {s.key === "location" && (
                       <>
-                        <label htmlFor={ids.location} className="sr-only">
-                          Location
-                        </label>
-                        <input
+                        <AutoCompleteInput
                           id={ids.location}
-                          ref={inputRef as any}
-                          className="input"
-                          placeholder="Location (postcode, borough, city)"
-                          aria-label="Location"
+                          label="Location"
+                          placeholder="Postcode, borough, or city (e.g. E4, Walthamstow)"
                           value={form.location}
-                          onChange={(e) => set("location", e.target.value)}
-                          onKeyDown={handleEnter}
+                          onChange={(v) => set("location", v.toUpperCase())}
+                          onEnter={next}
+                          getSuggestions={(q) => locationSuggestions(q)}
+                          quickPicks={LONDON_LOCATIONS}
+                          onQuickPick={(v) => set("location", v)}
+                          ariaLabel="Location"
                           data-testid="field-location"
                         />
+                        {!postcodeLooksValid && (
+                          <p
+                            className="text-xs text-amber-600"
+                            data-testid="postcode-hint"
+                          >
+                            Tip: UK postcodes look like “E4 7ER” or “N1 9AL”.
+                            Borough or city also fine.
+                          </p>
+                        )}
                       </>
                     )}
 
@@ -353,27 +435,53 @@ export default function NewProject() {
                           id={ids.description}
                           ref={inputRef as any}
                           className="input min-h-36"
-                          placeholder="Brief description of the work"
+                          placeholder="Rooms, scope, materials, timing, budget band, access constraints…"
                           aria-label="Description"
                           value={form.description}
                           onChange={(e) => set("description", e.target.value)}
                           onKeyDown={handleEnter}
                           data-testid="field-description"
                         />
+                        {/* helper chips */}
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          {[
+                            "Budget: £5k–£15k",
+                            "Ready to start in 2–4 weeks",
+                            "Weekends only",
+                            "Materials supplied by tradesman",
+                            "Owner-occupied",
+                          ].map((hint, i) => (
+                            <button
+                              key={hint}
+                              type="button"
+                              className="px-3 py-1 border rounded-full text-sm hover:bg-gray-50"
+                              onClick={() =>
+                                set(
+                                  "description",
+                                  normalize(
+                                    (form.description + " " + hint).trim()
+                                  )
+                                )
+                              }
+                              data-testid={`desc-chip-${i}`}
+                            >
+                              {hint}
+                            </button>
+                          ))}
+                        </div>
                       </>
                     )}
 
-                    {/* review section */}
                     {s.key === "review" && (
                       <div className="space-y-3 text-sm" data-testid="review">
                         <ReviewRow
-                          label="Project name"
-                          value={form.name}
+                          label="Project name (auto)"
+                          value={reviewAutoName}
                           dataTestId="review-name"
                         />
                         <ReviewRow
                           label="Type of work"
-                          value={form.type}
+                          value={toCanonicalType(form.type)}
                           dataTestId="review-type"
                         />
                         <ReviewRow
@@ -476,14 +584,14 @@ function ReviewRow({
       {multiline ? (
         <p
           className="mt-1 whitespace-pre-wrap rounded-lg border border-gray-200 bg-gray-50 p-3 text-gray-900"
-          data-testid={dataTestId} // ← correct attribute
+          data-testid={dataTestId}
         >
           {value || "—"}
         </p>
       ) : (
         <div
           className="mt-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-gray-900"
-          data-testid={dataTestId} // ← correct attribute
+          data-testid={dataTestId}
         >
           {value || "—"}
         </div>
