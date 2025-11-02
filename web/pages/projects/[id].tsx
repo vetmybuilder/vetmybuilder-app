@@ -140,6 +140,33 @@ export default function ProjectView() {
     return () => clearTimeout(t);
   }, [flash]);
 
+  /* ===== Detect if viewer is a tradesman (for back navigation & discover visibility) ===== */
+  const [isTrades, setIsTrades] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!user) {
+        if (alive) setIsTrades(false);
+        return;
+      }
+      try {
+        const { data } = await api.get("/api/tradesmen/me");
+        const role = String(data?.role || "").toLowerCase();
+        const hasProfile = !!data?.profile;
+        if (alive) setIsTrades(role === "tradesman" || hasProfile);
+      } catch {
+        if (alive) setIsTrades(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [api, user]);
+
+  const backHref = isTrades
+    ? "/tradesman/projects"
+    : `/projects${sourceTab ? `?tab=${sourceTab}` : ""}`;
+
   /* Load project */
   useEffect(() => {
     if (!router.isReady || authLoading || !user || !projectId) return;
@@ -515,13 +542,28 @@ export default function ProjectView() {
     }
   }
 
-  /* ===== Discover: load nearby verified tradespeople ===== */
+  /* ===== Discover: load nearby verified tradespeople (SKIPPED for tradesmen) ===== */
   const [nearby, setNearby] = useState<TradesmanLite[]>([]);
   const [nearbyLoading, setNearbyLoading] = useState(false);
   const [nearbyErr, setNearbyErr] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!router.isReady || authLoading || !user || !project?.location) return;
+    // Do not load or show the Discover section for tradesmen
+    if (
+      !router.isReady ||
+      authLoading ||
+      !user ||
+      !project?.location ||
+      isTrades
+    ) {
+      if (isTrades) {
+        // ensure UI stays hidden/empty and no spinners are shown
+        setNearby([]);
+        setNearbyErr(null);
+        setNearbyLoading(false);
+      }
+      return;
+    }
     let killed = false;
     (async () => {
       try {
@@ -546,7 +588,7 @@ export default function ProjectView() {
     return () => {
       killed = true;
     };
-  }, [api, router.isReady, authLoading, user, project?.location]);
+  }, [api, router.isReady, authLoading, user, project?.location, isTrades]);
 
   /* ===== Render ===== */
   return (
@@ -589,7 +631,7 @@ export default function ProjectView() {
             actions={
               <div className="flex gap-3">
                 <Link
-                  href="/projects"
+                  href={backHref}
                   className="btn"
                   data-testid="btn-back-to-my-projects"
                 >
@@ -640,7 +682,7 @@ export default function ProjectView() {
             <ProjectHeaderBar
               title={project.name}
               createdAt={project.createdAt}
-              backHref={`/projects${sourceTab ? `?tab=${sourceTab}` : ""}`}
+              backHref={backHref}
               showAddToFavourites={
                 isFromCommunity && !isOwner && !isClosed && !addedToFavourites
               }
@@ -683,8 +725,8 @@ export default function ProjectView() {
               />
             </div>
 
-            {/* ===== Discover inline section (underneath) ===== */}
-            {nearby.length > 0 && (
+            {/* ===== Discover inline section (hidden for tradesmen) ===== */}
+            {!isTrades && nearby.length > 0 && (
               <DiscoverInline location={project?.location} limit={6} />
             )}
           </>

@@ -1,5 +1,7 @@
 // server/buildRouter.js
 const { Router } = require("express");
+const { requireTradesman } = require("./lib/roles");
+const ensureAdminTables = require("./boot/ensureAdminTables");
 
 function buildRouter(ctx) {
   if (!ctx || !ctx.db) {
@@ -7,6 +9,12 @@ function buildRouter(ctx) {
   }
 
   // ---- Hydrate ctx with defaults so routes can rely on them ----
+
+  // Trades role guard
+  ctx.requireTradesman = ctx.requireTradesman || requireTradesman(ctx);
+
+  ensureAdminTables(ctx.db);
+
   // SSE
   if (!ctx.clientsByUser || !ctx.sseSend) {
     const sse = require("./lib/sse");
@@ -64,8 +72,6 @@ function buildRouter(ctx) {
     });
 
   // Auth middlewares (expect provided by index)
-  // ctx.auth: required for protected routes
-  // ctx.touchUserMw: optional but recommended
   if (!ctx.auth) {
     throw new Error("buildRouter: ctx.auth is required (auth middleware)");
   }
@@ -87,7 +93,6 @@ function buildRouter(ctx) {
   require("./routes/notifications/read-all.post")(router, ctx);
 
   // ---------------- Account / Profile / Me ----------------
-  // (Keep both folder styles for now; you can consolidate later)
   require("./routes/accounts/account.get")(router, ctx); // GET /api/account
   require("./routes/account/account.post")(router, ctx); // POST /api/account
   require("./routes/profile/profile.get")(router, ctx);
@@ -107,7 +112,6 @@ function buildRouter(ctx) {
   require("./routes/projects/close.post")(router, ctx);
   require("./routes/projects/close.photos.post")(router, ctx);
   require("./routes/projects/close.photos.get")(router, ctx);
-  require("./routes/projects/close.post")(router, ctx);
   require("./routes/projects/project-closure.get")(router, ctx);
   require("./routes/projects/magic-link.post")(router, ctx);
 
@@ -116,14 +120,10 @@ function buildRouter(ctx) {
   require("./routes/projects/recommendations.post")(router, ctx);
 
   // ---------------- Recommendations ----------------
-  // Public via magic link
   require("./routes/recommendations/magic.post")(router, ctx);
   require("./routes/recommendations/magic.get")(router, ctx);
   require("./routes/recommendations/like.post")(router, ctx);
   require("./routes/recommendations/ratings.recommendations.get")(router, ctx);
-
-  // Authed rec routes
-
   require("./routes/recommendations/recommendation.get")(router, ctx);
   require("./routes/recommendations/verification.get")(router, ctx);
 
@@ -135,18 +135,20 @@ function buildRouter(ctx) {
   // ---------------- Debug ----------------
   require("./routes/debug/reclinks.get")(router, ctx);
   require("./routes/debug/leaderboard.get")(router, ctx);
+  require("./routes/debug/trades-role.get")(router, ctx);
 
   // ---------------- Tradesmen / Builders ----------------
   require("./routes/tradesmen/discover.get")(router, ctx);
+  require("./routes/tradesmen/jobs.get")(router, ctx);
+  require("./routes/tradesmen/me.get")(router, ctx);
+  require("./routes/tradesmen/me.put")(router, ctx);
+  // require("./routes/tradesmen/register.post")(router, ctx);
+  require("./routes/tradesmen/join.post")(router, ctx);
 
-  // ---------------- Project Types ----------------
-  require("./routes/project-types.queries.post")(router, ctx);
-  require("./routes/project-types.queries.get")(router, ctx);
-  require("./routes/project-types.post")(router, ctx);
-  require("./routes/project-types.synonyms.post")(router, ctx);
-  require("./routes/project-types.get")(router, ctx);
-  require("./routes/project-types.seed.post")(router, ctx);
-
+  // ---------------- Admin ----------------
+  require("./routes/admin/tradesmen.get")(router, ctx);
+  require("./routes/admin/tradesman.status.post")(router, ctx);
+  require("./routes/admin/tradesman.flag.post")(router, ctx);
 
   return router;
 }

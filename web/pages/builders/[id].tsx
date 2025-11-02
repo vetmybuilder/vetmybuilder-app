@@ -2,9 +2,9 @@ import { useRouter } from "next/router";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
-import AuthedOnly from "@/components/AuthedOnly";
 import Link from "next/link";
 import { getAggregateVmbForCompany, type FetchRecsFn } from "@/utils/vmb";
+import BlurUnlock from "@/components/ui/BlurUnlock";
 
 type Photo = { id: string; url: string; thumb?: string; alt?: string };
 
@@ -13,26 +13,18 @@ type Builder = {
   company: string;
   comment: string | null;
   createdAt: string;
-  // recommender
   name: string | null;
   email: string | null;
-  phone?: string | null; // <-- this is the BUILDER’S phone
+  phone?: string | null;
   isAnonymous: 0 | 1;
-  // aggregates
   likes?: number;
   myLike?: 0 | 1;
-  // gallery
   photos?: any;
   photoUrls?: string[];
-  // badges
   fromFriend?: 0 | 1;
   fromCommunity?: 0 | 1;
-  // back to project
   project?: { id: number; name: string };
-  // VMB ranking score
   score?: number;
-
-  // Optional: item-level Companies House verification already present
   companyVerification?: Verification | null;
 };
 
@@ -43,7 +35,6 @@ type VerificationStatus =
   | "ambiguous"
   | "no_match"
   | "error";
-
 type Verification = {
   recommendationId: number;
   status: VerificationStatus;
@@ -58,8 +49,6 @@ type Verification = {
 function shouldUseChName(status?: VerificationStatus) {
   return status === "verified" || status === "ambiguous";
 }
-
-/** Prefer item-level CH name, then loaded verification; fallback to entered name. */
 function resolveCompanyNameForBuilder(
   b: Builder | null,
   v: Verification | null | undefined
@@ -74,7 +63,6 @@ function resolveCompanyNameForBuilder(
       : v && shouldUseChName(v.status) && v.companyName
       ? v
       : null;
-
   if (picked?.companyName) return picked.companyName.trim().toUpperCase();
   return b?.company ?? "";
 }
@@ -100,15 +88,11 @@ function Badge({
     </span>
   );
 }
-
-/** Thumbs up icon (vote) */
 const ThumbsUpIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
     <path d="M2 10h4v12H2V10zm7.5 12h6.27c1.02 0 1.94-.64 2.29-1.6l2.41-6.52a2 2 0 0 0-1.24-2.55c-.2-.07-.42-.11-.64-.11h-4.6l.62-3.02.02-.23a2 2 0 0 0-.59-1.42L13.2 4 8.9 8.29A3 3 0 0 0 8 10.4V20a2 2 0 0 0 1.5 2z" />
   </svg>
 );
-
-/** Compact VMB score pill. Shows “—” if unknown. */
 function ScoreChip({ value }: { value?: number }) {
   if (value == null || Number.isNaN(Number(value))) {
     return (
@@ -131,7 +115,6 @@ function ScoreChip({ value }: { value?: number }) {
     </span>
   );
 }
-
 const ClockIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
     <path d="M12 2a10 10 0 1 0 .001 20.001A10 10 0 0 0 12 2zm1 11h5v-2h-2V6h-2v7z" />
@@ -142,8 +125,6 @@ const ExclamationTriangleIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <path d="M1 21h22L12 2 1 21zm12-3h-2v2h2v-2zm0-8h-2v6h2V10z" />
   </svg>
 );
-
-/** Simple Google mark (visual only) */
 function GoogleMark() {
   return (
     <span className="inline-flex items-center gap-1.5">
@@ -163,7 +144,6 @@ function GoogleMark() {
   );
 }
 
-/** Accept a variety of server shapes for photos and produce a normalized list */
 function normalizePhotos(payload: Builder | null): Photo[] {
   if (!payload) return [];
   const src = payload.photos ?? payload.photoUrls ?? [];
@@ -191,8 +171,6 @@ function normalizePhotos(payload: Builder | null): Photo[] {
   return [];
 }
 
-/* ---------------- Aggregation helpers ---------------- */
-
 function companyKey(s: string) {
   return (s || "")
     .toLowerCase()
@@ -200,22 +178,18 @@ function companyKey(s: string) {
     .trim()
     .replace(/\s+/g, " ");
 }
-
 function recommenderLabel(r: { name: string | null; isAnonymous: 0 | 1 }) {
   if (r.isAnonymous === 1) return "Anonymous user";
   const n = (r.name || "").trim();
   return n || "Guest";
 }
-
-// Try hard to load ALL recs for a given project (for photos/names/phones aggregation)
 async function fetchProjectRecommendations(
   api: any,
   projectId: number
 ): Promise<any[]> {
-  // Only use non-v2 routes
   const tryRoutes = [
     `/api/projects/${projectId}/recommendations`,
-    `/api/projects/${projectId}`, // sometimes embeds recommendations
+    `/api/projects/${projectId}`,
   ];
   for (const path of tryRoutes) {
     try {
@@ -227,8 +201,6 @@ async function fetchProjectRecommendations(
       if (Array.isArray(data?.project?.items)) return data.project.items;
     } catch {}
   }
-
-  // Fallback: pull ids from ratings, then hydrate each (non-v2)
   try {
     const { data } = await api.get(
       `/api/recommendations/ratings?projectId=${projectId}&limit=200&offset=0`
@@ -258,7 +230,13 @@ async function fetchProjectRecommendations(
   }
 }
 
-/* ---------------- Small auth-race retry helpers ---------------- */
+function SkeletonLine({ className = "" }: { className?: string }) {
+  return (
+    <div
+      className={`animate-pulse rounded-md bg-neutral-200 dark:bg-neutral-800 ${className}`}
+    />
+  );
+}
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
@@ -293,11 +271,44 @@ export default function BuilderProfile() {
   const api = useApi();
   const { user, loading: authLoading } = useAuth();
 
+  // --- Tradesman guard (no flicker, no hook reordering) ---
+  const [redirecting, setRedirecting] = useState(false);
+  useEffect(() => {
+    if (!router.isReady || authLoading) return;
+    if (!user) {
+      setRedirecting(false);
+      return;
+    }
+
+    let cancelled = false;
+    // block UI while we check role
+    setRedirecting(true);
+    (async () => {
+      try {
+        const { data } = await api.get("/api/tradesmen/me");
+        const t = data?.tradesman ?? data ?? {};
+        const looksLikeProfile =
+          !!t?.user_id || !!t?.company_name || !!t?.status;
+        if (looksLikeProfile && !cancelled) {
+          router.replace("/tradesman/projects");
+          return;
+        }
+      } catch {
+        // not a tradesman, proceed
+      } finally {
+        if (!cancelled) setRedirecting(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [api, user, authLoading, router.isReady, router]);
+
+  // --- Normal page state/hooks (declared every render) ---
   const [builder, setBuilder] = useState<Builder | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  // Aggregated (same company in the same project)
   const [aggPhones, setAggPhones] = useState<string[]>([]);
   const [aggNames, setAggNames] = useState<string[]>([]);
   const [aggPhotos, setAggPhotos] = useState<Photo[]>([]);
@@ -306,19 +317,14 @@ export default function BuilderProfile() {
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const lightboxOpen = lightboxIdx !== null;
 
-  // Verification state
   const [verification, setVerification] = useState<Verification | null>(null);
   const [verr, setVerr] = useState<string | null>(null);
   const [vLoading, setVLoading] = useState(false);
 
-  // VMB score (will be replaced with aggregate when applicable)
   const [score, setScore] = useState<number | undefined>(undefined);
   const [scoreErr, setScoreErr] = useState<string | null>(null);
 
-  // Project owner (to hide vote button if I'm the owner)
   const [projectOwnerId, setProjectOwnerId] = useState<string | null>(null);
-
-  // Derived permission: can I vote?
   const isOwner = useMemo(
     () =>
       !!(user && projectOwnerId && String(user.uid) === String(projectOwnerId)),
@@ -336,9 +342,16 @@ export default function BuilderProfile() {
     };
   }, [lightboxOpen]);
 
-  // Fetch builder
+  // Fetch builder (skip while redirecting)
   useEffect(() => {
-    if (!router.isReady || authLoading || !user || !id) return;
+    if (!router.isReady || authLoading || !id || redirecting) return;
+
+    if (!user) {
+      // guests: show locked preview quickly
+      setLoading(false);
+      setErr(null);
+      return;
+    }
 
     let alive = true;
     setLoading(true);
@@ -361,25 +374,21 @@ export default function BuilderProfile() {
         const status = e?.status ?? e?.response?.status;
         const msg =
           e?.data?.error || e?.response?.data?.error || e?.message || "";
-        if (status === 401 || /bearer token/i.test(String(msg))) {
-          setErr("You need to sign in again to view this builder.");
-        } else {
-          setErr("Failed to load builder");
-        }
+        if (status === 401 || /bearer token/i.test(String(msg))) setErr(null);
+        else setErr("Failed to load builder");
       } finally {
         if (alive) setLoading(false);
       }
     })();
-
     return () => {
       alive = false;
     };
-  }, [api, id, router.isReady, authLoading, user]);
+  }, [api, id, router.isReady, authLoading, user, redirecting]);
 
-  // Fetch project owner (so we can hide the vote button for owners)
+  // Owner id
   useEffect(() => {
     const projectId = builder?.project?.id;
-    if (!projectId || !user) return;
+    if (!projectId || !user || redirecting) return;
     let alive = true;
     (async () => {
       try {
@@ -394,11 +403,11 @@ export default function BuilderProfile() {
     return () => {
       alive = false;
     };
-  }, [api, builder?.project?.id, user]);
+  }, [api, builder?.project?.id, user, redirecting]);
 
-  // Companies House verification
+  // CH verification
   useEffect(() => {
-    if (!router.isReady || authLoading || !user || !id) return;
+    if (!router.isReady || authLoading || !user || !id || redirecting) return;
     let alive = true;
     setVLoading(true);
     setVerr(null);
@@ -409,7 +418,7 @@ export default function BuilderProfile() {
         );
         if (!alive) return;
         setVerification(data?.verification || null);
-      } catch (e: any) {
+      } catch {
         if (!alive) return;
         setVerr("Could not load verification");
         setVerification(null);
@@ -420,11 +429,11 @@ export default function BuilderProfile() {
     return () => {
       alive = false;
     };
-  }, [api, id, router.isReady, authLoading, user]);
+  }, [api, id, router.isReady, authLoading, user, redirecting]);
 
-  // Fetch VMB score for this recommendation (server-calculated, single) — non-v2
+  // Single/aggregate VMB score
   useEffect(() => {
-    if (!router.isReady || authLoading || !user || !id) return;
+    if (!router.isReady || authLoading || !user || !id || redirecting) return;
     let alive = true;
     setScoreErr(null);
     (async () => {
@@ -448,19 +457,16 @@ export default function BuilderProfile() {
     return () => {
       alive = false;
     };
-  }, [api, id, router.isReady, authLoading, user]);
+  }, [api, id, router.isReady, authLoading, user, redirecting]);
 
-  // Compute aggregate VMB when there are multiple recs for the same company (uses ONLY non-v2)
   useEffect(() => {
     const projectId = builder?.project?.id;
     const companyName = builder?.company || "";
-    if (!projectId || !companyName) return;
+    if (!projectId || !companyName || redirecting) return;
 
     let cancelled = false;
-
     (async () => {
       try {
-        // Bridge function to the ratings endpoint -> RecLite[]
         const ratingsFetcher: FetchRecsFn = async ({
           projectId,
           offset = 0,
@@ -480,44 +486,31 @@ export default function BuilderProfile() {
             : items.length;
           return { items, total };
         };
-
-        // Use whatever single score we currently have as the fallback
         const singleScore =
           typeof score === "number"
             ? score
             : typeof builder?.score === "number"
             ? builder.score
             : undefined;
-
         const agg = await getAggregateVmbForCompany(
           ratingsFetcher,
           projectId,
           companyName,
           singleScore
         );
-
-        if (!cancelled && typeof agg === "number") {
-          setScore(agg);
-        }
-      } catch {
-        // ignore — keep whatever score we had
-      }
+        if (!cancelled && typeof agg === "number") setScore(agg);
+      } catch {}
     })();
-
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, builder?.project?.id, builder?.company]);
+  }, [api, builder?.project?.id, builder?.company, score, redirecting]);
 
-  // Aggregate same-company recs within the same project for phones/names/photos/date
   useEffect(() => {
-    if (!builder) return;
-
+    if (!builder || redirecting) return;
     (async () => {
       const pid = builder?.project?.id;
       const baseCompany = builder?.company || "";
-
       if (!pid || !baseCompany) {
         setAggPhones(builder?.phone ? [builder.phone] : []);
         setAggNames([recommenderLabel(builder)]);
@@ -525,9 +518,7 @@ export default function BuilderProfile() {
         setAggUpdatedAt(builder?.createdAt || null);
         return;
       }
-
       const allRecs = await fetchProjectRecommendations(api, pid);
-
       const key = companyKey(baseCompany);
       const byId = new Map<number, any>();
       const source = [builder, ...allRecs].filter(Boolean);
@@ -546,9 +537,7 @@ export default function BuilderProfile() {
             .filter((p) => p && p.length >= 7)
         )
       );
-
       const names = Array.from(new Set(group.map((r) => recommenderLabel(r))));
-
       const latestMs = Math.max(
         ...group
           .map((r) => +new Date(r.createdAt))
@@ -558,7 +547,6 @@ export default function BuilderProfile() {
         ? new Date(latestMs).toISOString()
         : builder.createdAt;
 
-      // Merge photos, hydrating per-rec if needed to get URLs + alt
       const photoLists = await Promise.all(
         group.map(async (r) => {
           try {
@@ -588,15 +576,13 @@ export default function BuilderProfile() {
           merged.push(p);
         }
       }
-
       setAggPhones(phones);
       setAggNames(names);
       setAggPhotos(merged.length ? merged : normalizePhotos(builder));
       setAggUpdatedAt(latestIso || builder.createdAt || null);
     })();
-  }, [api, builder]);
+  }, [api, builder, redirecting]);
 
-  // Lightbox
   const photos = aggPhotos;
   const [voting, setVoting] = useState(false);
   const voteUpOnce = async () => {
@@ -607,8 +593,6 @@ export default function BuilderProfile() {
       await api.post(`/api/recommendations/${builder.id}/like`);
       const { data } = await api.get(`/api/recommendations/${builder.id}`);
       setBuilder(data.recommendation);
-
-      // refresh score too (non-v2)
       try {
         const { data: r } = await api.get(
           `/api/recommendations/ratings?recommendationId=${builder.id}`
@@ -701,80 +685,73 @@ export default function BuilderProfile() {
     );
   }
 
+  // --- block UI completely while redirecting (no flicker for tradesmen) ---
+  if (redirecting) return null;
+
   return (
-    <AuthedOnly>
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between mb-4">
-          <h1
-            className="text-2xl font-semibold"
-            data-testid="builder-page-title"
+    <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-semibold" data-testid="builder-page-title">
+          Builder profile
+        </h1>
+        {builder?.project && (
+          <Link
+            href="/projects"
+            aria-label="Back to my projects"
+            title="Back to my projects"
+            className="btn-back"
+            data-testid="btn-back"
           >
-            Builder profile
-          </h1>
-          {builder?.project && (
-            <Link
-              href="/projects"
-              aria-label="Back to my projects"
-              title="Back to my projects"
-              className="btn-back"
-              data-testid="btn-back"
+            <svg
+              viewBox="0 0 24 24"
+              className="icon-24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
             >
-              <svg
-                viewBox="0 0 24 24"
-                className="icon-24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M10 19l-7-7 7-7" />
-                <path d="M3 12h18" />
-              </svg>
-              <span className="sr-only">Back to my projects</span>
-            </Link>
-          )}
+              <path d="M10 19l-7-7 7-7" />
+              <path d="M3 12h18" />
+            </svg>
+            <span className="sr-only">Back to my projects</span>
+          </Link>
+        )}
+      </div>
+
+      {authLoading || loading ? (
+        <div className="card" data-testid="builder-loading">
+          Loading…
         </div>
-
-        {authLoading || loading ? (
-          <div className="card" data-testid="builder-loading">
-            Loading…
-          </div>
-        ) : err ? (
-          <div className="card text-red-600" data-testid="builder-error">
-            {err}
-            <div className="mt-3">
-              <Link href="/login" className="btn" data-testid="btn-go-login">
-                Go to sign in
-              </Link>
+      ) : err ? (
+        <div className="card text-red-600" data-testid="builder-error">
+          {err}
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {/* Gallery */}
+          <section
+            className="card"
+            data-testid="gallery-card"
+            aria-labelledby="gallery-heading"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h3 id="gallery-heading" className="text-lg font-semibold">
+                Gallery
+              </h3>
+              <span
+                className="text-xs text-slate-500"
+                data-testid="gallery-count"
+              >
+                {user
+                  ? `${photos.length} photo${photos.length === 1 ? "" : "s"}`
+                  : "Locked preview"}
+              </span>
             </div>
-          </div>
-        ) : !builder ? (
-          <div className="card" data-testid="builder-not-found">
-            Not found
-          </div>
-        ) : (
-          <div className="space-y-5">
-            {/* TOP: Gallery (aggregated) */}
-            <section
-              className="card"
-              data-testid="gallery-card"
-              aria-labelledby="gallery-heading"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <h3 id="gallery-heading" className="text-lg font-semibold">
-                  Gallery
-                </h3>
-                <span
-                  className="text-xs text-slate-500"
-                  data-testid="gallery-count"
-                >
-                  {photos.length} photo{photos.length === 1 ? "" : "s"}
-                </span>
-              </div>
 
-              {photos.length === 0 ? (
+            {user ? (
+              photos.length === 0 ? (
                 <p
                   className="text-sm text-slate-500"
                   data-testid="gallery-empty"
@@ -802,257 +779,287 @@ export default function BuilderProfile() {
                     </button>
                   ))}
                 </div>
-              )}
-            </section>
-
-            {/* Summary + Verifications */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* LEFT: summary */}
-              <section
-                className="card"
-                data-testid="builder-summary-card"
-                aria-labelledby="builder-summary-heading"
+              )
+            ) : (
+              <BlurUnlock
+                previewCount={3}
+                totalCount={photos.length || undefined}
+                label="photos from neighbours"
               >
-                <div className="grid grid-cols-[1fr_auto] items-start gap-3">
-                  {/* Left: company + badges */}
-                  <div className="min-w-0">
-                    <h2
-                      id="builder-summary-heading"
-                      className="text-xl font-semibold truncate"
-                      data-testid="builder-company"
-                      title={resolveCompanyNameForBuilder(
-                        builder,
-                        verification
-                      )}
-                    >
-                      {resolveCompanyNameForBuilder(builder, verification)}
-                    </h2>
-
+                <div
+                  className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2"
+                  aria-hidden
+                >
+                  {new Array(6).fill(null).map((_, i) => (
                     <div
-                      className="mt-2 flex items-center gap-2"
-                      data-testid="builder-badges"
+                      key={i}
+                      className="relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-slate-100"
                     >
-                      {builder.fromFriend ? (
-                        <Badge color="indigo">Friend</Badge>
-                      ) : null}
-                      {builder.fromCommunity ? (
-                        <Badge color="green">Community</Badge>
-                      ) : null}
+                      <div className="absolute inset-0 animate-pulse bg-slate-200" />
                     </div>
-                  </div>
+                  ))}
+                </div>
+              </BlurUnlock>
+            )}
+          </section>
 
-                  {/* Right: votes + VMB */}
-                  <div className="justify-self-end shrink-0 flex flex-col items-end">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="text-sm text-zinc-500 flex items-center gap-1"
-                        data-testid="builder-votes"
-                        aria-label={`Votes: ${builder.likes ?? 0}`}
-                        title={`${builder.likes ?? 0} vote${
-                          (builder.likes ?? 0) === 1 ? "" : "s"
-                        }`}
-                      >
-                        <ThumbsUpIcon className="h-4 w-4" />
-                        <span className="tabular-nums">
-                          {builder.likes ?? 0}
-                        </span>
-                      </div>
-                      <ScoreChip value={score ?? builder.score} />
-                    </div>
-
-                    {!isOwner && (
-                      <button
-                        className={`mt-2 h-9 w-9 rounded-full border grid place-items-center text-sm transition
-            ${
-              builder.myLike === 1
-                ? "bg-indigo-50 border-indigo-200 text-indigo-600 cursor-default"
-                : "border-slate-300 hover:bg-slate-50"
-            }
-            ${!user ? "opacity-60 cursor-not-allowed" : ""}`}
-                        disabled={
-                          !user || builder.myLike === 1 || voting || !canVote
-                        }
-                        onClick={voteUpOnce}
-                        data-testid="btn-vote-up"
-                        aria-pressed={builder.myLike === 1}
-                        title={
-                          !user
-                            ? "Sign in to vote"
-                            : builder.myLike === 1
-                            ? "You’ve voted"
-                            : "Vote up"
-                        }
-                        aria-label={
-                          !user
-                            ? "Sign in to vote"
-                            : builder.myLike === 1
-                            ? "You have voted"
-                            : "Vote up"
-                        }
-                      >
-                        <ThumbsUpIcon className="h-4 w-4" />
-                      </button>
-                    )}
-
-                    {scoreErr && (
-                      <div className="mt-1 text-xs text-rose-600">
-                        {scoreErr}
-                      </div>
-                    )}
+          {/* Summary + Verifications */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <section
+              className="card"
+              data-testid="builder-summary-card"
+              aria-labelledby="builder-summary-heading"
+            >
+              <div className="grid grid-cols-[1fr_auto] items-start gap-3">
+                <div className="min-w-0">
+                  <h2
+                    id="builder-summary-heading"
+                    className="text-xl font-semibold truncate"
+                    data-testid="builder-company"
+                    title={resolveCompanyNameForBuilder(builder, verification)}
+                  >
+                    {user
+                      ? resolveCompanyNameForBuilder(builder, verification)
+                      : "Create a free account to view company details"}
+                  </h2>
+                  <div
+                    className="mt-2 flex items-center gap-2"
+                    data-testid="builder-badges"
+                  >
+                    {builder?.fromFriend ? (
+                      <Badge color="indigo">Friend</Badge>
+                    ) : null}
+                    {builder?.fromCommunity ? (
+                      <Badge color="green">Community</Badge>
+                    ) : null}
                   </div>
                 </div>
 
-                {builder.comment && (
-                  <p
-                    className="text-sm text-slate-700 mt-3 whitespace-pre-wrap"
-                    data-testid="builder-comment"
-                  >
-                    {builder.comment}
-                  </p>
-                )}
-
-                {/* Meta rows */}
-                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                  {/* Recommenders (names only, aggregated) */}
-                  <div className="space-y-1">
-                    <div className="text-slate-500">
-                      {aggNames.length > 1 ? "Recommenders" : "Recommender"}
-                    </div>
-                    <div data-testid="builder-recommender">
-                      {aggNames.length === 0 ? (
-                        "—"
-                      ) : (
-                        <ul className="space-y-1">
-                          {aggNames.map((n, i) => (
-                            <li
-                              key={`${n}-${i}`}
-                              className="flex items-start gap-2"
-                            >
-                              {/* branded bullet */}
-                              <span
-                                aria-hidden
-                                className="mt-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500"
-                              />
-                              <span className="text-slate-700">{n}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Date updated (latest createdAt across group) */}
-                  <div className="space-y-1">
-                    <div className="text-slate-500">Date updated</div>
-                    <time data-testid="builder-updated">
-                      {aggUpdatedAt
-                        ? new Date(aggUpdatedAt).toLocaleString()
-                        : new Date(builder.createdAt).toLocaleString()}
-                    </time>
-                  </div>
-
-                  {/* Builder phone(s) (aggregated) */}
-                  {aggPhones.length > 0 && (
-                    <div className="space-y-1">
-                      <div className="text-slate-500">Builder phone</div>
-                      <div data-testid="builder-phone" className="tabular-nums">
-                        <ul className="space-y-0.5">
-                          {aggPhones.map((p, i) => (
-                            <li key={`${p}-${i}`}>{p}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </section>
-
-              {/* RIGHT: Verifications */}
-              <section
-                className="card"
-                data-testid="verifications-card"
-                aria-labelledby="verifications-heading"
-              >
-                <h3
-                  id="verifications-heading"
-                  className="text-lg font-semibold"
-                >
-                  Verifications
-                </h3>
-                <p
-                  className="mt-1 text-sm text-slate-600"
-                  data-testid="verifications-copy"
-                >
-                  Extra checks we run so you can decide with confidence.
-                </p>
-
-                <div className="mt-4 divide-y divide-slate-100">
-                  {/* Companies House (single block) */}
-                  <div
-                    className="py-3 flex items-center justify-between gap-4"
-                    data-testid="verification-companies-house"
-                  >
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium">Companies House</div>
-                      {verification?.companyNumber ? (
-                        <div className="text-xs text-slate-500">
-                          #{verification.companyNumber}
-                        </div>
-                      ) : null}
-                    </div>
-                    <div className="shrink-0">
-                      {verr ? (
-                        <span className="text-sm text-rose-700 inline-flex items-center gap-1">
-                          <ExclamationTriangleIcon className="h-5 w-5 text-rose-600" />
-                          Error
-                        </span>
-                      ) : (
-                        renderCHStatus(verification)
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Google row (placeholder visual only) */}
-                  <div
-                    className="py-3 flex items-center justify-between gap-4"
-                    data-testid="verification-google-row"
-                  >
-                    <div className="min-w-0 flex items-center gap-2">
-                      <GoogleMark />
-                    </div>
-                    <div className="shrink-0">
-                      <span className="inline-flex items-center gap-2 text-sm">
-                        <span className="font-medium">5.0</span>
-                        <span aria-hidden className="flex gap-0.5">
-                          <span className="text-yellow-400">★</span>
-                          <span className="text-yellow-400">★</span>
-                          <span className="text-yellow-400">★</span>
-                          <span className="text-yellow-400">★</span>
-                          <span className="text-yellow-400">★</span>
-                        </span>
+                <div className="justify-self-end shrink-0 flex flex-col items-end">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="text-sm text-zinc-500 flex items-center gap-1"
+                      data-testid="builder-votes"
+                      aria-label={`Votes: ${builder?.likes ?? 0}`}
+                      title={`${builder?.likes ?? 0} vote${
+                        (builder?.likes ?? 0) === 1 ? "" : "s"
+                      }`}
+                    >
+                      <ThumbsUpIcon className="h-4 w-4" />
+                      <span className="tabular-nums">
+                        {builder?.likes ?? 0}
                       </span>
                     </div>
+                    {user ? (
+                      <ScoreChip value={score ?? builder?.score} />
+                    ) : (
+                      <span className="rounded-full px-2 py-0.5 text-xs font-medium border border-slate-200 text-slate-500">
+                        VMB —
+                      </span>
+                    )}
+                  </div>
+
+                  {!isOwner && user && (
+                    <button
+                      className={`mt-2 h-9 w-9 rounded-full border grid place-items-center text-sm transition ${
+                        builder?.myLike === 1
+                          ? "bg-indigo-50 border-indigo-200 text-indigo-600 cursor-default"
+                          : "border-slate-300 hover:bg-slate-50"
+                      } ${!user ? "opacity-60 cursor-not-allowed" : ""}`}
+                      disabled={
+                        !user || builder?.myLike === 1 || voting || !canVote
+                      }
+                      onClick={voteUpOnce}
+                      data-testid="btn-vote-up"
+                      aria-pressed={builder?.myLike === 1}
+                      title={
+                        !user
+                          ? "Sign in to vote"
+                          : builder?.myLike === 1
+                          ? "You’ve voted"
+                          : "Vote up"
+                      }
+                      aria-label={
+                        !user
+                          ? "Sign in to vote"
+                          : builder?.myLike === 1
+                          ? "You have voted"
+                          : "Vote up"
+                      }
+                    >
+                      <ThumbsUpIcon className="h-4 w-4" />
+                    </button>
+                  )}
+
+                  {scoreErr && (
+                    <div className="mt-1 text-xs text-rose-600">{scoreErr}</div>
+                  )}
+                </div>
+              </div>
+
+              {builder?.comment && (
+                <p
+                  className="text-sm text-slate-700 mt-3 whitespace-pre-wrap"
+                  data-testid="builder-comment"
+                >
+                  {builder.comment}
+                </p>
+              )}
+
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                {user ? (
+                  <>
+                    <div className="space-y-1">
+                      <div className="text-slate-500">
+                        {aggNames.length > 1 ? "Recommenders" : "Recommender"}
+                      </div>
+                      <div data-testid="builder-recommender">
+                        {aggNames.length === 0 ? (
+                          "—"
+                        ) : (
+                          <ul className="space-y-1">
+                            {aggNames.map((n, i) => (
+                              <li
+                                key={`${n}-${i}`}
+                                className="flex items-start gap-2"
+                              >
+                                <span
+                                  aria-hidden
+                                  className="mt-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500"
+                                />
+                                <span className="text-slate-700">{n}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-slate-500">Date updated</div>
+                      <time data-testid="builder-updated">
+                        {aggUpdatedAt
+                          ? new Date(aggUpdatedAt).toLocaleString()
+                          : builder?.createdAt
+                          ? new Date(builder.createdAt).toLocaleString()
+                          : "—"}
+                      </time>
+                    </div>
+                    {aggPhones.length > 0 && (
+                      <div className="space-y-1">
+                        <div className="text-slate-500">Builder phone</div>
+                        <div
+                          data-testid="builder-phone"
+                          className="tabular-nums"
+                        >
+                          <ul className="space-y-0.5">
+                            {aggPhones.map((p, i) => (
+                              <li key={`${p}-${i}`}>{p}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-1">
+                      <div className="text-slate-500">Recommender</div>
+                      <SkeletonLine className="h-4 w-40" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-slate-500">Date updated</div>
+                      <SkeletonLine className="h-4 w-28" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-slate-500">Builder phone</div>
+                      <SkeletonLine className="h-4 w-36" />
+                    </div>
+                  </>
+                )}
+              </div>
+            </section>
+
+            <section
+              className="card"
+              data-testid="verifications-card"
+              aria-labelledby="verifications-heading"
+            >
+              <h3 id="verifications-heading" className="text-lg font-semibold">
+                Verifications
+              </h3>
+              <p
+                className="mt-1 text-sm text-slate-600"
+                data-testid="verifications-copy"
+              >
+                Extra checks we run so you can decide with confidence.
+              </p>
+
+              <div className="mt-4 divide-y divide-slate-100">
+                <div
+                  className="py-3 flex items-center justify-between gap-4"
+                  data-testid="verification-companies-house"
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">Companies House</div>
+                    {verification?.companyNumber ? (
+                      <div className="text-xs text-slate-500">
+                        #{verification.companyNumber}
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="shrink-0">
+                    {verr ? (
+                      <span className="text-sm text-rose-700 inline-flex items-center gap-1">
+                        <ExclamationTriangleIcon className="h-5 w-5 text-rose-600" />
+                        Error
+                      </span>
+                    ) : user ? (
+                      renderCHStatus(verification)
+                    ) : (
+                      <span className="text-sm text-slate-500">
+                        Sign in to view
+                      </span>
+                    )}
                   </div>
                 </div>
-              </section>
-            </div>
 
-            {lightboxOpen && photos[lightboxIdx as number] && (
-              <Lightbox
-                photos={photos}
-                index={lightboxIdx as number}
-                onClose={() => setLightboxIdx(null)}
-                onIndex={(i) => setLightboxIdx(i)}
-              />
-            )}
+                <div
+                  className="py-3 flex items-center justify-between gap-4"
+                  data-testid="verification-google-row"
+                >
+                  <div className="min-w-0 flex items-center gap-2">
+                    <GoogleMark />
+                  </div>
+                  <div className="shrink-0">
+                    <span className="inline-flex items-center gap-2 text-sm">
+                      <span className="font-medium">5.0</span>
+                      <span aria-hidden className="flex gap-0.5">
+                        <span className="text-yellow-400">★</span>
+                        <span className="text-yellow-400">★</span>
+                        <span className="text-yellow-400">★</span>
+                        <span className="text-yellow-400">★</span>
+                        <span className="text-yellow-400">★</span>
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </section>
           </div>
-        )}
-      </div>
-    </AuthedOnly>
+
+          {lightboxOpen && photos[lightboxIdx as number] && user && (
+            <Lightbox
+              photos={photos}
+              index={lightboxIdx as number}
+              onClose={() => setLightboxIdx(null)}
+              onIndex={(i) => setLightboxIdx(i)}
+            />
+          )}
+        </div>
+      )}
+    </div>
   );
 }
-
-/* ---------------- Lightbox ---------------- */
 
 function Lightbox({
   photos,
@@ -1066,11 +1073,9 @@ function Lightbox({
   onIndex: (i: number) => void;
 }) {
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
-
   useEffect(() => {
     closeBtnRef.current?.focus();
   }, []);
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -1084,7 +1089,6 @@ function Lightbox({
   }, [index, photos.length, onClose, onIndex]);
 
   const current = photos[index];
-
   return (
     <div
       className="fixed inset-0 z-[100] bg-black/80 px-3 flex items-center justify-center"
@@ -1102,7 +1106,6 @@ function Lightbox({
       >
         ✕
       </button>
-
       {photos.length > 1 && (
         <button
           className="absolute left-3 md:left-6 inline-flex items-center justify-center h-10 w-10 rounded-full bg-white/10 hover:bg-white/15 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -1116,7 +1119,6 @@ function Lightbox({
           ‹
         </button>
       )}
-
       <div
         className="max-w-6xl w-full"
         onClick={(e) => e.stopPropagation()}
@@ -1136,7 +1138,6 @@ function Lightbox({
           {index + 1} / {photos.length}
         </div>
       </div>
-
       {photos.length > 1 && (
         <button
           className="absolute right-3 md:right-6 inline-flex items-center justify-center h-10 w-10 rounded-full bg-white/10 hover:bg-white/15 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"

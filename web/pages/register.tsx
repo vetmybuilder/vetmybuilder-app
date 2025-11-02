@@ -1,17 +1,41 @@
-// web/pages/register.tsx
 import Head from "next/head";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useApi } from "@/utils/api";
 import { initFirebase } from "@/utils/firebase";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { useAuth } from "@/utils/auth";
 
+function getStoredReturnTo() {
+  try {
+    const v = sessionStorage.getItem("vmb:returnTo") || "";
+    return v && v.startsWith("/") ? v : "/";
+  } catch {
+    return "/";
+  }
+}
+
 export default function Register() {
   const api = useApi();
   const router = useRouter();
   const { hydrateFromSignup } = useAuth();
+
+  // Safely resolve the "next" path
+  const nextPath = useMemo(() => {
+    if (!router.isReady) return getStoredReturnTo();
+    const n = router.query.next;
+    const v = typeof n === "string" ? n : Array.isArray(n) ? n[0] : "";
+    if (v && v.startsWith("/")) return v;
+    return getStoredReturnTo();
+  }, [router.isReady, router.query.next]);
+
+  // Persist next target for other parts of the flow
+  useEffect(() => {
+    try {
+      if (nextPath) sessionStorage.setItem("vmb:returnTo", nextPath);
+    } catch {}
+  }, [nextPath]);
 
   const [form, setForm] = useState({
     firstName: "",
@@ -19,7 +43,7 @@ export default function Register() {
     username: "",
     email: "",
     password: "",
-    location: "", // NEW: postcode/city at signup
+    location: "",
   });
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -42,10 +66,9 @@ export default function Register() {
           displayName: `${firstName} ${lastName}`.trim(),
         });
       } catch {
-        // non-fatal
+        /* non-fatal */
       }
 
-      // include location so server writes it to users table
       await api.post("/api/account", {
         firstName,
         lastName,
@@ -53,10 +76,13 @@ export default function Register() {
         location,
       });
 
-      // Optimistically seed auth context so initials render immediately
       hydrateFromSignup({ firstName, lastName, username, email });
 
-      router.replace("/projects");
+      try {
+        sessionStorage.setItem("vmb:returnTo", nextPath || "/");
+        sessionStorage.setItem("vmb:didLoginRedirect", String(Date.now()));
+      } catch {}
+      router.replace(nextPath || "/");
     } catch (e: any) {
       setErr(e?.message || "Registration failed");
     } finally {
@@ -193,7 +219,7 @@ export default function Register() {
             data-testid="input-password"
           />
 
-          {/* NEW: Location at signup */}
+          {/* Location at signup */}
           <label
             className="text-sm"
             htmlFor="reg-loc"
@@ -237,7 +263,11 @@ export default function Register() {
 
           <p className="text-sm text-slate-600" data-testid="register-to-login">
             Already have an account?{" "}
-            <Link className="link" href="/login" data-testid="link-to-login">
+            <Link
+              className="link"
+              href={{ pathname: "/login", query: { next: nextPath } }}
+              data-testid="link-to-login"
+            >
               Sign in
             </Link>
           </p>

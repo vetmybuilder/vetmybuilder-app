@@ -1,59 +1,73 @@
-import { useMemo, useRef } from "react";
-import type { AxiosInstance } from "axios";
-import { suggestProjectTypes } from "@/types/projectTypes";
+import { useEffect, useMemo, useState } from "react";
+import { ALL_PROJECT_TYPES, suggestProjectTypes } from "@/types/projectTypes";
 
-type Cache = Map<string, string[]>;
+/**
+ * Simple, offline suggester hook for the Create Project form.
+ * - No API calls, no DB.
+ * - Debounced filtering over the static catalogue.
+ */
+export function useProjectTypeSuggester(opts?: {
+  defaultValue?: string;
+  limit?: number;
+  debounceMs?: number;
+}) {
+  const limit = opts?.limit ?? 8;
+  const debounceMs = opts?.debounceMs ?? 120;
 
-function norm(q: string) {
-  return q.trim().toLowerCase();
+  const [value, setValue] = useState<string>(opts?.defaultValue ?? "");
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Curated quick-pick chips (must exist in ALL_PROJECT_TYPES)
+  const chips = useMemo<string[]>(
+    () =>
+      [
+        "Kitchen Remodel (Full)",
+        "Bathroom Remodel (Full)",
+        "Roof Repair",
+        "Driveway (Block/Tarmac/Resin)",
+        "Garden Design & Build",
+        "Loft Conversion (Dormer)",
+        "Single-storey Extension",
+        "Full Rewire",
+      ].filter((t) => ALL_PROJECT_TYPES.includes(t)),
+    []
+  );
+
+  // Debounced local filtering
+  useEffect(() => {
+    let t: any;
+    setLoading(true);
+    t = setTimeout(() => {
+      const list = value.trim() ? suggestProjectTypes(value, limit) : chips; // show chips when empty
+      setSuggestions(list);
+      setLoading(false);
+    }, debounceMs);
+    return () => clearTimeout(t);
+  }, [value, limit, debounceMs, chips]);
+
+  // Imperative helpers (optional)
+  const pick = (label: string) => setValue(label);
+  const clear = () => setValue("");
+
+  return {
+    value,
+    setValue,
+    suggestions,
+    chips, // quick-picks to render as pills
+    loading,
+    pick,
+    clear,
+  };
 }
 
-export function useProjectTypeSuggester(api: AxiosInstance, limit = 8) {
-  const cacheRef = useRef<Cache>(new Map());
-  const inflightRef = useRef<Record<string, number>>({}); // debounce timers
-
-  // default quick picks (same as client fallback)
-  const defaults = useMemo(() => suggestProjectTypes("", limit), [limit]);
-
-  function scheduleFetch(q: string) {
-    const key = norm(q);
-    // debounce ~150ms per key
-    if (inflightRef.current[key]) clearTimeout(inflightRef.current[key]);
-    inflightRef.current[key] = window.setTimeout(async () => {
-      try {
-        const { data } = await api.get("/api/project-types", {
-          params: { s: q, limit },
-        });
-        const items: string[] = Array.isArray(data?.items) ? data.items : [];
-        cacheRef.current.set(
-          key,
-          items.length ? items : suggestProjectTypes(q, limit)
-        );
-      } catch {
-        cacheRef.current.set(key, suggestProjectTypes(q, limit));
-      } finally {
-        delete inflightRef.current[key];
-      }
-    }, 150);
-  }
-
-  /**
-   * Synchronous getter used by the combobox.
-   * Returns cached suggestions immediately; triggers a debounced fetch in the background.
-   */
-  function get(query: string): string[] {
-    const key = norm(query);
-    if (!key) return defaults;
-    if (!cacheRef.current.has(key)) {
-      // prime cache with local fallback immediately (snappy UX)
-      cacheRef.current.set(key, suggestProjectTypes(query, limit));
-      // then fetch from the API to refine results
-      scheduleFetch(query);
-    }
-    return cacheRef.current.get(key)!;
-  }
-
-  return { get, defaults };
+/**
+ * Utility: canonicalise a user-entered value to the closest catalogue item.
+ * Returns the top suggestion or null if nothing sensible is found.
+ */
+export function canonicaliseProjectType(input: string): string | null {
+  const q = (input || "").trim();
+  if (!q) return null;
+  const [first] = suggestProjectTypes(q, 1);
+  return first ?? null;
 }
-
-export default useProjectTypeSuggester;

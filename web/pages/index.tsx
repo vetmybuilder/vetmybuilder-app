@@ -143,6 +143,17 @@ export default function Home() {
     shortlists: 0,
   });
 
+  // NEW: remember return target when user clicks CTA (only sets if empty)
+  function rememberReturnTo() {
+    try {
+      if (!sessionStorage.getItem("vmb:returnTo")) {
+        sessionStorage.setItem("vmb:returnTo", "/");
+      }
+    } catch {
+      /* noop */
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -233,6 +244,8 @@ export default function Home() {
                       className="inline-flex items-center justify-center rounded-xl px-5 py-3
                                  bg-indigo-600 text-white hover:bg-indigo-500 transition
                                  focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      data-testid="hero-cta"
+                      onClick={!user ? rememberReturnTo : undefined}
                     >
                       {user ? "Get started" : "Join our growing community"}
                     </Link>

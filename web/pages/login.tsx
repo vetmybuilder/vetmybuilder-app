@@ -2,13 +2,41 @@
 import Head from "next/head";
 import { initFirebase } from "@/utils/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 
 export default function Login() {
   const auth = initFirebase();
   const router = useRouter();
+
+  // Read the *explicit* ?next= from the URL (no fallback here).
+  const nextRaw = useMemo(() => {
+    if (!router.isReady) return "";
+    const n = router.query.next;
+    return typeof n === "string" ? n : Array.isArray(n) ? n[0] : "";
+  }, [router.isReady, router.query.next]);
+
+  const hasExplicitNext = !!nextRaw;
+  const isVendorFlow =
+    hasExplicitNext &&
+    (nextRaw.startsWith("/tradesman/") || nextRaw.startsWith("/trades/"));
+
+  // Where to send the user after a successful login
+  const nextPath = useMemo(() => {
+    if (nextRaw && nextRaw.startsWith("/")) return nextRaw;
+    // Plain /login (no next) → go home after login
+    return "/";
+  }, [nextRaw]);
+
+  // Only persist returnTo when explicitly provided by the URL
+  useEffect(() => {
+    if (!hasExplicitNext) return;
+    try {
+      sessionStorage.setItem("vmb:returnTo", nextPath);
+    } catch {}
+  }, [hasExplicitNext, nextPath]);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -20,7 +48,10 @@ export default function Login() {
     setErr(null);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      router.replace("/projects");
+      try {
+        if (hasExplicitNext) sessionStorage.setItem("vmb:returnTo", nextPath);
+      } catch {}
+      router.replace(nextPath || "/");
     } catch (e: any) {
       setErr(e.message || "Failed to login");
     } finally {
@@ -40,17 +71,8 @@ export default function Login() {
             Login
           </h1>
 
-          <form
-            onSubmit={onSubmit}
-            className="space-y-3"
-            aria-label="Sign in form"
-            data-testid="login-form"
-          >
-            <label
-              className="text-sm"
-              htmlFor="login-email"
-              data-testid="label-login-email"
-            >
+          <form onSubmit={onSubmit} className="space-y-3" aria-label="Sign in form" data-testid="login-form">
+            <label className="text-sm" htmlFor="login-email" data-testid="label-login-email">
               Email
             </label>
             <input
@@ -66,11 +88,7 @@ export default function Login() {
               data-testid="input-login-email"
             />
 
-            <label
-              className="text-sm"
-              htmlFor="login-password"
-              data-testid="label-login-password"
-            >
+            <label className="text-sm" htmlFor="login-password" data-testid="label-login-password">
               Password
             </label>
             <input
@@ -87,32 +105,24 @@ export default function Login() {
             />
 
             {err && (
-              <p
-                className="text-red-400 text-sm"
-                role="alert"
-                data-testid="login-error"
-              >
+              <p className="text-red-400 text-sm" role="alert" data-testid="login-error">
                 {err}
               </p>
             )}
 
-            <button
-              className="btn w-full"
-              disabled={busy}
-              aria-label="Sign in"
-              data-testid="btn-login"
-            >
+            <button className="btn w-full" disabled={busy} aria-label="Sign in" data-testid="btn-login">
               {busy ? "Signing in..." : "Sign in"}
             </button>
           </form>
 
-          <p
-            className="text-sm text-zinc-500 mt-4"
-            data-testid="login-to-register"
-          >
+          <p className="text-sm text-zinc-500 mt-4" data-testid="login-to-register">
             Don’t have an account?{" "}
             <Link
-              href="/register"
+              href={
+                isVendorFlow
+                  ? { pathname: "/tradesman/register", query: { next: "/tradesman/register" } }
+                  : { pathname: "/register" }
+              }
               className="text-indigo-600 hover:text-indigo-500"
               data-testid="link-to-register"
             >

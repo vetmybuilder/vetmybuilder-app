@@ -1,17 +1,14 @@
+// web/pages/projects/new.tsx
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import AutoCompleteInput from "@/components/forms/AutoCompleteInput";
-import {
-  suggestProjectTypes,
-  suggestProjectTypesWithScores,
-  toCanonicalType,
-  buildAutoName,
-} from "@/types/projectTypes";
-import { logProjectTypeQuery } from "@/utils/pt-analytics";
-import useProjectTypeSuggester from "@/hooks/useProjectTypeSuggester";
+import Select from "@/components/forms/Select";
+import { PROJECT_TYPES, type ProjectTypeCategory } from "@/types/projectTypes";
+import LocationField from "@/components/forms/LocationField";
+import BedroomsSelect from "@/components/forms/BedroomsSelect";
+import DescriptionBuilder from "@/components/forms/DescriptionBuilder";
 
 /* ===== Constants & helpers ===== */
 
@@ -52,26 +49,41 @@ function locationSuggestions(query: string): string[] {
   return LONDON_LOCATIONS.filter((s) => s.toLowerCase().includes(q));
 }
 
-/* ===== Types ===== */
+function buildAutoNameSimple(
+  primaryType: string,
+  location: string,
+  propertyType?: string
+) {
+  const loc = (location || "").trim();
+  const prop = (propertyType || "").trim();
+  if (loc && prop) return `${primaryType} in ${loc} (${prop})`;
+  if (loc) return `${primaryType} in ${loc}`;
+  return primaryType;
+}
 
+/* ===== Types ===== */
 type FormShape = {
-  // No explicit "name" field anymore; we'll auto-generate it from other fields
-  type: string;
+  category: string | null; // selected high-level category
+  selectedTypes: string[]; // chosen sub-categories (multi)
+  otherEnabled: boolean;
+  otherText: string;
+
   location: string;
   description: string;
   propertyType: string;
-  bedrooms: number | string;
+  bedrooms: number;
 };
 
 export default function NewProject() {
   const api = useApi();
   const router = useRouter();
 
-  const { get: getTypeSuggestions, defaults: DEFAULT_QUICK_PICKS } =
-    useProjectTypeSuggester(api, 8);
-
   const [form, setForm] = useState<FormShape>({
-    type: "",
+    category: null,
+    selectedTypes: [],
+    otherEnabled: false,
+    otherText: "",
+
     location: "",
     description: "",
     propertyType: "",
@@ -81,65 +93,55 @@ export default function NewProject() {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // prevent duplicate logs per visit
-  const loggedTypeOnceRef = useRef(false);
+  // Derived, memoized data
+  const CATEGORY_OPTIONS = useMemo(
+    () =>
+      [...PROJECT_TYPES]
+        .map((c) => c.category)
+        .sort((a, b) => a.localeCompare(b)),
+    []
+  );
 
-  /** Log low-confidence or unknown "Type of project" inputs */
-  async function maybeLogTypeQuery(raw: string) {
-    if (!raw || loggedTypeOnceRef.current) return;
+  const SUBTYPE_OPTIONS = useMemo(() => {
+    if (!form.category) return [] as string[];
+    const bucket = PROJECT_TYPES.find(
+      (c: ProjectTypeCategory) => c.category === form.category
+    );
+    if (!bucket) return [] as string[];
+    return [...bucket.types].sort((a, b) => a.localeCompare(b));
+  }, [form.category]);
 
-    const scored = suggestProjectTypesWithScores(raw, 8);
-    const suggestions = scored.map(({ label }) => label);
-    const confidence = scored[0]?.score ?? 0;
-
-    // Log if nothing matched OR our top score is weak
-    if (suggestions.length === 0 || confidence < 1.2) {
-      // fire-and-forget; never block UX
-      logProjectTypeQuery(api as any, {
-        query: raw,
-        matchedLabel: suggestions[0] || null,
-        confidence,
-        suggestions,
-      });
-      loggedTypeOnceRef.current = true;
-    }
-  }
-
-  const set = (k: keyof FormShape, v: any) =>
+  const set = <K extends keyof FormShape>(k: K, v: FormShape[K]) =>
     setForm((prev) => ({ ...prev, [k]: v }));
 
   const STEPS = useMemo(
     () =>
       [
-        {
-          key: "type",
-          title: "Type of project",
-          hint: "Start typing — fuzzy suggestions handle typos (e.g. “kichen” → Kitchen remodel).",
-        },
-        {
-          key: "location",
-          title: "Location",
-          hint: "Postcode, borough, or city (e.g. E4, Walthamstow)",
-        },
-        { key: "propertyType", title: "Property type" },
-        { key: "bedrooms", title: "Bedrooms" },
-        {
-          key: "description",
-          title: "Brief description",
-          hint: "Add scope, timing, budget band, access constraints.",
-        },
-        { key: "review", title: "Review & create" },
+        { key: "category", title: "Category" as const },
+        { key: "subtypes", title: "Type of work" as const },
+        { key: "location", title: "Location" as const },
+        { key: "propertyType", title: "Property type" as const },
+        { key: "bedrooms", title: "Bedrooms" as const },
+        { key: "description", title: "Brief description" as const },
+        { key: "review", title: "Review & create" as const },
       ] as const,
     []
   );
   type StepKey = (typeof STEPS)[number]["key"];
   const maxStep = STEPS.length - 1;
 
+  function hasAnySubtype() {
+    const picked = form.selectedTypes.length > 0;
+    const otherOk = form.otherEnabled && form.otherText.trim().length >= 2;
+    return picked || otherOk;
+  }
+
   function isStepValid(idx: number): boolean {
     const k = STEPS[idx].key as StepKey;
     if (k === "review") {
       return (
-        !!form.type.trim() &&
+        !!form.category &&
+        hasAnySubtype() &&
         !!form.location.trim() &&
         !!form.propertyType.trim() &&
         Number(form.bedrooms) >= 0 &&
@@ -147,7 +149,10 @@ export default function NewProject() {
       );
     }
     switch (k) {
-      case "type":
+      case "category":
+        return !!form.category;
+      case "subtypes":
+        return hasAnySubtype();
       case "location":
       case "propertyType":
         return !!String(form[k]).trim();
@@ -165,27 +170,38 @@ export default function NewProject() {
     setBusy(true);
     setErr(null);
     try {
-      const canonicalType = toCanonicalType(form.type);
-      const autoName = buildAutoName(
-        canonicalType,
+      // Primary type = first checked, else "Other" text
+      const primaryType =
+        form.selectedTypes[0] || normalize(form.otherText || "General work");
+
+      // If multiple types, append the rest into the description to preserve user intent
+      const extras = form.selectedTypes.slice(1);
+      const descExtras =
+        extras.length > 0
+          ? `\n\nAdditional work types: ${extras.join(", ")}${
+              form.otherEnabled && form.otherText.trim()
+                ? `, ${normalize(form.otherText)}`
+                : ""
+            }`
+          : form.otherEnabled && form.otherText.trim()
+          ? `\n\nAdditional work types: ${normalize(form.otherText)}`
+          : "";
+
+      const autoName = buildAutoNameSimple(
+        primaryType,
         form.location,
         form.propertyType
       );
+
       const payload = {
-        name: autoName, // ← generated
-        type: canonicalType,
+        name: autoName,
+        type: primaryType, // DB expects a string; using the primary
         location: form.location,
-        description: form.description,
+        description: normalize((form.description || "") + descExtras),
         propertyType: form.propertyType,
         bedrooms: Number(form.bedrooms) || 0,
       };
-      // fire-and-forget; do not await
-      logProjectTypeQuery(api as any, {
-        query: form.type,
-        matchedLabel: toCanonicalType(form.type),
-        confidence: 2, // confirmed by user on submit
-        suggestions: suggestProjectTypes(form.type),
-      });
+
       const { data } = await api.post("/api/projects", payload);
       router.replace(`/projects/${data.project.id}`);
     } catch (e: any) {
@@ -206,10 +222,6 @@ export default function NewProject() {
     setStep((s) => Math.max(0, s - 1));
   };
 
-  const inputRef = useRef<
-    HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null
-  >(null);
-
   const handleEnter = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -219,7 +231,8 @@ export default function NewProject() {
 
   const ids = useMemo(
     () => ({
-      type: "np-type",
+      category: "np-category",
+      subtypes: "np-subtypes",
       location: "np-location",
       propertyType: "np-property",
       bedrooms: "np-beds",
@@ -231,11 +244,28 @@ export default function NewProject() {
   const postcodeLooksValid =
     !form.location || UK_POSTCODE_HINT.test(form.location.trim());
 
-  const reviewAutoName = buildAutoName(
-    toCanonicalType(form.type),
+  const primaryPreview =
+    form.selectedTypes[0] || (form.otherEnabled ? form.otherText.trim() : "");
+  const reviewAutoName = buildAutoNameSimple(
+    primaryPreview || "Project",
     form.location,
     form.propertyType
   );
+
+  // Toggle a sub-type in the checklist (case-insensitive)
+  function toggleSubtype(label: string) {
+    setForm((prev) => {
+      const exists = prev.selectedTypes.some(
+        (t) => t.toLowerCase() === label.toLowerCase()
+      );
+      const next = exists
+        ? prev.selectedTypes.filter(
+            (t) => t.toLowerCase() !== label.toLowerCase()
+          )
+        : [...prev.selectedTypes, label];
+      return { ...prev, selectedTypes: next };
+    });
+  }
 
   return (
     <AuthedOnly>
@@ -252,7 +282,7 @@ export default function NewProject() {
               Create Project
             </h1>
             <p className="mt-1 text-sm text-gray-500">
-              Tell us about the work you need and we’ll get the ball rolling.
+              Choose a category, tick the work you need, and add a few details.
             </p>
           </div>
           <Link
@@ -272,12 +302,14 @@ export default function NewProject() {
               strokeLinejoin="round"
               aria-hidden="true"
             >
-              {/* if your linter complains about dName, switch back to d; some linters flag raw <path d> */}
+              <path d="M10 19l-7-7 7-7" />
+              <path d="M3 12h18" />
             </svg>
             <span className="sr-only">Back to my projects</span>
           </Link>
         </div>
 
+        {/* Progress */}
         <div
           className="mb-6 flex items-center gap-2"
           aria-label="Progress"
@@ -294,6 +326,7 @@ export default function NewProject() {
           ))}
         </div>
 
+        {/* Wizard */}
         <div
           className="relative w-full overflow-hidden rounded-2xl bg-white border border-gray-200"
           data-testid="wizard"
@@ -317,161 +350,151 @@ export default function NewProject() {
                   <h2 id={titleId} className="text-lg font-semibold">
                     {s.title}
                   </h2>
-                  {"hint" in s && s.hint && (
-                    <p className="mt-1 text-sm text-gray-500">{s.hint}</p>
-                  )}
 
                   <div className="mt-5 grid max-w-3xl gap-4">
-                    {s.key === "type" && (
-                      <div onBlur={() => maybeLogTypeQuery(form.type)}>
-                        <AutoCompleteInput
-                          id={ids.type}
-                          label="Type of project"
-                          placeholder="Start typing (e.g., Kitchen remodel, Bathroom refit, Roofing, Driveway…) — typos OK"
-                          value={form.type}
-                          onChange={(v) => set("type", v)}
-                          onEnter={() => {
-                            maybeLogTypeQuery(form.type);
-                            next();
-                          }}
-                          getSuggestions={(q) => getTypeSuggestions(q)}
-                          quickPicks={DEFAULT_QUICK_PICKS}
-                          onQuickPick={(v) => set("type", v)}
-                          ariaLabel="Type of project"
-                          data-testid="field-type"
-                        />
+                    {/* Category */}
+                    {s.key === "category" && (
+                      <Select
+                        id={ids.category}
+                        label="Category"
+                        placeholder="Select a category"
+                        value={form.category}
+                        onChange={(v) => {
+                          set("category", v);
+                          // Reset subtypes when category changes
+                          set("selectedTypes", []);
+                          set("otherEnabled", false);
+                          set("otherText", "");
+                        }}
+                        options={CATEGORY_OPTIONS}
+                        data-testid="field-category"
+                      />
+                    )}
 
-                        {form.type &&
-                          form.type !== toCanonicalType(form.type) && (
-                            <p className="text-xs text-gray-500">
-                              We’ll save this as{" "}
-                              <strong>{toCanonicalType(form.type)}</strong>.
-                            </p>
-                          )}
+                    {/* Subtypes checklist */}
+                    {s.key === "subtypes" && (
+                      <div>
+                        {!form.category ? (
+                          <p className="text-sm text-slate-500">
+                            Pick a category first.
+                          </p>
+                        ) : SUBTYPE_OPTIONS.length === 0 ? (
+                          <p className="text-sm text-slate-500">
+                            No sub-types available for this category.
+                          </p>
+                        ) : (
+                          <>
+                            <div className="text-xs text-slate-500 mb-1">
+                              Select all that apply
+                            </div>
+                            <div
+                              id={ids.subtypes}
+                              className="grid grid-cols-1 sm:grid-cols-2 gap-2"
+                              data-testid="field-subtypes"
+                            >
+                              {SUBTYPE_OPTIONS.map((t) => {
+                                const checked = form.selectedTypes.some(
+                                  (x) => x.toLowerCase() === t.toLowerCase()
+                                );
+                                return (
+                                  <label
+                                    key={t}
+                                    className={`flex items-center gap-2 rounded-xl border px-3 py-2 cursor-pointer transition ${
+                                      checked
+                                        ? "border-indigo-300 bg-indigo-50"
+                                        : "border-slate-200 hover:bg-slate-50"
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      className="checkbox"
+                                      checked={checked}
+                                      onChange={() => toggleSubtype(t)}
+                                    />
+                                    <span className="text-sm">{t}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+
+                            {/* Other… */}
+                            <div className="mt-3 rounded-xl border border-slate-200 p-3">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  className="checkbox"
+                                  checked={form.otherEnabled}
+                                  onChange={(e) =>
+                                    set("otherEnabled", e.target.checked)
+                                  }
+                                  data-testid="chk-other"
+                                />
+                                <span className="text-sm">Other…</span>
+                              </label>
+                              {form.otherEnabled && (
+                                <input
+                                  className="input mt-2"
+                                  placeholder="Describe another type of work"
+                                  value={form.otherText}
+                                  onChange={(e) =>
+                                    set("otherText", e.target.value)
+                                  }
+                                  onKeyDown={handleEnter}
+                                  data-testid="input-other"
+                                />
+                              )}
+                            </div>
+                          </>
+                        )}
                       </div>
                     )}
 
+                    {/* Location */}
                     {s.key === "location" && (
-                      <>
-                        <AutoCompleteInput
-                          id={ids.location}
-                          label="Location"
-                          placeholder="Postcode, borough, or city (e.g. E4, Walthamstow)"
-                          value={form.location}
-                          onChange={(v) => set("location", v.toUpperCase())}
-                          onEnter={next}
-                          getSuggestions={(q) => locationSuggestions(q)}
-                          quickPicks={LONDON_LOCATIONS}
-                          onQuickPick={(v) => set("location", v)}
-                          ariaLabel="Location"
-                          data-testid="field-location"
-                        />
-                        {!postcodeLooksValid && (
-                          <p
-                            className="text-xs text-amber-600"
-                            data-testid="postcode-hint"
-                          >
-                            Tip: UK postcodes look like “E4 7ER” or “N1 9AL”.
-                            Borough or city also fine.
-                          </p>
-                        )}
-                      </>
+                      <LocationField
+                        id={ids.location}
+                        label="Location"
+                        value={form.location}
+                        onChange={(v /*, meta*/) => {
+                          set("location", v.toUpperCase());
+                        }}
+                        dataTestId="field-location"
+                      />
                     )}
 
+                    {/* Property type */}
                     {s.key === "propertyType" && (
-                      <>
-                        <label htmlFor={ids.propertyType} className="sr-only">
-                          Property type
-                        </label>
-                        <select
-                          id={ids.propertyType}
-                          ref={inputRef as any}
-                          className="input"
-                          aria-label="Property type"
-                          value={form.propertyType}
-                          onChange={(e) => set("propertyType", e.target.value)}
-                          onKeyDown={handleEnter}
-                          data-testid="field-property"
-                        >
-                          <option value="" disabled>
-                            Select property type
-                          </option>
-                          {PROPERTY_TYPES.map((pt) => (
-                            <option key={pt} value={pt}>
-                              {pt}
-                            </option>
-                          ))}
-                        </select>
-                      </>
+                      <Select
+                        id={ids.propertyType}
+                        label="Property type"
+                        placeholder="Select property type"
+                        value={form.propertyType || null}
+                        onChange={(v) => set("propertyType", v)}
+                        options={Array.from(PROPERTY_TYPES)}
+                        data-testid="field-property"
+                      />
                     )}
 
+                    {/* Bedrooms */}
                     {s.key === "bedrooms" && (
-                      <>
-                        <label htmlFor={ids.bedrooms} className="sr-only">
-                          Bedrooms
-                        </label>
-                        <input
-                          id={ids.bedrooms}
-                          ref={inputRef as any}
-                          className="input"
-                          placeholder="Bedrooms"
-                          aria-label="Bedrooms"
-                          type="number"
-                          min={0}
-                          value={form.bedrooms}
-                          onChange={(e) => set("bedrooms", e.target.value)}
-                          onKeyDown={handleEnter}
-                          data-testid="field-bedrooms"
-                        />
-                      </>
+                      <BedroomsSelect
+                        id={ids.bedrooms}
+                        value={Number(form.bedrooms) || 0}
+                        onChange={(n) => set("bedrooms", n)}
+                        data-testid="field-bedrooms"
+                      />
                     )}
 
+                    {/* Description — now using DescriptionBuilder */}
                     {s.key === "description" && (
-                      <>
-                        <label htmlFor={ids.description} className="sr-only">
-                          Description
-                        </label>
-                        <textarea
-                          id={ids.description}
-                          ref={inputRef as any}
-                          className="input min-h-36"
-                          placeholder="Rooms, scope, materials, timing, budget band, access constraints…"
-                          aria-label="Description"
-                          value={form.description}
-                          onChange={(e) => set("description", e.target.value)}
-                          onKeyDown={handleEnter}
-                          data-testid="field-description"
-                        />
-                        {/* helper chips */}
-                        <div className="flex flex-wrap gap-2 pt-1">
-                          {[
-                            "Budget: £5k–£15k",
-                            "Ready to start in 2–4 weeks",
-                            "Weekends only",
-                            "Materials supplied by tradesman",
-                            "Owner-occupied",
-                          ].map((hint, i) => (
-                            <button
-                              key={hint}
-                              type="button"
-                              className="px-3 py-1 border rounded-full text-sm hover:bg-gray-50"
-                              onClick={() =>
-                                set(
-                                  "description",
-                                  normalize(
-                                    (form.description + " " + hint).trim()
-                                  )
-                                )
-                              }
-                              data-testid={`desc-chip-${i}`}
-                            >
-                              {hint}
-                            </button>
-                          ))}
-                        </div>
-                      </>
+                      <DescriptionBuilder
+                        value={form.description}
+                        onChange={(next) => set("description", next)}
+                        className="mt-1"
+                      />
                     )}
 
+                    {/* Review */}
                     {s.key === "review" && (
                       <div className="space-y-3 text-sm" data-testid="review">
                         <ReviewRow
@@ -480,9 +503,21 @@ export default function NewProject() {
                           dataTestId="review-name"
                         />
                         <ReviewRow
-                          label="Type of work"
-                          value={toCanonicalType(form.type)}
-                          dataTestId="review-type"
+                          label="Category"
+                          value={form.category || "—"}
+                          dataTestId="review-category"
+                        />
+                        <ReviewRow
+                          label="Type(s) of work"
+                          value={
+                            [
+                              ...form.selectedTypes,
+                              ...(form.otherEnabled && form.otherText.trim()
+                                ? [normalize(form.otherText)]
+                                : []),
+                            ].join(", ") || "—"
+                          }
+                          dataTestId="review-types"
                         />
                         <ReviewRow
                           label="Location"

@@ -1,3 +1,4 @@
+// web/pages/projects/[id]/shortlist.tsx
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
@@ -6,10 +7,8 @@ import { useAuth } from "@/utils/auth";
 import { useEffect, useMemo, useState } from "react";
 import {
   fetchVmbRatings,
-  fetchAllProjectRecs,
   computeAggregateScore,
   normalizedCompanyKey,
-  type FetchRecsFn,
   voteUpRecommendation,
 } from "@/utils/vmb";
 
@@ -196,7 +195,6 @@ function groupByCompany(
       };
       map.set(key, bucket);
     } else {
-      // prefer canonical CH name if we later learn it
       if (v?.companyName && bucket.company !== v.companyName) {
         bucket.company = v.companyName;
       }
@@ -230,7 +228,6 @@ function groupByCompany(
     });
   }
 
-  // sort groups by agg score, then likes, then newest top
   groups.sort((a, b) => {
     const sa = typeof a.aggScore === "number" ? a.aggScore : -1;
     const sb = typeof b.aggScore === "number" ? b.aggScore : -1;
@@ -242,8 +239,85 @@ function groupByCompany(
   return groups;
 }
 
-/* ---------------- Page ---------------- */
+/* ===== Outer page with GATE (no flicker; blocks tradesmen) ===== */
 export default function ShortlistPage() {
+  return (
+    <AuthedOnly>
+      <ShortlistGate />
+    </AuthedOnly>
+  );
+}
+
+function ShortlistGate() {
+  const api = useApi();
+  const router = useRouter();
+  const { loading: authLoading } = useAuth();
+
+  const [status, setStatus] = useState<"checking" | "ok" | "redirect">(
+    "checking"
+  );
+
+  useEffect(() => {
+    let alive = true;
+    if (!router.isReady || authLoading) return;
+
+    // Fast cached path
+    try {
+      if (sessionStorage.getItem("vmb:isTradesman") === "1") {
+        setStatus("redirect");
+        router.replace("/tradesman/projects");
+        return;
+      }
+    } catch {}
+
+    // Authoritative path
+    (async () => {
+      try {
+        const { data } = await api.get("/api/tradesmen/me");
+        const isT =
+          String(data?.role || "").toLowerCase() === "tradesman" ||
+          !!data?.profile;
+        if (!alive) return;
+        if (isT) {
+          try {
+            sessionStorage.setItem("vmb:isTradesman", "1");
+          } catch {}
+          setStatus("redirect");
+          router.replace("/tradesman/projects");
+          return;
+        }
+      } catch {
+        // not a tradesman or endpoint not available; proceed
+      }
+      if (alive) setStatus("ok");
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [api, router, authLoading]);
+
+  if (status === "redirect") {
+    return (
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-10">
+        <p className="text-sm text-slate-500">Redirecting…</p>
+      </div>
+    );
+  }
+
+  if (status !== "ok") {
+    return (
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-10">
+        <p className="text-sm text-slate-500">Loading…</p>
+      </div>
+    );
+  }
+
+  return <ShortlistInner />;
+}
+
+/* ===== Actual shortlist UI (unchanged logic; no tradesman checks here) ===== */
+function ShortlistInner() {
   const api = useApi();
   const router = useRouter();
   const { id } = router.query;
@@ -264,7 +338,6 @@ export default function ShortlistPage() {
     Record<number, Verification>
   >({});
 
-  // per-card phone visibility (still per top-rec card)
   const [phoneVisible, setPhoneVisible] = useState<Record<number, boolean>>({});
 
   const isOwner = !!(user && project && project.ownerUserId === user.uid);
@@ -288,26 +361,6 @@ export default function ShortlistPage() {
       alive = false;
     };
   }, [api, id, router.isReady, authLoading, user]);
-
-  // Bridge for the shared aggregator to pull *all* recs & scores for the project (for pagination & consistency).
-  const ratingsFetcher: FetchRecsFn = async ({
-    projectId,
-    offset = 0,
-    limit = 250,
-  }) => {
-    const res = await fetchVmbRatings(api, { projectId, offset, limit });
-    if (!hasItems(res)) {
-      return { items: [], total: 0 };
-    }
-    const items =
-      res.items?.map((it) => ({
-        id: it.id,
-        company: it.company,
-        score: it.score,
-      })) ?? [];
-    const total = typeof res.total === "number" ? res.total : items.length;
-    return { items, total };
-  };
 
   async function loadPage(p: number) {
     const pid = Number(Array.isArray(id) ? id[0] : id);
@@ -362,7 +415,6 @@ export default function ShortlistPage() {
     };
   }, [api, id, page, pageSize, router.isReady, authLoading, user]);
 
-  // Fetch CH verification + photos for items on the current page (use top rec id in groups when rendering).
   useEffect(() => {
     if (items.length === 0) {
       setHasPhotos({});
@@ -423,7 +475,7 @@ export default function ShortlistPage() {
     );
     try {
       await voteUpRecommendation(api, rec.id);
-      await loadPage(page); // refresh
+      await loadPage(page);
     } catch {
       await loadPage(page);
       alert("Unable to vote right now");
@@ -432,301 +484,297 @@ export default function ShortlistPage() {
     }
   };
 
-  // Build grouped view from the *current page* items (CH number first)
   const groups = useMemo(
     () => groupByCompany(items, recVerification),
     [items, recVerification]
   );
 
   return (
-    <AuthedOnly>
+    <div
+      className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8"
+      data-testid="recommendations-page"
+    >
+      {/* Header band */}
       <div
-        className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8"
-        data-testid="recommendations-page"
+        className="mb-6 rounded-2xl border border-gray-200 bg-white/80 backdrop-blur px-6 py-5 shadow-sm heading-band"
+        data-testid="heading-band"
       >
-        {/* Header band */}
-        <div
-          className="mb-6 rounded-2xl border border-gray-200 bg-white/80 backdrop-blur px-6 py-5 shadow-sm heading-band"
-          data-testid="heading-band"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h1
-                className="text-2xl font-semibold tracking-tight"
-                data-testid="recommendations-title"
-              >
-                All recommendations for your
-                {project ? ` · ${project.name}` : ""}
-              </h1>
-              <p className="mt-1 text-sm text-slate-500">
-                Grouped by company and ranked by the VMB score.
-              </p>
-            </div>
-            <Link
-              href={`/projects/${id}`}
-              aria-label="Back to project details"
-              title="Back to project details"
-              className="btn-back"
-              data-testid="back-to-project"
+        <div className="flex items-center justify-between">
+          <div>
+            <h1
+              className="text-2xl font-semibold tracking-tight"
+              data-testid="recommendations-title"
             >
-              <svg
-                viewBox="0 0 24 24"
-                className="icon-24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M10 19l-7-7 7-7" />
-                <path d="M3 12h18" />
-              </svg>
-              <span className="sr-only">Back to project details</span>
-            </Link>
+              All recommendations for your
+              {project ? ` · ${project.name}` : ""}
+            </h1>
+            <p className="mt-1 text-sm text-slate-500">
+              Grouped by company and ranked by the VMB score.
+            </p>
           </div>
+          <Link
+            href={`/projects/${id}`}
+            aria-label="Back to project details"
+            title="Back to project details"
+            className="btn-back"
+            data-testid="back-to-project"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="icon-24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M10 19l-7-7 7-7" />
+              <path d="M3 12h18" />
+            </svg>
+            <span className="sr-only">Back to project details</span>
+          </Link>
         </div>
+      </div>
 
-        {loading ? (
-          <p>Loading…</p>
-        ) : err ? (
-          <p className="text-red-600">{err}</p>
-        ) : groups.length === 0 ? (
-          <div className="card">No builders have yet been recommended.</div>
-        ) : (
-          <div className="space-y-3" data-testid="recommendations-list">
-            {groups.map((g) => {
-              const r = g.top; // lead rec
-              const votes = g.aggLikes; // aggregated likes across group
-              const hasVoted = r.myLike === 1;
-              const showPhotos = !!hasPhotos[r.id];
-              const isFriend = r.fromFriend === 1;
-              const isCommunity = r.fromCommunity === 1;
+      {loading ? (
+        <p>Loading…</p>
+      ) : err ? (
+        <p className="text-red-600">{err}</p>
+      ) : groups.length === 0 ? (
+        <div className="card">No builders have yet been recommended.</div>
+      ) : (
+        <div className="space-y-3" data-testid="recommendations-list">
+          {groups.map((g) => {
+            const r = g.top;
+            const votes = g.aggLikes;
+            const hasVoted = r.myLike === 1;
+            const showPhotos = !!hasPhotos[r.id];
+            const isFriend = r.fromFriend === 1;
+            const isCommunity = r.fromCommunity === 1;
 
-              const displayCompanyName = resolveCompanyName(r, recVerification);
-              const scoreToShow =
-                g.aggScore ??
-                (typeof r.score === "number" ? r.score : undefined);
+            const displayCompanyName = resolveCompanyName(r, recVerification);
+            const scoreToShow =
+              g.aggScore ??
+              (typeof r.score === "number" ? r.score : undefined);
 
-              const phone = (r.phone ?? "").trim();
-              const isPhoneVisible = !!phoneVisible[r.id];
+            const phone = (r.phone ?? "").trim();
+            const isPhoneVisible = !!phoneVisible[r.id];
 
-              return (
-                <div
-                  key={g.key}
-                  className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm hover:shadow-md transition p-5 relative"
-                  data-testid="recommendation-card"
-                >
-                  {g.extraCount > 0 && (
-                    <span
-                      className="absolute -top-2 -right-2 z-20 rounded-full bg-indigo-600 text-white text-[11px] leading-none px-2 py-1 shadow-md"
-                      title={`${g.extraCount} more recommendation${
-                        g.extraCount === 1 ? "" : "s"
-                      } in this stack`}
-                      data-testid="rec-stack-count"
-                    >
-                      +{g.extraCount} more
-                    </span>
+            return (
+              <div
+                key={g.key}
+                className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm hover:shadow-md transition p-5 relative"
+                data-testid="recommendation-card"
+              >
+                {g.extraCount > 0 && (
+                  <span
+                    className="absolute -top-2 -right-2 z-20 rounded-full bg-indigo-600 text-white text-[11px] leading-none px-2 py-1 shadow-md"
+                    title={`${g.extraCount} more recommendation${
+                      g.extraCount === 1 ? "" : "s"
+                    } in this stack`}
+                    data-testid="rec-stack-count"
+                  >
+                    +{g.extraCount} more
+                  </span>
+                )}
+
+                <div className="flex items-start gap-4">
+                  {/* Vote column (hidden for owner) */}
+                  {!isOwner && (
+                    <div className="w-12 flex-none flex flex-col items-center">
+                      <button
+                        onClick={() => voteUpOnce(r)}
+                        disabled={!canVote || hasVoted || votingId === r.id}
+                        className={`h-9 w-9 rounded-full grid place-items-center border transition
+                          ${
+                            hasVoted
+                              ? "bg-indigo-50 border-indigo-200 text-indigo-600 cursor-default"
+                              : "border-slate-200 hover:bg-slate-50"
+                          }
+                          ${!canVote ? "opacity-60" : ""}`}
+                        aria-label="Vote up"
+                        data-testid="rec-vote-btn"
+                        title={
+                          !canVote
+                            ? "Sign in to vote"
+                            : hasVoted
+                            ? "You’ve voted"
+                            : "Vote up"
+                        }
+                      >
+                        <ThumbsUpIcon className="h-4 w-4" />
+                      </button>
+                      <div
+                        className="mt-1 text-xs tabular-nums text-slate-600"
+                        data-testid="rec-vote-count"
+                        aria-label="Votes"
+                        title={`${votes} vote${votes === 1 ? "" : "s"}`}
+                      >
+                        {votes}
+                      </div>
+                    </div>
                   )}
 
-                  <div className="flex items-start gap-4">
-                    {/* Vote column (hidden for owner) */}
-                    {!isOwner && (
-                      <div className="w-12 flex-none flex flex-col items-center">
-                        <button
-                          onClick={() => voteUpOnce(r)}
-                          disabled={!canVote || hasVoted || votingId === r.id}
-                          className={`h-9 w-9 rounded-full grid place-items-center border transition
-                            ${
-                              hasVoted
-                                ? "bg-indigo-50 border-indigo-200 text-indigo-600 cursor-default"
-                                : "border-slate-200 hover:bg-slate-50"
-                            }
-                            ${!canVote ? "opacity-60" : ""}`}
-                          aria-label="Vote up"
-                          data-testid="rec-vote-btn"
-                          title={
-                            !canVote
-                              ? "Sign in to vote"
-                              : hasVoted
-                              ? "You’ve voted"
-                              : "Vote up"
-                          }
-                        >
-                          <ThumbsUpIcon className="h-4 w-4" />
-                        </button>
+                  {/* Body */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
                         <div
-                          className="mt-1 text-xs tabular-nums text-slate-600"
-                          data-testid="rec-vote-count"
-                          aria-label="Votes"
-                          title={`${votes} vote${votes === 1 ? "" : "s"}`}
+                          className="font-medium truncate"
+                          data-testid="rec-company"
                         >
-                          {votes}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Body */}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div
-                            className="font-medium truncate"
-                            data-testid="rec-company"
+                          <Link
+                            href={`/builders/${r.id}`}
+                            className="hover:underline decoration-indigo-400/60"
                           >
-                            <Link
-                              href={`/builders/${r.id}`}
-                              className="hover:underline decoration-indigo-400/60"
+                            <span
+                              data-testid="rec-company-name"
+                              aria-label="Company name"
                             >
-                              <span
-                                data-testid="rec-company-name"
-                                aria-label="Company name"
-                              >
-                                {displayCompanyName}
-                              </span>
-                            </Link>
-                          </div>
-
-                          {/* badges row */}
-                          <div className="mt-1 flex flex-wrap items-center gap-2">
-                            {isFriend && (
-                              <Badge
-                                className="border border-blue-200 bg-blue-50 text-blue-700"
-                                title="From a friend"
-                                testId="rec-badge-friend"
-                              >
-                                Friend
-                              </Badge>
-                            )}
-                            {isCommunity && (
-                              <Badge
-                                className="border border-emerald-200 bg-emerald-50 text-emerald-700"
-                                title="From the local community"
-                                testId="rec-badge-community"
-                              >
-                                Community
-                              </Badge>
-                            )}
-                            {showPhotos && (
-                              <Badge
-                                className="border border-indigo-200 bg-indigo-50 text-indigo-700"
-                                title="Includes photos"
-                                aria-label="Includes photos"
-                                testId="rec-badge-photos"
-                              >
-                                <CameraIcon className="h-3.5 w-3.5" />
-                                Photos
-                              </Badge>
-                            )}
-                          </div>
+                              {displayCompanyName}
+                            </span>
+                          </Link>
                         </div>
 
-                        <div className="flex items-center gap-3 shrink-0 whitespace-nowrap">
-                          <div
-                            className="text-xs text-slate-500 tabular-nums flex items-center gap-1"
-                            aria-label="Total votes"
-                            data-testid="rec-vote-count-top"
-                            title={`${votes} vote${votes === 1 ? "" : "s"}`}
-                          >
-                            <ThumbsUpIcon className="h-3.5 w-3.5 -mt-px" />{" "}
-                            {votes}
-                          </div>
-                          <ScoreChip value={scoreToShow} />
-                        </div>
-                      </div>
-
-                      {r.comment && (
-                        <p
-                          className="text-sm text-slate-700 mt-2 whitespace-pre-wrap"
-                          data-testid="rec-comment"
-                        >
-                          {r.comment}
-                        </p>
-                      )}
-
-                      {/* ------- META: “Recommended by …” + reveal phone ------- */}
-                      <div className="text-xs text-slate-500 mt-3 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span data-testid="rec-meta">
-                            {recommenderText(r)}
-                          </span>
-
-                          {(r.phone ?? "").trim() && (
-                            <>
-                              {isPhoneVisible && (
-                                <span
-                                  id={`builder-phone-${r.id}`}
-                                  data-testid="rec-builder-phone"
-                                  className="tabular-nums"
-                                >
-                                  · <strong>Builder phone:</strong>{" "}
-                                  {(r.phone ?? "").trim()}
-                                </span>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setPhoneVisible((m) => ({
-                                    ...m,
-                                    [r.id]: !m[r.id],
-                                  }))
-                                }
-                                className="text-indigo-600 hover:underline"
-                                data-testid="rec-toggle-phone"
-                                aria-expanded={isPhoneVisible}
-                                aria-controls={`builder-phone-${r.id}`}
-                              >
-                                {isPhoneVisible
-                                  ? "Hide builder contact"
-                                  : "Show builder contact"}
-                              </button>
-                            </>
+                        {/* badges row */}
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          {isFriend && (
+                            <Badge
+                              className="border border-blue-200 bg-blue-50 text-blue-700"
+                              title="From a friend"
+                              testId="rec-badge-friend"
+                            >
+                              Friend
+                            </Badge>
+                          )}
+                          {isCommunity && (
+                            <Badge
+                              className="border border-emerald-200 bg-emerald-50 text-emerald-700"
+                              title="From the local community"
+                              testId="rec-badge-community"
+                            >
+                              Community
+                            </Badge>
+                          )}
+                          {showPhotos && (
+                            <Badge
+                              className="border border-indigo-200 bg-indigo-50 text-indigo-700"
+                              title="Includes photos"
+                              aria-label="Includes photos"
+                              testId="rec-badge-photos"
+                            >
+                              <CameraIcon className="h-3.5 w-3.5" />
+                              Photos
+                            </Badge>
                           )}
                         </div>
-                        <span data-testid="rec-created">
-                          {new Date(r.createdAt).toLocaleString()}
-                        </span>
                       </div>
+
+                      <div className="flex items-center gap-3 shrink-0 whitespace-nowrap">
+                        <div
+                          className="text-xs text-slate-500 tabular-nums flex items-center gap-1"
+                          aria-label="Total votes"
+                          data-testid="rec-vote-count-top"
+                          title={`${votes} vote${votes === 1 ? "" : "s"}`}
+                        >
+                          <ThumbsUpIcon className="h-3.5 w-3.5 -mt-px" />{" "}
+                          {votes}
+                        </div>
+                        <ScoreChip value={scoreToShow} />
+                      </div>
+                    </div>
+
+                    {r.comment && (
+                      <p
+                        className="text-sm text-slate-700 mt-2 whitespace-pre-wrap"
+                        data-testid="rec-comment"
+                      >
+                        {r.comment}
+                      </p>
+                    )}
+
+                    {/* ------- META: “Recommended by …” + reveal phone ------- */}
+                    <div className="text-xs text-slate-500 mt-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span data-testid="rec-meta">
+                          {recommenderText(r)}
+                        </span>
+
+                        {(r.phone ?? "").trim() && (
+                          <>
+                            {isPhoneVisible && (
+                              <span
+                                id={`builder-phone-${r.id}`}
+                                data-testid="rec-builder-phone"
+                                className="tabular-nums"
+                              >
+                                · <strong>Builder phone:</strong>{" "}
+                                {(r.phone ?? "").trim()}
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPhoneVisible((m) => ({
+                                  ...m,
+                                  [r.id]: !m[r.id],
+                                }))
+                              }
+                              className="text-indigo-600 hover:underline"
+                              data-testid="rec-toggle-phone"
+                              aria-expanded={isPhoneVisible}
+                              aria-controls={`builder-phone-${r.id}`}
+                            >
+                              {isPhoneVisible
+                                ? "Hide builder contact"
+                                : "Show builder contact"}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      <span data-testid="rec-created">
+                        {new Date(r.createdAt).toLocaleString()}
+                      </span>
                     </div>
                   </div>
                 </div>
-              );
-            })}
-
-            <div
-              className="flex items-center justify-between pt-2"
-              data-testid="pager"
-            >
-              <button
-                className="btn disabled:opacity-50"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                aria-label="Previous page"
-                data-testid="pager-prev"
-              >
-                Prev
-              </button>
-              <div
-                className="text-sm text-slate-600"
-                data-testid="pager-status"
-              >
-                Page <span data-testid="pager-page">{page}</span> /{" "}
-                <span data-testid="pager-pages">{totalPages}</span> • Total:{" "}
-                <span data-testid="pager-total">{total}</span>
               </div>
-              <button
-                className="btn disabled:opacity-50"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-                aria-label="Next page"
-                data-testid="pager-next"
-              >
-                Next
-              </button>
+            );
+          })}
+
+          <div
+            className="flex items-center justify-between pt-2"
+            data-testid="pager"
+          >
+            <button
+              className="btn disabled:opacity-50"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              aria-label="Previous page"
+              data-testid="pager-prev"
+            >
+              Prev
+            </button>
+            <div className="text-sm text-slate-600" data-testid="pager-status">
+              Page <span data-testid="pager-page">{page}</span> /{" "}
+              <span data-testid="pager-pages">
+                {Math.max(1, Math.ceil(total / pageSize))}
+              </span>{" "}
+              • Total: <span data-testid="pager-total">{total}</span>
             </div>
+            <button
+              className="btn disabled:opacity-50"
+              disabled={page >= Math.max(1, Math.ceil(total / pageSize))}
+              onClick={() => setPage((p) => p + 1)}
+              aria-label="Next page"
+              data-testid="pager-next"
+            >
+              Next
+            </button>
           </div>
-        )}
-      </div>
-    </AuthedOnly>
+        </div>
+      )}
+    </div>
   );
 }

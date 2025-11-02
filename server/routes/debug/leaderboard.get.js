@@ -1,24 +1,55 @@
 // server/routes/debug/leaderboard.get.js
-// Debug/owner-visible leaderboard with all score ingredients.
-// GET /api/debug/leaderboard?projectId=123
+// Debug leaderboard with all score ingredients.
+// GET /api/debug/leaderboard?projectId=123  -> project-scoped (owner or project is live)
+// GET /api/debug/leaderboard                -> GLOBAL (admin-only)
 //
-// Auth: requires sign-in. For a projectId: owner OR project is live.
+// Auth: requires sign-in.
 // Response: { items: [...], total }
 
 module.exports = (router, ctx) => {
   const { db, auth, extractLocationTokens } = ctx;
 
+  /* ---------- helpers ---------- */
   const toNum = (v) => {
     const n = Number(v);
     return Number.isFinite(n) ? n : null;
   };
 
-  // ---------- small helpers (mirror your ratings route) ----------
+  const truthy = (v) =>
+    v === 1 ||
+    v === true ||
+    String(v).toLowerCase() === "1" ||
+    String(v).toLowerCase() === "true";
+
+  // Mirror requireAdmin check (role OR allow-listed email)
+  function isAdmin(req) {
+    const uid = req.user?.uid;
+    if (!uid) return false;
+
+    const roleRow =
+      db.prepare(`SELECT role FROM user_roles WHERE uid=?`).get(uid) || null;
+    const role = String(roleRow?.role || "user").toLowerCase();
+
+    const allowlist = (process.env.ADMIN_EMAILS || "")
+      .split(",")
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean);
+    const email = String(req.user?.email || "")
+      .trim()
+      .toLowerCase();
+    const isAllowlisted = email && allowlist.includes(email);
+
+    return role === "admin" || isAllowlisted;
+  }
+
+  // ---- per-recommendation ingredients (table names match your DB) ----
   const likesFor = (rid) =>
     Number(
       db
         .prepare(
-          `SELECT COUNT(*) AS c FROM recommendation_votes WHERE recommendationId=? AND value=1`
+          `SELECT COUNT(*) AS c
+             FROM recommendation_votes
+            WHERE recommendationId=? AND value=1`
         )
         .get(rid)?.c || 0
     );
@@ -27,20 +58,26 @@ module.exports = (router, ctx) => {
     Number(
       db
         .prepare(
-          `SELECT COUNT(*) AS c FROM recommendation_photos WHERE recommendationId=?`
+          `SELECT COUNT(*) AS c
+             FROM recommendation_photos
+            WHERE recommendationId=?`
         )
         .get(rid)?.c || 0
     );
 
+  // Number of closures where this recommendation is the winner
   const closuresWonCount = (rid) =>
     Number(
       db
         .prepare(
-          `SELECT COUNT(*) AS c FROM project_closures WHERE winnerRecommendationId=?`
+          `SELECT COUNT(*) AS c
+             FROM project_closures
+            WHERE winnerRecommendationId=?`
         )
         .get(rid)?.c || 0
     );
 
+  // Would hire again from closures
   const closuresWouldAgainCount = (rid) =>
     Number(
       db
@@ -52,40 +89,18 @@ module.exports = (router, ctx) => {
         .get(rid)?.c || 0
     );
 
-  const completionRows = (rid) =>
-    db
-      .prepare(
-        `SELECT id, didWorkGoAhead, wouldHireAgain
-           FROM project_completions
-          WHERE recommendationId=?`
-      )
-      .all(rid);
-
-  const completionWinsCount = (rid) =>
-    completionRows(rid).reduce(
-      (n, r) => n + (Number(r?.didWorkGoAhead || 0) === 1 ? 1 : 0),
-      0
-    );
-
-  const completionWouldAgainCount = (rid) =>
-    completionRows(rid).reduce(
-      (n, r) => n + (Number(r?.wouldHireAgain || 0) === 1 ? 1 : 0),
-      0
-    );
-
-  const completionPhotoCountFor = (rid) => {
-    const rows = completionRows(rid);
-    if (!rows.length) return 0;
-    const ids = rows.map((r) => r.id);
-    const placeholders = ids.map(() => "?").join(",");
-    return Number(
+  // Photos attached to closures for projects this rec won
+  const closurePhotoCountFor = (rid) =>
+    Number(
       db
         .prepare(
-          `SELECT COUNT(*) AS c FROM project_completion_photos WHERE completionId IN (${placeholders})`
+          `SELECT COUNT(*) AS c
+             FROM project_closure_photos cp
+             JOIN project_closures c ON c.projectId = cp.projectId
+            WHERE c.winnerRecommendationId=?`
         )
-        .get(...ids)?.c || 0
+        .get(rid)?.c || 0
     );
-  };
 
   const companyVerification = (rid) => {
     const row = db
@@ -107,7 +122,7 @@ module.exports = (router, ctx) => {
     };
   };
 
-  // --- exact same scoring as the ratings route ---
+  // --- your scoring formula (unchanged) ---
   function computeScore({
     isRecommended,
     fromFriend,
@@ -139,103 +154,326 @@ module.exports = (router, ctx) => {
     return Math.round(s * 20) / 20;
   }
 
-  // ---------- route ----------
-  router.get("/debug/leaderboard", auth, (req, res) => {
-    const projectId = toNum(req.query.projectId);
-    if (!projectId)
-      return res.status(400).json({ error: "projectId required" });
+  // Name normalization when no CH number
+  const normalizeKey = (s) =>
+    String(s || "")
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
 
-    const proj = db
-      .prepare(`SELECT ownerUserId, status, location FROM projects WHERE id=?`)
+  // Cache tokens per project for community check (global mode)
+  const projTokCache = new Map();
+  function getProjectTokens(projectId) {
+    if (!projectId) return {};
+    if (projTokCache.has(projectId)) return projTokCache.get(projectId);
+    const p = db
+      .prepare(`SELECT location FROM projects WHERE id=?`)
       .get(projectId);
-    if (!proj) return res.status(404).json({ error: "Project not found" });
+    const tok = extractLocationTokens?.(p?.location || "") || {};
+    projTokCache.set(projectId, tok);
+    return tok;
+  }
 
-    const uid = req.user?.uid || null;
-    const isOwner = uid && String(uid) === String(proj.ownerUserId);
-    const isLive = String(proj.status || "").toLowerCase() === "live";
-    if (!isOwner && !isLive)
-      return res.status(403).json({ error: "Forbidden" });
-
-    const pTok = extractLocationTokens?.(proj.location || "") || {};
-
-    const rows = db
+  function fromCommunityFlag(projectId, recommenderUserId) {
+    if (!projectId || !recommenderUserId) return 0;
+    const pTok = getProjectTokens(projectId);
+    const u = db
       .prepare(
-        `SELECT
-           r.id, r.projectId, r.company, r.name, r.email, r.phone, r.comment,
-           r.isAnonymous, r.createdAt, r.source, r.recommenderUserId
-         FROM recommendations r
-         WHERE r.projectId=?`
+        `SELECT postcode, postcodeSector, postcodeOutward, city
+           FROM users
+          WHERE uid=?`
       )
-      .all(projectId);
+      .get(recommenderUserId);
+    return Number(
+      (pTok.full && u?.postcode === pTok.full) ||
+        (pTok.sector && u?.postcodeSector === pTok.sector) ||
+        (pTok.outward && u?.postcodeOutward === pTok.outward) ||
+        (pTok.city &&
+          u?.city &&
+          String(u.city).toLowerCase() ===
+            String(pTok.city || "").toLowerCase())
+    );
+  }
 
-    function fromCommunityFlag(row) {
-      if (!row.recommenderUserId) return 0;
-      const u = db
+  /* ---------- ROUTE ---------- */
+  router.get("/debug/leaderboard", auth, (req, res) => {
+    try {
+      const projectId = toNum(req.query.projectId);
+
+      // ===== GLOBAL MODE (admin-only) =====
+      if (!projectId) {
+        if (!isAdmin(req)) {
+          return res.status(403).json({ error: "Admin access required" });
+        }
+
+        const recs = db
+          .prepare(
+            `SELECT
+               r.id, r.projectId, r.company, r.name, r.email, r.phone, r.comment,
+               r.isAnonymous, r.createdAt, r.source, r.recommenderUserId
+             FROM recommendations r`
+          )
+          .all();
+
+        if (!Array.isArray(recs) || recs.length === 0) {
+          return res.json({ items: [], total: 0 });
+        }
+
+        // Collapse by identity (CH number -> canonical; else normalized name)
+        const buckets = new Map(); // key -> { company, companyNumber?, items: Row[] }
+
+        for (const r of recs) {
+          const likes = likesFor(r.id);
+          const recPhotos = recPhotoCount(r.id);
+          const wins = closuresWonCount(r.id);
+          const compPhotos = closurePhotoCountFor(r.id);
+          const wouldAgain = closuresWouldAgainCount(r.id);
+          const ch = companyVerification(r.id);
+
+          const fromFriend =
+            String(r.source || "platform").toLowerCase() === "magic" ? 1 : 0;
+          const fromCommunity = fromCommunityFlag(
+            r.projectId,
+            r.recommenderUserId
+          );
+
+          const score = computeScore({
+            isRecommended: 1,
+            fromFriend,
+            fromCommunity,
+            likes,
+            wins,
+            recPhotos,
+            completionPhotos: compPhotos,
+            wouldAgain,
+            ch,
+          });
+
+          const row = {
+            id: r.id,
+            projectId: r.projectId,
+            company: r.company,
+            name: r.name,
+            createdAt: r.createdAt,
+            fromFriend,
+            fromCommunity,
+            likes,
+            recPhotos,
+            completionWins: wins,
+            completionPhotos: compPhotos,
+            legacyWins: 0, // no legacy table in this schema
+            wouldAgain,
+            chStatus: ch?.status || null,
+            chScore: ch?.score ?? null,
+            chCompanyNumber: ch?.companyNumber || null,
+            chCompanyName: ch?.companyName || null,
+            score,
+          };
+
+          const identityName = row.chCompanyName || row.company || "";
+          const identityKey = row.chCompanyNumber
+            ? `#${row.chCompanyNumber}`
+            : `n:${normalizeKey(identityName)}`;
+
+          let bucket = buckets.get(identityKey);
+          if (!bucket) {
+            bucket = {
+              key: identityKey,
+              company: identityName || row.company || "—",
+              companyNumber: row.chCompanyNumber || null,
+              items: [],
+            };
+            buckets.set(identityKey, bucket);
+          } else {
+            if (row.chCompanyName && bucket.company !== row.chCompanyName) {
+              bucket.company = row.chCompanyName;
+            }
+            if (!bucket.companyNumber && row.chCompanyNumber) {
+              bucket.companyNumber = row.chCompanyNumber;
+            }
+          }
+          bucket.items.push(row);
+        }
+
+        const pickTop = (arr) =>
+          [...arr].sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            if (b.likes !== a.likes) return b.likes - a.likes;
+            return (
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
+          })[0];
+
+        const collapsed = [];
+        for (const b of buckets.values()) {
+          const top = pickTop(b.items);
+
+          const aggLikes = b.items.reduce((s, it) => s + (it.likes || 0), 0);
+          const aggRecPhotos = b.items.reduce(
+            (s, it) => s + (it.recPhotos || 0),
+            0
+          );
+          const aggCompPhotos = b.items.reduce(
+            (s, it) => s + (it.completionPhotos || 0),
+            0
+          );
+          const aggWins = b.items.reduce(
+            (s, it) => s + (it.completionWins || 0),
+            0
+          );
+          const aggWouldAgain = b.items.reduce(
+            (s, it) => s + (it.wouldAgain || 0),
+            0
+          );
+
+          const aggScore = computeScore({
+            isRecommended: 1,
+            fromFriend: b.items.some((it) => truthy(it.fromFriend)) ? 1 : 0,
+            fromCommunity: b.items.some((it) => truthy(it.fromCommunity))
+              ? 1
+              : 0,
+            likes: aggLikes,
+            wins: aggWins,
+            recPhotos: aggRecPhotos,
+            completionPhotos: aggCompPhotos,
+            wouldAgain: aggWouldAgain,
+            ch: { status: top.chStatus, score: top.chScore },
+          });
+
+          collapsed.push({
+            id: top.id,
+            projectId: top.projectId,
+            company: b.company,
+            name: top.name,
+            createdAt: top.createdAt,
+            fromFriend: top.fromFriend,
+            fromCommunity: top.fromCommunity,
+            likes: aggLikes,
+            recPhotos: aggRecPhotos + aggCompPhotos, // single "Photos" column
+            completionWins: aggWins,
+            completionPhotos: aggCompPhotos,
+            legacyWins: 0,
+            wouldAgain: aggWouldAgain,
+            chStatus: top.chStatus,
+            chScore: top.chScore,
+            score: aggScore,
+          });
+          // end collapse
+        }
+
+        collapsed.sort((a, b) => {
+          if (b.score !== a.score) return b.score - a.score;
+          if (b.likes !== a.likes) return b.likes - a.likes;
+          return (
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+        });
+
+        return res.json({ items: collapsed, total: collapsed.length });
+      }
+
+      // ===== PROJECT MODE (original behaviour) =====
+      const proj = db
         .prepare(
-          `SELECT postcode, postcodeSector, postcodeOutward, city FROM users WHERE uid=?`
+          `SELECT ownerUserId, status, location FROM projects WHERE id=?`
         )
-        .get(row.recommenderUserId);
-      return Number(
-        (pTok.full && u?.postcode === pTok.full) ||
-          (pTok.sector && u?.postcodeSector === pTok.sector) ||
-          (pTok.outward && u?.postcodeOutward === pTok.outward) ||
-          (pTok.city &&
-            u?.city &&
-            String(u.city).toLowerCase() ===
-              String(pTok.city || "").toLowerCase())
-      );
-    }
+        .get(projectId);
+      if (!proj) return res.status(404).json({ error: "Project not found" });
 
-    const items = rows.map((r) => {
-      const likes = likesFor(r.id);
-      const recPhotos = recPhotoCount(r.id);
-      const compWins = completionWinsCount(r.id);
-      const compPhotos = completionPhotoCountFor(r.id);
-      const legacyWins = closuresWonCount(r.id);
-      const wouldAgain =
-        closuresWouldAgainCount(r.id) + completionWouldAgainCount(r.id);
-      const ch = companyVerification(r.id);
+      const uid = req.user?.uid || null;
+      const isOwner = uid && String(uid) === String(proj.ownerUserId);
+      const isLive = String(proj.status || "").toLowerCase() === "live";
+      if (!isOwner && !isLive)
+        return res.status(403).json({ error: "Forbidden" });
 
-      const score = computeScore({
-        isRecommended: 1,
-        fromFriend:
-          String(r.source || "platform").toLowerCase() === "magic" ? 1 : 0,
-        fromCommunity: fromCommunityFlag(r),
-        likes,
-        wins: compWins + legacyWins,
-        recPhotos,
-        completionPhotos: compPhotos,
-        wouldAgain,
-        ch,
+      const pTok = extractLocationTokens?.(proj.location || "") || {};
+
+      const rows = db
+        .prepare(
+          `SELECT
+             r.id, r.projectId, r.company, r.name, r.email, r.phone, r.comment,
+             r.isAnonymous, r.createdAt, r.source, r.recommenderUserId
+           FROM recommendations r
+          WHERE r.projectId=?`
+        )
+        .all(projectId);
+
+      function fromCommunityFlagProject(row) {
+        if (!row.recommenderUserId) return 0;
+        const u = db
+          .prepare(
+            `SELECT postcode, postcodeSector, postcodeOutward, city
+               FROM users
+              WHERE uid=?`
+          )
+          .get(row.recommenderUserId);
+        return Number(
+          (pTok.full && u?.postcode === pTok.full) ||
+            (pTok.sector && u?.postcodeSector === pTok.sector) ||
+            (pTok.outward && u?.postcodeOutward === pTok.outward) ||
+            (pTok.city &&
+              u?.city &&
+              String(u.city).toLowerCase() ===
+                String(pTok.city || "").toLowerCase())
+        );
+      }
+
+      const items = rows.map((r) => {
+        const likes = likesFor(r.id);
+        const recPhotos = recPhotoCount(r.id);
+        const wins = closuresWonCount(r.id);
+        const compPhotos = closurePhotoCountFor(r.id);
+        const wouldAgain = closuresWouldAgainCount(r.id);
+        const ch = companyVerification(r.id);
+
+        const score = computeScore({
+          isRecommended: 1,
+          fromFriend:
+            String(r.source || "platform").toLowerCase() === "magic" ? 1 : 0,
+          fromCommunity: fromCommunityFlagProject(r),
+          likes,
+          wins,
+          recPhotos,
+          completionPhotos: compPhotos,
+          wouldAgain,
+          ch,
+        });
+
+        return {
+          id: r.id,
+          projectId: r.projectId,
+          company: r.company,
+          name: r.name,
+          createdAt: r.createdAt,
+          fromFriend:
+            String(r.source || "platform").toLowerCase() === "magic" ? 1 : 0,
+          fromCommunity: fromCommunityFlagProject(r),
+          likes,
+          recPhotos,
+          completionWins: wins,
+          completionPhotos: compPhotos,
+          legacyWins: 0,
+          wouldAgain,
+          chStatus: ch?.status || null,
+          chScore: ch?.score ?? null,
+          score,
+        };
       });
 
-      return {
-        id: r.id,
-        projectId: r.projectId,
-        company: r.company,
-        name: r.name,
-        createdAt: r.createdAt,
-        fromFriend:
-          String(r.source || "platform").toLowerCase() === "magic" ? 1 : 0,
-        fromCommunity: fromCommunityFlag(r),
-        likes,
-        recPhotos,
-        completionWins: compWins,
-        completionPhotos: compPhotos,
-        legacyWins,
-        wouldAgain,
-        chStatus: ch?.status || null,
-        chScore: ch?.score ?? null,
-        score,
-      };
-    });
+      items.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        if (b.likes !== a.likes) return b.likes - a.likes;
+        return (
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+      });
 
-    items.sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      if (b.likes !== a.likes) return b.likes - a.likes;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
-
-    res.json({ items, total: items.length });
+      return res.json({ items, total: items.length });
+    } catch (e) {
+      console.error("[debug/leaderboard] error", e);
+      return res.status(500).json({ error: "Failed" });
+    }
   });
 };

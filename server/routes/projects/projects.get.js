@@ -1,6 +1,6 @@
 // server/v2/routes/projects/projects.get.js
 /**
- * GET /api/v2/projects   (also /api/projects if you mounted v2 there)
+ * GET /api/projects
  * Auth: required
  * Query:
  *   tab=mine|community|favourites|archived|recommended|completed|completedCommunity (default: mine)
@@ -17,7 +17,6 @@ module.exports = (router, ctx) => {
   router.get("/projects", auth, touchUserMw, (req, res) => {
     const uid = req.user.uid;
 
-    // Make tab switches fetch fresh data
     res.set("Cache-Control", "no-store");
     res.set("Vary", "Authorization, Cookie");
 
@@ -27,13 +26,13 @@ module.exports = (router, ctx) => {
       "favourites",
       "archived",
       "completed",
-      "completedcommunity", // note: tab is compared lower-cased
+      "completedcommunity",
       "recommended",
     ]);
     const tabRaw = String(req.query.tab || "mine").toLowerCase();
     const tab = allowedTabs.has(tabRaw) ? tabRaw : "mine";
 
-    // Filters
+    // Filters (free-text)
     const qName = String(req.query.name ?? "").trim();
     const qType = String(req.query.type ?? "").trim();
     const qLocation = String(req.query.location ?? "").trim();
@@ -56,7 +55,7 @@ module.exports = (router, ctx) => {
     );
     const offset = (page - 1) * pageSize;
 
-    // Common WHERE builder (free text filters)
+    // -------- helpers --------
     const whereParts = [];
     const whereParams = [];
 
@@ -87,7 +86,61 @@ module.exports = (router, ctx) => {
     const respond = (rows, total) =>
       res.json({ items: rows, total, page, pageSize });
 
-    // --- MINE ---
+    const deriveAreaTokens = () => {
+      // 1) try users.*
+      const me =
+        db.prepare(`SELECT * FROM users WHERE uid = ?`).get(uid) || null;
+
+      const candidateKeys = [
+        "location",
+        "postcodeOutward",
+        "postcodeSector",
+        "postcode",
+        "city",
+      ];
+
+      const tokens = [];
+      if (me && typeof me === "object") {
+        for (const k of candidateKeys) {
+          if (Object.prototype.hasOwnProperty.call(me, k)) {
+            const v = String(me[k] ?? "").trim();
+            if (v) tokens.push(v);
+          }
+        }
+      }
+
+      // 2) fall back to tradesmen.service_areas (comma/space separated)
+      if (tokens.length === 0) {
+        const t =
+          db
+            .prepare(
+              `SELECT service_areas FROM tradesmen WHERE user_id = ? LIMIT 1`
+            )
+            .get(uid) || null;
+        const sa = t && typeof t === "object" ? String(t.service_areas || "") : "";
+        if (sa) {
+          for (const part of sa.split(/[,\s]+/)) {
+            const v = part.trim();
+            if (v) tokens.push(v);
+          }
+        }
+      }
+
+      // 3) final fallback: the explicit location filter (qLocation)
+      if (tokens.length === 0 && qLocation) {
+        tokens.push(qLocation);
+      }
+
+      const norm = (s) =>
+        String(s || "")
+          .toLowerCase()
+          .replace(/\s+/g, "");
+      return Array.from(new Set(tokens.map(norm))).filter(Boolean);
+    };
+
+    // -------- tabs --------
+
+    // MINE
     if (tab === "mine") {
       const extra = [];
       const extraParams = [];
@@ -135,7 +188,7 @@ module.exports = (router, ctx) => {
       return respond(rows, countRow.c);
     }
 
-    // --- ARCHIVED (mine only) ---
+    // ARCHIVED (mine)
     if (tab === "archived") {
       const extra = [`p.ownerUserId = ?`, `p.status = 'archived'`];
       const extraParams = [uid];
@@ -163,7 +216,7 @@ module.exports = (router, ctx) => {
       return respond(rows, countRow.c);
     }
 
-    // --- COMPLETED (mine only) ---
+    // COMPLETED (mine)
     if (tab === "completed") {
       const extra = [`p.ownerUserId = ?`, `p.status = 'completed'`];
       const extraParams = [uid];
@@ -197,47 +250,19 @@ module.exports = (router, ctx) => {
       return respond(rows, countRow.c);
     }
 
-    // --- COMPLETED COMMUNITY (others in my area, not mine) ---
+    // COMPLETED COMMUNITY (others in my area)
     if (tab === "completedcommunity") {
-      // derive viewer area (same as community tab)
-      const me =
-        db.prepare(`SELECT * FROM users WHERE uid = ?`).get(uid) || null;
-
-      const candidateKeys = [
-        "location",
-        "postcodeOutward",
-        "postcodeSector",
-        "postcode",
-        "city",
-      ];
-      const tokens = [];
-      if (me && typeof me === "object") {
-        for (const k of candidateKeys) {
-          if (Object.prototype.hasOwnProperty.call(me, k)) {
-            const v = String(me[k] ?? "").trim();
-            if (v) tokens.push(v);
-          }
-        }
-      }
-      if (tokens.length === 0) return respond([], 0);
-
-      const norm = (s) =>
-        String(s || "")
-          .toLowerCase()
-          .replace(/\s+/g, "");
-      const normTokens = Array.from(new Set(tokens.map(norm))).filter(Boolean);
-
-      const areaOr = normTokens
-        .map(() => `REPLACE(LOWER(p.location),' ','') LIKE '%' || ? || '%'`)
-        .join(" OR ");
-      const areaParams = normTokens;
+      const normTokens = deriveAreaTokens();
 
       const baseParts = [`p.status = 'completed'`, `p.ownerUserId <> ?`];
       const baseParams = [uid];
 
-      if (areaOr) {
+      if (normTokens.length) {
+        const areaOr = normTokens
+          .map(() => `REPLACE(LOWER(p.location),' ','') LIKE '%' || ? || '%'`)
+          .join(" OR ");
         baseParts.push(`(${areaOr})`);
-        baseParams.push(...areaParams);
+        baseParams.push(...normTokens);
       }
 
       const { sql, params } = applyWhere(baseParts, baseParams);
@@ -246,7 +271,6 @@ module.exports = (router, ctx) => {
         .prepare(`SELECT COUNT(*) AS c FROM projects p ${sql}`)
         .get(...params);
 
-      // IMPORTANT: return the SAME shape as "completed" tab
       const rows = db
         .prepare(
           `SELECT
@@ -271,39 +295,9 @@ module.exports = (router, ctx) => {
       return respond(rows, countRow.c);
     }
 
-    // --- COMMUNITY (live, not mine, in my area, not already favourited) ---
+    // COMMUNITY (live, not mine, area-aware)
     if (tab === "community") {
-      const me =
-        db.prepare(`SELECT * FROM users WHERE uid = ?`).get(uid) || null;
-
-      const candidateKeys = [
-        "location",
-        "postcodeOutward",
-        "postcodeSector",
-        "postcode",
-        "city",
-      ];
-      const tokens = [];
-      if (me && typeof me === "object") {
-        for (const k of candidateKeys) {
-          if (Object.prototype.hasOwnProperty.call(me, k)) {
-            const v = String(me[k] ?? "").trim();
-            if (v) tokens.push(v);
-          }
-        }
-      }
-      if (tokens.length === 0) return respond([], 0);
-
-      const norm = (s) =>
-        String(s || "")
-          .toLowerCase()
-          .replace(/\s+/g, "");
-      const normTokens = Array.from(new Set(tokens.map(norm))).filter(Boolean);
-
-      const areaOr = normTokens
-        .map(() => `REPLACE(LOWER(p.location),' ','') LIKE '%' || ? || '%'`)
-        .join(" OR ");
-      const areaParams = normTokens;
+      const normTokens = deriveAreaTokens();
 
       const baseParts = [
         `p.status = 'live'`,
@@ -312,9 +306,12 @@ module.exports = (router, ctx) => {
       ];
       const baseParams = [uid, uid];
 
-      if (areaOr) {
+      if (normTokens.length) {
+        const areaOr = normTokens
+          .map(() => `REPLACE(LOWER(p.location),' ','') LIKE '%' || ? || '%'`)
+          .join(" OR ");
         baseParts.push(`(${areaOr})`);
-        baseParams.push(...areaParams);
+        baseParams.push(...normTokens);
       }
 
       const { sql, params } = applyWhere(baseParts, baseParams);
@@ -338,7 +335,7 @@ module.exports = (router, ctx) => {
       return respond(rows, countRow.c);
     }
 
-    // --- FAVOURITES ---
+    // FAVOURITES
     if (tab === "favourites") {
       const whereSQL = whereParts.length
         ? `AND ${whereParts.join(" AND ")}`
@@ -371,7 +368,7 @@ module.exports = (router, ctx) => {
       return respond(rows, countRow.c);
     }
 
-    // --- RECOMMENDED (legacy) ---
+    // RECOMMENDED (legacy)
     if (tab === "recommended") {
       const extra = [];
       if (rawStatus !== "all") {
