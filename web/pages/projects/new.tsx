@@ -44,10 +44,10 @@ function normalize(s: string) {
   return s.trim().replace(/\s+/g, " ");
 }
 
-function locationSuggestions(query: string): string[] {
-  const q = query.toLowerCase();
-  return LONDON_LOCATIONS.filter((s) => s.toLowerCase().includes(q));
-}
+// function locationSuggestions(query: string): string[] {
+//   const q = query.toLowerCase();
+//   return LONDON_LOCATIONS.filter((s) => s.toLowerCase().includes(q));
+// }
 
 function buildAutoNameSimple(
   primaryType: string,

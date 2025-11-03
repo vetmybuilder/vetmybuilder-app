@@ -6,6 +6,8 @@ import Layout from "@/components/Layout";
 import * as React from "react";
 import { useRouter } from "next/router";
 import SignUpGateModal from "@/components/SignUpGateModal";
+// NEW: incoming chat notifier (toast + modal)
+// import IncomingChatNotifier from "@/components/chat/IncomingChatNotifier";
 
 // NEW: minimal auth-path helper (local to _app only)
 const AUTH_PATHS = new Set([
@@ -133,6 +135,9 @@ export default function MyApp({ Component, pageProps }: AppProps) {
         {/* Mount the global Sign-up Gate modal once */}
         <SignUpGateModal />
       </Layout>
+
+      {/* NEW: global incoming chat listener + toast/modal */}
+      {/* <IncomingChatNotifier /> */}
 
       {/* Global modal portal target (for SignUpGate, etc.) */}
       <div id="modal-root" />

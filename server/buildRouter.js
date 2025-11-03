@@ -136,6 +136,7 @@ function buildRouter(ctx) {
   require("./routes/debug/reclinks.get")(router, ctx);
   require("./routes/debug/leaderboard.get")(router, ctx);
   require("./routes/debug/trades-role.get")(router, ctx);
+  require("./routes/debug/routes.get")(router, ctx);
 
   // ---------------- Tradesmen / Builders ----------------
   require("./routes/tradesmen/discover.get")(router, ctx);
@@ -144,6 +145,16 @@ function buildRouter(ctx) {
   require("./routes/tradesmen/me.put")(router, ctx);
   // require("./routes/tradesmen/register.post")(router, ctx);
   require("./routes/tradesmen/join.post")(router, ctx);
+  require("./routes/tradesmen/interest.post")(router, ctx);
+  require("./routes/tradesmen/interest.get")(router, ctx);
+
+  // // ---------------- Chats ----------------
+  // require("./routes/chats/start.post")(router, ctx);
+  // require("./routes/chats/messages.get")(router, ctx);
+  // require("./routes/chats/messages.post")(router, ctx);
+  // require("./routes/chats/stream.get")(router, ctx);
+  // // optional list endpoint:
+  // require("./routes/chats/chats.get")(router, ctx);
 
   // ---------------- Admin ----------------
   require("./routes/admin/tradesmen.get")(router, ctx);

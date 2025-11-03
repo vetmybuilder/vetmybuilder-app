@@ -1,3 +1,4 @@
+// web/pages/projects/[id].tsx
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
@@ -114,7 +115,7 @@ export default function ProjectView() {
   // photos: recId -> hasPhotos
   const [recHasPhotos, setRecHasPhotos] = useState<Record<number, boolean>>({});
 
-  // NEW: verification map: recId -> verification
+  // verification map: recId -> verification
   const [recVerification, setRecVerification] = useState<
     Record<number, Verification>
   >({});
@@ -382,9 +383,16 @@ export default function ProjectView() {
     setRecsErr(null);
   }
 
-  /* Load shortlist */
+  /* Load shortlist (skip entirely for tradesmen) */
   useEffect(() => {
     if (!router.isReady || authLoading || !user || !project?.id) return;
+    if (isTrades) {
+      // viewer is a tradesman — don't fetch shortlist at all
+      setRecs([]);
+      setRecTotal(0);
+      setRecsErr(null);
+      return;
+    }
     let alive = true;
     (async () => {
       try {
@@ -406,7 +414,7 @@ export default function ProjectView() {
     return () => {
       alive = false;
     };
-  }, [api, router.isReady, authLoading, user, project?.id]);
+  }, [api, router.isReady, authLoading, user, project?.id, isTrades]);
 
   /* Photos flags */
   useEffect(() => {
@@ -590,6 +598,85 @@ export default function ProjectView() {
     };
   }, [api, router.isReady, authLoading, user, project?.location, isTrades]);
 
+  /* ===== Tradesman → Express Interest CTA ===== */
+  const [interestBusy, setInterestBusy] = useState(false);
+  const [interestSent, setInterestSent] = useState(false);
+  // prevent flicker by hiding the button until share status is known
+  const [shareCheckDone, setShareCheckDone] = useState(false);
+
+  // Query server to see if this tradesman already shared for this project
+  useEffect(() => {
+    if (!project?.id) return;
+
+    // If viewer isn't a tradesman, there's nothing to check
+    if (!isTrades) {
+      setInterestSent(false);
+      setShareCheckDone(true);
+      return;
+    }
+
+    let alive = true;
+    setShareCheckDone(false); // hide CTA until we know
+
+    (async () => {
+      try {
+        const { data } = await api.get("/api/tradesmen/interest", {
+          params: { projectId: project.id },
+        });
+        if (!alive) return;
+        const already =
+          !!data?.shared ||
+          !!data?.alreadyShared ||
+          Number.isFinite(Number(data?.recommendationId));
+        setInterestSent(already);
+      } catch {
+        if (alive) setInterestSent(false); // default to not shared if GET fails
+      } finally {
+        if (alive) setShareCheckDone(true);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [api, isTrades, project?.id]);
+
+  const canExpressInterest =
+    !!project &&
+    isTrades &&
+    !isOwner &&
+    !isClosed &&
+    isLive &&
+    !interestSent &&
+    shareCheckDone; // gate on check completion to avoid flicker
+
+  const onExpressInterest = async () => {
+    if (!project || interestBusy || interestSent) return;
+    setInterestBusy(true);
+    try {
+      const { data } = await api.post("/api/tradesmen/interest", {
+        projectId: project.id,
+      });
+      if (data?.ok || data?.alreadyShared) {
+        setInterestSent(true);
+      }
+      setFlash({
+        kind: "success",
+        text: "Thanks! We’ve notified the owner and shared your profile. They can view it from their notifications.",
+      });
+    } catch (e: any) {
+      setFlash({
+        kind: "error",
+        text:
+          e?.response?.data?.error ||
+          e?.message ||
+          "Failed to notify the project owner",
+      });
+    } finally {
+      setInterestBusy(false);
+    }
+  };
+
   /* ===== Render ===== */
   return (
     <AuthedOnly>
@@ -690,7 +777,26 @@ export default function ProjectView() {
               busy={busy}
             />
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Tradesman CTA: share profile with owner (no flicker) */}
+            <div className="mb-4 flex justify-end min-h-[44px]">
+              {canExpressInterest && (
+                <button
+                  className="btn"
+                  onClick={onExpressInterest}
+                  disabled={interestBusy}
+                  data-testid="btn-express-interest"
+                >
+                  {interestBusy ? "Sending…" : "Share profile with owner"}
+                </button>
+              )}
+            </div>
+
+            {/* Content grid — hide Top recommendations (Shortlist) for tradesmen */}
+            <div
+              className={`grid gap-6 ${
+                isTrades ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-12"
+              }`}
+            >
               {/* Left: details */}
               <ProjectDetailsCard
                 project={project}
@@ -708,21 +814,24 @@ export default function ProjectView() {
                 onOpenCloseModal={() => setCloseOpen(true)}
                 canAddRec={canAddRec}
               />
-              {/* Right: shortlist */}
-              <ShortlistSection
-                items={recs || []}
-                total={recTotal}
-                viewMoreHref={`/projects/${project.id}/shortlist`}
-                isOwner={isOwner}
-                canVote={!!user && !!project && !isOwner}
-                votingId={votingId}
-                onVoteUp={(rid) => {
-                  const rec = (recs || []).find((x) => x.id === rid);
-                  if (rec) voteUpOnce(rec);
-                }}
-                recHasPhotos={recHasPhotos}
-                recVerification={recVerification}
-              />
+
+              {/* Right: shortlist (Top recommendations) — hidden for tradesmen */}
+              {!isTrades && (
+                <ShortlistSection
+                  items={recs || []}
+                  total={recTotal}
+                  viewMoreHref={`/projects/${project.id}/shortlist`}
+                  isOwner={isOwner}
+                  canVote={!!user && !!project && !isOwner}
+                  votingId={votingId}
+                  onVoteUp={(rid) => {
+                    const rec = (recs || []).find((x) => x.id === rid);
+                    if (rec) voteUpOnce(rec);
+                  }}
+                  recHasPhotos={recHasPhotos}
+                  recVerification={recVerification}
+                />
+              )}
             </div>
 
             {/* ===== Discover inline section (hidden for tradesmen) ===== */}
