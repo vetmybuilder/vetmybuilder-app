@@ -1,49 +1,78 @@
-import axios from "axios";
-import { initFirebase } from "./firebase";
-import { useEffect, useMemo } from "react";
+// Robust axios client: fixes /api/api and injects Firebase Bearer tokens (TS-safe for Axios v1)
 
-const base = process.env.NEXT_PUBLIC_API_BASE || "/api";
+import axios from "axios";
+import type { InternalAxiosRequestConfig } from "axios";
+import { getAuth } from "firebase/auth";
+import { initFirebase } from "@/utils/firebase";
+
+/** Decide base URL.
+ * If NEXT_PUBLIC_API_BASE is set, use it (origin or origin+/api).
+ * Otherwise default to '/api' (works with Next rewrites). */
+const RAW_BASE = (process.env.NEXT_PUBLIC_API_BASE || "/api").trim();
+
+const trimEnd = (s: string) => s.replace(/\/+$/, "");
+
+function normalizeBase(raw: string): string {
+  const noTrail = trimEnd(raw);
+  if (noTrail === "/api") return "/api";
+  if (/^https?:\/\//i.test(noTrail)) {
+    // absolute: ensure it ends with /api exactly once
+    return /\/api$/i.test(noTrail) ? noTrail : `${noTrail}/api`;
+  }
+  // relative custom base: ensure /api suffix
+  return /\/api$/i.test(noTrail) ? noTrail : `${noTrail}/api`;
+}
+
+const baseURL = normalizeBase(RAW_BASE);
+
+const api = axios.create({
+  baseURL,
+  withCredentials: false,
+});
+
+/** Interceptor 1:
+ * Strip leading '/api' from request URL if baseURL already ends with '/api',
+ * preventing '/api/api/...'.
+ */
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  if (typeof config.url === "string") {
+    const baseEndsWithApi = /\/api$/i.test(trimEnd(baseURL));
+    const urlStartsWithApi = /^\/?api(\/|$)/i.test(config.url);
+    if (baseEndsWithApi && urlStartsWithApi) {
+      config.url = config.url.replace(/^\/?api(\/|$)/i, "/");
+    }
+  }
+  return config;
+});
+
+/** Interceptor 2:
+ * Inject Firebase ID token as Authorization: Bearer <token>.
+ * Works with AxiosHeaders (v1) or plain object headers.
+ */
+api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
+  try {
+    initFirebase(); // no-op if already initialized
+    const auth = getAuth();
+    const user = auth.currentUser;
+
+    if (user) {
+      const token = await user.getIdToken(false);
+
+      // Axios v1 may give us an AxiosHeaders instance with .set()
+      const headersAny = (config.headers ??= {} as any);
+
+      if (typeof headersAny.set === "function") {
+        headersAny.set("Authorization", `Bearer ${token}`);
+      } else {
+        headersAny["Authorization"] = `Bearer ${token}`;
+      }
+    }
+  } catch {
+    // ignore—request can proceed unauthenticated if user not ready
+  }
+  return config;
+});
 
 export function useApi() {
-  const client = useMemo(() => axios.create({ baseURL: base }), []);
-
-  useEffect(() => {
-    const auth = initFirebase();
-
-    // attach token before each request
-    const reqId = client.interceptors.request.use(async (cfg) => {
-      const user = auth.currentUser;
-      if (user) {
-        const t = await user.getIdToken(false);
-        cfg.headers = cfg.headers ?? {};
-        cfg.headers.Authorization = `Bearer ${t}`;
-      }
-      return cfg;
-    });
-
-    // if 401, refresh token once and retry
-    const resId = client.interceptors.response.use(
-      (r) => r,
-      async (error) => {
-        const original = error?.config;
-        const status = error?.response?.status;
-        const user = auth.currentUser;
-        if (status === 401 && user && !original?._retried) {
-          original._retried = true;
-          const t = await user.getIdToken(true); // force refresh
-          original.headers = original.headers ?? {};
-          original.headers.Authorization = `Bearer ${t}`;
-          return client.request(original);
-        }
-        return Promise.reject(error);
-      }
-    );
-
-    return () => {
-      client.interceptors.request.eject(reqId);
-      client.interceptors.response.eject(resId);
-    };
-  }, [client]);
-
-  return client;
+  return api;
 }

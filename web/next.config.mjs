@@ -1,15 +1,23 @@
 // web/next.config.mjs
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
 
+  // Proxy /api/* from Next (3000) to your Express API (8787) in dev.
+  // You can override with NEXT_PUBLIC_API_BASE (must include /api).
   async rewrites() {
-    const target = process.env.NEXT_PUBLIC_API_BASE || "/api";
+    const dest = (
+      process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8787/api"
+    ).replace(/\/+$/, "");
+
     return [
-      { source: "/api/:path*", destination: `${target}/api/:path*` },
-      { source: "/uploads/:path*", destination: `${target}/uploads/:path*` },
+      {
+        source: "/api/:path*",
+        destination: `${dest}/:path*`,
+      },
     ];
   },
 };
 
-export default nextConfig;
+export default nextConfig; // <-- ESM export (fixes "module is not defined")

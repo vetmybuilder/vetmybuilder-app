@@ -1,79 +1,104 @@
-// web/pages/tradesman/register.tsx
 import Head from "next/head";
-import Link from "next/link";
-import { useRouter } from "next/router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useEffect, useState, useCallback } from "react";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
 import { initFirebase } from "@/utils/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import TradesCheckbox from "@/components/forms/TradesCheckbox";
-import LocationField from "@/components/forms/LocationField";
+
+import Step1Company, {
+  type Step1Form,
+} from "@/components/vendor-register/Step1Company";
+import Step2Trades from "@/components/vendor-register/Step2Trades";
+import Step3Offers from "@/components/vendor-register/Step3Offers";
+import Step4Account from "@/components/vendor-register/Step4Account";
+
+import {
+  normalizeAsUrl,
+  normalizeFacebook,
+  normalizeInstagram,
+  normalizeLinkedIn,
+  normalizeTikTok,
+  normalizeX,
+  normalizeYouTube,
+} from "@/utils/socialLinks";
 
 const DRAFT_KEY = "vmb.vendorDraft.v3";
+const REG_SENTINEL = "__vendor_registration_in_progress__";
 
-type Doc = { name: string; size: number; type: string };
 type Step = 1 | 2 | 3 | 4;
+type Doc = { name: string; size: number; type: string };
 
 export default function TradesRegister() {
   const api = useApi();
-  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 
-  const here = useMemo(() => "/tradesman/register", []);
-  const nextQuery = `?next=${encodeURIComponent(here)}`;
-
+  // IMPORTANT: while on this page, block global auth redirects
   useEffect(() => {
     try {
-      sessionStorage.setItem("vmb:returnTo", here);
+      sessionStorage.setItem("vmb:returnTo", REG_SENTINEL);
+      console.log("[register] set sentinel returnTo");
     } catch {}
-  }, [here]);
+    return () => {
+      // clear the sentinel only if still set (avoid clobbering a deliberate value)
+      try {
+        const v = sessionStorage.getItem("vmb:returnTo");
+        if (v === REG_SENTINEL) sessionStorage.removeItem("vmb:returnTo");
+        console.log("[register] cleared sentinel on unmount");
+      } catch {}
+    };
+  }, []);
 
-  /* ---------------- Step state ---------------- */
   const [step, setStep] = useState<Step>(1);
 
-  /* ---------------- Form state ---------------- */
   const [form, setForm] = useState({
-    // section 1
     companyName: "",
     contactName: "",
     phone: "",
     email: "",
-    serviceAreas: [] as string[], // outward sectors (E4, N17, …)
-    websites: [] as string[], // multiple URLs
-    // section 2
-    tradeTypes: [] as string[], // checkbox selections
-    workPhotos: [] as Doc[], // metadata for sample work images
-    // section 3
+    serviceAreas: [] as string[],
+    website: "",
+    socials: {
+      instagram: "",
+      tiktok: "",
+      facebook: "",
+      x: "",
+      youtube: "",
+      linkedin: "",
+    },
+    tradeTypes: [] as string[],
+    workPhotos: [] as Doc[],
     discountMin: 0,
     discountMax: 5,
     warranty: "none" as "none" | "3m" | "6m" | "12m" | "24m+",
     docs: [] as Doc[],
-    // section 4
+    // CH pre-check
+    companyNumber: null as string | null,
+    chStatus: null as string | null,
     password: "",
     confirmPassword: "",
   });
 
-  // local query for LocationField (controlled)
   const [areaQuery, setAreaQuery] = useState("");
-  // local input for Websites
   const [websiteInput, setWebsiteInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [okMsg, setOkMsg] = useState<string | null>(null);
+  const [emailErr, setEmailErr] = useState<string | null>(null);
 
-  // helpers: CSV <-> array (for API compatibility)
-  const toCsv = (arr: string[] | string) =>
-    Array.isArray(arr) ? arr.join(",") : String(arr || "");
-  const parseCsv = (val: unknown): string[] => {
-    if (Array.isArray(val))
-      return val.map((s) => String(s).trim()).filter(Boolean);
-    if (typeof val === "string")
-      return val
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-    return [];
-  };
+  // ---- persistence load ----
+  const parseCsv = (val: unknown): string[] =>
+    Array.isArray(val)
+      ? val
+          .map(String)
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : typeof val === "string"
+      ? val
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
 
-  // hydrate any draft (support old drafts)
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(DRAFT_KEY);
@@ -84,13 +109,22 @@ export default function TradesRegister() {
         ...draft,
         tradeTypes: parseCsv(draft.tradeTypes ?? p.tradeTypes),
         serviceAreas: parseCsv(draft.serviceAreas ?? p.serviceAreas),
-        websites: Array.isArray(draft.websites)
-          ? draft.websites
-          : parseCsv(draft.websites ?? p.websites),
+        website:
+          typeof draft.website === "string"
+            ? draft.website
+            : Array.isArray(draft.websites)
+            ? draft.websites[0] || ""
+            : p.website,
+        socials: { ...p.socials, ...(draft.socials || {}) },
         workPhotos: Array.isArray(draft.workPhotos)
           ? draft.workPhotos
           : p.workPhotos,
       }));
+      setWebsiteInput(
+        (prev) =>
+          prev || (typeof draft.website === "string" ? draft.website : "")
+      );
+      console.log("[register] draft loaded");
     } catch {}
   }, []);
 
@@ -103,43 +137,15 @@ export default function TradesRegister() {
   const set = useCallback(
     <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => {
       setForm((p) => {
-        const next = { ...p, [k]: v };
-        persist(next);
-        return next;
+        const n = { ...p, [k]: v };
+        persist(n);
+        return n;
       });
     },
     [persist]
   );
 
-  /* ---------------- UI state ---------------- */
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [okMsg, setOkMsg] = useState<string | null>(null);
-
-  /* ---------------- Helpers ---------------- */
-  const clampDiscounts = useCallback(() => {
-    setForm((p) => {
-      let { discountMin, discountMax } = p;
-      discountMin = Math.max(0, Math.min(25, Math.round(discountMin)));
-      discountMax = Math.max(0, Math.min(25, Math.round(discountMax)));
-      if (discountMin > discountMax)
-        [discountMin, discountMax] = [discountMax, discountMin];
-      const next = { ...p, discountMin, discountMax };
-      persist(next);
-      return next;
-    });
-  }, [persist]);
-
-  useEffect(clampDiscounts, [form.discountMin, form.discountMax]);
-
-  // mandatory fields gate (Section 1)
-  const canProceedStep1 =
-    form.companyName.trim().length > 0 &&
-    form.contactName.trim().length > 0 &&
-    form.phone.trim().length > 0 &&
-    form.serviceAreas.length > 0;
-
-  /* ---------------- Postcode helpers ---------------- */
+  // ---- helpers ----
   function normalizeOutward(input: string): string {
     const v = (input || "").toUpperCase().trim();
     const m = v.match(/^([A-Z]{1,2}\d{1,2}[A-Z]?)/);
@@ -159,66 +165,73 @@ export default function TradesRegister() {
       (form.serviceAreas || []).filter((x) => x !== code)
     );
 
-  /* ---------------- Websites helpers ---------------- */
-  function normalizeUrl(raw: string): string {
-    let v = (raw || "").trim();
-    if (!v) return "";
-    // add scheme if missing
-    if (!/^https?:\/\//i.test(v)) v = "https://" + v;
-    return v;
-  }
-  function isLikelyUrl(v: string): boolean {
-    try {
-      const u = new URL(v);
-      return !!u.hostname && /\./.test(u.hostname);
-    } catch {
-      return false;
+  // website single
+  const commitWebsite = () => {
+    const url = normalizeAsUrl(websiteInput);
+    if (!url) return;
+    set("website", url);
+    setWebsiteInput(url);
+  };
+  const onWebsiteKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === "," || e.key === " ") {
+      e.preventDefault();
+      commitWebsite();
     }
-  }
-  const addWebsite = () => {
-    const normalized = normalizeUrl(websiteInput);
-    if (!normalized || !isLikelyUrl(normalized)) return;
-    const next = Array.from(new Set([...(form.websites || []), normalized]));
-    set("websites", next);
+  };
+  const clearWebsite = () => {
+    set("website", "");
     setWebsiteInput("");
   };
-  const removeWebsite = (url: string) =>
-    set(
-      "websites",
-      (form.websites || []).filter((u) => u !== url)
-    );
 
-  /* ---------------- Work photos (Section 2) ---------------- */
-  const onWorkPhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    const mapped: Doc[] = files.map((f) => ({
-      name: f.name,
-      size: f.size,
-      type: f.type || "application/octet-stream",
-    }));
-    set("workPhotos", mapped);
-  };
+  // keep discount bounds sane
+  useEffect(() => {
+    setForm((p) => {
+      let { discountMin, discountMax } = p;
+      discountMin = Math.max(0, Math.min(25, Math.round(discountMin)));
+      discountMax = Math.max(0, Math.min(25, Math.round(discountMax)));
+      if (discountMin > discountMax)
+        [discountMin, discountMax] = [discountMax, discountMin];
+      const n = { ...p, discountMin, discountMax };
+      persist(n);
+      return n;
+    });
+  }, [form.discountMin, form.discountMax]); // eslint-disable-line
 
-  /* ---------------- Docs (Section 3) ---------------- */
-  const onDocs = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    const mapped: Doc[] = files.map((f) => ({
-      name: f.name,
-      size: f.size,
-      type: f.type || "application/octet-stream",
-    }));
-    set("docs", mapped);
-  };
+  // ---- email availability (Firebase Auth normalized) ----
+  async function ensureEmailAvailable(email: string) {
+    const { data } = await api.post("/api/auth/check-email", { email });
+    if (data?.ok !== true) throw new Error(data?.error || "Email check failed");
+    if (data?.exists || data?.existsNormalized)
+      throw new Error(
+        "An account with this email already exists (including aliases). Try signing in."
+      );
+  }
 
-  /* ---------------- Step handlers ---------------- */
-  const onNextFromStep1 = (e: React.FormEvent) => {
+  // ---- step handlers ----
+  const onNextFromStep1 = async (e: React.FormEvent) => {
     e.preventDefault();
     setErr(null);
-    if (!canProceedStep1) {
+    setEmailErr(null);
+
+    const hasBasics =
+      form.companyName.trim() &&
+      form.contactName.trim() &&
+      form.email.trim() &&
+      form.serviceAreas.length > 0;
+
+    if (!hasBasics) {
       setErr("Please complete all required fields before continuing.");
       return;
     }
-    setStep(2);
+
+    try {
+      await ensureEmailAvailable(form.email.trim());
+      setStep(2);
+    } catch (ex: any) {
+      setEmailErr(
+        ex?.response?.data?.error || ex?.message || "Email already in use."
+      );
+    }
   };
 
   const onNextFromStep2 = (e: React.FormEvent) => {
@@ -227,42 +240,63 @@ export default function TradesRegister() {
     setStep(3);
   };
 
-  // Section 3 now does the save to /api/tradesmen/join
+  // ===== Companies House pre-check (Step 3) =====
+  const precheckCH = useCallback(async () => {
+    try {
+      const name = form.companyName?.trim();
+      if (!name) return;
+      const postcode = form.serviceAreas?.[0] || "";
+      console.log("[register] precheckCH", { name, postcode });
+      const { data } = await api.post("/api/tradesmen/precheck", {
+        name,
+        postcode,
+      });
+      if (data?.ok) {
+        const best = data.best || data.company;
+        set("companyNumber", best?.number || null);
+        set("chStatus", (data.verdict || best?.status || null) as any);
+        if (best?.number) setOkMsg("Company verified with Companies House.");
+        console.log("[register] precheckCH ok", {
+          number: best?.number,
+          verdict: data.verdict || best?.status,
+        });
+      } else {
+        console.log("[register] precheckCH not ok", data);
+      }
+    } catch (e: any) {
+      console.warn("[register] precheckCH failed:", e?.message || e);
+    }
+  }, [api, form.companyName, form.serviceAreas]); // eslint-disable-line
+
+  // Step 3 now runs CH pre-check and persists locally
   const onSubmitStep3 = async (e: React.FormEvent) => {
     e.preventDefault();
     setErr(null);
     setOkMsg(null);
-    setBusy(true);
+
+    const socials = [
+      normalizeInstagram(form.socials.instagram),
+      normalizeTikTok(form.socials.tiktok),
+      normalizeFacebook(form.socials.facebook),
+      normalizeX(form.socials.x),
+      normalizeYouTube(form.socials.youtube),
+      normalizeLinkedIn(form.socials.linkedin),
+    ].filter(Boolean) as string[];
+
+    const websites = form.website ? [form.website] : [];
+
+    const snapshot = {
+      ...form,
+      websites: Array.from(new Set([...websites, ...socials])),
+    };
+
     try {
-      const payload = {
-        companyName: form.companyName,
-        contactName: form.contactName,
-        phone: form.phone,
-        email: form.email,
-        tradeTypes: toCsv(form.tradeTypes), // keep CSV for existing API
-        serviceAreas: toCsv(form.serviceAreas), // keep CSV for existing API
-        websites: form.websites, // array of URLs
-        offer: {
-          discountMin: form.discountMin,
-          discountMax: form.discountMax,
-          warranty: form.warranty,
-        },
-        docs: form.docs, // supporting docs meta
-        workPhotos: form.workPhotos, // sample work meta (server may ignore for now)
-        draft: true,
-      };
-      const { data, status } = await api.post("/api/tradesmen/join", payload);
-      if (status >= 200 && status < 300 && data?.ok) {
-        setOkMsg("Details saved.");
-        setStep(4);
-      } else {
-        throw new Error(data?.error || "Failed to save");
-      }
-    } catch (e: any) {
-      setErr(e?.response?.data?.error || e?.message || "Failed to save");
-    } finally {
-      setBusy(false);
-    }
+      await precheckCH();
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify(snapshot));
+      setOkMsg("Saved.");
+      console.log("[register] step3 saved snapshot");
+    } catch {}
+    setStep(4);
   };
 
   const onCreateAccount = async (e: React.FormEvent) => {
@@ -270,55 +304,96 @@ export default function TradesRegister() {
     setErr(null);
     setBusy(true);
     try {
-      const email = form.email.trim();
-      if (!email) throw new Error("Business email is required.");
+      if (!form.email.trim()) throw new Error("Business email is required.");
       if (form.password.length < 8)
         throw new Error("Password must be at least 8 characters.");
       if (form.password !== form.confirmPassword)
         throw new Error("Passwords do not match.");
 
+      await ensureEmailAvailable(form.email.trim());
+
+      // 1) Create Firebase user
       const auth = initFirebase();
-      await createUserWithEmailAndPassword(auth, email, form.password);
+      console.log("[register] step4 starting create account");
+      const cred = await createUserWithEmailAndPassword(
+        auth,
+        form.email.trim(),
+        form.password
+      );
+      console.log("[register] firebase user created", cred.user?.uid);
 
-      try {
-        await api.get("/api/tradesmen/me", {
-          headers: { "Cache-Control": "no-store" },
-        });
-      } catch {}
+      // 2) Force fresh ID token and send it explicitly on the first PUT
+      const idToken = await auth.currentUser?.getIdToken(true);
+      if (!idToken)
+        throw new Error("Login token unavailable. Please try again.");
 
+      // 3) Build payload matching /api/tradesmen/me expectations
+      const socials = [
+        normalizeInstagram(form.socials.instagram),
+        normalizeTikTok(form.socials.tiktok),
+        normalizeFacebook(form.socials.facebook),
+        normalizeX(form.socials.x),
+        normalizeYouTube(form.socials.youtube),
+        normalizeLinkedIn(form.socials.linkedin),
+      ].filter(Boolean);
+
+      const warrantyMonths =
+        form.warranty === "none"
+          ? 0
+          : form.warranty === "3m"
+          ? 3
+          : form.warranty === "6m"
+          ? 6
+          : form.warranty === "12m"
+          ? 12
+          : 24;
+
+      const payload = {
+        companyName: form.companyName,
+        contactName: form.contactName,
+        phone: form.phone || null,
+        email: form.email,
+        tradeTypes: form.tradeTypes,
+        serviceAreas: form.serviceAreas,
+        website: form.website || "",
+        socialLinks: socials,
+        photoCount: (form.workPhotos || []).length,
+        supportingDocCount: (form.docs || []).length,
+        warrantyMonths,
+        discountMinPercent: Math.max(0, Math.round(form.discountMin || 0)),
+        discountMaxPercent: Math.max(0, Math.round(form.discountMax || 0)),
+        offersDiscount: Math.max(form.discountMin || 0, form.discountMax || 0),
+        companyNumber: form.companyNumber || null, // from pre-check
+        chStatus: form.chStatus || null, // from pre-check
+      };
+
+      // 4) Upsert vendor profile (explicit Bearer + correct API path)
+      console.log("[register] calling PUT /api/tradesmen/me", payload);
+      const { data } = await api.put("/api/tradesmen/me", payload, {
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      if (!data?.ok) throw new Error(data?.error || "Failed to save profile");
+      console.log("[register] PUT /api/tradesmen/me ok; saved profile");
+
+      // 5) Cleanup + allow redirect and go
       try {
         sessionStorage.removeItem(DRAFT_KEY);
       } catch {}
-      router.replace("/tradesman/projects");
-      return;
+      try {
+        sessionStorage.setItem("vmb:returnTo", "/tradesman/projects"); // now safe to set a real target
+      } catch {}
+      window.location.replace("/tradesman/projects");
     } catch (e: any) {
-      const msg = e?.message || "";
-      if (msg.includes("auth/email-already-in-use")) {
-        router.replace(
-          `/login?next=${encodeURIComponent(
-            "/tradesman/projects"
-          )}&email=${encodeURIComponent(form.email.trim())}`
-        );
-        return;
-      }
-      setErr(
+      const msg =
         e?.response?.data?.error ||
-          msg ||
-          "Failed to create your account. Please try again."
-      );
+        e?.message ||
+        "Failed to create your account.";
+      console.error("[register] create/save failed:", msg);
+      setErr(msg);
     } finally {
       setBusy(false);
     }
   };
-
-  /* ---------------- Warranty options ---------------- */
-  const warrantyOptions: { key: typeof form.warranty; label: string }[] = [
-    { key: "none", label: "No warranty" },
-    { key: "3m", label: "3 months" },
-    { key: "6m", label: "6 months" },
-    { key: "12m", label: "1 year" },
-    { key: "24m+", label: "2+ years" },
-  ];
 
   return (
     <>
@@ -327,7 +402,7 @@ export default function TradesRegister() {
       </Head>
 
       <div
-        className="mx-auto max-w-2xl px-4 py-4"
+        className="mx-auto max-w-4xl px-6 py-6"
         data-testid="trades-register-page"
       >
         <h1 className="text-2xl font-semibold mb-1">Join as a Tradesman</h1>
@@ -336,583 +411,121 @@ export default function TradesRegister() {
           likely homeowners will choose you.
         </p>
 
-        {/* Stepper (4 sections) */}
-        <div
-          className="mb-3 flex items-center gap-2 text-sm"
-          data-testid="stepper"
-        >
-          <span
-            className={`px-2 py-0.5 rounded ${
-              step === 1 ? "bg-indigo-600 text-white" : "bg-slate-100"
-            }`}
-          >
-            1
-          </span>
-          <span className={`${step === 1 ? "font-medium" : "text-slate-500"}`}>
-            Company details
-          </span>
-          <span className="text-slate-400">/</span>
-
-          <span
-            className={`px-2 py-0.5 rounded ${
-              step === 2 ? "bg-indigo-600 text-white" : "bg-slate-100"
-            }`}
-          >
-            2
-          </span>
-          <span className={`${step === 2 ? "font-medium" : "text-slate-500"}`}>
-            Trades & photos
-          </span>
-          <span className="text-slate-400">/</span>
-
-          <span
-            className={`px-2 py-0.5 rounded ${
-              step === 3 ? "bg-indigo-600 text-white" : "bg-slate-100"
-            }`}
-          >
-            3
-          </span>
-          <span className={`${step === 3 ? "font-medium" : "text-slate-500"}`}>
-            Offers & documents
-          </span>
-          <span className="text-slate-400">/</span>
-
-          <span
-            className={`px-2 py-0.5 rounded ${
-              step === 4 ? "bg-indigo-600 text-white" : "bg-slate-100"
-            }`}
-          >
-            4
-          </span>
-          <span className={`${step === 4 ? "font-medium" : "text-slate-500"}`}>
-            Create account
-          </span>
+        {/* Stepper */}
+        <div className="mb-4">
+          <ol className="flex flex-nowrap items-center gap-3 md:gap-4">
+            {[
+              { n: 1, label: "Company details" },
+              { n: 2, label: "Trades & photos" },
+              { n: 3, label: "Offers & documents" },
+              { n: 4, label: "Create account" },
+            ].map(({ n, label }, i) => (
+              <li key={n} className="flex-none inline-flex items-center gap-2">
+                <span
+                  className={`inline-flex h-8 w-8 items-center justify-center rounded-xl font-medium ${
+                    step === n
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "bg-slate-100 text-slate-700"
+                  }`}
+                  aria-current={step === n ? "step" : undefined}
+                >
+                  {n}
+                </span>
+                <span
+                  className={`hidden md:inline ${
+                    step === n ? "font-medium text-slate-800" : "text-slate-500"
+                  }`}
+                >
+                  {label}
+                </span>
+                {i < 3 && (
+                  <span className="hidden md:inline text-slate-300">/</span>
+                )}
+              </li>
+            ))}
+          </ol>
         </div>
 
-        {/* ===== Section 1 — Company details ===== */}
         {step === 1 && (
-          <form
-            className="card grid gap-3"
-            onSubmit={onNextFromStep1}
-            data-testid="step-1"
-          >
-            <label
-              className="text-sm"
-              htmlFor="companyName"
-              data-testid="label-company-name"
-            >
-              Company name *
-            </label>
-            <input
-              id="companyName"
-              className="input"
-              value={form.companyName}
-              onChange={(e) => set("companyName", e.target.value)}
-              placeholder="Company Ltd"
-              data-testid="input-company-name"
-            />
-
-            <label
-              className="text-sm"
-              htmlFor="contactName"
-              data-testid="label-contact-name"
-            >
-              Contact name *
-            </label>
-            <input
-              id="contactName"
-              className="input"
-              value={form.contactName}
-              onChange={(e) => set("contactName", e.target.value)}
-              placeholder="Your name"
-              data-testid="input-contact-name"
-            />
-
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div>
-                <label
-                  className="text-sm"
-                  htmlFor="phone"
-                  data-testid="label-phone"
-                >
-                  Phone *
-                </label>
-                <input
-                  id="phone"
-                  className="input"
-                  value={form.phone}
-                  onChange={(e) => set("phone", e.target.value)}
-                  placeholder="020..."
-                  data-testid="input-phone"
-                />
-              </div>
-              <div>
-                <label
-                  className="text-sm"
-                  htmlFor="email"
-                  data-testid="label-email"
-                >
-                  Business email
-                </label>
-                <input
-                  id="email"
-                  className="input"
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => set("email", e.target.value)}
-                  placeholder="you@company.com"
-                  autoComplete="email"
-                  data-testid="input-email"
-                />
-              </div>
-            </div>
-
-            {/* Service areas using LocationField (auto-add on commit; NO add button) */}
-            <label className="text-sm" data-testid="label-areas">
-              Service areas * (postcode sectors)
-            </label>
-            <div data-testid="input-areas">
-              <LocationField
-                placeholder="Type a postcode or place… e.g., E4, N17, Chingford"
-                value={areaQuery}
-                onChange={(val: string, meta?: any) => {
-                  setAreaQuery(val || "");
-                  if (meta) {
-                    const token =
-                      meta.outward || meta.sector || meta.postcode || "";
-                    if (token) addServiceArea(token);
-                    setAreaQuery("");
-                  }
-                }}
-              />
-              {form.serviceAreas.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {form.serviceAreas.map((s) => (
-                    <span key={s} className="badge">
-                      {s}
-                      <button
-                        type="button"
-                        className="ml-2 text-xs"
-                        onClick={() => removeServiceArea(s)}
-                        aria-label={`Remove ${s}`}
-                        title="Remove"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-              <p className="mt-2 text-xs text-slate-500">
-                We use your postcode areas to match you with nearby homeowners.
-                We never share your full address.
-              </p>
-            </div>
-
-            {/* Websites (inline multi-URL) */}
-            <div className="mt-2" data-testid="websites-field">
-              <label className="text-sm">Websites</label>
-              <div className="flex items-start gap-2 mt-1">
-                <input
-                  className="input flex-1"
-                  placeholder="https://yourwebsite.com (or social/portfolio link)"
-                  value={websiteInput}
-                  onChange={(e) => setWebsiteInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addWebsite();
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={addWebsite}
-                  aria-label="Add website"
-                >
-                  + Add
-                </button>
-              </div>
-
-              {form.websites.length > 0 && (
-                <ul className="mt-3 grid gap-2" data-testid="websites-list">
-                  {form.websites.map((u) => (
-                    <li
-                      key={u}
-                      className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2"
-                    >
-                      <a
-                        href={u}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="truncate text-sm link"
-                      >
-                        {u}
-                      </a>
-                      <button
-                        type="button"
-                        className="text-xs text-slate-500 hover:text-slate-700"
-                        onClick={() => removeWebsite(u)}
-                        aria-label={`Remove ${u}`}
-                        title="Remove"
-                      >
-                        Remove
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {err && (
-              <p
-                className="text-sm text-red-600"
-                role="alert"
-                data-testid="register-error"
-              >
-                {err}
-              </p>
-            )}
-
-            <button
-              className="btn"
-              data-testid="btn-next"
-              disabled={!canProceedStep1}
-            >
-              Next
-            </button>
-
-            {!user && !authLoading && (
-              <p
-                className="text-sm text-slate-600"
-                data-testid="vendor-already-member"
-              >
-                Already a member?{" "}
-                <Link
-                  className="link"
-                  href={`/login${nextQuery}`}
-                  data-testid="link-vendor-signin"
-                >
-                  Sign in
-                </Link>
-              </p>
-            )}
-          </form>
+          <Step1Company
+            form={form as Step1Form}
+            set={(k, v) => {
+              if (k === "email") setEmailErr(null);
+              set(k as any, v as any);
+            }}
+            addServiceArea={addServiceArea}
+            removeServiceArea={removeServiceArea}
+            areaQuery={areaQuery}
+            setAreaQuery={setAreaQuery}
+            websiteInput={websiteInput}
+            setWebsiteInput={setWebsiteInput}
+            commitWebsite={commitWebsite}
+            onWebsiteKey={onWebsiteKey}
+            clearWebsite={clearWebsite}
+            canProceed={true}
+            onNext={onNextFromStep1}
+            userIsAuthed={!!user || !!authLoading}
+            nextQuery={"?next=/tradesman/projects"}
+            emailError={emailErr}
+          />
         )}
 
-        {/* ===== Section 2 — Trades & photos ===== */}
         {step === 2 && (
-          <form
-            className="card grid gap-4"
-            onSubmit={onNextFromStep2}
-            data-testid="step-2"
-          >
-            <div>
-              <label className="text-sm" data-testid="label-trades">
-                Trades
-              </label>
-              <TradesCheckbox
-                value={form.tradeTypes}
-                onChange={(next) => set("tradeTypes", next)}
-                variant="grid"
-                columns={4}
-              />
-            </div>
-
-            <div data-testid="work-photos">
-              <label className="text-sm font-medium block mb-1">
-                Pictures of your work
-              </label>
-              <p className="text-xs text-slate-500 mb-2">
-                Adding recent photos helps you rank better and increases your
-                chances of being hired.
-              </p>
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={onWorkPhotos}
-                className="block w-full text-sm file:mr-3 file:rounded file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-indigo-700 file:hover:bg-indigo-100"
-              />
-              {form.workPhotos.length > 0 && (
-                <ul className="mt-2 text-sm text-slate-700 list-disc pl-5">
-                  {form.workPhotos.map((d) => (
-                    <li key={`${d.name}-${d.size}`}>{d.name}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setStep(1)}
-                data-testid="btn-back"
-              >
-                Back
-              </button>
-              <button className="btn" data-testid="btn-continue">
-                Continue
-              </button>
-            </div>
-          </form>
+          <Step2Trades
+            tradeTypes={form.tradeTypes}
+            setTradeTypes={(v) => set("tradeTypes", v)}
+            onWorkPhotos={(e) => {
+              const files = Array.from(e.target.files || []);
+              const mapped: Doc[] = files.map((f) => ({
+                name: f.name,
+                size: f.size,
+                type: f.type || "application/octet-stream",
+              }));
+              set("workPhotos", mapped);
+            }}
+            onBack={() => setStep(1)}
+            onNext={onNextFromStep2}
+            err={err}
+          />
         )}
 
-        {/* ===== Section 3 — Offers & documents (Saves draft) ===== */}
         {step === 3 && (
-          <form
-            className="card grid gap-4"
-            onSubmit={onSubmitStep3}
-            data-testid="step-3"
-          >
-            {/* Discount range */}
-            <div data-testid="discount-range">
-              <div className="flex items-end justify-between">
-                <label className="text-sm font-medium">
-                  Discount you can offer if hired
-                </label>
-                <span className="text-sm text-slate-600">
-                  {form.discountMin}% – {form.discountMax}%
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 mb-2">
-                Bigger discounts tend to win more work. Choose a realistic
-                range.
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-slate-500" htmlFor="discMin">
-                    Min %
-                  </label>
-                  <input
-                    id="discMin"
-                    type="range"
-                    min={0}
-                    max={25}
-                    value={form.discountMin}
-                    onChange={(e) => set("discountMin", Number(e.target.value))}
-                    className="w-full"
-                    data-testid="input-discount-min"
-                  />
-                  <div className="text-xs text-slate-600 mt-1">
-                    {form.discountMin}%
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs text-slate-500" htmlFor="discMax">
-                    Max %
-                  </label>
-                  <input
-                    id="discMax"
-                    type="range"
-                    min={0}
-                    max={25}
-                    value={form.discountMax}
-                    onChange={(e) => set("discountMax", Number(e.target.value))}
-                    className="w-full"
-                    data-testid="input-discount-max"
-                  />
-                  <div className="text-xs text-slate-600 mt-1">
-                    {form.discountMax}%
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Warranty pseudo-select */}
-            <div data-testid="warranty-select">
-              <label className="text-sm font-medium block mb-1">
-                Warranty on your work
-              </label>
-              <div
-                className="flex flex-wrap gap-2"
-                role="listbox"
-                aria-label="Warranty options"
-              >
-                {warrantyOptions.map((opt) => (
-                  <button
-                    key={opt.key}
-                    type="button"
-                    onClick={() => set("warranty", opt.key)}
-                    className={`px-3 py-1.5 rounded-xl text-sm ring-1 ${
-                      form.warranty === opt.key
-                        ? "bg-indigo-600 text-white ring-indigo-500"
-                        : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
-                    }`}
-                    aria-pressed={form.warranty === opt.key}
-                    data-testid={`warranty-${opt.key}`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Supporting documents */}
-            <div data-testid="supporting-docs">
-              <label className="text-sm font-medium block mb-1">
-                Supporting documents
-              </label>
-              <p className="text-xs text-slate-500 mb-2">
-                Upload insurance, memberships or certifications (optional). You
-                can return to your profile later to add more.
-              </p>
-              <input
-                type="file"
-                multiple
-                onChange={onDocs}
-                className="block w-full text-sm file:mr-3 file:rounded file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-indigo-700 file:hover:bg-indigo-100"
-                data-testid="input-docs"
-              />
-              {form.docs.length > 0 && (
-                <ul
-                  className="mt-2 text-sm text-slate-700 list-disc pl-5"
-                  data-testid="docs-list"
-                >
-                  {form.docs.map((d) => (
-                    <li key={`${d.name}-${d.size}`}>{d.name}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {okMsg && (
-              <p className="text-sm text-green-700" data-testid="join-ok">
-                {okMsg}
-              </p>
-            )}
-            {err && (
-              <p
-                className="text-sm text-red-600"
-                role="alert"
-                data-testid="join-error"
-              >
-                {err}
-              </p>
-            )}
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setStep(2)}
-                data-testid="btn-back"
-              >
-                Back
-              </button>
-              <button
-                className="btn"
-                disabled={busy}
-                data-testid="btn-continue"
-              >
-                {busy ? "Saving…" : "Continue"}
-              </button>
-            </div>
-          </form>
+          <Step3Offers
+            discountMin={form.discountMin}
+            discountMax={form.discountMax}
+            setDiscountMin={(v) => set("discountMin", v)}
+            setDiscountMax={(v) => set("discountMax", v)}
+            warranty={form.warranty}
+            setWarranty={(v) => set("warranty", v)}
+            onDocs={(e) => {
+              const files = Array.from(e.target.files || []);
+              const mapped: Doc[] = files.map((f) => ({
+                name: f.name,
+                size: f.size,
+                type: f.type || "application/octet-stream",
+              }));
+              set("docs", mapped);
+            }}
+            onBack={() => setStep(2)}
+            onSaveDraft={onSubmitStep3}
+            busy={busy}
+            okMsg={okMsg}
+            err={err}
+          />
         )}
 
-        {/* ===== Section 4 — Create account ===== */}
         {step === 4 && (
-          <form
-            className="card grid gap-3"
-            onSubmit={onCreateAccount}
-            data-testid="step-4"
-          >
-            <h2 className="text-lg font-medium">Create your account</h2>
-            <p className="text-sm text-slate-600">
-              Use the email{" "}
-              <span className="font-medium">
-                {form.email || "(missing email)"}
-              </span>{" "}
-              to sign in later.
-            </p>
-
-            <label
-              className="text-sm"
-              htmlFor="reg-pass"
-              data-testid="label-password"
-            >
-              Password (min 8 chars)
-            </label>
-            <input
-              id="reg-pass"
-              name="password"
-              type="password"
-              className="input"
-              value={form.password}
-              onChange={(e) => set("password", e.target.value)}
-              required
-              placeholder="••••••••"
-              autoComplete="new-password"
-              data-testid="input-password"
-            />
-
-            <label
-              className="text-sm"
-              htmlFor="reg-pass2"
-              data-testid="label-password-2"
-            >
-              Confirm password
-            </label>
-            <input
-              id="reg-pass2"
-              name="confirmPassword"
-              type="password"
-              className="input"
-              value={form.confirmPassword}
-              onChange={(e) => set("confirmPassword", e.target.value)}
-              required
-              placeholder="••••••••"
-              autoComplete="new-password"
-              data-testid="input-password-confirm"
-            />
-
-            {err && (
-              <p
-                className="text-sm text-red-600"
-                role="alert"
-                data-testid="create-error"
-              >
-                {err}
-              </p>
-            )}
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setStep(3)}
-                data-testid="btn-back-2"
-              >
-                Back
-              </button>
-              <button
-                className="btn"
-                disabled={busy}
-                data-testid="btn-create-account"
-              >
-                {busy ? "Creating…" : "Create account & continue"}
-              </button>
-            </div>
-
-            <p
-              className="text-sm text-slate-600"
-              data-testid="vendor-already-member-3"
-            >
-              Already have an account?{" "}
-              <Link
-                className="link"
-                href={`/login?next=${encodeURIComponent(
-                  "/tradesman/projects"
-                )}&email=${encodeURIComponent(form.email || "")}`}
-                data-testid="link-vendor-signin-3"
-              >
-                Sign in
-              </Link>
-            </p>
-          </form>
+          <Step4Account
+            email={form.email}
+            password={form.password}
+            confirmPassword={form.confirmPassword}
+            setPassword={(v) => set("password", v)}
+            setConfirmPassword={(v) => set("confirmPassword", v)}
+            onBack={() => setStep(3)}
+            onCreate={onCreateAccount}
+            busy={busy}
+            err={err}
+          />
         )}
       </div>
     </>

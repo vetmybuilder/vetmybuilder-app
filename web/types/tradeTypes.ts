@@ -105,18 +105,18 @@ export const TRADE_TYPES: TradeType[] = [
   {
     label: "External Wall Insulation",
     synonyms: ["EWI"],
-    buckets: "Energy",
+    buckets: "Insulation",
     popularity: 60,
   },
   {
     label: "Internal Wall Insulation",
     synonyms: ["IWI"],
-    buckets: "Energy",
+    buckets: "Insulation",
     popularity: 40,
   },
-  { label: "Cavity Wall Insulation", buckets: "Energy", popularity: 45 },
-  { label: "Loft Insulation", buckets: "Energy", popularity: 58 },
-  { label: "Roof Insulation", buckets: "Energy", popularity: 44 },
+  { label: "Cavity Wall Insulation", buckets: "Insulation", popularity: 45 },
+  { label: "Loft Insulation", buckets: "Insulation", popularity: 58 },
+  { label: "Roof Insulation", buckets: "Insulation", popularity: 44 },
   { label: "Damp Proofing", buckets: "Specialist", popularity: 56 },
   { label: "Timber Treatment", buckets: "Specialist", popularity: 34 },
 

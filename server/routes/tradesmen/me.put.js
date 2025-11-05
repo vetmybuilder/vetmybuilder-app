@@ -1,78 +1,326 @@
-/**
- * PUT {API_PREFIX}/tradesmen/me
- * Body: { companyName, contactName?, phone?, email?, tradeTypes?, serviceAreas? }
- */
+// server/routes/tradesmen/me.put.js
 module.exports = (router, ctx) => {
   const { db, auth } = ctx;
+  const TAG = "[me.put]";
 
-  const BASE = (ctx.API_PREFIX || "/api").replace(/\/+$/, "");
-  const at = (p) => `${BASE}${p.startsWith("/") ? p : `/${p}`}`;
+  // Prefer ctx.matchByName; fall back to lib if not injected
+  let matchByName = ctx.matchByName;
+  let extractLocationTokens = ctx.extractLocationTokens;
+  if (!matchByName || !extractLocationTokens) {
+    try {
+      const ch = require("../../lib/companiesHouse");
+      matchByName = matchByName || ch.matchByName;
+      extractLocationTokens =
+        extractLocationTokens ||
+        ch.extractLocationTokens ||
+        ((s) => {
+          const v = String(s || "").toUpperCase();
+          const first = v.split(/[,;|]/)[0].trim();
+          const out = first.match(/^([A-Z]{1,2}\d{1,2}[A-Z]?)\b/);
+          const sec = first.match(/^([A-Z]{1,2}\d{1,2}[A-Z]?\s*\d)\b/);
+          return {
+            full: first || null,
+            outward: out ? out[1] : null,
+            sector: sec ? sec[1].replace(/\s+/, "") : null,
+          };
+        });
+    } catch {}
+  }
 
-  // ensure tables
-  db.prepare(`CREATE TABLE IF NOT EXISTS user_roles (uid TEXT PRIMARY KEY, role TEXT NOT NULL DEFAULT 'user')`).run();
-  db.prepare(`
-    CREATE TABLE IF NOT EXISTS tradesmen (
-      user_id TEXT PRIMARY KEY,
-      company_name TEXT NOT NULL,
-      contact_name TEXT, phone TEXT, email TEXT,
-      trade_types TEXT DEFAULT '', service_areas TEXT DEFAULT '',
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      subscription_status TEXT DEFAULT 'free',
-      contact_credits INTEGER DEFAULT 0
-    )
-  `).run();
+  // Idempotent ensure columns we use
+  const tblCols = (name) =>
+    new Set(
+      db
+        .prepare(`PRAGMA table_info(${name})`)
+        .all()
+        .map((r) => r.name)
+    );
+  const addColIfMissing = (tbl, colDef, colName) => {
+    const cols = tblCols(tbl);
+    if (!cols.has(colName)) {
+      console.log(`${TAG} ALTER TABLE ${tbl} ADD COLUMN ${colDef}`);
+      db.prepare(`ALTER TABLE ${tbl} ADD COLUMN ${colDef}`).run();
+    }
+  };
+  addColIfMissing("tradesmen", "company_number TEXT", "company_number");
+  addColIfMissing("tradesmen", "ch_status TEXT", "ch_status");
+  addColIfMissing("tradesmen", "ch_name TEXT", "ch_name");
+  addColIfMissing("tradesmen", "ch_checked_at TEXT", "ch_checked_at");
+  addColIfMissing(
+    "tradesmen",
+    "ch_match_score INTEGER DEFAULT 0",
+    "ch_match_score"
+  );
+  addColIfMissing("tradesmen", "photo_count INTEGER DEFAULT 0", "photo_count");
+  addColIfMissing(
+    "tradesmen",
+    "supporting_doc_count INTEGER DEFAULT 0",
+    "supporting_doc_count"
+  );
+  addColIfMissing(
+    "tradesmen",
+    "offers_discount INTEGER DEFAULT 0",
+    "offers_discount"
+  );
+  addColIfMissing(
+    "tradesmen",
+    "warranty_months INTEGER DEFAULT 0",
+    "warranty_months"
+  );
+  addColIfMissing(
+    "tradesmen",
+    "web_verified INTEGER DEFAULT 0",
+    "web_verified"
+  );
+  addColIfMissing("tradesmen", "web_url TEXT", "web_url");
+  addColIfMissing("tradesmen", "vmb_score INTEGER DEFAULT 0", "vmb_score");
+  addColIfMissing("tradesmen", "vmb_badge TEXT DEFAULT 'bronze'", "vmb_badge");
+  // NEW: explicit min/max fields
+  addColIfMissing(
+    "tradesmen",
+    "discount_min_percent INTEGER DEFAULT 0",
+    "discount_min_percent"
+  );
+  addColIfMissing(
+    "tradesmen",
+    "discount_max_percent INTEGER DEFAULT 0",
+    "discount_max_percent"
+  );
 
-  router.put(at("/tradesmen/me"), auth, (req, res) => {
+  const int = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v) : d);
+  const toCSV = (arr) =>
+    Array.isArray(arr) ? arr.join(",") : typeof arr === "string" ? arr : "";
+  const toArr = (x) =>
+    Array.isArray(x)
+      ? x
+      : typeof x === "string"
+      ? x
+          .split(/[,;|]/g)
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
+
+  // scoring (same weights you’ve been using)
+  const WEIGHTS = {
+    serviceAreasMin3: 10,
+    webPresenceAny: 5,
+    chVerified: 25,
+    tradesMin3: 15,
+    photosMin3: 15,
+    discountAny: 5,
+    docsMin2: 10,
+    warrantyMax: 15,
+  };
+  const toBadge = (s) =>
+    s >= 85 ? "platinum" : s >= 70 ? "gold" : s >= 50 ? "silver" : "bronze";
+  const lerpWarranty = (m) => {
+    const v = Math.max(0, int(m, 0));
+    if (v >= 36) return 20;
+    return Math.round((v / 36) * 20);
+  };
+  function computeScore(row) {
+    const saCount = toArr(row.service_areas).length;
+    const tradeCount = toArr(row.trade_types).length;
+    const photos = Math.max(0, int(row.photo_count, 0));
+    // UPDATED: consider explicit min/max too
+    const hasDiscount =
+      Math.max(
+        int(row.offers_discount, 0),
+        int(row.discount_min_percent, 0),
+        int(row.discount_max_percent, 0)
+      ) > 0;
+    const wPts = lerpWarranty(row.warranty_months);
+    const chOK = String(row.ch_status || "").toLowerCase() === "verified";
+    const webOK = int(row.web_verified, 0) === 1;
+
+    let score =
+      (saCount >= 3 ? WEIGHTS.serviceAreasMin3 : 0) +
+      (webOK ? WEIGHTS.webPresenceAny : 0) +
+      (chOK ? WEIGHTS.chVerified : 0) +
+      (tradeCount >= 3 ? WEIGHTS.tradesMin3 : 0) +
+      (photos >= 3 ? WEIGHTS.photosMin3 : 0) +
+      (hasDiscount ? WEIGHTS.discountAny : 0) +
+      Math.min(wPts, WEIGHTS.warrantyMax) +
+      (int(row.supporting_doc_count, 0) >= 2 ? WEIGHTS.docsMin2 : 0);
+
+    return { score: Math.max(0, Math.min(100, score)), badge: toBadge(score) };
+  }
+
+  // IMPORTANT: no API prefix here; mount happens in index.js
+  router.put("/tradesmen/me", auth, async (req, res) => {
     const uid = req.user.uid;
-    const {
-      companyName,
-      contactName = null,
-      phone = null,
-      email = null,
-      tradeTypes = "",
-      serviceAreas = "",
-    } = req.body || {};
+    const body = req.body || {};
 
-    if (!companyName || !String(companyName).trim()) {
-      return res.status(400).json({ error: "companyName is required" });
+    const companyName = (body.companyName || "").trim();
+    if (!companyName)
+      return res.status(400).json({ error: "companyName_required" });
+
+    const contactName = body.contactName || null;
+    const phone = body.phone || null;
+    const email = body.email || null;
+    const tradeTypes = toCSV(body.tradeTypes);
+    const serviceAreas = toCSV(body.serviceAreas);
+    const website = (body.website || "").trim() || null;
+    const socialLinks = JSON.stringify(toArr(body.socialLinks));
+    const photoCount = int(body.photoCount, 0);
+    const supportingDocCount = int(body.supportingDocCount, 0);
+
+    // NEW: accept explicit min/max; keep legacy aggregate for back-compat
+    const discountMinPercent = int(
+      body.discountMinPercent ?? body.discountMin,
+      0
+    );
+    const discountMaxPercent = int(
+      body.discountMaxPercent ?? body.discountMax,
+      0
+    );
+    const offersDiscount = int(
+      body.offersDiscount,
+      Math.max(discountMinPercent, discountMaxPercent)
+    );
+
+    const warrantyMonths = int(body.warrantyMonths, 0);
+
+    let companyNumber = (body.companyNumber || "").trim() || null;
+    let chStatus = body.chStatus || null;
+    let chName = null;
+    let chCheckedAt = null;
+    let chMatchScore = 0;
+
+    console.log(
+      `${TAG} uid=${uid} name="${companyName}" areas="${serviceAreas}" trades="${tradeTypes}" ` +
+        `preCH={num:${companyNumber || "-"}, status:${chStatus || "-"}} ` +
+        `discounts={min:${discountMinPercent}, max:${discountMaxPercent}, agg:${offersDiscount}}`
+    );
+
+    // fill from CH if needed
+    try {
+      if (!companyNumber && typeof matchByName === "function") {
+        const toks = extractLocationTokens
+          ? extractLocationTokens(serviceAreas || "")
+          : {};
+        const locationHint =
+          toks?.sector ||
+          toks?.outward ||
+          (serviceAreas.split(",")[0] || "").trim() ||
+          null;
+
+        const r = await Promise.resolve(
+          matchByName({ name: companyName, locationHint })
+        );
+        chCheckedAt = new Date().toISOString();
+        const verdict = String(r?.verdict || "").toLowerCase();
+        chStatus =
+          chStatus ||
+          (["verified", "good", "exact"].includes(verdict)
+            ? "verified"
+            : verdict || "ambiguous");
+        if (r?.best) {
+          companyNumber = r.best.number || null;
+          chName = r.best.name || null;
+          chMatchScore = Number(r.best.score || 0);
+        }
+        console.log(
+          `${TAG} CH => verdict=${verdict} num=${companyNumber || "-"} status=${
+            chStatus || "-"
+          } score=${chMatchScore}`
+        );
+      }
+    } catch (e) {
+      console.warn(`${TAG} CH error:`, e?.message || e);
     }
 
     const tx = db.transaction(() => {
       db.prepare(
-        `INSERT INTO tradesmen (user_id, company_name, contact_name, phone, email, trade_types, service_areas)
-         VALUES (@uid, @company_name, @contact_name, @phone, @email, @trade_types, @service_areas)
-         ON CONFLICT(user_id) DO UPDATE SET
-           company_name=excluded.company_name,
-           contact_name=excluded.contact_name,
-           phone=excluded.phone,
-           email=excluded.email,
-           trade_types=excluded.trade_types,
-           service_areas=excluded.service_areas,
-           updated_at=datetime('now')`
+        `INSERT INTO tradesmen (
+          user_id, company_name, contact_name, phone, email,
+          trade_types, service_areas,
+          web_verified, web_url, social_links_json,
+          offers_discount, warranty_months, photo_count, supporting_doc_count,
+          discount_min_percent, discount_max_percent,
+          company_number, ch_status, ch_name, ch_checked_at, ch_match_score,
+          vmb_score, vmb_badge, created_at, updated_at
+        ) VALUES (
+          @user_id, @company_name, @contact_name, @phone, @email,
+          @trade_types, @service_areas,
+          0, @web_url, @social_links_json,
+          @offers_discount, @warranty_months, @photo_count, @supporting_doc_count,
+          @discount_min_percent, @discount_max_percent,
+          @company_number, @ch_status, @ch_name, @ch_checked_at, @ch_match_score,
+          0, 'bronze', datetime('now'), datetime('now')
+        )
+        ON CONFLICT(user_id) DO UPDATE SET
+          company_name=excluded.company_name,
+          contact_name=excluded.contact_name,
+          phone=excluded.phone,
+          email=excluded.email,
+          trade_types=excluded.trade_types,
+          service_areas=excluded.service_areas,
+          web_url=excluded.web_url,
+          social_links_json=excluded.social_links_json,
+          offers_discount=excluded.offers_discount,
+          warranty_months=excluded.warranty_months,
+          photo_count=excluded.photo_count,
+          supporting_doc_count=excluded.supporting_doc_count,
+          discount_min_percent=excluded.discount_min_percent,
+          discount_max_percent=excluded.discount_max_percent,
+          company_number=COALESCE(excluded.company_number, tradesmen.company_number),
+          ch_status=COALESCE(excluded.ch_status, tradesmen.ch_status),
+          ch_name=COALESCE(excluded.ch_name, tradesmen.ch_name),
+          ch_checked_at=COALESCE(excluded.ch_checked_at, tradesmen.ch_checked_at),
+          ch_match_score=COALESCE(excluded.ch_match_score, tradesmen.ch_match_score),
+          updated_at=datetime('now')`
       ).run({
-        uid,
-        company_name: String(companyName).trim(),
+        user_id: uid,
+        company_name: companyName,
         contact_name: contactName,
         phone,
         email,
-        trade_types: String(tradeTypes || "").trim(),
-        service_areas: String(serviceAreas || "").trim(),
+        trade_types: tradeTypes,
+        service_areas: serviceAreas,
+        web_url: website,
+        social_links_json: socialLinks,
+        offers_discount: offersDiscount,
+        warranty_months: warrantyMonths,
+        photo_count: photoCount,
+        supporting_doc_count: supportingDocCount,
+        discount_min_percent: discountMinPercent,
+        discount_max_percent: discountMaxPercent,
+        company_number: companyNumber,
+        ch_status: chStatus,
+        ch_name: chName,
+        ch_checked_at: chCheckedAt,
+        ch_match_score: chMatchScore,
       });
 
+      const r = db.prepare(`SELECT * FROM tradesmen WHERE user_id=?`).get(uid);
+      const { score, badge } = computeScore(r);
       db.prepare(
-        `INSERT INTO user_roles (uid, role) VALUES (?, 'tradesman')
-         ON CONFLICT(uid) DO UPDATE SET role='tradesman'`
-      ).run(uid);
+        `UPDATE tradesmen SET vmb_score=?, vmb_badge=?, updated_at=datetime('now') WHERE user_id=?`
+      ).run(score, badge, uid);
     });
-    tx();
 
-    const profile = db.prepare(`SELECT * FROM tradesmen WHERE user_id=?`).get(uid);
-    res.json({ ok: true, profile });
+    try {
+      tx();
+      const row = db
+        .prepare(`SELECT * FROM tradesmen WHERE user_id=?`)
+        .get(uid);
+      console.log(
+        `${TAG} saved uid=${uid} -> company_number=${
+          row.company_number || "-"
+        } ch_status=${row.ch_status || "-"} score=${row.vmb_score} badge=${
+          row.vmb_badge
+        } min=${row.discount_min_percent} max=${row.discount_max_percent}`
+      );
+      return res.json({ ok: true, profile: row });
+    } catch (e) {
+      console.error(`${TAG} db error:`, e?.message || e);
+      return res.status(500).json({ error: "server_error" });
+    }
   });
 
   if (!ctx.__logged_tradesmen_me_put) {
     ctx.__logged_tradesmen_me_put = true;
-    console.log(`[routes] mounted: PUT ${at("/tradesmen/me")}`);
+    console.log(`[routes] mounted: PUT /tradesmen/me`);
   }
 };

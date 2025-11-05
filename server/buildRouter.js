@@ -86,6 +86,9 @@ function buildRouter(ctx) {
   require("./routes/__test__/auth/id-token.post")(router, ctx);
   require("./routes/__test__/auth/session.post")(router, ctx);
 
+  // ---------------- auth ----------------
+  require("./routes/auth/check-email.post")(router, ctx);
+
   // ---------------- Notifications & SSE ----------------
   require("./routes/notifications/stream.get")(router, ctx);
   require("./routes/notifications/notifications.get")(router, ctx);
@@ -147,6 +150,8 @@ function buildRouter(ctx) {
   require("./routes/tradesmen/join.post")(router, ctx);
   require("./routes/tradesmen/interest.post")(router, ctx);
   require("./routes/tradesmen/interest.get")(router, ctx);
+  require("./routes/tradesmen/leaderboard.get")(router, ctx);
+  require("./routes/tradesmen/precheck.post")(router, ctx);
 
   // // ---------------- Chats ----------------
   // require("./routes/chats/start.post")(router, ctx);

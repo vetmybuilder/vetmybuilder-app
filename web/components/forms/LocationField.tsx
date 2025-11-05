@@ -17,7 +17,7 @@ type PostcodeMeta = {
 
 export type LocationFieldProps = {
   id?: string;
-  label?: string;
+  label?: string; // when falsy, no label is rendered
   placeholder?: string;
   value: string;
   onChange: (value: string, meta?: PostcodeMeta | null) => void;
@@ -156,11 +156,9 @@ export default function LocationField({
 
           for (const p of rows) {
             const strings = getStrings(p);
-            // Filter out places that don't contain the query anywhere (normalized)
             const hasMatch = strings.some((s) => norm(s).includes(qNorm));
             if (!hasMatch) continue;
 
-            // Pick the best "primary" match
             const scored = strings
               .map((s) => {
                 const sNorm = norm(s);
@@ -212,7 +210,6 @@ export default function LocationField({
             }
           }
 
-          // Sort again by (exact > starts-with > contains), then alphabetically
           const ranked = list
             .map((s) => {
               const pNorm = norm(s.primary);
@@ -359,9 +356,11 @@ export default function LocationField({
       ref={boxRef}
       data-testid={dataTestId}
     >
-      <label htmlFor={id} className="text-xs text-slate-500 block mb-1">
-        {label}
-      </label>
+      {label ? (
+        <label htmlFor={id} className="text-xs text-slate-500 block mb-1">
+          {label}
+        </label>
+      ) : null}
 
       <div className="relative">
         <input
@@ -455,11 +454,11 @@ export default function LocationField({
 
       {err && <p className="mt-1 text-xs text-amber-600">{err}</p>}
 
-      {reasonText && (
+      {reasonText ? (
         <p id={hintId} className="mt-1 text-[11px] text-slate-500">
           {reasonText}
         </p>
-      )}
+      ) : null}
     </div>
   );
 }

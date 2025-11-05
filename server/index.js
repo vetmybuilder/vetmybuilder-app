@@ -50,6 +50,20 @@ app.use(
 app.options("*", cors());
 app.use(express.json());
 
+/* -------------------- ultra-early request logger -------------------- */
+/* Logs every request that reaches Express, before any routers/middleware. */
+app.use((req, res, next) => {
+  const t0 = Date.now();
+  // capture path before downstream middlewares mutate it
+  const { method } = req;
+  const url = req.originalUrl || req.url;
+  res.on("finish", () => {
+    const ms = Date.now() - t0;
+    console.log(`[http] ${method} ${url} -> ${res.statusCode} in ${ms}ms`);
+  });
+  next();
+});
+
 /* -------------------- TEST-ONLY helpers -------------------- */
 const TEST_ROUTES_ENABLED =
   process.env.NODE_ENV === "test" || process.env.ENABLE_TEST_ROUTES === "1";
