@@ -1,5 +1,6 @@
 import Link from "next/link";
 import StatusBadge from "@/components/StatusBadge";
+import type { ReactNode } from "react";
 
 /* Keep this in sync with your page type */
 export type Project = {
@@ -42,6 +43,9 @@ type Props = {
 
   // recommendation affordance
   canAddRec?: boolean;
+
+  // NEW: extra actions rendered in the card footer (right-aligned)
+  footerRight?: ReactNode;
 };
 
 export default function ProjectDetailsCard({
@@ -59,6 +63,7 @@ export default function ProjectDetailsCard({
   onCopyInvite,
   onOpenCloseModal,
   canAddRec = false,
+  footerRight, // NEW
 }: Props) {
   return (
     <section
@@ -272,6 +277,19 @@ export default function ProjectDetailsCard({
             {project.description}
           </p>
         </div>
+
+        {/*Footer actions row (appears only when provided) */}
+        {footerRight && (
+          <>
+            <div className="divider mt-5" />
+            <div
+              className="mt-3 flex items-center justify-end"
+              data-testid="project-details-footer"
+            >
+              <div className="ml-auto">{footerRight}</div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Add recommendation affordance */}

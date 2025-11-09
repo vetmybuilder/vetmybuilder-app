@@ -1,17 +1,18 @@
-// web/pages/projects/[id].tsx
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
-import Link from "next/link";
 import { useAuth } from "@/utils/auth";
 import { useEffect, useMemo, useState } from "react";
 import CloseProjectModal from "@/components/CloseProjectModal";
-import { fetchVmbRatings, voteUpRecommendation } from "@/utils/vmb";
-import EmptyState from "@/components/project/EmptyState";
+import { voteUpRecommendation } from "@/utils/vmb";
 import ShortlistSection from "@/components/project/ShortlistSection";
 import ProjectDetailsCard from "@/components/project/ProjectDetailsCard";
 import ProjectHeaderBar from "@/components/project/ProjectHeaderBar";
-import DiscoverInline from "@/components/project/DiscoverInline";
+import ContactDetailsCard from "@/components/project/ContactDetailsCard";
+
+import PlansModal from "@/components/plans/PlansModal";
+import { getPlan } from "@/shared/lib/plans";
+import type { PlanId } from "@/shared/lib/plans";
 
 /* ===== Types ===== */
 type Project = {
@@ -39,9 +40,9 @@ type Recommendation = {
   createdAt: string;
   fromFriend?: 0 | 1;
   fromCommunity?: 0 | 1;
-  likes?: number; // treat as "votes"
-  myLike?: 0 | 1; // 1 when I’ve voted already
-  score?: number; // VMB score (server-calculated)
+  likes?: number;
+  myLike?: 0 | 1;
+  score?: number;
 };
 
 type VerificationStatus =
@@ -62,24 +63,6 @@ type Verification = {
   checkedAt?: string;
   errorMessage?: string | null;
 };
-
-/* ===== Discover (nearby tradespeople) ===== */
-type TradesmanLite = {
-  companyNumber?: string | null;
-  companyName: string;
-  topRecId?: number | null; // use to link to profile
-  votes?: number; // aggregated likes
-  score?: number | null; // VMB score if available
-  area?: string | null; // optional area/city
-  photos?: string[] | { filePath: string }[] | null;
-};
-
-function asPhotoUrl(p?: string | { filePath?: string } | null) {
-  if (!p) return null;
-  if (typeof p === "string") return p;
-  if (typeof p === "object" && p.filePath) return p.filePath;
-  return null;
-}
 
 /* ===== Page ===== */
 export default function ProjectView() {
@@ -141,22 +124,78 @@ export default function ProjectView() {
     return () => clearTimeout(t);
   }, [flash]);
 
-  /* ===== Detect if viewer is a tradesman (for back navigation & discover visibility) ===== */
+  /* ===== Detect if viewer is a tradesman & plan state ===== */
   const [isTrades, setIsTrades] = useState(false);
+  const [currentPlanId, setCurrentPlanId] = useState<PlanId | undefined>(
+    "free"
+  );
+  const [subStatus, setSubStatus] = useState<
+    "inactive" | "draft" | "active" | undefined
+  >("inactive");
+  const [pendingPlanId, setPendingPlanId] = useState<PlanId | null>(null);
+  const effectivePlanId: PlanId =
+    subStatus === "active" ? currentPlanId || "free" : "free";
+
+  // Owner contact (revealed only when eligible)
+  const [ownerContact, setOwnerContact] = useState<{
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
+  } | null>(null);
+  const [contactLoading, setContactLoading] = useState(false);
+
   useEffect(() => {
     let alive = true;
     (async () => {
       if (!user) {
-        if (alive) setIsTrades(false);
+        if (alive) {
+          setIsTrades(false);
+          setCurrentPlanId("free");
+          setSubStatus("inactive");
+          setPendingPlanId(null);
+        }
         return;
       }
       try {
         const { data } = await api.get("/api/tradesmen/me");
         const role = String(data?.role || "").toLowerCase();
         const hasProfile = !!data?.profile;
-        if (alive) setIsTrades(role === "tradesman" || hasProfile);
+
+        const status =
+          (data?.profile?.subscription_status as
+            | "inactive"
+            | "draft"
+            | "active"
+            | undefined) ||
+          (data?.profile?.subscriptionStatus as
+            | "inactive"
+            | "draft"
+            | "active"
+            | undefined);
+
+        const livePlan =
+          (data?.profile?.plan as PlanId | undefined) ||
+          (data?.profile?.planId as PlanId | undefined) ||
+          "free";
+
+        const pending =
+          (data?.profile?.purchased_plan as PlanId | undefined) ||
+          (data?.profile?.purchasedPlan as PlanId | undefined) ||
+          null;
+
+        if (alive) {
+          setIsTrades(role === "tradesman" || hasProfile);
+          setSubStatus(status || "inactive");
+          setCurrentPlanId((livePlan as PlanId) || "free");
+          setPendingPlanId((pending as PlanId) || null);
+        }
       } catch {
-        if (alive) setIsTrades(false);
+        if (alive) {
+          setIsTrades(false);
+          setCurrentPlanId("free");
+          setSubStatus("inactive");
+          setPendingPlanId(null);
+        }
       }
     })();
     return () => {
@@ -200,6 +239,10 @@ export default function ProjectView() {
   const isClosed = isArchived || isCompleted;
   const isLive = statusLower === "live";
   const canPublish = isOwner && !isClosed && !isLive;
+
+  useEffect(() => {
+    setCanAddRec(Boolean(project && isOwner && !isClosed));
+  }, [project, isOwner, isClosed]);
 
   const onPublish = async () => {
     if (!project || busy) return;
@@ -252,12 +295,12 @@ export default function ProjectView() {
     }
   };
 
-  // Close: trust server to set status to 'completed' (community) or 'archived' (otherwise)
+  // Close modal handler
   const onCloseProject = async (payload: {
     didGoAhead: boolean;
     reasons: string[];
     otherReason?: string;
-    selectedRecommendationId?: number; // forwarded from modal if user picked a winner
+    selectedRecommendationId?: number;
   }) => {
     if (!project || busy) return;
     setBusy(true);
@@ -287,337 +330,145 @@ export default function ProjectView() {
     }
   };
 
-  const onCopyInvite = async () => {
-    if (!project || busy) return;
-    setBusy(true);
+  /* ===== Tradesman → Share & Contact logic ===== */
+  const [interestBusy, setInterestBusy] = useState(false);
+  const [interestSent, setInterestSent] = useState(false);
+  const [shareCheckDone, setShareCheckDone] = useState(false);
+  const [plansOpen, setPlansOpen] = useState(false);
+
+  // One-off checkout state
+  const [checkingOut, setCheckingOut] = useState(false);
+
+  // Updated to use plans price (£9.99) if present
+  const startOneOffCheckout = async () => {
+    if (!project?.id || checkingOut) return;
+    setCheckingOut(true);
     try {
-      const { data } = await api.post(`/api/projects/${project.id}/magic-link`);
-      if (!data?.url) throw new Error("No URL returned");
-      let copied = false;
-      try {
-        await navigator.clipboard.writeText(data.url);
-        copied = true;
-      } catch {
-        try {
-          const ta = document.createElement("textarea");
-          ta.value = String(data.url);
-          ta.setAttribute("readonly", "");
-          ta.style.position = "fixed";
-          ta.style.top = "-10000px";
-          ta.style.opacity = "0";
-          document.body.appendChild(ta);
-          ta.select();
-          copied = document.execCommand("copy");
-          document.body.removeChild(ta);
-        } catch {}
+      const origin = window.location.origin;
+
+      const unlock = getPlan("unlock_contact");
+      const pounds = Number((unlock as any)?.billing?.priceOnce ?? 9.99);
+      const pence = Math.round(pounds * 100);
+
+      const { data } = await api.post("/api/payments/checkout", {
+        projectId: project.id,
+        entity_type: "project",
+        entity_id: project.id,
+        items: [
+          {
+            label: "Unlock homeowner contact",
+            price: { amount: pence, currency: "GBP" }, // £9.99
+            quantity: 1,
+          },
+        ],
+        metadata: { type: "unlock_contact", projectId: project.id },
+        success_url: `${origin}/payments/mock/success?session_id={SESSION_ID}`,
+        cancel_url: `${origin}/payments/mock/cancel?session_id={SESSION_ID}`,
+      });
+
+      const url =
+        data?.url || data?.session?.hosted_url || data?.hosted_url || null;
+      const sid =
+        data?.sessionId ||
+        data?.session_id ||
+        data?.id ||
+        data?.session?.id ||
+        null;
+
+      if (url) {
+        window.location.href = url;
+        return;
       }
+      if (sid) {
+        window.location.href = `/payments/mock/checkout/${encodeURIComponent(
+          sid
+        )}`;
+        return;
+      }
+
       setFlash({
-        kind: "success",
-        text: copied
-          ? "Invite link copied to clipboard"
-          : `Invite link: ${data.url}`,
+        kind: "error",
+        text: "Checkout session unavailable. Please try again.",
       });
     } catch (e: any) {
       setFlash({
         kind: "error",
         text:
-          e?.response?.data?.error || e?.message || "Failed to generate link",
+          e?.response?.data?.error ||
+          e?.message ||
+          "Failed to start checkout session",
       });
     } finally {
-      setBusy(false);
+      setCheckingOut(false);
     }
   };
 
-  const canShowAddFavourite =
-    isFromCommunity && !isOwner && !isClosed && !addedToFavourites;
-  const onAddToFavourites = async () => {
-    if (!project || !canShowAddFavourite || busy) return;
-    setBusy(true);
+  const startSubscriptionCheckout = async (planId: PlanId) => {
     try {
-      await api.post(`/api/projects/${project.id}/favourite`);
-      setAddedToFavourites(true);
-      setFlash({ kind: "success", text: "Added to favourites" });
+      const plan = getPlan(planId);
+      const monthly = Number((plan as any)?.billing?.priceMonthly) || 0;
+      const amountPence = Math.round(monthly * 100);
+      if (!amountPence || amountPence <= 0) {
+        setFlash({ kind: "error", text: "Plan price unavailable." });
+        return;
+      }
+
+      const { data } = await api.post("/api/payments/checkout", {
+        type: "subscription",
+        planId,
+        amountPence,
+        currency: "GBP",
+        origin: window.location.origin,
+        metadata: { planId, billing: "monthly" },
+        success_url: `${window.location.origin}/payments/mock/success?session_id={SESSION_ID}`,
+        cancel_url: `${window.location.origin}/payments/mock/cancel?session_id={SESSION_ID}`,
+      });
+
+      const url =
+        data?.url || data?.session?.hosted_url || data?.hosted_url || null;
+      const sid =
+        data?.sessionId ||
+        data?.session_id ||
+        data?.id ||
+        data?.session?.id ||
+        null;
+
+      if (url) {
+        window.location.href = url;
+        return;
+      }
+      if (sid) {
+        window.location.href = `/payments/mock/checkout/${encodeURIComponent(
+          sid
+        )}`;
+        return;
+      }
+
+      setFlash({
+        kind: "error",
+        text: "Could not start subscription checkout. Please try again.",
+      });
     } catch (e: any) {
       setFlash({
         kind: "error",
-        text: e?.response?.data?.error || e?.message || "Could not favourite",
+        text:
+          e?.response?.data?.error ||
+          e?.message ||
+          "Failed to start subscription checkout",
       });
-    } finally {
-      setBusy(false);
     }
   };
 
-  type VmbListOk = { items: Recommendation[]; total?: number };
-  type VmbSingleOk = { item?: Recommendation | null };
-
-  function hasItems(res: unknown): res is VmbListOk {
-    return !!res && typeof res === "object" && "items" in (res as any);
-  }
-  function hasItem(res: unknown): res is VmbSingleOk {
-    return !!res && typeof res === "object" && "item" in (res as any);
-  }
-
-  // --- Use unified ratings endpoint for shortlist with a type guard ---
-  async function loadRecs(pid: number) {
-    const res = await fetchVmbRatings(api, { projectId: pid, limit: 3 });
-
-    if (hasItems(res)) {
-      const { items, total } = res;
-      setRecs(items ?? []);
-      setRecTotal(total ?? (items ? items.length : 0));
-      setRecsErr(null);
-      return;
-    }
-
-    if (hasItem(res)) {
-      const item = res.item ?? null;
-      setRecs(item ? [item] : []);
-      setRecTotal(item ? 1 : 0);
-      setRecsErr(null);
-      return;
-    }
-
-    // fallback (unexpected shape)
-    setRecs([]);
-    setRecTotal(0);
-    setRecsErr(null);
-  }
-
-  /* Load shortlist (skip entirely for tradesmen) */
-  useEffect(() => {
-    if (!router.isReady || authLoading || !user || !project?.id) return;
-    if (isTrades) {
-      // viewer is a tradesman — don't fetch shortlist at all
-      setRecs([]);
-      setRecTotal(0);
-      setRecsErr(null);
-      return;
-    }
-    let alive = true;
-    (async () => {
-      try {
-        await loadRecs(project.id);
-      } catch (e: any) {
-        if (!alive) return;
-        const status = e?.status ?? e?.response?.status;
-        const msg =
-          e?.data?.error ?? e?.response?.data?.error ?? e?.message ?? "";
-        if (status === 401 || /missing bearer token/i.test(String(msg))) {
-          setRecs([]);
-          setRecTotal(0);
-          setRecsErr(null);
-        } else {
-          setRecsErr("Failed to load recommendations");
-        }
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [api, router.isReady, authLoading, user, project?.id, isTrades]);
-
-  /* Photos flags */
-  useEffect(() => {
-    if (!recs || recs.length === 0) return;
-    let cancelled = false;
-    (async () => {
-      const entries = await Promise.all(
-        recs.map(async (r) => {
-          try {
-            const { data } = await api.get(`/api/recommendations/${r.id}`);
-            const has = Array.isArray(data?.recommendation?.photos)
-              ? data.recommendation.photos.length > 0
-              : false;
-            return [r.id, has] as const;
-          } catch {
-            return [r.id, false] as const;
-          }
-        })
-      );
-      if (!cancelled) {
-        const map: Record<number, boolean> = {};
-        for (const [rid, has] of entries) map[rid] = has;
-        setRecHasPhotos(map);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [api, recs]);
-
-  /* Companies House verification per recommendation */
-  useEffect(() => {
-    if (!recs || recs.length === 0) {
-      setRecVerification({});
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const entries = await Promise.all(
-        recs.map(async (r) => {
-          try {
-            const { data } = await api.get(
-              `/api/recommendations/${r.id}/verification`
-            );
-            const ver: Verification = data?.verification ?? {
-              recommendationId: r.id,
-              status: "queued",
-            };
-            return [r.id, ver] as const;
-          } catch {
-            return [
-              r.id,
-              { recommendationId: r.id, status: "error" as VerificationStatus },
-            ] as const;
-          }
-        })
-      );
-      if (!cancelled) {
-        const map: Record<number, Verification> = {};
-        for (const [rid, ver] of entries) map[rid] = ver;
-        setRecVerification(map);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [api, recs]);
-
-  /* Can add recommendation? */
-  useEffect(() => {
-    if (!router.isReady || authLoading || !user || !project) return;
-    let alive = true;
-    (async () => {
-      try {
-        const { data } = await api.get(`/api/profile`);
-        const hasLoc =
-          !!data?.profile?.postcode ||
-          !!data?.profile?.postcodeSector ||
-          !!data?.profile?.postcodeOutward ||
-          !!data?.profile?.city;
-        if (alive) setCanAddRec(isLive && !isClosed && hasLoc);
-      } catch {
-        if (alive) setCanAddRec(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [api, router.isReady, authLoading, user, project, isLive, isClosed]);
-
-  /* Voting (upvote) */
-  const canVote = !!user && !!project && !isOwner;
-  const voteUpOnce = async (rec: Recommendation) => {
-    if (!canVote || !project || votingId) return;
-    if (rec.myLike === 1) return; // already voted
-    setVotingId(rec.id);
-    // optimistic
-    setRecs((prev) =>
-      (prev || []).map((r) =>
-        r.id === rec.id
-          ? { ...r, myLike: 1 as 0 | 1, likes: (r.likes ?? 0) + 1 }
-          : r
-      )
-    );
-    try {
-      await voteUpRecommendation(api, rec.id); // backend counts this into VMB
-      await loadRecs(project.id); // refresh counts + VMB score
-    } catch {
-      await loadRecs(project.id);
-    } finally {
-      setVotingId(null);
-    }
-  };
-
-  const maxLikes = Math.max(0, ...(recs || []).map((r) => r.likes ?? 0));
-
-  /* Helpers for CH badge */
-  function chLabel(status?: VerificationStatus) {
-    switch (status) {
-      case "verified":
-        return "Verified";
-      case "running":
-      case "queued":
-        return "Checking";
-      case "ambiguous":
-        return "Needs review";
-      case "no_match":
-        return "No match";
-      case "error":
-        return "Error";
-      default:
-        return "Checking";
-    }
-  }
-
-  /* ===== Discover: load nearby verified tradespeople (SKIPPED for tradesmen) ===== */
-  const [nearby, setNearby] = useState<TradesmanLite[]>([]);
-  const [nearbyLoading, setNearbyLoading] = useState(false);
-  const [nearbyErr, setNearbyErr] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Do not load or show the Discover section for tradesmen
-    if (
-      !router.isReady ||
-      authLoading ||
-      !user ||
-      !project?.location ||
-      isTrades
-    ) {
-      if (isTrades) {
-        // ensure UI stays hidden/empty and no spinners are shown
-        setNearby([]);
-        setNearbyErr(null);
-        setNearbyLoading(false);
-      }
-      return;
-    }
-    let killed = false;
-    (async () => {
-      try {
-        setNearbyLoading(true);
-        setNearbyErr(null);
-        const { data } = await api.get("/api/tradesmen/discover", {
-          params: { near: project.location, limit: 6 },
-        });
-        if (killed) return;
-        const items: TradesmanLite[] = Array.isArray(data?.items)
-          ? data.items
-          : [];
-        setNearby(items);
-      } catch (e: any) {
-        if (killed) return;
-        setNearby([]);
-        setNearbyErr(null); // stay quiet if endpoint isn’t ready
-      } finally {
-        if (!killed) setNearbyLoading(false);
-      }
-    })();
-    return () => {
-      killed = true;
-    };
-  }, [api, router.isReady, authLoading, user, project?.location, isTrades]);
-
-  /* ===== Tradesman → Express Interest CTA ===== */
-  const [interestBusy, setInterestBusy] = useState(false);
-  const [interestSent, setInterestSent] = useState(false);
-  // prevent flicker by hiding the button until share status is known
-  const [shareCheckDone, setShareCheckDone] = useState(false);
-
-  // Query server to see if this tradesman already shared for this project
+  // Check if already shared for this project
   useEffect(() => {
     if (!project?.id) return;
-
-    // If viewer isn't a tradesman, there's nothing to check
     if (!isTrades) {
       setInterestSent(false);
       setShareCheckDone(true);
       return;
     }
-
     let alive = true;
-    setShareCheckDone(false); // hide CTA until we know
-
+    setShareCheckDone(false);
     (async () => {
       try {
         const { data } = await api.get("/api/tradesmen/interest", {
@@ -630,12 +481,11 @@ export default function ProjectView() {
           Number.isFinite(Number(data?.recommendationId));
         setInterestSent(already);
       } catch {
-        if (alive) setInterestSent(false); // default to not shared if GET fails
+        if (alive) setInterestSent(false);
       } finally {
         if (alive) setShareCheckDone(true);
       }
     })();
-
     return () => {
       alive = false;
     };
@@ -647,8 +497,59 @@ export default function ProjectView() {
     !isOwner &&
     !isClosed &&
     isLive &&
+    effectivePlanId === "free" &&
     !interestSent &&
-    shareCheckDone; // gate on check completion to avoid flicker
+    shareCheckDone;
+
+  const entitledToContact =
+    !!project &&
+    isTrades &&
+    !isOwner &&
+    !isClosed &&
+    isLive &&
+    subStatus === "active" &&
+    currentPlanId !== "free";
+
+  const unlockQuery = String(router.query.unlock || ""); // ?unlock=success
+  const canAttemptContact =
+    !!project &&
+    isTrades &&
+    !isOwner &&
+    isLive &&
+    !isClosed &&
+    (entitledToContact || unlockQuery === "success");
+
+  useEffect(() => {
+    (async () => {
+      if (!project?.id || !canAttemptContact) return;
+      setContactLoading(true);
+      try {
+        const { data } = await api.get(
+          `/api/projects/${project.id}/owner-contact`
+        );
+        const owner = data?.owner || data || {};
+        setOwnerContact({
+          firstName: owner.firstName ?? null,
+          lastName: owner.lastName ?? null,
+          email: owner.email ?? null,
+        });
+      } catch (e: any) {
+        const status = e?.response?.status ?? e?.status;
+        if (status !== 403) {
+          setFlash({
+            kind: "error",
+            text:
+              e?.response?.data?.error ||
+              e?.message ||
+              "Failed to load contact",
+          });
+        }
+        setOwnerContact(null);
+      } finally {
+        setContactLoading(false);
+      }
+    })();
+  }, [api, project?.id, canAttemptContact, unlockQuery]);
 
   const onExpressInterest = async () => {
     if (!project || interestBusy || interestSent) return;
@@ -657,9 +558,7 @@ export default function ProjectView() {
       const { data } = await api.post("/api/tradesmen/interest", {
         projectId: project.id,
       });
-      if (data?.ok || data?.alreadyShared) {
-        setInterestSent(true);
-      }
+      if (data?.ok || data?.alreadyShared) setInterestSent(true);
       setFlash({
         kind: "success",
         text: "Thanks! We’ve notified the owner and shared your profile. They can view it from their notifications.",
@@ -677,6 +576,91 @@ export default function ProjectView() {
     }
   };
 
+  const onUpgradeClick = () => setPlansOpen(true);
+
+  // Plan selected from modal (free uses this path; paid plans usually checkout inside the modal)
+  const handlePlanSelect = (planId: PlanId) => {
+    setPlansOpen(false);
+    if (planId === "free") {
+      setFlash({
+        kind: "error",
+        text: "Free plan selected — upgrade to contact owners directly.",
+      });
+      return;
+    }
+    // If your modal ever calls onSelect for paid plans, keep safety:
+    if (planId === "unlock_contact") {
+      void startOneOffCheckout();
+    } else {
+      void startSubscriptionCheckout(planId);
+    }
+  };
+
+  /* ===== Shortlist loader (for owners & non-trades viewers) ===== */
+  useEffect(() => {
+    if (!project?.id || isTrades) return;
+    let dead = false;
+
+    const fetchShortlist = async () => {
+      setRecsErr(null);
+      try {
+        const r1 = await api.get(
+          `/api/projects/${project.id}/recommendations`,
+          { params: { limit: 6 } }
+        );
+        if (dead) return;
+        const list: Recommendation[] = Array.isArray(r1.data?.items)
+          ? r1.data.items
+          : Array.isArray(r1.data?.recommendations)
+          ? r1.data.recommendations
+          : Array.isArray(r1.data)
+          ? r1.data
+          : [];
+        const total =
+          Number(r1.data?.total) ||
+          Number(r1.data?.count) ||
+          (Array.isArray(list) ? list.length : 0);
+        setRecs(list);
+        setRecTotal(total);
+        return;
+      } catch (e1: any) {
+        try {
+          const r2 = await api.get(`/api/recommendations`, {
+            params: { projectId: project.id, limit: 6 },
+          });
+          if (dead) return;
+          const list: Recommendation[] = Array.isArray(r2.data?.items)
+            ? r2.data.items
+            : Array.isArray(r2.data?.recommendations)
+            ? r2.data.recommendations
+            : Array.isArray(r2.data)
+            ? r2.data
+            : [];
+          const total =
+            Number(r2.data?.total) ||
+            Number(r2.data?.count) ||
+            (Array.isArray(list) ? list.length : 0);
+          setRecs(list);
+          setRecTotal(total);
+        } catch (e2: any) {
+          if (dead) return;
+          setRecs([]);
+          setRecTotal(0);
+          setRecsErr(
+            e2?.response?.data?.error ||
+              e2?.message ||
+              "Failed to load recommendations"
+          );
+        }
+      }
+    };
+
+    fetchShortlist();
+    return () => {
+      dead = true;
+    };
+  }, [api, project?.id, isTrades]);
+
   /* ===== Render ===== */
   return (
     <AuthedOnly>
@@ -693,77 +677,6 @@ export default function ProjectView() {
           </p>
         )}
 
-        {!loading && errorStatus === 401 && (
-          <EmptyState
-            title="Sign in required"
-            description="You need to sign in to view projects."
-            actions={
-              <Link
-                href="/login"
-                className="btn mt-3"
-                aria-label="Go to sign in"
-                data-testid="btn-go-signin"
-              >
-                Go to sign in
-              </Link>
-            }
-            dataTestId="project-error-401"
-          />
-        )}
-
-        {!loading && errorStatus === 404 && (
-          <EmptyState
-            title="Project not found or not visible"
-            description="This project either doesn’t exist or isn’t visible to you. It may be pending or archived by its owner."
-            actions={
-              <div className="flex gap-3">
-                <Link
-                  href={backHref}
-                  className="btn"
-                  data-testid="btn-back-to-my-projects"
-                >
-                  Back to My Projects
-                </Link>
-              </div>
-            }
-            dataTestId="project-error-404"
-          />
-        )}
-
-        {!loading &&
-          errorStatus != null &&
-          errorStatus !== 401 &&
-          errorStatus !== 404 && (
-            <EmptyState
-              title="Failed to load project"
-              description="Something went wrong while fetching this project."
-              actions={
-                <button
-                  className="btn mt-3"
-                  onClick={() => {
-                    if (projectId) {
-                      setErrorStatus(null);
-                      setLoading(true);
-                      api
-                        .get(`/api/projects/${projectId}`)
-                        .then(({ data }) => setProject(data.project))
-                        .catch((e: any) =>
-                          setErrorStatus(
-                            e?.status ?? e?.response?.status ?? 500
-                          )
-                        )
-                        .finally(() => setLoading(false));
-                    }
-                  }}
-                  data-testid="btn-retry"
-                >
-                  Try again
-                </button>
-              }
-              dataTestId="project-error-generic"
-            />
-          )}
-
         {!loading && !errorStatus && project && (
           <>
             <ProjectHeaderBar
@@ -773,71 +686,96 @@ export default function ProjectView() {
               showAddToFavourites={
                 isFromCommunity && !isOwner && !isClosed && !addedToFavourites
               }
-              onAddToFavourites={onAddToFavourites}
+              onAddToFavourites={() => setAddedToFavourites(true)}
               busy={busy}
             />
 
-            {/* Tradesman CTA: share profile with owner (no flicker) */}
-            <div className="mb-4 flex justify-end min-h-[44px]">
-              {canExpressInterest && (
-                <button
-                  className="btn"
-                  onClick={onExpressInterest}
-                  disabled={interestBusy}
-                  data-testid="btn-express-interest"
-                >
-                  {interestBusy ? "Sending…" : "Share profile with owner"}
-                </button>
-              )}
-            </div>
-
-            {/* Content grid — hide Top recommendations (Shortlist) for tradesmen */}
-            <div
-              className={`grid gap-6 ${
-                isTrades ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-12"
-              }`}
-            >
-              {/* Left: details */}
-              <ProjectDetailsCard
-                project={project}
-                isOwner={isOwner}
-                isClosed={isClosed}
-                isArchived={isArchived}
-                isLive={isLive}
-                canPublish={canPublish}
-                busy={busy}
-                flash={flash}
-                onPublish={onPublish}
-                onArchive={onArchive}
-                onUnarchive={onUnarchive}
-                onCopyInvite={onCopyInvite}
-                onOpenCloseModal={() => setCloseOpen(true)}
-                canAddRec={canAddRec}
-              />
-
-              {/* Right: shortlist (Top recommendations) — hidden for tradesmen */}
-              {!isTrades && (
-                <ShortlistSection
-                  items={recs || []}
-                  total={recTotal}
-                  viewMoreHref={`/projects/${project.id}/shortlist`}
-                  isOwner={isOwner}
-                  canVote={!!user && !!project && !isOwner}
-                  votingId={votingId}
-                  onVoteUp={(rid) => {
-                    const rec = (recs || []).find((x) => x.id === rid);
-                    if (rec) voteUpOnce(rec);
-                  }}
-                  recHasPhotos={recHasPhotos}
-                  recVerification={recVerification}
-                />
-              )}
-            </div>
-
-            {/* ===== Discover inline section (hidden for tradesmen) ===== */}
-            {!isTrades && nearby.length > 0 && (
-              <DiscoverInline location={project?.location} limit={6} />
+            {isTrades && subStatus === "draft" && pendingPlanId && (
+              <div className="mb-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800">
+                Your {pendingPlanId} subscription is pending verification.
+                You’ll get access once it’s approved.
+              </div>
             )}
+
+            <div className="grid gap-6 grid-cols-1 lg:[grid-template-columns:580px_minmax(0,1fr)]">
+              <div>
+                <ProjectDetailsCard
+                  project={project}
+                  isOwner={isOwner}
+                  isClosed={isClosed}
+                  isArchived={isArchived}
+                  isLive={isLive}
+                  canPublish={canPublish}
+                  busy={busy}
+                  flash={flash}
+                  onPublish={onPublish}
+                  onArchive={onArchive}
+                  onUnarchive={onUnarchive}
+                  onCopyInvite={() => {}}
+                  onOpenCloseModal={() => setCloseOpen(true)}
+                  canAddRec={canAddRec}
+                  footerRight={
+                    isTrades && canExpressInterest ? (
+                      <div
+                        className="flex flex-col gap-2 rounded-lg bg-slate-50 p-3 text-sm"
+                        data-testid="share-profile-cta"
+                      >
+                        <p className="text-slate-700">
+                          Let the homeowner know you’re interested. We’ll share
+                          your VetMyBuilder profile on this project so they can
+                          review your work and get in touch.
+                        </p>
+                        <button
+                          className="btn"
+                          onClick={onExpressInterest}
+                          disabled={interestBusy}
+                          data-testid="btn-express-interest"
+                        >
+                          {interestBusy ? "Sending…" : "Share profile"}
+                        </button>
+                        <p
+                          className="text-xs text-slate-500"
+                          data-testid="share-profile-tip"
+                        >
+                          Tip: Add photos and complete verifications to improve
+                          your chances.
+                        </p>
+                      </div>
+                    ) : null
+                  }
+                />
+              </div>
+
+              <div>
+                {isTrades ? (
+                  <ContactDetailsCard
+                    locked={!ownerContact}
+                    loading={contactLoading}
+                    contact={ownerContact || undefined}
+                    onUpgrade={onUpgradeClick}
+                  />
+                ) : (
+                  <ShortlistSection
+                    items={recs || []}
+                    total={recTotal}
+                    viewMoreHref={`/projects/${project.id}/shortlist`}
+                    isOwner={isOwner}
+                    canVote={!!user && !!project && !isOwner}
+                    votingId={votingId}
+                    onVoteUp={async (rid) => {
+                      const rec = (recs || []).find((x) => x.id === rid);
+                      if (rec) await voteUpRecommendation(api, rec.id);
+                    }}
+                    recHasPhotos={recHasPhotos}
+                    recVerification={recVerification}
+                  />
+                )}
+
+                {!isTrades && recsErr && (
+                  <p className="mt-2 text-sm text-rose-600">{recsErr}</p>
+                )}
+              </div>
+            </div>
           </>
         )}
       </div>
@@ -847,6 +785,14 @@ export default function ProjectView() {
         onClose={() => setCloseOpen(false)}
         onSubmit={onCloseProject}
         projectName={project?.name}
+        projectId={project?.id as number}
+      />
+
+      <PlansModal
+        isOpen={plansOpen}
+        onClose={() => setPlansOpen(false)}
+        onSelect={handlePlanSelect}
+        currentPlanId={currentPlanId}
         projectId={project?.id as number}
       />
     </AuthedOnly>

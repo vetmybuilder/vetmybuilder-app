@@ -2,6 +2,8 @@
 const { Router } = require("express");
 const { requireTradesman } = require("./lib/roles");
 const ensureAdminTables = require("./boot/ensureAdminTables");
+// ⬇️ Attach the in-memory mock payments service to ctx.payments
+const { attachPayments } = require("./boot/attachPayments");
 
 function buildRouter(ctx) {
   if (!ctx || !ctx.db) {
@@ -27,6 +29,11 @@ function buildRouter(ctx) {
     const uploads = require("./lib/uploads");
     ctx.upload = ctx.upload || uploads.upload;
     ctx.UPLOAD_DIR = ctx.UPLOAD_DIR || uploads.UPLOAD_DIR;
+  }
+
+  // Payments (mock) — attach if not already provided by the caller
+  if (!ctx.payments) {
+    attachPayments(ctx); // logs “[payments] mock attached …”
   }
 
   // Validation and helpers
@@ -117,6 +124,8 @@ function buildRouter(ctx) {
   require("./routes/projects/close.photos.get")(router, ctx);
   require("./routes/projects/project-closure.get")(router, ctx);
   require("./routes/projects/magic-link.post")(router, ctx);
+  require("./routes/projects/owner-contact.get")(router, ctx);
+  require("./routes/projects/unlock-contact.checkout.post")(router, ctx);
 
   // Project recommendations
   require("./routes/projects/recommendations.get")(router, ctx);
@@ -142,7 +151,6 @@ function buildRouter(ctx) {
   require("./routes/debug/routes.get")(router, ctx);
 
   // ---------------- Tradesmen / Builders ----------------
-  require("./routes/tradesmen/discover.get")(router, ctx);
   require("./routes/tradesmen/jobs.get")(router, ctx);
   require("./routes/tradesmen/me.get")(router, ctx);
   require("./routes/tradesmen/me.put")(router, ctx);
@@ -153,18 +161,21 @@ function buildRouter(ctx) {
   require("./routes/tradesmen/leaderboard.get")(router, ctx);
   require("./routes/tradesmen/precheck.post")(router, ctx);
 
-  // // ---------------- Chats ----------------
-  // require("./routes/chats/start.post")(router, ctx);
-  // require("./routes/chats/messages.get")(router, ctx);
-  // require("./routes/chats/messages.post")(router, ctx);
-  // require("./routes/chats/stream.get")(router, ctx);
-  // // optional list endpoint:
-  // require("./routes/chats/chats.get")(router, ctx);
+  // ---------------- Plans ----------------
+  require("./routes/meta/plans.get")(router, ctx);
+
+  // ---------------- Payments (mock) ----------------
+  require("./routes/payments/checkout.post")(router, ctx);
+  require("./routes/payments/checkout.session.get")(router, ctx);
+  require("./routes/payments/mock.pay.post")(router, ctx);
+  require("./routes/payments/mock.cancel.post")(router, ctx);
+  require("./routes/payments/mock.session.get")(router, ctx);
 
   // ---------------- Admin ----------------
   require("./routes/admin/tradesmen.get")(router, ctx);
   require("./routes/admin/tradesman.status.post")(router, ctx);
   require("./routes/admin/tradesman.flag.post")(router, ctx);
+  require("./routes/admin/subscriptions.post")(router, ctx);
 
   return router;
 }

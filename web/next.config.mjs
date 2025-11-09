@@ -4,6 +4,11 @@
 const nextConfig = {
   reactStrictMode: true,
 
+  // Allow imports from ../shared (and other external dirs)
+  experimental: {
+    externalDir: true,
+  },
+
   // Proxy /api/* from Next (3000) to your Express API (8787) in dev.
   // You can override with NEXT_PUBLIC_API_BASE (must include /api).
   async rewrites() {
@@ -20,4 +25,4 @@ const nextConfig = {
   },
 };
 
-export default nextConfig; // <-- ESM export (fixes "module is not defined")
+export default nextConfig;

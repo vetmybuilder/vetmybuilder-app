@@ -1,27 +1,16 @@
-// GET /api/tradesmen/leaderboard   (router is mounted under /api by the server)
-// Auth: requires sign-in & admin.
-//
-// Query params (all optional):
-//   q, trade, near, minScore (0.0–10.0), webVerifiedOnly=1, chVerifiedOnly=1,
-//   hasPhotos=1, hasDocs=1, hasDiscount=1, hasWebsites=1, limit, offset
-//
-// Response: { items: [...], total, offset, limit }
-
+// server/routes/tradesmen/leaderboard.get.js
 module.exports = (router, ctx) => {
   const { db, auth, extractLocationTokens } = ctx;
 
-  const API_BASE = ctx.API_PREFIX || "/api"; // for logging only
-  const PATH = "/tradesmen/leaderboard"; // actual Express path (no /api here)
+  const API_BASE = ctx.API_PREFIX || "/api";
+  const PATH = "/tradesmen/leaderboard";
 
-  // ---- admin gate ----
   function isAdmin(req) {
     const uid = req.user?.uid;
     if (!uid) return false;
-
     const roleRow =
       db.prepare(`SELECT role FROM user_roles WHERE uid=?`).get(uid) || null;
     const role = String(roleRow?.role || "user").toLowerCase();
-
     const allowlist = (process.env.ADMIN_EMAILS || "")
       .split(",")
       .map((s) => s.trim().toLowerCase())
@@ -29,11 +18,9 @@ module.exports = (router, ctx) => {
     const email = String(req.user?.email || "")
       .trim()
       .toLowerCase();
-
     return role === "admin" || (email && allowlist.includes(email));
   }
 
-  // Helpers
   const tblExists = (name) => {
     try {
       return !!db
@@ -51,12 +38,10 @@ module.exports = (router, ctx) => {
         .map((r) => r.name)
     );
   const addColIfMissing = (tbl, def, name) => {
-    const cols = tblCols(tbl);
-    if (!cols.has(name))
+    if (!tblCols(tbl).has(name))
       db.prepare(`ALTER TABLE ${tbl} ADD COLUMN ${def}`).run();
   };
 
-  // Ensure table + needed columns (kept from your original)
   db.prepare(
     `
     CREATE TABLE IF NOT EXISTS tradesmen (
@@ -72,8 +57,7 @@ module.exports = (router, ctx) => {
   `
   ).run();
 
-  // Keep in sync with join/me routes
-  addColIfMissing("tradesmen", "vmb_score REAL DEFAULT 0", "vmb_score"); // 0.0–10.0
+  addColIfMissing("tradesmen", "vmb_score REAL DEFAULT 0", "vmb_score");
   addColIfMissing(
     "tradesmen",
     "web_verified INTEGER DEFAULT 0",
@@ -108,9 +92,10 @@ module.exports = (router, ctx) => {
     "social_links_json TEXT DEFAULT '[]'",
     "social_links_json"
   );
-  addColIfMissing("tradesmen", "status TEXT DEFAULT 'draft'", "status"); // explicit status
-
-  // NEW: signals used by scoring/leaderboard
+  addColIfMissing("tradesmen", "status TEXT DEFAULT 'draft'", "status");
+  addColIfMissing("tradesmen", "plan TEXT DEFAULT 'free'", "plan");
+  addColIfMissing("tradesmen", "purchased_plan TEXT", "purchased_plan");
+  addColIfMissing("tradesmen", "plan_updated_at TEXT", "plan_updated_at");
   addColIfMissing("tradesmen", "likes_count INTEGER DEFAULT 0", "likes_count");
   addColIfMissing("tradesmen", "wins_count INTEGER DEFAULT 0", "wins_count");
 
@@ -136,7 +121,7 @@ module.exports = (router, ctx) => {
       const trade = String(req.query.trade || "").trim();
       const near = String(req.query.near || "").trim();
 
-      const minScore = Number(req.query.minScore || 0); // 0.0–10.0
+      const minScore = Number(req.query.minScore || 0);
       const webVerifiedOnly = truthy(req.query.webVerifiedOnly);
       const chVerifiedOnly = truthy(req.query.chVerifiedOnly);
       const hasPhotos = truthy(req.query.hasPhotos);
@@ -154,12 +139,17 @@ module.exports = (router, ctx) => {
         where.push(`t.vmb_score >= @minScore`);
         params.minScore = minScore;
       }
+
       if (q) {
-        where.push(`LOWER(t.company_name) LIKE @q`);
+        // 🔎 search by company name OR exact/partial company number
+        where.push(
+          `(LOWER(t.company_name) LIKE @q OR REPLACE(LOWER(COALESCE(t.company_number,'')),' ','') LIKE @qnn)`
+        );
         params.q = `%${q.toLowerCase()}%`;
+        params.qnn = `%${q.toLowerCase().replace(/\s+/g, "")}%`;
       }
+
       if (trade) {
-        // naive CSV containment
         where.push(
           `(',' || LOWER(REPLACE(REPLACE(REPLACE(t.trade_types, ';', ','), '|', ','), ' ', '')) || ',') LIKE @tradeCsv`
         );
@@ -179,7 +169,6 @@ module.exports = (router, ctx) => {
           `COALESCE(t.web_url,'') <> '' OR INSTR(COALESCE(t.social_links_json,''),'http') > 0`
         );
 
-      // near=
       if (near) {
         let tok = null;
         try {
@@ -214,9 +203,7 @@ module.exports = (router, ctx) => {
 
       const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
-      // flags subselect if table exists
-      const hasFlags = tblExists("tradesmen_flags");
-      const flagsSelect = hasFlags
+      const flagsSelect = tblExists("tradesmen_flags")
         ? `(SELECT COUNT(*) FROM tradesmen_flags f WHERE f.user_id = t.user_id AND COALESCE(f.resolved_at,'')='') AS open_flags`
         : `0 AS open_flags`;
 
@@ -228,24 +215,26 @@ module.exports = (router, ctx) => {
       const rows = db
         .prepare(
           `
-          SELECT
-            t.user_id, t.company_name, t.contact_name, t.phone, t.email,
-            t.trade_types, t.service_areas,
-            t.vmb_score,
-            t.company_number, t.ch_status,
-            t.web_verified, t.web_url, t.social_links_json,
-            t.photo_count, t.discount_min_percent, t.discount_max_percent,
-            t.warranty_months, t.supporting_doc_count,
-            t.likes_count, t.wins_count,            -- NEW
-            COALESCE(t.status, t.subscription_status, 'draft') AS status,
-            ${flagsSelect},
-            t.created_at,                            -- NEW
-            t.updated_at
-          FROM tradesmen t
-          ${whereSql}
-          ORDER BY t.vmb_score DESC, t.updated_at DESC, t.company_name ASC
-          LIMIT @limit OFFSET @offset
-        `
+        SELECT
+          t.user_id, t.company_name, t.contact_name, t.phone, t.email,
+          t.trade_types, t.service_areas,
+          t.vmb_score,
+          t.company_number, t.ch_status,
+          t.web_verified, t.web_url, t.social_links_json,
+          t.photo_count, t.discount_min_percent, t.discount_max_percent,
+          t.warranty_months, t.supporting_doc_count,
+          t.likes_count, t.wins_count,
+          COALESCE(t.status, t.subscription_status, 'draft') AS status,
+          COALESCE(t.plan, 'free') AS plan,
+          t.purchased_plan AS purchased_plan,
+          ${flagsSelect},
+          t.created_at,
+          t.updated_at
+        FROM tradesmen t
+        ${whereSql}
+        ORDER BY t.vmb_score DESC, t.updated_at DESC, t.company_name ASC
+        LIMIT @limit OFFSET @offset
+      `
         )
         .all({ ...params, limit, offset });
 
@@ -258,14 +247,15 @@ module.exports = (router, ctx) => {
         const urls = [];
         if (r.web_url) urls.push(r.web_url);
         urls.push(...social);
-
         return {
           userId: r.user_id,
           company: r.company_name,
           status: String(r.status || "draft"),
+          plan: r.plan ?? "free",
+          purchasedPlan: r.purchased_plan ?? null,
           openFlags: Number(r.open_flags || 0),
           urls,
-          score: Number(r.vmb_score || 0), // 0.0–10.0 (fraction)
+          score: Number(r.vmb_score || 0),
           companyNumber: r.company_number || null,
           chStatus: r.ch_status || null,
           webVerified: Number(r.web_verified || 0) === 1,
@@ -277,9 +267,9 @@ module.exports = (router, ctx) => {
           discountMax: Number(r.discount_max_percent || 0),
           warrantyMonths: Number(r.warranty_months || 0),
           docs: Number(r.supporting_doc_count || 0),
-          likes: Number(r.likes_count || 0),       // NEW
-          wins: Number(r.wins_count || 0),         // NEW
-          createdAt: r.created_at,                 // NEW
+          likes: Number(r.likes_count || 0),
+          wins: Number(r.wins_count || 0),
+          createdAt: r.created_at,
           updatedAt: r.updated_at,
         };
       });
@@ -291,9 +281,7 @@ module.exports = (router, ctx) => {
     }
   };
 
-  // IMPORTANT: mount WITHOUT the /api prefix (the app mounts the router under /api)
   router.get(PATH, auth, handler);
-
   if (!ctx.__logged_tradesmen_leaderboard_get) {
     ctx.__logged_tradesmen_leaderboard_get = true;
     console.log(`[routes] mounted: GET ${API_BASE}${PATH}`);
