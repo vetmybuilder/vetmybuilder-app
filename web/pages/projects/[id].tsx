@@ -1,3 +1,4 @@
+// web/pages/projects/[id].tsx
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
@@ -13,6 +14,9 @@ import ContactDetailsCard from "@/components/project/ContactDetailsCard";
 import PlansModal from "@/components/plans/PlansModal";
 import { getPlan } from "@/shared/lib/plans";
 import type { PlanId } from "@/shared/lib/plans";
+
+// Share modal (UI)
+import ShareProfileModal from "@/components/fileUpload/ShareProfileModal";
 
 /* ===== Types ===== */
 type Project = {
@@ -232,7 +236,7 @@ export default function ProjectView() {
     };
   }, [api, projectId, router.isReady, authLoading, user]);
 
-  const isOwner = !!(user && project && user.uid === project.ownerUserId);
+  const isOwner = !!(user && project && user.uid === project?.ownerUserId);
   const statusLower = (project?.status || "").toLowerCase();
   const isArchived = statusLower === "archived";
   const isCompleted = statusLower === "completed";
@@ -336,10 +340,12 @@ export default function ProjectView() {
   const [shareCheckDone, setShareCheckDone] = useState(false);
   const [plansOpen, setPlansOpen] = useState(false);
 
+  // Share modal state
+  const [shareOpen, setShareOpen] = useState(false);
+
   // One-off checkout state
   const [checkingOut, setCheckingOut] = useState(false);
 
-  // Updated to use plans price (£9.99) if present
   const startOneOffCheckout = async () => {
     if (!project?.id || checkingOut) return;
     setCheckingOut(true);
@@ -357,7 +363,7 @@ export default function ProjectView() {
         items: [
           {
             label: "Unlock homeowner contact",
-            price: { amount: pence, currency: "GBP" }, // £9.99
+            price: { amount: pence, currency: "GBP" },
             quantity: 1,
           },
         ],
@@ -510,7 +516,7 @@ export default function ProjectView() {
     subStatus === "active" &&
     currentPlanId !== "free";
 
-  const unlockQuery = String(router.query.unlock || ""); // ?unlock=success
+  const unlockQuery = String(router.query.unlock || "");
   const canAttemptContact =
     !!project &&
     isTrades &&
@@ -561,7 +567,8 @@ export default function ProjectView() {
       if (data?.ok || data?.alreadyShared) setInterestSent(true);
       setFlash({
         kind: "success",
-        text: "Thanks! We’ve notified the owner and shared your profile. They can view it from their notifications.",
+        text:
+          "Thanks! We’ve notified the owner and shared your profile. They can view it from their notifications.",
       });
     } catch (e: any) {
       setFlash({
@@ -578,7 +585,6 @@ export default function ProjectView() {
 
   const onUpgradeClick = () => setPlansOpen(true);
 
-  // Plan selected from modal (free uses this path; paid plans usually checkout inside the modal)
   const handlePlanSelect = (planId: PlanId) => {
     setPlansOpen(false);
     if (planId === "free") {
@@ -588,7 +594,6 @@ export default function ProjectView() {
       });
       return;
     }
-    // If your modal ever calls onSelect for paid plans, keep safety:
     if (planId === "unlock_contact") {
       void startOneOffCheckout();
     } else {
@@ -661,6 +666,77 @@ export default function ProjectView() {
     };
   }, [api, project?.id, isTrades]);
 
+  // ========== NEW: Copy Invite Link ==========
+  const [copyingInvite, setCopyingInvite] = useState(false);
+
+  const copyText = async (text: string) => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch {
+      /* fall back */
+    }
+    try {
+      const el = document.createElement("textarea");
+      el.value = text;
+      el.setAttribute("readonly", "");
+      el.style.position = "absolute";
+      el.style.left = "-9999px";
+      document.body.appendChild(el);
+      el.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(el);
+      return ok;
+    } catch {
+      return false;
+    }
+  };
+
+  const buildFallbackInvite = (pid: number) =>
+    `${window.location.origin}/projects/${pid}/recommend`;
+
+  const handleCopyInvite = async () => {
+    if (!project || copyingInvite) return;
+    setCopyingInvite(true);
+    try {
+      // Try to get a canonical invite link from the API if available
+      let inviteUrl: string | null = null;
+      try {
+        const { data } = await api.get(`/api/projects/${project.id}/invite-link`);
+        inviteUrl =
+          data?.url || data?.inviteUrl || data?.invite || data?.link || null;
+      } catch {
+        // ignore; we’ll fall back
+      }
+
+      if (!inviteUrl) {
+        inviteUrl = buildFallbackInvite(project.id);
+      }
+
+      const ok = await copyText(inviteUrl);
+      if (!ok) throw new Error("Clipboard not available");
+
+      setFlash({
+        kind: "success",
+        text: "Invite link copied. Share it with friends to collect recommendations.",
+      });
+    } catch (e: any) {
+      setFlash({
+        kind: "error",
+        text: e?.message || "Couldn’t copy invite link. Please try again.",
+      });
+    } finally {
+      setCopyingInvite(false);
+    }
+  };
+  // ===========================================
+
+  // Eligibility -> in-card share
+  const showTopRightShare =
+    !!project && isTrades && !isOwner && isLive && !isClosed && !interestSent && shareCheckDone;
+
   /* ===== Render ===== */
   return (
     <AuthedOnly>
@@ -669,10 +745,7 @@ export default function ProjectView() {
         data-testid="project-view-page"
       >
         {(authLoading || (router.isReady && loading)) && (
-          <p
-            className="py-10 text-sm text-slate-500"
-            data-testid="project-loading"
-          >
+          <p className="py-10 text-sm text-slate-500" data-testid="project-loading">
             Loading…
           </p>
         )}
@@ -711,38 +784,41 @@ export default function ProjectView() {
                   onPublish={onPublish}
                   onArchive={onArchive}
                   onUnarchive={onUnarchive}
-                  onCopyInvite={() => {}}
+                  onCopyInvite={handleCopyInvite} // ← FIXED
                   onOpenCloseModal={() => setCloseOpen(true)}
                   canAddRec={canAddRec}
                   footerRight={
-                    isTrades && canExpressInterest ? (
-                      <div
-                        className="flex flex-col gap-2 rounded-lg bg-slate-50 p-3 text-sm"
-                        data-testid="share-profile-cta"
-                      >
-                        <p className="text-slate-700">
-                          Let the homeowner know you’re interested. We’ll share
-                          your VetMyBuilder profile on this project so they can
-                          review your work and get in touch.
-                        </p>
-                        <button
-                          className="btn"
-                          onClick={onExpressInterest}
-                          disabled={interestBusy}
-                          data-testid="btn-express-interest"
+                    showTopRightShare
+                      ? null
+                      : isTrades && !!project && !isOwner && !isClosed && isLive && !interestSent && shareCheckDone
+                      ? (
+                        <div
+                          className="flex flex-col gap-2 rounded-lg bg-slate-50 p-3 text-sm"
+                          data-testid="share-profile-cta"
                         >
-                          {interestBusy ? "Sending…" : "Share profile"}
-                        </button>
-                        <p
-                          className="text-xs text-slate-500"
-                          data-testid="share-profile-tip"
-                        >
-                          Tip: Add photos and complete verifications to improve
-                          your chances.
-                        </p>
-                      </div>
-                    ) : null
+                          <p className="text-slate-700">
+                            Let the homeowner know you’re interested. We’ll share
+                            your VetMyBuilder profile on this project so they can
+                            review your work and get in touch.
+                          </p>
+                          <button
+                            className="btn"
+                            onClick={onExpressInterest}
+                            disabled={interestBusy}
+                            data-testid="btn-express-interest"
+                          >
+                            {interestBusy ? "Sending…" : "Share profile"}
+                          </button>
+                          <p className="text-xs text-slate-500" data-testid="share-profile-tip">
+                            Tip: Add photos and complete verifications to improve your chances.
+                          </p>
+                        </div>
+                      )
+                      : null
                   }
+                  showShareButton={showTopRightShare}
+                  onClickShare={() => setShareOpen(true)}
+                  shareBusy={interestBusy}
                 />
               </div>
 
@@ -788,12 +864,28 @@ export default function ProjectView() {
         projectId={project?.id as number}
       />
 
+      {/* Share Modal (UI-only for Part 1) */}
+      <ShareProfileModal
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        projectName={project?.name}
+        onSubmit={async (files) => {
+          setShareOpen(false);
+          setFlash({
+            kind: "success",
+            text:
+              files.length > 0
+                ? "Photos added. We’ll share these with your profile when you submit."
+                : "No photos added.",
+          });
+        }}
+      />
+
       <PlansModal
         isOpen={plansOpen}
         onClose={() => setPlansOpen(false)}
-        onSelect={handlePlanSelect}
         currentPlanId={currentPlanId}
-        projectId={project?.id as number}
+        projectId={project?.id ?? undefined}
       />
     </AuthedOnly>
   );

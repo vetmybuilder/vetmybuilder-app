@@ -141,7 +141,6 @@ module.exports = (router, ctx) => {
       }
 
       if (q) {
-        // 🔎 search by company name OR exact/partial company number
         where.push(
           `(LOWER(t.company_name) LIKE @q OR REPLACE(LOWER(COALESCE(t.company_number,'')),' ','') LIKE @qnn)`
         );
@@ -207,6 +206,19 @@ module.exports = (router, ctx) => {
         ? `(SELECT COUNT(*) FROM tradesmen_flags f WHERE f.user_id = t.user_id AND COALESCE(f.resolved_at,'')='') AS open_flags`
         : `0 AS open_flags`;
 
+      // NEW: also return CSV of pending project_ids so UI can auto-approve without prompting.
+      const unlocksSelect = tblExists("project_contact_unlocks")
+        ? `
+          (SELECT COUNT(*) FROM project_contact_unlocks u
+             WHERE u.buyer_uid = t.user_id AND LOWER(COALESCE(u.status,''))='approved') AS approved_unlocks,
+          (SELECT COUNT(*) FROM project_contact_unlocks u
+             WHERE u.buyer_uid = t.user_id AND LOWER(COALESCE(u.status,''))='pending')  AS pending_unlocks,
+          (SELECT GROUP_CONCAT(u.project_id)
+             FROM project_contact_unlocks u
+            WHERE u.buyer_uid = t.user_id AND LOWER(COALESCE(u.status,''))='pending')  AS pending_unlocks_csv
+        `
+        : `0 AS approved_unlocks, 0 AS pending_unlocks, '' AS pending_unlocks_csv`;
+
       const totalRow = db
         .prepare(`SELECT COUNT(*) AS c FROM tradesmen t ${whereSql}`)
         .get(params);
@@ -228,6 +240,7 @@ module.exports = (router, ctx) => {
           COALESCE(t.plan, 'free') AS plan,
           t.purchased_plan AS purchased_plan,
           ${flagsSelect},
+          ${unlocksSelect},
           t.created_at,
           t.updated_at
         FROM tradesmen t
@@ -247,6 +260,16 @@ module.exports = (router, ctx) => {
         const urls = [];
         if (r.web_url) urls.push(r.web_url);
         urls.push(...social);
+
+        // parse csv -> number[]
+        const pendingCsv = typeof r.pending_unlocks_csv === "string" ? r.pending_unlocks_csv : "";
+        const pendingIds = pendingCsv
+          ? pendingCsv
+              .split(",")
+              .map((s) => Number(s.trim()))
+              .filter((n) => Number.isFinite(n) && n > 0)
+          : [];
+
         return {
           userId: r.user_id,
           company: r.company_name,
@@ -271,6 +294,13 @@ module.exports = (router, ctx) => {
           wins: Number(r.wins_count || 0),
           createdAt: r.created_at,
           updatedAt: r.updated_at,
+
+          // existing counts
+          oneOffUnlocks: Number(r.approved_unlocks || 0),
+          oneOffUnlocksPending: Number(r.pending_unlocks || 0),
+
+          // NEW: the actual project IDs the UI can use
+          pendingUnlockProjectIds: pendingIds,
         };
       });
 

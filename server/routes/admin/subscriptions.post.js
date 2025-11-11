@@ -85,6 +85,26 @@ module.exports = (router, ctx) => {
     );
   }
 
+  /** Get most recent draft subscription row id for a user & plan (if any) */
+  function getLatestDraftSubId(userId, planId) {
+    try {
+      const row = db
+        .prepare(
+          `SELECT id
+             FROM payments_subscription
+            WHERE buyer_uid = ?
+              AND plan_id   = ?
+              AND status    = 'draft'
+            ORDER BY created_at DESC
+            LIMIT 1`
+        )
+        .get(userId, planId);
+      return row?.id || null;
+    } catch {
+      return null;
+    }
+  }
+
   /** Append audit row */
   function audit({
     userId,
@@ -141,6 +161,8 @@ module.exports = (router, ctx) => {
 
       db.exec("BEGIN");
       const nowIso = new Date().toISOString();
+
+      // 1) Activate tradesman plan
       const result = db
         .prepare(
           `UPDATE tradesmen
@@ -153,6 +175,17 @@ module.exports = (router, ctx) => {
         )
         .run({ uid: userId, pending, now: nowIso });
 
+      // 2) Flip the latest draft subscription for THIS plan -> succeeded
+      const subId = getLatestDraftSubId(userId, pending);
+      if (subId) {
+        db.prepare(
+          `UPDATE payments_subscription
+              SET status = 'succeeded'
+            WHERE id = ?`
+        ).run(subId);
+      }
+
+      // 3) Audit
       audit({
         userId,
         event: "approve",
@@ -198,6 +231,8 @@ module.exports = (router, ctx) => {
 
       db.exec("BEGIN");
       const nowIso = new Date().toISOString();
+
+      // 1) Downgrade tradesman to free + clear pending
       const result = db
         .prepare(
           `UPDATE tradesmen
@@ -210,6 +245,19 @@ module.exports = (router, ctx) => {
         )
         .run({ uid: userId, now: nowIso });
 
+      // 2) Mark latest draft subscription for the pending plan -> rejected
+      const subId = before.purchased_plan
+        ? getLatestDraftSubId(userId, before.purchased_plan)
+        : null;
+      if (subId) {
+        db.prepare(
+          `UPDATE payments_subscription
+              SET status = 'rejected'
+            WHERE id = ?`
+        ).run(subId);
+      }
+
+      // 3) Audit
       audit({
         userId,
         event: "reject",

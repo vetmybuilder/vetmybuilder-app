@@ -5,6 +5,7 @@ import AuthedOnly from "@/components/AuthedOnly";
 import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 
+/* ========= Types ========= */
 type Item = {
   userId: string;
   company: string;
@@ -34,7 +35,10 @@ type Item = {
   purchasedPlan?: "free" | "gold" | "platinum" | string | null;
   purchased_plan?: "free" | "gold" | "platinum" | string | null;
 
-  oneOffUnlocks?: number | string | null; // (optional) if server later returns it
+  // New data from API:
+  oneOffUnlocks?: number | string | null; // approved count
+  oneOffUnlocksPending?: number | string | null; // pending count
+  pendingUnlockProjectIds?: number[] | null; // exact pending IDs (optional)
 };
 
 type Resp = { items: Item[]; total: number; offset: number; limit: number };
@@ -83,6 +87,9 @@ export default function AdminTradesmenLeaderboardPage() {
   const [err, setErr] = useState<string | null>(null);
   const [mutatingUid, setMutatingUid] = useState<string | null>(null);
   const [menuUid, setMenuUid] = useState<string | null>(null);
+
+  // NEW: local confirm dialog state for “Cancel now”
+  const [confirmCancelUid, setConfirmCancelUid] = useState<string | null>(null);
 
   // sorting (default: score desc)
   const [sortKey, setSortKey] = useState<SortKey>("score");
@@ -166,7 +173,7 @@ export default function AdminTradesmenLeaderboardPage() {
     load();
   };
 
-  // ----- Admin actions -----
+  /* ========= Admin actions ========= */
   async function setStatus(
     uid: string,
     status: "draft" | "active" | "inactive"
@@ -209,8 +216,109 @@ export default function AdminTradesmenLeaderboardPage() {
     }
   }
 
+  // ----- Admin cancel subscription (new) -----
+  async function adminCancel(uid: string, immediate = false) {
+    setMutatingUid(uid);
+    const url = `/api/admin/tradesmen/${uid}/subscription/cancel`;
+    const body = immediate ? { immediate: true } : {};
+    console.log("[admin UI] cancel click", { uid, immediate, url, body });
+
+    try {
+      const { data } = await api.post(url, body);
+      console.log("[admin UI] cancel response", { uid, immediate, data });
+      await load();
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.error ||
+        e?.message ||
+        (immediate
+          ? "Failed to cancel now"
+          : "Failed to schedule cancellation");
+      console.log("[admin UI] cancel error", {
+        uid,
+        immediate,
+        error: msg,
+        raw: e,
+      });
+      setErr(msg);
+    } finally {
+      setMutatingUid(null);
+      setMenuUid(null);
+    }
+  }
+  // ----- one-off unlocks: no popups, auto if exactly one; otherwise brief banner
+  function getPendingIds(it: Item): number[] {
+    const arr = Array.isArray(it.pendingUnlockProjectIds)
+      ? it.pendingUnlockProjectIds
+      : [];
+    return arr.filter((n) => Number.isFinite(n));
+  }
+
+  async function approveUnlock(uid: string) {
+    const row = items.find((i) => i.userId === uid);
+    if (!row) return;
+    const ids = getPendingIds(row);
+    if (ids.length === 0) {
+      setErr("No pending unlocks for this tradesman.");
+      return;
+    }
+    setMutatingUid(uid);
+    try {
+      await api.post(`/api/admin/tradesmen/${uid}/unlocks/approve`, {});
+      await load();
+    } catch (e: any) {
+      const pj = e?.response?.data?.projectIds;
+      if (Array.isArray(pj) && pj.length > 1) {
+        setErr(
+          `Multiple pending unlocks: ${pj.join(
+            ", "
+          )}. Please approve a specific project from its page.`
+        );
+      } else {
+        setErr(
+          e?.response?.data?.error || e?.message || "Failed to approve unlock"
+        );
+      }
+    } finally {
+      setMutatingUid(null);
+      setMenuUid(null);
+    }
+  }
+
+  async function rejectUnlock(uid: string) {
+    const row = items.find((i) => i.userId === uid);
+    if (!row) return;
+    const ids = getPendingIds(row);
+    if (ids.length === 0) {
+      setErr("No pending unlocks for this tradesman.");
+      return;
+    }
+    setMutatingUid(uid);
+    try {
+      await api.post(`/api/admin/tradesmen/${uid}/unlocks/reject`, {});
+      await load();
+    } catch (e: any) {
+      const pj = e?.response?.data?.projectIds;
+      if (Array.isArray(pj) && pj.length > 1) {
+        setErr(
+          `Multiple pending unlocks: ${pj.join(
+            ", "
+          )}. Please reject a specific project from its page.`
+        );
+      } else {
+        setErr(
+          e?.response?.data?.error || e?.message || "Failed to reject unlock"
+        );
+      }
+    } finally {
+      setMutatingUid(null);
+      setMenuUid(null);
+    }
+  }
+
+  // flag (unchanged)
   async function flag(uid: string) {
-    const reason = window.prompt("Reason for flag?");
+    const reason = window.prompt("Reason for flag?"); // unchanged per your note
     if (!reason) return;
     setMutatingUid(uid);
     try {
@@ -227,6 +335,7 @@ export default function AdminTradesmenLeaderboardPage() {
     }
   }
 
+  /* ========= Render helpers ========= */
   const StatusChip = ({ value }: { value: Item["status"] }) => {
     const cls =
       value === "active"
@@ -329,14 +438,21 @@ export default function AdminTradesmenLeaderboardPage() {
         );
       }
       case "unlocks": {
-        const raw = it.oneOffUnlocks;
-        const n =
-          typeof raw === "number"
-            ? raw
-            : typeof raw === "string" && raw.trim() !== ""
-            ? Number(raw)
-            : null;
-        return n ?? -Infinity;
+        const a = it.oneOffUnlocks;
+        const p = it.oneOffUnlocksPending;
+        const appr =
+          typeof a === "number"
+            ? a
+            : typeof a === "string" && a.trim()
+            ? Number(a)
+            : 0;
+        const pend =
+          typeof p === "number"
+            ? p
+            : typeof p === "string" && p.trim()
+            ? Number(p)
+            : 0;
+        return appr * 1e6 + pend; // approved first, then pending
       }
       case "createdAt":
         return new Date(it.createdAt || 0).getTime() || 0;
@@ -363,55 +479,10 @@ export default function AdminTradesmenLeaderboardPage() {
     return copy;
   }, [items, sortKey, sortDir]);
 
-  const SortHeader = ({
-    label,
-    k,
-    title,
-    className = "",
-  }: {
-    label: string;
-    k: SortKey;
-    title?: string;
-    className?: string;
-  }) => {
-    const active = sortKey === k;
-    const dir = active ? sortDir : undefined;
-    const defaultDir: SortDir =
-      k === "score" ||
-      k === "unlocks" ||
-      k === "openFlags" ||
-      k === "updatedAt" ||
-      k === "createdAt"
-        ? "desc"
-        : "asc";
-    return (
-      <button
-        type="button"
-        title={title || `Sort by ${label}`}
-        className={`flex items-center gap-1 px-2 py-2 hover:bg-gray-100 rounded ${className}`}
-        onClick={() => {
-          if (active) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-          else {
-            setSortKey(k);
-            setSortDir(defaultDir);
-          }
-        }}
-        data-testid={`th-sort-${k}`}
-        aria-sort={
-          active ? (dir === "asc" ? "ascending" : "descending") : "none"
-        }
-      >
-        <span>{label}</span>
-        <span className="text-xs opacity-70">
-          {active ? (dir === "asc" ? "▲" : "▼") : "↕︎"}
-        </span>
-      </button>
-    );
-  };
-
   const canPrev = offset > 0;
   const canNext = offset + limit < total;
 
+  /* ========= Render ========= */
   return (
     <>
       <Head>
@@ -436,11 +507,19 @@ export default function AdminTradesmenLeaderboardPage() {
 
           {!forbidden && (
             <>
-              {/* Filters (redesigned) */}
+              {/* Inline error banner (for multi-pending unlocks, etc.) */}
+              {err && (
+                <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  {err}
+                </div>
+              )}
+
+              {/* Filters */}
               <div
                 className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-4"
                 data-testid="filters"
               >
+                {/* ... unchanged filters ... */}
                 <label className="md:col-span-2 text-sm text-slate-700">
                   <span className="block mb-1">
                     Search (name or company number)
@@ -453,7 +532,6 @@ export default function AdminTradesmenLeaderboardPage() {
                     data-testid="filter-q"
                   />
                 </label>
-
                 <label className="text-sm text-slate-700">
                   <span className="block mb-1">Trade</span>
                   <input
@@ -464,7 +542,6 @@ export default function AdminTradesmenLeaderboardPage() {
                     data-testid="filter-trade"
                   />
                 </label>
-
                 <label className="text-sm text-slate-700">
                   <span className="block mb-1">Near</span>
                   <input
@@ -475,7 +552,6 @@ export default function AdminTradesmenLeaderboardPage() {
                     data-testid="filter-near"
                   />
                 </label>
-
                 <div className="flex items-end gap-2">
                   <button
                     onClick={resetAndSearch}
@@ -504,11 +580,11 @@ export default function AdminTradesmenLeaderboardPage() {
                     Clear
                   </button>
                 </div>
-
                 <div
                   className="md:col-span-6 flex flex-wrap gap-4 mt-1"
                   data-testid="filter-toggles"
                 >
+                  {/* ... toggles unchanged ... */}
                   <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -566,19 +642,13 @@ export default function AdminTradesmenLeaderboardPage() {
                 </div>
               </div>
 
-              {/* Error */}
-              {err && (
-                <div className="mb-4 text-sm text-red-600">
-                  Request failed: {err}
-                </div>
-              )}
-
               {/* Table */}
               <div
                 className="overflow-x-visible border rounded-xl pr-4"
                 data-testid="table"
               >
                 <table className="w-full table-fixed text-sm">
+                  {/* colgroup + thead unchanged */}
                   <colgroup>
                     <col className="w-[12%]" />
                     <col className="w-[6%]" />
@@ -596,54 +666,148 @@ export default function AdminTradesmenLeaderboardPage() {
                     <col className="w-[12%]" />
                     <col className="w-[7%]" />
                   </colgroup>
-
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="text-left">
-                        <SortHeader label="Company" k="company" />
+                        <SortHeader
+                          label="Company"
+                          k="company"
+                          sortKey={sortKey}
+                          setSortKey={setSortKey}
+                          sortDir={sortDir}
+                          setSortDir={setSortDir}
+                        />
                       </th>
                       <th className="text-left">
-                        <SortHeader label="VMB Score" k="score" />
+                        <SortHeader
+                          label="VMB Score"
+                          k="score"
+                          sortKey={sortKey}
+                          setSortKey={setSortKey}
+                          sortDir={sortDir}
+                          setSortDir={setSortDir}
+                        />
                       </th>
                       <th className="text-left">
-                        <SortHeader label="CH" k="chStatus" />
+                        <SortHeader
+                          label="CH"
+                          k="chStatus"
+                          sortKey={sortKey}
+                          setSortKey={setSortKey}
+                          sortDir={sortDir}
+                          setSortDir={setSortDir}
+                        />
                       </th>
                       <th className="text-left">
-                        <SortHeader label="Web" k="webVerified" />
+                        <SortHeader
+                          label="Web"
+                          k="webVerified"
+                          sortKey={sortKey}
+                          setSortKey={setSortKey}
+                          sortDir={sortDir}
+                          setSortDir={setSortDir}
+                        />
                       </th>
                       <th className="text-left">
-                        <SortHeader label="Trades" k="trades" />
+                        <SortHeader
+                          label="Trades"
+                          k="trades"
+                          sortKey={sortKey}
+                          setSortKey={setSortKey}
+                          sortDir={sortDir}
+                          setSortDir={setSortDir}
+                        />
                       </th>
                       <th className="text-left">
-                        <SortHeader label="Areas" k="areas" />
+                        <SortHeader
+                          label="Areas"
+                          k="areas"
+                          sortKey={sortKey}
+                          setSortKey={setSortKey}
+                          sortDir={sortDir}
+                          setSortDir={setSortDir}
+                        />
                       </th>
                       <th className="text-left">
-                        <SortHeader label="Status" k="status" />
+                        <SortHeader
+                          label="Status"
+                          k="status"
+                          sortKey={sortKey}
+                          setSortKey={setSortKey}
+                          sortDir={sortDir}
+                          setSortDir={setSortDir}
+                        />
                       </th>
                       <th className="text-left">
-                        <SortHeader label="Plan" k="plan" />
+                        <SortHeader
+                          label="Plan"
+                          k="plan"
+                          sortKey={sortKey}
+                          setSortKey={setSortKey}
+                          sortDir={sortDir}
+                          setSortDir={setSortDir}
+                        />
                       </th>
                       <th className="text-left">
-                        <SortHeader label="Flags" k="openFlags" />
+                        <SortHeader
+                          label="Flags"
+                          k="openFlags"
+                          sortKey={sortKey}
+                          setSortKey={setSortKey}
+                          sortDir={sortDir}
+                          setSortDir={setSortDir}
+                        />
                       </th>
                       <th className="text-left">
-                        <SortHeader label="URLs" k="urls" />
+                        <SortHeader
+                          label="URLs"
+                          k="urls"
+                          sortKey={sortKey}
+                          setSortKey={setSortKey}
+                          sortDir={sortDir}
+                          setSortDir={setSortDir}
+                        />
                       </th>
                       <th className="text-left">
                         <SortHeader
                           label="Signals"
                           k="signals"
                           title="Sort by composite signals"
+                          sortKey={sortKey}
+                          setSortKey={setSortKey}
+                          sortDir={sortDir}
+                          setSortDir={setSortDir}
                         />
                       </th>
                       <th className="text-left">
-                        <SortHeader label="Unlocks" k="unlocks" />
+                        <SortHeader
+                          label="Unlocks"
+                          k="unlocks"
+                          sortKey={sortKey}
+                          setSortKey={setSortKey}
+                          sortDir={sortDir}
+                          setSortDir={setSortDir}
+                        />
                       </th>
                       <th className="text-left">
-                        <SortHeader label="Joined" k="createdAt" />
+                        <SortHeader
+                          label="Joined"
+                          k="createdAt"
+                          sortKey={sortKey}
+                          setSortKey={setSortKey}
+                          sortDir={sortDir}
+                          setSortDir={setSortDir}
+                        />
                       </th>
                       <th className="text-left">
-                        <SortHeader label="Updated" k="updatedAt" />
+                        <SortHeader
+                          label="Updated"
+                          k="updatedAt"
+                          sortKey={sortKey}
+                          setSortKey={setSortKey}
+                          sortDir={sortDir}
+                          setSortDir={setSortDir}
+                        />
                       </th>
                       <th className="text-left px-2 py-2">Actions</th>
                     </tr>
@@ -671,18 +835,28 @@ export default function AdminTradesmenLeaderboardPage() {
                       const hasPending = !!pendingPlan;
                       const canApproveReject = hasPending && !isRowBusy;
 
-                      // unlocks display (if server later returns it)
-                      const raw = it.oneOffUnlocks;
-                      const unlocksNum =
-                        typeof raw === "number"
-                          ? raw
-                          : typeof raw === "string" && raw.trim() !== ""
-                          ? Number(raw)
-                          : null;
+                      // unlocks display (approved + pending)
+                      const a = it.oneOffUnlocks;
+                      const p = it.oneOffUnlocksPending;
+                      const approved =
+                        typeof a === "number"
+                          ? a
+                          : typeof a === "string" && a.trim() !== ""
+                          ? Number(a)
+                          : 0;
+                      const pending =
+                        typeof p === "number"
+                          ? p
+                          : typeof p === "string" && p.trim() !== ""
+                          ? Number(p)
+                          : 0;
                       const unlocksDisplay =
-                        unlocksNum !== null && Number.isFinite(unlocksNum)
-                          ? String(unlocksNum)
-                          : "None";
+                        pending > 0
+                          ? `${approved} (${pending} pending)`
+                          : String(approved);
+
+                      // NEW: gate unlock actions when there are no pending unlocks
+                      const canApproveRejectUnlock = pending > 0 && !isRowBusy;
 
                       const chChip =
                         (it.chStatus || "").toLowerCase() === "verified" ? (
@@ -709,6 +883,10 @@ export default function AdminTradesmenLeaderboardPage() {
                           ? `${it.discountMax}%`
                           : `${it.discountMin}–${it.discountMax}%`
                         : "None";
+
+                      // NEW: canCancel based on plan !== 'free'
+                      const effectivePlan = planLabel(it.plan);
+                      const canCancel = effectivePlan !== "free" && !isRowBusy;
 
                       return (
                         <tr
@@ -745,9 +923,7 @@ export default function AdminTradesmenLeaderboardPage() {
                           <td className="px-2 py-2">
                             <StatusChip value={it.status} />
                           </td>
-                          <td className="px-2 py-2 text-xs">
-                            {planLabel(it.plan)}
-                          </td>
+                          <td className="px-2 py-2 text-xs">{effectivePlan}</td>
                           <td className="px-2 py-2">
                             <FlagChip n={it.openFlags} />
                           </td>
@@ -798,7 +974,6 @@ export default function AdminTradesmenLeaderboardPage() {
                               : "—"}
                           </td>
                           <td className="px-2 py-2 text-xs">
-                            {/* date only (no time) */}
                             {new Date(it.updatedAt).toLocaleDateString("en-GB")}
                           </td>
 
@@ -866,6 +1041,77 @@ export default function AdminTradesmenLeaderboardPage() {
                                     }
                                   >
                                     Reject pending plan
+                                  </button>
+
+                                  <div className="my-1 border-t border-gray-100" />
+
+                                  {/* One-off unlock approval/rejection (no popups) */}
+                                  <button
+                                    role="menuitem"
+                                    className="block w-full px-3 py-2 text-left text-sm hover:bg-sky-50 disabled:opacity-50"
+                                    onClick={() => approveUnlock(it.userId)}
+                                    disabled={!canApproveRejectUnlock}
+                                    title={
+                                      canApproveRejectUnlock
+                                        ? "Approve a one-off project unlock"
+                                        : "No pending unlocks to approve"
+                                    }
+                                  >
+                                    Approve one-off unlock
+                                  </button>
+                                  <button
+                                    role="menuitem"
+                                    className="block w-full px-3 py-2 text-left text-sm hover:bg-amber-50 disabled:opacity-50"
+                                    onClick={() => rejectUnlock(it.userId)}
+                                    disabled={!canApproveRejectUnlock}
+                                    title={
+                                      canApproveRejectUnlock
+                                        ? "Reject a one-off project unlock"
+                                        : "No pending unlocks to reject"
+                                    }
+                                  >
+                                    Reject one-off unlock
+                                  </button>
+
+                                  <div className="my-1 border-t border-gray-100" />
+
+                                  {/* NEW: Admin cancel actions */}
+                                  <button
+                                    role="menuitem"
+                                    className="block w-full px-3 py-2 text-left text-sm hover:bg-rose-50 disabled:opacity-50"
+                                    onClick={() =>
+                                      adminCancel(it.userId, false)
+                                    }
+                                    disabled={!canCancel}
+                                    title={
+                                      canCancel
+                                        ? "Cancel at period end"
+                                        : "No active subscription to cancel"
+                                    }
+                                    data-testid={`cancel-subscription-${it.userId}`}
+                                  >
+                                    Cancel subscription (period end)
+                                  </button>
+                                  <button
+                                    role="menuitem"
+                                    className="block w-full px-3 py-2 text-left text-sm hover:bg-rose-50 disabled:opacity-50"
+                                    onClick={() => {
+                                      console.log(
+                                        "[admin UI] open confirm cancel-now",
+                                        { uid: it.userId }
+                                      );
+                                      setMenuUid(null);
+                                      setConfirmCancelUid(it.userId);
+                                    }}
+                                    disabled={!canCancel}
+                                    title={
+                                      canCancel
+                                        ? "Cancel immediately"
+                                        : "No active subscription to cancel"
+                                    }
+                                    data-testid={`cancel-subscription-now-${it.userId}`}
+                                  >
+                                    Cancel subscription now
                                   </button>
 
                                   <div className="my-1 border-t border-gray-100" />
@@ -971,6 +1217,93 @@ export default function AdminTradesmenLeaderboardPage() {
           )}
         </div>
       </AuthedOnly>
+
+      {/* ===== Inline Confirm Dialog (no browser confirm) ===== */}
+      {confirmCancelUid && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
+          <div className="w-[420px] rounded-xl bg-white p-5 shadow-xl">
+            <h3 className="text-base font-semibold mb-2">
+              Confirm cancellation
+            </h3>
+            <p className="text-sm text-slate-700 mb-4">
+              This downgrades user to the Free plan.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                className="px-3 py-2 border rounded"
+                onClick={() => setConfirmCancelUid(null)}
+                disabled={mutatingUid === confirmCancelUid}
+              >
+                Keep plan
+              </button>
+              <button
+                className="px-3 py-2 rounded bg-rose-600 text-white disabled:opacity-50"
+                onClick={() => {
+                  const uid = confirmCancelUid;
+                  setConfirmCancelUid(null);
+                  if (uid) adminCancel(uid, true);
+                }}
+                disabled={mutatingUid === confirmCancelUid}
+              >
+                Cancel now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
+  );
+}
+
+/* ===== SortHeader (uses parent state) ===== */
+function SortHeader({
+  label,
+  k,
+  title,
+  className = "",
+  sortKey,
+  setSortKey,
+  sortDir,
+  setSortDir,
+}: {
+  label: string;
+  k: SortKey;
+  title?: string;
+  className?: string;
+  sortKey: SortKey;
+  setSortKey: (k: SortKey) => void;
+  sortDir: SortDir;
+  setSortDir: (d: SortDir) => void;
+}) {
+  const active = sortKey === k;
+  const dir = active ? sortDir : undefined;
+  const defaultDir: SortDir =
+    k === "score" ||
+    k === "unlocks" ||
+    k === "openFlags" ||
+    k === "updatedAt" ||
+    k === "createdAt"
+      ? "desc"
+      : "asc";
+  return (
+    <button
+      type="button"
+      title={title || `Sort by ${label}`}
+      className={`flex items-center gap-1 px-2 py-2 hover:bg-gray-100 rounded ${className}`}
+      onClick={() => {
+        if (active) setSortDir(dir === "asc" ? "desc" : "asc");
+        else {
+          setSortKey(k);
+          setSortDir(defaultDir);
+        }
+      }}
+      data-testid={`th-sort-${k}`}
+      aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
+    >
+      <span>{label}</span>
+      <span className="text-xs opacity-70">
+        {active ? (dir === "asc" ? "▲" : "▼") : "↕︎"}
+      </span>
+    </button>
   );
 }

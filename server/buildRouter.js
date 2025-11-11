@@ -126,6 +126,7 @@ function buildRouter(ctx) {
   require("./routes/projects/magic-link.post")(router, ctx);
   require("./routes/projects/owner-contact.get")(router, ctx);
   require("./routes/projects/unlock-contact.checkout.post")(router, ctx);
+  require("./routes/projects/shares.get")(router, ctx);
 
   // Project recommendations
   require("./routes/projects/recommendations.get")(router, ctx);
@@ -160,6 +161,7 @@ function buildRouter(ctx) {
   require("./routes/tradesmen/interest.get")(router, ctx);
   require("./routes/tradesmen/leaderboard.get")(router, ctx);
   require("./routes/tradesmen/precheck.post")(router, ctx);
+  require("./routes/tradesmen/shares.post")(router, ctx);
 
   // ---------------- Plans ----------------
   require("./routes/meta/plans.get")(router, ctx);
@@ -170,12 +172,16 @@ function buildRouter(ctx) {
   require("./routes/payments/mock.pay.post")(router, ctx);
   require("./routes/payments/mock.cancel.post")(router, ctx);
   require("./routes/payments/mock.session.get")(router, ctx);
+  require("./routes/payments/subscription.uncancel.post")(router, ctx);
 
   // ---------------- Admin ----------------
   require("./routes/admin/tradesmen.get")(router, ctx);
   require("./routes/admin/tradesman.status.post")(router, ctx);
   require("./routes/admin/tradesman.flag.post")(router, ctx);
   require("./routes/admin/subscriptions.post")(router, ctx);
+  require("./routes/admin/tradesmen.unlocks.post")(router, ctx);
+  require("./routes/admin/subscription.sweep.post")(router, ctx);
+  require("./routes/admin/subscriptions.cancel.post")(router, ctx);
 
   return router;
 }

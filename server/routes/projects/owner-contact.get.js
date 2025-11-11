@@ -6,8 +6,7 @@
 // Entitlement (any one of):
 //   - Tradesman has an ACTIVE subscription where plan != 'free'
 //   - One-off purchase exists in project_contact_unlocks for (project_id, buyer_uid)
-//
-// Contact is read **only** from `users` (firstName, lastName, email).
+//     AND status = 'approved'  ← admin review gate
 
 module.exports = (router, ctx) => {
   const { db, auth } = ctx;
@@ -25,7 +24,7 @@ module.exports = (router, ctx) => {
       session_id  TEXT,
       amount      INTEGER NOT NULL DEFAULT 0, -- pence
       currency    TEXT    NOT NULL DEFAULT 'gbp',
-      status      TEXT    NOT NULL DEFAULT 'paid', -- 'paid' | 'refunded' | etc.
+      status      TEXT    NOT NULL DEFAULT 'pending', -- 'pending' | 'approved' | 'rejected'
       created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
       UNIQUE (project_id, buyer_uid)
     )
@@ -47,16 +46,17 @@ module.exports = (router, ctx) => {
     );
   };
 
-  const hasOneOffUnlock = (projectId, uid) => {
+  // return status for a user->project unlock row if present
+  const getOneOffUnlockStatus = (projectId, uid) => {
     const row = db
       .prepare(
-        `SELECT 1
+        `SELECT status
            FROM project_contact_unlocks
-          WHERE project_id = ? AND buyer_uid = ? AND status = 'paid'
+          WHERE project_id = ? AND buyer_uid = ?
           LIMIT 1`
       )
       .get(Number(projectId), String(uid));
-    return !!row;
+    return row ? String(row.status || "").toLowerCase() : null;
   };
 
   router.get("/projects/:id/owner-contact", auth, (req, res) => {
@@ -95,15 +95,19 @@ module.exports = (router, ctx) => {
           .json({ error: "Owner cannot request own contact" });
       }
 
-      // Compute entitlement once
+      // Compute entitlement:
+      // - paid plan gives entitlement immediately (unchanged)
+      // - one-off must be APPROVED by admin
       const paidPlan = hasActivePaidPlan(viewerUid);
-      const oneOff = hasOneOffUnlock(pid, viewerUid);
-      const entitled = paidPlan || oneOff;
+      const unlockStatus = getOneOffUnlockStatus(pid, viewerUid);
 
-      if (!entitled) {
-        return res.status(403).json({
-          error: "Contact details restricted (no active plan or unlock)",
-        });
+      if (!paidPlan) {
+        if (!unlockStatus) {
+          return res.status(403).json({ error: "not_unlocked" });
+        }
+        if (unlockStatus !== "approved") {
+          return res.status(403).json({ error: "pending_admin_review" });
+        }
       }
 
       // Contact strictly from `users`
@@ -129,8 +133,12 @@ module.exports = (router, ctx) => {
         firstName,
         lastName,
         email,
-        owner: { firstName, lastName, email }, // keep backward compatibility
-        entitlement: { paidPlan, oneOffUnlock: oneOff },
+        owner: { firstName, lastName, email }, // backward compatibility
+        entitlement: {
+          paidPlan,
+          oneOffUnlock: unlockStatus === "approved",
+          oneOffStatus: unlockStatus || null,
+        },
       });
     } catch (e) {
       console.error(`${TAG} error:`, e);

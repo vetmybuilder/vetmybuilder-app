@@ -29,8 +29,7 @@ type Props = {
   onSelect?: (planId: PlanId) => void;
   currentPlanId?: PlanId;
   defaultSelectedPlanId?: PlanId;
-
-  /** NEW: needed for unlock_contact one-off checkout */
+  /** needed for unlock_contact one-off checkout */
   projectId?: number;
 };
 
@@ -52,6 +51,7 @@ function usePlans(isEnabled: boolean) {
         const json = (await res.json()) as PlansResponse;
         if (!cancelled) setData(json);
       } catch (e: any) {
+        // fallback to static on error
         if (!cancelled) {
           setData(STATIC_PLANS);
           setError(e?.message || "Failed to fetch plans; using defaults.");
@@ -68,6 +68,70 @@ function usePlans(isEnabled: boolean) {
   return { data, loading, error };
 }
 
+/* ========= Spotlight eligibility (by project budget) ========= */
+type JobItemLite = { id: number; budget?: string | null };
+
+function useSpotlightEligibility(
+  isOpen: boolean,
+  projectId: number | undefined,
+  api: ReturnType<typeof useApi>
+) {
+  const [budget, setBudget] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(!!(isOpen && projectId));
+  const [error, setError] = useState<string | null>(null);
+
+  const ALLOWED: ReadonlyArray<string> = ["£15k–£30k", "£30k–£60k", "£60k+"];
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!isOpen || !projectId) {
+        setLoading(false);
+        return;
+      }
+      try {
+        setLoading(true);
+        setError(null);
+
+        // ✅ Use the authenticated API client (adds Bearer token)
+        const qs = `order=newest&limit=200`;
+        const { data } = await api.get(`/api/tradesmen/jobs?${qs}`);
+        const items: JobItemLite[] = Array.isArray(data?.items)
+          ? data.items
+          : [];
+
+        const match = items.find((it) => Number(it.id) === Number(projectId));
+        if (!cancelled) setBudget(match?.budget ?? null);
+      } catch (e: any) {
+        // If auth fails (401), fall back to allowing Spotlight so UI doesn't break
+        const status = e?.response?.status;
+        if (!cancelled) {
+          setError(
+            status === 401
+              ? "Unauthorised (missing/invalid token)"
+              : e?.message || "Failed to resolve budget"
+          );
+          setBudget(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, projectId, api]);
+
+  // Default-show Spotlight unless we confidently know it's below 15k
+  const spotlightAllowed = !projectId
+    ? true
+    : budget
+    ? ALLOWED.includes(budget)
+    : false;
+
+  return { spotlightAllowed, budget, loading, error };
+}
+
 /* ========= Styles / Icons ========= */
 const GOLD_CARD =
   "bg-[linear-gradient(135deg,#E9C46A_0%,#D4AF37_35%,#B8860B_100%)] border-amber-300";
@@ -77,7 +141,7 @@ const SPOTLIGHT_CARD =
 const UNLOCK_CARD =
   "bg-[linear-gradient(135deg,#0ea5e9_0%,#22d3ee_45%,#84cc16_100%)] text-white border-cyan-300";
 
-/* Uniform icon sizes */
+/* icons */
 const ICON_TICK = "h-5 w-5";
 const ICON_CROSS = "h-5 w-5";
 const ICON_BADGE = "h-3.5 w-3.5";
@@ -133,13 +197,16 @@ export default function PlansModal({
   onSelect,
   currentPlanId,
   defaultSelectedPlanId,
-  projectId, // NEW
+  projectId,
 }: Props) {
   const api = useApi();
   const router = useRouter();
 
   const { data: plansData, loading, error } = usePlans(isOpen);
   const PLANS = plansData || STATIC_PLANS;
+
+  const { spotlightAllowed, loading: spotlightLoading } =
+    useSpotlightEligibility(isOpen, projectId, api);
 
   const [selected, setSelected] = useState<PlanId | null>(
     defaultSelectedPlanId || null
@@ -165,21 +232,16 @@ export default function PlansModal({
     return `£${n.toFixed(n % 1 === 0 ? 0 : 2)}`;
   };
 
-  const planLabel = (id: PlanId) => {
-    switch (id) {
-      case "unlock_contact":
-        return "Unlock Contact";
-      case "spotlight":
-        return "Spotlight";
-      case "gold":
-        return "Gold";
-      case "free":
-      default:
-        return "Free";
-    }
-  };
+  const planLabel = (id: PlanId) =>
+    id === "unlock_contact"
+      ? "Unlock Contact"
+      : id === "spotlight"
+      ? "Spotlight"
+      : id === "gold"
+      ? "Gold"
+      : "Free";
 
-  // Checkout (subscription vs one-off; unlock_contact uses project-scoped flow)
+  // ========= Checkout =========
   async function continueToCheckout() {
     if (!selected) return;
     setSubmitting(true);
@@ -187,39 +249,44 @@ export default function PlansModal({
       const plan = (PLANS.plans as ReadonlyArray<AnyPlan>).find(
         (p) => p.id === selected
       );
-      if (!plan) throw new Error("Selected plan not found");
+      if (!plan) {
+        setSubmitting(false);
+        return;
+      }
 
       const currency = String((PLANS as any)?.currency || "GBP").toUpperCase();
-      const type = String(plan?.billing?.type || "free");
+      const typeFromPlan = String(plan?.billing?.type || "free");
       const origin = window.location.origin;
 
-      // Free -> no payment
-      if (type === "free") {
+      if (typeFromPlan === "free") {
         onSelect?.(selected);
         onClose();
         return;
       }
 
-      // Special-case: unlock_contact one-off tied to a specific project
+      // unlock_contact — one-off per project
       if (selected === "unlock_contact" && projectId) {
         const pounds = Number(plan?.billing?.priceOnce ?? 0);
-        if (!Number.isFinite(pounds) || pounds <= 0)
-          throw new Error("Invalid one-off price");
-        const amount = Math.round(pounds * 100);
+        if (!Number.isFinite(pounds) || pounds <= 0) {
+          console.warn(
+            "[plans] invalid unlock price",
+            plan?.billing?.priceOnce
+          );
+          setSubmitting(false);
+          return;
+        }
+        const amountPence = Math.round(pounds * 100);
 
         const { data } = await api.post("/api/payments/checkout", {
+          type: "one_off",
+          planId: selected, // ✅ send planId so server can validate
+          amountPence, // ✅ explicit amount for one-off
+          currency,
           projectId,
           entity_type: "project",
           entity_id: projectId,
-          items: [
-            {
-              label: "Unlock homeowner contact",
-              price: { amount, currency },
-              quantity: 1,
-            },
-          ],
-          metadata: { type: "unlock_contact", projectId },
-          success_url: `${origin}/payments/mock/success?session_id={SESSION_ID}`, // existing flow
+          metadata: { type: "unlock_contact", planId: selected, projectId },
+          success_url: `${origin}/payments/mock/success?session_id={SESSION_ID}`,
           cancel_url: `${origin}/payments/mock/cancel?session_id={SESSION_ID}`,
         });
 
@@ -242,10 +309,12 @@ export default function PlansModal({
           );
           return;
         }
-        throw new Error("No checkout session returned");
+        console.warn("[plans] No checkout session returned for unlock_contact");
+        setSubmitting(false);
+        return;
       }
 
-      // Generic one_off (e.g., Spotlight) or subscription (Gold)
+      // spotlight (one_off) / gold (subscription)
       const payload: any = {
         planId: selected,
         currency,
@@ -255,18 +324,30 @@ export default function PlansModal({
         cancel_url: `${origin}/payments/mock/cancel?session_id={SESSION_ID}`,
       };
 
-      if (type === "one_off") {
+      if (typeFromPlan === "one_off") {
         const pounds = Number(plan?.billing?.priceOnce ?? 0);
-        if (!Number.isFinite(pounds) || pounds <= 0)
-          throw new Error("Invalid one-off price");
+        if (!Number.isFinite(pounds) || pounds <= 0) {
+          console.warn(
+            "[plans] invalid one_off price",
+            plan?.billing?.priceOnce
+          );
+          setSubmitting(false);
+          return;
+        }
         payload.type = "one_off";
         payload.amountPence = Math.round(pounds * 100);
         if (plan?.billing?.durationDays)
           payload.metadata.durationDays = plan.billing.durationDays;
       } else {
         const monthly = Number(plan?.billing?.priceMonthly ?? 0);
-        if (!Number.isFinite(monthly) || monthly <= 0)
-          throw new Error("Invalid subscription price");
+        if (!Number.isFinite(monthly) || monthly <= 0) {
+          console.warn(
+            "[plans] invalid subscription price",
+            plan?.billing?.priceMonthly
+          );
+          setSubmitting(false);
+          return;
+        }
         payload.type = "subscription";
         payload.amountPence = Math.round(monthly * 100);
         payload.metadata.cadence = "monthly";
@@ -290,7 +371,7 @@ export default function PlansModal({
         await router.push(`/payments/mock/checkout/${encodeURIComponent(sid)}`);
         return;
       }
-      throw new Error("No checkout session returned");
+      console.warn("[plans] No checkout session returned");
     } catch (e: any) {
       console.error(
         "[plans] checkout failed:",
@@ -310,19 +391,38 @@ export default function PlansModal({
     return Number.POSITIVE_INFINITY;
   };
 
+  // NEW: can the user pick a given plan?
+  const canPickPlan = (id: PlanId, type: string) => {
+    const isFree = type === "free";
+    // Only allow selecting Free if the current plan is Gold (downgrade path).
+    if (isFree) return currentPlanId === "gold";
+    // Other plans remain selectable
+    return true;
+  };
+
   const cards = useMemo(() => {
-    const list = (PLANS.plans as ReadonlyArray<AnyPlan>)
+    const all = (PLANS.plans as ReadonlyArray<AnyPlan>)
       .slice()
       .sort((a, b) => numericPrice(a) - numericPrice(b));
 
-    return list.map((p) => {
+    // Filter Spotlight based on budget rule (only when we have a project context)
+    const filtered = all.filter((p) => {
+      if (p.id !== "spotlight") return true;
+      // Hide Spotlight while eligibility is loading for a specific project
+      if (projectId) return !spotlightLoading && spotlightAllowed;
+      // No project context => show
+      return true;
+    });
+
+    return filtered.map((p) => {
       const id = p.id as PlanId;
       const type = String(p?.billing?.type || "free");
       const isFree = type === "free";
       const isUnlock = id === "unlock_contact";
       const isSpotlight = id === "spotlight";
       const isGold = id === "gold";
-      const isSelected = id === selected;
+      const pickable = canPickPlan(id, type);
+      const isSelected = pickable && id === selected;
 
       const baseCard = isFree
         ? FREE_CARD
@@ -332,26 +432,22 @@ export default function PlansModal({
         ? SPOTLIGHT_CARD
         : GOLD_CARD;
 
+      /* price text */
       let priceMain = "";
       let priceSuffix = "";
-      if (isFree) {
-        priceMain = "Free";
-      } else if (isUnlock) {
+      if (isFree) priceMain = "Free";
+      else if (isUnlock) {
         priceMain = formatPrice(p?.billing?.priceOnce);
         priceSuffix = "one-off · per project";
       } else if (isSpotlight) {
-        priceMain = formatPrice(p?.billing?.priceOnce); // e.g. £39.99
+        priceMain = formatPrice(p?.billing?.priceOnce);
         priceSuffix = "one-off · 1 month";
-      } else if (isGold) {
+      } else {
         priceMain = formatPrice(p?.billing?.priceMonthly);
-        const annual = formatPrice(p?.billing?.priceAnnual);
-        priceSuffix = `per month · Annual: ${annual}`;
+        priceSuffix = `per month · Annual: ${formatPrice(
+          p?.billing?.priceAnnual
+        )}`;
       }
-
-      const featureText =
-        isUnlock || isSpotlight
-          ? "text-[13px] text-white"
-          : "text-[13px] text-black";
 
       const Bullet = ({ light }: { light?: boolean }) => (
         <span
@@ -366,15 +462,17 @@ export default function PlansModal({
         <div
           key={p.id}
           className={[
-            "group flex h-full min-h=[240px] flex-col rounded-xl border p-3",
-            "transition-all hover:-translate-y-0.5 hover:shadow-lg",
+            "group flex h-full min-h=[240px] flex-col rounded-xl border p-3 transition-all hover:-translate-y-0.5 hover:shadow-lg",
             baseCard,
             "w-full",
+            !pickable ? "cursor-not-allowed opacity-95" : "cursor-pointer",
           ].join(" ")}
-          onClick={() => setSelected(id)}
+          onClick={() => {
+            if (pickable) setSelected(id);
+          }}
           data-testid={`plan-card-${p.id}`}
         >
-          {/* Top row */}
+          {/* top row */}
           <div className="mb-2 flex items-center justify-between gap-2">
             <div
               className={[
@@ -425,8 +523,7 @@ export default function PlansModal({
               {isSpotlight && (
                 <>
                   <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold text-white ring-1 ring-white/30">
-                    <Sparkle className={ICON_BADGE} />
-                    NEW
+                    <Sparkle className={ICON_BADGE} /> NEW
                   </span>
                   <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold text-white ring-1 ring-white/30">
                     Promo
@@ -435,8 +532,7 @@ export default function PlansModal({
               )}
               {isGold && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-amber-900 ring-1 ring-amber-200">
-                  <Star className={`${ICON_BADGE} text-amber-500`} />
-                  Popular
+                  <Star className={`${ICON_BADGE} text-amber-500`} /> Popular
                 </span>
               )}
               {currentPlanId === id && (
@@ -454,7 +550,7 @@ export default function PlansModal({
             </div>
           </div>
 
-          {/* Price */}
+          {/* price */}
           <div
             className={[
               "mb-3 flex flex-wrap items-baseline gap-2",
@@ -469,7 +565,7 @@ export default function PlansModal({
             )}
           </div>
 
-          {/* Features */}
+          {/* features / requirements */}
           {isFree && (
             <>
               <ul className="mb-3 space-y-1.5 text-slate-900">
@@ -498,14 +594,13 @@ export default function PlansModal({
                   </span>
                 </li>
               </ul>
-
               <div className="mt-1">
                 <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-black/70">
                   NICE TO HAVE
                 </div>
                 <ul className="space-y-2 text-[13px] text-black">
                   <li className="flex items-start gap-2">
-                    <Bullet />
+                    <span className="mt-[5px] h-2.5 w-2.5 rounded-full bg-emerald-600" />
                     <span>Social / Web presence</span>
                   </li>
                 </ul>
@@ -541,30 +636,28 @@ export default function PlansModal({
                   </span>
                 </li>
               </ul>
-
               <div className="mt-1">
                 <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-black/70">
                   MUST HAVE
                 </div>
                 <ul className="space-y-2 text-[13px] text-black">
                   <li className="flex items-start gap-2">
-                    <Bullet />
+                    <span className="mt-[5px] h-2.5 w-2.5 rounded-full bg-emerald-600" />
                     <span>Companies House verified</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <Bullet />
+                    <span className="mt-[5px] h-2.5 w-2.5 rounded-full bg-emerald-600" />
                     <span>Valid insurance</span>
                   </li>
                 </ul>
               </div>
-
               <div className="mt-2">
                 <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-black/70">
                   NICE TO HAVE
                 </div>
                 <ul className="space-y-2 text-[13px] text-black">
                   <li className="flex items-start gap-2">
-                    <Bullet />
+                    <span className="mt-[5px] h-2.5 w-2.5 rounded-full bg-emerald-600" />
                     <span>Social / Web presence</span>
                   </li>
                 </ul>
@@ -592,30 +685,28 @@ export default function PlansModal({
                   </span>
                 </li>
               </ul>
-
               <div className="mt-1">
                 <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-white/80">
                   MUST HAVE
                 </div>
                 <ul className="space-y-2 text-[13px] text-white">
                   <li className="flex items-start gap-2">
-                    <Bullet light />
+                    <span className="mt-[5px] h-2.5 w-2.5 rounded-full bg-white/80" />
                     <span>Companies House verified</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <Bullet light />
+                    <span className="mt-[5px] h-2.5 w-2.5 rounded-full bg-white/80" />
                     <span>Valid insurance</span>
                   </li>
                 </ul>
               </div>
-
               <div className="mt-2">
                 <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-white/80">
                   NICE TO HAVE
                 </div>
                 <ul className="space-y-2 text-[13px] text-white">
                   <li className="flex items-start gap-2">
-                    <Bullet light />
+                    <span className="mt-[5px] h-2.5 w-2.5 rounded-full bg-white/80" />
                     <span>Social / Web presence</span>
                   </li>
                 </ul>
@@ -637,7 +728,6 @@ export default function PlansModal({
                   </span>
                 </li>
               </ul>
-
               <div className="mt-1">
                 <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-white/80">
                   MUST HAVE
@@ -649,7 +739,6 @@ export default function PlansModal({
                   </li>
                 </ul>
               </div>
-
               <div className="mt-2">
                 <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-white/80">
                   NICE TO HAVE
@@ -666,7 +755,7 @@ export default function PlansModal({
 
           <div className="mt-auto" />
 
-          {/* Choose button row */}
+          {/* choose row */}
           <div className="mt-3 flex items-center justify-between">
             <div
               className={
@@ -691,32 +780,44 @@ export default function PlansModal({
                 name="plan"
                 type="radio"
                 className="sr-only"
-                checked={isSelected}
-                onChange={() => setSelected(id)}
-              />
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelected(id);
+                checked={!!isSelected}
+                disabled={!pickable}
+                onChange={() => {
+                  if (pickable) setSelected(id);
                 }}
-                className={[
-                  "h-9 rounded-full px-4 text-xs font-semibold transition focus:outline-none",
-                  isUnlock || isSpotlight
-                    ? "bg-white/15 text-white ring-1 ring-white/30 hover:bg-white/20"
-                    : isFree
-                    ? "bg-slate-100 text-slate-800 hover:bg-slate-200"
-                    : "bg-[rgba(0,0,0,0.35)] text-white hover:bg-[rgba(0,0,0,0.45)]",
-                ].join(" ")}
-              >
-                {isSelected ? "Selected" : "Choose"}
-              </button>
+              />
+              {pickable && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (pickable) setSelected(id);
+                  }}
+                  className={[
+                    "h-9 rounded-full px-4 text-xs font-semibold transition focus:outline-none",
+                    isUnlock || isSpotlight
+                      ? "bg-white/15 text-white ring-1 ring-white/30 hover:bg-white/20"
+                      : isFree
+                      ? "bg-slate-100 text-slate-800 hover:bg-slate-200"
+                      : "bg-[rgba(0,0,0,0.35)] text-white hover:bg-[rgba(0,0,0,0.45)]",
+                  ].join(" ")}
+                >
+                  {isSelected ? "Selected" : "Choose"}
+                </button>
+              )}
             </div>
           </div>
         </div>
       );
     });
-  }, [PLANS, currentPlanId, selected]);
+  }, [
+    PLANS,
+    currentPlanId,
+    selected,
+    projectId,
+    spotlightAllowed,
+    spotlightLoading,
+  ]);
 
   if (!isOpen) return null;
 
@@ -756,7 +857,6 @@ export default function PlansModal({
                 <p className="mt-2 text-xs text-amber-700">Note: {error}</p>
               )}
             </div>
-
             <button
               type="button"
               onClick={onClose}
@@ -771,15 +871,13 @@ export default function PlansModal({
               </svg>
             </button>
           </div>
-
-          {/* Review highlight */}
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900">
             <b>Heads up:</b> All purchases are activated after an{" "}
             <b>admin review</b>.
           </div>
         </div>
 
-        {/* Body (single-row, horizontal scroll if needed) */}
+        {/* Body */}
         <div className="px-5 py-5 overflow-x-auto overflow-y-hidden">
           <div className="grid grid-cols-4 gap-3 min-w-[1100px]">
             {loading

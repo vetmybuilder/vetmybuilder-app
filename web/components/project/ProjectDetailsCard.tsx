@@ -1,5 +1,8 @@
+import * as React from "react";
 import Link from "next/link";
 import StatusBadge from "@/components/StatusBadge";
+import { useApi } from "@/utils/api";
+import ShareProfileModal from "@/components/fileUpload/ShareProfileModal";
 import type { ReactNode } from "react";
 
 /* Keep this in sync with your page type */
@@ -44,8 +47,15 @@ type Props = {
   // recommendation affordance
   canAddRec?: boolean;
 
-  // NEW: extra actions rendered in the card footer (right-aligned)
+  // extra actions rendered in the card footer (right-aligned)
   footerRight?: ReactNode;
+
+  // Share button (for tradesmen)
+  showShareButton?: boolean;
+  shareBusy?: boolean;
+
+  // Optional override for share submit (parent-managed)
+  onShareSubmit?: (files: File[]) => Promise<void> | void;
 };
 
 export default function ProjectDetailsCard({
@@ -63,8 +73,103 @@ export default function ProjectDetailsCard({
   onCopyInvite,
   onOpenCloseModal,
   canAddRec = false,
-  footerRight, // NEW
+  footerRight,
+  showShareButton = false,
+  shareBusy = false,
+  onShareSubmit,
 }: Props) {
+  const api = useApi();
+
+  // Local state (share flow)
+  const [shareOpen, setShareOpen] = React.useState(false);
+  const [localBusy, setLocalBusy] = React.useState(false);
+  const [localFlash, setLocalFlash] = React.useState<Flash | null>(null);
+
+  // Source-of-truth from API on whether a share already exists
+  const [hasSharedFromApi, setHasSharedFromApi] = React.useState(false);
+  const [checkingShared, setCheckingShared] = React.useState(false);
+
+  // True only for this session after a successful submit.
+  // Used to suppress the "already submitted" banner immediately after sharing.
+  const [justShared, setJustShared] = React.useState(false);
+
+  const effectiveBusy = shareBusy || localBusy;
+
+  // Always check for tradesmen (non-owners) regardless of showShareButton flag
+  React.useEffect(() => {
+    let alive = true;
+    if (isOwner) return; // owners skip the check
+
+    setCheckingShared(true);
+    (async () => {
+      try {
+        const { data } = await api.get("/api/tradesmen/interest", {
+          params: { projectId: project.id },
+        });
+
+        if (!alive) return;
+
+        // Treat explicit shared=true OR numeric shareId as already-shared
+        const already =
+          !!data &&
+          (data.shared === true || Number.isFinite(Number(data.shareId)));
+
+        setHasSharedFromApi(already);
+      } catch {
+        if (alive) setHasSharedFromApi(false);
+      } finally {
+        if (alive) setCheckingShared(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [api, project.id, isOwner]);
+
+  // IMPORTANT: let the browser set Content-Type (for boundary). Also append pid as fallback.
+  const defaultSubmit = async (files: File[]) => {
+    const fd = new FormData();
+    const pid = String(project.id);
+    fd.append("projectId", pid);
+    fd.append("pid", pid); // harmless fallback some routes accept
+    (files || []).forEach((f) => fd.append("photos", f)); // key matches server: photos[]
+
+    // Do NOT set "Content-Type" manually.
+    await api.post("/api/tradesmen/shares", fd);
+  };
+
+  const handleSubmit = async (files: File[]) => {
+    setLocalFlash(null);
+    setLocalBusy(true);
+    try {
+      if (onShareSubmit) {
+        await onShareSubmit(files);
+      } else {
+        await defaultSubmit(files);
+      }
+      setShareOpen(false);
+      setJustShared(true); // immediate session success
+      setHasSharedFromApi(true); // hide button straight away
+      setLocalFlash({
+        kind: "success",
+        text: "Profile shared. We’ve notified the homeowner.",
+      });
+      window.setTimeout(() => setLocalFlash(null), 5000);
+    } catch (e: any) {
+      setLocalFlash({
+        kind: "error",
+        text:
+          e?.response?.data?.error ||
+          e?.message ||
+          "Failed to share profile. Please try again.",
+      });
+      window.setTimeout(() => setLocalFlash(null), 6000);
+    } finally {
+      setLocalBusy(false);
+    }
+  };
+
   return (
     <section
       className="lg:col-span-6"
@@ -72,6 +177,7 @@ export default function ProjectDetailsCard({
       data-testid="project-details"
     >
       <div className="card">
+        {/* Global flash (from parent) */}
         {!!flash && (
           <div
             role="alert"
@@ -87,17 +193,45 @@ export default function ProjectDetailsCard({
           </div>
         )}
 
+        {/* Local flash (only immediate confirmation right after submit) */}
+        {!!localFlash && (
+          <div
+            role="alert"
+            aria-live="polite"
+            className={`mb-3 rounded-lg px-3 py-2 text-sm ${
+              localFlash.kind === "success"
+                ? "bg-emerald-50 text-emerald-700"
+                : "bg-red-50 text-red-700"
+            }`}
+            data-testid="share-flash"
+          >
+            {localFlash.text}
+          </div>
+        )}
+
+        {/* "Already submitted" banner — ONLY after a reload/return (i.e., not just shared now) */}
+        {!isOwner && hasSharedFromApi && !justShared && (
+          <div
+            className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 shadow-sm"
+            role="status"
+            data-testid="share-already-submitted-banner"
+          >
+            <span className="mr-2">✓</span>
+            <span>Your profile has already been shared.</span>
+          </div>
+        )}
+
         <h2 id="details-heading" className="sr-only">
           Project details
         </h2>
 
+        {/* Owner actions (top row for owners only) */}
         {isOwner && (
           <div
             className="mb-4 flex flex-wrap gap-2"
             aria-label="Owner actions"
             data-testid="owner-actions"
           >
-            {/* Edit — only when NOT closed */}
             {!isClosed && (
               <Link
                 className="btn"
@@ -109,7 +243,6 @@ export default function ProjectDetailsCard({
               </Link>
             )}
 
-            {/* Publish — only when canPublish (not live, not closed) */}
             {canPublish && (
               <button
                 className="btn"
@@ -123,7 +256,6 @@ export default function ProjectDetailsCard({
               </button>
             )}
 
-            {/* Close + Archive vs Unarchive */}
             {!isClosed ? (
               <>
                 <button
@@ -160,7 +292,6 @@ export default function ProjectDetailsCard({
               </button>
             ) : null}
 
-            {/* Copy Invite Link — only when live */}
             {isLive && (
               <button
                 className="btn"
@@ -174,25 +305,34 @@ export default function ProjectDetailsCard({
           </div>
         )}
 
+        {/* Share profile (for tradesmen) — hidden once shared */}
+        {!isOwner && showShareButton && !hasSharedFromApi && !justShared && (
+          <div className="mb-3 flex justify-end">
+            <button
+              className="btn"
+              onClick={() => setShareOpen(true)}
+              disabled={effectiveBusy || checkingShared}
+              aria-busy={effectiveBusy || checkingShared}
+              data-testid="btn-share-profile-in-card"
+            >
+              {effectiveBusy || checkingShared ? "Sending…" : "Share profile"}
+            </button>
+          </div>
+        )}
+
         {/* Badges */}
         <div
-          className="flex flex-wrap gap-2 mb-4"
+          className="mb-4 flex flex-wrap gap-2"
           role="list"
           aria-label="Project attributes"
           data-testid="project-badges"
         >
-          <span
-            role="listitem"
-            className="badge blue"
-            aria-label={`Type: ${project.type}`}
-            data-testid="badge-type"
-          >
+          <span role="listitem" className="badge blue" data-testid="badge-type">
             {project.type}
           </span>
           <span
             role="listitem"
             className="badge gray"
-            aria-label={`Location: ${project.location}`}
             data-testid="badge-location"
           >
             {project.location}
@@ -200,7 +340,6 @@ export default function ProjectDetailsCard({
           <span
             role="listitem"
             className="badge orange capitalize"
-            aria-label={`Property: ${project.propertyType}`}
             data-testid="badge-property"
           >
             {project.propertyType}
@@ -208,16 +347,11 @@ export default function ProjectDetailsCard({
           <span
             role="listitem"
             className="badge green"
-            aria-label={`Bedrooms: ${project.bedrooms}`}
             data-testid="badge-bedrooms"
           >
             {project.bedrooms} bed
           </span>
-          <span
-            role="listitem"
-            aria-label={`Project ${project.status}`}
-            data-testid="badge-status"
-          >
+          <span role="listitem" data-testid="badge-status">
             <StatusBadge value={project.status} />
           </span>
         </div>
@@ -266,7 +400,7 @@ export default function ProjectDetailsCard({
 
         {/* Description */}
         <div className="mt-5" data-testid="project-description-block">
-          <h3 className="font-semibold mb-1" id="desc-heading">
+          <h3 className="mb-1 font-semibold" id="desc-heading">
             Description
           </h3>
           <p
@@ -278,7 +412,7 @@ export default function ProjectDetailsCard({
           </p>
         </div>
 
-        {/*Footer actions row (appears only when provided) */}
+        {/* Footer actions row (optional) */}
         {footerRight && (
           <>
             <div className="divider mt-5" />
@@ -298,12 +432,21 @@ export default function ProjectDetailsCard({
           <Link
             className="btn"
             href={`/projects/${project.id}/recommend`}
-            aria-label="Add recommendation"
             data-testid="btn-add-recommendation"
           >
             Add recommendation
           </Link>
         </div>
+      )}
+
+      {/* Share Modal (self-managed here) */}
+      {showShareButton && !isOwner && !hasSharedFromApi && !justShared && (
+        <ShareProfileModal
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          onSubmit={handleSubmit} // sends immediately
+          projectName={project.name}
+        />
       )}
     </section>
   );

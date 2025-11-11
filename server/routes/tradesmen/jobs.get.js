@@ -2,7 +2,7 @@
  * GET /api/tradesmen/jobs
  * Auth: ACTIVE tradesman only
  * Query: q, type, near, order=newest|oldest (default newest), limit (default 50)
- * Response: { items: [{id,name,type,location,createdAt}], total }
+ * Response: { items: [{id,name,type,location,createdAt,budget}], total }
  */
 module.exports = (router, ctx) => {
   const { db, auth } = ctx;
@@ -15,6 +15,42 @@ module.exports = (router, ctx) => {
 
   // Log when the file mounts so you can see it in the server boot
   console.log(`[routes] mounted: GET ${PATH}`);
+
+  // --- Budget extraction helpers ---
+  const BUDGETS = ["Under £5k", "£5k–£15k", "£15k–£30k", "£30k–£60k", "£60k+"];
+
+  // Handle both en dash (–) and hyphen (-) variants that might appear in text
+  const NORMALIZE_MAP = {
+    "£5k-£15k": "£5k–£15k",
+    "£15k-£30k": "£15k–£30k",
+    "£30k-£60k": "£30k–£60k",
+  };
+
+  function extractBudget(desc) {
+    const raw = String(desc || "");
+    let text = raw;
+
+    // Normalize common variants so matching is reliable
+    for (const [from, to] of Object.entries(NORMALIZE_MAP)) {
+      if (text.includes(from)) text = text.replace(from, to);
+    }
+
+    // Quick exact match against the known buckets
+    for (const b of BUDGETS) {
+      if (text.includes(b)) return b;
+    }
+
+    // Fallback: look for "Budget: <value>" pattern (just in case)
+    const m = text.match(/Budget:\s*([^\.\n\r]+)/i);
+    if (m) {
+      const candidate = m[1].trim();
+      // Normalize the candidate and try to map to one of our buckets
+      const normalized = NORMALIZE_MAP[candidate] || candidate;
+      if (BUDGETS.includes(normalized)) return normalized;
+    }
+
+    return null;
+  }
 
   router.get(PATH, auth, requireActiveTradesman(ctx), (req, res) => {
     const uid = req.user.uid;
@@ -62,10 +98,11 @@ module.exports = (router, ctx) => {
     const whereSql = wh.length ? `WHERE ${wh.join(" AND ")}` : "";
 
     try {
+      // Pull description so we can parse out the budget, but don't return it raw
       const rows = db
         .prepare(
           `
-            SELECT p.id, p.name, p.type, p.location, p.createdAt
+            SELECT p.id, p.name, p.type, p.location, p.createdAt, p.description
             FROM projects p
             ${whereSql}
             ORDER BY p.createdAt ${order}
@@ -84,8 +121,13 @@ module.exports = (router, ctx) => {
         )
         .get(...params).c;
 
-      console.log(`[jobs] ok uid=${uid} items=${rows.length} total=${total}`);
-      return res.json({ items: rows, total });
+      const items = rows.map(({ description, ...r }) => ({
+        ...r,
+        budget: extractBudget(description),
+      }));
+
+      console.log(`[jobs] ok uid=${uid} items=${items.length} total=${total}`);
+      return res.json({ items, total });
     } catch (e) {
       console.error("[jobs] error", e);
       return res.status(500).json({ error: "Failed to load jobs" });

@@ -1,192 +1,182 @@
-// POST /api/payments/checkout
-// One-off:
-//   Body: { type: "unlock_contact", projectId, amountPence?, currency?, success_url?, cancel_url?, origin? }
-//   -> creates mock session + inserts PENDING row in payments_oneoff
+// server/routes/payments/checkout.post.js
 //
-// Subscription:
-//   Body: { type: "subscription", planId, amountPence, currency?, success_url?, cancel_url?, origin? }
-//   -> creates mock session + inserts PENDING row in payments_subscription
-//
-// NOTE: We keep exactly the same endpoint for both paths.
+// Creates a checkout session for one_off or subscription purchases.
+// Requirements for the mock driver: userId must be provided.
 
 module.exports = (router, ctx) => {
-  const { auth, payments, db } = ctx;
-  if (!payments) throw new Error("payments not attached to ctx");
-  if (!db) throw new Error("db not attached to ctx");
+  const log = ctx.log || console;
 
-  function ensurePaymentsOneoffTable() {
-    db.prepare(
-      `CREATE TABLE IF NOT EXISTS payments_oneoff (
-         id INTEGER PRIMARY KEY AUTOINCREMENT,
-         user_id TEXT NOT NULL,
-         type TEXT NOT NULL,               -- 'unlock_contact', etc.
-         entity_id INTEGER,                -- e.g. project id
-         amount INTEGER NOT NULL,          -- pence
-         currency TEXT NOT NULL DEFAULT 'GBP',
-         status TEXT NOT NULL DEFAULT 'pending', -- 'pending'|'succeeded'|'failed'|'refunded'
-         provider_session_id TEXT,
-         provider_payment_intent TEXT,
-         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-       )`
-    ).run();
-    db.prepare(
-      `CREATE INDEX IF NOT EXISTS idx_oneoff_user_type_entity
-         ON payments_oneoff (user_id, type, entity_id, status)`
-    ).run();
+  // Try to load a server-side plan helper (optional)
+  let getPlan;
+  try {
+    const plansLib = require("../../lib/plans");
+    getPlan = plansLib.getPlan || null;
+  } catch {
+    getPlan = null;
   }
 
-  function ensurePaymentsSubscriptionTable() {
-    db.prepare(
-      `CREATE TABLE IF NOT EXISTS payments_subscription (
-         id INTEGER PRIMARY KEY AUTOINCREMENT,
-         buyer_uid TEXT NOT NULL,                 -- tradesman uid
-         plan_id   TEXT NOT NULL,                 -- 'gold' | 'platinum' | etc
-         amount    INTEGER NOT NULL,              -- pence
-         currency  TEXT NOT NULL DEFAULT 'GBP',
-         status    TEXT NOT NULL DEFAULT 'pending', -- 'pending'|'succeeded'|'canceled'
-         provider_session_id      TEXT UNIQUE,
-         provider_customer_id     TEXT,
-         provider_subscription_id TEXT,
-         provider_payment_intent  TEXT,
-         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-       )`
-    ).run();
+  // Helper to pull a user id off the request in as many formats as possible
+  function resolveUserId(req) {
+    return (
+      req.user?.uid ||
+      req.user?.id ||
+      req.auth?.uid ||
+      req.account?.user_id ||
+      req.session?.user?.id ||
+      req.headers["x-user-id"] ||
+      null
+    );
   }
 
-  // small helper: normalize success/cancel URLs (allow origin shortcut)
-  function buildUrls(body) {
-    const origin = body?.origin ? String(body.origin) : null;
-
-    const success_url = body?.success_url
-      ? String(body.success_url)
-      : origin
-      ? `${origin}/payments/mock/success?session_id={SESSION_ID}`
-      : undefined;
-
-    const cancel_url = body?.cancel_url
-      ? String(body.cancel_url)
-      : origin
-      ? `${origin}/payments/mock/cancel`
-      : undefined;
-
-    return { success_url, cancel_url };
-  }
-
-  router.post("/payments/checkout", auth, (req, res) => {
+  async function handler(req, res) {
     try {
-      const uid = req.user?.uid;
-      if (!uid) return res.status(401).json({ error: "Unauthorized" });
+      if (!ctx.payments || typeof ctx.payments.createSession !== "function") {
+        return res
+          .status(500)
+          .json({ error: "payments instance unavailable (no createSession)" });
+      }
 
-      const type = String(req.body?.type || "unlock_contact").toLowerCase();
-      const { success_url, cancel_url } = buildUrls(req.body);
+      const userId = resolveUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "mock_payment: userId required" });
+      }
 
-      // ---------- ONE-OFF: unlock_contact ----------
-      if (type === "unlock_contact") {
-        const projectId = Number(req.body?.projectId);
-        if (!Number.isFinite(projectId) || projectId <= 0) {
-          return res.status(400).json({ error: "Invalid projectId" });
+      const {
+        type, // "one_off" | "subscription"
+        planId, // e.g. "unlock_contact" | "spotlight" | "gold"
+        amountPence, // client-side computed fallback (from plan config)
+        currency = "GBP",
+        items, // optional richer items payload
+        entity_type,
+        entity_id,
+        projectId, // alias for entity_id when entity_type === "project"
+        metadata = {},
+        success_url,
+        cancel_url,
+        origin,
+      } = req.body || {};
+
+      const t = String(type || "").trim();
+      if (t !== "one_off" && t !== "subscription") {
+        return res
+          .status(400)
+          .json({ error: "Unsupported type: " + String(type) });
+      }
+
+      // Resolve price: prefer server plan if available, else fall back to amountPence/items
+      let serverAmount = null;
+      if (planId && getPlan) {
+        try {
+          const plan = getPlan(String(planId));
+          if (plan?.billing) {
+            if (t === "one_off" && plan.billing.priceOnce != null) {
+              serverAmount = Math.round(Number(plan.billing.priceOnce) * 100);
+            } else if (
+              t === "subscription" &&
+              plan.billing.priceMonthly != null
+            ) {
+              serverAmount = Math.round(
+                Number(plan.billing.priceMonthly) * 100
+              );
+            }
+          }
+        } catch {
+          // ignore and fall back
         }
+      }
 
-        const amountPence =
-          Number(req.body?.amountPence) > 0
-            ? Number(req.body.amountPence)
-            : 299;
-        const currency = (req.body?.currency || "GBP").toUpperCase();
+      let finalAmount =
+        (Number.isFinite(serverAmount) && serverAmount) ||
+        (Number.isFinite(Number(amountPence)) && Number(amountPence)) ||
+        (Array.isArray(items) && Number(items[0]?.price?.amount)) ||
+        null;
 
-        const session = payments.createCheckout({
-          userId: uid,
-          items: [
-            {
-              label: "Unlock homeowner contact",
-              price: { amount: amountPence, currency },
-              quantity: 1,
-            },
-          ],
-          success_url,
-          cancel_url,
-          metadata: {
-            type: "unlock_contact",
-            projectId,
-          },
-        });
-
-        ensurePaymentsOneoffTable();
-        db.prepare(
-          `INSERT INTO payments_oneoff
-             (user_id, type, entity_id, amount, currency, status, provider_session_id)
-           VALUES (?, ?, ?, ?, ?, 'pending', ?)`
-        ).run(
-          uid,
-          "unlock_contact",
-          projectId,
-          amountPence,
-          currency,
-          session.id
-        );
-
-        return res.json({
-          ok: true,
-          sessionId: session.id,
-          url: `/payments/mock/checkout/${encodeURIComponent(session.id)}`,
-          session,
+      if (!Number.isFinite(finalAmount) || finalAmount <= 0) {
+        return res.status(400).json({
+          error: "Unable to resolve amount",
+          hint: "Send amountPence or ensure server plan config contains this planId",
         });
       }
 
-      // ---------- SUBSCRIPTION ----------
-      if (type === "subscription") {
-        const planId = String(req.body?.planId || "").toLowerCase();
-        if (!planId) {
-          return res
-            .status(400)
-            .json({ error: "planId is required for subscription" });
-        }
-        const amountPence = Number(req.body?.amountPence || 0);
-        if (!Number.isFinite(amountPence) || amountPence <= 0) {
-          return res
-            .status(400)
-            .json({ error: "amountPence must be > 0 for subscription" });
-        }
-        const currency = (req.body?.currency || "GBP").toUpperCase();
+      const eid = entity_id || projectId || null;
+      const etype = entity_type || (projectId ? "project" : null);
 
-        const session = payments.createCheckout({
-          userId: uid,
-          items: [
-            {
-              label: `Subscribe: ${planId.toUpperCase()}`,
-              price: { amount: amountPence, currency },
-              quantity: 1,
-            },
-          ],
-          success_url,
-          cancel_url,
-          metadata: {
-            type: "subscription",
-            planId, // important for pay handler
-          },
-        });
+      const sessionPayload = {
+        type: t,
+        userId, // ✅ required by mock driver
+        currency,
+        amount: finalAmount,
+        planId: planId || null,
+        items:
+          Array.isArray(items) && items.length
+            ? items
+            : [
+                {
+                  label:
+                    t === "one_off"
+                      ? planId === "unlock_contact"
+                        ? "Unlock homeowner contact"
+                        : `One-off: ${planId || "purchase"}`
+                      : `Subscription: ${planId || "plan"}`,
+                  price: { amount: finalAmount, currency },
+                  quantity: 1,
+                },
+              ],
+        metadata: {
+          ...metadata,
+          planId: planId || metadata.planId,
+          entity_type: etype,
+          entity_id: eid,
+        },
+        success_url:
+          success_url ||
+          (origin
+            ? `${origin}/payments/mock/success?session_id={SESSION_ID}`
+            : null),
+        cancel_url:
+          cancel_url ||
+          (origin
+            ? `${origin}/payments/mock/cancel?session_id={SESSION_ID}`
+            : null),
+      };
 
-        ensurePaymentsSubscriptionTable();
-        db.prepare(
-          `INSERT OR IGNORE INTO payments_subscription
-             (buyer_uid, plan_id, amount, currency, status, provider_session_id)
-           VALUES (?, ?, ?, ?, 'pending', ?)`
-        ).run(uid, planId, amountPence, currency, session.id);
+      // Helpful breadcrumb while we stabilise
+      log.info?.("[payments][checkout] creating session", {
+        userId,
+        type: t,
+        planId,
+        amount: finalAmount,
+      });
 
-        return res.json({
-          ok: true,
-          sessionId: session.id,
-          url: `/payments/mock/checkout/${encodeURIComponent(session.id)}`,
-          session,
-        });
-      }
+      const session = await ctx.payments.createSession(sessionPayload);
 
-      // Fallback guard
-      return res.status(400).json({ error: `Unsupported type: ${type}` });
+      return res.json({
+        ok: true,
+        sessionId: session?.id || session?.session_id || null,
+        hosted_url:
+          session?.hosted_url ||
+          session?.url ||
+          (session?.id
+            ? `/payments/mock/checkout/${encodeURIComponent(session.id)}`
+            : null),
+        session,
+      });
     } catch (e) {
-      console.error("[payments.checkout] error:", e);
+      log.info?.("[payments][checkout] error", e?.message || e);
       return res
         .status(500)
-        .json({ error: e?.message || "Failed to create checkout" });
+        .json({ error: "internal_error", details: e?.message || String(e) });
     }
-  });
+  }
+
+  // Register route + a trailing-slash alias (some proxies normalize differently)
+  router.post("/payments/checkout", ctx.auth, handler);
+  router.post("/payments/checkout/", ctx.auth, handler);
+
+  // Mount log so you can verify in the console that it’s active
+  if (!ctx.__logged_payments_checkout) {
+    ctx.__logged_payments_checkout = true;
+    const base = ctx.API_PREFIX || "/api";
+    console.log(`[routes] mounted: POST ${base}/payments/checkout`);
+  }
 };

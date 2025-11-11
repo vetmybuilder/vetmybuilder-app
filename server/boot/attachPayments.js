@@ -2,7 +2,8 @@
 const { createMockPayments } = require("../lib/payments/mock");
 
 function pick(...vals) {
-  for (const v of vals) if (v && typeof v === "string" && v.trim()) return v.trim();
+  for (const v of vals)
+    if (v && typeof v === "string" && v.trim()) return v.trim();
   return null;
 }
 function normalizeBaseUrl(url, fallback) {
@@ -16,7 +17,7 @@ function shimInterface(payments, log) {
   // Find whichever creator the driver exposes
   const creator =
     payments.createSession ||
-    payments.createCheckout ||   // ← added
+    payments.createCheckout || // ← added
     payments.create ||
     payments.startSession ||
     payments.start ||
@@ -31,11 +32,11 @@ function shimInterface(payments, log) {
   const has = (k) =>
     payments && typeof payments[k] === "function" ? "ok" : "missing";
   log?.info?.(
-    `[payments] methods: createSession:${has("createSession")} createCheckout:${has(
-      "createCheckout"
-    )} getSession:${has("getSession")} markPaid:${has("markPaid")} cancel:${has(
-      "cancel"
-    )}`
+    `[payments] methods: createSession:${has(
+      "createSession"
+    )} createCheckout:${has("createCheckout")} getSession:${has(
+      "getSession"
+    )} markPaid:${has("markPaid")} cancel:${has("cancel")}`
   );
 }
 
@@ -60,7 +61,9 @@ function attachPayments(ctx = {}) {
 
   ctx.payments = payments;
   log.info?.(
-    `[payments] mock attached (baseUrl=${baseUrl}, webhookSecret=${webhookSecret ? "***" : "none"})`
+    `[payments] mock attached (baseUrl=${baseUrl}, webhookSecret=${
+      webhookSecret ? "***" : "none"
+    })`
   );
   return ctx;
 }
