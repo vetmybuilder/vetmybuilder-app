@@ -1,4 +1,4 @@
-// server/v2/routes/tradesmen/top.get.js
+// server/routes/tradesmen/top.get.js
 /**
  * GET /api/tradesmen/top
  * Auth: required

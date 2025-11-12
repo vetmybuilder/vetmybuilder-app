@@ -1,14 +1,13 @@
 // server/routes/admin/subscriptions.post.js
 //
-// Approve / Reject a pending (draft) subscription.
-//
+// Approve / Reject a pending (draft) subscription OR spotlight one-off.
 // Routes (both variants supported):
 //   POST /admin/subscriptions/:userId/approve
 //   POST /admin/subscriptions/:userId/reject
 //   POST /admin/tradesmen/:userId/subscription/approve
 //   POST /admin/tradesmen/:userId/subscription/reject
 //
-// Body (optional): { reason?: string }
+// Body (optional): { reason?: string, spotlightDays?: number }
 
 module.exports = (router, ctx) => {
   const { db, auth } = ctx;
@@ -23,9 +22,7 @@ module.exports = (router, ctx) => {
       const uid = req.user.uid;
       let roleRow = null;
       try {
-        roleRow = db
-          .prepare(`SELECT role FROM user_roles WHERE uid=?`)
-          .get(uid);
+        roleRow = db.prepare(`SELECT role FROM user_roles WHERE uid=?`).get(uid);
       } catch (_) {}
 
       const role = String(roleRow?.role || "user").toLowerCase();
@@ -35,9 +32,7 @@ module.exports = (router, ctx) => {
         .map((s) => s.trim().toLowerCase())
         .filter(Boolean);
 
-      const email = String(req.user?.email || "")
-        .trim()
-        .toLowerCase();
+      const email = String(req.user?.email || "").trim().toLowerCase();
       const isAdmin = role === "admin" || (email && allowlist.includes(email));
 
       if (!isAdmin) return res.status(403).json({ error: "Forbidden" });
@@ -105,6 +100,26 @@ module.exports = (router, ctx) => {
     }
   }
 
+  /** Get most recent PENDING one-off payment row id for a user & type */
+  function getLatestPendingOneOffId(userId, type) {
+    try {
+      const row = db
+        .prepare(
+          `SELECT id
+             FROM payments_oneoff
+            WHERE user_id = ?
+              AND type     = ?
+              AND status   = 'pending'
+            ORDER BY created_at DESC
+            LIMIT 1`
+        )
+        .get(userId, type);
+      return row?.id || null;
+    } catch {
+      return null;
+    }
+  }
+
   /** Append audit row */
   function audit({
     userId,
@@ -146,13 +161,17 @@ module.exports = (router, ctx) => {
   function handleApprove(req, res) {
     const userId = String(req.params.userId || "");
     const reason = req.body?.reason || null;
+    const spotlightDays =
+      Number.isFinite(req.body?.spotlightDays) && req.body.spotlightDays > 0
+        ? Math.floor(req.body.spotlightDays)
+        : 30; // default 30 days
     const actor = req.user?.email || req.user?.uid || "admin";
 
     try {
       const before = getSnapshot(userId);
       if (!before) return res.status(404).json({ error: "Not found" });
 
-      const pending = before.purchased_plan;
+      const pending = (before.purchased_plan || "").toLowerCase();
       if (!pending) {
         return res
           .status(400)
@@ -162,18 +181,72 @@ module.exports = (router, ctx) => {
       db.exec("BEGIN");
       const nowIso = new Date().toISOString();
 
-      // 1) Activate tradesman plan
-      const result = db
-        .prepare(
+      // --- Spotlight one-off approval path ---
+      if (pending === "spotlight") {
+        const paymentId = getLatestPendingOneOffId(userId, "spotlight");
+        if (!paymentId) {
+          db.exec("ROLLBACK");
+          return res
+            .status(400)
+            .json({ error: "No pending spotlight one-off payment found" });
+        }
+
+        // 1) Activate tradesman spotlight
+        db.prepare(
           `UPDATE tradesmen
               SET subscription_status = 'active',
-                  plan                = @pending,
+                  plan                = 'spotlight',
                   plan_update_at      = @now,
                   purchased_plan      = NULL,
                   updated_at          = @now
             WHERE user_id = @uid`
-        )
-        .run({ uid: userId, pending, now: nowIso });
+        ).run({ uid: userId, now: nowIso });
+
+        // 2) Activate payments_oneoff + set expiry
+        const expires = new Date();
+        expires.setDate(expires.getDate() + spotlightDays);
+        db.prepare(
+          `UPDATE payments_oneoff
+              SET status = 'active',
+                  expires_at = @exp
+            WHERE id = @id`
+        ).run({ id: paymentId, exp: expires.toISOString() });
+
+        // 3) Audit
+        audit({
+          userId,
+          event: "approve",
+          from_status: before.status,
+          to_status: "active",
+          from_plan: before.plan,
+          to_plan: "spotlight",
+          purchased_plan: "spotlight",
+          actor,
+          reason,
+        });
+
+        db.exec("COMMIT");
+        return res.json({
+          ok: true,
+          user_id: userId,
+          new_status: "active",
+          new_plan: "spotlight",
+          oneoff_id: paymentId,
+          expires_at: expires.toISOString(),
+        });
+      }
+
+      // --- Subscription approval path (gold, etc.) ---
+      // 1) Activate tradesman subscription
+      db.prepare(
+        `UPDATE tradesmen
+            SET subscription_status = 'active',
+                plan                = @pending,
+                plan_update_at      = @now,
+                purchased_plan      = NULL,
+                updated_at          = @now
+          WHERE user_id = @uid`
+      ).run({ uid: userId, pending, now: nowIso });
 
       // 2) Flip the latest draft subscription for THIS plan -> succeeded
       const subId = getLatestDraftSubId(userId, pending);
@@ -199,13 +272,6 @@ module.exports = (router, ctx) => {
       });
 
       db.exec("COMMIT");
-
-      if (result.changes === 0) {
-        return res
-          .status(404)
-          .json({ error: "Tradesman not found or no change applied" });
-      }
-
       return res.json({
         ok: true,
         user_id: userId,
@@ -231,10 +297,22 @@ module.exports = (router, ctx) => {
 
       db.exec("BEGIN");
       const nowIso = new Date().toISOString();
+      const pending = (before.purchased_plan || "").toLowerCase();
 
-      // 1) Downgrade tradesman to free + clear pending
-      const result = db
-        .prepare(
+      // --- Spotlight one-off rejection path ---
+      if (pending === "spotlight") {
+        const paymentId = getLatestPendingOneOffId(userId, "spotlight");
+        if (paymentId) {
+          db.prepare(
+            `UPDATE payments_oneoff
+                SET status = 'rejected',
+                    expires_at = NULL
+              WHERE id = ?`
+          ).run(paymentId);
+        }
+
+        // Downgrade tradesman to free + clear pending
+        db.prepare(
           `UPDATE tradesmen
               SET subscription_status = 'inactive',
                   plan                = 'free',
@@ -242,13 +320,43 @@ module.exports = (router, ctx) => {
                   purchased_plan      = NULL,
                   updated_at          = @now
             WHERE user_id = @uid`
-        )
-        .run({ uid: userId, now: nowIso });
+        ).run({ uid: userId, now: nowIso });
 
-      // 2) Mark latest draft subscription for the pending plan -> rejected
-      const subId = before.purchased_plan
-        ? getLatestDraftSubId(userId, before.purchased_plan)
-        : null;
+        audit({
+          userId,
+          event: "reject",
+          from_status: before.status,
+          to_status: "inactive",
+          from_plan: before.plan,
+          to_plan: "free",
+          purchased_plan: "spotlight",
+          actor,
+          reason,
+        });
+
+        db.exec("COMMIT");
+        return res.json({
+          ok: true,
+          user_id: userId,
+          new_status: "inactive",
+          new_plan: "free",
+        });
+      }
+
+      // --- Subscription rejection path ---
+      // Downgrade tradesman to free + clear pending
+      db.prepare(
+        `UPDATE tradesmen
+            SET subscription_status = 'inactive',
+                plan                = 'free',
+                plan_update_at      = @now,
+                purchased_plan      = NULL,
+                updated_at          = @now
+          WHERE user_id = @uid`
+      ).run({ uid: userId, now: nowIso });
+
+      // Mark latest draft subscription for the pending plan -> rejected
+      const subId = pending ? getLatestDraftSubId(userId, pending) : null;
       if (subId) {
         db.prepare(
           `UPDATE payments_subscription
@@ -257,7 +365,6 @@ module.exports = (router, ctx) => {
         ).run(subId);
       }
 
-      // 3) Audit
       audit({
         userId,
         event: "reject",
@@ -265,19 +372,12 @@ module.exports = (router, ctx) => {
         to_status: "inactive",
         from_plan: before.plan,
         to_plan: "free",
-        purchased_plan: before.purchased_plan ?? null,
+        purchased_plan: pending || null,
         actor,
         reason,
       });
 
       db.exec("COMMIT");
-
-      if (result.changes === 0) {
-        return res
-          .status(404)
-          .json({ error: "Tradesman not found or no change applied" });
-      }
-
       return res.json({
         ok: true,
         user_id: userId,

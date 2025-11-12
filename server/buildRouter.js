@@ -162,6 +162,8 @@ function buildRouter(ctx) {
   require("./routes/tradesmen/leaderboard.get")(router, ctx);
   require("./routes/tradesmen/precheck.post")(router, ctx);
   require("./routes/tradesmen/shares.post")(router, ctx);
+  require("./routes/tradesmen/featured.get")(router, ctx);
+  require("./routes/tradesmen/spotlight.get")(router, ctx);
 
   // ---------------- Plans ----------------
   require("./routes/meta/plans.get")(router, ctx);
@@ -173,6 +175,7 @@ function buildRouter(ctx) {
   require("./routes/payments/mock.cancel.post")(router, ctx);
   require("./routes/payments/mock.session.get")(router, ctx);
   require("./routes/payments/subscription.uncancel.post")(router, ctx);
+  require("./routes/payments/oneoff.spotlight.purchase.post")(router, ctx);
 
   // ---------------- Admin ----------------
   require("./routes/admin/tradesmen.get")(router, ctx);
