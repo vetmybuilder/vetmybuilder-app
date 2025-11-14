@@ -1,3 +1,4 @@
+// web/components/project/OwnerProjectView.tsx
 import * as React from "react";
 import StatusBadge from "@/components/StatusBadge";
 import ShortlistSection from "@/components/project/ShortlistSection";
@@ -15,6 +16,7 @@ import { useApi } from "@/utils/api";
 import FeaturedSimpleCard from "@/components/tradesmen/FeaturedSimpleCard";
 import { FeaturedTradesman } from "@/components/tradesmen/GoldTradesmanCard";
 import SpotlightStrip from "@/components/tradesmen/SpotlightStrip";
+import { useRouter } from "next/router";
 
 type VM = ReturnType<typeof import("./useProjectView").useProjectView>;
 
@@ -38,6 +40,8 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
   } = vm;
 
   const api = useApi();
+  const router = useRouter();
+
   const [featured, setFeatured] = React.useState<FeaturedTradesman[]>([]);
   const [featuredErr, setFeaturedErr] = React.useState<string | null>(null);
   const [featuredLoading, setFeaturedLoading] = React.useState(false);
@@ -49,32 +53,38 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
   React.useEffect(() => {
     if (!project?.id) return;
     let cancelled = false;
+
     (async () => {
       try {
         setFeaturedLoading(true);
         setFeaturedErr(null);
-        const url = `/api/tradesmen/featured?onlyGold=true&limit=30&projectId=${encodeURIComponent(
-          String(project.id)
-        )}`;
-        const res = await api.get?.(url);
-        const data =
-          res && typeof (res as any).json === "function"
-            ? await (res as any).json()
-            : (res as any)?.data ?? res;
+
+        const res = await api.get("/api/tradesmen/featured", {
+          params: {
+            onlyGold: true,
+            limit: 30,
+            projectId: String(project.id),
+          },
+        } as any);
+
+        const data: any = (res as any)?.data ?? res;
         const items: FeaturedTradesman[] = Array.isArray(data?.items)
           ? data.items
           : [];
+
         if (!cancelled) {
           setFeatured(items);
           setPage(0); // reset to first set
         }
       } catch (e: any) {
-        if (!cancelled)
+        if (!cancelled) {
           setFeaturedErr(e?.message || "Failed to load featured tradesmen");
+        }
       } finally {
         if (!cancelled) setFeaturedLoading(false);
       }
     })();
+
     return () => {
       cancelled = true;
     };
@@ -268,10 +278,13 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
               <FeaturedSimpleCard
                 key={t.builderId}
                 name={t.companyName || t.displayName || "Tradesman"}
-                // initials-only card: no img prop
-                onClick={() =>
-                  (window.location.href = `/tradesmen/${t.builderId}`)
+                img={
+                  t.avatarUrl ||
+                  (Array.isArray(t.gallery) && t.gallery.length > 0
+                    ? t.gallery[0]
+                    : null)
                 }
+                onClick={() => router.push(`/tradesman/${t.builderId}`)}
               />
             ))}
           </div>

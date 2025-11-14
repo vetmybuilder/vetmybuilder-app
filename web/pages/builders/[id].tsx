@@ -5,6 +5,9 @@ import { useAuth } from "@/utils/auth";
 import Link from "next/link";
 import { getAggregateVmbForCompany, type FetchRecsFn } from "@/utils/vmb";
 import BlurUnlock from "@/components/ui/BlurUnlock";
+import LightboxGallery, {
+  type GalleryImage,
+} from "@/components/LightboxGallery";
 
 type Photo = { id: string; url: string; thumb?: string; alt?: string };
 
@@ -314,9 +317,6 @@ export default function BuilderProfile() {
   const [aggPhotos, setAggPhotos] = useState<Photo[]>([]);
   const [aggUpdatedAt, setAggUpdatedAt] = useState<string | null>(null);
 
-  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
-  const lightboxOpen = lightboxIdx !== null;
-
   const [verification, setVerification] = useState<Verification | null>(null);
   const [verr, setVerr] = useState<string | null>(null);
   const [vLoading, setVLoading] = useState(false);
@@ -331,16 +331,6 @@ export default function BuilderProfile() {
     [user, projectOwnerId]
   );
   const canVote = !!user && !isOwner;
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!lightboxOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [lightboxOpen]);
 
   // Fetch builder (skip while redirecting)
   useEffect(() => {
@@ -584,6 +574,13 @@ export default function BuilderProfile() {
   }, [api, builder, redirecting]);
 
   const photos = aggPhotos;
+  const galleryImages: GalleryImage[] = photos.map((p, i) => ({
+    id: p.id ?? String(i + 1),
+    thumbUrl: p.thumb || p.url,
+    fullUrl: p.url,
+    alt: p.alt,
+  }));
+
   const [voting, setVoting] = useState(false);
   const voteUpOnce = async () => {
     if (!builder || !user || voting || builder.myLike === 1 || !canVote) return;
@@ -688,9 +685,31 @@ export default function BuilderProfile() {
   // --- block UI completely while redirecting (no flicker for tradesmen) ---
   if (redirecting) return null;
 
+  const companyName = user
+    ? resolveCompanyNameForBuilder(builder, verification)
+    : "Create a free account to view company details";
+
+  const updatedDisplay =
+    aggUpdatedAt ||
+    builder?.createdAt ||
+    (builder ? new Date().toISOString() : null);
+
+  const primaryPhone = user && aggPhones.length > 0 ? aggPhones[0] : null;
+
+  // simple initials avatar if no photo
+  const avatarInitials = companyName
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join("")
+    .toUpperCase();
+
+  const avatarUrl = galleryImages[0]?.thumbUrl ?? galleryImages[0]?.fullUrl;
+
   return (
-    <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-      <div className="flex items-center justify-between mb-4">
+    <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+      <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-semibold" data-testid="builder-page-title">
           Builder profile
         </h1>
@@ -699,12 +718,12 @@ export default function BuilderProfile() {
             href="/projects"
             aria-label="Back to my projects"
             title="Back to my projects"
-            className="btn-back"
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
             data-testid="btn-back"
           >
             <svg
               viewBox="0 0 24 24"
-              className="icon-24"
+              className="h-4 w-4"
               fill="none"
               stroke="currentColor"
               strokeWidth={2}
@@ -715,143 +734,84 @@ export default function BuilderProfile() {
               <path d="M10 19l-7-7 7-7" />
               <path d="M3 12h18" />
             </svg>
-            <span className="sr-only">Back to my projects</span>
+            <span>Back to projects</span>
           </Link>
         )}
       </div>
 
       {authLoading || loading ? (
-        <div className="card" data-testid="builder-loading">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           Loading…
         </div>
       ) : err ? (
-        <div className="card text-red-600" data-testid="builder-error">
+        <div
+          className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-700 shadow-sm"
+          data-testid="builder-error"
+        >
           {err}
         </div>
       ) : (
-        <div className="space-y-5">
-          {/* Gallery */}
-          <section
-            className="card"
-            data-testid="gallery-card"
-            aria-labelledby="gallery-heading"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <h3 id="gallery-heading" className="text-lg font-semibold">
-                Gallery
-              </h3>
-              <span
-                className="text-xs text-slate-500"
-                data-testid="gallery-count"
-              >
-                {user
-                  ? `${photos.length} photo${photos.length === 1 ? "" : "s"}`
-                  : "Locked preview"}
-              </span>
-            </div>
-
-            {user ? (
-              photos.length === 0 ? (
-                <p
-                  className="text-sm text-slate-500"
-                  data-testid="gallery-empty"
-                >
-                  No photos yet. Upload images when submitting a recommendation
-                  to showcase the work.
-                </p>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-                  {photos.map((p, i) => (
-                    <button
-                      key={p.id}
-                      className="relative aspect-square overflow-hidden rounded-lg border border-slate-200 hover:opacity-90"
-                      onClick={() => setLightboxIdx(i)}
-                      aria-label={`Open image ${i + 1} of ${photos.length}`}
-                      data-testid={`gallery-thumb-${i}`}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
+        builder && (
+          <div className="space-y-6">
+            {/* Header card like tradesman page */}
+            <header className="rounded-2xl border border-slate-200 bg-white/80 backdrop-blur px-4 py-4 sm:px-6 sm:py-5 shadow-sm">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <div className="h-16 w-16 sm:h-20 sm:w-20 overflow-hidden rounded-xl bg-slate-200 grid place-items-center text-lg font-semibold text-white">
+                    {avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={p.thumb || p.url}
-                        alt={p.alt || ""}
+                        src={avatarUrl}
+                        alt={companyName}
                         className="h-full w-full object-cover"
-                        loading="lazy"
                       />
-                    </button>
-                  ))}
-                </div>
-              )
-            ) : (
-              <BlurUnlock
-                previewCount={3}
-                totalCount={photos.length || undefined}
-                label="photos from neighbours"
-              >
-                <div
-                  className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2"
-                  aria-hidden
-                >
-                  {new Array(6).fill(null).map((_, i) => (
-                    <div
-                      key={i}
-                      className="relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-slate-100"
+                    ) : (
+                      <span>{avatarInitials}</span>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <h2
+                      className="truncate text-xl sm:text-2xl font-semibold tracking-tight text-slate-900"
+                      title={companyName}
+                      data-testid="builder-company"
                     >
-                      <div className="absolute inset-0 animate-pulse bg-slate-200" />
+                      {companyName}
+                    </h2>
+                    <div
+                      className="mt-2 flex flex-wrap items-center gap-2"
+                      data-testid="builder-badges"
+                    >
+                      {verification?.status === "verified" && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
+                          <span aria-hidden>✅</span>
+                          <span>Companies House verified</span>
+                        </span>
+                      )}
+                      {builder.fromFriend ? (
+                        <Badge color="indigo">Friend</Badge>
+                      ) : null}
+                      {builder.fromCommunity ? (
+                        <Badge color="green">Community</Badge>
+                      ) : null}
                     </div>
-                  ))}
-                </div>
-              </BlurUnlock>
-            )}
-          </section>
-
-          {/* Summary + Verifications */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <section
-              className="card"
-              data-testid="builder-summary-card"
-              aria-labelledby="builder-summary-heading"
-            >
-              <div className="grid grid-cols-[1fr_auto] items-start gap-3">
-                <div className="min-w-0">
-                  <h2
-                    id="builder-summary-heading"
-                    className="text-xl font-semibold truncate"
-                    data-testid="builder-company"
-                    title={resolveCompanyNameForBuilder(builder, verification)}
-                  >
-                    {user
-                      ? resolveCompanyNameForBuilder(builder, verification)
-                      : "Create a free account to view company details"}
-                  </h2>
-                  <div
-                    className="mt-2 flex items-center gap-2"
-                    data-testid="builder-badges"
-                  >
-                    {builder?.fromFriend ? (
-                      <Badge color="indigo">Friend</Badge>
-                    ) : null}
-                    {builder?.fromCommunity ? (
-                      <Badge color="green">Community</Badge>
-                    ) : null}
                   </div>
                 </div>
 
-                <div className="justify-self-end shrink-0 flex flex-col items-end">
+                <div className="flex flex-col items-start sm:items-end gap-2">
                   <div className="flex items-center gap-3">
                     <div
                       className="text-sm text-zinc-500 flex items-center gap-1"
                       data-testid="builder-votes"
-                      aria-label={`Votes: ${builder?.likes ?? 0}`}
-                      title={`${builder?.likes ?? 0} vote${
-                        (builder?.likes ?? 0) === 1 ? "" : "s"
+                      aria-label={`Votes: ${builder.likes ?? 0}`}
+                      title={`${builder.likes ?? 0} vote${
+                        (builder.likes ?? 0) === 1 ? "" : "s"
                       }`}
                     >
                       <ThumbsUpIcon className="h-4 w-4" />
-                      <span className="tabular-nums">
-                        {builder?.likes ?? 0}
-                      </span>
+                      <span className="tabular-nums">{builder.likes ?? 0}</span>
                     </div>
                     {user ? (
-                      <ScoreChip value={score ?? builder?.score} />
+                      <ScoreChip value={score ?? builder.score} />
                     ) : (
                       <span className="rounded-full px-2 py-0.5 text-xs font-medium border border-slate-200 text-slate-500">
                         VMB —
@@ -861,28 +821,28 @@ export default function BuilderProfile() {
 
                   {!isOwner && user && (
                     <button
-                      className={`mt-2 h-9 w-9 rounded-full border grid place-items-center text-sm transition ${
-                        builder?.myLike === 1
+                      className={`mt-1 h-9 w-9 rounded-full border grid place-items-center text-sm transition ${
+                        builder.myLike === 1
                           ? "bg-indigo-50 border-indigo-200 text-indigo-600 cursor-default"
                           : "border-slate-300 hover:bg-slate-50"
-                      } ${!user ? "opacity-60 cursor-not-allowed" : ""}`}
+                      }`}
                       disabled={
-                        !user || builder?.myLike === 1 || voting || !canVote
+                        !user || builder.myLike === 1 || voting || !canVote
                       }
                       onClick={voteUpOnce}
                       data-testid="btn-vote-up"
-                      aria-pressed={builder?.myLike === 1}
+                      aria-pressed={builder.myLike === 1}
                       title={
                         !user
                           ? "Sign in to vote"
-                          : builder?.myLike === 1
+                          : builder.myLike === 1
                           ? "You’ve voted"
                           : "Vote up"
                       }
                       aria-label={
                         !user
                           ? "Sign in to vote"
-                          : builder?.myLike === 1
+                          : builder.myLike === 1
                           ? "You have voted"
                           : "Vote up"
                       }
@@ -894,262 +854,367 @@ export default function BuilderProfile() {
                   {scoreErr && (
                     <div className="mt-1 text-xs text-rose-600">{scoreErr}</div>
                   )}
+
+                  {updatedDisplay && (
+                    <div className="mt-1 text-xs text-slate-500">
+                      Updated{" "}
+                      {new Date(updatedDisplay).toLocaleDateString(undefined, {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
+            </header>
 
-              {builder?.comment && (
-                <p
-                  className="text-sm text-slate-700 mt-3 whitespace-pre-wrap"
-                  data-testid="builder-comment"
+            {/* Main two-column layout */}
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,2.1fr)_minmax(280px,1fr)]">
+              {/* LEFT: Gallery + summary */}
+              <div className="space-y-6">
+                {/* Gallery */}
+                <section
+                  className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm"
+                  data-testid="gallery-card"
+                  aria-labelledby="gallery-heading"
                 >
-                  {builder.comment}
-                </p>
-              )}
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3
+                      id="gallery-heading"
+                      className="text-lg font-semibold text-slate-900"
+                    >
+                      Project photos
+                    </h3>
+                    <span
+                      className="text-xs text-slate-500"
+                      data-testid="gallery-count"
+                    >
+                      {user
+                        ? `${photos.length} photo${
+                            photos.length === 1 ? "" : "s"
+                          }`
+                        : "Locked preview"}
+                    </span>
+                  </div>
 
-              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                {user ? (
-                  <>
-                    <div className="space-y-1">
-                      <div className="text-slate-500">
-                        {aggNames.length > 1 ? "Recommenders" : "Recommender"}
+                  {user ? (
+                    galleryImages.length === 0 ? (
+                      <p
+                        className="text-sm text-slate-500"
+                        data-testid="gallery-empty"
+                      >
+                        No photos yet. Upload images when submitting a
+                        recommendation to showcase the work.
+                      </p>
+                    ) : (
+                      <LightboxGallery
+                        images={galleryImages}
+                        cols={4}
+                        rounded="rounded-xl"
+                      />
+                    )
+                  ) : (
+                    <BlurUnlock
+                      previewCount={3}
+                      totalCount={photos.length || undefined}
+                      label="photos from neighbours"
+                    >
+                      <div
+                        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2"
+                        aria-hidden
+                      >
+                        {new Array(6).fill(null).map((_, i) => (
+                          <div
+                            key={i}
+                            className="relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-slate-100"
+                          >
+                            <div className="absolute inset-0 animate-pulse bg-slate-200" />
+                          </div>
+                        ))}
                       </div>
-                      <div data-testid="builder-recommender">
-                        {aggNames.length === 0 ? (
-                          "—"
-                        ) : (
-                          <ul className="space-y-1">
-                            {aggNames.map((n, i) => (
-                              <li
-                                key={`${n}-${i}`}
-                                className="flex items-start gap-2"
-                              >
-                                <span
-                                  aria-hidden
-                                  className="mt-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500"
-                                />
-                                <span className="text-slate-700">{n}</span>
-                              </li>
+                    </BlurUnlock>
+                  )}
+                </section>
+
+                {/* Summary / recommenders / comment */}
+                <section
+                  className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm"
+                  data-testid="builder-summary-card"
+                  aria-labelledby="builder-summary-heading"
+                >
+                  <h3
+                    id="builder-summary-heading"
+                    className="text-lg font-semibold text-slate-900 mb-2"
+                  >
+                    Neighbours’ feedback
+                  </h3>
+
+                  {builder.comment && (
+                    <p
+                      className="text-sm text-slate-700 whitespace-pre-wrap mb-4"
+                      data-testid="builder-comment"
+                    >
+                      {builder.comment}
+                    </p>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                    {user ? (
+                      <>
+                        <div className="space-y-1">
+                          <div className="text-slate-500">
+                            {aggNames.length > 1
+                              ? "Recommenders"
+                              : "Recommender"}
+                          </div>
+                          <div data-testid="builder-recommender">
+                            {aggNames.length === 0 ? (
+                              "—"
+                            ) : (
+                              <ul className="space-y-1">
+                                {aggNames.map((n, i) => (
+                                  <li
+                                    key={`${n}-${i}`}
+                                    className="flex items-start gap-2"
+                                  >
+                                    <span
+                                      aria-hidden
+                                      className="mt-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500"
+                                    />
+                                    <span className="text-slate-700">{n}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="text-slate-500">Date updated</div>
+                          <time data-testid="builder-updated">
+                            {updatedDisplay
+                              ? new Date(updatedDisplay).toLocaleString(
+                                  undefined,
+                                  {
+                                    year: "numeric",
+                                    month: "short",
+                                    day: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }
+                                )
+                              : "—"}
+                          </time>
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="text-slate-500">Builder phone</div>
+                          <div
+                            data-testid="builder-phone"
+                            className="tabular-nums"
+                          >
+                            {aggPhones.length === 0 ? (
+                              "—"
+                            ) : (
+                              <ul className="space-y-0.5">
+                                {aggPhones.map((p, i) => (
+                                  <li key={`${p}-${i}`}>{p}</li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="space-y-1">
+                          <div className="text-slate-500">Recommender</div>
+                          <SkeletonLine className="h-4 w-40" />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="text-slate-500">Date updated</div>
+                          <SkeletonLine className="h-4 w-28" />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="text-slate-500">Builder phone</div>
+                          <SkeletonLine className="h-4 w-36" />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </section>
+              </div>
+
+              {/* RIGHT: Contact details + verifications (stacked) */}
+              <div className="space-y-6">
+                {/* Contact details card – like tradesman page */}
+                <section
+                  className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm"
+                  aria-label="Contact details"
+                  data-testid="contact-details-card"
+                >
+                  <h2 className="text-base font-semibold text-slate-900 mb-3">
+                    Contact details
+                  </h2>
+
+                  {user ? (
+                    <>
+                      <div className="space-y-1 mb-4">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Phone
+                        </div>
+                        <div className="mt-1 text-sm text-emerald-700">
+                          {primaryPhone ?? "Not provided"}
+                        </div>
+                        {aggPhones.length > 1 && (
+                          <ul className="mt-1 text-xs text-slate-500 space-y-0.5">
+                            {aggPhones.slice(1).map((p, idx) => (
+                              <li key={`${p}-${idx}`}>{p}</li>
                             ))}
                           </ul>
                         )}
                       </div>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-slate-500">Date updated</div>
-                      <time data-testid="builder-updated">
-                        {aggUpdatedAt
-                          ? new Date(aggUpdatedAt).toLocaleString()
-                          : builder?.createdAt
-                          ? new Date(builder.createdAt).toLocaleString()
-                          : "—"}
-                      </time>
-                    </div>
-                    {aggPhones.length > 0 && (
-                      <div className="space-y-1">
-                        <div className="text-slate-500">Builder phone</div>
-                        <div
-                          data-testid="builder-phone"
-                          className="tabular-nums"
-                        >
-                          <ul className="space-y-0.5">
-                            {aggPhones.map((p, i) => (
-                              <li key={`${p}-${i}`}>{p}</li>
-                            ))}
-                          </ul>
+
+                      <hr className="my-3 border-slate-100" />
+
+                      <div className="space-y-1 mb-3">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Recommenders
+                        </div>
+                        <div className="mt-1 text-sm text-slate-700">
+                          {aggNames.length === 0
+                            ? "Not specified"
+                            : aggNames.join(", ")}
                         </div>
                       </div>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <div className="space-y-1">
-                      <div className="text-slate-500">Recommender</div>
-                      <SkeletonLine className="h-4 w-40" />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-slate-500">Date updated</div>
-                      <SkeletonLine className="h-4 w-28" />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-slate-500">Builder phone</div>
-                      <SkeletonLine className="h-4 w-36" />
-                    </div>
-                  </>
-                )}
-              </div>
-            </section>
 
-            <section
-              className="card"
-              data-testid="verifications-card"
-              aria-labelledby="verifications-heading"
-            >
-              <h3 id="verifications-heading" className="text-lg font-semibold">
-                Verifications
-              </h3>
-              <p
-                className="mt-1 text-sm text-slate-600"
-                data-testid="verifications-copy"
-              >
-                Extra checks we run so you can decide with confidence.
-              </p>
+                      <hr className="my-3 border-slate-100" />
 
-              <div className="mt-4 divide-y divide-slate-100">
-                <div
-                  className="py-3 flex items-center justify-between gap-4"
-                  data-testid="verification-companies-house"
-                >
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium">Companies House</div>
-                    {verification?.companyNumber ? (
-                      <div className="text-xs text-slate-500">
-                        #{verification.companyNumber}
+                      <div className="space-y-1">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Date updated
+                        </div>
+                        <div className="mt-1 text-sm text-slate-700">
+                          {updatedDisplay
+                            ? new Date(updatedDisplay).toLocaleDateString(
+                                undefined,
+                                {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                }
+                              )
+                            : "—"}
+                        </div>
                       </div>
-                    ) : null}
-                  </div>
-                  <div className="shrink-0">
-                    {verr ? (
-                      <span className="text-sm text-rose-700 inline-flex items-center gap-1">
-                        <ExclamationTriangleIcon className="h-5 w-5 text-rose-600" />
-                        Error
-                      </span>
-                    ) : user ? (
-                      renderCHStatus(verification)
-                    ) : (
-                      <span className="text-sm text-slate-500">
-                        Sign in to view
-                      </span>
-                    )}
-                  </div>
-                </div>
+                    </>
+                  ) : (
+                    <BlurUnlock
+                      previewCount={0}
+                      label="contact details"
+                      totalCount={undefined}
+                    >
+                      <div className="space-y-4" aria-hidden>
+                        <div>
+                          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Phone
+                          </div>
+                          <SkeletonLine className="mt-1 h-4 w-32" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Recommenders
+                          </div>
+                          <SkeletonLine className="mt-1 h-4 w-40" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Date updated
+                          </div>
+                          <SkeletonLine className="mt-1 h-4 w-28" />
+                        </div>
+                      </div>
+                    </BlurUnlock>
+                  )}
+                </section>
 
-                <div
-                  className="py-3 flex items-center justify-between gap-4"
-                  data-testid="verification-google-row"
+                {/* Verifications card (unchanged content, new styling) */}
+                <section
+                  className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm"
+                  data-testid="verifications-card"
+                  aria-labelledby="verifications-heading"
                 >
-                  <div className="min-w-0 flex items-center gap-2">
-                    <GoogleMark />
+                  <h3
+                    id="verifications-heading"
+                    className="text-base font-semibold text-slate-900"
+                  >
+                    Verifications
+                  </h3>
+                  <p
+                    className="mt-1 text-sm text-slate-600"
+                    data-testid="verifications-copy"
+                  >
+                    Extra checks we run so you can decide with confidence.
+                  </p>
+
+                  <div className="mt-4 divide-y divide-slate-100">
+                    <div
+                      className="py-3 flex items-center justify-between gap-4"
+                      data-testid="verification-companies-house"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium">
+                          Companies House
+                        </div>
+                        {verification?.companyNumber ? (
+                          <div className="text-xs text-slate-500">
+                            #{verification.companyNumber}
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="shrink-0">
+                        {verr ? (
+                          <span className="text-sm text-rose-700 inline-flex items-center gap-1">
+                            <ExclamationTriangleIcon className="h-5 w-5 text-rose-600" />
+                            Error
+                          </span>
+                        ) : user ? (
+                          renderCHStatus(verification)
+                        ) : (
+                          <span className="text-sm text-slate-500">
+                            Sign in to view
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div
+                      className="py-3 flex items-center justify-between gap-4"
+                      data-testid="verification-google-row"
+                    >
+                      <div className="min-w-0 flex items-center gap-2">
+                        <GoogleMark />
+                      </div>
+                      <div className="shrink-0">
+                        <span className="inline-flex items-center gap-2 text-sm">
+                          <span className="font-medium">5.0</span>
+                          <span aria-hidden className="flex gap-0.5">
+                            <span className="text-yellow-400">★</span>
+                            <span className="text-yellow-400">★</span>
+                            <span className="text-yellow-400">★</span>
+                            <span className="text-yellow-400">★</span>
+                            <span className="text-yellow-400">★</span>
+                          </span>
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="shrink-0">
-                    <span className="inline-flex items-center gap-2 text-sm">
-                      <span className="font-medium">5.0</span>
-                      <span aria-hidden className="flex gap-0.5">
-                        <span className="text-yellow-400">★</span>
-                        <span className="text-yellow-400">★</span>
-                        <span className="text-yellow-400">★</span>
-                        <span className="text-yellow-400">★</span>
-                        <span className="text-yellow-400">★</span>
-                      </span>
-                    </span>
-                  </div>
-                </div>
+                </section>
               </div>
-            </section>
+            </div>
           </div>
-
-          {lightboxOpen && photos[lightboxIdx as number] && user && (
-            <Lightbox
-              photos={photos}
-              index={lightboxIdx as number}
-              onClose={() => setLightboxIdx(null)}
-              onIndex={(i) => setLightboxIdx(i)}
-            />
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Lightbox({
-  photos,
-  index,
-  onClose,
-  onIndex,
-}: {
-  photos: Photo[];
-  index: number;
-  onClose: () => void;
-  onIndex: (i: number) => void;
-}) {
-  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
-  useEffect(() => {
-    closeBtnRef.current?.focus();
-  }, []);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      if (e.key === "ArrowRight")
-        onIndex((index + 1) % Math.max(1, photos.length));
-      if (e.key === "ArrowLeft")
-        onIndex((index - 1 + Math.max(1, photos.length)) % photos.length);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [index, photos.length, onClose, onIndex]);
-
-  const current = photos[index];
-  return (
-    <div
-      className="fixed inset-0 z-[100] bg-black/80 px-3 flex items-center justify-center"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Image lightbox"
-      onClick={onClose}
-    >
-      <button
-        ref={closeBtnRef}
-        className="absolute top-3 right-3 inline-flex items-center justify-center h-10 w-10 rounded-full bg-white/10 hover:bg-white/15 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        onClick={onClose}
-        aria-label="Close"
-        data-testid="lightbox-close"
-      >
-        ✕
-      </button>
-      {photos.length > 1 && (
-        <button
-          className="absolute left-3 md:left-6 inline-flex items-center justify-center h-10 w-10 rounded-full bg-white/10 hover:bg-white/15 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          onClick={(e) => {
-            e.stopPropagation();
-            onIndex((index - 1 + photos.length) % photos.length);
-          }}
-          aria-label="Previous image"
-          data-testid="lightbox-prev"
-        >
-          ‹
-        </button>
-      )}
-      <div
-        className="max-w-6xl w-full"
-        onClick={(e) => e.stopPropagation()}
-        role="document"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={current.url}
-          alt={current.alt || ""}
-          className="mx-auto max-h-[80vh] w-auto object-contain rounded-lg shadow-2xl"
-          data-testid="lightbox-image"
-        />
-        <div
-          className="mt-2 text-center text-xs text-white/80"
-          data-testid="lightbox-count"
-        >
-          {index + 1} / {photos.length}
-        </div>
-      </div>
-      {photos.length > 1 && (
-        <button
-          className="absolute right-3 md:right-6 inline-flex items-center justify-center h-10 w-10 rounded-full bg-white/10 hover:bg-white/15 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          onClick={(e) => {
-            e.stopPropagation();
-            onIndex((index + 1) % photos.length);
-          }}
-          aria-label="Next image"
-          data-testid="lightbox-next"
-        >
-          ›
-        </button>
+        )
       )}
     </div>
   );

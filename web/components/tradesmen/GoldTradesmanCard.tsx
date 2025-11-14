@@ -105,6 +105,14 @@ const GoldTradesmanCard: React.FC<Props> = ({
       ? `Active until ${new Date(tierActiveUntil).toLocaleDateString()}`
       : null;
 
+  // 👇 NEW: choose avatar image: avatarUrl first, else first gallery image
+  const avatarSrc =
+    avatarUrl && avatarUrl.trim().length > 0
+      ? avatarUrl
+      : Array.isArray(gallery) && gallery.length > 0
+      ? gallery[0]
+      : null;
+
   // --- NEW: borderless container logic
   const containerBase =
     "group relative overflow-hidden rounded-2xl transition-shadow";
@@ -134,7 +142,8 @@ const GoldTradesmanCard: React.FC<Props> = ({
       {/* Body */}
       <div className={`p-4 sm:p-5 ${borderless ? "bg-transparent" : ""}`}>
         <div className="flex items-start gap-4">
-          <Avatar src={avatarUrl} name={title} />
+          {/* 👇 use avatarSrc instead of raw avatarUrl */}
+          <Avatar src={avatarSrc} name={title} />
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">

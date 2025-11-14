@@ -2,18 +2,17 @@
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import { useEffect, useMemo, useRef, useState } from "react";
-import ProjectTabs, { type ProjectTabKey } from "@/components/ProjectTabs";
+import { type ProjectTabKey } from "@/components/ProjectTabs";
 import { useRouter } from "next/router";
 import { useAuth } from "@/utils/auth";
-import ProjectHero from "@/components/project/ProjectHero";
 import ProjectImageCard from "@/components/project/ProjectImageCard";
 import ProjectInfoCard from "@/components/project/ProjectInfoCard";
-import BedroomHero from "@/assets/hero.jpg";
 import { useTradesmanLabels } from "@/hooks/useTradesmanLabels";
 import CompletedProjectCard from "@/components/project/CompletedProjectCard";
 import ProjectFilters, {
   type ProjectFiltersValue,
 } from "@/components/filters/ProjectFilters";
+import { FeaturedSimpleStrip } from "@/components/tradesmen/FeaturedSimpleCard";
 
 type Status = "pending" | "live" | "completed" | "archived";
 
@@ -43,6 +42,16 @@ type ApiList = {
   pageSize: number;
 };
 
+type FeaturedLite = {
+  builderId: string;
+  companyName: string | null;
+  displayName: string | null;
+  mainPhotoUrl?: string | null;
+  // optional extra fields (not strictly needed but useful)
+  avatarUrl?: string | null;
+  gallery?: string[];
+};
+
 /* ===== Outer page: auth + gate ===== */
 export default function ProjectsPage() {
   return (
@@ -52,8 +61,7 @@ export default function ProjectsPage() {
   );
 }
 
-/* Small component that decides where to send the user.
-   It NEVER renders the owner list until the check is done, so no flicker and no hook-order changes. */
+/* Small component that decides where to send the user. */
 function ProjectsGate() {
   const api = useApi();
   const router = useRouter();
@@ -121,82 +129,8 @@ function ProjectsGate() {
   return <OwnerProjects />;
 }
 
-/* ===== Actual owner projects UI (all the hooks live here) ===== */
+/* ===== Helpers ===== */
 
-const ALL_TABS: ProjectTabKey[] = [
-  "mine",
-  "archived",
-  "completed",
-  "completedCommunity",
-  "recommended",
-];
-
-const VERTICAL_TABS = [
-  {
-    key: "mine" as const,
-    label: "My Projects",
-    color: "#22c55e",
-    icon: (p: React.SVGProps<SVGSVGElement>) => (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...p}>
-        <path d="M9 7V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1" strokeWidth="1.75" />
-        <rect x="3.5" y="7" width="17" height="11" rx="2" strokeWidth="1.75" />
-        <path d="M3.5 11.5h17" strokeWidth="1.75" />
-        <path d="M11.25 11.5v2.5h1.5v-2.5" strokeWidth="1.75" />
-      </svg>
-    ),
-    testId: "tab-my-projects",
-  },
-  {
-    key: "completed" as const,
-    label: "My Completed Projects",
-    color: "#0ea5e9",
-    icon: (p: React.SVGProps<SVGSVGElement>) => (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...p}>
-        <path
-          d="M12 3l7 3v5c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6l7-3z"
-          strokeWidth="1.75"
-        />
-        <path
-          d="M8.5 12.5l2.5 2.5 4.5-5"
-          strokeWidth="1.75"
-          strokeLinecap="round"
-        />
-      </svg>
-    ),
-    testId: "tab-my-completed-projects",
-  },
-  {
-    key: "completedCommunity" as const,
-    label: "Completed Community Projects",
-    color: "#10b981",
-    icon: (p: React.SVGProps<SVGSVGElement>) => (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...p}>
-        <circle cx="8" cy="10" r="2.5" strokeWidth="1.75" />
-        <circle cx="16" cy="10" r="2.5" strokeWidth="1.75" />
-        <path
-          d="M4.5 17c.6-2 2.8-3.5 5.5-3.5S15 15 15.5 17"
-          strokeWidth="1.75"
-        />
-        <rect
-          x="15.5"
-          y="4"
-          width="5"
-          height="4"
-          rx="0.75"
-          strokeWidth="1.75"
-        />
-        <path
-          d="M16.5 6l1.2 1.2L20 5"
-          strokeWidth="1.75"
-          strokeLinecap="round"
-        />
-      </svg>
-    ),
-    testId: "tab-completed-community-projects",
-  },
-];
-
-// helpers
 const normalizeHookLabel = (v: unknown) => {
   const s = (typeof v === "string" ? v : "").trim();
   if (!s) return "";
@@ -204,6 +138,7 @@ const normalizeHookLabel = (v: unknown) => {
   if (s === "—" || s === "=") return "";
   return s;
 };
+
 const hasGallery = (p: Project) => {
   const v =
     p.hasClosurePhotos ??
@@ -214,60 +149,36 @@ const hasGallery = (p: Project) => {
   return typeof v === "boolean" ? v : Number(v) > 0;
 };
 
+/* ===== Actual owner projects UI ===== */
+
 function OwnerProjects() {
   const api = useApi();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 
-  // ---- Tab + URL sync ----
-  const allowedTabs = useMemo(() => new Set<ProjectTabKey>(ALL_TABS), []);
-  function getUrlTab(): ProjectTabKey | undefined {
+  // ---- Tab derived from URL (single source of truth) ----
+  const [tab, setTab] = useState<ProjectTabKey>("mine");
+
+  useEffect(() => {
+    if (!router.isReady) return;
     const raw = router.query?.tab;
     const t = (Array.isArray(raw) ? raw[0] : raw) as string | undefined;
-    return t && allowedTabs.has(t as ProjectTabKey)
+
+    const allowed: ProjectTabKey[] = [
+      "mine",
+      "archived",
+      "completed",
+      "completedCommunity",
+      "recommended",
+    ];
+    const next: ProjectTabKey = allowed.includes(t as ProjectTabKey)
       ? (t as ProjectTabKey)
-      : undefined;
-  }
-  const [tab, setTab] = useState<ProjectTabKey>("mine");
-  const [synced, setSynced] = useState(false);
+      : "mine";
 
-  useEffect(() => {
-    if (!router.isReady || synced) return;
-    const urlTab = getUrlTab();
-    if (urlTab) {
-      setTab(urlTab);
-      setSynced(true);
-      return;
+    if (next !== tab) {
+      setTab(next);
     }
-    setTab("mine");
-    setSynced(true);
-    const q = new URLSearchParams(
-      Object.entries(router.query).flatMap(([k, v]) =>
-        typeof v === "string" ? [[k, v]] : []
-      ) as [string, string][]
-    );
-    q.set("tab", "mine");
-    router.replace(`${router.pathname}?${q.toString()}`, undefined, {
-      shallow: true,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router.isReady, synced]);
-
-  useEffect(() => {
-    if (!synced || !router.isReady) return;
-    const urlTab = getUrlTab();
-    if (urlTab === tab) return;
-    const q = new URLSearchParams(
-      Object.entries(router.query).flatMap(([k, v]) =>
-        typeof v === "string" ? [[k, v]] : []
-      ) as [string, string][]
-    );
-    q.set("tab", tab);
-    router.replace(`${router.pathname}?${q.toString()}`, undefined, {
-      shallow: true,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, synced, router.isReady]);
+  }, [router.isReady, router.query.tab, tab]);
 
   // ---- Filters ----
   const [chipType, setChipType] = useState<string>("");
@@ -333,10 +244,10 @@ function OwnerProjects() {
 
   const inputsKey = `${tab}|${chipType}|${chipStatus}|${sort}|${order}`;
   useEffect(() => {
-    if (authLoading || !user || !synced) return;
+    if (authLoading || !user || !router.isReady) return;
     fetchPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, user, synced, inputsKey]);
+  }, [authLoading, user, router.isReady, inputsKey]);
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -393,52 +304,68 @@ function OwnerProjects() {
     }
   };
 
-  const VerticalTabs = () => (
-    <nav
-      className="hidden xl:block fixed left-8 top-40 z-30 w-[220px] select-none"
-      role="tablist"
-      aria-label="Projects tabs"
-      aria-orientation="vertical"
-      data-testid="projects-tabs"
-    >
-      <ul className="space-y-3">
-        {VERTICAL_TABS.map((t) => {
-          const active = tab === t.key;
-          return (
-            <li key={t.key}>
-              <button
-                role="tab"
-                aria-selected={active}
-                onClick={() => setTab(t.key)}
-                data-testid={t.testId}
-                title={t.label}
-                className={[
-                  "group flex items-start gap-2 text-left transition-colors",
-                  active
-                    ? "text-slate-900"
-                    : "text-slate-600 hover:text-slate-800",
-                  "text-[16px] font-semibold leading-snug tracking-[0.005em]",
-                ].join(" ")}
-              >
-                <span
-                  aria-hidden
-                  className="mt-0.5 inline-block h-5 w-1.5 rounded-full shrink-0"
-                  style={{ backgroundColor: active ? t.color : "transparent" }}
-                />
-                <t.icon
-                  className="h-[18px] w-[18px] mt-0.5 shrink-0"
-                  aria-hidden
-                />
-                <span className="block max-w-[180px] whitespace-normal break-words">
-                  {t.label}
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </nav>
-  );
+  // ---- Featured strip (replaces hero) ----
+  const [featured, setFeatured] = useState<FeaturedLite[]>([]);
+  const [featuredErr, setFeaturedErr] = useState<string | null>(null);
+  const [featuredLoading, setFeaturedLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setFeaturedLoading(true);
+        setFeaturedErr(null);
+        const res = await api.get(`/api/tradesmen/featured`, {
+          params: { onlyGold: true, limit: 40 },
+        } as any);
+        const data: any = (res as any)?.data ?? res;
+
+        const items: FeaturedLite[] = Array.isArray(data?.items)
+          ? data.items.map((t: any) => {
+              const avatarUrl =
+                t.avatarUrl && String(t.avatarUrl).trim().length > 0
+                  ? String(t.avatarUrl)
+                  : null;
+
+              const galleryArr = Array.isArray(t.gallery)
+                ? t.gallery.map((g: any) => String(g))
+                : [];
+
+              const galleryFirst = galleryArr.length > 0 ? galleryArr[0] : null;
+
+              // Fallback to any older image fields if present
+              const legacyFallback =
+                t.mainPhotoUrl ||
+                t.photoUrl ||
+                t.imageUrl ||
+                t.coverPhotoUrl ||
+                null;
+
+              const mainPhotoUrl = avatarUrl || galleryFirst || legacyFallback;
+
+              return {
+                builderId: String(t.builderId),
+                companyName: t.companyName ?? null,
+                displayName: t.displayName ?? null,
+                mainPhotoUrl,
+                avatarUrl,
+                gallery: galleryArr,
+              };
+            })
+          : [];
+
+        if (!cancelled) setFeatured(items);
+      } catch (e: any) {
+        if (!cancelled)
+          setFeaturedErr(e?.message || "Failed to load featured tradesmen");
+      } finally {
+        if (!cancelled) setFeaturedLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [api]);
 
   async function openBuilderProfile(p: Project) {
     const fromRowRec = (p as any)._winnerRecommendationId;
@@ -479,26 +406,39 @@ function OwnerProjects() {
 
   return (
     <div
-      className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 xl:ml-[260px]"
+      className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8"
       data-testid="projects-page"
     >
-      <VerticalTabs />
+      {/* top padding so content doesn’t crash into header */}
+      <div className="pt-4" />
 
-      <div className="xl:hidden mb-3">
-        <ProjectTabs
-          value={tab}
-          onChange={setTab}
-          orientation="horizontal"
-          className="[&_*]:text-[14px]"
-        />
-      </div>
+      {/* Featured strip (no extra heading; strip renders its own title) */}
+      <section
+        aria-label="Featured Gold Tradesmen"
+        data-testid="projects-featured-hero"
+        className="mb-6"
+      >
+        {featuredLoading && (
+          <p className="text-sm text-slate-500">Loading featured…</p>
+        )}
+        {featuredErr && <p className="text-sm text-rose-600">{featuredErr}</p>}
 
-      <ProjectHero
-        className="mb-5"
-        imageSrc={BedroomHero}
-        primaryCtaHref="/projects/new"
-        primaryCtaLabel="Post a Job"
-      />
+        {!featuredLoading && !featuredErr && featured.length === 0 && (
+          <p className="text-sm text-slate-500">No featured tradesmen yet.</p>
+        )}
+
+        {featured.length > 0 && (
+          <FeaturedSimpleStrip
+            items={featured.map((t) => ({
+              id: t.builderId,
+              name: t.companyName || t.displayName || "Tradesman",
+              img: t.mainPhotoUrl || null,
+              onClick: () => router.push(`/tradesman/${t.builderId}`),
+            }))}
+            pageSize={4}
+          />
+        )}
+      </section>
 
       <ProjectFilters
         typeOptions={typeOptions}
@@ -527,7 +467,6 @@ function OwnerProjects() {
                 (p as any)._winnerTradesmanName
               );
 
-              // ✅ Use labels map from useTradesmanLabels, not the hook itself
               const fromHook = normalizeHookLabel(
                 (trades as any)?.[recId] ??
                   (trades as any)?.[String(recId)] ??

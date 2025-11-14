@@ -164,6 +164,8 @@ function buildRouter(ctx) {
   require("./routes/tradesmen/shares.post")(router, ctx);
   require("./routes/tradesmen/featured.get")(router, ctx);
   require("./routes/tradesmen/spotlight.get")(router, ctx);
+  require("./routes/tradesmen/upload-photos.post")(router, ctx);
+  require("./routes/tradesmen/tradesman.get")(router, ctx);
 
   // ---------------- Plans ----------------
   require("./routes/meta/plans.get")(router, ctx);

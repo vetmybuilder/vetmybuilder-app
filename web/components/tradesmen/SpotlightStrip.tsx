@@ -1,3 +1,4 @@
+// web/components/tradesmen/SpotlightStrip.tsx
 import * as React from "react";
 import { useApi } from "@/utils/api";
 
@@ -90,7 +91,7 @@ export default function SpotlightStrip({
             onClick={() =>
               onClickCard
                 ? onClickCard(t.builderId)
-                : (window.location.href = `/tradesmen/${t.builderId}`)
+                : (window.location.href = `/tradesman/${t.builderId}`)
             }
           />
         ))}

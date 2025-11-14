@@ -66,7 +66,7 @@ export default function TradesRegister() {
       linkedin: "",
     },
     tradeTypes: [] as string[],
-    workPhotos: [] as Doc[],
+    workPhotos: [] as File[], // actual File objects from FileGridUploader
     discountMin: 0,
     discountMax: 5,
     warranty: "none" as "none" | "3m" | "6m" | "12m" | "24m+",
@@ -103,26 +103,36 @@ export default function TradesRegister() {
     try {
       const raw = sessionStorage.getItem(DRAFT_KEY);
       if (!raw) return;
-      const draft = JSON.parse(raw);
-      setForm((p) => ({
-        ...p,
-        ...draft,
-        tradeTypes: parseCsv(draft.tradeTypes ?? p.tradeTypes),
-        serviceAreas: parseCsv(draft.serviceAreas ?? p.serviceAreas),
-        website:
-          typeof draft.website === "string"
+      const draft = JSON.parse(raw) || {};
+
+      setForm((p) => {
+        // Avoid clobbering our File[] with old saved shapes
+        const { workPhotos: _draftWorkPhotos, ...restDraft } = draft;
+
+        return {
+          ...p,
+          ...restDraft,
+          tradeTypes: parseCsv(restDraft.tradeTypes ?? p.tradeTypes),
+          serviceAreas: parseCsv(restDraft.serviceAreas ?? p.serviceAreas),
+          website:
+            typeof restDraft.website === "string"
+              ? restDraft.website
+              : Array.isArray(restDraft.websites)
+              ? restDraft.websites[0] || ""
+              : p.website,
+          socials: { ...p.socials, ...(restDraft.socials || {}) },
+          // workPhotos intentionally NOT restored – Files can't be serialized
+        };
+      });
+
+      setWebsiteInput(
+        (prev) =>
+          prev ||
+          (typeof draft.website === "string"
             ? draft.website
             : Array.isArray(draft.websites)
             ? draft.websites[0] || ""
-            : p.website,
-        socials: { ...p.socials, ...(draft.socials || {}) },
-        workPhotos: Array.isArray(draft.workPhotos)
-          ? draft.workPhotos
-          : p.workPhotos,
-      }));
-      setWebsiteInput(
-        (prev) =>
-          prev || (typeof draft.website === "string" ? draft.website : "")
+            : "")
       );
       console.log("[register] draft loaded");
     } catch {}
@@ -322,12 +332,12 @@ export default function TradesRegister() {
       );
       console.log("[register] firebase user created", cred.user?.uid);
 
-      // 2) Force fresh ID token and send it explicitly on the first PUT
+      // 2) Force fresh ID token and send it explicitly
       const idToken = await auth.currentUser?.getIdToken(true);
       if (!idToken)
         throw new Error("Login token unavailable. Please try again.");
 
-      // 3) Build payload matching /api/tradesmen/me expectations
+      // 3) Normalize socials
       const socials = [
         normalizeInstagram(form.socials.instagram),
         normalizeTikTok(form.socials.tiktok),
@@ -348,6 +358,43 @@ export default function TradesRegister() {
           ? 12
           : 24;
 
+      // 4) Upload photos first (if any) to get persistent URLs
+      let photoUrls: string[] = [];
+      try {
+        if (form.workPhotos && form.workPhotos.length > 0) {
+          const fd = new FormData();
+          form.workPhotos.forEach((file) => {
+            fd.append("photos", file);
+          });
+
+          const uploadRes = await api.post("/api/tradesmen/upload-photos", fd, {
+            headers: {
+              Authorization: `Bearer ${idToken}`,
+              // Let the browser set correct multipart boundary
+              "Content-Type": "multipart/form-data",
+            },
+          });
+
+          if (uploadRes.data?.ok && Array.isArray(uploadRes.data.urls)) {
+            photoUrls = uploadRes.data.urls;
+          }
+
+          console.log(
+            "[register] uploaded work photos",
+            form.workPhotos.length,
+            "-> urls:",
+            photoUrls.length
+          );
+        }
+      } catch (uploadErr: any) {
+        console.error(
+          "[register] photo upload failed:",
+          uploadErr?.message || uploadErr
+        );
+        // we don't hard-fail the whole registration on upload failure
+      }
+
+      // 5) Build payload matching /api/tradesmen/me expectations
       const payload = {
         companyName: form.companyName,
         contactName: form.contactName,
@@ -357,7 +404,8 @@ export default function TradesRegister() {
         serviceAreas: form.serviceAreas,
         website: form.website || "",
         socialLinks: socials,
-        photoCount: (form.workPhotos || []).length,
+        photoCount: photoUrls.length || (form.workPhotos || []).length,
+        photoUrls, // <-- me.put.js will use this to populate tradesmen_photos
         supportingDocCount: (form.docs || []).length,
         warrantyMonths,
         discountMinPercent: Math.max(0, Math.round(form.discountMin || 0)),
@@ -367,20 +415,24 @@ export default function TradesRegister() {
         chStatus: form.chStatus || null, // from pre-check
       };
 
-      // 4) Upsert vendor profile (explicit Bearer + correct API path)
-      console.log("[register] calling PUT /api/tradesmen/me", payload);
+      // 6) Upsert vendor profile
+      console.log("[register] calling PUT /api/tradesmen/me", {
+        ...payload,
+        photoUrlsCount: payload.photoUrls.length,
+      });
+
       const { data } = await api.put("/api/tradesmen/me", payload, {
         headers: { Authorization: `Bearer ${idToken}` },
       });
       if (!data?.ok) throw new Error(data?.error || "Failed to save profile");
       console.log("[register] PUT /api/tradesmen/me ok; saved profile");
 
-      // 5) Cleanup + allow redirect and go
+      // 7) Cleanup + redirect
       try {
         sessionStorage.removeItem(DRAFT_KEY);
       } catch {}
       try {
-        sessionStorage.setItem("vmb:returnTo", "/tradesman/projects"); // now safe to set a real target
+        sessionStorage.setItem("vmb:returnTo", "/tradesman/projects");
       } catch {}
       window.location.replace("/tradesman/projects");
     } catch (e: any) {
@@ -474,15 +526,8 @@ export default function TradesRegister() {
           <Step2Trades
             tradeTypes={form.tradeTypes}
             setTradeTypes={(v) => set("tradeTypes", v)}
-            onWorkPhotos={(e) => {
-              const files = Array.from(e.target.files || []);
-              const mapped: Doc[] = files.map((f) => ({
-                name: f.name,
-                size: f.size,
-                type: f.type || "application/octet-stream",
-              }));
-              set("workPhotos", mapped);
-            }}
+            workPhotos={form.workPhotos}
+            setWorkPhotos={(files) => set("workPhotos", files)}
             onBack={() => setStep(1)}
             onNext={onNextFromStep2}
             err={err}

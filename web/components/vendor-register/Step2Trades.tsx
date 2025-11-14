@@ -1,11 +1,16 @@
 // web/components/vendor-register/Step2Trades.tsx
 import { useMemo, useState } from "react";
 import { TRADE_TYPES, type TradeType } from "@/types/tradeTypes";
+import FileGridUploader from "@/components/fileUpload/FileGridUploader";
 
 type Props = {
   tradeTypes: string[];
   setTradeTypes: (v: string[]) => void;
-  onWorkPhotos: (e: React.ChangeEvent<HTMLInputElement>) => void;
+
+  // Photos are now the actual File objects (controlled)
+  workPhotos: File[];
+  setWorkPhotos: (files: File[]) => void;
+
   onBack: () => void;
   onNext: (e: React.FormEvent) => void;
   err?: string | null;
@@ -21,7 +26,8 @@ const uniq = <T,>(xs: T[]) => Array.from(new Set(xs));
 export default function Step2Trades({
   tradeTypes,
   setTradeTypes,
-  onWorkPhotos,
+  workPhotos,
+  setWorkPhotos,
   onBack,
   onNext,
   err,
@@ -194,7 +200,7 @@ export default function Step2Trades({
         </div>
       </div>
 
-      {/* Work photos */}
+      {/* Work photos — now using FileGridUploader */}
       <div data-testid="work-photos">
         <label className="text-sm font-medium block mb-1">
           Pictures of your work
@@ -203,12 +209,11 @@ export default function Step2Trades({
           Adding recent photos helps you rank better and increases your chances
           of being hired.
         </p>
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={onWorkPhotos}
-          className="block w-full text-sm file:mr-3 file:rounded file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-indigo-700 file:hover:bg-indigo-100"
+
+        <FileGridUploader
+          files={workPhotos}
+          onChange={setWorkPhotos}
+          maxFiles={12}
         />
       </div>
 

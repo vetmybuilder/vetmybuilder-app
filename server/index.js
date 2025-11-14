@@ -1,5 +1,6 @@
 /* Express API for vetmybuilder v1 */
 const path = require("node:path");
+const fs = require("node:fs"); // 🔍 added
 require("dotenv").config();
 require("dotenv").config({
   path: path.resolve(process.cwd(), "web/.env.local"),
@@ -54,7 +55,6 @@ app.use(express.json());
 /* Logs every request that reaches Express, before any routers/middleware. */
 app.use((req, res, next) => {
   const t0 = Date.now();
-  // capture path before downstream middlewares mutate it
   const { method } = req;
   const url = req.originalUrl || req.url;
   res.on("finish", () => {
@@ -352,8 +352,27 @@ app.get("/api/stats", handlePublicStats);
 app.get("/api/stats/public", handlePublicStats);
 
 /* -------------------- Uploads (static) -------------------- */
-// The lib ensures the folder exists. We just serve it.
-app.use("/uploads", express.static(UPLOAD_DIR, { maxAge: "7d", index: false }));
+// 🔍 debug uploads dir
+console.log("[uploads] UPLOAD_DIR:", UPLOAD_DIR);
+try {
+  const exists = fs.existsSync(UPLOAD_DIR);
+  console.log("[uploads] exists?", exists);
+  if (exists) {
+    console.log("[uploads] top-level contents:", fs.readdirSync(UPLOAD_DIR));
+  }
+} catch (e) {
+  console.log("[uploads] error reading UPLOAD_DIR:", e?.message || e);
+}
+
+// Serve /uploads/* from the uploads directory, with per-request logging
+app.use(
+  "/uploads",
+  (req, res, next) => {
+    console.log("[uploads] request", req.method, req.path);
+    next();
+  },
+  express.static(UPLOAD_DIR, { maxAge: "7d", index: false })
+);
 
 // Photo table (used by v2 routes; safe to create here at boot)
 db.exec(`

@@ -224,10 +224,9 @@ module.exports = (router, ctx) => {
       // If the project’s budget >= 15k, Spotlight applies and we must EXCLUDE spotlight-active
       const THRESHOLD = 15000;
       const projectUpper = projectId ? getProjectUpperBudget(projectId) : 0;
-      const spotlightApplies = projectUpper >= THRESHOLD;
-      const spotlightActive = spotlightApplies
-        ? getActiveSpotlightUserIds()
-        : new Set();
+      const spotlightApplies = projectUpper >= THRESHOLD; // keep for debug/meta if you like
+      // Always load active spotlight users; we will *always* exclude them from Featured
+      const spotlightActive = getActiveSpotlightUserIds();
 
       const rows = db
         .prepare(
@@ -277,6 +276,40 @@ WHERE COALESCE(status,'active') != 'banned'
         )
         .all();
 
+      // ---------- NEW: load real photo URLs from photos table ----------
+      // We handle both `tradesman_photos` and `tradesmen_photos` to avoid guessing.
+      const PHOTO_TABLE = hasTable("tradesman_photos")
+        ? "tradesman_photos"
+        : hasTable("tradesmen_photos")
+        ? "tradesmen_photos"
+        : null;
+
+      let photosByUser = new Map();
+      if (PHOTO_TABLE && rows.length) {
+        const ids = rows.map((r) => String(r.user_id));
+        const placeholders = ids.map(() => "?").join(",");
+        const photoRows = db
+          .prepare(
+            `
+            SELECT tradesman_user_id, url, sort_order, created_at
+              FROM ${PHOTO_TABLE}
+             WHERE tradesman_user_id IN (${placeholders})
+             ORDER BY tradesman_user_id,
+                      COALESCE(sort_order, 999999) ASC,
+                      created_at ASC
+          `
+          )
+          .all(ids);
+
+        photosByUser = new Map();
+        for (const p of photoRows) {
+          const uid = String(p.tradesman_user_id);
+          if (!photosByUser.has(uid)) photosByUser.set(uid, []);
+          photosByUser.get(uid).push(p.url);
+        }
+      }
+      // ---------- END NEW PHOTO LOADING ----------
+
       let shaped = rows
         .map((r) => {
           const tier = normaliseTier(r);
@@ -284,18 +317,23 @@ WHERE COALESCE(status,'active') != 'banned'
           // If onlyGold=true, include Gold (and Spotlight if Spotlight *doesn't* apply).
           // If Spotlight applies and user has an active spotlight, EXCLUDE from Featured entirely.
           const uid = String(r.user_id);
-          if (spotlightApplies && spotlightActive.has(uid)) return null;
+          if (spotlightActive.has(uid)) return null;
 
-          if (onlyGold) {
-            const isGold = tier === "gold";
-            const isSpotlight = tier === "spotlight";
-            // When Spotlight applies we excluded them already; otherwise allow spotlight to fill space.
-            if (!isGold && !isSpotlight) return null;
+          if (onlyGold && tier !== "gold") {
+            // onlyGold really means only Gold plan, never Spotlight
+            return null;
           }
 
           const builderId = uid;
           const outward = firstServiceArea(r.service_areas);
-          const gallery = makePlaceholders(builderId);
+
+          // --- NEW: inject real photos, fallback to placeholders ---
+          const photoUrls = photosByUser.get(builderId) || [];
+          const avatarUrl = photoUrls.length > 0 ? photoUrls[0] : null;
+          const gallery =
+            photoUrls.length > 0
+              ? photoUrls.slice(0, 3)
+              : makePlaceholders(builderId);
 
           return {
             builderId,
@@ -307,11 +345,12 @@ WHERE COALESCE(status,'active') != 'banned'
               companiesHouseVerified: isChVerified(r),
               insuranceValid: false,
             },
-            avatarUrl: null,
+            avatarUrl,
             gallery,
             stats: {
               completed: Number(r.wins_count || 0),
-              photos: Number(r.photo_count || 0),
+              // prefer DB photo_count if present, else count of photo rows
+              photos: Number(r.photo_count || photoUrls.length || 0),
               reviews: Number(r.likes_count || 0),
               stars: HARD_STARS,
             },

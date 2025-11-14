@@ -87,6 +87,25 @@ module.exports = (router, ctx) => {
     "discount_max_percent"
   );
 
+  // NEW: ensure photos table exists (matches your schema)
+  db.prepare(
+    `
+    CREATE TABLE IF NOT EXISTS tradesmen_photos (
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      tradesman_user_id TEXT NOT NULL,
+      url               TEXT NOT NULL,
+      sort_order        INTEGER NOT NULL DEFAULT 0,
+      created_at        TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `
+  ).run();
+  db.prepare(
+    `
+    CREATE INDEX IF NOT EXISTS idx_tradesmen_photos_user
+      ON tradesmen_photos(tradesman_user_id, sort_order)
+  `
+  ).run();
+
   const int = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v) : d);
   const toCSV = (arr) =>
     Array.isArray(arr) ? arr.join(",") : typeof arr === "string" ? arr : "";
@@ -122,7 +141,6 @@ module.exports = (router, ctx) => {
     const saCount = toArr(row.service_areas).length;
     const tradeCount = toArr(row.trade_types).length;
     const photos = Math.max(0, int(row.photo_count, 0));
-    // UPDATED: consider explicit min/max too
     const hasDiscount =
       Math.max(
         int(row.offers_discount, 0),
@@ -146,6 +164,18 @@ module.exports = (router, ctx) => {
     return { score: Math.max(0, Math.min(100, score)), badge: toBadge(score) };
   }
 
+  // Normalise photos from body: workPhotos | photos | photoUrls
+  const toPhotoArray = (body) => {
+    if (!body) return [];
+    const buckets = [];
+    if (Array.isArray(body.workPhotos)) buckets.push(body.workPhotos);
+    if (Array.isArray(body.photos)) buckets.push(body.photos);
+    if (Array.isArray(body.photoUrls)) buckets.push(body.photoUrls);
+
+    const flat = buckets.flat().filter(Boolean);
+    return flat.map((u) => String(u).trim()).filter((u) => u.length > 0);
+  };
+
   // IMPORTANT: no API prefix here; mount happens in index.js
   router.put("/tradesmen/me", auth, async (req, res) => {
     const uid = req.user.uid;
@@ -162,7 +192,12 @@ module.exports = (router, ctx) => {
     const serviceAreas = toCSV(body.serviceAreas);
     const website = (body.website || "").trim() || null;
     const socialLinks = JSON.stringify(toArr(body.socialLinks));
-    const photoCount = int(body.photoCount, 0);
+
+    // NEW: pull actual photo URLs
+    const photoUrls = toPhotoArray(body);
+    const photoCount =
+      (photoUrls && photoUrls.length) || int(body.photoCount, 0);
+
     const supportingDocCount = int(body.supportingDocCount, 0);
 
     // NEW: accept explicit min/max; keep legacy aggregate for back-compat
@@ -190,7 +225,8 @@ module.exports = (router, ctx) => {
     console.log(
       `${TAG} uid=${uid} name="${companyName}" areas="${serviceAreas}" trades="${tradeTypes}" ` +
         `preCH={num:${companyNumber || "-"}, status:${chStatus || "-"}} ` +
-        `discounts={min:${discountMinPercent}, max:${discountMaxPercent}, agg:${offersDiscount}}`
+        `discounts={min:${discountMinPercent}, max:${discountMaxPercent}, agg:${offersDiscount}} ` +
+        `photos=${photoCount}, urls=${photoUrls.length}`
     );
 
     // fill from CH if needed
@@ -231,6 +267,7 @@ module.exports = (router, ctx) => {
     }
 
     const tx = db.transaction(() => {
+      // Upsert core tradesman row
       db.prepare(
         `INSERT INTO tradesmen (
           user_id, company_name, contact_name, phone, email,
@@ -293,6 +330,28 @@ module.exports = (router, ctx) => {
         ch_match_score: chMatchScore,
       });
 
+      // NEW: sync tradesmen_photos from photoUrls
+      db.prepare(
+        `DELETE FROM tradesmen_photos WHERE tradesman_user_id = ?`
+      ).run(uid);
+
+      if (photoUrls.length > 0) {
+        const insertPhoto = db.prepare(
+          `INSERT INTO tradesmen_photos
+             (tradesman_user_id, url, sort_order)
+           VALUES (?, ?, ?)`
+        );
+        photoUrls.forEach((url, idx) => {
+          insertPhoto.run(uid, url, idx);
+        });
+        console.log(
+          `${TAG} inserted ${photoUrls.length} photos into tradesmen_photos for uid=${uid}`
+        );
+      } else {
+        console.log(`${TAG} no photoUrls provided for uid=${uid}`);
+      }
+
+      // Recompute score + badge
       const r = db.prepare(`SELECT * FROM tradesmen WHERE user_id=?`).get(uid);
       const { score, badge } = computeScore(r);
       db.prepare(
@@ -310,7 +369,9 @@ module.exports = (router, ctx) => {
           row.company_number || "-"
         } ch_status=${row.ch_status || "-"} score=${row.vmb_score} badge=${
           row.vmb_badge
-        } min=${row.discount_min_percent} max=${row.discount_max_percent}`
+        } min=${row.discount_min_percent} max=${
+          row.discount_max_percent
+        } photos=${row.photo_count}`
       );
       return res.json({ ok: true, profile: row });
     } catch (e) {

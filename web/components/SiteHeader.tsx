@@ -35,6 +35,37 @@ function computeInitials(u: any | null | undefined): string | undefined {
   return undefined;
 }
 
+// Owner-only project tabs shown in the header when on /projects
+const PROJECT_HEADER_TABS: Array<{
+  key: "mine" | "completed" | "completedCommunity";
+  label: string;
+  testId: string;
+  activeColor: string;
+  hoverColor: string;
+}> = [
+  {
+    key: "mine",
+    label: "MY PROJECTS",
+    testId: "tab-my-projects",
+    activeColor: "#22c55e", // emerald
+    hoverColor: "#bbf7d0",
+  },
+  {
+    key: "completed",
+    label: "MY COMPLETED PROJECTS",
+    testId: "tab-my-completed-projects",
+    activeColor: "#0ea5e9", // sky
+    hoverColor: "#bae6fd",
+  },
+  {
+    key: "completedCommunity",
+    label: "COMPLETED COMMUNITY PROJECTS",
+    testId: "tab-completed-community-projects",
+    activeColor: "#f97316", // orange
+    hoverColor: "#fed7aa",
+  },
+];
+
 export default function SiteHeader() {
   const { user } = useAuth();
   const api = useApi();
@@ -75,7 +106,6 @@ export default function SiteHeader() {
           if (co) sessionStorage.setItem("vmb:tradesCo", co);
         } catch {}
       } catch (e: any) {
-        // If token isn’t ready yet, avoid noisy error UI.
         if (!alive) return;
         setIsTrades(false);
         setCompany(null);
@@ -121,22 +151,15 @@ export default function SiteHeader() {
 
   const initials = useMemo(() => computeInitials(user), [user]);
 
-  const cta = useMemo(() => {
-    if (isTrades) {
-      return {
-        href: "/tradesman/projects",
-        label: company || "Trades",
-        className:
-          "inline-flex items-center justify-center rounded-xl px-3.5 h-9 text-sm font-medium bg-indigo-600 text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2",
-        testid: "btn-trades-projects",
-      };
-    }
+  // Trades-only CTA (owners get Vendor portal on the left)
+  const tradeCta = useMemo(() => {
+    if (!isTrades) return null;
     return {
-      href: "/tradesman/register",
-      label: "Vendor portal",
+      href: "/tradesman/projects",
+      label: company || "Trades",
       className:
-        "inline-flex items-center justify-center rounded-xl px-3.5 h-9 text-sm font-medium ring-1 ring-indigo-200/70 text-indigo-700 hover:bg-indigo-50",
-      testid: "btn-vendor-portal",
+        "inline-flex items-center justify-center rounded-xl px-3.5 h-9 text-sm font-medium bg-indigo-600 text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2",
+      testid: "btn-trades-projects",
     };
   }, [isTrades, company]);
 
@@ -149,6 +172,30 @@ export default function SiteHeader() {
     }
   }
 
+  // ---- Owner project tabs in header ----
+  const isOwnerProjectsPage = router.pathname === "/projects";
+  const currentProjectsTab: string | null = isOwnerProjectsPage
+    ? (() => {
+        const raw = router.query?.tab;
+        const t = Array.isArray(raw) ? raw[0] : raw;
+        return t || "mine";
+      })()
+    : null;
+
+  function handleProjectTabClick(
+    key: "mine" | "completed" | "completedCommunity"
+  ) {
+    const q = new URLSearchParams();
+    Object.entries(router.query || {}).forEach(([k, v]) => {
+      if (k === "tab") return;
+      if (typeof v === "string") q.set(k, v);
+    });
+    q.set("tab", key);
+    router.push(`/projects?${q.toString()}`, undefined, { shallow: true });
+  }
+
+  const showProjectTabsInHeader = !!user && !isTrades && isOwnerProjectsPage;
+
   return (
     <header
       role="banner"
@@ -160,30 +207,108 @@ export default function SiteHeader() {
         <nav
           aria-label="Primary navigation"
           data-testid="primary-nav"
-          className="h-14 flex items-center justify-between"
+          className="h-14 flex items-center justify-between gap-4"
         >
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2"
-            aria-label="Vetmybuilder home"
-            data-testid="nav-home"
-          >
-            <span
-              aria-hidden
-              className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white ring-1 ring-indigo-200/50 shadow-sm"
-            />
-            <span className="sr-only">Vetmybuilder</span>
-          </Link>
-
-          <div className="flex items-center gap-3" data-testid="nav-actions">
+          {/* Left: logo + Vendor portal (owners) */}
+          <div className="flex items-center gap-3">
             <Link
-              href={cta.href}
-              className={cta.className}
-              title={cta.label}
-              data-testid={cta.testid}
+              href="/"
+              className="inline-flex items-center gap-2"
+              aria-label="Vetmybuilder home"
+              data-testid="nav-home"
             >
-              {cta.label}
+              <span
+                aria-hidden
+                className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white ring-1 ring-indigo-200/50 shadow-sm"
+              />
+              <span className="sr-only">Vetmybuilder</span>
             </Link>
+
+            {!isTrades && (
+              <Link
+                href="/tradesman/register"
+                className="hidden sm:inline-flex items-center justify-center rounded-full px-3.5 h-8 text-xs font-medium tracking-wide ring-1 ring-indigo-200/70 text-indigo-700 hover:bg-indigo-50"
+                title="Vendor portal"
+                data-testid="btn-vendor-portal"
+              >
+                Vendor portal
+              </Link>
+            )}
+          </div>
+
+          {/* Center: owner project tabs (only on /projects, only for owners) */}
+          <div className="flex-1 flex items-center justify-center">
+            {showProjectTabsInHeader && (
+              <div className="flex items-center justify-center gap-6 sm:gap-10">
+                {PROJECT_HEADER_TABS.map((t) => {
+                  const active = currentProjectsTab === t.key;
+                  return (
+                    <button
+                      key={t.key}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      data-testid={t.testId}
+                      onClick={() => handleProjectTabClick(t.key)}
+                      className={[
+                        "group relative inline-flex items-center justify-center select-none",
+                        "text-[11px] sm:text-xs font-semibold tracking-[0.18em] uppercase",
+                        "transition-colors duration-150",
+                        active
+                          ? "text-slate-900"
+                          : "text-slate-500 hover:text-slate-900",
+                      ].join(" ")}
+                    >
+                      <span>{t.label}</span>
+                      {/* hover underline – soft colour per tab */}
+                      <span
+                        aria-hidden
+                        className="pointer-events-none absolute inset-x-0 -bottom-1 h-[2px] rounded-full
+                                   opacity-0 group-hover:opacity-80 transition-opacity duration-150"
+                        style={{ backgroundColor: t.hoverColor }}
+                      />
+                      {/* active underline – strong colour per tab */}
+                      {active && (
+                        <span
+                          aria-hidden
+                          className="pointer-events-none absolute inset-x-0 -bottom-1 h-[2px] rounded-full"
+                          style={{ backgroundColor: t.activeColor }}
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Right: Post a Job (owners), trades CTA, notifications, account */}
+          <div className="flex items-center gap-3" data-testid="nav-actions">
+            {/* Post a Job – owners / non-trades */}
+            {!isTrades && (
+              <Link
+                href="/projects/new"
+                className="hidden sm:inline-flex items-center justify-center rounded-xl px-4 h-9 text-sm font-semibold bg-amber-400 text-slate-900 shadow-sm hover:bg-amber-300"
+                data-testid="btn-post-job-header"
+              >
+                Post a Job
+                <span className="ml-1.5 text-base leading-none" aria-hidden>
+                  ↗
+                </span>
+              </Link>
+            )}
+
+            {/* Trades CTA */}
+            {tradeCta && (
+              <Link
+                href={tradeCta.href}
+                className={tradeCta.className}
+                title={tradeCta.label}
+                data-testid={tradeCta.testid}
+              >
+                {tradeCta.label}
+              </Link>
+            )}
 
             {user && <NotificationsBell />}
 

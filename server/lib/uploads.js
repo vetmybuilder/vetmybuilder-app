@@ -1,4 +1,4 @@
-// server/v2/lib/uploads.js
+// server/lib/uploads.js
 const path = require("node:path");
 const crypto = require("node:crypto");
 const fs = require("node:fs");

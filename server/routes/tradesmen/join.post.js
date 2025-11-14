@@ -66,8 +66,8 @@ module.exports = (router, ctx) => {
     const chOK = String(row.ch_status || "").toLowerCase() === "verified";
     const webOK = int(row.web_verified, 0) === 1;
 
-    const likes = int(row.likes_count, 0); // NEW
-    const wins = int(row.wins_count, 0);   // NEW
+    const likes = int(row.likes_count, 0);
+    const wins = int(row.wins_count, 0);
 
     let s100 = 0;
     s100 += areas.length >= 3 ? 10 : 0;
@@ -80,8 +80,8 @@ module.exports = (router, ctx) => {
     s100 += docs >= 2 ? 10 : 0;
 
     // NEW: signals
-    const winsPts = Math.min(15, wins * 3);              // 0..15 (5 wins ⇒ 15)
-    const likesPts = Math.min(5, Math.floor(likes / 20)); // 0..5  (20 likes ⇒ +1)
+    const winsPts = Math.min(15, wins * 3); // 0..15 (5 wins ⇒ 15)
+    const likesPts = Math.min(5, Math.floor(likes / 20)); // 0..5 (20 likes ⇒ +1)
     s100 += winsPts + likesPts;
 
     s100 = Math.max(0, Math.min(100, s100));
@@ -95,7 +95,7 @@ module.exports = (router, ctx) => {
     console.log(`[routes] mounted: POST ${base}${ROUTE}`);
   }
 
-  // Ensure table + columns
+  // Ensure tradesmen table + columns
   db.prepare(
     `
     CREATE TABLE IF NOT EXISTS tradesmen (
@@ -165,6 +165,26 @@ module.exports = (router, ctx) => {
   addColIfMissing("tradesmen", "likes_count INTEGER DEFAULT 0", "likes_count");
   addColIfMissing("tradesmen", "wins_count INTEGER DEFAULT 0", "wins_count");
 
+  // NEW: ensure photos table (matches your schema: sort_order, not position)
+  db.prepare(
+    `
+    CREATE TABLE IF NOT EXISTS tradesmen_photos (
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      tradesman_user_id TEXT NOT NULL,
+      url               TEXT NOT NULL,
+      sort_order        INTEGER NOT NULL DEFAULT 0,
+      created_at        TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `
+  ).run();
+
+  db.prepare(
+    `
+    CREATE INDEX IF NOT EXISTS idx_tradesmen_photos_user
+      ON tradesmen_photos(tradesman_user_id, sort_order)
+  `
+  ).run();
+
   router.post(ROUTE, async (req, res) => {
     const b = req.body || {};
     const companyName = String(b.companyName || "").trim();
@@ -178,7 +198,9 @@ module.exports = (router, ctx) => {
       ? b.websites.filter(Boolean)
       : [];
     const docs = Array.isArray(b.docs) ? b.docs : [];
-    const photos = Array.isArray(b.workPhotos) ? b.workPhotos : [];
+    const photos = Array.isArray(b.workPhotos)
+      ? b.workPhotos.filter(Boolean)
+      : [];
 
     const discountMin = int(b?.offer?.discountMin, 0);
     const discountMax = int(b?.offer?.discountMax, 0);
@@ -248,7 +270,7 @@ module.exports = (router, ctx) => {
 
     try {
       const tx = db.transaction(() => {
-        // Upsert with all signals
+        // Upsert tradesmen with all signals
         db.prepare(
           `
           INSERT INTO tradesmen (
@@ -258,7 +280,7 @@ module.exports = (router, ctx) => {
             company_number, ch_status, ch_name, ch_checked_at, ch_match_score,
             photo_count, discount_min_percent, discount_max_percent, offers_discount,
             warranty_months, supporting_doc_count,
-            likes_count, wins_count,                                   -- NEW
+            likes_count, wins_count,
             subscription_status, status, updated_at
           )
           VALUES (
@@ -268,7 +290,7 @@ module.exports = (router, ctx) => {
             @company_number, @ch_status, @ch_name, @ch_checked_at, @ch_match_score,
             @photo_count, @discount_min_percent, @discount_max_percent, @offers_discount,
             @warranty_months, @supporting_doc_count,
-            @likes_count, @wins_count,                                 -- NEW
+            @likes_count, @wins_count,
             'draft', 'draft', datetime('now')
           )
           ON CONFLICT(user_id) DO UPDATE SET
@@ -292,8 +314,8 @@ module.exports = (router, ctx) => {
             offers_discount=excluded.offers_discount,
             warranty_months=excluded.warranty_months,
             supporting_doc_count=excluded.supporting_doc_count,
-            likes_count=excluded.likes_count,                           -- NEW
-            wins_count=excluded.wins_count,                             -- NEW
+            likes_count=excluded.likes_count,
+            wins_count=excluded.wins_count,
             subscription_status='draft',
             status='draft',
             updated_at=datetime('now')
@@ -317,12 +339,29 @@ module.exports = (router, ctx) => {
           photo_count,
           discount_min_percent: Math.max(0, Math.min(100, discountMin)),
           discount_max_percent: Math.max(0, Math.min(100, discountMax)),
-          offers_discount: Math.max(discountMin, discountMax, 0), // legacy single field
+          offers_discount: Math.max(discountMin, discountMax, 0),
           warranty_months,
           supporting_doc_count,
           likes_count,
           wins_count,
         });
+
+        // NEW: sync tradesmen_photos with the workPhotos array (sort_order)
+        db.prepare(
+          `DELETE FROM tradesmen_photos WHERE tradesman_user_id = ?`
+        ).run(leadId);
+
+        if (photos.length > 0) {
+          const insertPhoto = db.prepare(
+            `INSERT INTO tradesmen_photos
+               (tradesman_user_id, url, sort_order)
+             VALUES (?, ?, ?)`
+          );
+          photos.forEach((url, idx) => {
+            if (!url) return;
+            insertPhoto.run(leadId, String(url), idx);
+          });
+        }
 
         // Compute & persist VMB score (0.0–10.0)
         const row = db

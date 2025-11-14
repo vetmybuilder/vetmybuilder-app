@@ -1,5 +1,3 @@
-// web/next.config.mjs
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -9,17 +7,23 @@ const nextConfig = {
     externalDir: true,
   },
 
-  // Proxy /api/* from Next (3000) to your Express API (8787) in dev.
-  // You can override with NEXT_PUBLIC_API_BASE (must include /api).
+  // Proxy /api/* and /uploads/* to Express backend in dev.
   async rewrites() {
-    const dest = (
+    const apiBase = (
       process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8787/api"
     ).replace(/\/+$/, "");
+    const uploadsBase = "http://localhost:8787/uploads";
 
     return [
+      // existing API proxy
       {
         source: "/api/:path*",
-        destination: `${dest}/:path*`,
+        destination: `${apiBase}/:path*`,
+      },
+      // NEW uploads proxy so /uploads/... works locally
+      {
+        source: "/uploads/:path*",
+        destination: `${uploadsBase}/:path*`,
       },
     ];
   },

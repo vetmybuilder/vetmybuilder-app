@@ -1,3 +1,4 @@
+// server/routes/tradesmen/spotlight.get.js
 /**
  * GET /api/tradesmen/spotlight
  * Auth: required
@@ -124,6 +125,22 @@ module.exports = (router, ctx) => {
     return parseMoneyUpperFromText(String(text));
   };
 
+  // ---- Image helpers (NEW – shared with featured/tradesman profile style) ----
+  const makeAbsolute = (p) => {
+    if (!p) return null;
+    const s = String(p);
+    if (/^https?:\/\//i.test(s)) return s;
+    const base =
+      process.env.MEDIA_BASE_URL ||
+      process.env.PUBLIC_BASE_URL ||
+      process.env.NEXT_PUBLIC_API_BASE_URL ||
+      "";
+    if (!base) return s.startsWith("/") ? s : `/${s}`;
+    const cleanBase = base.endsWith("/") ? base.slice(0, -1) : base;
+    const cleanPath = s.startsWith("/") ? s : `/${s}`;
+    return `${cleanBase}${cleanPath}`;
+  };
+
   router.get("/tradesmen/spotlight", auth, (req, res) => {
     try {
       if (!hasTable("tradesmen") || !hasTable("payments_oneoff")) {
@@ -196,6 +213,24 @@ module.exports = (router, ctx) => {
         });
       }
 
+      // --- Photo table + prepared statement (NEW) ---
+      const PHOTO_TABLE = hasTable("tradesman_photos")
+        ? "tradesman_photos"
+        : hasTable("tradesmen_photos")
+        ? "tradesmen_photos"
+        : null;
+
+      const photoStmt = PHOTO_TABLE
+        ? db.prepare(
+            `
+          SELECT url, sort_order, created_at
+            FROM ${PHOTO_TABLE}
+           WHERE tradesman_user_id = ?
+           ORDER BY COALESCE(sort_order, 999999) ASC, created_at ASC
+        `
+          )
+        : null;
+
       // Fair rotation bookkeeping
       ensureViewsTable();
       const viewRows = db
@@ -227,13 +262,23 @@ module.exports = (router, ctx) => {
 
       const pick = sorted.slice(0, limit);
 
-      const items = pick.map((r) => ({
-        builderId: String(r.userId),
-        companyName: r.companyName || null,
-        displayName: r.companyName || r.contactName || "Tradesman",
-        tierActiveUntil: r.expiresAt || null,
-        gallery: [], // initials-only client is fine for now
-      }));
+      const items = pick.map((r) => {
+        const builderId = String(r.userId);
+
+        let gallery = [];
+        if (photoStmt) {
+          const photos = photoStmt.all(builderId);
+          gallery = photos.map((p) => makeAbsolute(p.url));
+        }
+
+        return {
+          builderId,
+          companyName: r.companyName || null,
+          displayName: r.companyName || r.contactName || "Tradesman",
+          tierActiveUntil: r.expiresAt || null,
+          gallery, // NEW: real image URLs if they exist; empty => initials on client
+        };
+      });
 
       // increment views
       const incStmt = db.prepare(
