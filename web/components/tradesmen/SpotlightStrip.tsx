@@ -43,12 +43,31 @@ export default function SpotlightStrip({
             ? await (res as any).json()
             : (res as any)?.data ?? res;
 
-        if (!cancelled) {
-          const list: SpotlightItem[] = Array.isArray(data?.items)
-            ? data.items
-            : [];
-          setItems(list);
+        if (cancelled) return;
+
+        const list: SpotlightItem[] = Array.isArray(data?.items)
+          ? data.items
+          : [];
+
+        // --- rotation logic: advance offset per mount, pick ONE item ---
+        let rotated: SpotlightItem[] = list;
+        if (list.length > 1) {
+          try {
+            let offset = 0;
+            if (typeof window !== "undefined") {
+              const key = "vmb_spotlight_offset";
+              const raw = window.sessionStorage.getItem(key);
+              const prev = raw ? parseInt(raw, 10) || 0 : 0;
+              offset = (prev + 1) % list.length;
+              window.sessionStorage.setItem(key, String(offset));
+            }
+            rotated = [...list.slice(offset), ...list.slice(0, offset)];
+          } catch {
+            rotated = list;
+          }
         }
+
+        setItems(rotated);
       } catch (e: any) {
         if (!cancelled) setErr(e?.message || "Failed to load spotlight");
       } finally {
@@ -77,25 +96,31 @@ export default function SpotlightStrip({
     );
   }
 
-  if (!items.length) return null;
+  // NEW: show a friendly message instead of returning null
+  if (!items.length) {
+    return (
+      <section className={className} aria-label="Spotlight tradesmen">
+        <p className="text-sm text-slate-500">
+          No spotlight tradesmen are available for this project yet.
+        </p>
+      </section>
+    );
+  }
+
+  // Only show ONE spotlight tradesman – the first in the rotated list
+  const t = items[0];
 
   return (
     <section className={className} aria-label="Spotlight tradesmen">
-      {/* Right column is narrow, so render one “ad” per row */}
-      <div className="grid grid-cols-1 gap-4">
-        {items.map((t) => (
-          <SpotlightTile
-            key={t.builderId}
-            name={t.companyName || t.displayName || "Tradesman"}
-            img={t.gallery?.[0] || null}
-            onClick={() =>
-              onClickCard
-                ? onClickCard(t.builderId)
-                : (window.location.href = `/tradesman/${t.builderId}`)
-            }
-          />
-        ))}
-      </div>
+      <SpotlightTile
+        name={t.companyName || t.displayName || "Tradesman"}
+        img={t.gallery?.[0] || null}
+        onClick={() =>
+          onClickCard
+            ? onClickCard(t.builderId)
+            : (window.location.href = `/tradesman/${t.builderId}`)
+        }
+      />
     </section>
   );
 }

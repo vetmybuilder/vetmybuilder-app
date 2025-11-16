@@ -1,4 +1,4 @@
-// web/components/project/OwnerProjectView.tsx
+// web/components/project/views/OwnerProjectView.tsx
 import * as React from "react";
 import StatusBadge from "@/components/StatusBadge";
 import ShortlistSection from "@/components/project/ShortlistSection";
@@ -7,18 +7,49 @@ import {
   XCircle,
   Archive as ArchiveIcon,
   Link as LinkIcon,
-  Rocket,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
-import type { Flash } from "./useProjectView";
 import { useApi } from "@/utils/api";
-import FeaturedSimpleCard from "@/components/tradesmen/FeaturedSimpleCard";
+import { FeaturedSimpleStrip } from "@/components/tradesmen/FeaturedSimpleCard";
 import { FeaturedTradesman } from "@/components/tradesmen/GoldTradesmanCard";
 import SpotlightStrip from "@/components/tradesmen/SpotlightStrip";
 import { useRouter } from "next/router";
+import GetRecommendationsModal, {
+  GetRecommendationsChannel,
+} from "@/components/project/GetRecommendationsModal";
+import {
+  buildDefaultInviteMessage,
+  openWhatsAppShare,
+  openSmsShare,
+  openEmailShare,
+} from "@/utils/shareInvite";
 
 type VM = ReturnType<typeof import("./useProjectView").useProjectView>;
+
+// Helper: extract a clean budget string from the description
+function extractBudget(description?: string | null): string | null {
+  if (!description) return null;
+  const desc = String(description).trim();
+
+  // 1) Pattern like: "Budget: £5k–£15k" (up to first dot/newline)
+  const explicit = desc.match(/Budget[:\-]\s*([^.\n]+)/i);
+  if (explicit?.[1]) {
+    return explicit[1].trim();
+  }
+
+  // 2) If description starts with a budget like: "£5k–£15k. Materials: ..."
+  const startMatch = desc.match(/^£([^.\n]*)\./);
+  if (startMatch?.[1]) {
+    return `£${startMatch[1]}`.replace(/\.$/, "").trim();
+  }
+
+  // 3) Fallback: any "£..." chunk (e.g. "£5k–£15k")
+  const poundMatch = desc.match(/£[0-9][0-9,.\-\sKk+–£]*/);
+  if (poundMatch?.[0]) {
+    return poundMatch[0].replace(/\.$/, "").trim();
+  }
+
+  return null;
+}
 
 export default function OwnerProjectView({ vm }: { vm: VM }) {
   const {
@@ -28,8 +59,6 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
     isClosed,
     isArchived,
     canPublish,
-    copyInvite,
-    copyingInvite,
     onPublish,
     onArchive,
     onUnarchive,
@@ -37,6 +66,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
     recs,
     recTotal,
     recsErr,
+    setFlash,
   } = vm;
 
   const api = useApi();
@@ -46,10 +76,23 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
   const [featuredErr, setFeaturedErr] = React.useState<string | null>(null);
   const [featuredLoading, setFeaturedLoading] = React.useState(false);
 
-  // pagination for featured (no horizontal scroller)
-  const [page, setPage] = React.useState(0); // 0-based
-  const pageSize = 3;
+  // state for "Get recommendations" modal visibility
+  const [showGetRecModal, setShowGetRecModal] = React.useState(false);
 
+  // track if neighbourhood has already been shared (per project, persisted in localStorage)
+  const [hasSharedNeighbourhood, setHasSharedNeighbourhood] =
+    React.useState(false);
+
+  // Load neighbourhood-shared flag from localStorage per project
+  React.useEffect(() => {
+    if (!project?.id) return;
+    if (typeof window === "undefined") return;
+    const key = `vmb_neighbourhood_shared_${project.id}`;
+    const val = window.localStorage.getItem(key);
+    setHasSharedNeighbourhood(val === "1");
+  }, [project?.id]);
+
+  // Load featured tradesmen for this project
   React.useEffect(() => {
     if (!project?.id) return;
     let cancelled = false;
@@ -74,7 +117,6 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
 
         if (!cancelled) {
           setFeatured(items);
-          setPage(0); // reset to first set
         }
       } catch (e: any) {
         if (!cancelled) {
@@ -90,17 +132,106 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
     };
   }, [project?.id, api]);
 
-  const totalPages = Math.max(1, Math.ceil((featured?.length || 0) / pageSize));
-  const canPrev = page > 0;
-  const canNext = page < totalPages - 1;
-  const start = page * pageSize;
-  const visible = featured.slice(start, start + pageSize);
-
   if (!project) return null;
+
+  // Use the "short" project name in the header (type is the clean label like "Cavity Wall Insulation")
+  const headerTitle = project.type || project.name;
+  const budget = extractBudget(project.description);
+
+  // Map API items into FeaturedSimpleStrip items
+  const featuredItems = React.useMemo(
+    () =>
+      featured.map((t) => ({
+        id: String(t.builderId),
+        name: t.companyName || t.displayName || "Tradesman",
+        img:
+          t.avatarUrl ||
+          (Array.isArray(t.gallery) && t.gallery.length > 0
+            ? t.gallery[0]
+            : null),
+        onClick: () => router.push(`/tradesman/${t.builderId}`),
+      })),
+    [featured, router]
+  );
+
+  const handleShare = async (channel: GetRecommendationsChannel) => {
+    if (!project?.id) return;
+
+    // 1) Ensure project is live: auto-publish if needed (regardless of channel)
+    if (!isLive && canPublish) {
+      try {
+        await onPublish(); // onPublish already handles flash + state
+      } catch {
+        // ignore; onPublish will have flashed any error
+      }
+    }
+
+    // If no share channel was selected, stop here – project is already published.
+    if (!channel) return;
+
+    // 2) Generate magic link – r/<token>
+    let inviteUrl: string;
+
+    try {
+      const { data } = await api.post(
+        `/api/v2/projects/${project.id}/magic-link`
+      );
+
+      inviteUrl =
+        data?.url ||
+        (data?.token
+          ? `${window.location.origin}/r/${data.token}`
+          : `${window.location.origin}/projects/${project.id}/recommend`);
+    } catch (e: any) {
+      inviteUrl = `${window.location.origin}/projects/${project.id}/recommend`;
+      setFlash?.({
+        kind: "error",
+        text:
+          e?.response?.data?.error ||
+          e?.message ||
+          "Failed to generate invite link. Using fallback link.",
+      });
+    }
+
+    const message = buildDefaultInviteMessage({
+      projectName: headerTitle,
+      location: project.location,
+      inviteUrl,
+    });
+
+    if (channel === "whatsapp") {
+      openWhatsAppShare(message);
+    } else if (channel === "sms") {
+      openSmsShare(message);
+    } else if (channel === "email") {
+      openEmailShare("Can you recommend a tradesperson?", message);
+    }
+  };
 
   return (
     <>
-      {/* Header (unchanged) */}
+      <GetRecommendationsModal
+        open={showGetRecModal}
+        onClose={() => setShowGetRecModal(false)}
+        neighbourhoodLocked={hasSharedNeighbourhood}
+        alreadyLive={isLive}
+        onConfirm={async ({ neighbourhood, channel }) => {
+          // If neighbourhood sharing is selected and not previously used, mark it as used
+          if (neighbourhood && project?.id && !hasSharedNeighbourhood) {
+            setHasSharedNeighbourhood(true);
+            if (typeof window !== "undefined") {
+              const key = `vmb_neighbourhood_shared_${project.id}`;
+              window.localStorage.setItem(key, "1");
+            }
+            // TODO: call backend flag if you want to block community sharing server-side
+          }
+
+          await handleShare(channel);
+          setShowGetRecModal(false);
+        }}
+      />
+
+      {/* Header */}
       <header className="mb-6 rounded-xl border border-slate-200 bg-white/70 backdrop-blur p-4 sm:p-6 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
@@ -116,7 +247,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
               </span>
             </div>
             <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-              {project.name}
+              {headerTitle}
             </h1>
             <div
               className="mt-3 flex flex-wrap gap-2"
@@ -131,6 +262,17 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
               >
                 {project.type}
               </span>
+
+              {budget && (
+                <span
+                  role="listitem"
+                  className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800"
+                  data-testid="badge-budget"
+                >
+                  {budget}
+                </span>
+              )}
+
               <span
                 role="listitem"
                 className="badge gray"
@@ -159,11 +301,8 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
           </div>
 
           <div className="flex flex-col items-start md:items-end gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              Project actions
-            </span>
             <div
-              className="flex flex-wrap gap-2"
+              className="flex flex-wrap items-center gap-2 md:flex-nowrap md:justify-end"
               aria-label="Owner actions"
               data-testid="owner-actions"
             >
@@ -177,15 +316,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
                   <Pencil size={16} /> Edit
                 </a>
               )}
-              {canPublish && (
-                <button
-                  className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500"
-                  onClick={onPublish}
-                  data-testid="btn-publish"
-                >
-                  <Rocket size={16} /> Publish
-                </button>
-              )}
+
               {!isClosed ? (
                 <>
                   <button
@@ -214,15 +345,24 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
                   </button>
                 )
               )}
+
               {isLive && (
                 <button
-                  className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500"
-                  onClick={copyInvite}
-                  disabled={copyingInvite}
-                  data-testid="btn-copy-invite"
+                  className="inline-flex items-center gap-2 whitespace-nowrap rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500"
+                  onClick={() => setShowGetRecModal(true)}
+                  data-testid="btn-get-recs"
                 >
-                  <LinkIcon size={16} />{" "}
-                  {copyingInvite ? "Copying…" : "Copy invite"}
+                  <LinkIcon size={16} /> Share
+                </button>
+              )}
+
+              {!isLive && !isClosed && (
+                <button
+                  className="inline-flex items-center gap-2 whitespace-nowrap rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
+                  onClick={() => setShowGetRecModal(true)}
+                  data-testid="btn-get-recs-draft"
+                >
+                  <LinkIcon size={16} /> Share &amp; Publish
                 </button>
               )}
             </div>
@@ -230,70 +370,23 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
         </div>
       </header>
 
-      {/* === Featured (max 3, arrows, no horizontal scroller) === */}
+      {/* === Featured Gold Tradesmen (reuses shared strip component) === */}
       <section
         aria-label="Featured Gold Tradesmen"
         data-testid="featured-gold"
         className="mb-6"
       >
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg sm:text-xl font-semibold tracking-tight">
-            🏆 Featured Gold Tradesmen
-          </h2>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={!canPrev}
-              aria-label="Previous"
-              className="rounded-full p-2 border border-slate-200 bg-white shadow-sm hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft size={18} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={!canNext}
-              aria-label="Next"
-              className="rounded-full p-2 border border-slate-200 bg-white shadow-sm hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <ChevronRight size={18} />
-            </button>
-          </div>
-        </div>
-
         {featuredLoading && (
           <p className="text-sm text-slate-500">Loading featured…</p>
         )}
         {featuredErr && <p className="text-sm text-rose-600">{featuredErr}</p>}
 
-        {!featuredLoading && !featuredErr && featured.length === 0 && (
+        {!featuredLoading && !featuredErr && featuredItems.length === 0 && (
           <p className="text-sm text-slate-500">No Gold tradesmen yet.</p>
         )}
 
-        {visible.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {visible.map((t) => (
-              <FeaturedSimpleCard
-                key={t.builderId}
-                name={t.companyName || t.displayName || "Tradesman"}
-                img={
-                  t.avatarUrl ||
-                  (Array.isArray(t.gallery) && t.gallery.length > 0
-                    ? t.gallery[0]
-                    : null)
-                }
-                onClick={() => router.push(`/tradesman/${t.builderId}`)}
-              />
-            ))}
-          </div>
-        )}
-
-        {totalPages > 1 && (
-          <div className="mt-2 text-center text-xs text-slate-500">
-            Page {page + 1} of {totalPages}
-          </div>
+        {featuredItems.length > 0 && (
+          <FeaturedSimpleStrip items={featuredItems} pageSize={4} />
         )}
       </section>
 
@@ -322,9 +415,6 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
             data-testid="spotlight-strip"
             className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
           >
-            <h2 className="mb-3 text-base font-semibold tracking-tight">
-              ✨ Spotlight tradesmen
-            </h2>
             {/* Cast to string to satisfy SpotlightStrip's prop type */}
             <SpotlightStrip projectId={String(project.id)} />
           </section>

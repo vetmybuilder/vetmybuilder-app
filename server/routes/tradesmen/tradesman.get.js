@@ -159,6 +159,30 @@ module.exports = (router, ctx) => {
       const avatarUrl = photoUrls.length ? photoUrls[0] : null;
       const tier = normaliseTier(row);
 
+      // --- favourite state for current viewer ---
+      let isFavourite = 0;
+      const viewerId = req.user && req.user.uid;
+      const hasFavTable = hasTable("favourite_tradesmen");
+
+      if (viewerId && hasFavTable) {
+        try {
+          const fav = db
+            .prepare(
+              `SELECT 1
+                 FROM favourite_tradesmen
+                WHERE userId = ? AND builderId = ?
+                LIMIT 1`
+            )
+            .get(viewerId, uid);
+          if (fav) isFavourite = 1;
+        } catch (e) {
+          console.warn(
+            "[/tradesmen/:uid] favourite lookup failed",
+            e?.message || e
+          );
+        }
+      }
+
       const payload = {
         builderId: uid,
         companyName: row.company_name || null,
@@ -189,6 +213,7 @@ module.exports = (router, ctx) => {
         warrantyMonths: row.warranty_months || 0,
         tradeTypes: row.trade_types || null,
         createdAt: row.created_at || null,
+        isFavourite, // <--- new flag for UI
       };
 
       return res.json({ item: payload });

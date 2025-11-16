@@ -1,4 +1,5 @@
 // server/routes/tradesmen/spotlight.get.js
+
 /**
  * GET /api/tradesmen/spotlight
  * Auth: required
@@ -66,6 +67,7 @@ module.exports = (router, ctx) => {
 
   const parseMoneyUpperFromText = (text) => {
     if (!text || typeof text !== "string") return 0;
+
     let scope = text;
     const idx = text.toLowerCase().indexOf("budget");
     if (idx !== -1) {
@@ -73,11 +75,13 @@ module.exports = (router, ctx) => {
       const end = Math.min(text.length, idx + 120);
       scope = text.slice(start, end);
     }
+
     scope = scope.replace(/–|—/g, "-").replace(/\bto\b/gi, "-");
+
     const re =
       /£?\s*([0-9]{1,3}(?:,[0-9]{3})*|\d+(?:\.\d+)?)\s*(k|m)?\s*(\+)?/gi;
-    let m,
-      vals = [];
+    let m;
+    const vals = [];
     while ((m = re.exec(scope)) !== null) {
       let v = parseFloat(m[1].replace(/,/g, ""));
       const unit = (m[2] || "").toLowerCase();
@@ -125,7 +129,7 @@ module.exports = (router, ctx) => {
     return parseMoneyUpperFromText(String(text));
   };
 
-  // ---- Image helpers (NEW – shared with featured/tradesman profile style) ----
+  // ---- Image helpers ----
   const makeAbsolute = (p) => {
     if (!p) return null;
     const s = String(p);
@@ -143,18 +147,23 @@ module.exports = (router, ctx) => {
 
   router.get("/tradesmen/spotlight", auth, (req, res) => {
     try {
-      if (!hasTable("tradesmen") || !hasTable("payments_oneoff")) {
-        return res.status(500).json({
-          error: "SPOTLIGHT_TRADESMEN_FAILED",
-          message: "Required tables not found",
-        });
-      }
-
       const projectId = String(req.query.projectId || "");
       if (!projectId) {
         return res.status(400).json({
           error: "SPOTLIGHT_TRADESMEN_FAILED",
           message: "projectId is required",
+        });
+      }
+
+      // If core tables are missing, just respond with an empty list
+      if (!hasTable("tradesmen") || !hasTable("payments_oneoff")) {
+        return res.json({
+          items: [],
+          total: 0,
+          page: 1,
+          limit: 0,
+          projectBudgetUpper: getProjectUpperBudget(projectId),
+          threshold: 15000,
         });
       }
 
@@ -202,6 +211,7 @@ module.exports = (router, ctx) => {
         )
         .all(nowIso);
 
+      // No spotlight tradesmen – return 200 with empty list
       if (!rows.length) {
         return res.json({
           items: [],
@@ -213,7 +223,7 @@ module.exports = (router, ctx) => {
         });
       }
 
-      // --- Photo table + prepared statement (NEW) ---
+      // --- Photo table + prepared statement ---
       const PHOTO_TABLE = hasTable("tradesman_photos")
         ? "tradesman_photos"
         : hasTable("tradesmen_photos")
@@ -276,7 +286,7 @@ module.exports = (router, ctx) => {
           companyName: r.companyName || null,
           displayName: r.companyName || r.contactName || "Tradesman",
           tierActiveUntil: r.expiresAt || null,
-          gallery, // NEW: real image URLs if they exist; empty => initials on client
+          gallery,
         };
       });
 

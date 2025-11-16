@@ -37,7 +37,7 @@ function computeInitials(u: any | null | undefined): string | undefined {
 
 // Owner-only project tabs shown in the header when on /projects
 const PROJECT_HEADER_TABS: Array<{
-  key: "mine" | "completed" | "completedCommunity";
+  key: "mine" | "favourites" | "completed" | "completedCommunity";
   label: string;
   testId: string;
   activeColor: string;
@@ -52,17 +52,24 @@ const PROJECT_HEADER_TABS: Array<{
   },
   {
     key: "completed",
-    label: "MY COMPLETED PROJECTS",
+    label: "COMPLETED",
     testId: "tab-my-completed-projects",
     activeColor: "#0ea5e9", // sky
     hoverColor: "#bae6fd",
   },
   {
     key: "completedCommunity",
-    label: "COMPLETED COMMUNITY PROJECTS",
+    label: "COMMUNITY",
     testId: "tab-completed-community-projects",
     activeColor: "#f97316", // orange
     hoverColor: "#fed7aa",
+  },
+  {
+    key: "favourites",
+    label: "FAVOURITES",
+    testId: "tab-favourites",
+    activeColor: "#6366f1", // indigo
+    hoverColor: "#e0e7ff",
   },
 ];
 
@@ -73,6 +80,9 @@ export default function SiteHeader() {
 
   const [isTrades, setIsTrades] = useState(false);
   const [company, setCompany] = useState<string | null>(null);
+
+  // mobile burger
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   // Only call /api/tradesmen/me when we actually have a logged-in user.
   useEffect(() => {
@@ -139,7 +149,10 @@ export default function SiteHeader() {
       setOpenMenu(null);
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpenMenu(null);
+      if (e.key === "Escape") {
+        setOpenMenu(null);
+        setMobileOpen(false);
+      }
     }
     document.addEventListener("mousedown", onDocClick);
     document.addEventListener("keydown", onKey);
@@ -183,15 +196,21 @@ export default function SiteHeader() {
     : null;
 
   function handleProjectTabClick(
-    key: "mine" | "completed" | "completedCommunity"
+    key: "mine" | "favourites" | "completed" | "completedCommunity"
   ) {
-    const q = new URLSearchParams();
-    Object.entries(router.query || {}).forEach(([k, v]) => {
-      if (k === "tab") return;
-      if (typeof v === "string") q.set(k, v);
-    });
-    q.set("tab", key);
-    router.push(`/projects?${q.toString()}`, undefined, { shallow: true });
+    const nextQuery = {
+      ...router.query,
+      tab: key,
+    };
+    router.push(
+      {
+        pathname: "/projects",
+        query: nextQuery,
+      },
+      undefined,
+      { shallow: true }
+    );
+    setMobileOpen(false);
   }
 
   const showProjectTabsInHeader = !!user && !isTrades && isOwnerProjectsPage;
@@ -216,6 +235,7 @@ export default function SiteHeader() {
               className="inline-flex items-center gap-2"
               aria-label="Vetmybuilder home"
               data-testid="nav-home"
+              onClick={() => setMobileOpen(false)}
             >
               <span
                 aria-hidden
@@ -236,8 +256,8 @@ export default function SiteHeader() {
             )}
           </div>
 
-          {/* Center: owner project tabs (only on /projects, only for owners) */}
-          <div className="flex-1 flex items-center justify-center">
+          {/* Center: owner project tabs (desktop only) */}
+          <div className="flex-1 hidden md:flex items-center justify-center">
             {showProjectTabsInHeader && (
               <div className="flex items-center justify-center gap-6 sm:gap-10">
                 {PROJECT_HEADER_TABS.map((t) => {
@@ -282,8 +302,11 @@ export default function SiteHeader() {
             )}
           </div>
 
-          {/* Right: Post a Job (owners), trades CTA, notifications, account */}
-          <div className="flex items-center gap-3" data-testid="nav-actions">
+          {/* Right: desktop actions */}
+          <div
+            className="hidden md:flex items-center gap-3"
+            data-testid="nav-actions"
+          >
             {/* Post a Job – owners / non-trades */}
             {!isTrades && (
               <Link
@@ -462,7 +485,128 @@ export default function SiteHeader() {
               </Link>
             )}
           </div>
+
+          {/* Right: mobile burger */}
+          <div className="flex md:hidden items-center gap-2">
+            {user && <NotificationsBell />}
+            <button
+              type="button"
+              aria-label="Open navigation menu"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-300 bg-white shadow-sm"
+              onClick={() => setMobileOpen((o) => !o)}
+              data-testid="btn-mobile-menu"
+            >
+              <span className="sr-only">Toggle menu</span>
+              <div className="space-y-1">
+                <span className="block h-0.5 w-4 rounded-full bg-gray-800" />
+                <span className="block h-0.5 w-4 rounded-full bg-gray-800" />
+                <span className="block h-0.5 w-4 rounded-full bg-gray-800" />
+              </div>
+            </button>
+          </div>
         </nav>
+
+        {/* Mobile menu panel */}
+        {mobileOpen && (
+          <div
+            className="md:hidden border-t border-gray-200 pb-3 pt-2"
+            data-testid="mobile-menu-panel"
+          >
+            {showProjectTabsInHeader && (
+              <div className="mb-2 flex flex-wrap gap-2">
+                {PROJECT_HEADER_TABS.map((t) => {
+                  const active = currentProjectsTab === t.key;
+                  return (
+                    <button
+                      key={t.key}
+                      type="button"
+                      onClick={() => handleProjectTabClick(t.key)}
+                      data-testid={`${t.testId}-mobile`}
+                      className={[
+                        "inline-flex items-center rounded-full px-3 py-1.5 text-xs font-semibold tracking-[0.16em] uppercase",
+                        active
+                          ? "bg-gray-900 text-white"
+                          : "bg-gray-50 text-gray-600 hover:bg-gray-100",
+                      ].join(" ")}
+                    >
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-1 text-sm">
+              {!isTrades && (
+                <Link
+                  href="/projects/new"
+                  onClick={() => setMobileOpen(false)}
+                  className="inline-flex items-center justify-between rounded-lg px-3 py-2 hover:bg-gray-50"
+                  data-testid="mobile-post-job"
+                >
+                  <span>Post a Job</span>
+                  <span aria-hidden>↗</span>
+                </Link>
+              )}
+
+              {!isTrades && (
+                <Link
+                  href="/tradesman/register"
+                  onClick={() => setMobileOpen(false)}
+                  className="inline-flex items-center justify-between rounded-lg px-3 py-2 hover:bg-gray-50"
+                  data-testid="mobile-vendor-portal"
+                >
+                  <span>Vendor portal</span>
+                </Link>
+              )}
+
+              {tradeCta && (
+                <Link
+                  href={tradeCta.href}
+                  onClick={() => setMobileOpen(false)}
+                  className="inline-flex items-center justify-between rounded-lg px-3 py-2 hover:bg-gray-50"
+                  data-testid="mobile-trades-projects"
+                >
+                  <span>{tradeCta.label}</span>
+                </Link>
+              )}
+
+              {user && (
+                <>
+                  {!isTrades && (
+                    <Link
+                      href="/account"
+                      onClick={() => setMobileOpen(false)}
+                      className="inline-flex items-center justify-between rounded-lg px-3 py-2 hover:bg-gray-50"
+                      data-testid="mobile-account"
+                    >
+                      <span>Account</span>
+                    </Link>
+                  )}
+                  <button
+                    type="button"
+                    onClick={onLogout}
+                    className="inline-flex items-center justify-between rounded-lg px-3 py-2 text-red-600 hover:bg-red-50/80"
+                    data-testid="mobile-logout"
+                  >
+                    <span>Logout</span>
+                  </button>
+                </>
+              )}
+
+              {!user && (
+                <Link
+                  href="/login"
+                  onClick={() => setMobileOpen(false)}
+                  className="inline-flex items-center justify-between rounded-lg px-3 py-2 hover:bg-gray-50"
+                  data-testid="mobile-sign-in"
+                >
+                  <span>Sign in</span>
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </header>
   );

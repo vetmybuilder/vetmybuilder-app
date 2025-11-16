@@ -43,7 +43,7 @@ const PUBLIC_API_BASE_LOCAL =
 app.use(
   cors({
     origin: true,
-    methods: ["GET", "POST", "PUT", "OPTIONS"],
+    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: false,
   })

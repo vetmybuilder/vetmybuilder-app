@@ -12,7 +12,8 @@ import CompletedProjectCard from "@/components/project/CompletedProjectCard";
 import ProjectFilters, {
   type ProjectFiltersValue,
 } from "@/components/filters/ProjectFilters";
-import { FeaturedSimpleStrip } from "@/components/tradesmen/FeaturedSimpleCard";
+import FavouriteTradesmenSection from "@/components/tradesmen/FavouriteTradesmenSection";
+import SafetyVerificationCard from "@/components/SafetyVerificationCard";
 
 type Status = "pending" | "live" | "completed" | "archived";
 
@@ -42,15 +43,8 @@ type ApiList = {
   pageSize: number;
 };
 
-type FeaturedLite = {
-  builderId: string;
-  companyName: string | null;
-  displayName: string | null;
-  mainPhotoUrl?: string | null;
-  // optional extra fields (not strictly needed but useful)
-  avatarUrl?: string | null;
-  gallery?: string[];
-};
+// local tab type so we can include "favourites"
+type OwnerTab = ProjectTabKey | "favourites";
 
 /* ===== Outer page: auth + gate ===== */
 export default function ProjectsPage() {
@@ -157,22 +151,23 @@ function OwnerProjects() {
   const { user, loading: authLoading } = useAuth();
 
   // ---- Tab derived from URL (single source of truth) ----
-  const [tab, setTab] = useState<ProjectTabKey>("mine");
+  const [tab, setTab] = useState<OwnerTab>("mine");
 
   useEffect(() => {
     if (!router.isReady) return;
     const raw = router.query?.tab;
     const t = (Array.isArray(raw) ? raw[0] : raw) as string | undefined;
 
-    const allowed: ProjectTabKey[] = [
+    const allowed: OwnerTab[] = [
       "mine",
       "archived",
       "completed",
       "completedCommunity",
       "recommended",
+      "favourites",
     ];
-    const next: ProjectTabKey = allowed.includes(t as ProjectTabKey)
-      ? (t as ProjectTabKey)
+    const next: OwnerTab = allowed.includes(t as OwnerTab)
+      ? (t as OwnerTab)
       : "mine";
 
     if (next !== tab) {
@@ -209,10 +204,19 @@ function OwnerProjects() {
   }, [tab, chipType, chipStatus, sort, order]);
 
   async function fetchPage(p = 1) {
+    // Never fetch projects for favourites tab
+    if (tab === "favourites") {
+      setLoading(false);
+      setItems([]);
+      setTotal(0);
+      setHasMore(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const params = new URLSearchParams({
-        tab,
+        tab: String(tab),
         sort,
         order,
         page: String(p),
@@ -245,12 +249,21 @@ function OwnerProjects() {
   const inputsKey = `${tab}|${chipType}|${chipStatus}|${sort}|${order}`;
   useEffect(() => {
     if (authLoading || !user || !router.isReady) return;
+    if (tab === "favourites") {
+      // No project fetch for favourites tab
+      setLoading(false);
+      setItems([]);
+      setTotal(0);
+      setHasMore(false);
+      return;
+    }
     fetchPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user, router.isReady, inputsKey]);
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
+    if (tab === "favourites") return; // no infinite scroll for favourites
     if (!sentinelRef.current) return;
     const io = new IntersectionObserver(
       (entries) => {
@@ -263,14 +276,14 @@ function OwnerProjects() {
     );
     io.observe(sentinelRef.current);
     return () => io.disconnect();
-  }, [hasMore, loading, page, inputsKey]);
+  }, [hasMore, loading, page, inputsKey, tab]);
 
   const isCompletedLikeView =
     tab === "completed" || tab === "completedCommunity";
 
   const { labels: trades } = useTradesmanLabels(
     isCompletedLikeView,
-    (items as any[]) || [],
+    isCompletedLikeView ? (items as any[]) || [] : [],
     api
   );
 
@@ -304,94 +317,6 @@ function OwnerProjects() {
     }
   };
 
-  // ---- Featured strip (replaces hero) ----
-  const [featured, setFeatured] = useState<FeaturedLite[]>([]);
-  const [featuredErr, setFeaturedErr] = useState<string | null>(null);
-  const [featuredLoading, setFeaturedLoading] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        setFeaturedLoading(true);
-        setFeaturedErr(null);
-        const res = await api.get(`/api/tradesmen/featured`, {
-          params: { onlyGold: true, limit: 40 },
-        } as any);
-        const data: any = (res as any)?.data ?? res;
-
-        const items: FeaturedLite[] = Array.isArray(data?.items)
-          ? data.items.map((t: any) => {
-              const avatarUrl =
-                t.avatarUrl && String(t.avatarUrl).trim().length > 0
-                  ? String(t.avatarUrl)
-                  : null;
-
-              const galleryArr = Array.isArray(t.gallery)
-                ? t.gallery.map((g: any) => String(g))
-                : [];
-
-              const galleryFirst = galleryArr.length > 0 ? galleryArr[0] : null;
-
-              // Fallback to any older image fields if present
-              const legacyFallback =
-                t.mainPhotoUrl ||
-                t.photoUrl ||
-                t.imageUrl ||
-                t.coverPhotoUrl ||
-                null;
-
-              const mainPhotoUrl = avatarUrl || galleryFirst || legacyFallback;
-
-              return {
-                builderId: String(t.builderId),
-                companyName: t.companyName ?? null,
-                displayName: t.displayName ?? null,
-                mainPhotoUrl,
-                avatarUrl,
-                gallery: galleryArr,
-              };
-            })
-          : [];
-
-        if (!cancelled) setFeatured(items);
-      } catch (e: any) {
-        if (!cancelled)
-          setFeaturedErr(e?.message || "Failed to load featured tradesmen");
-      } finally {
-        if (!cancelled) setFeaturedLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [api]);
-
-  async function openBuilderProfile(p: Project) {
-    const fromRowRec = (p as any)._winnerRecommendationId;
-    if (fromRowRec != null && String(fromRowRec).trim() !== "") {
-      router.push(`/builders/${fromRowRec}`);
-      return;
-    }
-    try {
-      const { data: closure } = await api.get<any>(
-        `/api/projects/${p.id}/closure`
-      );
-      const rid =
-        closure?.winnerRecommendationId ??
-        closure?.winner_rec_id ??
-        closure?.winnerId ??
-        null;
-      if (rid != null && String(rid).trim() !== "") {
-        router.push(`/builders/${rid}`);
-        return;
-      }
-    } catch {
-      // ignore
-    }
-    alert("Sorry, we couldn’t find the builder profile for this project yet.");
-  }
-
   const SkeletonCard = () => (
     <div className="rounded-2xl border border-slate-200 p-3 animate-pulse">
       <div className="aspect-[4/3] rounded-xl bg-slate-200 mb-3" />
@@ -412,156 +337,147 @@ function OwnerProjects() {
       {/* top padding so content doesn’t crash into header */}
       <div className="pt-4" />
 
-      {/* Featured strip (no extra heading; strip renders its own title) */}
+      {/* Safety & verification card at the top */}
       <section
-        aria-label="Featured Gold Tradesmen"
-        data-testid="projects-featured-hero"
+        aria-label="Safety and verification"
+        data-testid="projects-safety-card"
         className="mb-6"
       >
-        {featuredLoading && (
-          <p className="text-sm text-slate-500">Loading featured…</p>
-        )}
-        {featuredErr && <p className="text-sm text-rose-600">{featuredErr}</p>}
-
-        {!featuredLoading && !featuredErr && featured.length === 0 && (
-          <p className="text-sm text-slate-500">No featured tradesmen yet.</p>
-        )}
-
-        {featured.length > 0 && (
-          <FeaturedSimpleStrip
-            items={featured.map((t) => ({
-              id: t.builderId,
-              name: t.companyName || t.displayName || "Tradesman",
-              img: t.mainPhotoUrl || null,
-              onClick: () => router.push(`/tradesman/${t.builderId}`),
-            }))}
-            pageSize={4}
-          />
-        )}
+        <SafetyVerificationCard />
       </section>
 
-      <ProjectFilters
-        typeOptions={typeOptions}
-        statusOptions={statusOptions as any}
-        items={items as any}
-        value={{ type: chipType, status: chipStatus }}
-        onChange={(next: ProjectFiltersValue) => {
-          setChipType(next.type);
-          setChipStatus(next.status);
-        }}
-      />
+      {/* Projects filters only for project tabs (not favourites) */}
+      {tab !== "favourites" && (
+        <ProjectFilters
+          typeOptions={typeOptions}
+          statusOptions={statusOptions as any}
+          items={items as any}
+          value={{ type: chipType, status: chipStatus }}
+          onChange={(next: ProjectFiltersValue) => {
+            setChipType(next.type);
+            setChipStatus(next.status);
+          }}
+        />
+      )}
 
-      <div className="mt-2" data-testid="projects-list">
-        {tab === "completed" || tab === "completedCommunity" ? (
-          <div
-            className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5"
-            data-testid="projects-card-grid-completed"
-          >
-            {items.map((p) => {
-              const recId =
-                (p as any)._winnerRecommendationId ??
-                (p as any)._winner_rec_id ??
-                (p as any)._winnerId;
+      {/* Main content */}
+      {tab === "favourites" ? (
+        <div className="mt-2" data-testid="projects-list-favourites">
+          <FavouriteTradesmenSection />
+        </div>
+      ) : (
+        <div className="mt-2" data-testid="projects-list">
+          {tab === "completed" || tab === "completedCommunity" ? (
+            <div
+              className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5"
+              data-testid="projects-card-grid-completed"
+            >
+              {items.map((p) => {
+                const recId =
+                  (p as any)._winnerRecommendationId ??
+                  (p as any)._winner_rec_id ??
+                  (p as any)._winnerId;
 
-              const fromServer = normalizeHookLabel(
-                (p as any)._winnerTradesmanName
-              );
+                const fromServer = normalizeHookLabel(
+                  (p as any)._winnerTradesmanName
+                );
 
-              const fromHook = normalizeHookLabel(
-                (trades as any)?.[recId] ??
-                  (trades as any)?.[String(recId)] ??
-                  (trades as any)?.[Number(recId)]
-              );
+                const fromHook = normalizeHookLabel(
+                  (trades as any)?.[recId] ??
+                    (trades as any)?.[String(recId)] ??
+                    (trades as any)?.[Number(recId)]
+                );
 
-              const tradesmanLabel = fromServer || fromHook || "—";
+                const tradesmanLabel = fromServer || fromHook || "—";
 
-              return (
-                <CompletedProjectCard
-                  key={p.id}
-                  id={p.id}
-                  name={p.name}
-                  status={p.status}
-                  type={p.type}
-                  location={p.location}
-                  coverPhotoUrl={p.coverPhotoUrl}
-                  tradesmanLabel={tradesmanLabel}
-                  onOpenBuilder={() => openBuilderProfile(p)}
-                  hasGallery={hasGallery(p)}
-                />
-              );
-            })}
-            {loading &&
-              [...Array(4)].map((_, i) => <SkeletonCard key={`skc-${i}`} />)}
-            {items.length === 0 && !loading && (
-              <div
-                className="col-span-full text-sm text-zinc-400"
-                data-testid="projects-empty"
-              >
-                No projects.
-              </div>
-            )}
-          </div>
-        ) : (
-          <div
-            className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5"
-            data-testid="projects-card-grid"
-          >
-            {items.map((p) => (
-              <div className="contents" key={p.id}>
-                <ProjectImageCard
-                  id={p.id}
-                  status={p.status}
-                  imageUrl={
-                    p.coverPhotoUrl ||
-                    "https://cdn.home-designing.com/wp-content/uploads/2024/08/Graceful-Mid-Century-Modern-Living-Rooms.jpg"
-                  }
-                  name={p.name}
-                />
-                <ProjectInfoCard
-                  id={p.id}
-                  name={p.name}
-                  type={p.type}
-                  location={p.location}
-                  propertyType={p.propertyType}
-                  bedrooms={p.bedrooms}
-                  createdAt={p.createdAt}
-                  status={p.status}
-                />
-              </div>
-            ))}
-            {loading &&
-              [...Array(4)].map((_, i) => <SkeletonCard key={`sk-${i}`} />)}
-            {items.length === 0 && !loading && (
-              <div
-                className="col-span-full text-sm text-zinc-400"
-                data-testid="projects-empty"
-              >
-                No projects.
-              </div>
-            )}
-          </div>
-        )}
+                return (
+                  <CompletedProjectCard
+                    key={p.id}
+                    id={p.id}
+                    name={p.name}
+                    status={p.status}
+                    type={p.type}
+                    location={p.location}
+                    coverPhotoUrl={p.coverPhotoUrl}
+                    tradesmanLabel={tradesmanLabel}
+                    onOpenBuilder={() => openBuilderProfile(p)}
+                    hasGallery={hasGallery(p)}
+                  />
+                );
+              })}
+              {loading &&
+                [...Array(4)].map((_, i) => <SkeletonCard key={`skc-${i}`} />)}
+              {items.length === 0 && !loading && (
+                <div
+                  className="col-span-full text-sm text-zinc-400"
+                  data-testid="projects-empty"
+                >
+                  No projects.
+                </div>
+              )}
+            </div>
+          ) : (
+            <div
+              className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5"
+              data-testid="projects-card-grid"
+            >
+              {items.map((p) => (
+                <div className="contents" key={p.id}>
+                  <ProjectImageCard
+                    id={p.id}
+                    status={p.status}
+                    imageUrl={
+                      p.coverPhotoUrl ||
+                      "https://cdn.home-designing.com/wp-content/uploads/2024/08/Graceful-Mid-Century-Modern-Living-Rooms.jpg"
+                    }
+                    name={p.name}
+                  />
+                  <ProjectInfoCard
+                    id={p.id}
+                    name={p.name}
+                    type={p.type}
+                    location={p.location}
+                    propertyType={p.propertyType}
+                    bedrooms={p.bedrooms}
+                    createdAt={p.createdAt}
+                    status={p.status}
+                  />
+                </div>
+              ))}
+              {loading &&
+                [...Array(4)].map((_, i) => <SkeletonCard key={`sk-${i}`} />)}
+              {items.length === 0 && !loading && (
+                <div
+                  className="col-span-full text-sm text-zinc-400"
+                  data-testid="projects-empty"
+                >
+                  No projects.
+                </div>
+              )}
+            </div>
+          )}
 
-        <div ref={sentinelRef} />
+          <div ref={sentinelRef} />
 
-        <div className="flex flex-col items-center gap-2 mt-6">
-          <div className="text-sm text-slate-600">
-            Showing {items.length} of {total}
-          </div>
-          <button
-            className="btn disabled:opacity-50"
-            onClick={() => fetchPage(page + 1)}
-            disabled={!hasMore || loading}
-            id="load-more"
-            data-testid="load-more"
-          >
-            {loading ? "Loading…" : hasMore ? "Load more" : "All caught up"}
-          </button>
-          <div className="sr-only" aria-live="polite">
-            {announce}
+          <div className="flex flex-col items-center gap-2 mt-6">
+            <div className="text-sm text-slate-600">
+              Showing {items.length} of {total}
+            </div>
+            <button
+              className="btn disabled:opacity-50"
+              onClick={() => fetchPage(page + 1)}
+              disabled={!hasMore || loading}
+              id="load-more"
+              data-testid="load-more"
+            >
+              {loading ? "Loading…" : hasMore ? "Load more" : "All caught up"}
+            </button>
+            <div className="sr-only" aria-live="polite">
+              {announce}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

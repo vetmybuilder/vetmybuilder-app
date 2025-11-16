@@ -1,4 +1,4 @@
-// server/v2/routes/projects/magic-link.post.js
+// server/routes/projects/magic-link.post.js
 /**
  * POST /api/v2/projects/:id/magic-link
  * Auth: required (owner only)

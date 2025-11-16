@@ -7,7 +7,7 @@ import { useApi } from "@/utils/api";
 import LightboxGallery, {
   type GalleryImage,
 } from "@/components/LightboxGallery";
-import { CheckCircle2, ShieldCheck } from "lucide-react";
+import { CheckCircle2, ShieldCheck, Heart } from "lucide-react";
 
 type TradesmanDetail = {
   builderId: string;
@@ -34,6 +34,9 @@ type TradesmanDetail = {
   warrantyMonths?: number;
   tradeTypes?: string | null;
   createdAt?: string | null;
+
+  // new: whether the current user has favourited this tradesman
+  isFavourite?: boolean | 0 | 1;
 };
 
 export default function TradesmanViewPage() {
@@ -52,6 +55,7 @@ function Inner() {
   const [item, setItem] = useState<TradesmanDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [favBusy, setFavBusy] = useState(false);
 
   useEffect(() => {
     if (!router.isReady || !id) return;
@@ -79,6 +83,36 @@ function Inner() {
       cancelled = true;
     };
   }, [router.isReady, id, api]);
+
+  const toggleFavourite = async () => {
+    if (!item || favBusy) return;
+    const builderId = item.builderId;
+    if (!builderId) return;
+
+    const currentlyFav = item.isFavourite === true || item.isFavourite === 1;
+
+    setFavBusy(true);
+    try {
+      if (!currentlyFav) {
+        // add to favourites
+        await api.post(
+          `/api/tradesmen/${encodeURIComponent(builderId)}/favourite`
+        );
+        setItem({ ...item, isFavourite: true });
+      } else {
+        // remove from favourites
+        await api.delete(
+          `/api/tradesmen/${encodeURIComponent(builderId)}/favourite`
+        );
+        setItem({ ...item, isFavourite: false });
+      }
+    } catch (e) {
+      // For now just log – once you have a global flash/toast here, hook it up
+      console.error("Failed to toggle favourite", e);
+    } finally {
+      setFavBusy(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -109,8 +143,8 @@ function Inner() {
   }));
 
   const planLabel = getPlanLabel(item.tier);
-
   const memberSince = formatMemberSince(item.createdAt);
+  const isFavourite = item.isFavourite === true || item.isFavourite === 1;
 
   return (
     <div
@@ -201,6 +235,33 @@ function Inner() {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Favourite button */}
+          <div className="flex sm:flex-col items-start sm:items-end">
+            <button
+              type="button"
+              onClick={toggleFavourite}
+              disabled={favBusy}
+              aria-pressed={isFavourite}
+              className={[
+                "inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs sm:text-sm font-medium shadow-sm border",
+                isFavourite
+                  ? "bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100"
+                  : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50",
+                favBusy ? "opacity-70 cursor-wait" : "",
+              ].join(" ")}
+              data-testid="btn-favourite-tradesman"
+            >
+              <Heart
+                className={`h-4 w-4 ${
+                  isFavourite ? "fill-rose-500 text-rose-500" : ""
+                }`}
+              />
+              <span>
+                {isFavourite ? "Saved to favourites" : "Save to favourites"}
+              </span>
+            </button>
           </div>
         </div>
       </header>

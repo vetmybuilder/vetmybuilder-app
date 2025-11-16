@@ -3,25 +3,13 @@
  * Auth: required
  *
  * Query:
- *   projectId?=123                // used to decide Spotlight applicability (>= £15k)
+ *   projectId?=123                // used to tailor to project.type + decide Spotlight applicability (>= £15k)
  *   goldFirst=true|false          // default true
  *   onlyGold=true|false           // default false
  *   page?=1
  *   limit?=24 (max 50)
  *
  * Data source: tradesmen table (+ payments_oneoff only to exclude Spotlight-active)
- * Columns used:
- *   tradesmen:
- *     user_id, company_name, contact_name, phone, email, trade_types, service_areas,
- *     created_at, updated_at, subscription_status, contact_credits, status, company_number,
- *     ch_status, ch_name, ch_checked_at, vmb_score, vmb_score_updated_at, ch_match_score,
- *     web_url, social_links_json, web_verified, web_verified_at, web_checks_json, vmb_badge,
- *     photo_count, offers_discount, warranty_months, supporting_doc_count, discount_min_percent,
- *     discount_max_percent, flags_open, likes_count, wins_count, plan, plan_update_at,
- *     purchased_plan, plan_updated_at
- *
- *   payments_oneoff:
- *     user_id, type, expires_at
  */
 
 module.exports = (router, ctx) => {
@@ -87,6 +75,7 @@ module.exports = (router, ctx) => {
     if (!vals.length) return 0;
     return Math.max(...vals);
   };
+
   const getProjectUpperBudget = (projectId) => {
     if (!projectId || !hasTable("projects")) return 0;
     const row = db
@@ -121,6 +110,61 @@ module.exports = (router, ctx) => {
       row.notes ||
       "";
     return parseMoneyUpperFromText(String(text));
+  };
+
+  // -------- Project-type helper (for tailoring Featured to project) --------
+  /**
+   * Returns a keyword to match against tradesmen.trade_types
+   * e.g. project.type "External Wall Insulation" -> "external wall insulation"
+   */
+  const getProjectTypeKeyword = (projectId) => {
+    if (!projectId || !hasTable("projects")) return null;
+    const row = db
+      .prepare(
+        `
+        SELECT id, name, type, description
+        FROM projects
+        WHERE id = ?
+        LIMIT 1
+      `
+      )
+      .get(projectId);
+
+    if (!row) return null;
+
+    const rawType =
+      (row.type && String(row.type).trim()) ||
+      (row.name && String(row.name).trim()) ||
+      "";
+
+    if (!rawType) return null;
+
+    return rawType.toLowerCase();
+  };
+
+  // -------- Matching helpers --------
+  const normalise = (s) =>
+    String(s || "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
+
+  /**
+   * trade_types is a comma/pipe separated list.
+   * We consider it a match if ANY token equals the project type
+   * OR either string contains the other (to tolerate "Bathroom Refresh" vs "Bathroom").
+   */
+  const hasTradeMatch = (tradeTypes, projectTypeLower) => {
+    if (!tradeTypes || !projectTypeLower) return false;
+    const kw = normalise(projectTypeLower);
+    if (!kw) return false;
+
+    const parts = String(tradeTypes)
+      .split(/[,|]/)
+      .map(normalise)
+      .filter(Boolean);
+
+    return parts.some((p) => p === kw || p.includes(kw) || kw.includes(p));
   };
 
   // -------- Tier helpers --------
@@ -221,63 +265,32 @@ module.exports = (router, ctx) => {
         ? String(req.query.projectId)
         : null;
 
+      // --- project context ---
+      const projectTypeKeyword = projectId
+        ? getProjectTypeKeyword(projectId)
+        : null;
+      const projectKwLc = projectTypeKeyword
+        ? projectTypeKeyword.toLowerCase()
+        : null;
+
       // If the project’s budget >= 15k, Spotlight applies and we must EXCLUDE spotlight-active
       const THRESHOLD = 15000;
       const projectUpper = projectId ? getProjectUpperBudget(projectId) : 0;
-      const spotlightApplies = projectUpper >= THRESHOLD; // keep for debug/meta if you like
-      // Always load active spotlight users; we will *always* exclude them from Featured
+      const spotlightApplies = projectUpper >= THRESHOLD;
       const spotlightActive = getActiveSpotlightUserIds();
 
+      // --- base rows ---
       const rows = db
         .prepare(
           `
-SELECT
-  user_id,
-  company_name,
-  contact_name,
-  phone,
-  email,
-  trade_types,
-  service_areas,
-  created_at,
-  updated_at,
-  subscription_status,
-  contact_credits,
-  status,
-  company_number,
-  ch_status,
-  ch_name,
-  ch_checked_at,
-  vmb_score,
-  vmb_score_updated_at,
-  ch_match_score,
-  web_url,
-  social_links_json,
-  web_verified,
-  web_verified_at,
-  web_checks_json,
-  vmb_badge,
-  photo_count,
-  offers_discount,
-  warranty_months,
-  supporting_doc_count,
-  discount_min_percent,
-  discount_max_percent,
-  flags_open,
-  likes_count,
-  wins_count,
-  plan,
-  plan_update_at,
-  purchased_plan,
-  plan_updated_at
-FROM tradesmen
-WHERE COALESCE(status,'active') != 'banned'
-`
+          SELECT *
+          FROM tradesmen
+          WHERE COALESCE(status,'active') != 'banned'
+        `
         )
         .all();
 
-      // ---------- NEW: load real photo URLs from photos table ----------
-      // We handle both `tradesman_photos` and `tradesmen_photos` to avoid guessing.
+      // ---------- load real photo URLs from photos table ----------
       const PHOTO_TABLE = hasTable("tradesman_photos")
         ? "tradesman_photos"
         : hasTable("tradesmen_photos")
@@ -308,26 +321,20 @@ WHERE COALESCE(status,'active') != 'banned'
           photosByUser.get(uid).push(p.url);
         }
       }
-      // ---------- END NEW PHOTO LOADING ----------
+      // ---------- END PHOTO LOADING ----------
 
       let shaped = rows
         .map((r) => {
           const tier = normaliseTier(r);
-
-          // If onlyGold=true, include Gold (and Spotlight if Spotlight *doesn't* apply).
-          // If Spotlight applies and user has an active spotlight, EXCLUDE from Featured entirely.
           const uid = String(r.user_id);
-          if (spotlightActive.has(uid)) return null;
 
-          if (onlyGold && tier !== "gold") {
-            // onlyGold really means only Gold plan, never Spotlight
-            return null;
-          }
+          // always exclude active Spotlight from Featured
+          if (spotlightActive.has(uid)) return null;
+          if (onlyGold && tier !== "gold") return null;
 
           const builderId = uid;
           const outward = firstServiceArea(r.service_areas);
 
-          // --- NEW: inject real photos, fallback to placeholders ---
           const photoUrls = photosByUser.get(builderId) || [];
           const avatarUrl = photoUrls.length > 0 ? photoUrls[0] : null;
           const gallery =
@@ -335,12 +342,15 @@ WHERE COALESCE(status,'active') != 'banned'
               ? photoUrls.slice(0, 3)
               : makePlaceholders(builderId);
 
+          const matchesProjectType = hasTradeMatch(r.trade_types, projectKwLc);
+
           return {
             builderId,
             companyName: r.company_name || null,
             displayName: r.company_name || r.contact_name || "Tradesman",
             tier,
             tierActiveUntil: null,
+            purchasedPlan: r.purchased_plan || r.plan || null,
             badges: {
               companiesHouseVerified: isChVerified(r),
               insuranceValid: false,
@@ -349,7 +359,6 @@ WHERE COALESCE(status,'active') != 'banned'
             gallery,
             stats: {
               completed: Number(r.wins_count || 0),
-              // prefer DB photo_count if present, else count of photo rows
               photos: Number(r.photo_count || photoUrls.length || 0),
               reviews: Number(r.likes_count || 0),
               stars: HARD_STARS,
@@ -364,17 +373,30 @@ WHERE COALESCE(status,'active') != 'banned'
             badge: r.vmb_badge || null,
             offersDiscount: !!r.offers_discount,
             warrantyMonths: r.warranty_months || 0,
+            matchesProjectType,
           };
         })
         .filter(Boolean);
 
-      // Sort: paid tiers first (Spotlight, Gold), then by score desc
+      // Sort: 1) project-type matches first, 2) paid tiers, 3) score desc, 4) name A→Z
       shaped.sort((a, b) => {
+        if (projectKwLc) {
+          const am = a.matchesProjectType ? 1 : 0;
+          const bm = b.matchesProjectType ? 1 : 0;
+          if (am !== bm) return bm - am; // matches first
+        }
+
         if (goldFirst) {
           const t = tierRank(a.tier) - tierRank(b.tier);
           if (t !== 0) return t;
         }
-        return (b.score || 0) - (a.score || 0);
+
+        const s = (b.score || 0) - (a.score || 0);
+        if (s !== 0) return s;
+
+        const nameA = (a.companyName || a.displayName || "").toLowerCase();
+        const nameB = (b.companyName || b.displayName || "").toLowerCase();
+        return nameA.localeCompare(nameB);
       });
 
       const total = shaped.length;
@@ -386,7 +408,6 @@ WHERE COALESCE(status,'active') != 'banned'
         total,
         page,
         limit,
-        // debug context (handy while we iterate UI/logic)
         projectBudgetUpper: projectUpper || undefined,
         spotlightExcluded: spotlightApplies ? spotlightActive.size : 0,
       });
