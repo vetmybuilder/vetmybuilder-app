@@ -162,6 +162,7 @@ function buildRouter(ctx) {
   require("./routes/tradesmen/leaderboard.get")(router, ctx);
   require("./routes/tradesmen/precheck.post")(router, ctx);
   require("./routes/tradesmen/shares.post")(router, ctx);
+  require("./routes/tradesmen/shares.get")(router, ctx);
   require("./routes/tradesmen/featured.get")(router, ctx);
   require("./routes/tradesmen/spotlight.get")(router, ctx);
   require("./routes/tradesmen/upload-photos.post")(router, ctx);

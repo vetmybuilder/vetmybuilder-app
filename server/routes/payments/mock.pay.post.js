@@ -2,17 +2,6 @@
 
 // POST /api/payments/mock/:id/pay
 // POST /api/payments/mock/pay   { sessionId | session_id | id }
-
-// - Marks the in-memory mock session paid.
-// - unlock_contact -> writes payments_oneoff (pending) for the unlock.
-// - spotlight      -> returns draft state (NO subscription write). You must call
-//                    /api/payments/oneoff/spotlight/purchase afterwards to write payments_oneoff.
-// - subscriptions (non-spotlight) -> writes payments_subscription (draft) and updates tradesmen.
-
-// server/routes/payments/mock.pay.post.js
-//
-// POST /api/payments/mock/:id/pay
-// POST /api/payments/mock/pay   { sessionId | session_id | id }
 //
 // - Marks the in-memory mock session paid.
 // - unlock_contact -> writes payments_oneoff (pending) for the unlock.
@@ -97,7 +86,9 @@ module.exports = (router, ctx) => {
   function tableHasColumn(table, column) {
     try {
       const rows = db.prepare(`PRAGMA table_info(${table})`).all();
-      return rows.some((r) => String(r.name).toLowerCase() === column.toLowerCase());
+      return rows.some(
+        (r) => String(r.name).toLowerCase() === column.toLowerCase()
+      );
     } catch {
       return false;
     }
@@ -107,13 +98,13 @@ module.exports = (router, ctx) => {
   function resolveSessionId(req) {
     return String(
       req.params?.id ||
-      req.body?.sessionId ||
-      req.body?.session_id ||
-      req.body?.id ||
-      req.query?.sessionId ||
-      req.query?.session_id ||
-      req.query?.id ||
-      ""
+        req.body?.sessionId ||
+        req.body?.session_id ||
+        req.body?.id ||
+        req.query?.sessionId ||
+        req.query?.session_id ||
+        req.query?.id ||
+        ""
     );
   }
 
@@ -136,7 +127,9 @@ module.exports = (router, ctx) => {
       const typ = String(md.type || md.kind || md.vmb_type || "").toLowerCase();
 
       const planIdLower = String(md.planId || md.plan_id || "").toLowerCase();
-      const firstLabel = String(updated?.items?.[0]?.label || s?.items?.[0]?.label || "");
+      const firstLabel = String(
+        updated?.items?.[0]?.label || s?.items?.[0]?.label || ""
+      );
       const isSpotlightOneOff =
         planIdLower === "spotlight" ||
         /one[-\s]?off/i.test(firstLabel) ||
@@ -144,12 +137,19 @@ module.exports = (router, ctx) => {
 
       // ---------- ONE-OFF: unlock_contact ----------
       if (typ === "unlock_contact") {
-        const projectId = Number(md.projectId || md.project_id || md.vmb_project_id);
+        const projectId = Number(
+          md.projectId || md.project_id || md.vmb_project_id
+        );
         if (!Number.isFinite(projectId) || projectId <= 0) {
-          return res.status(400).json({ error: "Missing/invalid projectId for unlock_contact" });
+          return res
+            .status(400)
+            .json({ error: "Missing/invalid projectId for unlock_contact" });
         }
 
-        const total = updated?.total || s?.total || computeTotalFromItems(updated?.items || s?.items || []);
+        const total =
+          updated?.total ||
+          s?.total ||
+          computeTotalFromItems(updated?.items || s?.items || []);
         const amount = Number(total?.amount || 0);
         const currency = String(total?.currency || "gbp").toLowerCase();
 
@@ -169,8 +169,9 @@ module.exports = (router, ctx) => {
 
         // Keep ONE-OFF payment as pending until admin approves
         ensureOneOffTable();
-        const updOne = db.prepare(
-          `UPDATE payments_oneoff
+        const updOne = db
+          .prepare(
+            `UPDATE payments_oneoff
               SET status = 'pending',
                   amount = COALESCE(NULLIF(@amount, 0), amount),
                   currency = COALESCE(@currency, currency),
@@ -179,13 +180,14 @@ module.exports = (router, ctx) => {
             WHERE user_id = @uid
               AND type = 'unlock_contact'
               AND entity_id = @pid`
-        ).run({
-          uid,
-          pid: projectId,
-          sid: updated.id,
-          amount,
-          currency: currency.toUpperCase(),
-        });
+          )
+          .run({
+            uid,
+            pid: projectId,
+            sid: updated.id,
+            amount,
+            currency: currency.toUpperCase(),
+          });
 
         if (updOne.changes === 0) {
           db.prepare(
@@ -203,7 +205,9 @@ module.exports = (router, ctx) => {
         }
 
         if (tableHasColumn("tradesmen", "updated_at")) {
-          db.prepare(`UPDATE tradesmen SET updated_at = @now WHERE user_id = @uid`).run({
+          db.prepare(
+            `UPDATE tradesmen SET updated_at = @now WHERE user_id = @uid`
+          ).run({
             uid,
             now: new Date().toISOString(),
           });
@@ -227,7 +231,11 @@ module.exports = (router, ctx) => {
       }
 
       // ---------- SUBSCRIPTION (non-spotlight) ----------
-      if (typ === "subscription" || /subscription/i.test(firstLabel) || !!md.cadence) {
+      if (
+        typ === "subscription" ||
+        /subscription/i.test(firstLabel) ||
+        !!md.cadence
+      ) {
         if (planIdLower === "spotlight") {
           // Belt & braces — never treat spotlight as subscription
           return res.status(200).json({
@@ -241,32 +249,52 @@ module.exports = (router, ctx) => {
         ensureSubscriptionsTable();
 
         // Upsert subscription row as DRAFT (awaiting admin approval)
-        const updSub = db.prepare(
-          `UPDATE payments_subscription
+        const updSub = db
+          .prepare(
+            `UPDATE payments_subscription
               SET status = 'draft',
                   plan_id = COALESCE(NULLIF(@planId,''), plan_id),
                   amount  = COALESCE(NULLIF(@amount,0), amount),
                   currency= COALESCE(@currency, currency),
                   provider_payment_intent = COALESCE(provider_payment_intent, 'mock:' || @sid)
             WHERE provider_session_id = @sid`
-        ).run({
-          sid: updated.id,
-          planId,
-          amount: Number((updated?.total && updated.total.amount) || (s?.total && s.total.amount) || 0),
-          currency: String((updated?.total && updated.total.currency) || (s?.total && s.total.currency) || "GBP").toUpperCase(),
-        });
+          )
+          .run({
+            sid: updated.id,
+            planId,
+            amount: Number(
+              (updated?.total && updated.total.amount) ||
+                (s?.total && s.total.amount) ||
+                0
+            ),
+            currency: String(
+              (updated?.total && updated.total.currency) ||
+                (s?.total && s.total.currency) ||
+                "GBP"
+            ).toUpperCase(),
+          });
 
         if (updSub.changes === 0) {
+          // 🔧 FIX: explicitly set created_at so NOT NULL constraint is always satisfied,
+          // even if the existing table definition has no DEFAULT for created_at.
           db.prepare(
             `INSERT INTO payments_subscription
-               (buyer_uid, plan_id, amount, currency, status, provider_session_id, provider_payment_intent)
+               (buyer_uid, plan_id, amount, currency, status, provider_session_id, provider_payment_intent, created_at)
              VALUES
-               (@uid, @planId, @amount, @currency, 'draft', @sid, 'mock:' || @sid)`
+               (@uid, @planId, @amount, @currency, 'draft', @sid, 'mock:' || @sid, datetime('now'))`
           ).run({
             uid,
             planId,
-            amount: Number((updated?.total && updated.total.amount) || (s?.total && s.total.amount) || 0),
-            currency: String((updated?.total && updated.total.currency) || (s?.total && s.total.currency) || "GBP").toUpperCase(),
+            amount: Number(
+              (updated?.total && updated.total.amount) ||
+                (s?.total && s.total.amount) ||
+                0
+            ),
+            currency: String(
+              (updated?.total && updated.total.currency) ||
+                (s?.total && s.total.currency) ||
+                "GBP"
+            ).toUpperCase(),
             sid: updated.id,
           });
         }
@@ -276,7 +304,13 @@ module.exports = (router, ctx) => {
           db.exec("BEGIN");
 
           const prior =
-            db.prepare(`SELECT subscription_status AS status, plan FROM tradesmen WHERE user_id = ?`).get(uid) || {};
+            db
+              .prepare(
+                `SELECT subscription_status AS status, plan
+                   FROM tradesmen
+                  WHERE user_id = ?`
+              )
+              .get(uid) || {};
 
           db.prepare(
             `UPDATE tradesmen
@@ -307,8 +341,13 @@ module.exports = (router, ctx) => {
 
           db.exec("COMMIT");
         } catch (e) {
-          try { db.exec("ROLLBACK"); } catch {}
-          console.warn("[payments.mock.pay] subscription persist warning:", e?.message || e);
+          try {
+            db.exec("ROLLBACK");
+          } catch {}
+          console.warn(
+            "[payments.mock.pay] subscription persist warning:",
+            e?.message || e
+          );
         }
 
         return res.status(200).json({
@@ -321,7 +360,9 @@ module.exports = (router, ctx) => {
       // ---------- default ----------
       return res.status(200).json({ ok: true, session: updated });
     } catch (e) {
-      return res.status(500).json({ error: e?.message || "Failed to mark paid" });
+      return res
+        .status(500)
+        .json({ error: e?.message || "Failed to mark paid" });
     }
   }
 

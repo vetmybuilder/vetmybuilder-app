@@ -4,9 +4,9 @@
 // Returns the project owner's contact details for eligible viewers.
 //
 // Entitlement (any one of):
-//   - Tradesman has an ACTIVE subscription where plan != 'free'
+//   - Tradesman has a paid subscription (active OR draft+pending purchase)
 //   - One-off purchase exists in project_contact_unlocks for (project_id, buyer_uid)
-//     AND status = 'approved'  ← admin review gate
+//     AND status = 'approved'
 
 module.exports = (router, ctx) => {
   const { db, auth } = ctx;
@@ -31,19 +31,56 @@ module.exports = (router, ctx) => {
   `
   ).run();
 
-  const hasActivePaidPlan = (uid) => {
-    const r =
-      db
-        .prepare(
-          `SELECT COALESCE(subscription_status,'inactive') AS s,
-                  LOWER(COALESCE(plan,'free')) AS p
-             FROM tradesmen
-            WHERE user_id = ?`
-        )
-        .get(uid) || null;
-    return (
-      !!r && String(r.s).toLowerCase() === "active" && String(r.p) !== "free"
-    );
+  function tradesmenHasColumn(col) {
+    try {
+      const rows = db.prepare(`PRAGMA table_info(tradesmen)`).all();
+      return rows.some(
+        (r) => String(r.name || "").toLowerCase() === col.toLowerCase()
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  // More generous entitlement: counts active paid plans
+  // AND draft + purchased_plan as "paid" (for mock checkout).
+  const hasPaidPlanOrDraftPurchase = (uid) => {
+    const hasPurchasedPlanCol = tradesmenHasColumn("purchased_plan");
+
+    const selectSql = hasPurchasedPlanCol
+      ? `SELECT
+            COALESCE(subscription_status,'inactive') AS s,
+            LOWER(COALESCE(plan,'free'))            AS p,
+            LOWER(COALESCE(purchased_plan,''))      AS pp
+         FROM tradesmen
+         WHERE user_id = ?`
+      : `SELECT
+            COALESCE(subscription_status,'inactive') AS s,
+            LOWER(COALESCE(plan,'free'))            AS p
+         FROM tradesmen
+         WHERE user_id = ?`;
+
+    const row = db.prepare(selectSql).get(uid) || null;
+    if (!row) return false;
+
+    const status = String(row.s || "inactive").toLowerCase();
+    const plan = String(row.p || "free").toLowerCase();
+    const purchased = hasPurchasedPlanCol
+      ? String(row.pp || "").toLowerCase()
+      : "";
+
+    // Existing behaviour – fully active paid plan
+    if (status === "active" && plan !== "free") {
+      return true;
+    }
+
+    // NEW: treat draft + purchased_plan as paid (post-checkout, pre-admin)
+    if (status === "draft") {
+      if (plan !== "free") return true;
+      if (purchased && purchased !== "free") return true;
+    }
+
+    return false;
   };
 
   // return status for a user->project unlock row if present
@@ -96,9 +133,9 @@ module.exports = (router, ctx) => {
       }
 
       // Compute entitlement:
-      // - paid plan gives entitlement immediately (unchanged)
-      // - one-off must be APPROVED by admin
-      const paidPlan = hasActivePaidPlan(viewerUid);
+      // - paid plan (active OR draft + purchased_plan)
+      // - OR one-off unlock with status = 'approved'
+      const paidPlan = hasPaidPlanOrDraftPurchase(viewerUid);
       const unlockStatus = getOneOffUnlockStatus(pid, viewerUid);
 
       if (!paidPlan) {

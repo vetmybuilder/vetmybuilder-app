@@ -1,4 +1,3 @@
-// server/routes/tradesmen/me.get.js
 /**
  * GET /api/tradesmen/me
  * Auth: required
@@ -19,6 +18,7 @@ module.exports = (router, ctx) => {
       return false;
     }
   };
+
   const hasCol = (table, col) => {
     try {
       const rows = db.prepare(`PRAGMA table_info(${table})`).all();
@@ -145,6 +145,24 @@ module.exports = (router, ctx) => {
     return null;
   }
 
+  // NEW: pull existing photo URLs from tradesmen_photos, if present
+  function getPhotoUrls(uid) {
+    if (!tblExists("tradesmen_photos")) return [];
+    try {
+      const rows = db
+        .prepare(
+          `SELECT url
+             FROM tradesmen_photos
+            WHERE tradesman_user_id = ?
+            ORDER BY sort_order ASC, id ASC`
+        )
+        .all(uid);
+      return rows.map((r) => r.url).filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+
   router.get("/tradesmen/me", auth, (req, res) => {
     try {
       const uid = req.user?.uid;
@@ -159,6 +177,10 @@ module.exports = (router, ctx) => {
       }
 
       if (profile) {
+        // Attach photo_urls for front-end edit/view flows
+        const photos = getPhotoUrls(uid);
+        profile.photo_urls = photos;
+
         return res
           .set("Cache-Control", "no-store")
           .json({ role: "tradesman", profile });

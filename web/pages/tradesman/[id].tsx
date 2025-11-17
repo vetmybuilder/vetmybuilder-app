@@ -1,4 +1,3 @@
-// web/pages/tradesman/[id].tsx
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
@@ -8,6 +7,7 @@ import LightboxGallery, {
   type GalleryImage,
 } from "@/components/LightboxGallery";
 import { CheckCircle2, ShieldCheck, Heart } from "lucide-react";
+import SharedProfilePhotosSection from "@/components/tradesmen/SharedProfilePhotosSection";
 
 type TradesmanDetail = {
   builderId: string;
@@ -57,6 +57,11 @@ function Inner() {
   const [err, setErr] = useState<string | null>(null);
   const [favBusy, setFavBusy] = useState(false);
 
+  // NEW: shared photos from trade_shares
+  const [sharedImages, setSharedImages] = useState<GalleryImage[]>([]);
+  const [sharedLoading, setSharedLoading] = useState(false);
+
+  // ---- Load tradesman profile ----
   useEffect(() => {
     if (!router.isReady || !id) return;
     let cancelled = false;
@@ -84,6 +89,67 @@ function Inner() {
     };
   }, [router.isReady, id, api]);
 
+  // ---- Load shared photos for this tradesman (if any) ----
+  useEffect(() => {
+    if (!item?.builderId) {
+      setSharedImages([]);
+      return;
+    }
+    let cancelled = false;
+
+    (async () => {
+      try {
+        setSharedLoading(true);
+        const q = new URLSearchParams({
+          tradesmanUid: String(item.builderId),
+          limit: "5",
+        });
+
+        const res = await api.get(`/api/tradesmen/shares?${q.toString()}`);
+        const data = (res as any)?.data ?? res;
+
+        if (cancelled) return;
+
+        const shares = Array.isArray(data?.shares) ? data.shares : [];
+        const withPhotos = shares.filter(
+          (s: any) => Array.isArray(s.photos) && s.photos.length > 0
+        );
+
+        if (!withPhotos.length) {
+          setSharedImages([]);
+          return;
+        }
+
+        // For now, use the most recent share with photos
+        const target = withPhotos[0];
+
+        const imgs: GalleryImage[] = (target.photos || []).map(
+          (p: any, idx: number) => {
+            const src = p.absoluteUrl || p.url;
+            return {
+              id: idx, // local to this gallery
+              thumbUrl: src,
+              fullUrl: src,
+              alt:
+                p.name || `Shared project photo ${idx + 1} from this tradesman`,
+            };
+          }
+        );
+
+        setSharedImages(imgs);
+      } catch (e) {
+        // Fail silently – shared photos are optional UX
+        if (!cancelled) setSharedImages([]);
+      } finally {
+        if (!cancelled) setSharedLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [item?.builderId, api]);
+
   const toggleFavourite = async () => {
     if (!item || favBusy) return;
     const builderId = item.builderId;
@@ -107,7 +173,6 @@ function Inner() {
         setItem({ ...item, isFavourite: false });
       }
     } catch (e) {
-      // For now just log – once you have a global flash/toast here, hook it up
       console.error("Failed to toggle favourite", e);
     } finally {
       setFavBusy(false);
@@ -268,7 +333,7 @@ function Inner() {
 
       {/* main layout: left content, right contact card */}
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)] gap-6">
-        {/* left: trades + gallery */}
+        {/* left: trades + shared photos + gallery */}
         <div className="space-y-6">
           {/* trades offered */}
           <section
@@ -295,6 +360,20 @@ function Inner() {
               </ul>
             )}
           </section>
+
+          {/* shared photos – only when there are any */}
+          {sharedLoading ? (
+            <section
+              className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 sm:p-5"
+              data-testid="tradesman-shared-photos-loading"
+            >
+              <p className="text-sm text-emerald-700">Loading shared photos…</p>
+            </section>
+          ) : (
+            sharedImages.length > 0 && (
+              <SharedProfilePhotosSection images={sharedImages} />
+            )
+          )}
 
           {/* gallery */}
           <section

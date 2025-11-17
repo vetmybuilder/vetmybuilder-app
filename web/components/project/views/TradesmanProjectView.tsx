@@ -24,7 +24,6 @@ export default function TradesmanProjectView({ vm }: { vm: VM }) {
     interestBusy,
     interestSent,
     shareCheckDone,
-    onExpressInterest,
     ownerContact,
     contactLoading,
     onUpgradeClick,
@@ -63,40 +62,6 @@ export default function TradesmanProjectView({ vm }: { vm: VM }) {
             onCopyInvite={copyInvite}
             onOpenCloseModal={onCloseProject}
             canAddRec={false}
-            footerRight={
-              isTrades &&
-              !!project &&
-              !isOwner &&
-              !isClosed &&
-              isLive &&
-              !interestSent &&
-              shareCheckDone ? (
-                <div
-                  className="flex flex-col gap-2 rounded-lg bg-slate-50 p-3 text-sm"
-                  data-testid="share-profile-cta"
-                >
-                  <p className="text-slate-700">
-                    Let the homeowner know you’re interested. We’ll share your
-                    VetMyBuilder profile on this project.
-                  </p>
-                  <button
-                    className="btn"
-                    onClick={onExpressInterest}
-                    disabled={interestBusy}
-                    data-testid="btn-express-interest"
-                  >
-                    {interestBusy ? "Sending…" : "Share profile"}
-                  </button>
-                  <p
-                    className="text-xs text-slate-500"
-                    data-testid="share-profile-tip"
-                  >
-                    Tip: Add photos and complete verifications to improve your
-                    chances.
-                  </p>
-                </div>
-              ) : null
-            }
             showShareButton={
               !!project &&
               isTrades &&

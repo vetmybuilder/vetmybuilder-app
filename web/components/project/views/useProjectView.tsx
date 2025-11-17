@@ -390,30 +390,30 @@ export function useProjectView() {
     }
   };
 
-  const onExpressInterest = async () => {
-    if (!project || interestBusy || interestSent) return;
-    setInterestBusy(true);
-    try {
-      const { data } = await api.post("/api/tradesmen/interest", {
-        projectId: project.id,
-      });
-      if (data?.ok || data?.alreadyShared) setInterestSent(true);
-      setFlash({
-        kind: "success",
-        text: "Thanks! We’ve notified the owner and shared your profile.",
-      });
-    } catch (e: any) {
-      setFlash({
-        kind: "error",
-        text:
-          e?.response?.data?.error ||
-          e?.message ||
-          "Failed to notify the project owner",
-      });
-    } finally {
-      setInterestBusy(false);
-    }
-  };
+  // const onExpressInterest = async () => {
+  //   if (!project || interestBusy || interestSent) return;
+  //   setInterestBusy(true);
+  //   try {
+  //     const { data } = await api.post("/api/tradesmen/interest", {
+  //       projectId: project.id,
+  //     });
+  //     if (data?.ok || data?.alreadyShared) setInterestSent(true);
+  //     setFlash({
+  //       kind: "success",
+  //       text: "Thanks! We’ve notified the owner and shared your profile.",
+  //     });
+  //   } catch (e: any) {
+  //     setFlash({
+  //       kind: "error",
+  //       text:
+  //         e?.response?.data?.error ||
+  //         e?.message ||
+  //         "Failed to notify the project owner",
+  //     });
+  //   } finally {
+  //     setInterestBusy(false);
+  //   }
+  // };
 
   const onUpgradeClick = () => setPlansOpen(true);
 
@@ -701,7 +701,7 @@ export function useProjectView() {
     doCloseSubmit: onCloseProject,
     copyInvite,
     copyingInvite,
-    onExpressInterest,
+    // onExpressInterest,
     onUpgradeClick: () => setPlansOpen(true),
     startOneOffCheckout,
     startSubscriptionCheckout,

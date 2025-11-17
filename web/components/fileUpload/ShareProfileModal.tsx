@@ -1,3 +1,4 @@
+// web/components/fileUpload/ShareProfileModal.tsx
 import * as React from "react";
 import FileGridUploader from "@/components/fileUpload/FileGridUploader";
 
@@ -5,7 +6,9 @@ type ShareProfileModalProps = {
   open: boolean;
   onClose: () => void;
   onSubmit: (files: File[]) => Promise<void> | void;
-  projectName?: string;
+
+  /** Name of the homeowner (if known, e.g. "Tracy Smith") */
+  homeownerName?: string;
 
   /** Optional extras (fully backward compatible) */
   message?: string; // controlled value
@@ -18,7 +21,7 @@ export default function ShareProfileModal({
   open,
   onClose,
   onSubmit,
-  projectName,
+  homeownerName,
   // optional extras
   message,
   onChangeMessage,
@@ -51,6 +54,11 @@ export default function ShareProfileModal({
 
   if (!open) return null;
 
+  const trimmedName = homeownerName?.trim();
+  const title = trimmedName
+    ? `Share your profile with “${trimmedName}”`
+    : "Share your profile with this homeowner";
+
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-4"
@@ -65,9 +73,7 @@ export default function ShareProfileModal({
       <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200">
         <div className="flex items-start justify-between gap-4 border-b px-5 py-4">
           <div>
-            <h2 className="text-lg font-semibold">
-              Share your profile{projectName ? ` with “${projectName}”` : ""}
-            </h2>
+            <h2 className="text-lg font-semibold">{title}</h2>
             <p className="mt-1 text-sm text-slate-600">
               Tip:{" "}
               <span className="font-medium">
@@ -140,7 +146,7 @@ export default function ShareProfileModal({
                 if (!canSubmit) return;
                 try {
                   setBusy(true);
-                  await onSubmit(files); // message is optional; parent can read via controlled prop if needed
+                  await onSubmit(files);
                 } finally {
                   setBusy(false);
                 }

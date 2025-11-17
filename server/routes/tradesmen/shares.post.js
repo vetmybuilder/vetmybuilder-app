@@ -41,10 +41,15 @@ module.exports = (router, ctx) => {
 
   const findTradesmanByUid = (uid) => {
     const cols = new Set(
-      db.prepare(`PRAGMA table_info(tradesmen)`).all().map((r) => r.name)
+      db
+        .prepare(`PRAGMA table_info(tradesmen)`)
+        .all()
+        .map((r) => r.name)
     );
     if (cols.has("user_id")) {
-      const byUser = db.prepare(`SELECT * FROM tradesmen WHERE user_id=?`).get(uid);
+      const byUser = db
+        .prepare(`SELECT * FROM tradesmen WHERE user_id=?`)
+        .get(uid);
       if (byUser) return byUser;
     }
     if (cols.has("uid")) {
@@ -55,11 +60,32 @@ module.exports = (router, ctx) => {
 
   const resolveBuilderLinkPath = (tm) => {
     if (!tm) return null;
+
     const cols = new Set(
-      db.prepare(`PRAGMA table_info(tradesmen)`).all().map((r) => r.name)
+      db
+        .prepare(`PRAGMA table_info(tradesmen)`)
+        .all()
+        .map((r) => r.name)
     );
-    if (cols.has("id") && tm.id) return `/builder/${tm.id}`;
-    if (cols.has("profile_slug") && tm.profile_slug) return `/builder/${tm.profile_slug}`;
+
+    // Preferred: tradesman public profile page (/tradesman/<builderId>)
+    if (cols.has("user_id") && tm.user_id) {
+      return `/tradesman/${tm.user_id}`;
+    }
+
+    // Fallback: some schemas use "uid"
+    if (cols.has("uid") && tm.uid) {
+      return `/tradesman/${tm.uid}`;
+    }
+
+    // Backwards-compatibility with older "builder" URLs if you still have them
+    if (cols.has("id") && tm.id) {
+      return `/builder/${tm.id}`;
+    }
+    if (cols.has("profile_slug") && tm.profile_slug) {
+      return `/builder/${tm.profile_slug}`;
+    }
+
     return null;
   };
 
@@ -71,8 +97,8 @@ module.exports = (router, ctx) => {
   const filesToPhotos = (files = []) =>
     files.map((f) => {
       const filename = f.filename || "";
-      const relUrl = toRelUrl(filename);            // ✅ /uploads/<file>
-      const absUrl = toAbsUrl(relUrl);              // ✅ http://host/uploads/<file>
+      const relUrl = toRelUrl(filename); // /uploads/<file>
+      const absUrl = toAbsUrl(relUrl); // http://host/uploads/<file>
       return {
         name: f.originalname || filename || "",
         type: f.mimetype || "",
@@ -87,9 +113,16 @@ module.exports = (router, ctx) => {
   const extractProjectId = (req) => {
     const first = (...vals) =>
       vals.find((v) => v !== undefined && v !== null && `${v}`.trim() !== "");
-    const fromBody = first(req.body?.projectId, req.body?.pid, req.body?.project_id);
+    const fromBody = first(
+      req.body?.projectId,
+      req.body?.pid,
+      req.body?.project_id
+    );
     const fromQuery = first(req.query?.projectId, req.query?.pid);
-    const fromHead = first(req.headers["x-vmb-project"], req.headers["x-project-id"]);
+    const fromHead = first(
+      req.headers["x-vmb-project"],
+      req.headers["x-project-id"]
+    );
     let fromRef = null;
     const ref = req.headers?.referer || req.headers?.referrer || "";
     const m = ref.match(/\/projects\/(\d+)(?:\/|$)/i);
@@ -109,7 +142,9 @@ module.exports = (router, ctx) => {
       // must be a tradesman
       const tm = findTradesmanByUid(uid);
       if (!tm) {
-        return res.status(403).json({ error: "Only tradesmen can share profiles." });
+        return res
+          .status(403)
+          .json({ error: "Only tradesmen can share profiles." });
       }
 
       const pid = extractProjectId(req);
@@ -129,6 +164,19 @@ module.exports = (router, ctx) => {
           .status(400)
           .json({ error: "Project is not live and cannot accept shares." });
       }
+
+      // Normalised names for notification text
+      const companyName =
+        tm.company_name ||
+        tm.companyName ||
+        tm.name ||
+        tm.contact_name ||
+        "A tradesman";
+
+      // e.g. "Bathroom Project" or fall back to "your project"
+      const projectName = project.name || "your project";
+
+      const notifMessage = `${companyName} is interested in your ${projectName} and has shared their profile. Click to view.`;
 
       // idempotent guard
       const existing = db
@@ -159,11 +207,12 @@ module.exports = (router, ctx) => {
       if (existing) {
         // re-notify (idempotent UX)
         try {
-          const linkPath = resolveBuilderLinkPath(tm) || `/projects/${pid}/shares`;
+          const linkPath =
+            resolveBuilderLinkPath(tm) || `/projects/${pid}/shares`;
           if (typeof notifyUsers === "function") {
             notifyUsers(db, [project.ownerUserId], {
               type: "tradesman_shared_profile",
-              message: `${tm.name || tm.company || "A tradesman"} is interested in your project.`,
+              message: notifMessage,
               projectId: pid,
               shareId: existing.id,
               linkPath,
@@ -192,11 +241,12 @@ module.exports = (router, ctx) => {
 
       // Notify owner
       try {
-        const linkPath = resolveBuilderLinkPath(tm) || `/projects/${pid}/shares`;
+        const linkPath =
+          resolveBuilderLinkPath(tm) || `/projects/${pid}/shares`;
         if (typeof notifyUsers === "function") {
           notifyUsers(db, [project.ownerUserId], {
             type: "tradesman_shared_profile",
-            message: `${tm.name || tm.company || "A tradesman"} is interested in your project.`,
+            message: notifMessage,
             projectId: pid,
             shareId: row.id,
             linkPath,

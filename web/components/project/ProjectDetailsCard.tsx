@@ -315,7 +315,9 @@ export default function ProjectDetailsCard({
               aria-busy={effectiveBusy || checkingShared}
               data-testid="btn-share-profile-in-card"
             >
-              {effectiveBusy || checkingShared ? "Sending…" : "Share profile"}
+              {effectiveBusy || checkingShared
+                ? "Sending…"
+                : "Express interest"}
             </button>
           </div>
         )}
@@ -444,8 +446,7 @@ export default function ProjectDetailsCard({
         <ShareProfileModal
           open={shareOpen}
           onClose={() => setShareOpen(false)}
-          onSubmit={handleSubmit} // sends immediately
-          projectName={project.name}
+          onSubmit={handleSubmit}
         />
       )}
     </section>
