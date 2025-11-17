@@ -6,8 +6,7 @@ import { useApi } from "@/utils/api";
 import LightboxGallery, {
   type GalleryImage,
 } from "@/components/LightboxGallery";
-import { CheckCircle2, ShieldCheck, Heart } from "lucide-react";
-import SharedProfilePhotosSection from "@/components/tradesmen/SharedProfilePhotosSection";
+import { CheckCircle2, ShieldCheck } from "lucide-react";
 
 type TradesmanDetail = {
   builderId: string;
@@ -38,6 +37,11 @@ type TradesmanDetail = {
   isFavourite?: boolean | 0 | 1; // not really used on "my profile" view
 };
 
+type MeResponse = {
+  role: "tradesman" | "user";
+  profile: any | null;
+};
+
 export default function TradesmanProfilePage() {
   return (
     <AuthedOnly>
@@ -54,10 +58,6 @@ function Inner() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  // NEW: shared photos from trade_shares
-  const [sharedImages, setSharedImages] = useState<GalleryImage[]>([]);
-  const [sharedLoading, setSharedLoading] = useState(false);
-
   // ---- Load *my* tradesman profile via /api/tradesmen/me ----
   useEffect(() => {
     let cancelled = false;
@@ -66,7 +66,7 @@ function Inner() {
       try {
         setLoading(true);
         setErr(null);
-        const res = await api.get("/api/tradesmen/me");
+        const res = await api.get<MeResponse>("/api/tradesmen/me");
         const data = (res as any)?.data ?? res;
 
         const profile = data?.profile || null;
@@ -97,65 +97,6 @@ function Inner() {
       cancelled = true;
     };
   }, [api]);
-
-  // ---- Load shared photos for this tradesman (if any) ----
-  useEffect(() => {
-    if (!item?.builderId) {
-      setSharedImages([]);
-      return;
-    }
-    let cancelled = false;
-
-    (async () => {
-      try {
-        setSharedLoading(true);
-        const q = new URLSearchParams({
-          tradesmanUid: String(item.builderId),
-          limit: "5",
-        });
-
-        const res = await api.get(`/api/tradesmen/shares?${q.toString()}`);
-        const data = (res as any)?.data ?? res;
-
-        if (cancelled) return;
-
-        const shares = Array.isArray(data?.shares) ? data.shares : [];
-        const withPhotos = shares.filter(
-          (s: any) => Array.isArray(s.photos) && s.photos.length > 0
-        );
-
-        if (!withPhotos.length) {
-          setSharedImages([]);
-          return;
-        }
-
-        const target = withPhotos[0];
-
-        const imgs: GalleryImage[] = (target.photos || []).map(
-          (p: any, idx: number) => {
-            const src = p.absoluteUrl || p.url;
-            return {
-              id: idx,
-              thumbUrl: src,
-              fullUrl: src,
-              alt:
-                p.name || `Shared project photo ${idx + 1} from this tradesman`,
-            };
-          }
-        );
-
-        setSharedImages(imgs);
-      } catch {
-        if (!cancelled) setSharedImages([]);
-      } finally {
-        if (!cancelled) setSharedLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [item?.builderId, api]);
 
   if (loading) {
     return (
@@ -195,14 +136,6 @@ function Inner() {
     >
       {/* header */}
       <header className="mb-6">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="mb-3 text-xs font-medium text-slate-500 hover:text-slate-700"
-        >
-          ← Back to projects
-        </button>
-
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div className="flex items-start gap-4">
             {item.avatarUrl ? (
@@ -276,27 +209,34 @@ function Inner() {
                   </span>
                 )}
               </div>
-            </div>
-          </div>
 
-          {/* Right side: Edit profile (we'll wire the edit page next) */}
-          <div className="flex sm:flex-col items-start sm:items-end">
-            <button
-              type="button"
-              onClick={() => router.push("/tradesman/profile/edit")}
-              className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs sm:text-sm font-medium shadow-sm border bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-              data-testid="btn-edit-tradesman-profile"
-            >
-              <Heart className="h-4 w-4 text-slate-400" />
-              <span>Edit profile</span>
-            </button>
+              {/* primary actions – pulled under the profile header so they’re obvious */}
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => router.push("/tradesman/profile/edit")}
+                  className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-slate-900/90 shadow-sm"
+                  data-testid="btn-edit-tradesman-profile"
+                >
+                  Edit profile
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.push("/tradesman/projects")}
+                  className="inline-flex items-center gap-2 rounded-full border border-emerald-500 bg-emerald-50 px-4 py-2 text-xs sm:text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
+                  data-testid="btn-view-tradesman-jobs"
+                >
+                  View available jobs
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </header>
 
       {/* main layout: left content, right contact card */}
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)] gap-6">
-        {/* left: trades + shared photos + gallery */}
+        {/* left: trades + gallery */}
         <div className="space-y-6">
           {/* trades offered */}
           <section
@@ -323,20 +263,6 @@ function Inner() {
               </ul>
             )}
           </section>
-
-          {/* shared photos – only when there are any */}
-          {sharedLoading ? (
-            <section
-              className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 sm:p-5"
-              data-testid="tradesman-shared-photos-loading"
-            >
-              <p className="text-sm text-emerald-700">Loading shared photos…</p>
-            </section>
-          ) : (
-            sharedImages.length > 0 && (
-              <SharedProfilePhotosSection images={sharedImages} />
-            )
-          )}
 
           {/* gallery */}
           <section
@@ -383,6 +309,11 @@ function Inner() {
                 Contact details
               </h3>
               <div className="space-y-3">
+                <ContactRow
+                  label="Name"
+                  value={item.displayName}
+                  dataTestId="tradesman-contact-name"
+                />
                 <ContactRow
                   label="Phone"
                   value={item.phone}
@@ -494,6 +425,8 @@ function mapProfileToDetail(profile: any): TradesmanDetail {
 
   const gallery: string[] = Array.isArray(profile.gallery)
     ? profile.gallery
+    : Array.isArray(profile.photo_urls)
+    ? profile.photo_urls
     : [];
 
   const serviceAreas: string[] = (() => {
@@ -673,228 +606,3 @@ function parseSocials(raw: any): string[] {
   }
   return [];
 }
-
-// import Head from "next/head";
-// import { useEffect, useMemo, useState } from "react";
-// import { useApi } from "@/utils/api";
-// import { useAuth } from "@/utils/auth";
-// import { useRouter } from "next/router";
-
-// type Profile = {
-//   user_id?: string;
-//   company_name?: string;
-//   contact_name?: string;
-//   phone?: string;
-//   email?: string;
-//   trade_types?: string;
-//   service_areas?: string;
-//   subscription_status?: string;
-// };
-
-// export default function TradesProfilePage() {
-//   const api = useApi();
-//   const { user, loading } = useAuth();
-//   const router = useRouter();
-
-//   const [p, setP] = useState<Profile | null>(null);
-//   const [busy, setBusy] = useState(false);
-//   const [err, setErr] = useState<string | null>(null);
-//   const [ok, setOk] = useState<string | null>(null);
-
-//   const status = useMemo(() => p?.subscription_status || "draft", [p]);
-
-//   useEffect(() => {
-//     let alive = true;
-//     if (loading) return;
-//     if (!user) {
-//       router.replace(`/login?next=${encodeURIComponent("/tradesman/profile")}`);
-//       return;
-//     }
-//     (async () => {
-//       try {
-//         const { data } = await api.get("/api/tradesmen/me");
-//         const prof = data?.profile || null;
-//         if (!alive) return;
-//         setP(prof);
-//       } catch (e: any) {
-//         if (!alive) return;
-//         setErr(
-//           e?.response?.data?.error || e?.message || "Failed to load profile"
-//         );
-//       }
-//     })();
-//     return () => {
-//       alive = false;
-//     };
-//   }, [user, loading, api, router]);
-
-//   function set<K extends keyof Profile>(k: K, v: Profile[K]) {
-//     setP((prev) => (prev ? { ...prev, [k]: v } : prev));
-//   }
-
-//   async function save(e: React.FormEvent) {
-//     e.preventDefault();
-//     if (!p) return;
-//     setBusy(true);
-//     setErr(null);
-//     setOk(null);
-//     try {
-//       await api.put("/api/tradesmen/me", {
-//         // immutable: company_name, contact_name, email
-//         companyName: p.company_name, // server requires it, so echo current value
-//         contactName: p.contact_name,
-//         email: p.email,
-//         phone: p.phone || "",
-//         tradeTypes: p.trade_types || "",
-//         serviceAreas: p.service_areas || "",
-//       });
-//       setOk("Saved.");
-//     } catch (e: any) {
-//       setErr(
-//         e?.response?.data?.error || e?.message || "Failed to save profile"
-//       );
-//     } finally {
-//       setBusy(false);
-//     }
-//   }
-
-//   return (
-//     <>
-//       <Head>
-//         <title>Manage trades profile • Vetmybuilder</title>
-//       </Head>
-//       <div
-//         className="mx-auto max-w-2xl px-4 py-4"
-//         data-testid="trades-profile-page"
-//       >
-//         <h1 className="text-2xl font-semibold mb-2">Manage profile</h1>
-//         {status === "draft" && (
-//           <div
-//             className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
-//             data-testid="review-banner"
-//           >
-//             Your account is being reviewed. We’ll notify you once your account
-//             is fully verified.
-//           </div>
-//         )}
-
-//         {!p ? (
-//           <div className="card">Loading…</div>
-//         ) : (
-//           <form
-//             className="card grid gap-3"
-//             onSubmit={save}
-//             data-testid="trades-profile-form"
-//           >
-//             <div className="grid sm:grid-cols-2 gap-3">
-//               <div>
-//                 <label className="text-sm">Company name</label>
-//                 <input
-//                   className="input bg-slate-50"
-//                   value={p.company_name || ""}
-//                   disabled
-//                 />
-//               </div>
-//               <div>
-//                 <label className="text-sm">Contact name</label>
-//                 <input
-//                   className="input bg-slate-50"
-//                   value={p.contact_name || ""}
-//                   disabled
-//                 />
-//               </div>
-//             </div>
-
-//             <div className="grid sm:grid-cols-2 gap-3">
-//               <div>
-//                 <label className="text-sm">Email</label>
-//                 <input
-//                   className="input bg-slate-50"
-//                   value={p.email || ""}
-//                   disabled
-//                 />
-//               </div>
-//               <div>
-//                 <label className="text-sm" htmlFor="phone">
-//                   Phone
-//                 </label>
-//                 <input
-//                   id="phone"
-//                   className="input"
-//                   value={p.phone || ""}
-//                   onChange={(e) => set("phone", e.target.value)}
-//                   placeholder="020…"
-//                   data-testid="input-phone"
-//                 />
-//               </div>
-//             </div>
-
-//             <div>
-//               <label className="text-sm" htmlFor="trades">
-//                 Trades (comma separated)
-//               </label>
-//               <input
-//                 id="trades"
-//                 className="input"
-//                 value={p.trade_types || ""}
-//                 onChange={(e) => set("trade_types", e.target.value)}
-//                 placeholder="plumber, electrician"
-//                 data-testid="input-trades"
-//               />
-//             </div>
-
-//             <div>
-//               <label className="text-sm" htmlFor="areas">
-//                 Service areas (comma separated)
-//               </label>
-//               <input
-//                 id="areas"
-//                 className="input"
-//                 value={p.service_areas || ""}
-//                 onChange={(e) => set("service_areas", e.target.value)}
-//                 placeholder="E4, E17, Chingford"
-//                 data-testid="input-areas"
-//               />
-//             </div>
-
-//             {err && (
-//               <p
-//                 className="text-sm text-red-600"
-//                 role="alert"
-//                 data-testid="profile-error"
-//               >
-//                 {err}
-//               </p>
-//             )}
-//             {ok && (
-//               <p
-//                 className="text-sm text-emerald-700"
-//                 role="status"
-//                 data-testid="profile-ok"
-//               >
-//                 {ok}
-//               </p>
-//             )}
-
-//             <div className="flex gap-2">
-//               <button
-//                 className="btn"
-//                 disabled={busy}
-//                 data-testid="btn-save-profile"
-//               >
-//                 {busy ? "Saving…" : "Save changes"}
-//               </button>
-//               <button
-//                 type="button"
-//                 className="btn btn-secondary"
-//                 onClick={() => router.push("/tradesman/projects")}
-//               >
-//                 Back to jobs
-//               </button>
-//             </div>
-//           </form>
-//         )}
-//       </div>
-//     </>
-//   );
-// }

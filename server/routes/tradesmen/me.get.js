@@ -1,3 +1,4 @@
+// server/routes/tradesmen/me.get.js
 /**
  * GET /api/tradesmen/me
  * Auth: required
@@ -18,7 +19,6 @@ module.exports = (router, ctx) => {
       return false;
     }
   };
-
   const hasCol = (table, col) => {
     try {
       const rows = db.prepare(`PRAGMA table_info(${table})`).all();
@@ -145,22 +145,31 @@ module.exports = (router, ctx) => {
     return null;
   }
 
-  // NEW: pull existing photo URLs from tradesmen_photos, if present
-  function getPhotoUrls(uid) {
-    if (!tblExists("tradesmen_photos")) return [];
+  // attach photos from tradesmen_photos (if available)
+  function attachPhotos(uid, profile) {
+    if (!profile) return profile;
+    if (!tblExists("tradesmen_photos")) return profile;
+
     try {
       const rows = db
         .prepare(
           `SELECT url
              FROM tradesmen_photos
-            WHERE tradesman_user_id = ?
-            ORDER BY sort_order ASC, id ASC`
+            WHERE tradesman_user_id=?
+            ORDER BY sort_order, id`
         )
         .all(uid);
-      return rows.map((r) => r.url).filter(Boolean);
+      const urls = rows.map((r) => r.url).filter(Boolean);
+
+      profile.photo_urls = urls;
+      // back-compat: also expose as gallery if not already set
+      if (!Array.isArray(profile.gallery)) {
+        profile.gallery = urls;
+      }
     } catch {
-      return [];
+      // swallow – photos are nice-to-have
     }
+    return profile;
   }
 
   router.get("/tradesmen/me", auth, (req, res) => {
@@ -177,10 +186,7 @@ module.exports = (router, ctx) => {
       }
 
       if (profile) {
-        // Attach photo_urls for front-end edit/view flows
-        const photos = getPhotoUrls(uid);
-        profile.photo_urls = photos;
-
+        profile = attachPhotos(uid, profile);
         return res
           .set("Cache-Control", "no-store")
           .json({ role: "tradesman", profile });

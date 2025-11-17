@@ -1,11 +1,11 @@
-// web/components/tradesman/TradesmanProjectAccordionRow.tsx
+// web/components/tradesmen/TradesmanProjectAccordionRow.tsx
 import * as React from "react";
-import { ChevronDown } from "lucide-react";
 import { useApi } from "@/utils/api";
 import ContactDetailsCard from "@/components/project/ContactDetailsCard";
 import ShareProfileModal from "@/components/fileUpload/ShareProfileModal";
 import StatusBadge from "@/components/StatusBadge";
 import PlansModal from "@/components/plans/PlansModal";
+import AccordionRow from "@/components/AccordionRow";
 import type { PlanId } from "@/shared/lib/plans";
 
 /** Shape from tradesman/projects list */
@@ -47,6 +47,13 @@ type Contact = {
   email?: string | null;
 };
 
+type ContactStatus =
+  | "unknown"
+  | "not_unlocked"
+  | "pending_admin_review"
+  | "loaded"
+  | "error";
+
 type Props = {
   project: ListProject;
   expanded: boolean;
@@ -77,6 +84,11 @@ export default function TradesmanProjectAccordionRow({
   // ----- contact + plans -----
   const [ownerContact, setOwnerContact] = React.useState<Contact | null>(null);
   const [contactLoading, setContactLoading] = React.useState(false);
+  const [contactStatus, setContactStatus] =
+    React.useState<ContactStatus>("unknown");
+
+  // ensure we only ever call /owner-contact once per row (per page load)
+  const hasRequestedContactRef = React.useRef(false);
 
   const [plansOpen, setPlansOpen] = React.useState(false);
   const [currentPlanId, setCurrentPlanId] = React.useState<PlanId | undefined>(
@@ -104,12 +116,18 @@ export default function TradesmanProjectAccordionRow({
     };
   }, [api]);
 
-  // When expanded: load full project details
+  // When expanded: load full project details (only once per row)
   React.useEffect(() => {
     if (!expanded) return;
+    if (fullProject) {
+      // already loaded, don't refetch – avoids flicker on re-open
+      return;
+    }
+
     let cancelled = false;
     setProjLoading(true);
     setProjErr(null);
+
     (async () => {
       try {
         const { data } = await api.get(`/api/projects/${project.id}`);
@@ -127,16 +145,25 @@ export default function TradesmanProjectAccordionRow({
         if (!cancelled) setProjLoading(false);
       }
     })();
+
     return () => {
       cancelled = true;
     };
-  }, [expanded, project.id, api]);
+  }, [expanded, project.id, api, fullProject]);
 
-  // When expanded: check if profile already shared for this project
+  // When expanded: check if profile already shared for this project (only until true)
   React.useEffect(() => {
     if (!expanded) return;
+
+    // If we already know it's shared, don't keep re-checking
+    if (hasShared) {
+      setShareChecking(false);
+      return;
+    }
+
     let cancelled = false;
     setShareChecking(true);
+
     (async () => {
       try {
         const { data } = await api.get("/api/tradesmen/interest", {
@@ -155,45 +182,70 @@ export default function TradesmanProjectAccordionRow({
         if (!cancelled) setShareChecking(false);
       }
     })();
+
     return () => {
       cancelled = true;
     };
-  }, [expanded, project.id, api]);
+  }, [expanded, project.id, api, hasShared]);
 
-  // When expanded: try to fetch owner contact (server enforces entitlement)
+  // When expanded: try to fetch owner contact (server enforces entitlement).
+  // We cache the result and hard-stop further requests using a ref.
   React.useEffect(() => {
     if (!expanded) return;
+
+    // If we've already attempted once for this row, don't hammer the endpoint
+    // again – just reuse the previous state (loaded / locked / pending / error).
+    if (hasRequestedContactRef.current) {
+      setContactLoading(false);
+      return;
+    }
+
     let cancelled = false;
+    hasRequestedContactRef.current = true; // mark as attempted
     setContactLoading(true);
-    setOwnerContact(null);
+
     (async () => {
       try {
         const { data } = await api.get(
           `/api/projects/${project.id}/owner-contact`
         );
         if (cancelled) return;
+
         const owner = data?.owner || data || {};
         setOwnerContact({
           firstName: owner.firstName ?? null,
           lastName: owner.lastName ?? null,
           email: owner.email ?? null,
         });
+        setContactStatus("loaded");
       } catch (e: any) {
         if (cancelled) return;
         const status = e?.response?.status ?? e?.status;
-        // 403 = not entitled / pending; leave as locked, but don't crash UI
-        if (status && status !== 403) {
+        const code = e?.response?.data?.error;
+
+        if (status === 403) {
+          if (code === "pending_admin_review") {
+            setContactStatus("pending_admin_review");
+          } else if (code === "not_unlocked") {
+            setContactStatus("not_unlocked");
+          } else {
+            setContactStatus("error");
+          }
+        } else {
+          setContactStatus("error");
           // eslint-disable-next-line no-console
           console.warn(
             "[TradesmanProjectAccordionRow] owner-contact failed:",
             e?.response?.data || e?.message || e
           );
         }
+
         setOwnerContact(null);
       } finally {
         if (!cancelled) setContactLoading(false);
       }
     })();
+
     return () => {
       cancelled = true;
     };
@@ -259,14 +311,12 @@ export default function TradesmanProjectAccordionRow({
   const descriptionSections = parseDescriptionSections(descriptionRaw);
 
   return (
-    <div className="border-b border-slate-200" data-testid="project-row">
-      {/* Header row */}
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-slate-50"
-      >
-        <div>
+    <AccordionRow
+      expanded={expanded}
+      onToggle={onToggle}
+      testId="project-row"
+      header={
+        <>
           <div className="text-sm font-medium text-slate-900">
             {project.name}
           </div>
@@ -281,206 +331,191 @@ export default function TradesmanProjectAccordionRow({
               Created: {new Date(project.createdAt).toLocaleDateString("en-GB")}
             </span>
           </div>
-        </div>
-        <ChevronDown
-          className={`h-4 w-4 text-slate-500 transition-transform ${
-            expanded ? "rotate-180" : ""
+        </>
+      }
+    >
+      {/* share banners */}
+      {shareFlash && (
+        <div
+          className={`mb-3 rounded-lg px-3 py-2 text-sm ${
+            shareFlash.kind === "success"
+              ? "bg-emerald-50 text-emerald-700"
+              : "bg-red-50 text-red-700"
           }`}
-        />
-      </button>
-
-      {/* Expanded content */}
-      {expanded && (
-        <div className="border-t border-slate-100 bg-slate-50 px-4 py-4">
-          {/* share banners */}
-          {shareFlash && (
-            <div
-              className={`mb-3 rounded-lg px-3 py-2 text-sm ${
-                shareFlash.kind === "success"
-                  ? "bg-emerald-50 text-emerald-700"
-                  : "bg-red-50 text-red-700"
-              }`}
-              data-testid="share-flash-inline"
-            >
-              {shareFlash.text}
-            </div>
-          )}
-
-          {!shareFlash && hasShared && (
-            <div
-              className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800"
-              data-testid="share-already-banner-inline"
-            >
-              ✓ Your profile has already been shared.
-            </div>
-          )}
-
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)]">
-            {/* Project details – richer styling */}
-            <section className="rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
-              {/* Header row */}
-              <div className="mb-3 flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    Project details
-                  </h3>
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    Summary of this homeowner’s job.
-                  </p>
-                </div>
-
-                {/* Express interest button (only if not already shared) */}
-                {!hasShared && (
-                  <button
-                    type="button"
-                    onClick={() => setShareOpen(true)}
-                    disabled={shareBusy || shareChecking}
-                    aria-busy={shareBusy || shareChecking}
-                    className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-900/90 disabled:opacity-60"
-                    data-testid="btn-express-interest-inline"
-                  >
-                    {shareBusy || shareChecking
-                      ? "Sending…"
-                      : "Express interest"}
-                  </button>
-                )}
-              </div>
-
-              {/* Loading / error */}
-              {projLoading ? (
-                <div className="space-y-3 text-sm text-slate-500">
-                  <div className="h-4 w-2/3 animate-pulse rounded bg-slate-200" />
-                  <div className="h-4 w-1/2 animate-pulse rounded bg-slate-200" />
-                  <div className="h-4 w-3/4 animate-pulse rounded bg-slate-200" />
-                </div>
-              ) : projErr ? (
-                <p className="text-sm text-red-600">{projErr}</p>
-              ) : (
-                <>
-                  {/* Badges row */}
-                  <div
-                    className="mb-3 flex flex-wrap gap-2 text-xs"
-                    data-testid="project-badges-inline"
-                  >
-                    <span className="badge blue">{effectiveProject.type}</span>
-                    <span className="badge gray">
-                      {effectiveProject.location}
-                    </span>
-                    <span className="badge orange capitalize">{propType}</span>
-                    <span className="badge green">
-                      {bedrooms} bed{bedrooms === 1 ? "" : ""}
-                    </span>
-                    <span>
-                      <StatusBadge value={status as any} />
-                    </span>
-                  </div>
-
-                  {/* Spec grid */}
-                  <dl className="grid grid-cols-1 gap-y-3 gap-x-10 sm:grid-cols-2 text-sm">
-                    <div>
-                      <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                        Type
-                      </dt>
-                      <dd className="mt-0.5 font-medium">
-                        {effectiveProject.type || "—"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                        Location
-                      </dt>
-                      <dd className="mt-0.5 font-medium">
-                        {effectiveProject.location || "—"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                        Property
-                      </dt>
-                      <dd className="mt-0.5 font-medium capitalize">
-                        {propType}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                        Bedrooms
-                      </dt>
-                      <dd className="mt-0.5 font-medium">{bedrooms}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                        Status
-                      </dt>
-                      <dd className="mt-0.5 font-medium">
-                        <StatusBadge value={status as any} />
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                        Created
-                      </dt>
-                      <dd className="mt-0.5 font-medium">{createdLabel}</dd>
-                    </div>
-                  </dl>
-
-                  {/* Description block */}
-                  <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-3">
-                    <h4 className="mb-1 text-sm font-semibold text-slate-900">
-                      Description
-                    </h4>
-
-                    {descriptionSections.length <= 1 ? (
-                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
-                        {descriptionRaw}
-                      </p>
-                    ) : (
-                      <dl className="mt-2 grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
-                        {descriptionSections.map((sec) => (
-                          <div key={sec.label}>
-                            <dt className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                              {sec.label}
-                            </dt>
-                            <dd className="mt-0.5 text-sm leading-relaxed text-slate-800 whitespace-pre-wrap">
-                              {sec.value}
-                            </dd>
-                          </div>
-                        ))}
-                      </dl>
-                    )}
-                  </div>
-                </>
-              )}
-            </section>
-
-            {/* Contact details card */}
-            <ContactDetailsCard
-              locked={!ownerContact}
-              loading={contactLoading}
-              contact={ownerContact || undefined}
-              onUpgrade={() => setPlansOpen(true)}
-              title="Homeowner contact"
-            />
-          </div>
-
-          {/* Share modal */}
-          {shareOpen && !hasShared && (
-            <ShareProfileModal
-              open={shareOpen}
-              onClose={() => setShareOpen(false)}
-              onSubmit={handleShareSubmit}
-            />
-          )}
-
-          {/* Plans modal for Upgrade */}
-          <PlansModal
-            isOpen={plansOpen}
-            onClose={() => setPlansOpen(false)}
-            currentPlanId={currentPlanId}
-            projectId={project.id}
-          />
+          data-testid="share-flash-inline"
+        >
+          {shareFlash.text}
         </div>
       )}
-    </div>
+
+      {!shareFlash && hasShared && (
+        <div
+          className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800"
+          data-testid="share-already-banner-inline"
+        >
+          ✓ Your profile has already been shared.
+        </div>
+      )}
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)]">
+        {/* Project details – richer styling */}
+        <section className="rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+          {/* Header row */}
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900">
+                Project details
+              </h3>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Summary of this homeowner’s job.
+              </p>
+            </div>
+
+            {/* Express interest button (only if not already shared) */}
+            {!hasShared && (
+              <button
+                type="button"
+                onClick={() => setShareOpen(true)}
+                disabled={shareBusy || shareChecking}
+                aria-busy={shareBusy || shareChecking}
+                className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-900/90 disabled:opacity-60"
+                data-testid="btn-express-interest-inline"
+              >
+                {shareBusy || shareChecking ? "Sending…" : "Express interest"}
+              </button>
+            )}
+          </div>
+
+          {/* Loading / error */}
+          {projLoading ? (
+            <div className="space-y-3 text-sm text-slate-500">
+              <div className="h-4 w-2/3 animate-pulse rounded bg-slate-200" />
+              <div className="h-4 w-1/2 animate-pulse rounded bg-slate-200" />
+              <div className="h-4 w-3/4 animate-pulse rounded bg-slate-200" />
+            </div>
+          ) : projErr ? (
+            <p className="text-sm text-red-600">{projErr}</p>
+          ) : (
+            <>
+              {/* Badges row */}
+              <div
+                className="mb-3 flex flex-wrap gap-2 text-xs"
+                data-testid="project-badges-inline"
+              >
+                <span className="badge blue">{effectiveProject.type}</span>
+                <span className="badge gray">{effectiveProject.location}</span>
+                <span className="badge orange capitalize">{propType}</span>
+                <span className="badge green">
+                  {bedrooms} bed{bedrooms === 1 ? "" : ""}
+                </span>
+                <span>
+                  <StatusBadge value={status as any} />
+                </span>
+              </div>
+
+              {/* Spec grid */}
+              <dl className="grid grid-cols-1 gap-y-3 gap-x-10 sm:grid-cols-2 text-sm">
+                <div>
+                  <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    Type
+                  </dt>
+                  <dd className="mt-0.5 font-medium">
+                    {effectiveProject.type || "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    Location
+                  </dt>
+                  <dd className="mt-0.5 font-medium">
+                    {effectiveProject.location || "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    Property
+                  </dt>
+                  <dd className="mt-0.5 font-medium capitalize">{propType}</dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    Bedrooms
+                  </dt>
+                  <dd className="mt-0.5 font-medium">{bedrooms}</dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    Status
+                  </dt>
+                  <dd className="mt-0.5 font-medium">
+                    <StatusBadge value={status as any} />
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    Created
+                  </dt>
+                  <dd className="mt-0.5 font-medium">{createdLabel}</dd>
+                </div>
+              </dl>
+
+              {/* Description block */}
+              <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-3">
+                <h4 className="mb-1 text-sm font-semibold text-slate-900">
+                  Description
+                </h4>
+
+                {descriptionSections.length <= 1 ? (
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
+                    {descriptionRaw}
+                  </p>
+                ) : (
+                  <dl className="mt-2 grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
+                    {descriptionSections.map((sec) => (
+                      <div key={sec.label}>
+                        <dt className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                          {sec.label}
+                        </dt>
+                        <dd className="mt-0.5 text-sm leading-relaxed text-slate-800 whitespace-pre-wrap">
+                          {sec.value}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+              </div>
+            </>
+          )}
+        </section>
+
+        {/* Contact details card */}
+        <ContactDetailsCard
+          locked={contactStatus !== "loaded"}
+          loading={contactLoading}
+          contact={ownerContact || undefined}
+          onUpgrade={() => setPlansOpen(true)}
+          title="Homeowner contact"
+          status={contactStatus}
+        />
+      </div>
+
+      {/* Share modal */}
+      {shareOpen && !hasShared && (
+        <ShareProfileModal
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          onSubmit={handleShareSubmit}
+        />
+      )}
+
+      {/* Plans modal for Upgrade */}
+      <PlansModal
+        isOpen={plansOpen}
+        onClose={() => setPlansOpen(false)}
+        currentPlanId={currentPlanId}
+        projectId={project.id}
+      />
+    </AccordionRow>
   );
 }
 

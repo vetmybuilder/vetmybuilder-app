@@ -7,123 +7,140 @@ type Contact = {
   email?: string | null;
 };
 
+type ContactStatus =
+  | "unknown"
+  | "not_unlocked"
+  | "pending_admin_review"
+  | "loaded"
+  | "error";
+
 type Props = {
-  /** When true, card appears dimmed and shows Upgrade CTA */
-  locked?: boolean;
-  /** Loading state for when the contact details are being fetched */
+  locked: boolean;
   loading?: boolean;
-  /** Contact data to display (ignored while loading) */
   contact?: Contact | null;
-
-  /** Called when the “Upgrade” button is pressed (in locked state) */
-  onUpgrade?: () => void;
-
-  /** Optional visual tweaks */
   title?: string;
-  className?: string;
-  /** Allow extra content at the bottom if needed */
-  footer?: React.ReactNode;
+  onUpgrade?: () => void;
+  /** Optional detailed status so we can show pending-review vs not-unlocked copy */
+  status?: ContactStatus;
 };
 
 export default function ContactDetailsCard({
-  locked = false,
+  locked,
   loading = false,
   contact,
+  title = "Owner contact",
   onUpgrade,
-  title = "Homeowner contact",
-  className = "",
-  footer,
+  status = "unknown",
 }: Props) {
-  const shellCls =
-    "rounded-3xl border border-slate-200 bg-white px-6 py-5 shadow-sm";
+  const name =
+    [contact?.firstName, contact?.lastName].filter(Boolean).join(" ") || null;
+
+  const isPendingReview = status === "pending_admin_review";
+  const isNotUnlocked = status === "not_unlocked" || status === "unknown";
+  const hasError = status === "error";
 
   return (
-    <section
-      className={[shellCls, className].join(" ")}
-      aria-labelledby="contact-details-title"
-      data-testid="contact-details-card"
+    <aside
+      className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm"
+      data-testid="owner-contact-card"
     >
-      {/* Header */}
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h3
-          id="contact-details-title"
-          className="text-lg font-semibold text-slate-900"
-        >
-          {title}
-        </h3>
+      <h2 className="text-sm sm:text-base font-semibold text-slate-900 mb-3">
+        {title}
+      </h2>
 
-        {locked && typeof onUpgrade === "function" && (
-          <button
-            type="button"
-            onClick={onUpgrade}
-            className="rounded-full bg-indigo-500 px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
-            data-testid="btn-upgrade"
-          >
-            Upgrade
-          </button>
-        )}
-      </div>
-
-      {/* Body */}
-      {locked ? (
-        <p
-          className="text-sm leading-relaxed text-slate-600"
-          data-testid="locked-msg"
-        >
-          Upgrade your plan to view the project owner’s contact details. One-off
-          unlock is available in the plan picker.
-        </p>
-      ) : loading ? (
-        <div className="space-y-3" data-testid="loading-skeleton">
+      {/* Loading state */}
+      {loading && (
+        <div className="space-y-2 text-sm text-slate-500">
           <div className="h-4 w-2/3 animate-pulse rounded bg-slate-200" />
           <div className="h-4 w-1/2 animate-pulse rounded bg-slate-200" />
-          <div className="h-4 w-3/4 animate-pulse rounded bg-slate-200" />
         </div>
-      ) : (
-        <>
-          <div className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-            Contact details
-          </div>
-
-          <dl
-            className="grid grid-cols-1 gap-4 text-sm"
-            data-testid="contact-data"
-          >
-            <div>
-              <dt className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">
-                First name
-              </dt>
-              <dd className="mt-0.5 text-base font-semibold text-emerald-700">
-                {safe(contact?.firstName)}
-              </dd>
-            </div>
-
-            <div>
-              <dt className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">
-                Last name
-              </dt>
-              <dd className="mt-0.5 text-base font-semibold text-emerald-700">
-                {safe(contact?.lastName)}
-              </dd>
-            </div>
-
-            <div>
-              <dt className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">
-                Email
-              </dt>
-              <dd className="mt-0.5 text-sm font-medium text-emerald-700 break-all">
-                {safe(contact?.email)}
-              </dd>
-            </div>
-          </dl>
-        </>
       )}
 
-      {footer ? <div className="mt-5">{footer}</div> : null}
-    </section>
-  );
-}
+      {!loading && (
+        <>
+          {/* Unlocked and loaded */}
+          {!locked && contact?.email ? (
+            <div className="space-y-3 text-sm text-slate-800">
+              {name && (
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Name
+                  </div>
+                  <div className="mt-0.5">{name}</div>
+                </div>
+              )}
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Email
+                </div>
+                <a
+                  href={`mailto:${contact.email}`}
+                  className="mt-0.5 inline-flex items-center text-sm font-medium text-emerald-700 hover:underline break-all"
+                >
+                  {contact.email}
+                </a>
+              </div>
+              <p className="mt-2 text-[11px] text-slate-400">
+                Use this contact respectfully and only for this project.
+              </p>
+            </div>
+          ) : (
+            // Locked states (no contact visible)
+            <div className="space-y-3 text-sm text-slate-700">
+              {/* Pending admin review */}
+              {isPendingReview && (
+                <div
+                  className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-900"
+                  data-testid="owner-contact-pending-review"
+                >
+                  <p className="font-medium">
+                    Your plan is being reviewed by VetMyBuilder.
+                  </p>
+                  <p className="mt-1 text-xs">
+                    Once it&apos;s approved, you&apos;ll automatically see this
+                    homeowner&apos;s contact details for eligible projects.
+                  </p>
+                </div>
+              )}
 
-function safe(v?: string | null) {
-  return v && String(v).trim() ? v : "—";
+              {/* Not unlocked / generic locked */}
+              {!isPendingReview && (
+                <div
+                  className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-[13px] text-slate-700"
+                  data-testid="owner-contact-locked"
+                >
+                  <p className="font-medium">Contact details are locked.</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Upgrade or purchase an unlock to see this homeowner&apos;s
+                    email once your plan is approved.
+                  </p>
+                </div>
+              )}
+
+              {/* Error hint if something went wrong */}
+              {hasError && (
+                <p className="text-xs text-rose-600">
+                  We couldn&apos;t check your entitlement just now. Try
+                  refreshing the page or contact support if this keeps
+                  happening.
+                </p>
+              )}
+
+              {/* Upgrade CTA – only when we are not in pending-review state */}
+              {onUpgrade && isNotUnlocked && (
+                <button
+                  type="button"
+                  onClick={onUpgrade}
+                  className="mt-1 inline-flex h-9 items-center justify-center rounded-full bg-slate-900 px-4 text-xs font-semibold text-white hover:bg-slate-900/90"
+                  data-testid="btn-upgrade-plan"
+                >
+                  View plans &amp; unlock contact
+                </button>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </aside>
+  );
 }

@@ -1,4 +1,3 @@
-// web/pages/tradesman/projects.tsx
 import Head from "next/head";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -126,22 +125,34 @@ export default function TradesmanProjects() {
   return (
     <>
       <Head>
-        <title>Published projects • Vetmybuilder</title>
+        <title>Jobs list • Vetmybuilder</title>
       </Head>
 
       <div
         className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6"
         data-testid="tradesman-projects-page"
       >
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-semibold">Published projects</h1>
-          <Link
-            href="/tradesman/profile"
-            className="text-sm text-indigo-600 hover:text-indigo-500"
-            data-testid="link-view-profile"
-          >
-            View profile
-          </Link>
+        {/* Heading + primary actions */}
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-900">
+              Jobs list
+            </h1>
+            <p className="mt-1 text-sm text-slate-600 max-w-2xl">
+              Browse jobs posted by homeowners that match your trade and areas
+              you cover. Use the filters to narrow down what you&apos;re looking
+              for.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/tradesman/profile"
+              className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-slate-900/90 shadow-sm"
+              data-testid="link-view-profile"
+            >
+              View my profile
+            </Link>
+          </div>
         </div>
 
         {/* NOT SIGNED IN */}

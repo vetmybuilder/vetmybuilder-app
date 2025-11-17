@@ -4,8 +4,9 @@
 // Returns the project owner's contact details for eligible viewers.
 //
 // Entitlement (any one of):
-//   - Tradesman has a paid subscription (active OR draft+pending purchase)
-//   - One-off purchase exists in project_contact_unlocks for (project_id, buyer_uid)
+//   - Tradesman has an **active Gold subscription**
+//     (tradesmen.subscription_status = 'active' AND plan = 'gold')
+//   - One-off unlock exists in project_contact_unlocks for (project_id, buyer_uid)
 //     AND status = 'approved'
 
 module.exports = (router, ctx) => {
@@ -42,45 +43,39 @@ module.exports = (router, ctx) => {
     }
   }
 
-  // More generous entitlement: counts active paid plans
-  // AND draft + purchased_plan as "paid" (for mock checkout).
-  const hasPaidPlanOrDraftPurchase = (uid) => {
+  // Fetch viewer's plan/subscription info
+  const getPlanInfo = (uid) => {
     const hasPurchasedPlanCol = tradesmenHasColumn("purchased_plan");
 
-    const selectSql = hasPurchasedPlanCol
+    const sql = hasPurchasedPlanCol
       ? `SELECT
-            COALESCE(subscription_status,'inactive') AS s,
-            LOWER(COALESCE(plan,'free'))            AS p,
-            LOWER(COALESCE(purchased_plan,''))      AS pp
+            COALESCE(subscription_status,'inactive') AS subscription_status,
+            LOWER(COALESCE(plan,'free'))            AS plan_id,
+            LOWER(COALESCE(purchased_plan,''))      AS purchased_plan_id
          FROM tradesmen
          WHERE user_id = ?`
       : `SELECT
-            COALESCE(subscription_status,'inactive') AS s,
-            LOWER(COALESCE(plan,'free'))            AS p
+            COALESCE(subscription_status,'inactive') AS subscription_status,
+            LOWER(COALESCE(plan,'free'))            AS plan_id
          FROM tradesmen
          WHERE user_id = ?`;
 
-    const row = db.prepare(selectSql).get(uid) || null;
-    if (!row) return false;
-
-    const status = String(row.s || "inactive").toLowerCase();
-    const plan = String(row.p || "free").toLowerCase();
-    const purchased = hasPurchasedPlanCol
-      ? String(row.pp || "").toLowerCase()
-      : "";
-
-    // Existing behaviour – fully active paid plan
-    if (status === "active" && plan !== "free") {
-      return true;
+    const row = db.prepare(sql).get(uid) || null;
+    if (!row) {
+      return {
+        subscriptionStatus: "inactive",
+        planId: "free",
+        purchasedPlanId: "",
+      };
     }
 
-    // NEW: treat draft + purchased_plan as paid (post-checkout, pre-admin)
-    if (status === "draft") {
-      if (plan !== "free") return true;
-      if (purchased && purchased !== "free") return true;
-    }
-
-    return false;
+    return {
+      subscriptionStatus: String(
+        row.subscription_status || "inactive"
+      ).toLowerCase(),
+      planId: String(row.plan_id || "free").toLowerCase(),
+      purchasedPlanId: String(row.purchased_plan_id || "").toLowerCase(),
+    };
   };
 
   // return status for a user->project unlock row if present
@@ -118,7 +113,7 @@ module.exports = (router, ctx) => {
 
       if (!project) return res.status(404).json({ error: "Project not found" });
 
-      // Optional: only reveal for live projects
+      // Only reveal for live projects
       if (project.status && project.status !== "live") {
         return res
           .status(403)
@@ -132,19 +127,27 @@ module.exports = (router, ctx) => {
           .json({ error: "Owner cannot request own contact" });
       }
 
-      // Compute entitlement:
-      // - paid plan (active OR draft + purchased_plan)
-      // - OR one-off unlock with status = 'approved'
-      const paidPlan = hasPaidPlanOrDraftPurchase(viewerUid);
-      const unlockStatus = getOneOffUnlockStatus(pid, viewerUid);
+      // === PLAN + UNLOCK ENTITLEMENT LOGIC ===
 
-      if (!paidPlan) {
+      const planInfo = getPlanInfo(viewerUid);
+      const { subscriptionStatus, planId } = planInfo;
+
+      // 1) Global entitlement: Active Gold subscription
+      const hasGlobalContact =
+        subscriptionStatus === "active" && planId === "gold";
+
+      // 2) Per-project entitlement: one-off unlock with status 'approved'
+      const unlockStatus = getOneOffUnlockStatus(pid, viewerUid);
+      const hasApprovedUnlock = unlockStatus === "approved";
+
+      // If no global entitlement and no approved per-project unlock, block.
+      if (!hasGlobalContact && !hasApprovedUnlock) {
         if (!unlockStatus) {
+          // No per-project unlock row at all
           return res.status(403).json({ error: "not_unlocked" });
         }
-        if (unlockStatus !== "approved") {
-          return res.status(403).json({ error: "pending_admin_review" });
-        }
+        // There *is* a row, but it's not approved yet -> admin review pending
+        return res.status(403).json({ error: "pending_admin_review" });
       }
 
       // Contact strictly from `users`
@@ -172,9 +175,11 @@ module.exports = (router, ctx) => {
         email,
         owner: { firstName, lastName, email }, // backward compatibility
         entitlement: {
-          paidPlan,
-          oneOffUnlock: unlockStatus === "approved",
+          hasGlobalContact,
+          oneOffUnlock: hasApprovedUnlock,
           oneOffStatus: unlockStatus || null,
+          subscriptionStatus,
+          planId,
         },
       });
     } catch (e) {

@@ -42,7 +42,11 @@ type Props = {
   onNext: (e: React.FormEvent) => void;
   userIsAuthed: boolean;
   nextQuery: string;
-  emailError?: string | null; // NEW
+  emailError?: string | null;
+
+  // NEW: only used by the edit-profile page
+  disableCompanyName?: boolean;
+  disableBusinessEmail?: boolean;
 };
 
 export default function Step1Company({
@@ -62,6 +66,8 @@ export default function Step1Company({
   userIsAuthed,
   nextQuery,
   emailError,
+  disableCompanyName,
+  disableBusinessEmail,
 }: Props) {
   return (
     <form className="card grid gap-3" onSubmit={onNext} data-testid="step-1">
@@ -79,6 +85,7 @@ export default function Step1Company({
         onChange={(e) => set("companyName", e.target.value)}
         placeholder="Company Ltd"
         data-testid="input-company-name"
+        disabled={disableCompanyName}
       />
 
       <label
@@ -134,6 +141,7 @@ export default function Step1Company({
             data-testid="input-email"
             aria-invalid={!!emailError}
             aria-describedby={emailError ? "email-error" : undefined}
+            disabled={disableBusinessEmail}
           />
           {emailError && (
             <p

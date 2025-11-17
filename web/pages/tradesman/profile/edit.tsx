@@ -1,8 +1,27 @@
-// web/pages/tradesman/profile/edit.tsx
-import { useEffect, useState, FormEvent } from "react";
+import Head from "next/head";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
+
+import Step1Company, {
+  type Step1Form,
+} from "@/components/vendor-register/Step1Company";
+import Step2Trades from "@/components/vendor-register/Step2Trades";
+import Step3Offers from "@/components/vendor-register/Step3Offers";
+
+import {
+  normalizeAsUrl,
+  normalizeFacebook,
+  normalizeInstagram,
+  normalizeLinkedIn,
+  normalizeTikTok,
+  normalizeX,
+  normalizeYouTube,
+} from "@/utils/socialLinks";
+
+type Step = 1 | 2 | 3;
+type Doc = { name: string; size: number; type: string };
 
 type RawProfile = {
   user_id?: string;
@@ -25,13 +44,41 @@ type RawProfile = {
   offers_discount?: number | null;
   warranty_months?: number | null;
 
-  // optional from extended me.get
+  company_number?: string | null;
+  ch_status?: string | null;
+
   photo_urls?: string[] | null;
 };
 
 type MeResponse = {
   role: "tradesman" | "user";
   profile: RawProfile | null;
+};
+
+type FormState = {
+  companyName: string;
+  contactName: string;
+  phone: string;
+  email: string;
+  serviceAreas: string[];
+  website: string;
+  socials: {
+    instagram: string;
+    tiktok: string;
+    facebook: string;
+    x: string;
+    youtube: string;
+    linkedin: string;
+  };
+  tradeTypes: string[];
+  workPhotos: File[];
+  discountMin: number;
+  discountMax: number;
+  warranty: "none" | "3m" | "6m" | "12m" | "24m+";
+  docs: Doc[];
+  companyNumber: string | null;
+  chStatus: string | null;
+  existingPhotoUrls: string[];
 };
 
 export default function TradesmanProfileEditPage() {
@@ -46,20 +93,19 @@ function Inner() {
   const api = useApi();
   const router = useRouter();
 
-  const [profile, setProfile] = useState<RawProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [flash, setFlash] = useState<string | null>(null);
+  const [step, setStep] = useState<Step>(1);
 
-  // form state (editable fields)
-  const [trades, setTrades] = useState("");
-  const [phone, setPhone] = useState("");
-  const [website, setWebsite] = useState("");
-  const [offersDiscount, setOffersDiscount] = useState(false);
-  const [discountMin, setDiscountMin] = useState<string>("");
-  const [discountMax, setDiscountMax] = useState<string>("");
-  const [warrantyMonths, setWarrantyMonths] = useState<string>("");
+  const [profile, setProfile] = useState<RawProfile | null>(null);
+  const [form, setForm] = useState<FormState | null>(null);
+
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [okMsg, setOkMsg] = useState<string | null>(null);
+
+  const [areaQuery, setAreaQuery] = useState("");
+  const [websiteInput, setWebsiteInput] = useState("");
+  const [emailErr, setEmailErr] = useState<string | null>(null);
 
   // ---- load my profile from /api/tradesmen/me ----
   useEffect(() => {
@@ -77,34 +123,68 @@ function Inner() {
         if (!data?.profile || data.role !== "tradesman") {
           setErr("No trade profile found.");
           setProfile(null);
+          setForm(null);
           return;
         }
 
         const p: RawProfile = data.profile;
         setProfile(p);
 
-        // seed form fields
-        setTrades(p.trade_types || "");
-        setPhone(p.phone || "");
-        setWebsite(p.web_url || "");
+        const serviceAreas = parseCsv(p.service_areas);
+        const website = p.web_url || "";
+        const socialsArray = parseSocials(p.social_links_json);
 
-        const minPct = Number(p.discount_min_percent ?? 0) || 0;
-        const maxPct = Number(p.discount_max_percent ?? 0) || 0;
-        const hasDisc =
-          Number(p.offers_discount ?? 0) > 0 || minPct > 0 || maxPct > 0;
+        const socials = splitSocials(socialsArray);
 
-        setOffersDiscount(hasDisc);
-        setDiscountMin(minPct ? String(minPct) : "");
-        setDiscountMax(maxPct ? String(maxPct) : "");
+        const discountMin =
+          Number(p.discount_min_percent ?? p.offers_discount ?? 0) || 0;
+        const discountMax =
+          Number(p.discount_max_percent ?? p.offers_discount ?? 0) || 0;
 
-        const w = Number(p.warranty_months ?? 0) || 0;
-        setWarrantyMonths(w ? String(w) : "");
+        const wMonths = Number(p.warranty_months ?? 0) || 0;
+        const warranty: FormState["warranty"] =
+          wMonths >= 24
+            ? "24m+"
+            : wMonths >= 12
+            ? "12m"
+            : wMonths >= 6
+            ? "6m"
+            : wMonths >= 3
+            ? "3m"
+            : "none";
+
+        const existingPhotoUrls = Array.isArray(p.photo_urls)
+          ? p.photo_urls
+          : [];
+
+        const next: FormState = {
+          companyName: p.company_name || "",
+          contactName: p.contact_name || "",
+          phone: p.phone || "",
+          email: p.email || "",
+          serviceAreas,
+          website,
+          socials,
+          tradeTypes: parseCsv(p.trade_types),
+          workPhotos: [],
+          discountMin,
+          discountMax,
+          warranty,
+          docs: [],
+          companyNumber: p.company_number || null,
+          chStatus: p.ch_status || null,
+          existingPhotoUrls,
+        };
+
+        setForm(next);
+        setWebsiteInput(website);
       } catch (e: any) {
         if (cancelled) return;
         const msg =
           e?.response?.data?.error || e?.message || "Failed to load profile";
         setErr(msg);
         setProfile(null);
+        setForm(null);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -115,340 +195,449 @@ function Inner() {
     };
   }, [api]);
 
-  const onSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!profile || saving) return;
-
-    setSaving(true);
-    setErr(null);
-    setFlash(null);
-
-    try {
-      const companyName = (profile.company_name || "").trim();
-      if (!companyName) {
-        throw new Error(
-          "Your company name is missing. Please complete your profile on the registration page first."
-        );
-      }
-
-      const discountMinInt = safeInt(discountMin);
-      const discountMaxInt = safeInt(discountMax);
-      const warrantyInt = safeInt(warrantyMonths);
-
-      const payload: any = {
-        // required core fields (mostly from existing profile)
-        companyName,
-        contactName: profile.contact_name || null,
-        phone: phone || null,
-        email: profile.email || null,
-
-        tradeTypes: trades, // comma-separated list – API will toCSV
-        serviceAreas: profile.service_areas || "",
-
-        website: website || null,
-        socialLinks: parseSocials(profile.social_links_json),
-
-        // discounts + warranty
-        offersDiscount: offersDiscount
-          ? Math.max(discountMinInt, discountMaxInt, 1)
-          : 0,
-        discountMinPercent: offersDiscount ? discountMinInt : 0,
-        discountMaxPercent: offersDiscount ? discountMaxInt : 0,
-        warrantyMonths: warrantyInt,
-
-        // preserve existing photos (if backend exposes them)
-        photoUrls: Array.isArray(profile.photo_urls)
-          ? profile.photo_urls
-          : undefined,
-      };
-
-      const res = await api.put("/api/tradesmen/me", payload);
-      const data = (res as any)?.data ?? res;
-
-      setFlash("Profile updated.");
-      setTimeout(() => setFlash(null), 4000);
-
-      if (data?.profile) {
-        // keep local profile in sync
-        setProfile((prev) => ({ ...(prev || {}), ...(data.profile as any) }));
-      }
-    } catch (e: any) {
-      const msg =
-        e?.response?.data?.error ||
-        e?.message ||
-        "Failed to save changes. Please try again.";
-      setErr(msg);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   if (loading) {
     return (
-      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-8 text-sm text-slate-500">
+      <div className="mx-auto max-w-4xl px-6 py-8 text-sm text-slate-500">
         Loading…
       </div>
     );
   }
 
-  if (err && !profile) {
+  if (!form || !profile) {
     return (
-      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-8">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="mb-4 text-xs font-medium text-slate-500 hover:text-slate-700"
-        >
-          ← Back
-        </button>
-        <p className="text-sm text-rose-600">{err}</p>
+      <div className="mx-auto max-w-4xl px-6 py-8">
+        <p className="text-sm text-rose-600">
+          {err || "No trade profile found."}
+        </p>
       </div>
     );
   }
 
-  if (!profile) return null;
+  const title = form.companyName || "Edit profile";
 
-  const title = profile.company_name || "Edit profile";
+  // simple setter helper
+  const set = <K extends keyof FormState>(k: K, v: FormState[K]) => {
+    setForm((prev) => (prev ? { ...prev, [k]: v } : prev));
+  };
+
+  const goToProfile = () => {
+    router.push("/tradesman/profile");
+  };
+
+  // ---- helpers (mirroring registration) ----
+  function normalizeOutward(input: string): string {
+    const v = (input || "").toUpperCase().trim();
+    const m = v.match(/^([A-Z]{1,2}\d{1,2}[A-Z]?)/);
+    return m ? m[1] : v;
+  }
+
+  const addServiceArea = (raw: string) => {
+    const code = normalizeOutward(raw);
+    if (!code) return;
+    set(
+      "serviceAreas",
+      Array.from(new Set([...(form.serviceAreas || []), code]))
+    );
+  };
+
+  const removeServiceArea = (code: string) =>
+    set(
+      "serviceAreas",
+      (form.serviceAreas || []).filter((x) => x !== code)
+    );
+
+  // website single
+  const commitWebsite = () => {
+    const url = normalizeAsUrl(websiteInput);
+    if (!url) return;
+    set("website", url);
+    setWebsiteInput(url);
+  };
+  const onWebsiteKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === "," || e.key === " ") {
+      e.preventDefault();
+      commitWebsite();
+    }
+  };
+  const clearWebsite = () => {
+    set("website", "");
+    setWebsiteInput("");
+  };
+
+  // STEP handlers
+
+  const onNextFromStep1 = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    setEmailErr(null);
+
+    const errors: string[] = [];
+
+    if (!form.companyName.trim()) {
+      errors.push("Company name is required.");
+    }
+    if (!form.contactName.trim()) {
+      errors.push("Contact name is required.");
+    }
+    if (!form.email.trim()) {
+      errors.push("Business email is required.");
+    }
+    if (form.serviceAreas.length === 0) {
+      errors.push("Please add at least one service area.");
+    }
+
+    if (errors.length) {
+      setErr(errors.join("\n"));
+      return;
+    }
+
+    setStep(2);
+  };
+
+  const onNextFromStep2 = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    setStep(3);
+  };
+
+  const onSaveChanges = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    setBusy(true);
+    setOkMsg(null);
+
+    try {
+      const errors: string[] = [];
+
+      if (!form.companyName.trim()) {
+        errors.push("Company name is required.");
+      }
+      if (!form.email.trim()) {
+        errors.push("Business email is required.");
+      }
+
+      if (errors.length) {
+        setErr(errors.join("\n"));
+        setBusy(false);
+        return;
+      }
+
+      const socials = [
+        normalizeInstagram(form.socials.instagram),
+        normalizeTikTok(form.socials.tiktok),
+        normalizeFacebook(form.socials.facebook),
+        normalizeX(form.socials.x),
+        normalizeYouTube(form.socials.youtube),
+        normalizeLinkedIn(form.socials.linkedin),
+      ].filter(Boolean);
+
+      const warrantyMonths =
+        form.warranty === "none"
+          ? 0
+          : form.warranty === "3m"
+          ? 3
+          : form.warranty === "6m"
+          ? 6
+          : form.warranty === "12m"
+          ? 12
+          : 24;
+
+      // upload new photos, merge with existing URLs
+      let photoUrls: string[] = [...form.existingPhotoUrls];
+      try {
+        if (form.workPhotos && form.workPhotos.length > 0) {
+          const fd = new FormData();
+          form.workPhotos.forEach((file) => fd.append("photos", file));
+
+          const uploadRes = await api.post("/api/tradesmen/upload-photos", fd);
+          const data = (uploadRes as any)?.data ?? uploadRes;
+          if (data?.ok && Array.isArray(data.urls)) {
+            photoUrls = [...photoUrls, ...data.urls];
+          }
+
+          console.log(
+            "[profile/edit] uploaded work photos",
+            form.workPhotos.length,
+            "-> urls:",
+            photoUrls.length
+          );
+        }
+      } catch (uploadErr: any) {
+        console.error(
+          "[profile/edit] photo upload failed:",
+          uploadErr?.message || uploadErr
+        );
+        // soft-fail: keep existing photos
+      }
+
+      const payload = {
+        companyName: form.companyName,
+        contactName: form.contactName,
+        phone: form.phone || null,
+        email: form.email,
+        tradeTypes: form.tradeTypes,
+        serviceAreas: form.serviceAreas,
+        website: form.website || "",
+        socialLinks: socials,
+        photoCount: photoUrls.length,
+        photoUrls,
+        supportingDocCount: (form.docs || []).length,
+        warrantyMonths,
+        discountMinPercent: Math.max(0, Math.round(form.discountMin || 0)),
+        discountMaxPercent: Math.max(0, Math.round(form.discountMax || 0)),
+        offersDiscount: Math.max(form.discountMin || 0, form.discountMax || 0),
+        companyNumber: form.companyNumber || null,
+        chStatus: form.chStatus || null,
+      };
+
+      console.log("[profile/edit] PUT /api/tradesmen/me", {
+        ...payload,
+        photoUrlsCount: payload.photoUrls.length,
+      });
+
+      const { data } = await api.put("/api/tradesmen/me", payload);
+      if (!data?.ok) throw new Error(data?.error || "Failed to save profile");
+
+      setOkMsg("Profile updated.");
+
+      if (Array.isArray(data.profile?.photo_urls)) {
+        setForm((prev) =>
+          prev
+            ? {
+                ...prev,
+                existingPhotoUrls: data.profile.photo_urls,
+                workPhotos: [],
+              }
+            : prev
+        );
+      } else {
+        setForm((prev) => (prev ? { ...prev, workPhotos: [] } : prev));
+      }
+
+      setTimeout(() => {
+        router.push("/tradesman/profile");
+      }, 600);
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.error || e?.message || "Failed to save changes.";
+      console.error("[profile/edit] save failed:", msg);
+      setErr(msg);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Step 3 "Save" handler – just delegates to onSaveChanges
+  const onSubmitStep3 = async (e: React.FormEvent) => {
+    return onSaveChanges(e);
+  };
+
+  // ===== RENDER =====
 
   return (
-    <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-6">
-      <button
-        type="button"
-        onClick={() => router.back()}
-        className="mb-3 text-xs font-medium text-slate-500 hover:text-slate-700"
+    <>
+      <Head>
+        <title>Edit profile • Vetmybuilder</title>
+      </Head>
+
+      <div
+        className="mx-auto max-w-4xl px-6 py-6"
+        data-testid="trades-edit-profile-page"
       >
-        ← Back to profile
-      </button>
-
-      <h1 className="text-2xl font-semibold tracking-tight text-slate-900 mb-1">
-        Edit profile
-      </h1>
-      <p className="text-sm text-slate-600 mb-4">
-        Update the key details project owners will see.
-      </p>
-
-      {flash && (
-        <div className="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-sm text-emerald-800">
-          {flash}
-        </div>
-      )}
-
-      {err && (
-        <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
-          {err}
-        </div>
-      )}
-
-      <form
-        onSubmit={onSubmit}
-        className="space-y-6 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm"
-      >
-        {/* read-only basics */}
-        <section>
-          <h2 className="text-sm font-semibold text-slate-900 mb-3">
-            Company details
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">
-                Company name
-              </label>
-              <input
-                className="input bg-slate-50"
-                value={title}
-                disabled
-                readOnly
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">
-                Email
-              </label>
-              <input
-                className="input bg-slate-50"
-                value={profile.email || ""}
-                disabled
-                readOnly
-              />
-            </div>
-          </div>
-          <p className="mt-2 text-[11px] text-slate-400">
-            To change your company name or email, please contact support or use
-            the full registration flow.
-          </p>
-        </section>
-
-        {/* trades offered */}
-        <section>
-          <h2 className="text-sm font-semibold text-slate-900 mb-2">
-            Trades offered
-          </h2>
-          <p className="text-xs text-slate-500 mb-2">
-            List the trades you cover, separated by commas. Example:{" "}
-            <span className="font-mono">
-              Bathroom Fitter, Kitchen Fitter, Plasterer
-            </span>
-            .
-          </p>
-          <textarea
-            className="input min-h-[80px]"
-            value={trades}
-            onChange={(e) => setTrades(e.target.value)}
-            placeholder="e.g. Bathroom Fitter, Kitchen Fitter, Plasterer"
-          />
-        </section>
-
-        {/* contact + website */}
-        <section className="grid gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-600">
-              Phone
-            </label>
-            <input
-              className="input"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="e.g. 07123 456789"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-600">
-              Website
-            </label>
-            <input
-              className="input"
-              value={website}
-              onChange={(e) => setWebsite(e.target.value)}
-              placeholder="e.g. https://yourcompany.co.uk"
-            />
-            <p className="mt-1 text-[11px] text-slate-400">
-              Helps owners research you. We&apos;ll tidy the link automatically.
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold mb-1">Edit profile</h1>
+            <p className="text-sm text-slate-600 mb-1">
+              Update the key details project owners will see.
             </p>
           </div>
-        </section>
-
-        {/* discounts + warranty */}
-        <section>
-          <h2 className="text-sm font-semibold text-slate-900 mb-2">
-            Discounts &amp; warranty
-          </h2>
-          <div className="flex items-center gap-2 mb-3">
-            <input
-              id="offers-discount"
-              type="checkbox"
-              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-              checked={offersDiscount}
-              onChange={(e) => setOffersDiscount(e.target.checked)}
-            />
-            <label htmlFor="offers-discount" className="text-sm text-slate-700">
-              I offer discounts to VetMyBuilder customers
-            </label>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-600">
-                Min discount (%)
-              </label>
-              <input
-                className="input"
-                type="number"
-                min={0}
-                max={100}
-                value={discountMin}
-                onChange={(e) => setDiscountMin(e.target.value)}
-                disabled={!offersDiscount}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-600">
-                Max discount (%)
-              </label>
-              <input
-                className="input"
-                type="number"
-                min={0}
-                max={100}
-                value={discountMax}
-                onChange={(e) => setDiscountMax(e.target.value)}
-                disabled={!offersDiscount}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-600">
-                Warranty (months)
-              </label>
-              <input
-                className="input"
-                type="number"
-                min={0}
-                value={warrantyMonths}
-                onChange={(e) => setWarrantyMonths(e.target.value)}
-                placeholder="e.g. 12"
-              />
-            </div>
-          </div>
-          <p className="mt-1 text-[11px] text-slate-400">
-            Clear discounts and warranty help improve your VMB score.
-          </p>
-        </section>
-
-        {/* photos note – keeps existing ones via photoUrls in payload */}
-        <section>
-          <h2 className="text-sm font-semibold text-slate-900 mb-1">
-            Project photos
-          </h2>
-          <p className="text-xs text-slate-500">
-            Existing photos will be kept. To add or manage photos in bulk, use
-            the main{" "}
-            <button
-              type="button"
-              className="link text-indigo-600 underline-offset-2"
-              onClick={() => router.push("/tradesman/register")}
-            >
-              registration flow
-            </button>
-            .
-          </p>
-        </section>
-
-        {/* actions */}
-        <div className="flex items-center justify-end gap-3 pt-2">
+          {/* Obvious cancel on all steps */}
           <button
             type="button"
-            onClick={() => router.back()}
-            className="h-9 rounded-full border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            onClick={goToProfile}
+            className="inline-flex items-center gap-2 rounded-full border border-rose-300 bg-rose-50 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-rose-700 hover:bg-rose-100"
           >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="h-9 rounded-full bg-slate-900 px-5 text-sm font-semibold text-white hover:bg-slate-900/90 disabled:opacity-60"
-          >
-            {saving ? "Saving…" : "Save changes"}
+            <span>Cancel without saving</span>
           </button>
         </div>
-      </form>
-    </div>
+
+        {/* Stepper (clickable to jump between steps) */}
+        <div className="mt-3 mb-4">
+          <ol className="flex flex-nowrap items-center gap-3 md:gap-4">
+            {[
+              { n: 1 as Step, label: "Company details" },
+              { n: 2 as Step, label: "Trades & photos" },
+              { n: 3 as Step, label: "Offers & documents" },
+            ].map(({ n, label }, i) => {
+              const isActive = step === n;
+              return (
+                <li key={n} className="flex-none inline-flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep(n)}
+                    className="inline-flex items-center gap-2 group"
+                    aria-current={isActive ? "step" : undefined}
+                  >
+                    <span
+                      className={`inline-flex h-8 w-8 items-center justify-center rounded-xl font-medium ${
+                        isActive
+                          ? "bg-indigo-600 text-white shadow-sm"
+                          : "bg-slate-100 text-slate-700 group-hover:bg-slate-200"
+                      }`}
+                    >
+                      {n}
+                    </span>
+                    <span
+                      className={`hidden md:inline text-xs sm:text-sm ${
+                        isActive
+                          ? "font-medium text-slate-800"
+                          : "text-slate-500 group-hover:text-slate-700"
+                      }`}
+                    >
+                      {label}
+                    </span>
+                  </button>
+                  {i < 2 && (
+                    <span className="hidden md:inline text-slate-300">/</span>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+
+        {okMsg && (
+          <div className="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-sm text-emerald-800">
+            {okMsg}
+          </div>
+        )}
+
+        {err && (
+          <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700 whitespace-pre-line">
+            {err}
+          </div>
+        )}
+
+        {/* STEP 1 – same component as registration, but company/email disabled */}
+        {step === 1 && (
+          <Step1Company
+            form={form as unknown as Step1Form}
+            set={(k, v) => {
+              // we DO NOT allow changing companyName or email on edit
+              if (k === "companyName" || k === "email") return;
+              if (k === "email") setEmailErr(null);
+              // Step1Form keys are subset of FormState
+              // @ts-expect-error
+              set(k, v);
+            }}
+            addServiceArea={addServiceArea}
+            removeServiceArea={removeServiceArea}
+            areaQuery={areaQuery}
+            setAreaQuery={setAreaQuery}
+            websiteInput={websiteInput}
+            setWebsiteInput={setWebsiteInput}
+            commitWebsite={commitWebsite}
+            onWebsiteKey={onWebsiteKey}
+            clearWebsite={clearWebsite}
+            canProceed={true}
+            onNext={onNextFromStep1}
+            userIsAuthed={true}
+            nextQuery={"?next=/tradesman/projects"}
+            emailError={emailErr}
+            disableCompanyName
+            disableBusinessEmail
+          />
+        )}
+
+        {/* STEP 2 – trades & photos */}
+        {step === 2 && (
+          <Step2Trades
+            tradeTypes={form.tradeTypes}
+            setTradeTypes={(v) => set("tradeTypes", v)}
+            workPhotos={form.workPhotos}
+            setWorkPhotos={(files) => set("workPhotos", files)}
+            onBack={() => setStep(1)}
+            onNext={onNextFromStep2}
+            err={err || undefined}
+          />
+        )}
+
+        {/* STEP 3 – offers & docs (final save happens here) */}
+        {step === 3 && (
+          <Step3Offers
+            discountMin={form.discountMin}
+            discountMax={form.discountMax}
+            setDiscountMin={(v) => set("discountMin", v)}
+            setDiscountMax={(v) => set("discountMax", v)}
+            warranty={form.warranty}
+            setWarranty={(v) => set("warranty", v)}
+            onDocs={(e) => {
+              const files = Array.from(e.target.files || []);
+              const mapped: Doc[] = files.map((f) => ({
+                name: f.name,
+                size: f.size,
+                type: f.type || "application/octet-stream",
+              }));
+              set("docs", mapped);
+            }}
+            onBack={() => setStep(2)}
+            onSaveDraft={onSubmitStep3}
+            busy={busy}
+            okMsg={okMsg || undefined}
+            err={err || undefined}
+          />
+        )}
+      </div>
+    </>
   );
 }
 
 /* ---------- helpers ---------- */
 
-function safeInt(v: string): number {
-  const n = Number(v);
-  if (!Number.isFinite(n) || n < 0) return 0;
-  return Math.round(n);
+function parseCsv(val: unknown): string[] {
+  return Array.isArray(val)
+    ? val
+        .map(String)
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : typeof val === "string"
+    ? val
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
 }
 
 function parseSocials(raw?: string | null): string[] {
   if (!raw) return [];
   try {
     const parsed = JSON.parse(String(raw));
-    if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
+    if (Array.isArray(parsed)) {
+      return parsed.map(String).filter(Boolean);
+    }
   } catch {
     // ignore
   }
   return [];
+}
+
+function splitSocials(urls: string[]) {
+  const pick = (pred: (u: string) => boolean) =>
+    urls.find((u) => {
+      try {
+        const host = new URL(u).hostname.toLowerCase();
+        return pred(host);
+      } catch {
+        return pred(u.toLowerCase());
+      }
+    }) || "";
+
+  return {
+    instagram: pick((h) => h.includes("instagram.com")),
+    tiktok: pick((h) => h.includes("tiktok.com")),
+    facebook: pick((h) => h.includes("facebook.com")),
+    x: pick((h) => h.includes("twitter.com") || h.includes("x.com")),
+    youtube: pick((h) => h.includes("youtube.com") || h.includes("youtu.be")),
+    linkedin: pick((h) => h.includes("linkedin.com")),
+  };
 }
