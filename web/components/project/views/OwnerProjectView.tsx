@@ -3,7 +3,7 @@ import * as React from "react";
 import StatusBadge from "@/components/StatusBadge";
 import ShortlistSection from "@/components/project/ShortlistSection";
 import {
-  Pencil,
+  SquarePen,
   XCircle,
   Archive as ArchiveIcon,
   Link as LinkIcon,
@@ -22,6 +22,7 @@ import {
   openSmsShare,
   openEmailShare,
 } from "@/utils/shareInvite";
+import SharedTradesmen from "@/components/project/SharedTradesmen";
 
 type VM = ReturnType<typeof import("./useProjectView").useProjectView>;
 
@@ -81,6 +82,10 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
 
   // track if neighbourhood has already been shared (per project, persisted in localStorage)
   const [hasSharedNeighbourhood, setHasSharedNeighbourhood] =
+    React.useState(false);
+
+  // track if we've already prompted+shared so we can hide CTA in shortlist
+  const [hideShortlistShareCta, setHideShortlistShareCta] =
     React.useState(false);
 
   // Load neighbourhood-shared flag from localStorage per project
@@ -227,6 +232,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
           }
 
           await handleShare(channel);
+          setHideShortlistShareCta(true);
           setShowGetRecModal(false);
         }}
       />
@@ -234,7 +240,8 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
       {/* Header */}
       <header className="mb-6 rounded-xl border border-slate-200 bg-white/70 backdrop-blur p-4 sm:p-6 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div>
+          {/* LEFT: title + meta + badges + primary CTA */}
+          <div className="flex-1">
             <div className="flex items-center gap-3">
               <a
                 href={backHref}
@@ -246,8 +253,21 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
                 Created {new Date(project.createdAt).toLocaleDateString()}
               </span>
             </div>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+            <h1 className="mt-1 flex items-center gap-2 text-2xl font-semibold tracking-tight">
               {headerTitle}
+              <StatusBadge value={project.status} />
+              {/* Edit icon right next to project name */}
+              {!isClosed && (
+                <a
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-slate-600 shadow-sm hover:bg-slate-50"
+                  href={`/projects/${project.id}/edit`}
+                  aria-label="Edit project"
+                  title="Edit project"
+                  data-testid="btn-edit"
+                >
+                  <SquarePen size={16} />
+                </a>
+              )}
             </h1>
             <div
               className="mt-3 flex flex-wrap gap-2"
@@ -255,14 +275,6 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
               aria-label="Project attributes"
               data-testid="project-badges"
             >
-              <span
-                role="listitem"
-                className="badge blue"
-                data-testid="badge-type"
-              >
-                {project.type}
-              </span>
-
               {budget && (
                 <span
                   role="listitem"
@@ -294,83 +306,99 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
               >
                 {project.bedrooms} bed
               </span>
-              <span role="listitem" data-testid="badge-status">
+              {/* <span role="listitem" data-testid="badge-status">
                 <StatusBadge value={project.status} />
-              </span>
+              </span> */}
+            </div>
+
+            {/* Primary CTA: Share / Share & Publish – bottom-left under badges */}
+            <div className="mt-4 space-y-1">
+              <div
+                className="flex flex-wrap gap-2"
+                aria-label="Primary owner actions"
+                data-testid="owner-actions-primary"
+              >
+                {isLive && (
+                  <button
+                    className="inline-flex items-center gap-2 whitespace-nowrap rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+                    onClick={() => setShowGetRecModal(true)}
+                    data-testid="btn-get-recs"
+                  >
+                    <LinkIcon size={18} /> Share
+                  </button>
+                )}
+
+                {!isLive && !isClosed && (
+                  <button
+                    className="inline-flex items-center gap-2 whitespace-nowrap rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+                    onClick={() => setShowGetRecModal(true)}
+                    data-testid="btn-get-recs-draft"
+                  >
+                    <LinkIcon size={18} /> Share &amp; Publish
+                  </button>
+                )}
+              </div>
+
+              {/* Helper text under the CTA */}
+              {!isClosed && (
+                <p className="text-xs text-slate-500 max-w-xl">
+                  Share this project to start seeing recommendations and vetted
+                  tradespeople.
+                </p>
+              )}
             </div>
           </div>
 
-          <div className="flex flex-col items-start md:items-end gap-2">
+          {/* RIGHT: lifecycle actions only */}
+          <div className="mt-1 flex w-full flex-col items-stretch md:mt-0 md:w-auto md:items-end">
             <div
-              className="flex flex-wrap items-center gap-2 md:flex-nowrap md:justify-end"
-              aria-label="Owner actions"
-              data-testid="owner-actions"
+              className="flex flex-wrap justify-start gap-2 md:justify-end"
+              aria-label="Project management actions"
+              data-testid="owner-actions-secondary"
             >
-              {!isClosed && (
-                <a
-                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-                  href={`/projects/${project.id}/edit`}
-                  aria-label="Edit project"
-                  data-testid="btn-edit"
-                >
-                  <Pencil size={16} /> Edit
-                </a>
-              )}
-
               {!isClosed ? (
                 <>
+                  {/* Close = destructive (red) */}
                   <button
-                    className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 hover:bg-rose-100 md:text-sm"
                     onClick={onCloseProject}
                     data-testid="btn-close-project"
                   >
-                    <XCircle size={16} /> Close
+                    <XCircle size={14} />
+                    <span>Close this Job</span>
                   </button>
-                  <button
-                    className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100"
+
+                  {/* Archive = neutral (grey) */}
+                  {/* <button
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 md:text-sm"
                     onClick={onArchive}
                     data-testid="btn-archive"
                   >
-                    <ArchiveIcon size={16} /> Archive
-                  </button>
+                    <ArchiveIcon size={14} />
+                    <span>Archive</span>
+                  </button> */}
                 </>
               ) : (
                 isArchived && (
                   <button
-                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 md:text-sm"
                     onClick={onUnarchive}
                     data-testid="btn-unarchive"
                   >
-                    <ArchiveIcon size={16} /> Unarchive
+                    <ArchiveIcon size={14} />
+                    <span>Unarchive</span>
                   </button>
                 )
               )}
-
-              {isLive && (
-                <button
-                  className="inline-flex items-center gap-2 whitespace-nowrap rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500"
-                  onClick={() => setShowGetRecModal(true)}
-                  data-testid="btn-get-recs"
-                >
-                  <LinkIcon size={16} /> Share
-                </button>
-              )}
-
-              {!isLive && !isClosed && (
-                <button
-                  className="inline-flex items-center gap-2 whitespace-nowrap rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
-                  onClick={() => setShowGetRecModal(true)}
-                  data-testid="btn-get-recs-draft"
-                >
-                  <LinkIcon size={16} /> Share &amp; Publish
-                </button>
-              )}
             </div>
+
+            {/* Space for future: estimate calculator card can sit below this row */}
+            {/* <EstimateCalculator project={project} /> */}
           </div>
         </div>
       </header>
 
-      {/* === Featured Gold Tradesmen (reuses shared strip component) === */}
+      {/* === Featured Gold Tradesmen === */}
       <section
         aria-label="Featured Gold Tradesmen"
         data-testid="featured-gold"
@@ -390,6 +418,9 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
         )}
       </section>
 
+      {/* === Shared tradesmen strip (profiles shared directly to this project) === */}
+      <SharedTradesmen projectId={project.id} />
+
       {/* === Two-column: Top recs (left) • Spotlight (right) === */}
       <div className="grid gap-6 grid-cols-1 lg:[grid-template-columns:580px_minmax(0,1fr)]">
         {/* LEFT: Top recommendations */}
@@ -404,6 +435,13 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
             onVoteUp={async () => {}}
             recHasPhotos={{}}
             recVerification={{} as any}
+            showOwnerShareCta={
+              !isLive &&
+              !isClosed &&
+              !hideShortlistShareCta &&
+              (recs?.length ?? 0) === 0
+            }
+            onOwnerShareClick={() => setShowGetRecModal(true)}
           />
           {recsErr && <p className="mt-2 text-sm text-rose-600">{recsErr}</p>}
         </div>

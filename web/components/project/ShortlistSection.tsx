@@ -1,9 +1,11 @@
+// web/components/project/ShortlistSection.tsx
 import Link from "next/link";
 import * as React from "react";
 import { ThumbsUpIcon, CameraIcon } from "@/components/ui/Icons";
 import { ScoreChip, chLabel, chBadgeClass, chIcon } from "@/components/ui/vmb";
 import type { Recommendation, Verification } from "@/types/vmb";
 import { displayRecommender, normalizeName } from "@/utils/recommendations";
+import { Link as LinkIcon } from "lucide-react";
 
 /* ===== Props (component-local API) ===== */
 type Props = {
@@ -18,6 +20,9 @@ type Props = {
   onVoteUp: (recommendationId: number) => void;
   recHasPhotos?: Record<number, boolean>;
   recVerification?: Record<number, Verification>;
+  /** Optional CTA for owners when no recs yet */
+  showOwnerShareCta?: boolean;
+  onOwnerShareClick?: () => void;
   "data-testid"?: string;
 };
 
@@ -34,6 +39,8 @@ export default function ShortlistSection({
   onVoteUp,
   recHasPhotos = {},
   recVerification = {},
+  showOwnerShareCta = false,
+  onOwnerShareClick,
   "data-testid": dataTestId = "project-shortlist",
 }: Props) {
   // Group by CH number (unique) else normalized name
@@ -156,16 +163,36 @@ export default function ShortlistSection({
             >
               {title}
             </h2>
-            <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+            {/* <p className="mt-1 text-sm text-slate-500">{subtitle}</p> */}
           </div>
         </div>
 
         <div className="mt-4" />
 
         {items.length === 0 ? (
-          <p className="text-sm text-slate-500" data-testid="shortlist-empty">
-            No builders have yet been recommended.
-          </p>
+          <div data-testid="shortlist-empty">
+            <p className="text-sm text-slate-500">
+              No builders have yet been recommended by friend or your neighborhood.
+            </p>
+
+            {isOwner && showOwnerShareCta && onOwnerShareClick && (
+              <div className="mt-4 space-y-1">
+                <button
+                  type="button"
+                  onClick={onOwnerShareClick}
+                  className="inline-flex items-center gap-2 whitespace-nowrap rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+                  data-testid="btn-shortlist-share-publish"
+                >
+                  <LinkIcon size={18} />
+                  Share &amp; Publish
+                </button>
+                <p className="text-xs text-slate-500 max-w-md">
+                  Share this project with friends or neighbours to start seeing
+                  recommendations from vetted tradespeople.
+                </p>
+              </div>
+            )}
+          </div>
         ) : (
           <>
             <ul

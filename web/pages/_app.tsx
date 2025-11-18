@@ -5,7 +5,7 @@ import { AuthProvider } from "@/utils/auth";
 import Layout from "@/components/Layout";
 import * as React from "react";
 import { useRouter } from "next/router";
-import SignUpGateModal from "@/components/SignUpGateModal";
+// import SignUpGateModal from "@/components/SignUpGateModal";
 // NEW: incoming chat notifier (toast + modal)
 // import IncomingChatNotifier from "@/components/chat/IncomingChatNotifier";
 
@@ -133,7 +133,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
       <Layout>
         <Component {...pageProps} />
         {/* Mount the global Sign-up Gate modal once */}
-        <SignUpGateModal />
+        {/* <SignUpGateModal /> */}
       </Layout>
 
       {/* NEW: global incoming chat listener + toast/modal */}

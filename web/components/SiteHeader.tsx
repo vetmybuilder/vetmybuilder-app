@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, useEffect } from "react";
 import { useAuth, signOutUser } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
+import { Home, User, Wrench } from "lucide-react";
 
 const NotificationsBell = dynamic(
   () => import("@/components/NotificationsBell"),
@@ -115,7 +116,7 @@ export default function SiteHeader() {
           sessionStorage.setItem("vmb:isTradesman", isT ? "1" : "0");
           if (co) sessionStorage.setItem("vmb:tradesCo", co);
         } catch {}
-      } catch (e: any) {
+      } catch {
         if (!alive) return;
         setIsTrades(false);
         setCompany(null);
@@ -164,7 +165,7 @@ export default function SiteHeader() {
 
   const initials = useMemo(() => computeInitials(user), [user]);
 
-  // Trades-only CTA (owners get Vendor portal on the left)
+  // Trades-only CTA
   const tradeCta = useMemo(() => {
     if (!isTrades) return null;
     return {
@@ -215,6 +216,12 @@ export default function SiteHeader() {
 
   const showProjectTabsInHeader = !!user && !isTrades && isOwnerProjectsPage;
 
+  // Route for trades login
+  const tradesRegisterHref = "/tradesman/login";
+
+  // Dynamic "home" target based on role
+  const homeHref = !user ? "/" : isTrades ? "/tradesman/projects" : "/projects";
+
   return (
     <header
       role="banner"
@@ -228,32 +235,23 @@ export default function SiteHeader() {
           data-testid="primary-nav"
           className="h-14 flex items-center justify-between gap-4"
         >
-          {/* Left: logo + Vendor portal (owners) */}
+          {/* Left: home icon (routes by role) */}
           <div className="flex items-center gap-3">
             <Link
-              href="/"
+              href={homeHref}
               className="inline-flex items-center gap-2"
-              aria-label="Vetmybuilder home"
+              aria-label="Go to your projects or home"
               data-testid="nav-home"
               onClick={() => setMobileOpen(false)}
             >
               <span
                 aria-hidden
-                className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white ring-1 ring-indigo-200/50 shadow-sm"
-              />
+                className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-slate-900 text-white ring-1 ring-slate-900/10 shadow-sm"
+              >
+                <Home className="h-4 w-4" />
+              </span>
               <span className="sr-only">Vetmybuilder</span>
             </Link>
-
-            {!isTrades && (
-              <Link
-                href="/tradesman/register"
-                className="hidden sm:inline-flex items-center justify-center rounded-full px-3.5 h-8 text-xs font-medium tracking-wide ring-1 ring-indigo-200/70 text-indigo-700 hover:bg-indigo-50"
-                title="Vendor portal"
-                data-testid="btn-vendor-portal"
-              >
-                Vendor portal
-              </Link>
-            )}
           </div>
 
           {/* Center: owner project tabs (desktop only) */}
@@ -280,14 +278,11 @@ export default function SiteHeader() {
                       ].join(" ")}
                     >
                       <span>{t.label}</span>
-                      {/* hover underline – soft colour per tab */}
                       <span
                         aria-hidden
-                        className="pointer-events-none absolute inset-x-0 -bottom-1 h-[2px] rounded-full
-                                   opacity-0 group-hover:opacity-80 transition-opacity duration-150"
+                        className="pointer-events-none absolute inset-x-0 -bottom-1 h-[2px] rounded-full opacity-0 group-hover:opacity-80 transition-opacity duration-150"
                         style={{ backgroundColor: t.hoverColor }}
                       />
-                      {/* active underline – strong colour per tab */}
                       {active && (
                         <span
                           aria-hidden
@@ -307,8 +302,20 @@ export default function SiteHeader() {
             className="hidden md:flex items-center gap-3"
             data-testid="nav-actions"
           >
-            {/* Post a Job – owners / non-trades */}
-            {!isTrades && (
+            {/* Are you a tradesperson? – ONLY when logged out */}
+            {!user && (
+              <Link
+                href={tradesRegisterHref}
+                className="hidden sm:inline-flex items-center gap-1.5 justify-center rounded-xl px-3 h-9 text-sm font-medium bg-emerald-600 text-white shadow-sm hover:bg-emerald-500"
+                data-testid="btn-are-you-tradesperson"
+              >
+                <Wrench className="h-4 w-4" />
+                <span>Are you a tradesperson?</span>
+              </Link>
+            )}
+
+            {/* Post a Job – ONLY after homeowner logs in (user && !isTrades) */}
+            {user && !isTrades && (
               <Link
                 href="/projects/new"
                 className="hidden sm:inline-flex items-center justify-center rounded-xl px-4 h-9 text-sm font-semibold bg-amber-400 text-slate-900 shadow-sm hover:bg-amber-300"
@@ -321,7 +328,7 @@ export default function SiteHeader() {
               </Link>
             )}
 
-            {/* Trades CTA */}
+            {/* Trades CTA (logged-in trades) */}
             {tradeCta && (
               <Link
                 href={tradeCta.href}
@@ -474,14 +481,16 @@ export default function SiteHeader() {
               </div>
             )}
 
+            {/* Unauthed: homeowner sign in */}
             {!user && (
               <Link
                 href="/login"
-                className="rounded-xl px-3 py-1.5 text-sm font-medium text-indigo-700 ring-1 ring-indigo-200/70 hover:bg-indigo-50"
-                aria-label="Sign in"
+                className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium bg-indigo-600 text-white shadow-sm hover:bg-indigo-500"
+                aria-label="Homeowner sign in"
                 data-testid="nav-sign-in"
               >
-                Sign in
+                <User className="h-4 w-4" />
+                <span>Homeowner sign in</span>
               </Link>
             )}
           </div>
@@ -536,12 +545,13 @@ export default function SiteHeader() {
               </div>
             )}
 
-            <div className="flex flex-col gap-1 text-sm">
-              {!isTrades && (
+            <div className="flex flex-col gap-2 text-sm">
+              {/* Mobile Post a Job – only for logged-in homeowners */}
+              {user && !isTrades && (
                 <Link
                   href="/projects/new"
                   onClick={() => setMobileOpen(false)}
-                  className="inline-flex items-center justify-between rounded-lg px-3 py-2 hover:bg-gray-50"
+                  className="inline-flex items-center justify-between rounded-lg px-3 py-2 bg-amber-400 text-slate-900 shadow-sm hover:bg-amber-300"
                   data-testid="mobile-post-job"
                 >
                   <span>Post a Job</span>
@@ -549,14 +559,18 @@ export default function SiteHeader() {
                 </Link>
               )}
 
-              {!isTrades && (
+              {/* Mobile trades CTA → tradesman login (only when logged out) */}
+              {!user && (
                 <Link
-                  href="/tradesman/register"
+                  href={tradesRegisterHref}
                   onClick={() => setMobileOpen(false)}
-                  className="inline-flex items-center justify-between rounded-lg px-3 py-2 hover:bg-gray-50"
-                  data-testid="mobile-vendor-portal"
+                  className="inline-flex items-center justify-between rounded-lg px-3 py-2 bg-emerald-600 text-white shadow-sm hover:bg-emerald-500"
+                  data-testid="mobile-are-you-tradesperson"
                 >
-                  <span>Vendor portal</span>
+                  <div className="inline-flex items-center gap-1.5">
+                    <Wrench className="h-4 w-4" />
+                    <span>Are you a tradesperson?</span>
+                  </div>
                 </Link>
               )}
 
@@ -594,14 +608,18 @@ export default function SiteHeader() {
                 </>
               )}
 
+              {/* Mobile homeowner sign in – only when logged out */}
               {!user && (
                 <Link
                   href="/login"
                   onClick={() => setMobileOpen(false)}
-                  className="inline-flex items-center justify-between rounded-lg px-3 py-2 hover:bg-gray-50"
+                  className="inline-flex items-center justify-between rounded-lg px-3 py-2 bg-indigo-600 text-white shadow-sm hover:bg-indigo-500"
                   data-testid="mobile-sign-in"
                 >
-                  <span>Sign in</span>
+                  <div className="inline-flex items-center gap-1.5">
+                    <User className="h-4 w-4" />
+                    <span>Homeowner sign in</span>
+                  </div>
                 </Link>
               )}
             </div>

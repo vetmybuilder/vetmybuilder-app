@@ -18,6 +18,8 @@ export default function Login() {
   }, [router.isReady, router.query.next]);
 
   const hasExplicitNext = !!nextRaw;
+
+  // Is this login being used for a tradesman flow?
   const isVendorFlow =
     hasExplicitNext &&
     (nextRaw.startsWith("/tradesman/") || nextRaw.startsWith("/trades/"));
@@ -71,8 +73,17 @@ export default function Login() {
             Login
           </h1>
 
-          <form onSubmit={onSubmit} className="space-y-3" aria-label="Sign in form" data-testid="login-form">
-            <label className="text-sm" htmlFor="login-email" data-testid="label-login-email">
+          <form
+            onSubmit={onSubmit}
+            className="space-y-3"
+            aria-label="Sign in form"
+            data-testid="login-form"
+          >
+            <label
+              className="text-sm"
+              htmlFor="login-email"
+              data-testid="label-login-email"
+            >
               Email
             </label>
             <input
@@ -88,7 +99,11 @@ export default function Login() {
               data-testid="input-login-email"
             />
 
-            <label className="text-sm" htmlFor="login-password" data-testid="label-login-password">
+            <label
+              className="text-sm"
+              htmlFor="login-password"
+              data-testid="label-login-password"
+            >
               Password
             </label>
             <input
@@ -105,22 +120,34 @@ export default function Login() {
             />
 
             {err && (
-              <p className="text-red-400 text-sm" role="alert" data-testid="login-error">
+              <p
+                className="text-red-400 text-sm"
+                role="alert"
+                data-testid="login-error"
+              >
                 {err}
               </p>
             )}
 
-            <button className="btn w-full" disabled={busy} aria-label="Sign in" data-testid="btn-login">
+            <button
+              className="btn w-full"
+              disabled={busy}
+              aria-label="Sign in"
+              data-testid="btn-login"
+            >
               {busy ? "Signing in..." : "Sign in"}
             </button>
           </form>
 
-          <p className="text-sm text-zinc-500 mt-4" data-testid="login-to-register">
+          <p
+            className="text-sm text-zinc-500 mt-4"
+            data-testid="login-to-register"
+          >
             Don’t have an account?{" "}
             <Link
               href={
                 isVendorFlow
-                  ? { pathname: "/tradesman/register", query: { next: "/tradesman/register" } }
+                  ? { pathname: "/tradesman/register-tradesmen" }
                   : { pathname: "/register" }
               }
               className="text-indigo-600 hover:text-indigo-500"

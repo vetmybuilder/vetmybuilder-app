@@ -238,7 +238,7 @@ export default function Home() {
                     trust.
                   </p>
 
-                  <div className="mt-6 sm:mt-8">
+                  {/* <div className="mt-6 sm:mt-8">
                     <Link
                       href={user ? "/projects/new" : "/register"}
                       className="inline-flex items-center justify-center rounded-xl px-5 py-3
@@ -249,7 +249,7 @@ export default function Home() {
                     >
                       {user ? "Get started" : "Join our growing community"}
                     </Link>
-                  </div>
+                  </div> */}
                 </div>
               </div>
 
@@ -331,7 +331,7 @@ export default function Home() {
                   </div>
                 </div>
                 <h3 className="mt-4 text-lg font-semibold">
-                  Create your project
+                  Post a Job
                 </h3>
                 <p className="mt-2 text-sm text-zinc-600">
                   Add a quick brief (e.g. “bathroom refit in E4”). You’ll get a
@@ -349,7 +349,7 @@ export default function Home() {
                   </div>
                 </div>
                 <h3 className="mt-4 text-lg font-semibold">
-                  Get community recs
+                  See neighborhood recommendations
                 </h3>
                 <p className="mt-2 text-sm text-zinc-600">
                   Share the link with friends &amp; local members. They submit

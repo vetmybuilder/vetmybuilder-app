@@ -1,3 +1,5 @@
+// server/routes/tradesmen/shares.get.js
+
 /**
  * GET /api/tradesmen/shares
  * Auth: required (homeowner or tradesman).
@@ -57,7 +59,6 @@ module.exports = (router, ctx) => {
     return raw
       .map((p) => {
         const filename = p.filename || "";
-        // Prefer existing url/absoluteUrl if present
         let rel = p.url || (filename ? toRelUrl(filename) : "");
         // Normalise any old /api/uploads
         rel = rel.replace(/^\/api\/uploads\//, "/uploads/");
@@ -87,6 +88,8 @@ module.exports = (router, ctx) => {
         return res.json({ shares: [], total: 0 });
       }
 
+      const hasTradesmenTable = hasTable("tradesmen");
+
       // Parse filters
       const rawProjectId =
         req.query.projectId || req.query.pid || req.query.project_id || null;
@@ -112,9 +115,8 @@ module.exports = (router, ctx) => {
         Math.max(1, Number.isFinite(limitReq) ? limitReq : 50)
       );
 
-      // Base query: join projects for owner check
+      // Base WHERE: project owner OR tradesman who sent the share
       const where = [
-        // Allow either: project owner OR tradesman who sent the share
         "(CAST(p.ownerUserId AS TEXT) = CAST(? AS TEXT) OR CAST(ts.tradesman_uid AS TEXT) = CAST(? AS TEXT))",
       ];
       const params = [String(uid), String(uid)];
@@ -134,32 +136,45 @@ module.exports = (router, ctx) => {
         params.push(tradesmanUid);
       }
 
-      const rows = db
-        .prepare(
-          `
-          SELECT
-            ts.id,
-            ts.project_id,
-            ts.tradesman_uid,
-            ts.photos_json,
-            ts.message,
-            ts.created_at,
-            p.name AS project_name
-          FROM trade_shares ts
-          JOIN projects p
-            ON p.id = ts.project_id
-          WHERE ${where.join(" AND ")}
-          ORDER BY ts.created_at DESC
-          LIMIT ?
-        `
-        )
-        .all(...params, limit);
+      // SELECT columns, including company_name from tradesmen if that table exists
+      const selectCols = [
+        "ts.id",
+        "ts.project_id",
+        "ts.tradesman_uid",
+        "ts.photos_json",
+        "ts.message",
+        "ts.created_at",
+        "p.name AS project_name",
+      ];
+      if (hasTradesmenTable) {
+        selectCols.push("t.company_name AS tradesman_company_name");
+      }
+
+      const sql = `
+        SELECT
+          ${selectCols.join(", ")}
+        FROM trade_shares ts
+        JOIN projects p
+          ON p.id = ts.project_id
+        ${
+          hasTradesmenTable
+            ? // NOTE: tradesmen table uses user_id, not uid
+              "LEFT JOIN tradesmen t ON CAST(t.user_id AS TEXT) = CAST(ts.tradesman_uid AS TEXT)"
+            : ""
+        }
+        WHERE ${where.join(" AND ")}
+        ORDER BY ts.created_at DESC
+        LIMIT ?
+      `;
+
+      const rows = db.prepare(sql).all(...params, limit);
 
       const shares = rows.map((r) => ({
         id: r.id,
         projectId: r.project_id,
         projectName: r.project_name || null,
         tradesmanUid: r.tradesman_uid,
+        companyName: r.tradesman_company_name || null,
         photos: normalisePhotos(r.photos_json),
         message: r.message || "",
         createdAt: r.created_at,
