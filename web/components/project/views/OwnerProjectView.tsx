@@ -23,6 +23,7 @@ import {
   openEmailShare,
 } from "@/utils/shareInvite";
 import SharedTradesmen from "@/components/project/SharedTradesmen";
+import { estimateProjectCost } from "@/utils/estimate";
 
 type VM = ReturnType<typeof import("./useProjectView").useProjectView>;
 
@@ -50,6 +51,17 @@ function extractBudget(description?: string | null): string | null {
   }
 
   return null;
+}
+
+// Helper: pull "Additional work types: A, B, C" from the description
+function extractAdditionalTypes(description?: string | null): string[] {
+  if (!description) return [];
+  const match = description.match(/Additional work types:\s*([^\n]+)/i);
+  if (!match?.[1]) return [];
+  return match[1]
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 export default function OwnerProjectView({ vm }: { vm: VM }) {
@@ -142,6 +154,31 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
   // Use the "short" project name in the header (type is the clean label like "Cavity Wall Insulation")
   const headerTitle = project.type || project.name;
   const budget = extractBudget(project.description);
+
+  // Build list of work types for the estimator (primary type + "Additional work types")
+  const additionalTypes = extractAdditionalTypes(project.description);
+  const allTypes = [project.type, ...additionalTypes].filter((x): x is string =>
+    Boolean(x && x.trim())
+  );
+
+  const estimate = React.useMemo(
+    () =>
+      estimateProjectCost({
+        category: null, // can be wired up when category is available on project
+        types: allTypes,
+        location: project.location || "",
+        propertyType: project.propertyType || "",
+        bedrooms: project.bedrooms ?? 0,
+        description: project.description || "",
+      }),
+    [
+      allTypes.join("|"),
+      project.location,
+      project.propertyType,
+      project.bedrooms,
+      project.description,
+    ]
+  );
 
   // Map API items into FeaturedSimpleStrip items
   const featuredItems = React.useMemo(
@@ -349,7 +386,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
             </div>
           </div>
 
-          {/* RIGHT: lifecycle actions only */}
+          {/* RIGHT: lifecycle actions + estimate card */}
           <div className="mt-1 flex w-full flex-col items-stretch md:mt-0 md:w-auto md:items-end">
             <div
               className="flex flex-wrap justify-start gap-2 md:justify-end"
@@ -392,8 +429,27 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
               )}
             </div>
 
-            {/* Space for future: estimate calculator card can sit below this row */}
-            {/* <EstimateCalculator project={project} /> */}
+            {/* Estimate summary card */}
+            {estimate && (
+              <div className="mt-3 w-full max-w-xs rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Estimated cost (guide only)
+                </div>
+                <p className="mt-1 leading-snug">
+                  Based on your project details, we estimate the cost to be
+                  between{" "}
+                  <span className="font-semibold text-slate-900">
+                    £{estimate.low.toLocaleString()} and £
+                    {estimate.high.toLocaleString()}
+                  </span>
+                  .
+                </p>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Actual quotes may vary depending on site visit, materials and
+                  final scope.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </header>
