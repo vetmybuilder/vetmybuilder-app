@@ -7,6 +7,7 @@ import {
   XCircle,
   Archive as ArchiveIcon,
   Link as LinkIcon,
+  Info as InfoIcon,
 } from "lucide-react";
 import { useApi } from "@/utils/api";
 import { FeaturedSimpleStrip } from "@/components/tradesmen/FeaturedSimpleCard";
@@ -24,6 +25,7 @@ import {
 } from "@/utils/shareInvite";
 import SharedTradesmen from "@/components/project/SharedTradesmen";
 import { estimateProjectCost } from "@/utils/estimate";
+import type { Verification } from "@/types/vmb"; // 🔑 CH verification type
 
 type VM = ReturnType<typeof import("./useProjectView").useProjectView>;
 
@@ -89,6 +91,15 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
   const [featuredErr, setFeaturedErr] = React.useState<string | null>(null);
   const [featuredLoading, setFeaturedLoading] = React.useState(false);
 
+  // 🔑 Companies House verification per recommendation
+  const [recVerification, setRecVerification] = React.useState<
+    Record<number, Verification>
+  >({});
+
+  // 🔹 NEW: shortlist items using aggregated VMB scores (ratings endpoint)
+  const [shortlistItems, setShortlistItems] = React.useState<any[]>([]);
+  const [shortlistTotal, setShortlistTotal] = React.useState<number>(0);
+
   // state for "Get recommendations" modal visibility
   const [showGetRecModal, setShowGetRecModal] = React.useState(false);
 
@@ -148,6 +159,79 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
       cancelled = true;
     };
   }, [project?.id, api]);
+
+  // 🔑 Fetch Companies House verification for each recommendation on this project
+  React.useEffect(() => {
+    if (!recs || recs.length === 0) {
+      setRecVerification({});
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      const map: Record<number, Verification> = {};
+      await Promise.all(
+        recs.map(async (r) => {
+          try {
+            const { data } = await api.get(
+              `/api/recommendations/${r.id}/verification`
+            );
+            if (!cancelled && data?.verification) {
+              map[r.id] = data.verification as Verification;
+            }
+          } catch {
+            // silently ignore; that rec will just show "Checking"
+          }
+        })
+      );
+      if (!cancelled) {
+        setRecVerification(map);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [api, recs]);
+
+  // 🔹 NEW: fetch shortlist *with aggregated VMB scores* from ratings endpoint
+  React.useEffect(() => {
+    if (!project?.id) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await api.get("/api/recommendations/ratings", {
+          params: {
+            projectId: project.id,
+            limit: 6,
+            offset: 0,
+          },
+        } as any);
+
+        const data: any = (res as any)?.data ?? res;
+        const items: any[] = Array.isArray(data?.items) ? data.items : [];
+
+        if (cancelled) return;
+
+        setShortlistItems(items);
+        setShortlistTotal(
+          typeof data?.total === "number" ? data.total : items.length
+        );
+      } catch {
+        if (cancelled) return;
+        // Fallback to the original project recs if ratings endpoint fails
+        setShortlistItems(recs || []);
+        setShortlistTotal(recTotal);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [api, project?.id, recs, recTotal]);
 
   if (!project) return null;
 
@@ -250,6 +334,10 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
     }
   };
 
+  // Decide what to feed into ShortlistSection
+  const shortlistData = shortlistItems.length ? shortlistItems : recs || [];
+  const shortlistCount = shortlistItems.length ? shortlistTotal : recTotal;
+
   return (
     <>
       <GetRecommendationsModal
@@ -293,7 +381,6 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
             <h1 className="mt-1 flex items-center gap-2 text-2xl font-semibold tracking-tight">
               {headerTitle}
               <StatusBadge value={project.status} />
-              {/* Edit icon right next to project name */}
               {!isClosed && (
                 <a
                   className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-slate-600 shadow-sm hover:bg-slate-50"
@@ -343,9 +430,6 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
               >
                 {project.bedrooms} bed
               </span>
-              {/* <span role="listitem" data-testid="badge-status">
-                <StatusBadge value={project.status} />
-              </span> */}
             </div>
 
             {/* Primary CTA: Share / Share & Publish – bottom-left under badges */}
@@ -376,7 +460,6 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
                 )}
               </div>
 
-              {/* Helper text under the CTA */}
               {!isClosed && (
                 <p className="text-xs text-slate-500 max-w-xl">
                   Share this project to start seeing recommendations and vetted
@@ -386,7 +469,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
             </div>
           </div>
 
-          {/* RIGHT: lifecycle actions + estimate card */}
+          {/* RIGHT: lifecycle actions + estimate */}
           <div className="mt-1 flex w-full flex-col items-stretch md:mt-0 md:w-auto md:items-end">
             <div
               className="flex flex-wrap justify-start gap-2 md:justify-end"
@@ -395,7 +478,6 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
             >
               {!isClosed ? (
                 <>
-                  {/* Close = destructive (red) */}
                   <button
                     className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 hover:bg-rose-100 md:text-sm"
                     onClick={onCloseProject}
@@ -404,16 +486,6 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
                     <XCircle size={14} />
                     <span>Close this Job</span>
                   </button>
-
-                  {/* Archive = neutral (grey) */}
-                  {/* <button
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 md:text-sm"
-                    onClick={onArchive}
-                    data-testid="btn-archive"
-                  >
-                    <ArchiveIcon size={14} />
-                    <span>Archive</span>
-                  </button> */}
                 </>
               ) : (
                 isArchived && (
@@ -429,25 +501,32 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
               )}
             </div>
 
-            {/* Estimate summary card */}
             {estimate && (
-              <div className="mt-3 w-full max-w-xs rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                  Estimated cost (guide only)
-                </div>
-                <p className="mt-1 leading-snug">
-                  Based on your project details, we estimate the cost to be
-                  between{" "}
-                  <span className="font-semibold text-slate-900">
-                    £{estimate.low.toLocaleString()} and £
+              <div className="mt-3 w-full text-right">
+                <div className="inline-flex items-center gap-2">
+                  <div className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-900">
+                    £{estimate.low.toLocaleString()}–£
                     {estimate.high.toLocaleString()}
-                  </span>
-                  .
-                </p>
-                <p className="mt-1 text-[11px] text-slate-500">
-                  Actual quotes may vary depending on site visit, materials and
-                  final scope.
-                </p>
+                  </div>
+                  <div className="relative group">
+                    <button
+                      type="button"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                      aria-label="How this estimate is calculated"
+                    >
+                      <InfoIcon size={14} />
+                    </button>
+                    <div className="pointer-events-none absolute right-0 z-10 mt-2 w-72 rounded-lg bg-slate-900 px-3 py-2 text-left text-[11px] leading-snug text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                      <p className="font-semibold">
+                        Job estimate based on your project details.
+                      </p>
+                      <p className="mt-1">
+                        This is a guide price and actual quotes may vary
+                        depending on site visit, materials and final scope.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -482,20 +561,20 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
         {/* LEFT: Top recommendations */}
         <div>
           <ShortlistSection
-            items={recs || []}
-            total={recTotal}
+            items={shortlistData}
+            total={shortlistCount}
             viewMoreHref={`/projects/${project.id}/shortlist`}
             isOwner={true}
             canVote={false}
             votingId={null}
             onVoteUp={async () => {}}
             recHasPhotos={{}}
-            recVerification={{} as any}
+            recVerification={recVerification}
             showOwnerShareCta={
               !isLive &&
               !isClosed &&
               !hideShortlistShareCta &&
-              (recs?.length ?? 0) === 0
+              (shortlistData?.length ?? 0) === 0
             }
             onOwnerShareClick={() => setShowGetRecModal(true)}
           />
@@ -509,7 +588,6 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
             data-testid="spotlight-strip"
             className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
           >
-            {/* Cast to string to satisfy SpotlightStrip's prop type */}
             <SpotlightStrip projectId={String(project.id)} />
           </section>
         </div>

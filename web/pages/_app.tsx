@@ -5,9 +5,7 @@ import { AuthProvider } from "@/utils/auth";
 import Layout from "@/components/Layout";
 import * as React from "react";
 import { useRouter } from "next/router";
-// import SignUpGateModal from "@/components/SignUpGateModal";
-// NEW: incoming chat notifier (toast + modal)
-// import IncomingChatNotifier from "@/components/chat/IncomingChatNotifier";
+import AdminLayout from "@/components/AdminLayout";
 
 // NEW: minimal auth-path helper (local to _app only)
 const AUTH_PATHS = new Set([
@@ -61,7 +59,7 @@ function AppBootstrap() {
       /* noop */
     }
 
-    // --- NEW: remember last non-auth route for cleaner post-login redirect
+    // --- remember last non-auth route for cleaner post-login redirect
     try {
       const here = router.asPath || "/";
       const pathname = new URL(here, window.location.origin).pathname;
@@ -125,19 +123,25 @@ function dispatchPageView(path: string, gsid: string) {
 }
 
 export default function MyApp({ Component, pageProps }: AppProps) {
+  const router = useRouter();
+
+  // Any /admin... route should use the admin header/layout
+  const isAdminRoute = router.pathname.startsWith("/admin");
+
   return (
     <AuthProvider>
       {/* Bootstrap GSID + pageview tracking */}
       <AppBootstrap />
 
-      <Layout>
-        <Component {...pageProps} />
-        {/* Mount the global Sign-up Gate modal once */}
-        {/* <SignUpGateModal /> */}
-      </Layout>
-
-      {/* NEW: global incoming chat listener + toast/modal */}
-      {/* <IncomingChatNotifier /> */}
+      {isAdminRoute ? (
+        <AdminLayout>
+          <Component {...pageProps} />
+        </AdminLayout>
+      ) : (
+        <Layout>
+          <Component {...pageProps} />
+        </Layout>
+      )}
 
       {/* Global modal portal target (for SignUpGate, etc.) */}
       <div id="modal-root" />

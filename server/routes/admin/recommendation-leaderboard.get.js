@@ -1,7 +1,7 @@
-// server/routes/debug/leaderboard.get.js
+// server/routes/admin/recommendation-leaderboard.get.js
 // Debug leaderboard with all score ingredients.
-// GET /api/debug/leaderboard?projectId=123  -> project-scoped (owner or project is live)
-// GET /api/debug/leaderboard                -> GLOBAL (admin-only)
+// GET /api/admin/recommendation-leaderboard?projectId=123  -> project-scoped (owner or project is live)
+// GET /api/admin/recommendation-leaderboard                -> GLOBAL (admin-only)
 //
 // Auth: requires sign-in.
 // Response: { items: [...], total }
@@ -198,7 +198,7 @@ module.exports = (router, ctx) => {
   }
 
   /* ---------- ROUTE ---------- */
-  router.get("/debug/leaderboard", auth, (req, res) => {
+  router.get("/admin/recommendation-leaderboard", auth, (req, res) => {
     try {
       const projectId = toNum(req.query.projectId);
 
@@ -472,7 +472,7 @@ module.exports = (router, ctx) => {
 
       return res.json({ items, total: items.length });
     } catch (e) {
-      console.error("[debug/leaderboard] error", e);
+      console.error("[admin/recommendation-leaderboard] error", e);
       return res.status(500).json({ error: "Failed" });
     }
   });

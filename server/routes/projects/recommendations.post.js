@@ -1,9 +1,18 @@
-// server/v2/routes/projects/recommendations.post.js
+// server/routes/projects/recommendations.post.js
 /**
- * POST /api/v2/projects/:id/recommendations
+ * POST /api/projects/:id/recommendations
  * Auth: required
- * Body: JSON or multipart/form-data ("photos" up to 8)
- * Response: 201 { ok: true, recommendationId, resolvedCompany, resolvedBy }
+ * Body: JSON or multipart/form-data ("photos", up to 8)
+ * Response: 201 {
+ *   ok: true,
+ *   recommendationId,
+ *   resolvedCompany,
+ *   resolvedBy,
+ *   recommender: {
+ *     relation: "friend" | "neighbour" | "owner",
+ *     source: "platform" | "magic"
+ *   }
+ * }
  *
  * New behavior:
  *  - Before inserting, we try to resolve the company name:
@@ -11,6 +20,8 @@
  *      2) If not found and CH helpers are available, query Companies House to find the best match.
  *  - We then insert using the resolved name so UI grouping displays the normalized builder immediately.
  *  - Background verification via queueCompanyVerification still runs as before.
+ *  - We store recommender name/email/phone in the DB but NEVER return them in the response.
+ *  - We return only a "relation" label ("friend" vs "neighbour" vs "owner") for UI badges.
  */
 module.exports = (router, ctx) => {
   const {
@@ -23,10 +34,6 @@ module.exports = (router, ctx) => {
     notifyUsers,
     path: nodePath,
     UPLOAD_DIR,
-    // Optional CH helpers (when present on ctx)
-    matchByName, // async ({ name, locationHint? }) -> { ok, company?, matchScore? }
-    searchCompanies, // async ({ name, itemsPerPage? })
-    getCompanyProfile, // async (companyNumber)
   } = ctx;
 
   const path = nodePath || require("node:path");
@@ -37,6 +44,27 @@ module.exports = (router, ctx) => {
       return { _roughNameScore: () => 0 };
     }
   })();
+
+  // --- Companies House helpers: ctx OR direct require fallback ---
+  let matchByName = ctx.matchByName;
+  let searchCompanies = ctx.searchCompanies;
+  let getCompanyProfile = ctx.getCompanyProfile;
+
+  if (!matchByName && !searchCompanies && !getCompanyProfile) {
+    try {
+      // adjust this path/name if your helper file is different
+      const ch = require("../lib/companiesHouse");
+      matchByName = ch.matchByName || matchByName;
+      searchCompanies = ch.searchCompanies || searchCompanies;
+      getCompanyProfile = ch.getCompanyProfile || getCompanyProfile;
+      // console.log("[recommendations.post] Using local Companies House helpers");
+    } catch (e) {
+      console.warn(
+        "[recommendations.post] Companies House helpers not available:",
+        e?.message || e
+      );
+    }
+  }
 
   // Conditionally parse multipart
   const multipartGate = (req, res, next) => {
@@ -94,9 +122,30 @@ module.exports = (router, ctx) => {
         const rawSource = String(req.body?.source ?? "")
           .trim()
           .toLowerCase();
+        // NOTE: we only allow two values for source to keep it simple.
         const source = rawSource === "magic" ? "magic" : "platform";
 
-        /* ---------- Resolve company name BEFORE insert ---------- */
+        /* ---------- Figure out owner vs other user ---------- */
+
+        let isOwner = false;
+        let projectLocationHint = "";
+        try {
+          const proj = db
+            .prepare(
+              `SELECT ownerUserId, location
+                 FROM projects
+                WHERE id = ?`
+            )
+            .get(projectId);
+          if (proj) {
+            isOwner = uid && String(uid) === String(proj.ownerUserId);
+            if (isOwner && proj.location) {
+              projectLocationHint = String(proj.location);
+            }
+          }
+        } catch {
+          // if this fails we just won't have location hint / owner flag
+        }
 
         // 0) Any explicit hint from the client? (postcode/city)
         const explicitHint = String(
@@ -108,22 +157,11 @@ module.exports = (router, ctx) => {
           ).toString()
         ).trim();
 
-        // 1) If the project owner is submitting, use project's location as a weak hint
-        let projectLocationHint = "";
-        try {
-          const proj = db
-            .prepare(`SELECT ownerUserId, location FROM projects WHERE id = ?`)
-            .get(projectId);
-          const isOwner =
-            uid && proj && String(uid) === String(proj.ownerUserId);
-          if (isOwner && proj?.location) {
-            projectLocationHint = String(proj.location);
-          }
-        } catch {}
-
         const locationHint = explicitHint || projectLocationHint || undefined;
 
-        // 2) Try local DB exact match first (case-insensitive)
+        /* ---------- Resolve company name BEFORE insert ---------- */
+
+        // 1) Try local DB exact match first (case-insensitive)
         let resolvedCompany = company;
         let resolvedBy = "input"; // 'db' | 'ch' | 'input'
         try {
@@ -144,7 +182,7 @@ module.exports = (router, ctx) => {
           // ignore local lookup errors
         }
 
-        // 3) If not found locally AND CH helpers are available, try to match by name
+        // 2) If not found locally AND CH helpers are available, try to match by name
         if (
           resolvedBy === "input" &&
           (typeof matchByName === "function" ||
@@ -220,6 +258,18 @@ module.exports = (router, ctx) => {
 
         const recommendationId = info.lastInsertRowid;
 
+        /* ---------- Derive recommender relation for UI labels ---------- */
+        let recommenderRelation = "neighbour";
+
+        if (source === "magic" && !uid) {
+          recommenderRelation = "friend";
+        } else if (isOwner) {
+          recommenderRelation = "owner";
+        } else {
+          // any other authenticated user that is not the owner
+          recommenderRelation = "neighbour";
+        }
+
         // Companies House verification (fire-and-forget) — still enqueue for badge/status
         try {
           queueCompanyVerification({
@@ -293,11 +343,17 @@ module.exports = (router, ctx) => {
           console.warn("[notify-owner platform] failed", e);
         }
 
+        // IMPORTANT:
+        // We DO NOT return name/email/phone of the recommender here.
         return res.status(201).json({
           ok: true,
           recommendationId,
           resolvedCompany: resolvedCompany || company,
           resolvedBy, // 'db' | 'ch' | 'input' (for diagnostics)
+          recommender: {
+            relation: recommenderRelation, // "friend" | "neighbour" | "owner"
+            source, // "platform" | "magic"
+          },
         });
       } catch (err) {
         console.error("recommendations.post error:", err);

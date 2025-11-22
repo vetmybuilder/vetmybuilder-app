@@ -1,6 +1,6 @@
-// server/v2/routes/recommendations/magic.get.js
+// server/routes/recommendations/magic.get.js
 /**
- * GET /api/v2/recommendations/magic/:token
+ * GET /api/recommendations/magic/:token
  * Auth: none
  * - 404 if token not found
  * - 400 if project not live

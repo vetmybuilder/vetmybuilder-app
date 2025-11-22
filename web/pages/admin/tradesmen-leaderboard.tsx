@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import AuthedOnly from "@/components/AuthedOnly";
 import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
+import Link from "next/link";
 
 /* ========= Types ========= */
 type Item = {
@@ -494,9 +495,11 @@ export default function AdminTradesmenLeaderboardPage() {
           className="mx-auto px-4 py-6 max-w-[1700px]"
           data-testid="admin-tradesmen-leaderboard-page"
         >
-          <h1 className="text-2xl font-semibold mb-4">
-            Tradesmen Leaderboard (Admin)
-          </h1>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-2xl font-semibold">
+              Tradesmen Leaderboard (Admin)
+            </h1>
+          </div>
 
           {forbidden && (
             <div className="mt-8 rounded-xl border border-red-300 bg-red-50 p-6">

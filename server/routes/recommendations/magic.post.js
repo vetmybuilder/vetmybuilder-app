@@ -1,6 +1,6 @@
-// server/v2/routes/recommendations/magic.post.js
+// server/routes/recommendations/magic.post.js
 /**
- * POST /api/v2/recommendations/magic/:token
+ * POST /api/recommendations/magic/:token
  * Auth: optional (anonymous allowed)
  * Body:
  *   - JSON or multipart/form-data (field: photos[] up to 8)
@@ -15,7 +15,20 @@
  *   - Stores photos under UPLOAD_DIR and records rows
  *   - Notifies project owner (if different from submitter)
  *   - Auto-like if hireAgain !== "no"
- * Response: 201 { ok: true, recommendationId, resolvedCompany, resolvedBy }
+ * Response: 201 {
+ *   ok: true,
+ *   recommendationId,
+ *   resolvedCompany,
+ *   resolvedBy,
+ *   recommender: {
+ *     relation: "friend" | "neighbour",
+ *     source: "magic"
+ *   }
+ * }
+ *
+ * IMPORTANT:
+ *   - We store recommender name/email/phone in DB for audit,
+ *     but we DO NOT return any of that in the API response.
  */
 module.exports = (router, ctx) => {
   const { db, admin, notifyUsers } = ctx;
@@ -165,11 +178,9 @@ module.exports = (router, ctx) => {
           .prepare(`SELECT status, location FROM projects WHERE id = ?`)
           .get(link.projectId);
         if (!proj || String(proj.status || "").toLowerCase() !== "live") {
-          return res
-            .status(400)
-            .json({
-              error: "This project is not accepting recommendations yet.",
-            });
+          return res.status(400).json({
+            error: "This project is not accepting recommendations yet.",
+          });
         }
 
         const asNumber = (v) =>
@@ -314,6 +325,11 @@ module.exports = (router, ctx) => {
 
         const recommendationId = info.lastInsertRowid;
 
+        // Derive relation for UI:
+        //  - anonymous (no uid)  -> friend
+        //  - logged-in user      -> neighbour
+        const recommenderRelation = uid ? "neighbour" : "friend";
+
         // Queue CH verification for badge/status
         try {
           queueCompanyVerification({
@@ -380,11 +396,18 @@ module.exports = (router, ctx) => {
           console.warn("[magic-post] auto-like failed", e);
         }
 
+        // IMPORTANT:
+        //  - we DO NOT return name/email/phone of the recommender
+        //  - frontend should only use recommender.relation for the badge
         return res.status(201).json({
           ok: true,
           recommendationId,
           resolvedCompany: resolvedCompany || company,
           resolvedBy, // 'db' | 'ch' | 'input'
+          recommender: {
+            relation: recommenderRelation, // "friend" | "neighbour"
+            source: "magic",
+          },
         });
       } catch (err) {
         console.error("magic.post error:", err);

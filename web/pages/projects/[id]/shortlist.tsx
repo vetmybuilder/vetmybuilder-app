@@ -41,6 +41,7 @@ type VerificationStatus =
   | "ambiguous"
   | "no_match"
   | "error";
+
 type Verification = {
   recommendationId: number;
   status: VerificationStatus;
@@ -55,6 +56,7 @@ type Verification = {
 function shouldUseChName(status?: VerificationStatus) {
   return status === "verified" || status === "ambiguous";
 }
+
 function resolveCompanyName(
   r: Recommendation & { companyVerification?: Verification | null },
   verMap: Record<number, Verification>
@@ -79,6 +81,7 @@ const ThumbsUpIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <path d="M2 10h4v12H2V10zm7.5 12h6.27c1.02 0 1.94-.64 2.29-1.6l2.41-6.52a2 2 0 0 0-1.24-2.55c-.2-.07-.42-.11-.64-.11h-4.6l.62-3.02.02-.23a2 2 0 0 0-.59-1.42L13.2 4 8.9 8.29A3 3 0 0 0 8 10.4V20a2 2 0 0 0 1.5 2z" />
   </svg>
 );
+
 const CameraIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
     <path d="M9 3a1 1 0 0 0-.9.56L7.38 5H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V8a3 3 0 0 0-3-3h-2.38l-.72-1.44A1 1 0 0 0 14 3H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM6.5 9.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
@@ -135,9 +138,11 @@ function ScoreChip({ value }: { value?: number }) {
 /* ---------------- Type guards ---------------- */
 type VmbListOk = { items: Recommendation[]; total?: number };
 type VmbSingleOk = { item?: Recommendation | null };
+
 function hasItems(res: unknown): res is VmbListOk {
   return !!res && typeof res === "object" && "items" in (res as any);
 }
+
 function hasItem(res: unknown): res is VmbSingleOk {
   return !!res && typeof res === "object" && "item" in (res as any);
 }
@@ -176,6 +181,7 @@ function groupByCompany(
     companyNumber?: string | null;
     items: Recommendation[];
   };
+
   const map = new Map<string, Bucket>();
 
   for (const it of items) {
@@ -216,6 +222,7 @@ function groupByCompany(
         ? computeAggregateScore(scores, b.items.length)
         : top.score;
     const aggLikes = b.items.reduce((s, it) => s + (it.likes ?? 0), 0);
+
     groups.push({
       key: b.key,
       company: b.company,
@@ -268,7 +275,9 @@ function ShortlistGate() {
         router.replace("/tradesman/projects");
         return;
       }
-    } catch {}
+    } catch {
+      // ignore
+    }
 
     // Authoritative path
     (async () => {
@@ -281,7 +290,9 @@ function ShortlistGate() {
         if (isT) {
           try {
             sessionStorage.setItem("vmb:isTradesman", "1");
-          } catch {}
+          } catch {
+            // ignore
+          }
           setStatus("redirect");
           router.replace("/tradesman/projects");
           return;
@@ -355,7 +366,9 @@ function ShortlistInner() {
           name: data.project.name,
           ownerUserId: data.project.ownerUserId,
         });
-      } catch {}
+      } catch {
+        // ignore
+      }
     })();
     return () => {
       alive = false;
@@ -405,7 +418,9 @@ function ShortlistInner() {
           setItems([]);
           setTotal(0);
           setErr(null);
-        } else setErr("Failed to load shortlist");
+        } else {
+          setErr("Failed to load shortlist");
+        }
       } finally {
         if (alive) setLoading(false);
       }
@@ -436,7 +451,9 @@ function ShortlistInner() {
               has =
                 Array.isArray(data?.recommendation?.photos) &&
                 data.recommendation.photos.length > 0;
-            } catch {}
+            } catch {
+              // ignore
+            }
             return [r.id, has, ver] as const;
           } catch {
             return [r.id, false, null] as const;
@@ -448,11 +465,12 @@ function ShortlistInner() {
         const verMap: Record<number, Verification> = {};
         for (const [rid, has, ver] of entries) {
           photosMap[rid] = has;
-          if (ver)
+          if (ver) {
             verMap[rid] = {
               ...ver,
               recommendationId: ver.recommendationId ?? rid,
             };
+          }
         }
         setHasPhotos(photosMap);
         setRecVerification(verMap);
@@ -765,7 +783,7 @@ function ShortlistInner() {
             </div>
             <button
               className="btn disabled:opacity-50"
-              disabled={page >= Math.max(1, Math.ceil(total / pageSize))}
+              disabled={page >= totalPages}
               onClick={() => setPage((p) => p + 1)}
               aria-label="Next page"
               data-testid="pager-next"

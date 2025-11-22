@@ -1,5 +1,5 @@
 /**
- * GET /api/v2/projects/:id/recommendations
+ * GET /api/projects/:id/recommendations
  * Auth: required
  * Visibility: owner OR project is live OR completed; else 404
  * Query: page, pageSize
@@ -7,8 +7,12 @@
  * Returns recommendations already RANKED by the composite `score`
  * (from SQL view: v_recommendation_scores) and includes:
  *   - likes, myLike (for current user)
- *   - fromCommunity (as exposed by the view)
+ *   - fromCommunity (as exposed by the view, adjusted for magic-link "friend")
+ *   - fromFriend (derived)
  *   - score (rounded)
+ *
+ * NOTE:
+ *   - We DO NOT return any recommender PII (name/email/phone)
  */
 module.exports = (router, ctx) => {
   const { db, auth, extractLocationTokens } = ctx;
@@ -31,7 +35,7 @@ module.exports = (router, ctx) => {
     if (!proj) return res.status(404).json({ error: "Not found" });
 
     const statusLc = String(proj.status || "").toLowerCase();
-    const isLive = statusLc === "live";           // ✅ live means "live"
+    const isLive = statusLc === "live"; // ✅ live means "live"
     const isCompleted = statusLc === "completed"; // ✅ add missing variable
     const uid = req.user?.uid || null;
     const isOwner = !!uid && String(uid) === String(proj.ownerUserId);
@@ -69,12 +73,11 @@ module.exports = (router, ctx) => {
           r.id,
           r.projectId,
           r.createdAt,
-          r.name,
-          r.email,
-          r.phone,
+          r.recommenderUserId,
+          r.source,
+          r.isAnonymous,
           r.company,
           r.comment,
-          r.isAnonymous,
           r.rating,
           -- aggregates / derived
           COALESCE(vrs.likes_count, 0)                 AS likes,
@@ -106,21 +109,36 @@ module.exports = (router, ctx) => {
     // ranking now comes from the SQL view so we don't recompute here.)
     void extractLocationTokens;
 
-    const items = rows.map((r) => ({
-      id: r.id,
-      name: r.name,
-      email: r.email,
-      phone: r.phone == null ? null : String(r.phone),
-      company: r.company,
-      comment: r.comment,
-      isAnonymous: r.isAnonymous,
-      createdAt: r.createdAt,
-      rating: r.rating ?? null,
-      likes: r.likes,
-      myLike: r.myLike ? 1 : 0,
-      fromCommunity: r.fromCommunity ? 1 : 0,
-      score: Number(r.score) || 0,
-    }));
+    const items = rows.map((r) => {
+      const isMagic = String(r.source || "").toLowerCase() === "magic";
+      const hasUser = r.recommenderUserId != null;
+      const isAnonFlag = !!r.isAnonymous;
+
+      // Business rules:
+      //  - Friend  = unregistered / anonymous via magic link
+      //  - Neighbourhood = any other recommender (registered user)
+      const fromFriend = isMagic && (!hasUser || isAnonFlag);
+
+      // We only keep fromCommunity when it's NOT a "friend" rec
+      const fromCommunity = !fromFriend && (r.fromCommunity ? 1 : 0);
+
+      return {
+        id: r.id,
+        // NO recommender PII here:
+        // name: r.name,
+        // email: r.email,
+        // phone: r.phone == null ? null : String(r.phone),
+        company: r.company,
+        comment: r.comment,
+        createdAt: r.createdAt,
+        rating: r.rating ?? null,
+        likes: r.likes,
+        myLike: r.myLike ? 1 : 0,
+        fromFriend,
+        fromCommunity,
+        score: Number(r.score) || 0,
+      };
+    });
 
     return res.json({ items, total, page, pageSize });
   });

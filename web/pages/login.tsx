@@ -2,7 +2,7 @@
 import Head from "next/head";
 import { initFirebase } from "@/utils/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 
@@ -25,19 +25,12 @@ export default function Login() {
     (nextRaw.startsWith("/tradesman/") || nextRaw.startsWith("/trades/"));
 
   // Where to send the user after a successful login
+  //  - If ?next= is provided, always honour it (admin / tradesman flows)
+  //  - Otherwise (normal homeowner login), go to /projects
   const nextPath = useMemo(() => {
     if (nextRaw && nextRaw.startsWith("/")) return nextRaw;
-    // Plain /login (no next) → go home after login
-    return "/";
+    return "/projects";
   }, [nextRaw]);
-
-  // Only persist returnTo when explicitly provided by the URL
-  useEffect(() => {
-    if (!hasExplicitNext) return;
-    try {
-      sessionStorage.setItem("vmb:returnTo", nextPath);
-    } catch {}
-  }, [hasExplicitNext, nextPath]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -48,12 +41,20 @@ export default function Login() {
     e.preventDefault();
     setBusy(true);
     setErr(null);
+
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      // 🔹 Force the global "returnTo" target BEFORE Firebase auth resolves.
+      // This ensures any AuthProvider redirect uses the same path we intend.
       try {
-        if (hasExplicitNext) sessionStorage.setItem("vmb:returnTo", nextPath);
-      } catch {}
-      router.replace(nextPath || "/");
+        sessionStorage.setItem("vmb:returnTo", nextPath || "/projects");
+      } catch {
+        // ignore storage errors
+      }
+
+      await signInWithEmailAndPassword(auth, email, password);
+
+      // And explicitly navigate there from the login page.
+      await router.replace(nextPath || "/projects");
     } catch (e: any) {
       setErr(e.message || "Failed to login");
     } finally {

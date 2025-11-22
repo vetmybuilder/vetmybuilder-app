@@ -1,10 +1,16 @@
-// web/components/project/ShortlistSection.tsx
 import Link from "next/link";
 import * as React from "react";
 import { ThumbsUpIcon, CameraIcon } from "@/components/ui/Icons";
 import { ScoreChip, chLabel, chBadgeClass, chIcon } from "@/components/ui/vmb";
 import type { Recommendation, Verification } from "@/types/vmb";
-import { displayRecommender, normalizeName } from "@/utils/recommendations";
+import { useApi } from "@/utils/api";
+import {
+  groupRecommendationsByCompany,
+  type CompanyGroup,
+  getAggregateVmbForCompany,
+  normalizedCompanyKey,
+  type FetchRecsFn,
+} from "@/utils/vmb";
 import { Link as LinkIcon } from "lucide-react";
 
 /* ===== Props (component-local API) ===== */
@@ -23,6 +29,8 @@ type Props = {
   /** Optional CTA for owners when no recs yet */
   showOwnerShareCta?: boolean;
   onOwnerShareClick?: () => void;
+  /** Project id so we can fetch canonical VMB aggregate scores */
+  projectId?: number;
   "data-testid"?: string;
 };
 
@@ -41,77 +49,107 @@ export default function ShortlistSection({
   recVerification = {},
   showOwnerShareCta = false,
   onOwnerShareClick,
+  projectId,
   "data-testid": dataTestId = "project-shortlist",
 }: Props) {
-  // Group by CH number (unique) else normalized name
+  const api = useApi();
+
+  // 🔹 Single source of truth for grouping + base agg scores
   const groups = React.useMemo(() => {
-    type Builder = {
-      key: string;
-      company: string;
-      companyNumber?: string | null;
-      items: Recommendation[];
-    };
-    const map = new Map<string, Builder>();
-    for (const r of items) {
-      const ver = recVerification[r.id];
+    const base = groupRecommendationsByCompany(items) as Array<
+      CompanyGroup<Recommendation> & {
+        companyNumber?: string | null;
+      }
+    >;
+
+    // Enrich each group with CH number (for display only)
+    return base.map((g) => {
+      const top = g.top;
+      const ver = recVerification[top.id];
       const num = (ver?.companyNumber || "").trim() || null;
-      const candidateName = (ver?.companyName || r.company || "").trim();
-      const nameKey = normalizeName(candidateName);
-      const key = num ? `#${num}` : `n:${nameKey}`;
-      const g =
-        map.get(key) ||
-        ({
-          key,
-          company: candidateName,
-          companyNumber: num,
-          items: [],
-        } as Builder);
-      if (!map.has(key)) map.set(key, g);
-      // prefer canonical name/number when we later discover them
-      if (ver?.companyName) g.company = ver.companyName;
-      if (!g.companyNumber && num) g.companyNumber = num;
-      g.items.push(r);
-    }
-    const out = Array.from(map.values()).map((g) => {
-      const top = [...g.items].sort((a, b) => {
-        const as = a.score ?? -Infinity;
-        const bs = b.score ?? -Infinity;
-        if (as !== bs) return bs - as;
-        const al = a.likes ?? 0;
-        const bl = b.likes ?? 0;
-        if (al !== bl) return bl - al;
-        return +new Date(b.createdAt) - +new Date(a.createdAt);
-      })[0];
-      const totalLikes = g.items.reduce((s, it) => s + (it.likes ?? 0), 0);
-      const scores = g.items
-        .map((x) => x.score)
-        .filter((x): x is number => x != null);
-      const aggScore =
-        scores.length > 0
-          ? Number(
-              (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2)
-            )
-          : undefined;
-      return {
-        key: g.key,
-        company: g.company,
-        companyNumber: g.companyNumber,
-        top,
-        totalLikes,
-        aggScore,
-        extraCount: g.items.length - 1,
-        items: g.items,
-      };
+      return { ...g, companyNumber: num };
     });
-    out.sort((a, b) => {
-      const as = a.aggScore ?? -Infinity;
-      const bs = b.aggScore ?? -Infinity;
-      if (as !== bs) return bs - as;
-      if (a.totalLikes !== b.totalLikes) return b.totalLikes - a.totalLikes;
-      return +new Date(b.top.createdAt) - +new Date(a.top.createdAt);
-    });
-    return out;
   }, [items, recVerification]);
+
+  // 🔹 Canonical aggregate scores from /api/recommendations/ratings
+  const [aggScores, setAggScores] = React.useState<Record<string, number>>({});
+
+  React.useEffect(() => {
+    if (!projectId || items.length === 0) {
+      setAggScores({});
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const ratingsFetcher: FetchRecsFn = async ({
+          projectId,
+          offset = 0,
+          limit = 250,
+        }) => {
+          const { data } = await api.get(
+            `/api/recommendations/ratings?projectId=${projectId}&offset=${offset}&limit=${limit}`
+          );
+
+          const list =
+            (data?.items || []).map((it: any) => ({
+              id: it.id,
+              company: it.company,
+              score: it.score,
+            })) ?? [];
+
+          const total = Number.isFinite(data?.total)
+            ? (data.total as number)
+            : list.length;
+
+          return { items: list, total };
+        };
+
+        const companyNames = Array.from(
+          new Set(
+            items
+              .map((r) => (r.company || "").trim())
+              .filter((s) => s.length > 0)
+          )
+        );
+
+        const scores: Record<string, number> = {};
+        const seenKeys = new Set<string>();
+
+        for (const name of companyNames) {
+          const norm = normalizedCompanyKey(name);
+          if (seenKeys.has(norm)) continue;
+          seenKeys.add(norm);
+
+          const agg = await getAggregateVmbForCompany(
+            ratingsFetcher,
+            projectId,
+            name,
+            undefined
+          );
+
+          if (typeof agg === "number" && !Number.isNaN(agg)) {
+            scores[norm] = agg;
+          }
+        }
+
+        if (!cancelled) {
+          setAggScores(scores);
+        }
+      } catch {
+        if (!cancelled) {
+          // If ratings endpoint fails for any reason, fall back to local scores
+          setAggScores({});
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [api, projectId, items]);
 
   const SHOW_THRESHOLD = 3;
   const shouldShowViewMore =
@@ -172,7 +210,7 @@ export default function ShortlistSection({
         {items.length === 0 ? (
           <div data-testid="shortlist-empty">
             <p className="text-sm text-slate-500">
-              No builders have yet been recommended by friend or your neighborhood.
+              No builders have yet been recommended by a friend or neighbours.
             </p>
 
             {isOwner && showOwnerShareCta && onOwnerShareClick && (
@@ -208,11 +246,40 @@ export default function ShortlistSection({
                 const ver = recVerification[r.id];
                 const vStatus = ver?.status;
                 const vLabel = chLabel(vStatus);
+
                 const displayCompanyName =
                   ver?.companyName &&
                   (vStatus === "verified" || vStatus === "ambiguous")
                     ? ver.companyName.trim()
                     : g.company;
+
+                // 🔹 Decide which score to show:
+                // 1) canonical agg from ratings endpoint (per company)
+                // 2) fallback to local group aggScore
+                // 3) fallback to top recommendation's raw score
+                const key = normalizedCompanyKey(
+                  displayCompanyName || g.company
+                );
+                const overrideScore = aggScores[key];
+                const baseScore =
+                  typeof g.aggScore === "number"
+                    ? g.aggScore
+                    : typeof r.score === "number"
+                    ? r.score
+                    : undefined;
+                const scoreToShow =
+                  typeof overrideScore === "number" &&
+                  !Number.isNaN(overrideScore)
+                    ? overrideScore
+                    : baseScore;
+
+                // Recommender relation: generic text only
+                let recommenderText = "";
+                if (r.fromFriend) {
+                  recommenderText = "Recommended via your friend.";
+                } else if (r.fromCommunity) {
+                  recommenderText = "Recommended by a neighbour in your area.";
+                }
 
                 return (
                   <li
@@ -257,7 +324,7 @@ export default function ShortlistSection({
                             </div>
 
                             <div className="shrink-0 flex items-center gap-3 whitespace-nowrap">
-                              <ScoreChip value={g.aggScore} />
+                              <ScoreChip value={scoreToShow} />
                               <div
                                 className="text-xs text-slate-500 tabular-nums flex items-center gap-1"
                                 aria-label={`${votes} votes`}
@@ -317,7 +384,7 @@ export default function ShortlistSection({
                                   className="badge green"
                                   data-testid="shortlist-badge-community"
                                 >
-                                  Community
+                                  Neighbourhood
                                 </span>
                               ) : null}
                               {hasPhotos && (
@@ -340,15 +407,17 @@ export default function ShortlistSection({
                             </div>
                           </div>
 
-                          <div className="mt-2 flex items-center justify-between">
-                            <div
-                              className="text-xs text-slate-500"
-                              aria-label="Recommender"
-                              data-testid="shortlist-recommender"
-                            >
-                              {displayRecommender(r)}
+                          {recommenderText && (
+                            <div className="mt-2 flex items-center justify-between">
+                              <div
+                                className="text-xs text-slate-500"
+                                aria-label="Recommender"
+                                data-testid="shortlist-recommender"
+                              >
+                                {recommenderText}
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
 
                         {!isOwner && (

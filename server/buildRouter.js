@@ -147,7 +147,7 @@ function buildRouter(ctx) {
 
   // ---------------- Debug ----------------
   require("./routes/debug/reclinks.get")(router, ctx);
-  require("./routes/debug/leaderboard.get")(router, ctx);
+  // require("./routes/debug/leaderboard.get")(router, ctx);
   require("./routes/debug/trades-role.get")(router, ctx);
   require("./routes/debug/routes.get")(router, ctx);
 
@@ -190,6 +190,7 @@ function buildRouter(ctx) {
   require("./routes/admin/tradesmen.unlocks.post")(router, ctx);
   require("./routes/admin/subscription.sweep.post")(router, ctx);
   require("./routes/admin/subscriptions.cancel.post")(router, ctx);
+  require("./routes/admin/recommendation-leaderboard.get")(router, ctx);
 
   return router;
 }

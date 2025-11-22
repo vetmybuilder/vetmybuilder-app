@@ -1,15 +1,35 @@
+// web/pages/builders/[id].tsx
 import { useRouter } from "next/router";
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
-import Link from "next/link";
 import { getAggregateVmbForCompany, type FetchRecsFn } from "@/utils/vmb";
 import BlurUnlock from "@/components/ui/BlurUnlock";
 import LightboxGallery, {
   type GalleryImage,
 } from "@/components/LightboxGallery";
+import SharedProfilePhotosSection from "@/components/tradesmen/SharedProfilePhotosSection";
 
 type Photo = { id: string; url: string; thumb?: string; alt?: string };
+
+type VerificationStatus =
+  | "queued"
+  | "running"
+  | "verified"
+  | "ambiguous"
+  | "no_match"
+  | "error";
+
+type Verification = {
+  recommendationId: number;
+  status: VerificationStatus;
+  companyNumber?: string | null;
+  companyName?: string | null;
+  score?: number | null;
+  sicCodes?: string[];
+  checkedAt?: string;
+  errorMessage?: string | null;
+};
 
 type Builder = {
   id: number;
@@ -31,27 +51,17 @@ type Builder = {
   companyVerification?: Verification | null;
 };
 
-type VerificationStatus =
-  | "queued"
-  | "running"
-  | "verified"
-  | "ambiguous"
-  | "no_match"
-  | "error";
-type Verification = {
-  recommendationId: number;
-  status: VerificationStatus;
-  companyNumber?: string | null;
-  companyName?: string | null;
-  score?: number | null;
-  sicCodes?: string[];
-  checkedAt?: string;
-  errorMessage?: string | null;
+type Review = {
+  id: number;
+  name: string;
+  comment: string;
+  createdAt?: string | null;
 };
 
 function shouldUseChName(status?: VerificationStatus) {
   return status === "verified" || status === "ambiguous";
 }
+
 function resolveCompanyNameForBuilder(
   b: Builder | null,
   v: Verification | null | undefined
@@ -91,11 +101,13 @@ function Badge({
     </span>
   );
 }
+
 const ThumbsUpIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
     <path d="M2 10h4v12H2V10zm7.5 12h6.27c1.02 0 1.94-.64 2.29-1.6l2.41-6.52a2 2 0 0 0-1.24-2.55c-.2-.07-.42-.11-.64-.11h-4.6l.62-3.02.02-.23a2 2 0 0 0-.59-1.42L13.2 4 8.9 8.29A3 3 0 0 0 8 10.4V20a2 2 0 0 0 1.5 2z" />
   </svg>
 );
+
 function ScoreChip({ value }: { value?: number }) {
   if (value == null || Number.isNaN(Number(value))) {
     return (
@@ -115,34 +127,6 @@ function ScoreChip({ value }: { value?: number }) {
       data-testid="builder-vmb-score"
     >
       VMB {label}
-    </span>
-  );
-}
-const ClockIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
-    <path d="M12 2a10 10 0 1 0 .001 20.001A10 10 0 0 0 12 2zm1 11h5v-2h-2V6h-2v7z" />
-  </svg>
-);
-const ExclamationTriangleIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
-    <path d="M1 21h22L12 2 1 21zm12-3h-2v2h2v-2zm0-8h-2v6h2V10z" />
-  </svg>
-);
-function GoogleMark() {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <svg
-        viewBox="0 0 16 16"
-        className="h-4 w-4"
-        aria-hidden
-        focusable="false"
-      >
-        <rect x="0" y="0" width="7" height="7" rx="1" fill="#4285F4" />
-        <rect x="9" y="0" width="7" height="7" rx="1" fill="#EA4335" />
-        <rect x="0" y="9" width="7" height="7" rx="1" fill="#34A853" />
-        <rect x="9" y="9" width="7" height="7" rx="1" fill="#FBBC05" />
-      </svg>
-      <span className="font-medium">Google</span>
     </span>
   );
 }
@@ -181,11 +165,13 @@ function companyKey(s: string) {
     .trim()
     .replace(/\s+/g, " ");
 }
+
 function recommenderLabel(r: { name: string | null; isAnonymous: 0 | 1 }) {
   if (r.isAnonymous === 1) return "Anonymous user";
   const n = (r.name || "").trim();
   return n || "Guest";
 }
+
 async function fetchProjectRecommendations(
   api: any,
   projectId: number
@@ -202,7 +188,9 @@ async function fetchProjectRecommendations(
         return data.project.recommendations;
       if (Array.isArray(data?.items)) return data.items;
       if (Array.isArray(data?.project?.items)) return data.project.items;
-    } catch {}
+    } catch {
+      // ignore and try next
+    }
   }
   try {
     const { data } = await api.get(
@@ -244,12 +232,14 @@ function SkeletonLine({ className = "" }: { className?: string }) {
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
+
 function looksLikeAuthRace(err: any) {
   const status = err?.response?.status ?? err?.status;
   const msg =
     err?.response?.data?.error ?? err?.data?.error ?? err?.message ?? "";
   return status === 401 || /missing bearer token/i.test(String(msg));
 }
+
 async function getWithAuthRetry<T>(
   fn: () => Promise<T>,
   attempts = 3,
@@ -284,7 +274,6 @@ export default function BuilderProfile() {
     }
 
     let cancelled = false;
-    // block UI while we check role
     setRedirecting(true);
     (async () => {
       try {
@@ -307,24 +296,25 @@ export default function BuilderProfile() {
     };
   }, [api, user, authLoading, router.isReady, router]);
 
-  // --- Normal page state/hooks (declared every render) ---
+  // --- Normal page state/hooks ---
   const [builder, setBuilder] = useState<Builder | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
   const [aggPhones, setAggPhones] = useState<string[]>([]);
+  const [aggEmails, setAggEmails] = useState<string[]>([]);
   const [aggNames, setAggNames] = useState<string[]>([]);
   const [aggPhotos, setAggPhotos] = useState<Photo[]>([]);
   const [aggUpdatedAt, setAggUpdatedAt] = useState<string | null>(null);
+  const [aggReviews, setAggReviews] = useState<Review[]>([]);
 
   const [verification, setVerification] = useState<Verification | null>(null);
-  const [verr, setVerr] = useState<string | null>(null);
-  const [vLoading, setVLoading] = useState(false);
-
   const [score, setScore] = useState<number | undefined>(undefined);
   const [scoreErr, setScoreErr] = useState<string | null>(null);
 
   const [projectOwnerId, setProjectOwnerId] = useState<string | null>(null);
+  const [friendCount, setFriendCount] = useState<number>(0);
+
   const isOwner = useMemo(
     () =>
       !!(user && projectOwnerId && String(user.uid) === String(projectOwnerId)),
@@ -337,7 +327,6 @@ export default function BuilderProfile() {
     if (!router.isReady || authLoading || !id || redirecting) return;
 
     if (!user) {
-      // guests: show locked preview quickly
       setLoading(false);
       setErr(null);
       return;
@@ -395,12 +384,10 @@ export default function BuilderProfile() {
     };
   }, [api, builder?.project?.id, user, redirecting]);
 
-  // CH verification
+  // CH verification (header badge)
   useEffect(() => {
     if (!router.isReady || authLoading || !user || !id || redirecting) return;
     let alive = true;
-    setVLoading(true);
-    setVerr(null);
     (async () => {
       try {
         const { data } = await getWithAuthRetry(() =>
@@ -410,10 +397,7 @@ export default function BuilderProfile() {
         setVerification(data?.verification || null);
       } catch {
         if (!alive) return;
-        setVerr("Could not load verification");
         setVerification(null);
-      } finally {
-        if (alive) setVLoading(false);
       }
     })();
     return () => {
@@ -449,6 +433,7 @@ export default function BuilderProfile() {
     };
   }, [api, id, router.isReady, authLoading, user, redirecting]);
 
+  // Aggregate VMB for company on project
   useEffect(() => {
     const projectId = builder?.project?.id;
     const companyName = builder?.company || "";
@@ -489,47 +474,99 @@ export default function BuilderProfile() {
           singleScore
         );
         if (!cancelled && typeof agg === "number") setScore(agg);
-      } catch {}
+      } catch {
+        // ignore
+      }
     })();
     return () => {
       cancelled = true;
     };
   }, [api, builder?.project?.id, builder?.company, score, redirecting]);
 
+  // Aggregate phones/emails/names/photos/reviews and friend count
   useEffect(() => {
     if (!builder || redirecting) return;
+
     (async () => {
       const pid = builder?.project?.id;
       const baseCompany = builder?.company || "";
+
+      // If we don't have a project context, just use this single recommendation
       if (!pid || !baseCompany) {
-        setAggPhones(builder?.phone ? [builder.phone] : []);
+        const singlePhones: string[] = [];
+        const singleEmails: string[] = [];
+
+        const phone = String(builder.phone || "").trim();
+        if (phone && phone.length >= 7) singlePhones.push(phone);
+
+        const email = String(builder.email || "").trim();
+        if (email && email.includes("@")) singleEmails.push(email);
+
+        setAggPhones(singlePhones);
+        setAggEmails(singleEmails);
         setAggNames([recommenderLabel(builder)]);
         setAggPhotos(normalizePhotos(builder));
         setAggUpdatedAt(builder?.createdAt || null);
+        setFriendCount(builder.fromFriend === 1 ? 1 : 0);
+        setAggReviews(
+          builder.comment
+            ? [
+                {
+                  id: builder.id,
+                  name: recommenderLabel(builder),
+                  comment: String(builder.comment).trim(),
+                  createdAt: builder.createdAt,
+                },
+              ]
+            : []
+        );
         return;
       }
+
+      // Fetch all recs for this project and company, then hydrate each one
       const allRecs = await fetchProjectRecommendations(api, pid);
       const key = companyKey(baseCompany);
       const byId = new Map<number, any>();
       const source = [builder, ...allRecs].filter(Boolean);
+
       for (const r of source) {
         if (!r || typeof r.id !== "number") continue;
         if (companyKey(r.company || "") !== key) continue;
         if (!byId.has(r.id)) byId.set(r.id, r);
       }
-      const group = Array.from(byId.values());
-      if (group.length === 0) group.push(builder);
 
-      const phones = Array.from(
-        new Set(
-          group
-            .map((r) => String(r.phone || "").trim())
-            .filter((p) => p && p.length >= 7)
-        )
+      let group = Array.from(byId.values());
+      if (group.length === 0) group = [builder];
+
+      // Hydrate each recommendation so we always have phone/email/comment/photos
+      const hydratedRaw = await Promise.all(
+        group.map(async (r) => {
+          if (!r || typeof r.id !== "number") return null;
+          try {
+            const { data } = await api.get(`/api/recommendations/${r.id}`);
+            return data?.recommendation || r;
+          } catch {
+            return r;
+          }
+        })
       );
-      const names = Array.from(new Set(group.map((r) => recommenderLabel(r))));
+      const full = hydratedRaw.filter(Boolean) as any[];
+
+      // Phones – collect all (including duplicates, as requested)
+      const phones: string[] = full
+        .map((r) => String(r.phone || "").trim())
+        .filter((p) => p && p.length >= 7);
+
+      // Emails – collect all (including duplicates)
+      const emails: string[] = full
+        .map((r) => String(r.email || "").trim())
+        .filter((e) => e && e.includes("@"));
+
+      // Names (dedup – just for display)
+      const names = Array.from(new Set(full.map((r) => recommenderLabel(r))));
+
       const latestMs = Math.max(
-        ...group
+        ...full
           .map((r) => +new Date(r.createdAt))
           .filter((n) => Number.isFinite(n))
       );
@@ -537,25 +574,19 @@ export default function BuilderProfile() {
         ? new Date(latestMs).toISOString()
         : builder.createdAt;
 
-      const photoLists = await Promise.all(
-        group.map(async (r) => {
-          try {
-            const { data } = await api.get(`/api/recommendations/${r.id}`);
-            const rec = data?.recommendation || r;
-            const ph = normalizePhotos(rec);
-            const by = recommenderLabel(rec);
-            return ph.map((p: any) => ({
-              ...p,
-              alt:
-                p.alt && p.alt.trim()
-                  ? p.alt
-                  : `${rec.company} — photo from ${by}`,
-            }));
-          } catch {
-            return [] as Photo[];
-          }
-        })
-      );
+      const friendCountVal = full.filter((r: any) => r.fromFriend === 1).length;
+
+      // Photos from all recommendations
+      const photoLists = full.map((rec: any) => {
+        const ph = normalizePhotos(rec);
+        const by = recommenderLabel(rec);
+        return ph.map((p: any) => ({
+          ...p,
+          alt:
+            p.alt && p.alt.trim() ? p.alt : `${rec.company} — photo from ${by}`,
+        }));
+      });
+
       const seen = new Set<string>();
       const merged: Photo[] = [];
       for (const arr of photoLists) {
@@ -566,10 +597,30 @@ export default function BuilderProfile() {
           merged.push(p);
         }
       }
+
+      // Reviews list from all recommendations with comments
+      const reviews: Review[] = full
+        .filter((r: any) => r.comment && String(r.comment).trim().length > 0)
+        .map((r: any) => ({
+          id: r.id,
+          name: recommenderLabel(r),
+          comment: String(r.comment).trim(),
+          createdAt: r.createdAt,
+        }));
+
+      reviews.sort((a, b) => {
+        const aTime = a.createdAt ? +new Date(a.createdAt) : 0;
+        const bTime = b.createdAt ? +new Date(b.createdAt) : 0;
+        return bTime - aTime;
+      });
+
       setAggPhones(phones);
+      setAggEmails(emails);
       setAggNames(names);
       setAggPhotos(merged.length ? merged : normalizePhotos(builder));
       setAggUpdatedAt(latestIso || builder.createdAt || null);
+      setFriendCount(friendCountVal);
+      setAggReviews(reviews);
     })();
   }, [api, builder, redirecting]);
 
@@ -600,7 +651,9 @@ export default function BuilderProfile() {
             ? r.items[0].score
             : undefined);
         if (typeof v === "number") setScore(v);
-      } catch {}
+      } catch {
+        // ignore
+      }
     } catch (e: any) {
       setBuilder((b) =>
         b && b.myLike === 1
@@ -613,76 +666,6 @@ export default function BuilderProfile() {
     }
   };
 
-  function renderCHStatus(v?: Verification | null) {
-    const status = v?.status ?? (vLoading ? "running" : "queued");
-    if (status === "verified") {
-      return (
-        <span
-          className="inline-flex items-center gap-1"
-          data-testid="verification-ch-status"
-          aria-label="Companies House: Verified"
-          title="Verified"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden className="h-5 w-5">
-            <circle cx="12" cy="12" r="10" fill="#22C55E" />
-            <path
-              d="M7.5 12.5l3 3 6-6"
-              fill="none"
-              stroke="white"
-              strokeWidth={2.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          <span className="sr-only">Verified</span>
-        </span>
-      );
-    }
-    if (status === "running" || status === "queued") {
-      return (
-        <span
-          className="inline-flex items-center gap-1 text-sm text-slate-600"
-          data-testid="verification-ch-status"
-        >
-          <ClockIcon className="h-5 w-5 text-slate-500" />
-          Checking…
-        </span>
-      );
-    }
-    if (status === "ambiguous") {
-      return (
-        <span
-          className="inline-flex items-center gap-1 text-sm text-amber-700"
-          data-testid="verification-ch-status"
-        >
-          <ExclamationTriangleIcon className="h-5 w-5 text-amber-600" />
-          Needs review
-        </span>
-      );
-    }
-    if (status === "no_match") {
-      return (
-        <span
-          className="inline-flex items-center gap-1 text-sm text-slate-600"
-          data-testid="verification-ch-status"
-        >
-          <ExclamationTriangleIcon className="h-5 w-5 text-slate-500" />
-          No match
-        </span>
-      );
-    }
-    return (
-      <span
-        className="inline-flex items-center gap-1 text-sm text-rose-700"
-        data-testid="verification-ch-status"
-      >
-        <ExclamationTriangleIcon className="h-5 w-5 text-rose-600" />
-        Error
-      </span>
-    );
-  }
-
-  // --- block UI completely while redirecting (no flicker for tradesmen) ---
   if (redirecting) return null;
 
   const companyName = user
@@ -695,8 +678,8 @@ export default function BuilderProfile() {
     (builder ? new Date().toISOString() : null);
 
   const primaryPhone = user && aggPhones.length > 0 ? aggPhones[0] : null;
+  const primaryEmail = user && aggEmails.length > 0 ? aggEmails[0] : null;
 
-  // simple initials avatar if no photo
   const avatarInitials = companyName
     .split(" ")
     .filter(Boolean)
@@ -709,36 +692,6 @@ export default function BuilderProfile() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold" data-testid="builder-page-title">
-          Builder profile
-        </h1>
-        {builder?.project && (
-          <Link
-            href="/projects"
-            aria-label="Back to my projects"
-            title="Back to my projects"
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-            data-testid="btn-back"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M10 19l-7-7 7-7" />
-              <path d="M3 12h18" />
-            </svg>
-            <span>Back to projects</span>
-          </Link>
-        )}
-      </div>
-
       {authLoading || loading ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           Loading…
@@ -753,11 +706,22 @@ export default function BuilderProfile() {
       ) : (
         builder && (
           <div className="space-y-6">
-            {/* Header card like tradesman page */}
+            {/* Back to project */}
+            {builder.project?.id && (
+              <button
+                type="button"
+                onClick={() => router.push(`/projects/${builder.project!.id}`)}
+                className="inline-flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-slate-700"
+              >
+                <span aria-hidden>←</span>
+                <span>Back to this project</span>
+              </button>
+            )}
+            {/* Header card */}
             <header className="rounded-2xl border border-slate-200 bg-white/80 backdrop-blur px-4 py-4 sm:px-6 sm:py-5 shadow-sm">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex items-start gap-3 sm:gap-4">
-                  <div className="h-16 w-16 sm:h-20 sm:w-20 overflow-hidden rounded-xl bg-slate-200 grid place-items-center text-lg font-semibold text-white">
+                  <div className="h-16 w-16 sm:h-20 sm:w-20 overflow-hidden rounded-2xl bg-slate-200 grid place-items-center text-lg font-semibold text-white">
                     {avatarUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -771,61 +735,82 @@ export default function BuilderProfile() {
                   </div>
                   <div className="min-w-0">
                     <h2
-                      className="truncate text-xl sm:text-2xl font-semibold tracking-tight text-slate-900"
+                      className="truncate text-2xl sm:text-3xl font-semibold tracking-tight text-slate-900"
                       title={companyName}
                       data-testid="builder-company"
                     >
                       {companyName}
                     </h2>
-                    <div
-                      className="mt-2 flex flex-wrap items-center gap-2"
-                      data-testid="builder-badges"
-                    >
+
+                    {/* badges row */}
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs sm:text-sm">
                       {verification?.status === "verified" && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5">
                           <span aria-hidden>✅</span>
-                          <span>Companies House verified</span>
+                          Companies House verified
                         </span>
                       )}
-                      {builder.fromFriend ? (
-                        <Badge color="indigo">Friend</Badge>
-                      ) : null}
+
+                      {friendCount > 0 && (
+                        <Badge color="indigo">
+                          {friendCount === 1
+                            ? "Shared by a friend"
+                            : "Shared by friends"}
+                        </Badge>
+                      )}
+
                       {builder.fromCommunity ? (
-                        <Badge color="green">Community</Badge>
+                        <Badge color="green">Community recommendation</Badge>
                       ) : null}
+
+                      {updatedDisplay && (
+                        <span className="text-xs text-slate-500">
+                          Updated{" "}
+                          {new Date(updatedDisplay).toLocaleDateString(
+                            "en-GB",
+                            {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            }
+                          )}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* quick stats */}
+                    <div className="mt-2 flex flex-wrap items-center gap-4 text-xs sm:text-sm text-neutral-700">
+                      <span data-testid="builder-votes">
+                        <ThumbsUpIcon className="mr-1 inline-block h-4 w-4 align-middle" />{" "}
+                        <span className="tabular-nums">
+                          {builder.likes ?? 0}
+                        </span>{" "}
+                        vote{(builder.likes ?? 0) === 1 ? "" : "s"}
+                      </span>
+                      {user ? (
+                        <span>
+                          <ScoreChip value={score ?? builder.score} />
+                        </span>
+                      ) : (
+                        <span className="rounded-full px-2 py-0.5 text-xs font-medium border border-slate-200 text-slate-500">
+                          VMB —
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex flex-col items-start sm:items-end gap-2">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="text-sm text-zinc-500 flex items-center gap-1"
-                      data-testid="builder-votes"
-                      aria-label={`Votes: ${builder.likes ?? 0}`}
-                      title={`${builder.likes ?? 0} vote${
-                        (builder.likes ?? 0) === 1 ? "" : "s"
-                      }`}
-                    >
-                      <ThumbsUpIcon className="h-4 w-4" />
-                      <span className="tabular-nums">{builder.likes ?? 0}</span>
-                    </div>
-                    {user ? (
-                      <ScoreChip value={score ?? builder.score} />
-                    ) : (
-                      <span className="rounded-full px-2 py-0.5 text-xs font-medium border border-slate-200 text-slate-500">
-                        VMB —
-                      </span>
-                    )}
-                  </div>
-
+                {/* Right side: vote button */}
+                <div className="flex sm:flex-col items-start sm:items-end">
                   {!isOwner && user && (
                     <button
-                      className={`mt-1 h-9 w-9 rounded-full border grid place-items-center text-sm transition ${
+                      className={[
+                        "inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs sm:text-sm font-medium shadow-sm border",
                         builder.myLike === 1
                           ? "bg-indigo-50 border-indigo-200 text-indigo-600 cursor-default"
-                          : "border-slate-300 hover:bg-slate-50"
-                      }`}
+                          : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50",
+                        voting ? "opacity-70 cursor-wait" : "",
+                      ].join(" ")}
                       disabled={
                         !user || builder.myLike === 1 || voting || !canVote
                       }
@@ -848,22 +833,13 @@ export default function BuilderProfile() {
                       }
                     >
                       <ThumbsUpIcon className="h-4 w-4" />
+                      <span>
+                        {builder.myLike === 1 ? "You’ve voted" : "Vote up"}
+                      </span>
                     </button>
                   )}
-
                   {scoreErr && (
-                    <div className="mt-1 text-xs text-rose-600">{scoreErr}</div>
-                  )}
-
-                  {updatedDisplay && (
-                    <div className="mt-1 text-xs text-slate-500">
-                      Updated{" "}
-                      {new Date(updatedDisplay).toLocaleDateString(undefined, {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </div>
+                    <div className="mt-2 text-xs text-rose-600">{scoreErr}</div>
                   )}
                 </div>
               </div>
@@ -871,244 +847,227 @@ export default function BuilderProfile() {
 
             {/* Main two-column layout */}
             <div className="grid gap-6 lg:grid-cols-[minmax(0,2.1fr)_minmax(280px,1fr)]">
-              {/* LEFT: Gallery + summary */}
+              {/* LEFT: Reviews + shared photos */}
               <div className="space-y-6">
-                {/* Gallery */}
-                <section
-                  className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm"
-                  data-testid="gallery-card"
-                  aria-labelledby="gallery-heading"
-                >
-                  <div className="mb-3 flex items-center justify-between">
-                    <h3
-                      id="gallery-heading"
-                      className="text-lg font-semibold text-slate-900"
-                    >
-                      Project photos
-                    </h3>
-                    <span
-                      className="text-xs text-slate-500"
-                      data-testid="gallery-count"
-                    >
-                      {user
-                        ? `${photos.length} photo${
-                            photos.length === 1 ? "" : "s"
-                          }`
-                        : "Locked preview"}
-                    </span>
-                  </div>
+                {/* Reviews */}
+                {aggReviews.length > 0 && (
+                  <section
+                    className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm"
+                    data-testid="builder-reviews-card"
+                  >
+                    <h2 className="text-sm sm:text-base font-semibold text-slate-900">
+                      Reviews from neighbours
+                    </h2>
+                    <p className="mt-1 text-xs text-slate-500">
+                      What your neighbours said when they recommended this
+                      builder.
+                    </p>
 
-                  {user ? (
-                    galleryImages.length === 0 ? (
-                      <p
-                        className="text-sm text-slate-500"
-                        data-testid="gallery-empty"
-                      >
-                        No photos yet. Upload images when submitting a
-                        recommendation to showcase the work.
-                      </p>
-                    ) : (
-                      <LightboxGallery
-                        images={galleryImages}
-                        cols={4}
-                        rounded="rounded-xl"
-                      />
-                    )
+                    <div className="mt-4 space-y-4">
+                      {aggReviews.map((rev) => (
+                        <article
+                          key={rev.id}
+                          className="rounded-xl border border-slate-100 bg-slate-50/70 p-3 sm:p-4"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <div className="h-7 w-7 rounded-full bg-indigo-100 text-indigo-700 grid place-items-center text-xs font-semibold">
+                                {rev.name
+                                  .split(" ")
+                                  .filter(Boolean)
+                                  .slice(0, 2)
+                                  .map((p) => p[0])
+                                  .join("")
+                                  .toUpperCase()}
+                              </div>
+                              <div className="text-sm font-medium text-slate-900">
+                                {rev.name}
+                              </div>
+                            </div>
+                            {rev.createdAt && (
+                              <time className="text-xs text-slate-500">
+                                {new Date(rev.createdAt).toLocaleDateString(
+                                  "en-GB",
+                                  {
+                                    day: "2-digit",
+                                    month: "short",
+                                    year: "numeric",
+                                  }
+                                )}
+                              </time>
+                            )}
+                          </div>
+                          <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap">
+                            {rev.comment}
+                          </p>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* Shared photos */}
+                {user ? (
+                  galleryImages.length > 0 ? (
+                    <SharedProfilePhotosSection images={galleryImages} />
                   ) : (
+                    <section
+                      className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 sm:p-5"
+                      data-testid="builder-shared-photos-empty"
+                    >
+                      <h2 className="text-sm sm:text-base font-semibold text-emerald-900 mb-1">
+                        Shared photos
+                      </h2>
+                      <p className="text-sm text-emerald-800">
+                        No photos have been shared for this builder yet.
+                      </p>
+                    </section>
+                  )
+                ) : (
+                  <section
+                    className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 sm:p-5"
+                    data-testid="builder-shared-photos-locked"
+                  >
+                    <h2 className="text-sm sm:text-base font-semibold text-emerald-900 mb-1">
+                      Shared photos
+                    </h2>
+                    <p className="text-sm text-emerald-800 mb-3">
+                      Create a free account to see photos your neighbours shared
+                      with this recommendation.
+                    </p>
                     <BlurUnlock
                       previewCount={3}
                       totalCount={photos.length || undefined}
                       label="photos from neighbours"
                     >
                       <div
-                        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2"
+                        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2"
                         aria-hidden
                       >
                         {new Array(6).fill(null).map((_, i) => (
                           <div
                             key={i}
-                            className="relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-slate-100"
+                            className="relative aspect-square overflow-hidden rounded-lg border border-emerald-100 bg-emerald-100"
                           >
-                            <div className="absolute inset-0 animate-pulse bg-slate-200" />
+                            <div className="absolute inset-0 animate-pulse bg-emerald-200/70" />
                           </div>
                         ))}
                       </div>
                     </BlurUnlock>
-                  )}
-                </section>
+                  </section>
+                )}
+              </div>
 
-                {/* Summary / recommenders / comment */}
+              {/* RIGHT: Profile details – phone + email list */}
+              <div className="space-y-6">
                 <section
                   className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm"
-                  data-testid="builder-summary-card"
-                  aria-labelledby="builder-summary-heading"
+                  aria-label="Contact details"
+                  data-testid="contact-details-card"
                 >
-                  <h3
-                    id="builder-summary-heading"
-                    className="text-lg font-semibold text-slate-900 mb-2"
-                  >
-                    Neighbours’ feedback
-                  </h3>
+                  <h2 className="text-sm sm:text-base font-semibold text-slate-900 mb-4">
+                    Profile details
+                  </h2>
 
-                  {builder.comment && (
-                    <p
-                      className="text-sm text-slate-700 whitespace-pre-wrap mb-4"
-                      data-testid="builder-comment"
-                    >
-                      {builder.comment}
-                    </p>
-                  )}
+                  {user ? (
+                    <div className="space-y-6 text-sm text-slate-800">
+                      <section data-testid="builder-contact-details-section">
+                        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
+                          Contact details
+                        </h3>
+                        <div className="space-y-4">
+                          {/* Phone numbers */}
+                          <div data-testid="builder-phone">
+                            <span className="text-[11px] uppercase tracking-wide text-slate-500 block">
+                              Phone
+                            </span>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-                    {user ? (
-                      <>
-                        <div className="space-y-1">
-                          <div className="text-slate-500">
-                            {aggNames.length > 1
-                              ? "Recommenders"
-                              : "Recommender"}
-                          </div>
-                          <div data-testid="builder-recommender">
-                            {aggNames.length === 0 ? (
-                              "—"
+                            {primaryPhone ? (
+                              <div className="mt-0.5 flex items-center gap-2">
+                                <a
+                                  href={`tel:${primaryPhone}`}
+                                  className="text-sm text-emerald-700 tabular-nums hover:underline"
+                                >
+                                  {primaryPhone}
+                                </a>
+                                <span className="rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-medium uppercase tracking-wide px-2 py-0.5">
+                                  Primary
+                                </span>
+                              </div>
                             ) : (
-                              <ul className="space-y-1">
-                                {aggNames.map((n, i) => (
-                                  <li
-                                    key={`${n}-${i}`}
-                                    className="flex items-start gap-2"
-                                  >
-                                    <span
-                                      aria-hidden
-                                      className="mt-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500"
-                                    />
-                                    <span className="text-slate-700">{n}</span>
+                              <span className="mt-0.5 block text-sm text-slate-400">
+                                Not provided
+                              </span>
+                            )}
+
+                            {aggPhones.length > 1 && (
+                              <ul className="mt-2 space-y-1">
+                                {aggPhones.slice(1).map((p, idx) => (
+                                  <li key={`${p}-${idx}`}>
+                                    <div className="flex items-center gap-2 text-xs">
+                                      <a
+                                        href={`tel:${p}`}
+                                        className="text-slate-700 tabular-nums hover:underline"
+                                      >
+                                        {p}
+                                      </a>
+                                      <span className="rounded-full bg-slate-100 text-slate-600 text-[10px] font-medium uppercase tracking-wide px-2 py-0.5">
+                                        Secondary
+                                      </span>
+                                    </div>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+
+                          {/* Emails */}
+                          <div data-testid="builder-email">
+                            <span className="text-[11px] uppercase tracking-wide text-slate-500 block">
+                              Email
+                            </span>
+
+                            {primaryEmail ? (
+                              <div className="mt-0.5 flex items-center gap-2">
+                                <a
+                                  href={`mailto:${primaryEmail}`}
+                                  className="text-sm text-emerald-700 break-all hover:underline"
+                                >
+                                  {primaryEmail}
+                                </a>
+                                <span className="rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-medium uppercase tracking-wide px-2 py-0.5">
+                                  Primary
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="mt-0.5 block text-sm text-slate-400">
+                                Not provided
+                              </span>
+                            )}
+
+                            {aggEmails.length > 1 && (
+                              <ul className="mt-2 space-y-1">
+                                {aggEmails.slice(1).map((e, idx) => (
+                                  <li key={`${e}-${idx}`}>
+                                    <div className="flex items-center gap-2 text-xs">
+                                      <a
+                                        href={`mailto:${e}`}
+                                        className="break-all text-slate-700 hover:underline"
+                                      >
+                                        {e}
+                                      </a>
+                                      <span className="rounded-full bg-slate-100 text-slate-600 text-[10px] font-medium uppercase tracking-wide px-2 py-0.5">
+                                        Secondary
+                                      </span>
+                                    </div>
                                   </li>
                                 ))}
                               </ul>
                             )}
                           </div>
                         </div>
-
-                        <div className="space-y-1">
-                          <div className="text-slate-500">Date updated</div>
-                          <time data-testid="builder-updated">
-                            {updatedDisplay
-                              ? new Date(updatedDisplay).toLocaleString(
-                                  undefined,
-                                  {
-                                    year: "numeric",
-                                    month: "short",
-                                    day: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  }
-                                )
-                              : "—"}
-                          </time>
-                        </div>
-
-                        <div className="space-y-1">
-                          <div className="text-slate-500">Builder phone</div>
-                          <div
-                            data-testid="builder-phone"
-                            className="tabular-nums"
-                          >
-                            {aggPhones.length === 0 ? (
-                              "—"
-                            ) : (
-                              <ul className="space-y-0.5">
-                                {aggPhones.map((p, i) => (
-                                  <li key={`${p}-${i}`}>{p}</li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="space-y-1">
-                          <div className="text-slate-500">Recommender</div>
-                          <SkeletonLine className="h-4 w-40" />
-                        </div>
-                        <div className="space-y-1">
-                          <div className="text-slate-500">Date updated</div>
-                          <SkeletonLine className="h-4 w-28" />
-                        </div>
-                        <div className="space-y-1">
-                          <div className="text-slate-500">Builder phone</div>
-                          <SkeletonLine className="h-4 w-36" />
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </section>
-              </div>
-
-              {/* RIGHT: Contact details + verifications (stacked) */}
-              <div className="space-y-6">
-                {/* Contact details card – like tradesman page */}
-                <section
-                  className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm"
-                  aria-label="Contact details"
-                  data-testid="contact-details-card"
-                >
-                  <h2 className="text-base font-semibold text-slate-900 mb-3">
-                    Contact details
-                  </h2>
-
-                  {user ? (
-                    <>
-                      <div className="space-y-1 mb-4">
-                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                          Phone
-                        </div>
-                        <div className="mt-1 text-sm text-emerald-700">
-                          {primaryPhone ?? "Not provided"}
-                        </div>
-                        {aggPhones.length > 1 && (
-                          <ul className="mt-1 text-xs text-slate-500 space-y-0.5">
-                            {aggPhones.slice(1).map((p, idx) => (
-                              <li key={`${p}-${idx}`}>{p}</li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-
-                      <hr className="my-3 border-slate-100" />
-
-                      <div className="space-y-1 mb-3">
-                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                          Recommenders
-                        </div>
-                        <div className="mt-1 text-sm text-slate-700">
-                          {aggNames.length === 0
-                            ? "Not specified"
-                            : aggNames.join(", ")}
-                        </div>
-                      </div>
-
-                      <hr className="my-3 border-slate-100" />
-
-                      <div className="space-y-1">
-                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                          Date updated
-                        </div>
-                        <div className="mt-1 text-sm text-slate-700">
-                          {updatedDisplay
-                            ? new Date(updatedDisplay).toLocaleDateString(
-                                undefined,
-                                {
-                                  year: "numeric",
-                                  month: "short",
-                                  day: "numeric",
-                                }
-                              )
-                            : "—"}
-                        </div>
-                      </div>
-                    </>
+                      </section>
+                    </div>
                   ) : (
                     <BlurUnlock
                       previewCount={0}
@@ -1124,92 +1083,13 @@ export default function BuilderProfile() {
                         </div>
                         <div>
                           <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            Recommenders
+                            Email
                           </div>
                           <SkeletonLine className="mt-1 h-4 w-40" />
-                        </div>
-                        <div>
-                          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            Date updated
-                          </div>
-                          <SkeletonLine className="mt-1 h-4 w-28" />
                         </div>
                       </div>
                     </BlurUnlock>
                   )}
-                </section>
-
-                {/* Verifications card (unchanged content, new styling) */}
-                <section
-                  className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm"
-                  data-testid="verifications-card"
-                  aria-labelledby="verifications-heading"
-                >
-                  <h3
-                    id="verifications-heading"
-                    className="text-base font-semibold text-slate-900"
-                  >
-                    Verifications
-                  </h3>
-                  <p
-                    className="mt-1 text-sm text-slate-600"
-                    data-testid="verifications-copy"
-                  >
-                    Extra checks we run so you can decide with confidence.
-                  </p>
-
-                  <div className="mt-4 divide-y divide-slate-100">
-                    <div
-                      className="py-3 flex items-center justify-between gap-4"
-                      data-testid="verification-companies-house"
-                    >
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium">
-                          Companies House
-                        </div>
-                        {verification?.companyNumber ? (
-                          <div className="text-xs text-slate-500">
-                            #{verification.companyNumber}
-                          </div>
-                        ) : null}
-                      </div>
-                      <div className="shrink-0">
-                        {verr ? (
-                          <span className="text-sm text-rose-700 inline-flex items-center gap-1">
-                            <ExclamationTriangleIcon className="h-5 w-5 text-rose-600" />
-                            Error
-                          </span>
-                        ) : user ? (
-                          renderCHStatus(verification)
-                        ) : (
-                          <span className="text-sm text-slate-500">
-                            Sign in to view
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div
-                      className="py-3 flex items-center justify-between gap-4"
-                      data-testid="verification-google-row"
-                    >
-                      <div className="min-w-0 flex items-center gap-2">
-                        <GoogleMark />
-                      </div>
-                      <div className="shrink-0">
-                        <span className="inline-flex items-center gap-2 text-sm">
-                          <span className="font-medium">5.0</span>
-                          <span aria-hidden className="flex gap-0.5">
-                            <span className="text-yellow-400">★</span>
-                            <span className="text-yellow-400">★</span>
-                            <span className="text-yellow-400">★</span>
-                            <span className="text-yellow-400">★</span>
-                            <span className="text-yellow-400">★</span>
-                          </span>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
                 </section>
               </div>
             </div>
