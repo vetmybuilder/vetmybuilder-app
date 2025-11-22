@@ -1,3 +1,4 @@
+// web/pages/register.tsx
 import Head from "next/head";
 import Link from "next/link";
 import { useState, useMemo, useEffect } from "react";
@@ -6,6 +7,7 @@ import { useApi } from "@/utils/api";
 import { initFirebase } from "@/utils/firebase";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { useAuth } from "@/utils/auth";
+import { ensureEmailAvailable } from "@/utils/email";
 
 function getStoredReturnTo() {
   try {
@@ -58,6 +60,9 @@ export default function Register() {
     try {
       const { firstName, lastName, username, email, password, location } = form;
 
+      // 🔹 Check email availability (including aliases) BEFORE hitting Firebase
+      await ensureEmailAvailable(api, email.trim());
+
       const auth = initFirebase();
       const cred = await createUserWithEmailAndPassword(auth, email, password);
 
@@ -84,7 +89,30 @@ export default function Register() {
       } catch {}
       router.replace(nextPath || "/");
     } catch (e: any) {
-      setErr(e?.message || "Registration failed");
+      // Prefer our custom email message (ensureEmailAvailable) if present
+      const raw = e?.message || "";
+
+      if (
+        raw.includes("already exists (including aliases)") ||
+        raw.includes("already exists. Try signing in")
+      ) {
+        setErr(
+          "An account with this email already exists. Try signing in instead."
+        );
+      } else if (raw.startsWith("Firebase:")) {
+        // Fallback mapping for other Firebase auth errors
+        if (raw.includes("auth/email-already-in-use")) {
+          setErr(
+            "An account with this email already exists. Try signing in instead."
+          );
+        } else if (raw.includes("auth/weak-password")) {
+          setErr("Your password is too weak. Try a longer password.");
+        } else {
+          setErr("Registration failed. Please double-check your details.");
+        }
+      } else {
+        setErr(raw || "Registration failed");
+      }
     } finally {
       setLoading(false);
     }

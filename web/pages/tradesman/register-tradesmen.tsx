@@ -23,6 +23,7 @@ import {
   normalizeX,
   normalizeYouTube,
 } from "@/utils/socialLinks";
+import { ensureEmailAvailable } from "@/utils/email";
 
 const DRAFT_KEY = "vmb.vendorDraft.v3";
 const REG_SENTINEL = "__vendor_registration_in_progress__";
@@ -212,16 +213,6 @@ export default function TradesmanRegisterV2Page() {
     });
   }, [form.discountMin, form.discountMax]); // eslint-disable-line
 
-  // ---- email availability (Firebase Auth normalized) ----
-  async function ensureEmailAvailable(email: string) {
-    const { data } = await api.post("/api/auth/check-email", { email });
-    if (data?.ok !== true) throw new Error(data?.error || "Email check failed");
-    if (data?.exists || data?.existsNormalized)
-      throw new Error(
-        "An account with this email already exists (including aliases). Try signing in."
-      );
-  }
-
   // ---- step handlers ----
 
   // STEP 1 -> 2
@@ -242,7 +233,7 @@ export default function TradesmanRegisterV2Page() {
     }
 
     try {
-      await ensureEmailAvailable(form.email.trim());
+      await ensureEmailAvailable(api, form.email.trim());
       setStep(2);
     } catch (ex: any) {
       setEmailErr(
@@ -329,7 +320,8 @@ export default function TradesmanRegisterV2Page() {
       if (form.password !== form.confirmPassword)
         throw new Error("Passwords do not match.");
 
-      await ensureEmailAvailable(form.email.trim());
+      // 🔹 Ensure email isn't already taken (including aliases)
+      await ensureEmailAvailable(api, form.email.trim());
 
       // 1) Create Firebase user (this also logs them in)
       const auth = initFirebase();
