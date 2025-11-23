@@ -33,6 +33,55 @@ if (!fetchFn) {
   }
 }
 
+// Optional fuzzy name scorer from companyVerifyHelpers
+const { _roughNameScore } = (() => {
+  try {
+    // NOTE: this file lives in server/lib, same as companyVerifyHelpers
+    return require("./companyVerifyHelpers");
+  } catch {
+    return { _roughNameScore: () => 0 };
+  }
+})();
+
+// Threshold for accepting a Google result as "the same business"
+const MIN_GOOGLE_NAME_SCORE = 82;
+
+function normaliseNameForScore(input) {
+  if (!input) return "";
+  // Uppercase + trim basic suffixes like LTD / LIMITED
+  let s = String(input).toUpperCase().trim();
+
+  // Strip common company suffixes – this makes BUILDERAMA LTD closer to BUILDERAMA
+  s = s.replace(/\b(LTD|LIMITED|LTD\.|LIMTED|PLC|LLP)\b/g, "").trim();
+
+  // Collapse multiple spaces
+  s = s.replace(/\s+/g, " ");
+  return s;
+}
+
+function namesRoughlyMatch(a, b) {
+  const aa = normaliseNameForScore(a);
+  const bb = normaliseNameForScore(b);
+  if (!aa || !bb) return false;
+
+  try {
+    const score = _roughNameScore(aa, bb);
+    const n = Number(score);
+    if (!Number.isFinite(n)) return false;
+
+    console.log(`${TAG} nameScore query="${aa}" google="${bb}" score=${n}`);
+
+    return n >= MIN_GOOGLE_NAME_SCORE;
+  } catch (e) {
+    console.warn(
+      `${TAG} _roughNameScore failed; falling back to strict compare:`,
+      e && e.message ? e.message : e
+    );
+    // Fallback: strict equality on normalised names
+    return aa === bb;
+  }
+}
+
 async function lookupBusiness({ name, locationHint, companyNumber }) {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   if (!apiKey) {
@@ -95,10 +144,20 @@ async function lookupBusiness({ name, locationHint, companyNumber }) {
       return null;
     }
 
-    // For now, just take the first result. You can add smarter matching later.
+    // For now, just take the first result, but guard it with a name similarity check.
     const best = results[0];
 
     if (!best || !best.place_id) {
+      return null;
+    }
+
+    const googleName = typeof best.name === "string" ? best.name.trim() : "";
+
+    // 🔒 New: only accept this result if the Google name roughly matches the requested name
+    if (!namesRoughlyMatch(googleName, trimmedName)) {
+      console.warn(
+        `${TAG} rejecting Google place due to name mismatch: query="${trimmedName}" google="${googleName}" placeId=${best.place_id}`
+      );
       return null;
     }
 
@@ -114,9 +173,11 @@ async function lookupBusiness({ name, locationHint, companyNumber }) {
     };
 
     console.log(
-      `${TAG} matched placeId=${out.placeId} rating=${
+      `${TAG} accepted placeId=${out.placeId} rating=${
         out.rating ?? "-"
-      } reviews=${out.userRatingsTotal ?? "-"} for query="${query}"`
+      } reviews=${
+        out.userRatingsTotal ?? "-"
+      } for query="${query}" name="${googleName}"`
     );
 
     return out;

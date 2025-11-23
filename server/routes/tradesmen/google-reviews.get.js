@@ -1,4 +1,3 @@
-// server/routes/tradesmen/google-reviews.get.js
 //
 // GET /api/tradesmen/:id/google-reviews
 // Returns the stored Google review metadata (place id, rating, count)
@@ -34,7 +33,19 @@ module.exports = (router, ctx) => {
         `${TAG} tradesmen.google_reviews_count missing – did you run migration 027?`
       );
     }
+    if (!cols.has("company_number")) {
+      console.warn(
+        `${TAG} tradesmen.company_number missing – some fallbacks may not work`
+      );
+    }
   };
+
+  const hasTable = (name) =>
+    !!db
+      .prepare(
+        `SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1`
+      )
+      .get(name);
 
   ensureGoogleCols();
 
@@ -60,6 +71,7 @@ module.exports = (router, ctx) => {
           id,
           user_id,
           company_name,
+          company_number,
           google_place_id,
           google_rating,
           google_reviews_count
@@ -78,17 +90,74 @@ module.exports = (router, ctx) => {
       return res.status(404).json({ error: "tradesman_not_found" });
     }
 
+    // Primary source: fields stored on tradesmen row
+    let googlePlaceId =
+      row.google_place_id === undefined || row.google_place_id === null
+        ? null
+        : String(row.google_place_id);
+    let rating =
+      row.google_rating === null || row.google_rating === undefined
+        ? null
+        : Number(row.google_rating);
+    let reviewsCount =
+      row.google_reviews_count === null ||
+      row.google_reviews_count === undefined
+        ? 0
+        : Number(row.google_reviews_count);
+
+    // Fallback source: latest company_verifications row (if table exists and
+    // tradesman row has no Google data yet). This lets older tradesmen pick up
+    // Google metadata without needing a manual backfill.
+    if (
+      (!googlePlaceId || rating == null || !reviewsCount) &&
+      hasTable("company_verifications")
+    ) {
+      try {
+        const ver = db
+          .prepare(
+            `
+            SELECT
+              google_place_id,
+              google_rating,
+              google_reviews_count
+            FROM company_verifications
+            WHERE company_number = @companyNumber
+            ORDER BY checked_at DESC, id DESC
+            LIMIT 1
+          `
+          )
+          .get({
+            companyNumber: row.company_number || null,
+          });
+
+        if (ver) {
+          if (!googlePlaceId && ver.google_place_id) {
+            googlePlaceId = String(ver.google_place_id);
+          }
+          if (rating == null && ver.google_rating != null) {
+            rating = Number(ver.google_rating);
+          }
+          if (!reviewsCount && ver.google_reviews_count != null) {
+            reviewsCount = Number(ver.google_reviews_count);
+          }
+        }
+      } catch (e) {
+        console.warn(
+          `${TAG} fallback from company_verifications failed:`,
+          e?.message || e
+        );
+      }
+    }
+
     const payload = {
       ok: true,
       tradesmanId: row.id,
       userId: row.user_id,
       companyName: row.company_name,
-      googlePlaceId: row.google_place_id || null,
-      rating:
-        row.google_rating === null || row.google_rating === undefined
-          ? null
-          : Number(row.google_rating),
-      reviewsCount: Number(row.google_reviews_count || 0),
+      companyNumber: row.company_number || null,
+      googlePlaceId: googlePlaceId || null,
+      rating: rating,
+      reviewsCount: reviewsCount || 0,
 
       // Placeholder for when you later plug in live Google Places data
       reviews: [], // e.g. [{ author, rating, text, time }, ...]

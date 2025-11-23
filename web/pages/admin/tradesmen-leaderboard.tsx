@@ -247,6 +247,7 @@ export default function AdminTradesmenLeaderboardPage() {
       setMenuUid(null);
     }
   }
+
   // ----- one-off unlocks: no popups, auto if exactly one; otherwise brief banner
   function getPendingIds(it: Item): number[] {
     const arr = Array.isArray(it.pendingUnlockProjectIds)
@@ -492,7 +493,7 @@ export default function AdminTradesmenLeaderboardPage() {
 
       <AuthedOnly>
         <div
-          className="mx-auto px-4 py-6 max-w-[1700px]"
+          className="mx-auto px-4 py-6 w-full max-w-none"
           data-testid="admin-tradesmen-leaderboard-page"
         >
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -646,32 +647,28 @@ export default function AdminTradesmenLeaderboardPage() {
               </div>
 
               {/* Table */}
-              <div
-                className="overflow-x-visible border rounded-xl pr-4"
-                data-testid="table"
-              >
+              <div className="border rounded-xl" data-testid="table">
                 <table className="w-full table-fixed text-sm">
-                  {/* colgroup + thead unchanged */}
                   <colgroup>
-                    <col className="w-[12%]" />
-                    <col className="w-[6%]" />
-                    <col className="w-[6%]" />
-                    <col className="w-[6%]" />
-                    <col className="w-[8%]" />
-                    <col className="w-[9%]" />
-                    <col className="w-[6%]" />
-                    <col className="w-[6%]" />
-                    <col className="w-[5%]" />
-                    <col className="w-[8%]" />
-                    <col className="w-[8%]" />
-                    <col className="w-[6%]" />
-                    <col className="w-[6%]" />
-                    <col className="w-[12%]" />
-                    <col className="w-[7%]" />
+                    <col className="w-[13%]" /> {/* Company */}
+                    <col className="w-[7%]" /> {/* VMB Score */}
+                    <col className="w-[7%]" /> {/* CH */}
+                    <col className="w-[7%]" /> {/* Web */}
+                    <col className="w-[10%]" /> {/* Trades */}
+                    <col className="w-[9%]" /> {/* Areas */}
+                    <col className="w-[6%]" /> {/* Status */}
+                    <col className="w-[6%]" /> {/* Plan */}
+                    <col className="w-[5%]" /> {/* Flags */}
+                    <col className="w-[9%]" /> {/* URLs */}
+                    <col className="w-[9%]" /> {/* Signals */}
+                    <col className="w-[9%]" /> {/* Unlocks */}
+                    <col className="w-[7%]" /> {/* Joined */}
+                    <col className="w-[9%]" /> {/* Updated */}
+                    <col className="w-[10%]" /> {/* Actions */}
                   </colgroup>
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="text-left">
+                      <th className="text-left sticky top-0 bg-gray-50 z-10">
                         <SortHeader
                           label="Company"
                           k="company"
@@ -681,7 +678,7 @@ export default function AdminTradesmenLeaderboardPage() {
                           setSortDir={setSortDir}
                         />
                       </th>
-                      <th className="text-left">
+                      <th className="text-left sticky top-0 bg-gray-50 z-10">
                         <SortHeader
                           label="VMB Score"
                           k="score"
@@ -691,7 +688,7 @@ export default function AdminTradesmenLeaderboardPage() {
                           setSortDir={setSortDir}
                         />
                       </th>
-                      <th className="text-left">
+                      <th className="text-left sticky top-0 bg-gray-50 z-10">
                         <SortHeader
                           label="CH"
                           k="chStatus"
@@ -701,7 +698,7 @@ export default function AdminTradesmenLeaderboardPage() {
                           setSortDir={setSortDir}
                         />
                       </th>
-                      <th className="text-left">
+                      <th className="text-left sticky top-0 bg-gray-50 z-10">
                         <SortHeader
                           label="Web"
                           k="webVerified"
@@ -711,7 +708,7 @@ export default function AdminTradesmenLeaderboardPage() {
                           setSortDir={setSortDir}
                         />
                       </th>
-                      <th className="text-left">
+                      <th className="text-left sticky top-0 bg-gray-50 z-10">
                         <SortHeader
                           label="Trades"
                           k="trades"
@@ -721,7 +718,7 @@ export default function AdminTradesmenLeaderboardPage() {
                           setSortDir={setSortDir}
                         />
                       </th>
-                      <th className="text-left">
+                      <th className="text-left sticky top-0 bg-gray-50 z-10">
                         <SortHeader
                           label="Areas"
                           k="areas"
@@ -731,7 +728,7 @@ export default function AdminTradesmenLeaderboardPage() {
                           setSortDir={setSortDir}
                         />
                       </th>
-                      <th className="text-left">
+                      <th className="text-left sticky top-0 bg-gray-50 z-10">
                         <SortHeader
                           label="Status"
                           k="status"
@@ -741,7 +738,7 @@ export default function AdminTradesmenLeaderboardPage() {
                           setSortDir={setSortDir}
                         />
                       </th>
-                      <th className="text-left">
+                      <th className="text-left sticky top-0 bg-gray-50 z-10">
                         <SortHeader
                           label="Plan"
                           k="plan"
@@ -751,7 +748,7 @@ export default function AdminTradesmenLeaderboardPage() {
                           setSortDir={setSortDir}
                         />
                       </th>
-                      <th className="text-left">
+                      <th className="text-left sticky top-0 bg-gray-50 z-10">
                         <SortHeader
                           label="Flags"
                           k="openFlags"
@@ -761,7 +758,7 @@ export default function AdminTradesmenLeaderboardPage() {
                           setSortDir={setSortDir}
                         />
                       </th>
-                      <th className="text-left">
+                      <th className="text-left sticky top-0 bg-gray-50 z-10">
                         <SortHeader
                           label="URLs"
                           k="urls"
@@ -771,7 +768,7 @@ export default function AdminTradesmenLeaderboardPage() {
                           setSortDir={setSortDir}
                         />
                       </th>
-                      <th className="text-left">
+                      <th className="text-left sticky top-0 bg-gray-50 z-10">
                         <SortHeader
                           label="Signals"
                           k="signals"
@@ -782,7 +779,7 @@ export default function AdminTradesmenLeaderboardPage() {
                           setSortDir={setSortDir}
                         />
                       </th>
-                      <th className="text-left">
+                      <th className="text-left sticky top-0 bg-gray-50 z-10">
                         <SortHeader
                           label="Unlocks"
                           k="unlocks"
@@ -792,7 +789,7 @@ export default function AdminTradesmenLeaderboardPage() {
                           setSortDir={setSortDir}
                         />
                       </th>
-                      <th className="text-left">
+                      <th className="text-left sticky top-0 bg-gray-50 z-10">
                         <SortHeader
                           label="Joined"
                           k="createdAt"
@@ -802,7 +799,7 @@ export default function AdminTradesmenLeaderboardPage() {
                           setSortDir={setSortDir}
                         />
                       </th>
-                      <th className="text-left">
+                      <th className="text-left sticky top-0 bg-gray-50 z-10">
                         <SortHeader
                           label="Updated"
                           k="updatedAt"
@@ -812,7 +809,9 @@ export default function AdminTradesmenLeaderboardPage() {
                           setSortDir={setSortDir}
                         />
                       </th>
-                      <th className="text-left px-2 py-2">Actions</th>
+                      <th className="text-left px-3 py-2 sticky top-0 bg-gray-50 z-10">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
 
@@ -821,7 +820,7 @@ export default function AdminTradesmenLeaderboardPage() {
                       <tr>
                         <td
                           colSpan={15}
-                          className="px-2 py-6 text-center text-gray-500"
+                          className="px-3 py-6 text-center text-gray-500"
                         >
                           No results.
                         </td>
@@ -830,8 +829,7 @@ export default function AdminTradesmenLeaderboardPage() {
 
                     {sortedItems.map((it) => {
                       const isRowBusy = mutatingUid === it.userId;
-                      const urlsToShow = it.urls.slice(0, 2);
-                      const extra = it.urls.length - urlsToShow.length;
+                      const urlsToShow = it.urls || [];
                       const isOpen = menuUid === it.userId;
 
                       const pendingPlan = getPendingPlan(it);
@@ -897,7 +895,7 @@ export default function AdminTradesmenLeaderboardPage() {
                           className="border-t align-top"
                           data-testid={`row-${it.userId}`}
                         >
-                          <td className="px-2 py-2">
+                          <td className="px-3 py-2">
                             <div className="font-medium break-words whitespace-normal">
                               {it.company}
                             </div>
@@ -911,27 +909,27 @@ export default function AdminTradesmenLeaderboardPage() {
                             )}
                           </td>
 
-                          <td className="px-2 py-2 font-semibold">
+                          <td className="px-3 py-2 font-semibold">
                             {it.score.toFixed(1)}
                           </td>
-                          <td className="px-2 py-2 text-xs">{chChip}</td>
-                          <td className="px-2 py-2 text-xs">{webChip}</td>
-                          <td className="px-2 py-2 text-xs break-words whitespace-normal">
+                          <td className="px-3 py-2 text-xs">{chChip}</td>
+                          <td className="px-3 py-2 text-xs">{webChip}</td>
+                          <td className="px-3 py-2 text-xs break-words whitespace-normal">
                             {it.trades || "—"}
                           </td>
-                          <td className="px-2 py-2 text-xs break-words whitespace-normal">
+                          <td className="px-3 py-2 text-xs break-words whitespace-normal">
                             {it.areas || "—"}
                           </td>
 
-                          <td className="px-2 py-2">
+                          <td className="px-3 py-2">
                             <StatusChip value={it.status} />
                           </td>
-                          <td className="px-2 py-2 text-xs">{effectivePlan}</td>
-                          <td className="px-2 py-2">
+                          <td className="px-3 py-2 text-xs">{effectivePlan}</td>
+                          <td className="px-3 py-2">
                             <FlagChip n={it.openFlags} />
                           </td>
 
-                          <td className="px-2 py-2 text-xs break-words whitespace-normal">
+                          <td className="px-3 py-2 text-xs break-words whitespace-normal">
                             {urlsToShow.length === 0 ? (
                               "—"
                             ) : (
@@ -947,16 +945,11 @@ export default function AdminTradesmenLeaderboardPage() {
                                     {u.replace(/^https?:\/\//, "")}
                                   </a>
                                 ))}
-                                {extra > 0 && (
-                                  <span className="text-gray-500">
-                                    +{extra} more
-                                  </span>
-                                )}
                               </div>
                             )}
                           </td>
 
-                          <td className="px-2 py-2 text-xs break-words whitespace-normal">
+                          <td className="px-3 py-2 text-xs break-words whitespace-normal">
                             <div>Photos: {it.photos}</div>
                             <div>Docs: {it.docs}</div>
                             <div>Warranty: {warrantyText}</div>
@@ -965,22 +958,22 @@ export default function AdminTradesmenLeaderboardPage() {
                             <div>Wins: {it.wins}</div>
                           </td>
 
-                          <td className="px-2 py-2 text-xs">
+                          <td className="px-3 py-2 text-xs">
                             {unlocksDisplay}
                           </td>
 
-                          <td className="px-2 py-2 text-xs">
+                          <td className="px-3 py-2 text-xs">
                             {it.createdAt
                               ? new Date(it.createdAt).toLocaleDateString(
                                   "en-GB"
                                 )
                               : "—"}
                           </td>
-                          <td className="px-2 py-2 text-xs">
+                          <td className="px-3 py-2 text-xs">
                             {new Date(it.updatedAt).toLocaleDateString("en-GB")}
                           </td>
 
-                          <td className="px-2 py-2">
+                          <td className="px-3 py-2">
                             <div
                               className="relative inline-block"
                               ref={isOpen ? menuRef : null}
@@ -1292,7 +1285,7 @@ function SortHeader({
     <button
       type="button"
       title={title || `Sort by ${label}`}
-      className={`flex items-center gap-1 px-2 py-2 hover:bg-gray-100 rounded ${className}`}
+      className={`flex items-center gap-1 px-3 py-2 hover:bg-gray-100 rounded ${className}`}
       onClick={() => {
         if (active) setSortDir(dir === "asc" ? "desc" : "asc");
         else {

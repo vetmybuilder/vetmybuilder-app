@@ -1,4 +1,4 @@
-// server/v2/lib/companyVerifyHelpers.js
+// server/lib/companyVerifyHelpers.js
 function _normName(s = "") {
   return String(s)
     .toLowerCase()

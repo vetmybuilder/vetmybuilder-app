@@ -1,4 +1,5 @@
 // server/routes/projects/recommendations.post.js
+
 /**
  * POST /api/projects/:id/recommendations
  * Auth: required
@@ -19,7 +20,9 @@
  *      1) Exact (case-insensitive) match in local recommendations table.
  *      2) If not found and CH helpers are available, query Companies House to find the best match.
  *  - We then insert using the resolved name so UI grouping displays the normalized builder immediately.
- *  - Background verification via queueCompanyVerification still runs as before.
+ *  - Background verification via queueCompanyVerification still runs as before, but now we also pass
+ *    the resolved Companies House company_number if we have it, so Google matching can use that as
+ *    the single source of truth.
  *  - We store recommender name/email/phone in the DB but NEVER return them in the response.
  *  - We return only a "relation" label ("friend" vs "neighbour" vs "owner") for UI badges.
  */
@@ -164,6 +167,8 @@ module.exports = (router, ctx) => {
         // 1) Try local DB exact match first (case-insensitive)
         let resolvedCompany = company;
         let resolvedBy = "input"; // 'db' | 'ch' | 'input'
+        let resolvedCompanyNumber = null; // <-- NEW: keep track of CH number when we have it
+
         try {
           const local = db
             .prepare(
@@ -190,13 +195,22 @@ module.exports = (router, ctx) => {
         ) {
           try {
             if (typeof matchByName === "function") {
+              // Prefer the scored matcher where available – this is effectively
+              // the same logic /api/v2/verify-company uses when strategy=match.
               const result = await matchByName({
                 name: company,
                 locationHint,
               });
-              if (result && result.ok && result.company?.name) {
-                resolvedCompany = String(result.company.name).trim();
-                resolvedBy = "ch";
+
+              if (result && result.ok) {
+                if (result.company?.name) {
+                  resolvedCompany = String(result.company.name).trim();
+                  resolvedBy = "ch";
+                }
+                // If the matcher exposes a "best" candidate, capture its number
+                if (result.best) {
+                  resolvedCompanyNumber = result.best.number || null;
+                }
               }
             } else if (
               typeof searchCompanies === "function" &&
@@ -223,6 +237,10 @@ module.exports = (router, ctx) => {
                   resolvedCompany = String(chName).trim();
                   resolvedBy = "ch";
                 }
+                resolvedCompanyNumber =
+                  (profile && profile.company_number) ||
+                  best.company_number ||
+                  null;
               }
             }
           } catch (e) {
@@ -250,7 +268,7 @@ module.exports = (router, ctx) => {
             name,
             email: email ?? null,
             phone: cleanPhone(phone),
-            company: resolvedCompany, // <-- store resolved name
+            company: resolvedCompany, // <-- store resolved (canonical) name
             rating,
             comment,
             source,
@@ -270,12 +288,18 @@ module.exports = (router, ctx) => {
           recommenderRelation = "neighbour";
         }
 
-        // Companies House verification (fire-and-forget) — still enqueue for badge/status
+        // Companies House verification (fire-and-forget)
+        // Now we also pass the resolved company_number when we have it so that
+        // downstream Google review matching can treat that as the single source of truth.
         try {
           queueCompanyVerification({
             recId: recommendationId,
             name: String(resolvedCompany || company),
             locationHint: locationHint || undefined,
+            companyNumber:
+              resolvedCompanyNumber && String(resolvedCompanyNumber).trim()
+                ? String(resolvedCompanyNumber).trim()
+                : undefined,
           });
         } catch (e) {
           console.warn("[platform-post] queueCompanyVerification failed", e);
