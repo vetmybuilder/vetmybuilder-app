@@ -1,23 +1,68 @@
-// server/v2/routes/recommendations/verification.get.js
+// server/routes/recommendations/verification.get.js
 /**
- * GET /api/v2/recommendations/:id/verification
+ * GET /api/recommendations/:id/verification
  * Auth: required
- * Response: { verification: {...} }
+ * Response: {
+ *   verification: {
+ *     recommendationId,
+ *     status,
+ *     companyNumber,
+ *     companyName,
+ *     score,
+ *     sicCodes,
+ *     checkedAt,
+ *     errorMessage,
+ *     // NEW:
+ *     googlePlaceId,
+ *     googleRating,
+ *     googleReviewsCount
+ *   }
+ * }
  */
 module.exports = (router, ctx) => {
   const { db, auth } = ctx;
+  const TAG = "[recommendations.verification.get]";
 
-  router.get("/recommendations/:id/verification", auth, (req, res) => {
+  // googlePlaces helper: server/lib/googlePlaces.js
+  let lookupBusiness;
+  try {
+    ({ lookupBusiness } = require("../../lib/googlePlaces"));
+  } catch (e) {
+    console.warn(
+      `${TAG} googlePlaces helper not available, skipping Google lookup`
+    );
+  }
+
+  router.get("/recommendations/:id/verification", auth, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (!Number.isFinite(id)) {
       return res.status(400).json({ error: "Bad id" });
     }
 
+    // Join company_verifications to tradesmen via Companies House number
     const row = db
       .prepare(
-        `SELECT recommendationId, status, companyNumber, companyName, score, sicCodes, checkedAt, errorMessage
-           FROM company_verifications
-          WHERE recommendationId = ?`
+        `
+        SELECT
+          cv.recommendationId,
+          cv.status,
+          cv.companyNumber,
+          cv.companyName,
+          cv.score,
+          cv.sicCodes,
+          cv.checkedAt,
+          cv.errorMessage,
+
+          -- From tradesmen (may be NULL if no matching registered tradesman)
+          t.user_id                AS tradesmanUserId,
+          t.google_place_id        AS googlePlaceId,
+          t.google_rating          AS googleRating,
+          t.google_reviews_count   AS googleReviewsCount
+        FROM company_verifications AS cv
+        LEFT JOIN tradesmen AS t
+          ON t.company_number = cv.companyNumber
+        WHERE cv.recommendationId = ?
+      `
       )
       .get(id);
 
@@ -30,9 +75,69 @@ module.exports = (router, ctx) => {
     let sicCodes = [];
     try {
       sicCodes = row.sicCodes ? JSON.parse(row.sicCodes) : [];
-    } catch {}
+    } catch {
+      // ignore parse errors
+    }
 
-    return res.json({
+    // Start with whatever is already cached on the tradesmen row
+    let googlePlaceId = row.googlePlaceId || null;
+    let googleRating =
+      row.googleRating === null || row.googleRating === undefined
+        ? null
+        : Number(row.googleRating);
+    let googleReviewsCount = Number(row.googleReviewsCount || 0);
+
+    // Lazy enrichment using verified CH name -> Google Places
+    if (!googlePlaceId && row.companyName && lookupBusiness) {
+      try {
+        const locationHint = null; // can be improved later
+
+        const match = await lookupBusiness({
+          name: row.companyName,
+          locationHint,
+          companyNumber: row.companyNumber,
+        });
+
+        if (match && match.placeId) {
+          googlePlaceId = match.placeId;
+          googleRating =
+            match.rating === undefined || match.rating === null
+              ? null
+              : Number(match.rating);
+          googleReviewsCount = Number(match.userRatingsTotal || 0);
+
+          // Cache into tradesmen for future calls
+          try {
+            db.prepare(
+              `
+              UPDATE tradesmen
+                 SET google_place_id = ?,
+                     google_rating = ?,
+                     google_reviews_count = ?
+               WHERE company_number = ?
+            `
+            ).run(
+              googlePlaceId,
+              googleRating,
+              googleReviewsCount,
+              row.companyNumber
+            );
+          } catch (e) {
+            console.warn(
+              `${TAG} failed to cache Google data into tradesmen:`,
+              e?.message || e
+            );
+          }
+        }
+      } catch (e) {
+        console.warn(
+          `${TAG} google lookup failed for company "${row.companyName}":`,
+          e?.message || e
+        );
+      }
+    }
+
+    const payload = {
       verification: {
         recommendationId: row.recommendationId,
         status: row.status,
@@ -42,7 +147,19 @@ module.exports = (router, ctx) => {
         sicCodes,
         checkedAt: row.checkedAt,
         errorMessage: row.errorMessage || null,
+        googlePlaceId,
+        googleRating,
+        googleReviewsCount,
       },
-    });
+    };
+
+    console.log(
+      `${TAG} recId=${id} -> status=${payload.verification.status} ` +
+        `company=${payload.verification.companyNumber || "-"} ` +
+        `google={placeId:${payload.verification.googlePlaceId || "-"}, ` +
+        `rating:${googleRating ?? "-"}, count:${googleReviewsCount}}`
+    );
+
+    return res.json(payload);
   });
 };

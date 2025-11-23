@@ -12,6 +12,7 @@ import {
   type FetchRecsFn,
 } from "@/utils/vmb";
 import { Link as LinkIcon } from "lucide-react";
+import { GoogleRatingChip } from "@/components/GoogleRatingChip";
 
 /* ===== Props (component-local API) ===== */
 type Props = {
@@ -273,6 +274,19 @@ export default function ShortlistSection({
                     ? overrideScore
                     : baseScore;
 
+                // 🔹 Google rating from verification (if present)
+                const verAny = ver as any;
+                const googleRating =
+                  typeof verAny?.googleRating === "number"
+                    ? verAny.googleRating
+                    : undefined;
+                const googleReviewsCount =
+                  typeof verAny?.googleReviewsCount === "number"
+                    ? verAny.googleReviewsCount
+                    : undefined;
+                const googlePlaceId: string | undefined =
+                  (verAny?.googlePlaceId as string | null) || undefined;
+
                 // Recommender relation: generic text only
                 let recommenderText = "";
                 if (r.fromFriend) {
@@ -304,6 +318,7 @@ export default function ShortlistSection({
                     <div className="rounded-xl border border-slate-200 bg-white/90 hover:bg-white shadow-sm hover:shadow-md transition p-3 relative z-10">
                       <div className="flex items-start gap-3">
                         <div className="min-w-0 flex-1">
+                          {/* top row: name + VMB + votes */}
                           <div className="flex items-center gap-3">
                             <div
                               className="font-medium truncate flex-1 min-w-0"
@@ -346,6 +361,7 @@ export default function ShortlistSection({
                             </p>
                           )}
 
+                          {/* badges row + bottom-right meta (Google + date) */}
                           <div className="mt-2 flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <span
@@ -399,11 +415,21 @@ export default function ShortlistSection({
                               )}
                             </div>
 
-                            <div
-                              className="text-xs text-slate-500"
-                              data-testid="shortlist-date"
-                            >
-                              {new Date(r.createdAt).toLocaleDateString()}
+                            <div className="flex flex-col items-end gap-1 text-right">
+                              {googleRating !== undefined && (
+                                <GoogleRatingChip
+                                  rating={googleRating}
+                                  count={googleReviewsCount}
+                                  placeId={googlePlaceId}
+                                  className="text-xs sm:text-sm"
+                                />
+                              )}
+                              <div
+                                className="text-xs text-slate-500"
+                                data-testid="shortlist-date"
+                              >
+                                {new Date(r.createdAt).toLocaleDateString()}
+                              </div>
                             </div>
                           </div>
 

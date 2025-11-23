@@ -120,7 +120,10 @@ module.exports = (router, ctx) => {
             photo_count,
             status,
             plan,
-            purchased_plan
+            purchased_plan,
+            google_place_id,
+            google_rating,
+            google_reviews_count
           FROM tradesmen
           WHERE user_id = ?
           LIMIT 1
@@ -183,6 +186,18 @@ module.exports = (router, ctx) => {
         }
       }
 
+      // --- Google reviews values (if present) ---
+      const googlePlaceId = row.google_place_id || null;
+      const googleRating =
+        row.google_rating === null || row.google_rating === undefined
+          ? null
+          : Number(row.google_rating);
+      const googleReviewsCount =
+        row.google_reviews_count === null ||
+        row.google_reviews_count === undefined
+          ? 0
+          : Number(row.google_reviews_count);
+
       const payload = {
         builderId: uid,
         companyName: row.company_name || null,
@@ -198,8 +213,16 @@ module.exports = (router, ctx) => {
         stats: {
           completed: Number(row.wins_count || 0),
           photos: Number(row.photo_count || photoUrls.length || 0),
-          reviews: Number(row.likes_count || 0),
-          stars: 4.8,
+          // Prefer Google review count if available, otherwise fall back to likes_count
+          reviews:
+            googleReviewsCount && Number.isFinite(googleReviewsCount)
+              ? googleReviewsCount
+              : Number(row.likes_count || 0),
+          // Prefer Google rating if available, otherwise fall back to legacy 4.8
+          stars:
+            googleRating !== null && Number.isFinite(googleRating)
+              ? googleRating
+              : 4.8,
         },
         score: Number(row.vmb_score ?? 0),
         location: { outward },
@@ -213,7 +236,12 @@ module.exports = (router, ctx) => {
         warrantyMonths: row.warranty_months || 0,
         tradeTypes: row.trade_types || null,
         createdAt: row.created_at || null,
-        isFavourite, // <--- new flag for UI
+        isFavourite, // <--- flag for UI
+
+        // Expose Google details to the frontend
+        googlePlaceId,
+        googleRating,
+        googleReviewsCount,
       };
 
       return res.json({ item: payload });

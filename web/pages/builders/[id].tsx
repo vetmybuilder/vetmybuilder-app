@@ -9,6 +9,7 @@ import LightboxGallery, {
   type GalleryImage,
 } from "@/components/LightboxGallery";
 import SharedProfilePhotosSection from "@/components/tradesmen/SharedProfilePhotosSection";
+import { GoogleRatingChip } from "@/components/GoogleRatingChip";
 
 type Photo = { id: string; url: string; thumb?: string; alt?: string };
 
@@ -29,6 +30,9 @@ type Verification = {
   sicCodes?: string[];
   checkedAt?: string;
   errorMessage?: string | null;
+  googlePlaceId?: string | null;
+  googleRating?: number | null;
+  googleReviewsCount?: number | null;
 };
 
 type Builder = {
@@ -384,7 +388,7 @@ export default function BuilderProfile() {
     };
   }, [api, builder?.project?.id, user, redirecting]);
 
-  // CH verification (header badge)
+  // CH verification (header badge + Google data)
   useEffect(() => {
     if (!router.isReady || authLoading || !user || !id || redirecting) return;
     let alive = true;
@@ -788,9 +792,26 @@ export default function BuilderProfile() {
                         vote{(builder.likes ?? 0) === 1 ? "" : "s"}
                       </span>
                       {user ? (
-                        <span>
-                          <ScoreChip value={score ?? builder.score} />
-                        </span>
+                        <>
+                          <span>
+                            <ScoreChip value={score ?? builder.score} />
+                          </span>
+
+                          {verification?.googleRating != null &&
+                            !Number.isNaN(
+                              Number(verification.googleRating)
+                            ) && (
+                              <span>
+                                <GoogleRatingChip
+                                  rating={verification.googleRating}
+                                  count={
+                                    verification.googleReviewsCount ?? null
+                                  }
+                                  placeId={verification.googlePlaceId ?? null}
+                                />
+                              </span>
+                            )}
+                        </>
                       ) : (
                         <span className="rounded-full px-2 py-0.5 text-xs font-medium border border-slate-200 text-slate-500">
                           VMB —

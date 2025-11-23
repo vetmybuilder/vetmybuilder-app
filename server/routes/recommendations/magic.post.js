@@ -47,6 +47,15 @@ module.exports = (router, ctx) => {
     }
   })();
 
+  // Shared helper for queuing verification
+  const { queueVerification } = (() => {
+    try {
+      return require("../lib/companyVerification");
+    } catch {
+      return { queueVerification: () => {} };
+    }
+  })();
+
   // Optional CH helpers (if available on ctx)
   const matchByName = ctx.matchByName;
   const searchCompanies = ctx.searchCompanies;
@@ -330,16 +339,13 @@ module.exports = (router, ctx) => {
         //  - logged-in user      -> neighbour
         const recommenderRelation = uid ? "neighbour" : "friend";
 
-        // Queue CH verification for badge/status
-        try {
-          queueCompanyVerification({
-            recId: recommendationId,
-            name: String(resolvedCompany || company),
-            locationHint,
-          });
-        } catch (e) {
-          console.warn("[magic-post] queueCompanyVerification failed", e);
-        }
+        // Queue CH / Google verification for badge/status (shared helper)
+        queueVerification(queueCompanyVerification, {
+          recId: recommendationId,
+          name: String(resolvedCompany || company),
+          locationHint,
+          sourceTag: "magic",
+        });
 
         // Persist photos
         const files = Array.isArray(req.files) ? req.files : [];

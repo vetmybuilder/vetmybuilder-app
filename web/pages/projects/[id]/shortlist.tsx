@@ -1,4 +1,3 @@
-// web/pages/projects/[id]/shortlist.tsx
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
@@ -11,6 +10,7 @@ import {
   normalizedCompanyKey,
   voteUpRecommendation,
 } from "@/utils/vmb";
+import { GoogleRatingChip } from "@/components/GoogleRatingChip";
 
 /* ===== Types ===== */
 type Recommendation = {
@@ -51,6 +51,10 @@ type Verification = {
   sicCodes?: string[];
   checkedAt?: string;
   errorMessage?: string | null;
+  // NEW: Google rating data
+  googleRating?: number | null;
+  googleReviewsCount?: number | null;
+  googlePlaceId?: string | null;
 };
 
 function shouldUseChName(status?: VerificationStatus) {
@@ -573,11 +577,22 @@ function ShortlistInner() {
 
             const displayCompanyName = resolveCompanyName(r, recVerification);
             const scoreToShow =
-              g.aggScore ??
-              (typeof r.score === "number" ? r.score : undefined);
+              g.aggScore ?? (typeof r.score === "number" ? r.score : undefined);
 
             const phone = (r.phone ?? "").trim();
             const isPhoneVisible = !!phoneVisible[r.id];
+
+            const ver = recVerification[r.id];
+            const googleRating =
+              typeof ver?.googleRating === "number"
+                ? ver.googleRating
+                : undefined;
+            const googleReviewsCount =
+              typeof ver?.googleReviewsCount === "number"
+                ? ver.googleReviewsCount
+                : undefined;
+            const googlePlaceId =
+              (ver?.googlePlaceId as string | null) || undefined;
 
             return (
               <div
@@ -689,7 +704,17 @@ function ShortlistInner() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3 shrink-0 whitespace-nowrap">
+                      <div className="flex flex-col items-end gap-1 shrink-0 whitespace-nowrap">
+                        <div className="flex items-center gap-3">
+                          {googleRating !== undefined && (
+                            <GoogleRatingChip
+                              rating={googleRating}
+                              count={googleReviewsCount}
+                              placeId={googlePlaceId}
+                            />
+                          )}
+                          <ScoreChip value={scoreToShow} />
+                        </div>
                         <div
                           className="text-xs text-slate-500 tabular-nums flex items-center gap-1"
                           aria-label="Total votes"
@@ -699,7 +724,6 @@ function ShortlistInner() {
                           <ThumbsUpIcon className="h-3.5 w-3.5 -mt-px" />{" "}
                           {votes}
                         </div>
-                        <ScoreChip value={scoreToShow} />
                       </div>
                     </div>
 
@@ -715,9 +739,7 @@ function ShortlistInner() {
                     {/* ------- META: “Recommended by …” + reveal phone ------- */}
                     <div className="text-xs text-slate-500 mt-3 flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span data-testid="rec-meta">
-                          {recommenderText(r)}
-                        </span>
+                        <span data-testid="rec-meta">{recommenderText(r)}</span>
 
                         {(r.phone ?? "").trim() && (
                           <>

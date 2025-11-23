@@ -12,15 +12,32 @@
  *         • Else try to auto-match the real UID by the lead’s email from the `users` table.
  *           If a single match is found, promote/clone to that UID.
  *           Otherwise return 400 with a helpful message.
+ *
+ * NEW:
+ * - Whenever a tradesman row ends up with status='active', we:
+ *     • call Google Places via googlePlaces.lookupBusiness(...)
+ *     • persist google_place_id, google_rating, google_reviews_count
+ *     • return the enriched row in the response
  */
 module.exports = (router, ctx) => {
-  const { db, auth } = ctx;
+  const { db, auth, extractLocationTokens } = ctx;
   const { requireAdmin } = require("../../lib/roles");
 
   console.log("[routes] mounted: POST /admin/tradesmen/:uid/status");
 
   const nowSql = `datetime('now')`;
   const isLeadId = (s) => String(s || "").startsWith("lead_");
+
+  // Google Places helper (fake or real, depending on your lib)
+  const { lookupBusiness } = (() => {
+    try {
+      return require("../../lib/googlePlaces");
+    } catch {
+      return {
+        lookupBusiness: async () => null,
+      };
+    }
+  })();
 
   // Ensure minimal tables exist
   db.prepare(
@@ -97,11 +114,73 @@ module.exports = (router, ctx) => {
     ).run(uid);
   }
 
+  function getLocationHint(row) {
+    try {
+      const svc = row?.service_areas || "";
+      if (!extractLocationTokens) return null;
+      const toks = extractLocationTokens(svc) || {};
+      return toks.full || toks.sector || toks.outward || null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Enrich a tradesman row with Google data if missing.
+   * Returns the (potentially) updated row.
+   */
+  async function enrichTradesmanWithGoogle(row) {
+    if (!row) return row;
+
+    // If already has Google fields, leave them alone
+    if (row.google_place_id && row.google_rating != null) return row;
+
+    const name = row.ch_name || row.company_name;
+    if (!name) return row;
+
+    const locationHint = getLocationHint(row);
+    const companyNumber = row.company_number || null;
+
+    try {
+      const place = await lookupBusiness({
+        name,
+        locationHint,
+        companyNumber,
+      });
+
+      if (!place) return row;
+
+      db.prepare(
+        `UPDATE tradesmen
+           SET google_place_id = ?,
+               google_rating = ?,
+               google_reviews_count = ?
+         WHERE user_id = ?`
+      ).run(
+        place.placeId || null,
+        place.rating ?? null,
+        place.userRatingsTotal ?? 0,
+        row.user_id
+      );
+
+      // Return fresh row
+      return db
+        .prepare(`SELECT * FROM tradesmen WHERE user_id = ?`)
+        .get(row.user_id);
+    } catch (e) {
+      console.warn(
+        "[admin/tradesmen-status] Google enrichment failed:",
+        e?.message || e
+      );
+      return row;
+    }
+  }
+
   router.post(
     "/admin/tradesmen/:uid/status",
     auth,
     requireAdmin(ctx),
-    (req, res) => {
+    async (req, res) => {
       const srcUid = String(req.params.uid || "");
       const status = String(req.body?.status || "").toLowerCase();
       const explicitAssignTo = req.body?.assignTo
@@ -129,9 +208,15 @@ module.exports = (router, ctx) => {
            WHERE user_id = ?`
         ).run(status, status, srcUid);
 
-        const row = db
+        let row = db
           .prepare(`SELECT * FROM tradesmen WHERE user_id=?`)
           .get(srcUid);
+
+        // NEW: if now active, enrich with Google
+        if (status === "active" && row) {
+          row = await enrichTradesmanWithGoogle(row);
+        }
+
         return res.json({ ok: true, tradesman: row, promoted: false });
       }
 
@@ -204,9 +289,15 @@ module.exports = (router, ctx) => {
 
       try {
         tx();
-        const row = db
+        let row = db
           .prepare(`SELECT * FROM tradesmen WHERE user_id=?`)
           .get(targetUid);
+
+        // NEW: enrich promoted/activated tradesman with Google
+        if (row) {
+          row = await enrichTradesmanWithGoogle(row);
+        }
+
         return res.json({
           ok: true,
           tradesman: row,

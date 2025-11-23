@@ -155,7 +155,6 @@ function buildRouter(ctx) {
   require("./routes/tradesmen/jobs.get")(router, ctx);
   require("./routes/tradesmen/me.get")(router, ctx);
   require("./routes/tradesmen/me.put")(router, ctx);
-  // require("./routes/tradesmen/register.post")(router, ctx);
   require("./routes/tradesmen/join.post")(router, ctx);
   require("./routes/tradesmen/interest.post")(router, ctx);
   require("./routes/tradesmen/interest.get")(router, ctx);
@@ -169,6 +168,7 @@ function buildRouter(ctx) {
   require("./routes/tradesmen/favourites.get")(router, ctx);
   require("./routes/tradesmen/tradesman.get")(router, ctx);
   require("./routes/tradesmen/favourite.post")(router, ctx);
+  require("./routes/tradesmen/google-reviews.get")(router, ctx);
 
   // ---------------- Plans ----------------
   require("./routes/meta/plans.get")(router, ctx);

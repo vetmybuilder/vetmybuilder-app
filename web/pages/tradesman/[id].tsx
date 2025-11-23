@@ -16,6 +16,7 @@ import {
   getPlanLabel,
   formatMemberSince,
 } from "@/utils/tradesmanProfile";
+import { GoogleRatingChip } from "@/components/GoogleRatingChip";
 
 type TradesmanDetail = {
   builderId: string;
@@ -42,9 +43,8 @@ type TradesmanDetail = {
   warrantyMonths?: number;
   tradeTypes?: string | null;
   createdAt?: string | null;
-
-  // new: whether the current user has favourited this tradesman
   isFavourite?: boolean | 0 | 1;
+  googlePlaceId?: string | null;
 };
 
 export default function TradesmanViewPage() {
@@ -290,7 +290,11 @@ function Inner() {
               {/* quick stats */}
               <div className="mt-2 flex flex-wrap items-center gap-4 text-xs sm:text-sm text-neutral-700">
                 <span data-testid="tradesman-stars">
-                  ⭐ {item.stats?.stars?.toFixed?.(1) ?? "4.8"}
+                  <GoogleRatingChip
+                    rating={item.stats?.stars}
+                    count={item.stats?.reviews}
+                    placeId={item.googlePlaceId || undefined}
+                  />
                 </span>
                 <span data-testid="tradesman-likes">
                   Likes: {item.stats?.reviews ?? 0}
