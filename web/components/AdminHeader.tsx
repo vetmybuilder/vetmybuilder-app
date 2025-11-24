@@ -12,6 +12,12 @@ export default function AdminHeader() {
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // Close menu on route change
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [router.pathname]);
 
   // Determine if current user is admin (mirror AdminGate logic)
   useEffect(() => {
@@ -87,6 +93,7 @@ export default function AdminHeader() {
     router.pathname === "/admin/tradesmen-leaderboard" ||
     router.pathname === "/admin/tradesmen";
   const atRecs = router.pathname === "/admin/recommendation-leaderboard";
+  const atVerify = router.pathname === "/admin/verify-company";
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/70 backdrop-blur">
@@ -108,43 +115,83 @@ export default function AdminHeader() {
               Admin login
             </Link>
           ) : (
-            // Logged in as admin
-            <>
-              <Link
-                href="/admin/tradesmen-leaderboard"
-                className={[
-                  "inline-flex items-center rounded-full px-3 h-9 font-medium shadow-sm border",
-                  atTradesmen
-                    ? "bg-slate-900 text-white border-slate-900"
-                    : "bg-white text-slate-800 border-slate-300 hover:bg-slate-50",
-                ].join(" ")}
-                data-testid="btn-admin-tradesmen"
-              >
-                Tradesmen leaderboard
-              </Link>
-
-              <Link
-                href="/admin/recommendation-leaderboard"
-                className={[
-                  "inline-flex items-center rounded-full px-3 h-9 font-medium shadow-sm border",
-                  atRecs
-                    ? "bg-slate-900 text-white border-slate-900"
-                    : "bg-white text-slate-800 border-slate-300 hover:bg-slate-50",
-                ].join(" ")}
-                data-testid="btn-admin-recs"
-              >
-                Recommendation-leaderboard
-              </Link>
-
+            // Logged in as admin → dropdown menu
+            <div className="relative">
               <button
                 type="button"
-                onClick={handleLogout}
-                className="inline-flex items-center rounded-full px-3 h-9 font-medium text-slate-700 border border-slate-300 bg-white hover:bg-slate-50"
-                data-testid="btn-admin-logout"
+                onClick={() => setMenuOpen((v) => !v)}
+                className="inline-flex items-center rounded-full bg-slate-900 px-4 h-9 text-sm font-medium text-white shadow-sm hover:bg-slate-800"
+                data-testid="btn-admin-menu"
               >
-                Logout
+                Admin menu
+                <span
+                  aria-hidden
+                  className={`ml-2 inline-block transition-transform ${
+                    menuOpen ? "rotate-180" : ""
+                  }`}
+                >
+                  ▾
+                </span>
               </button>
-            </>
+
+              {menuOpen && (
+                <div
+                  className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-200 bg-white shadow-lg ring-1 ring-black/5 overflow-hidden"
+                  data-testid="admin-menu"
+                >
+                  <Link
+                    href="/admin/tradesmen-leaderboard"
+                    className={`block px-3 py-2 text-sm ${
+                      atTradesmen
+                        ? "bg-slate-100 font-semibold text-slate-900"
+                        : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                    onClick={() => setMenuOpen(false)}
+                    data-testid="menu-admin-tradesmen"
+                  >
+                    Tradesmen leaderboard
+                  </Link>
+
+                  <Link
+                    href="/admin/recommendation-leaderboard"
+                    className={`block px-3 py-2 text-sm ${
+                      atRecs
+                        ? "bg-slate-100 font-semibold text-slate-900"
+                        : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                    onClick={() => setMenuOpen(false)}
+                    data-testid="menu-admin-recs"
+                  >
+                    Recommendation leaderboard
+                  </Link>
+
+                  <Link
+                    href="/admin/verify-company"
+                    className={`block px-3 py-2 text-sm ${
+                      atVerify
+                        ? "bg-slate-100 font-semibold text-slate-900"
+                        : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                    onClick={() => setMenuOpen(false)}
+                    data-testid="menu-admin-verify-company"
+                  >
+                    Verify company
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      handleLogout();
+                    }}
+                    className="block w-full px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50"
+                    data-testid="menu-admin-logout"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
