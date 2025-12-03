@@ -9,33 +9,28 @@ import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { useAuth } from "@/utils/auth";
 import { ensureEmailAvailable } from "@/utils/email";
 
-function getStoredReturnTo() {
-  try {
-    const v = sessionStorage.getItem("vmb:returnTo") || "";
-    return v && v.startsWith("/") ? v : "/";
-  } catch {
-    return "/";
-  }
-}
-
 export default function Register() {
   const api = useApi();
   const router = useRouter();
   const { hydrateFromSignup } = useAuth();
 
-  // Safely resolve the "next" path
-  const nextPath = useMemo(() => {
-    if (!router.isReady) return getStoredReturnTo();
+  // Resolve explicit ?next= from the URL (ignore sessionStorage here)
+  const explicitNext = useMemo(() => {
+    if (!router.isReady) return null;
     const n = router.query.next;
     const v = typeof n === "string" ? n : Array.isArray(n) ? n[0] : "";
-    if (v && v.startsWith("/")) return v;
-    return getStoredReturnTo();
+    return v && v.startsWith("/") ? v : null;
   }, [router.isReady, router.query.next]);
 
-  // Persist next target for other parts of the flow
+  // Default landing page after signup
+  const nextPath = explicitNext || "/projects";
+
+  // Persist next target for other parts of the flow (login etc.)
   useEffect(() => {
     try {
-      if (nextPath) sessionStorage.setItem("vmb:returnTo", nextPath);
+      if (nextPath) {
+        sessionStorage.setItem("vmb:returnTo", nextPath);
+      }
     } catch {}
   }, [nextPath]);
 
@@ -60,7 +55,7 @@ export default function Register() {
     try {
       const { firstName, lastName, username, email, password, location } = form;
 
-      // 🔹 Check email availability (including aliases) BEFORE hitting Firebase
+      // Check email availability (including aliases) BEFORE hitting Firebase
       await ensureEmailAvailable(api, email.trim());
 
       const auth = initFirebase();
@@ -83,11 +78,15 @@ export default function Register() {
 
       hydrateFromSignup({ firstName, lastName, username, email });
 
+      // Final redirect target after successful signup
+      const target = nextPath || "/projects";
+
       try {
-        sessionStorage.setItem("vmb:returnTo", nextPath || "/");
+        sessionStorage.setItem("vmb:returnTo", target);
         sessionStorage.setItem("vmb:didLoginRedirect", String(Date.now()));
       } catch {}
-      router.replace(nextPath || "/");
+
+      router.replace(target);
     } catch (e: any) {
       // Prefer our custom email message (ensureEmailAvailable) if present
       const raw = e?.message || "";

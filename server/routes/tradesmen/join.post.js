@@ -1,36 +1,33 @@
+// server/routes/tradesmen/join.post.js
+
 /**
  * POST /tradesmen/join   (no auth)
  * Saves a draft vendor (user_id = lead_*), runs CH match + web check,
  * and computes VMB score on the 0.0–10.0 scale.
  */
 module.exports = (router, ctx) => {
-  const { db, matchByName, extractLocationTokens } = ctx;
+  const { mysqlQuery, matchByName, extractLocationTokens } = ctx;
   const ROUTE = "/tradesmen/join";
+
+  if (!mysqlQuery) {
+    throw new Error("mysqlQuery not attached to ctx (MySQL required)");
+  }
 
   // Optional cheat-proof web presence verifier
   let verifyWebPresence = async () => ({ ok: false });
   try {
     verifyWebPresence =
       require("../../lib/webPresence").verifyWebPresence || verifyWebPresence;
-  } catch {}
+  } catch {
+    // ignore – web presence is best-effort
+  }
 
-  // Helpers
-  const tblCols = (name) =>
-    new Set(
-      db
-        .prepare(`PRAGMA table_info(${name})`)
-        .all()
-        .map((r) => r.name)
-    );
-  const addColIfMissing = (tbl, def, name) => {
-    const cols = tblCols(tbl);
-    if (!cols.has(name))
-      db.prepare(`ALTER TABLE ${tbl} ADD COLUMN ${def}`).run();
-  };
+  // ---------- helpers ----------
   const int = (v, d = 0) => {
     const n = Number.parseInt(String(v ?? ""), 10);
     return Number.isFinite(n) ? n : d;
   };
+
   const toArrayCsv = (x) =>
     Array.isArray(x)
       ? x
@@ -40,10 +37,12 @@ module.exports = (router, ctx) => {
           .map((s) => s.trim())
           .filter(Boolean)
       : [];
+
   const warrantyToMonths = (key) => {
     const map = { none: 0, "3m": 3, "6m": 6, "12m": 12, "24m+": 24 };
     return map[String(key || "none")] ?? 0;
   };
+
   const warrantyPoints = (months) => {
     const m = Math.max(0, int(months, 0));
     if (m >= 36) return 20;
@@ -95,101 +94,13 @@ module.exports = (router, ctx) => {
     console.log(`[routes] mounted: POST ${base}${ROUTE}`);
   }
 
-  // Ensure tradesmen table + columns
-  db.prepare(
-    `
-    CREATE TABLE IF NOT EXISTS tradesmen (
-      user_id TEXT PRIMARY KEY,
-      company_name TEXT NOT NULL,
-      contact_name TEXT, phone TEXT, email TEXT,
-      trade_types TEXT DEFAULT '', service_areas TEXT DEFAULT '',
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      subscription_status TEXT DEFAULT 'draft',
-      contact_credits INTEGER DEFAULT 0,
-      status TEXT DEFAULT 'draft'
-    )
-  `
-  ).run();
-
-  // Scoring & display columns
-  addColIfMissing("tradesmen", "vmb_score REAL DEFAULT 0", "vmb_score");
-  addColIfMissing(
-    "tradesmen",
-    "web_verified INTEGER DEFAULT 0",
-    "web_verified"
-  );
-  addColIfMissing("tradesmen", "web_url TEXT", "web_url");
-  addColIfMissing(
-    "tradesmen",
-    "social_links_json TEXT DEFAULT '[]'",
-    "social_links_json"
-  );
-  addColIfMissing("tradesmen", "company_number TEXT", "company_number");
-  addColIfMissing("tradesmen", "ch_status TEXT", "ch_status");
-  addColIfMissing("tradesmen", "ch_name TEXT", "ch_name");
-  addColIfMissing("tradesmen", "ch_checked_at TEXT", "ch_checked_at");
-  addColIfMissing(
-    "tradesmen",
-    "ch_match_score INTEGER DEFAULT 0",
-    "ch_match_score"
-  );
-  addColIfMissing("tradesmen", "photo_count INTEGER DEFAULT 0", "photo_count");
-  // NEW: store min/max discount separately (and keep offers_discount for legacy if present)
-  addColIfMissing(
-    "tradesmen",
-    "discount_min_percent INTEGER DEFAULT 0",
-    "discount_min_percent"
-  );
-  addColIfMissing(
-    "tradesmen",
-    "discount_max_percent INTEGER DEFAULT 0",
-    "discount_max_percent"
-  );
-  addColIfMissing(
-    "tradesmen",
-    "offers_discount INTEGER DEFAULT 0",
-    "offers_discount"
-  );
-  addColIfMissing(
-    "tradesmen",
-    "warranty_months INTEGER DEFAULT 0",
-    "warranty_months"
-  );
-  addColIfMissing(
-    "tradesmen",
-    "supporting_doc_count INTEGER DEFAULT 0",
-    "supporting_doc_count"
-  );
-  // NEW: signals for scoring/leaderboard
-  addColIfMissing("tradesmen", "likes_count INTEGER DEFAULT 0", "likes_count");
-  addColIfMissing("tradesmen", "wins_count INTEGER DEFAULT 0", "wins_count");
-
-  // NEW: ensure photos table (matches your schema: sort_order, not position)
-  db.prepare(
-    `
-    CREATE TABLE IF NOT EXISTS tradesmen_photos (
-      id                INTEGER PRIMARY KEY AUTOINCREMENT,
-      tradesman_user_id TEXT NOT NULL,
-      url               TEXT NOT NULL,
-      sort_order        INTEGER NOT NULL DEFAULT 0,
-      created_at        TEXT NOT NULL DEFAULT (datetime('now'))
-    )
-  `
-  ).run();
-
-  db.prepare(
-    `
-    CREATE INDEX IF NOT EXISTS idx_tradesmen_photos_user
-      ON tradesmen_photos(tradesman_user_id, sort_order)
-  `
-  ).run();
-
+  // ---------- route ----------
   router.post(ROUTE, async (req, res) => {
     const b = req.body || {};
     const companyName = String(b.companyName || "").trim();
-    if (!companyName)
+    if (!companyName) {
       return res.status(400).json({ error: "companyName is required" });
+    }
 
     const trade_types = String(b.tradeTypes || "").trim();
     const service_areas = String(b.serviceAreas || "").trim();
@@ -212,7 +123,7 @@ module.exports = (router, ctx) => {
     const web_url = websites[0] || null;
     const social_links = websites.slice(1);
 
-    // NEW: accept likes/wins (optional)
+    // optional signals from UI
     const likes_count = int(b.likesCount, 0);
     const wins_count = int(b.winsCount, 0);
 
@@ -226,7 +137,9 @@ module.exports = (router, ctx) => {
         });
         web_verified = vr?.ok ? 1 : 0;
       }
-    } catch {}
+    } catch {
+      // ignore web presence failure
+    }
 
     // Companies House name match
     let ch_status = null;
@@ -243,7 +156,11 @@ module.exports = (router, ctx) => {
         const r = await Promise.resolve(
           matchByName({ name: companyName, locationHint: hint })
         );
-        ch_checked_at = new Date().toISOString();
+
+        // MySQL-friendly datetime: "YYYY-MM-DD HH:MM:SS"
+        const now = new Date();
+        ch_checked_at = now.toISOString().slice(0, 19).replace("T", " ");
+
         const v = String(r?.verdict || "").toLowerCase();
         ch_status =
           v === "verified" || v === "exact" || v === "good"
@@ -269,111 +186,118 @@ module.exports = (router, ctx) => {
       Math.random().toString(36).slice(2, 8);
 
     try {
-      const tx = db.transaction(() => {
-        // Upsert tradesmen with all signals
-        db.prepare(
-          `
-          INSERT INTO tradesmen (
-            user_id, company_name, contact_name, phone, email,
-            trade_types, service_areas,
-            web_verified, web_url, social_links_json,
-            company_number, ch_status, ch_name, ch_checked_at, ch_match_score,
-            photo_count, discount_min_percent, discount_max_percent, offers_discount,
-            warranty_months, supporting_doc_count,
-            likes_count, wins_count,
-            subscription_status, status, updated_at
-          )
-          VALUES (
-            @user_id, @company_name, @contact_name, @phone, @email,
-            @trade_types, @service_areas,
-            @web_verified, @web_url, @social_links_json,
-            @company_number, @ch_status, @ch_name, @ch_checked_at, @ch_match_score,
-            @photo_count, @discount_min_percent, @discount_max_percent, @offers_discount,
-            @warranty_months, @supporting_doc_count,
-            @likes_count, @wins_count,
-            'draft', 'draft', datetime('now')
-          )
-          ON CONFLICT(user_id) DO UPDATE SET
-            company_name=excluded.company_name,
-            contact_name=excluded.contact_name,
-            phone=excluded.phone,
-            email=excluded.email,
-            trade_types=excluded.trade_types,
-            service_areas=excluded.service_areas,
-            web_verified=excluded.web_verified,
-            web_url=excluded.web_url,
-            social_links_json=excluded.social_links_json,
-            company_number=excluded.company_number,
-            ch_status=excluded.ch_status,
-            ch_name=excluded.ch_name,
-            ch_checked_at=excluded.ch_checked_at,
-            ch_match_score=excluded.ch_match_score,
-            photo_count=excluded.photo_count,
-            discount_min_percent=excluded.discount_min_percent,
-            discount_max_percent=excluded.discount_max_percent,
-            offers_discount=excluded.offers_discount,
-            warranty_months=excluded.warranty_months,
-            supporting_doc_count=excluded.supporting_doc_count,
-            likes_count=excluded.likes_count,
-            wins_count=excluded.wins_count,
-            subscription_status='draft',
-            status='draft',
-            updated_at=datetime('now')
+      // ---------- UPSERT tradesmen (MySQL) ----------
+      await mysqlQuery(
         `
-        ).run({
-          user_id: leadId,
-          company_name: companyName,
-          contact_name: b.contactName ?? null,
-          phone: b.phone ?? null,
-          email: b.email ?? null,
+        INSERT INTO tradesmen (
+          user_id, company_name, contact_name, phone, email,
+          trade_types, service_areas,
+          web_verified, web_url, social_links_json,
+          company_number, ch_status, ch_name, ch_checked_at, ch_match_score,
+          photo_count, discount_min_percent, discount_max_percent, offers_discount,
+          warranty_months, supporting_doc_count,
+          likes_count, wins_count,
+          subscription_status, status, created_at, updated_at
+        )
+        VALUES (
+          ?, ?, ?, ?, ?,
+          ?, ?,
+          ?, ?, ?,
+          ?, ?, ?, ?, ?,
+          ?, ?, ?, ?,
+          ?, ?,
+          ?, ?,
+          'draft', 'draft', NOW(), NOW()
+        )
+        ON DUPLICATE KEY UPDATE
+          company_name          = VALUES(company_name),
+          contact_name          = VALUES(contact_name),
+          phone                 = VALUES(phone),
+          email                 = VALUES(email),
+          trade_types           = VALUES(trade_types),
+          service_areas         = VALUES(service_areas),
+          web_verified          = VALUES(web_verified),
+          web_url               = VALUES(web_url),
+          social_links_json     = VALUES(social_links_json),
+          company_number        = VALUES(company_number),
+          ch_status             = VALUES(ch_status),
+          ch_name               = VALUES(ch_name),
+          ch_checked_at         = VALUES(ch_checked_at),
+          ch_match_score        = VALUES(ch_match_score),
+          photo_count           = VALUES(photo_count),
+          discount_min_percent  = VALUES(discount_min_percent),
+          discount_max_percent  = VALUES(discount_max_percent),
+          offers_discount       = VALUES(offers_discount),
+          warranty_months       = VALUES(warranty_months),
+          supporting_doc_count  = VALUES(supporting_doc_count),
+          likes_count           = VALUES(likes_count),
+          wins_count            = VALUES(wins_count),
+          subscription_status   = 'draft',
+          status                = 'draft',
+          updated_at            = NOW()
+        `,
+        [
+          leadId,
+          companyName,
+          b.contactName ?? null,
+          b.phone ?? null,
+          b.email ?? null,
           trade_types,
           service_areas,
           web_verified,
           web_url,
-          social_links_json: JSON.stringify(social_links),
+          JSON.stringify(social_links),
           company_number,
           ch_status,
           ch_name,
           ch_checked_at,
           ch_match_score,
           photo_count,
-          discount_min_percent: Math.max(0, Math.min(100, discountMin)),
-          discount_max_percent: Math.max(0, Math.min(100, discountMax)),
-          offers_discount: Math.max(discountMin, discountMax, 0),
+          Math.max(0, Math.min(100, discountMin)),
+          Math.max(0, Math.min(100, discountMax)),
+          Math.max(discountMin, discountMax, 0),
           warranty_months,
           supporting_doc_count,
           likes_count,
           wins_count,
-        });
+        ]
+      );
 
-        // NEW: sync tradesmen_photos with the workPhotos array (sort_order)
-        db.prepare(
-          `DELETE FROM tradesmen_photos WHERE tradesman_user_id = ?`
-        ).run(leadId);
+      // ---------- sync tradesmen_photos (MySQL) ----------
+      await mysqlQuery(
+        `DELETE FROM tradesmen_photos WHERE tradesman_user_id = ?`,
+        [leadId]
+      );
 
-        if (photos.length > 0) {
-          const insertPhoto = db.prepare(
-            `INSERT INTO tradesmen_photos
-               (tradesman_user_id, url, sort_order)
-             VALUES (?, ?, ?)`
+      if (photos.length > 0) {
+        for (let idx = 0; idx < photos.length; idx++) {
+          const url = photos[idx];
+          if (!url) continue;
+          await mysqlQuery(
+            `
+            INSERT INTO tradesmen_photos
+              (tradesman_user_id, url, sort_order, created_at)
+            VALUES (?, ?, ?, NOW())
+            `,
+            [leadId, String(url), idx]
           );
-          photos.forEach((url, idx) => {
-            if (!url) return;
-            insertPhoto.run(leadId, String(url), idx);
-          });
         }
+      }
 
-        // Compute & persist VMB score (0.0–10.0)
-        const row = db
-          .prepare(`SELECT * FROM tradesmen WHERE user_id=?`)
-          .get(leadId);
+      // ---------- compute & persist vmb_score (0.0–10.0) ----------
+      const rows = await mysqlQuery(
+        `SELECT * FROM tradesmen WHERE user_id = ? LIMIT 1`,
+        [leadId]
+      );
+      const row = rows[0] || null;
+
+      if (row) {
         const s10 = computeScore10(row);
-        db.prepare(
-          `UPDATE tradesmen SET vmb_score=?, updated_at=datetime('now') WHERE user_id=?`
-        ).run(s10, leadId);
-      });
-
-      tx();
+        await mysqlQuery(
+          `UPDATE tradesmen SET vmb_score = ?, updated_at = NOW() WHERE user_id = ?`,
+          [s10, leadId]
+        );
+      }
 
       return res.status(201).json({
         ok: true,

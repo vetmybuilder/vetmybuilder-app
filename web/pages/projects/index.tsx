@@ -400,7 +400,14 @@ function OwnerProjects() {
                     location={p.location}
                     coverPhotoUrl={p.coverPhotoUrl}
                     tradesmanLabel={tradesmanLabel}
-                    onOpenBuilder={() => openBuilderProfile(p)}
+                    onOpenBuilder={() => {
+                      if (!recId) return;
+                      const n = Number(recId);
+                      const slug = Number.isFinite(n)
+                        ? String(n)
+                        : String(recId);
+                      router.push(`/builders/${encodeURIComponent(slug)}`);
+                    }}
                     hasGallery={hasGallery(p)}
                   />
                 );

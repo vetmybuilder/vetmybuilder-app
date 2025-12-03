@@ -1,19 +1,33 @@
 import React, { useEffect, useState } from "react";
 import { useApi } from "@/utils/api";
+import FileGridUploader from "@/components/fileUpload/FileGridUploader";
 
-type RecommendationLite = {
-  id: number;
-  name: string;
+export type RecommendationLite = {
+  id: number | string;
+  name: string | null;
   company?: string | null;
-  fromCommunity?: 0 | 1 | boolean; // <-- add this so we can pass it to the server
+  /** Normalised boolean flag: true if from community / neighbourhood */
+  fromCommunity?: boolean;
+
+  /** Where this winner candidate comes from */
+  source?: "recommendation" | "share";
+  /** Tradesman/user uid when source === "share" (or optionally for recs) */
+  tradesmanUid?: string | null;
 };
 
-type ClosePayload = {
+export type ClosePayload = {
   didGoAhead: boolean;
   reasons: string[];
   otherReason?: string;
+
+  /** Legacy: winner chosen from a recommendation row */
   selectedRecommendationId?: number;
-  winnerFromCommunity?: boolean | 0 | 1 | "0" | "1" | "true" | "false"; // <-- NEW
+
+  /** NEW: winner chosen from a shared profile (no recommendation row) */
+  winnerTradesmanUid?: string;
+
+  /** Optional flag so server can treat community winners differently if needed */
+  winnerFromCommunity?: boolean;
 };
 
 type Props = {
@@ -22,22 +36,21 @@ type Props = {
   onClose: () => void;
   onSubmit: (payload: ClosePayload) => Promise<void> | void;
   projectName?: string;
+
+  /**
+   * Optional: pass in the project's recommendations from the parent
+   * (e.g. vm.recs) so we don't have to refetch here.
+   */
+  recommendations?: RecommendationLite[];
 };
 
-/**
- * CloseProjectModal
- * - If "did go ahead" is checked:
- *   - show dropdown of recommendations
- *   - allow up to 20 images to be uploaded
- * - If unchecked:
- *   - show checklist of reasons (budget, no_show, quote_too_high, tradesman_unavailable, other)
- */
 export default function CloseProjectModal({
   projectId,
   open,
   onClose,
   onSubmit,
   projectName,
+  recommendations,
 }: Props) {
   const api = useApi();
 
@@ -47,7 +60,17 @@ export default function CloseProjectModal({
   const [busy, setBusy] = useState(false);
 
   const [recs, setRecs] = useState<RecommendationLite[]>([]);
-  const [selectedRecId, setSelectedRecId] = useState<number | "">("");
+  const [recsLoading, setRecsLoading] = useState(false);
+
+  /**
+   * Store as a string key because the <select> uses string values.
+   *
+   * We encode both the source *and* id/uid so the caller can distinguish:
+   *   - "rec:123"     → recommendation id 123
+   *   - "share:<uid>" → tradesman who shared their profile
+   */
+  const [selectedWinnerKey, setSelectedWinnerKey] = useState<string>("");
+
   const [files, setFiles] = useState<File[]>([]);
   const MAX_FILES = 20;
 
@@ -59,42 +82,126 @@ export default function CloseProjectModal({
       setOtherText("");
       setBusy(false);
       setRecs([]);
-      setSelectedRecId("");
+      setRecsLoading(false);
+      setSelectedWinnerKey("");
       setFiles([]);
     }
   }, [open]);
 
-  // Load recommendations for dropdown when open & going ahead
+  // Load recommendation + share candidates for dropdown when open & going ahead.
   useEffect(() => {
     if (!open || !didGoAhead) return;
+
     let cancelled = false;
+
     (async () => {
+      setRecsLoading(true);
+
       try {
-        const { data } = await api.get(
-          `/api/projects/${projectId}/recommendations?page=1&pageSize=50`
-        );
-        const items = Array.isArray(data?.items) ? data.items : [];
-        if (!cancelled) {
-          setRecs(
-            items.map((r: any) => ({
-              id: r.id,
-              name: r.name,
-              company: r.company ?? null,
-              fromCommunity:
-                r?.fromCommunity === 1 ||
-                r?.fromCommunity === "1" ||
-                r?.fromCommunity === true,
-            }))
-          );
+        const merged: RecommendationLite[] = [];
+
+        // 1) Start with recommendations from parent, if provided
+        if (Array.isArray(recommendations) && recommendations.length > 0) {
+          for (const r of recommendations) {
+            merged.push({
+              ...r,
+              source: r.source || "recommendation",
+            });
+          }
+        } else {
+          // 2) Fallback: fetch via ratings endpoint
+          try {
+            const { data } = await api.get("/api/recommendations/ratings", {
+              params: {
+                projectId,
+                limit: 50,
+                offset: 0,
+              },
+            });
+
+            const items: any[] = Array.isArray(data?.items) ? data.items : [];
+
+            for (const r of items) {
+              merged.push({
+                id: r.id,
+                name: r.name ?? null,
+                company: r.company ?? null,
+                fromCommunity:
+                  r?.fromCommunity === 1 ||
+                  r?.fromCommunity === true ||
+                  String(r?.source || "").toLowerCase() === "community",
+                source: "recommendation",
+                tradesmanUid:
+                  r.tradesmanUid ||
+                  r.tradesman_uid ||
+                  r.tradesman_user_id ||
+                  null,
+              });
+            }
+          } catch {
+            // ignore – we’ll still try to load shares below
+          }
         }
-      } catch {
-        if (!cancelled) setRecs([]);
+
+        // 3) Also fetch tradesmen who have shared their profile to this project
+        try {
+          const { data: shareData } = await api.get("/api/tradesmen/shares", {
+            params: {
+              projectId,
+              limit: 50,
+            },
+          });
+
+          const shares: any[] = Array.isArray(shareData?.shares)
+            ? shareData.shares
+            : [];
+
+          for (const s of shares) {
+            const uid =
+              s.tradesmanUid || s.tradesman_uid || s.tradesman_user_id || null;
+            if (!uid) continue;
+
+            const company =
+              s.companyName || s.company_name || s.tradesmanCompany || null;
+            const name = s.tradesmanName || s.tradesman_name || company || null;
+
+            merged.push({
+              id: `share:${uid}`, // local id for this list; uid stored separately
+              name,
+              company,
+              fromCommunity: false,
+              source: "share",
+              tradesmanUid: String(uid),
+            });
+          }
+        } catch {
+          // shares are optional, so ignore failures here
+        }
+
+        if (cancelled) return;
+
+        // Optional: de-dupe by tradesmanUid so they don't appear twice
+        const seenByKey = new Map<string, RecommendationLite>();
+
+        for (const r of merged) {
+          const key =
+            (r.tradesmanUid && `uid:${r.tradesmanUid}`) ||
+            `rec:${String(r.id)}`;
+          if (!seenByKey.has(key)) {
+            seenByKey.set(key, r);
+          }
+        }
+
+        setRecs(Array.from(seenByKey.values()));
+      } finally {
+        if (!cancelled) setRecsLoading(false);
       }
     })();
+
     return () => {
       cancelled = true;
     };
-  }, [open, didGoAhead, projectId, api]);
+  }, [open, didGoAhead, projectId, api, recommendations]);
 
   function toggleReason(value: string) {
     setReasons((prev) =>
@@ -102,22 +209,37 @@ export default function CloseProjectModal({
     );
   }
 
-  function onFilesChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const list = Array.from(e.target.files || []);
-    const capped = list.slice(0, MAX_FILES);
-    setFiles(capped);
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (busy) return;
     setBusy(true);
     try {
-      // find the selected winner to get fromCommunity
-      const winner =
-        didGoAhead && selectedRecId !== ""
-          ? recs.find((r) => r.id === Number(selectedRecId))
-          : undefined;
+      const selected = selectedWinnerKey;
+
+      let winnerRecommendationId: number | undefined;
+      let winnerTradesmanUid: string | undefined;
+      let winnerFromCommunity = false;
+
+      if (didGoAhead && selected) {
+        const [kind, raw] = selected.split(":");
+
+        if (kind === "rec") {
+          const id = Number(raw);
+          if (Number.isFinite(id)) {
+            winnerRecommendationId = id;
+
+            // keep community flag behaviour for rec-based winners
+            const winnerRec = recs.find(
+              (r) =>
+                (r.source === "recommendation" || !r.source) &&
+                Number(r.id) === id
+            );
+            winnerFromCommunity = !!winnerRec?.fromCommunity;
+          }
+        } else if (kind === "share") {
+          winnerTradesmanUid = raw || undefined;
+        }
+      }
 
       await onSubmit({
         didGoAhead,
@@ -127,20 +249,13 @@ export default function CloseProjectModal({
           : reasons.includes("other")
           ? otherText.trim()
           : undefined,
-        selectedRecommendationId:
-          didGoAhead && selectedRecId !== ""
-            ? Number(selectedRecId)
-            : undefined,
-        // IMPORTANT: include winnerFromCommunity so server doesn't need a DB column
-        winnerFromCommunity: didGoAhead
-          ? !!(
-              winner &&
-              (winner.fromCommunity === 1 || winner.fromCommunity === true)
-            )
-          : false,
+
+        selectedRecommendationId: winnerRecommendationId,
+        winnerTradesmanUid,
+        winnerFromCommunity: didGoAhead ? winnerFromCommunity : false,
       });
 
-      // Upload photos if any and work went ahead
+      // Upload photos AFTER successful close
       if (didGoAhead && files.length > 0) {
         const fd = new FormData();
         for (const f of files) fd.append("photos", f);
@@ -149,7 +264,7 @@ export default function CloseProjectModal({
             headers: { "Content-Type": "multipart/form-data" },
           });
         } catch {
-          // non-blocking error
+          // non-blocking – project is already closed
         }
       }
 
@@ -160,6 +275,13 @@ export default function CloseProjectModal({
   }
 
   if (!open) return null;
+
+  const hasOptions = recs.length > 0;
+  const selectPlaceholder = recsLoading
+    ? "Loading tradespeople…"
+    : hasOptions
+    ? "Select a tradesperson…"
+    : "No recommendations yet";
 
   return (
     <div
@@ -176,12 +298,12 @@ export default function CloseProjectModal({
       />
       <form
         onSubmit={handleSubmit}
-        className="relative z-10 w-[92vw] max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-xl"
+        className="relative z-10 w-[92vw] max-w-2xl rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xl"
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <h2
             id="close-project-title"
-            className="text-lg font-semibold"
+            className="text-lg sm:text-xl font-semibold"
             data-testid="close-project-title"
           >
             Close project{projectName ? `: ${projectName}` : ""}
@@ -197,7 +319,8 @@ export default function CloseProjectModal({
           </button>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-5">
+          {/* Did it go ahead? */}
           <div className="flex items-center gap-3">
             <input
               id="did-go-ahead"
@@ -207,14 +330,18 @@ export default function CloseProjectModal({
               className="h-4 w-4 rounded border-slate-300"
               data-testid="input-did-go-ahead"
             />
-            <label htmlFor="did-go-ahead" className="select-none">
+            <label
+              htmlFor="did-go-ahead"
+              className="select-none text-sm sm:text-base"
+            >
               Did the work go ahead?
             </label>
           </div>
 
+          {/* Reasons if it did NOT go ahead */}
           {!didGoAhead && (
             <fieldset
-              className="rounded-xl border border-slate-200 p-3"
+              className="rounded-2xl border border-slate-200 p-3 sm:p-4"
               data-testid="fieldset-reasons"
             >
               <legend className="px-1 text-sm font-medium text-slate-600">
@@ -305,63 +432,65 @@ export default function CloseProjectModal({
             </fieldset>
           )}
 
+          {/* Who did the work + photos if it DID go ahead */}
           {didGoAhead && (
-            <div className="space-y-4">
+            <div className="space-y-5">
+              {/* Who did the work */}
               <div>
                 <label
                   htmlFor="who-did-work"
-                  className="block text-sm font-medium text-slate-700"
+                  className="block text-sm font-medium text-slate-800"
                 >
                   Who did the work?
                 </label>
+                <p className="mt-1 text-xs text-slate-500 max-w-prose">
+                  Once you have recommendations or shared profiles for this
+                  project, you can select who carried out the work here.
+                  <br />
+                  From your recommendations or tradesmen who shared their
+                  profile for this project.
+                </p>
+
                 <select
                   id="who-did-work"
-                  className="mt-1 w-full rounded-lg border border-slate-300 p-2"
-                  value={selectedRecId}
-                  onChange={(e) =>
-                    setSelectedRecId(
-                      e.target.value ? Number(e.target.value) : ""
-                    )
-                  }
+                  className="mt-2 w-full rounded-lg border border-slate-300 p-2 text-sm"
+                  value={selectedWinnerKey}
+                  onChange={(e) => setSelectedWinnerKey(e.target.value)}
                   data-testid="select-who-did-work"
                 >
-                  <option value="">Select a tradesperson…</option>
-                  {recs.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.company ? `${r.company} (${r.name})` : r.name}
-                    </option>
-                  ))}
+                  <option value="">{selectPlaceholder}</option>
+                  {recs.map((r) => {
+                    const value =
+                      r.source === "share"
+                        ? `share:${r.tradesmanUid ?? ""}`
+                        : `rec:${String(r.id)}`;
+
+                    const label =
+                      (r.company && r.company.trim()) ||
+                      (r.name && r.name.trim()) ||
+                      "Unknown tradesperson";
+
+                    return (
+                      <option key={value} value={value}>
+                        {label}
+                        {r.source === "share" ? " (shared profile)" : ""}
+                      </option>
+                    );
+                  })}
                 </select>
-                <p className="mt-1 text-xs text-slate-500">
-                  From your recommendations for this project.
-                </p>
               </div>
 
+              {/* Photos uploader */}
               <div>
-                <label
-                  htmlFor="closure-photos"
-                  className="block text-sm font-medium text-slate-700"
-                >
+                <p className="block text-sm font-medium text-slate-800">
                   Upload photos of the completed work (up to {MAX_FILES})
-                </label>
-                <input
-                  id="closure-photos"
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={onFilesChange}
-                  className="mt-1 w-full rounded-lg border border-slate-300 p-2"
-                  data-testid="input-closure-photos"
+                </p>
+                <FileGridUploader
+                  files={files}
+                  onChange={setFiles}
+                  maxFiles={MAX_FILES}
+                  maxSizeMB={10}
                 />
-                {files.length > 0 && (
-                  <p
-                    className="mt-1 text-xs text-slate-600"
-                    data-testid="closure-photos-count"
-                  >
-                    {files.length} selected{" "}
-                    {files.length === MAX_FILES ? "(max reached)" : ""}
-                  </p>
-                )}
               </div>
             </div>
           )}

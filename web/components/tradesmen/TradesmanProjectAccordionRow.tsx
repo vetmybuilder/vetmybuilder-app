@@ -193,14 +193,13 @@ export default function TradesmanProjectAccordionRow({
     if (!expanded) return;
 
     // If we've already attempted once for this row, don't hammer the endpoint
-    // again – just reuse the previous state (loaded / locked / pending / error).
     if (hasRequestedContactRef.current) {
       setContactLoading(false);
       return;
     }
 
     let cancelled = false;
-    hasRequestedContactRef.current = true; // mark as attempted
+    hasRequestedContactRef.current = true;
     setContactLoading(true);
 
     (async () => {
@@ -210,36 +209,44 @@ export default function TradesmanProjectAccordionRow({
         );
         if (cancelled) return;
 
-        const owner = data?.owner || data || {};
-        setOwnerContact({
-          firstName: owner.firstName ?? null,
-          lastName: owner.lastName ?? null,
-          email: owner.email ?? null,
-        });
-        setContactStatus("loaded");
-      } catch (e: any) {
-        if (cancelled) return;
-        const status = e?.response?.status ?? e?.status;
-        const code = e?.response?.data?.error;
+        const ok = Boolean(data?.ok);
+        const code = String(
+          data?.error ||
+            data?.entitlement?.oneOffStatus ||
+            data?.entitlement?.subscriptionStatus ||
+            ""
+        ).toLowerCase();
 
-        if (status === 403) {
-          if (code === "pending_admin_review") {
+        if (ok && data?.email) {
+          // Fully unlocked – we have contact details
+          setOwnerContact({
+            firstName: data.firstName ?? null,
+            lastName: data.lastName ?? null,
+            email: data.email ?? null,
+          });
+          setContactStatus("loaded");
+        } else {
+          // Locked / pending states
+          setOwnerContact(null);
+
+          if (code === "pending_admin_review" || code === "pending") {
             setContactStatus("pending_admin_review");
           } else if (code === "not_unlocked") {
             setContactStatus("not_unlocked");
           } else {
             setContactStatus("error");
           }
-        } else {
-          setContactStatus("error");
-          // eslint-disable-next-line no-console
-          console.warn(
-            "[TradesmanProjectAccordionRow] owner-contact failed:",
-            e?.response?.data || e?.message || e
-          );
         }
+      } catch (e: any) {
+        if (cancelled) return;
 
         setOwnerContact(null);
+        setContactStatus("error");
+        // eslint-disable-next-line no-console
+        console.warn(
+          "[TradesmanProjectAccordionRow] owner-contact failed:",
+          e?.response?.data || e?.message || e
+        );
       } finally {
         if (!cancelled) setContactLoading(false);
       }
@@ -296,8 +303,7 @@ export default function TradesmanProjectAccordionRow({
   const bedrooms =
     (effectiveProject as any).bedrooms ??
     (typeof project.bedrooms === "number" ? project.bedrooms : "—");
-  const status =
-    (effectiveProject as any).status || (project.status ?? "live");
+  const status = (effectiveProject as any).status || (project.status ?? "live");
   const descriptionRaw =
     "description" in effectiveProject &&
     (effectiveProject as any).description &&
@@ -391,7 +397,9 @@ export default function TradesmanProjectAccordionRow({
                     className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-900/90 disabled:opacity-60"
                     data-testid="btn-express-interest-inline"
                   >
-                    {shareBusy || shareChecking ? "Sending…" : "Express interest"}
+                    {shareBusy || shareChecking
+                      ? "Sending…"
+                      : "Express interest"}
                   </button>
                 )
               }

@@ -356,11 +356,13 @@ export function useProjectView() {
     }
   };
 
-  const onCloseProject = async (payload: {
+  // 🔹 actual close-project API call (used by modal)
+  const doCloseSubmit = async (payload: {
     didGoAhead: boolean;
     reasons: string[];
     otherReason?: string;
     selectedRecommendationId?: number;
+    winnerFromCommunity?: boolean;
   }) => {
     if (!project || busy) return;
     setBusy(true);
@@ -389,31 +391,6 @@ export function useProjectView() {
       setBusy(false);
     }
   };
-
-  // const onExpressInterest = async () => {
-  //   if (!project || interestBusy || interestSent) return;
-  //   setInterestBusy(true);
-  //   try {
-  //     const { data } = await api.post("/api/tradesmen/interest", {
-  //       projectId: project.id,
-  //     });
-  //     if (data?.ok || data?.alreadyShared) setInterestSent(true);
-  //     setFlash({
-  //       kind: "success",
-  //       text: "Thanks! We’ve notified the owner and shared your profile.",
-  //     });
-  //   } catch (e: any) {
-  //     setFlash({
-  //       kind: "error",
-  //       text:
-  //         e?.response?.data?.error ||
-  //         e?.message ||
-  //         "Failed to notify the project owner",
-  //     });
-  //   } finally {
-  //     setInterestBusy(false);
-  //   }
-  // };
 
   const onUpgradeClick = () => setPlansOpen(true);
 
@@ -642,7 +619,7 @@ export function useProjectView() {
     <CloseProjectModal
       open={closeOpen}
       onClose={() => setCloseOpen(false)}
-      onSubmit={onCloseProject}
+      onSubmit={doCloseSubmit}
       projectName={project?.name}
       projectId={project?.id as number}
     />
@@ -654,8 +631,6 @@ export function useProjectView() {
       onClose={() => setPlansOpen(false)}
       currentPlanId={currentPlanId}
       projectId={project?.id ?? undefined}
-      // Keeping without onSelectPlan to match your existing component
-      // If you later want selection in-modal, expose handlePlanSelect here.
     />
   );
 
@@ -667,7 +642,6 @@ export function useProjectView() {
     flash,
     setFlash,
 
-    // expose busy so views can disable buttons/spinners
     busy,
 
     isOwner,
@@ -697,11 +671,10 @@ export function useProjectView() {
     onPublish,
     onArchive,
     onUnarchive,
-    onCloseProject: () => setCloseOpen(true),
-    doCloseSubmit: onCloseProject,
+    onCloseProject: () => setCloseOpen(true), // opens modal
+    doCloseSubmit, // actual submit handler (used only by modal)
     copyInvite,
     copyingInvite,
-    // onExpressInterest,
     onUpgradeClick: () => setPlansOpen(true),
     startOneOffCheckout,
     startSubscriptionCheckout,

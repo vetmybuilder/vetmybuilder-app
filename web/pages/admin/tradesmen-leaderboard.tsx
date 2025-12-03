@@ -1,4 +1,3 @@
-// web/pages/admin/tradesmen-leaderboard.tsx
 import Head from "next/head";
 import { useEffect, useMemo, useRef, useState } from "react";
 import AuthedOnly from "@/components/AuthedOnly";
@@ -34,12 +33,12 @@ type Item = {
 
   plan?: "free" | "gold" | "platinum" | string | null;
   purchasedPlan?: "free" | "gold" | "platinum" | string | null;
-  purchased_plan?: "free" | "gold" | "platinum" | string | null;
+  spotlightActive?: boolean | null;
+  spotlightExpiresAt?: string | null;
 
-  // New data from API:
-  oneOffUnlocks?: number | string | null; // approved count
-  oneOffUnlocksPending?: number | string | null; // pending count
-  pendingUnlockProjectIds?: number[] | null; // exact pending IDs (optional)
+  // New simplified unlock data
+  oneOffUnlocks?: number | null; // approved
+  oneOffUnlocksPending?: number | null; // pending
 };
 
 type Resp = { items: Item[]; total: number; offset: number; limit: number };
@@ -71,10 +70,10 @@ export default function AdminTradesmenLeaderboardPage() {
   const [offset, setOffset] = useState(0);
   const [limit, setLimit] = useState(25);
 
-  // redesigned filters
-  const [q, setQ] = useState(""); // searches name OR company number
-  const [trade, setTrade] = useState(""); // free text
-  const [near, setNear] = useState(""); // outward/sector/city
+  // filters
+  const [q, setQ] = useState("");
+  const [trade, setTrade] = useState("");
+  const [near, setNear] = useState("");
 
   const [webVerifiedOnly, setWebVerifiedOnly] = useState(false);
   const [chVerifiedOnly, setChVerifiedOnly] = useState(false);
@@ -89,14 +88,11 @@ export default function AdminTradesmenLeaderboardPage() {
   const [mutatingUid, setMutatingUid] = useState<string | null>(null);
   const [menuUid, setMenuUid] = useState<string | null>(null);
 
-  // NEW: local confirm dialog state for “Cancel now”
   const [confirmCancelUid, setConfirmCancelUid] = useState<string | null>(null);
 
-  // sorting (default: score desc)
   const [sortKey, setSortKey] = useState<SortKey>("score");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
-  // one shared ref for click-out detection
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -197,7 +193,7 @@ export default function AdminTradesmenLeaderboardPage() {
       await api.post(`/api/admin/tradesmen/${uid}/subscription/approve`);
       await load();
     } catch (e: any) {
-      alert(e?.response?.data?.error || e?.message || "Failed to approve");
+      alert(e?.response?.data?.error || "Failed to approve");
     } finally {
       setMutatingUid(null);
       setMenuUid(null);
@@ -210,77 +206,40 @@ export default function AdminTradesmenLeaderboardPage() {
       await api.post(`/api/admin/tradesmen/${uid}/subscription/reject`);
       await load();
     } catch (e: any) {
-      alert(e?.response?.data?.error || e?.message || "Failed to reject");
+      alert(e?.response?.data?.error || "Failed to reject");
     } finally {
       setMutatingUid(null);
       setMenuUid(null);
     }
   }
 
-  // ----- Admin cancel subscription (new) -----
   async function adminCancel(uid: string, immediate = false) {
     setMutatingUid(uid);
-    const url = `/api/admin/tradesmen/${uid}/subscription/cancel`;
-    const body = immediate ? { immediate: true } : {};
-    console.log("[admin UI] cancel click", { uid, immediate, url, body });
-
     try {
-      const { data } = await api.post(url, body);
-      console.log("[admin UI] cancel response", { uid, immediate, data });
+      const body = immediate ? { immediate: true } : {};
+      await api.post(`/api/admin/tradesmen/${uid}/subscription/cancel`, body);
       await load();
     } catch (e: any) {
-      const msg =
+      setErr(
         e?.response?.data?.error ||
-        e?.message ||
-        (immediate
-          ? "Failed to cancel now"
-          : "Failed to schedule cancellation");
-      console.log("[admin UI] cancel error", {
-        uid,
-        immediate,
-        error: msg,
-        raw: e,
-      });
-      setErr(msg);
+          (immediate
+            ? "Failed to cancel now"
+            : "Failed to schedule cancellation")
+      );
     } finally {
       setMutatingUid(null);
       setMenuUid(null);
     }
   }
 
-  // ----- one-off unlocks: no popups, auto if exactly one; otherwise brief banner
-  function getPendingIds(it: Item): number[] {
-    const arr = Array.isArray(it.pendingUnlockProjectIds)
-      ? it.pendingUnlockProjectIds
-      : [];
-    return arr.filter((n) => Number.isFinite(n));
-  }
-
+  /* ========= One-off unlocks (cleaned) ========= */
   async function approveUnlock(uid: string) {
-    const row = items.find((i) => i.userId === uid);
-    if (!row) return;
-    const ids = getPendingIds(row);
-    if (ids.length === 0) {
-      setErr("No pending unlocks for this tradesman.");
-      return;
-    }
     setMutatingUid(uid);
     try {
       await api.post(`/api/admin/tradesmen/${uid}/unlocks/approve`, {});
       await load();
     } catch (e: any) {
-      const pj = e?.response?.data?.projectIds;
-      if (Array.isArray(pj) && pj.length > 1) {
-        setErr(
-          `Multiple pending unlocks: ${pj.join(
-            ", "
-          )}. Please approve a specific project from its page.`
-        );
-      } else {
-        setErr(
-          e?.response?.data?.error || e?.message || "Failed to approve unlock"
-        );
-      }
+      setErr(e?.response?.data?.error || "Failed to approve unlock");
     } finally {
       setMutatingUid(null);
       setMenuUid(null);
@@ -288,39 +247,20 @@ export default function AdminTradesmenLeaderboardPage() {
   }
 
   async function rejectUnlock(uid: string) {
-    const row = items.find((i) => i.userId === uid);
-    if (!row) return;
-    const ids = getPendingIds(row);
-    if (ids.length === 0) {
-      setErr("No pending unlocks for this tradesman.");
-      return;
-    }
     setMutatingUid(uid);
     try {
       await api.post(`/api/admin/tradesmen/${uid}/unlocks/reject`, {});
       await load();
     } catch (e: any) {
-      const pj = e?.response?.data?.projectIds;
-      if (Array.isArray(pj) && pj.length > 1) {
-        setErr(
-          `Multiple pending unlocks: ${pj.join(
-            ", "
-          )}. Please reject a specific project from its page.`
-        );
-      } else {
-        setErr(
-          e?.response?.data?.error || e?.message || "Failed to reject unlock"
-        );
-      }
+      setErr(e?.response?.data?.error || "Failed to reject unlock");
     } finally {
       setMutatingUid(null);
       setMenuUid(null);
     }
   }
 
-  // flag (unchanged)
   async function flag(uid: string) {
-    const reason = window.prompt("Reason for flag?"); // unchanged per your note
+    const reason = window.prompt("Reason for flag?");
     if (!reason) return;
     setMutatingUid(uid);
     try {
@@ -330,7 +270,7 @@ export default function AdminTradesmenLeaderboardPage() {
       });
       await load();
     } catch (e: any) {
-      alert(e?.response?.data?.error || e?.message || "Failed");
+      alert(e?.response?.data?.error || "Failed");
     } finally {
       setMutatingUid(null);
       setMenuUid(null);
@@ -338,6 +278,7 @@ export default function AdminTradesmenLeaderboardPage() {
   }
 
   /* ========= Render helpers ========= */
+
   const StatusChip = ({ value }: { value: Item["status"] }) => {
     const cls =
       value === "active"
@@ -390,29 +331,15 @@ export default function AdminTradesmenLeaderboardPage() {
     </span>
   );
 
-  const getPendingPlan = (it: Item) => {
-    const current = (it.plan ?? null) as string | null;
-    const raw = (it.purchasedPlan ?? it.purchased_plan ?? null) as
-      | string
-      | null;
-    if (!raw) return null;
-    return raw === current ? null : raw;
-  };
-
   const planLabel = (p?: Item["plan"]) => (p ? String(p) : "free");
 
-  // ------ Sorting helpers ------
-  const asNumberOrNull = (v: unknown): number | null => {
-    const n = typeof v === "number" ? v : Number(v);
-    return Number.isFinite(n) ? n : null;
-  };
-
+  /* ========= Sorting ========= */
   const getSortVal = (it: Item, key: SortKey): string | number => {
     switch (key) {
       case "company":
         return (it.company || "").toLowerCase();
       case "score":
-        return asNumberOrNull(it.score) ?? -Infinity;
+        return it.score ?? 0;
       case "chStatus":
         return (it.chStatus || "").toLowerCase();
       case "webVerified":
@@ -426,60 +353,44 @@ export default function AdminTradesmenLeaderboardPage() {
       case "plan":
         return (planLabel(it.plan) || "").toLowerCase();
       case "openFlags":
-        return asNumberOrNull(it.openFlags) ?? -Infinity;
+        return it.openFlags ?? 0;
       case "urls":
         return it.urls?.length || 0;
-      case "signals": {
-        const score = asNumberOrNull(it.score) ?? -Infinity;
+      case "signals":
         return (
-          score * 1e9 +
-          (it.photos || 0) * 1e6 +
-          (it.docs || 0) * 1e3 +
-          (it.likes || 0) * 10 +
-          (it.wins || 0)
+          (it.score ?? 0) * 1e9 +
+          (it.photos ?? 0) * 1e6 +
+          (it.docs ?? 0) * 1e3 +
+          (it.likes ?? 0) * 10 +
+          (it.wins ?? 0)
         );
-      }
-      case "unlocks": {
-        const a = it.oneOffUnlocks;
-        const p = it.oneOffUnlocksPending;
-        const appr =
-          typeof a === "number"
-            ? a
-            : typeof a === "string" && a.trim()
-            ? Number(a)
-            : 0;
-        const pend =
-          typeof p === "number"
-            ? p
-            : typeof p === "string" && p.trim()
-            ? Number(p)
-            : 0;
-        return appr * 1e6 + pend; // approved first, then pending
-      }
+      case "unlocks":
+        return (it.oneOffUnlocks || 0) * 1e6 + (it.oneOffUnlocksPending || 0);
       case "createdAt":
-        return new Date(it.createdAt || 0).getTime() || 0;
+        return new Date(it.createdAt || 0).getTime();
       case "updatedAt":
-        return new Date(it.updatedAt || 0).getTime() || 0;
+        return new Date(it.updatedAt || 0).getTime();
       default:
         return 0;
     }
   };
 
   const sortedItems = useMemo(() => {
-    const copy = items.slice();
-    copy.sort((a, b) => {
+    const arr: Item[] = [...items];
+    arr.sort((a, b) => {
       const va = getSortVal(a, sortKey);
       const vb = getSortVal(b, sortKey);
+
       if (typeof va === "number" && typeof vb === "number") {
         return sortDir === "asc" ? va - vb : vb - va;
       }
+
       const sa = String(va);
       const sb = String(vb);
-      const cmp = sa.localeCompare(sb);
-      return sortDir === "asc" ? cmp : -cmp;
+      return sortDir === "asc" ? sa.localeCompare(sb) : sb.localeCompare(sa);
     });
-    return copy;
-  }, [items, sortKey, sortDir]);
+    return arr;
+  }, [items, sortKey, sortDir, getSortVal]);
 
   const canPrev = offset > 0;
   const canNext = offset + limit < total;
@@ -492,10 +403,7 @@ export default function AdminTradesmenLeaderboardPage() {
       </Head>
 
       <AuthedOnly>
-        <div
-          className="mx-auto px-4 py-6 w-full max-w-none"
-          data-testid="admin-tradesmen-leaderboard-page"
-        >
+        <div className="mx-auto px-4 py-6 w-full max-w-none">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h1 className="text-2xl font-semibold">
               Tradesmen Leaderboard (Admin)
@@ -511,7 +419,6 @@ export default function AdminTradesmenLeaderboardPage() {
 
           {!forbidden && (
             <>
-              {/* Inline error banner (for multi-pending unlocks, etc.) */}
               {err && (
                 <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                   {err}
@@ -519,11 +426,7 @@ export default function AdminTradesmenLeaderboardPage() {
               )}
 
               {/* Filters */}
-              <div
-                className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-4"
-                data-testid="filters"
-              >
-                {/* ... unchanged filters ... */}
+              <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-4">
                 <label className="md:col-span-2 text-sm text-slate-700">
                   <span className="block mb-1">
                     Search (name or company number)
@@ -533,7 +436,6 @@ export default function AdminTradesmenLeaderboardPage() {
                     onChange={(e) => setQ(e.target.value)}
                     placeholder="e.g. Elegant or 12758227"
                     className="border rounded-lg px-3 py-2 w-full"
-                    data-testid="filter-q"
                   />
                 </label>
                 <label className="text-sm text-slate-700">
@@ -543,7 +445,6 @@ export default function AdminTradesmenLeaderboardPage() {
                     onChange={(e) => setTrade(e.target.value)}
                     placeholder="e.g. plumber"
                     className="border rounded-lg px-3 py-2 w-full"
-                    data-testid="filter-trade"
                   />
                 </label>
                 <label className="text-sm text-slate-700">
@@ -553,7 +454,6 @@ export default function AdminTradesmenLeaderboardPage() {
                     onChange={(e) => setNear(e.target.value)}
                     placeholder="e.g. E4 or W1A"
                     className="border rounded-lg px-3 py-2 w-full"
-                    data-testid="filter-near"
                   />
                 </label>
                 <div className="flex items-end gap-2">
@@ -561,7 +461,6 @@ export default function AdminTradesmenLeaderboardPage() {
                     onClick={resetAndSearch}
                     className="rounded-lg px-3 py-2 border bg-black text-white"
                     disabled={loading}
-                    data-testid="btn-search"
                   >
                     {loading ? "Loading..." : "Search"}
                   </button>
@@ -579,22 +478,16 @@ export default function AdminTradesmenLeaderboardPage() {
                       setOffset(0);
                     }}
                     className="rounded-lg px-3 py-2 border"
-                    data-testid="btn-clear"
                   >
                     Clear
                   </button>
                 </div>
-                <div
-                  className="md:col-span-6 flex flex-wrap gap-4 mt-1"
-                  data-testid="filter-toggles"
-                >
-                  {/* ... toggles unchanged ... */}
+                <div className="md:col-span-6 flex flex-wrap gap-4 mt-1">
                   <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
                       checked={webVerifiedOnly}
                       onChange={(e) => setWebVerifiedOnly(e.target.checked)}
-                      data-testid="toggle-web-verified"
                     />
                     <span>Web verified only</span>
                   </label>
@@ -603,7 +496,6 @@ export default function AdminTradesmenLeaderboardPage() {
                       type="checkbox"
                       checked={chVerifiedOnly}
                       onChange={(e) => setChVerifiedOnly(e.target.checked)}
-                      data-testid="toggle-ch-verified"
                     />
                     <span>CH verified only</span>
                   </label>
@@ -612,7 +504,6 @@ export default function AdminTradesmenLeaderboardPage() {
                       type="checkbox"
                       checked={hasPhotos}
                       onChange={(e) => setHasPhotos(e.target.checked)}
-                      data-testid="toggle-has-photos"
                     />
                     <span>Has ≥3 photos</span>
                   </label>
@@ -621,7 +512,6 @@ export default function AdminTradesmenLeaderboardPage() {
                       type="checkbox"
                       checked={hasDocs}
                       onChange={(e) => setHasDocs(e.target.checked)}
-                      data-testid="toggle-has-docs"
                     />
                     <span>Has ≥2 docs</span>
                   </label>
@@ -630,7 +520,6 @@ export default function AdminTradesmenLeaderboardPage() {
                       type="checkbox"
                       checked={hasDiscount}
                       onChange={(e) => setHasDiscount(e.target.checked)}
-                      data-testid="toggle-has-discount"
                     />
                     <span>Offers discount</span>
                   </label>
@@ -639,7 +528,6 @@ export default function AdminTradesmenLeaderboardPage() {
                       type="checkbox"
                       checked={hasWebsites}
                       onChange={(e) => setHasWebsites(e.target.checked)}
-                      data-testid="toggle-has-websites"
                     />
                     <span>Has websites</span>
                   </label>
@@ -647,24 +535,24 @@ export default function AdminTradesmenLeaderboardPage() {
               </div>
 
               {/* Table */}
-              <div className="border rounded-xl" data-testid="table">
+              <div className="border rounded-xl">
                 <table className="w-full table-fixed text-sm">
                   <colgroup>
-                    <col className="w-[13%]" /> {/* Company */}
-                    <col className="w-[7%]" /> {/* VMB Score */}
-                    <col className="w-[7%]" /> {/* CH */}
-                    <col className="w-[7%]" /> {/* Web */}
-                    <col className="w-[10%]" /> {/* Trades */}
-                    <col className="w-[9%]" /> {/* Areas */}
-                    <col className="w-[6%]" /> {/* Status */}
-                    <col className="w-[6%]" /> {/* Plan */}
-                    <col className="w-[5%]" /> {/* Flags */}
-                    <col className="w-[9%]" /> {/* URLs */}
-                    <col className="w-[9%]" /> {/* Signals */}
-                    <col className="w-[9%]" /> {/* Unlocks */}
-                    <col className="w-[7%]" /> {/* Joined */}
-                    <col className="w-[9%]" /> {/* Updated */}
-                    <col className="w-[10%]" /> {/* Actions */}
+                    <col className="w-[13%]" />
+                    <col className="w-[7%]" />
+                    <col className="w-[7%]" />
+                    <col className="w-[7%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[9%]" />
+                    <col className="w-[6%]" />
+                    <col className="w-[6%]" />
+                    <col className="w-[5%]" />
+                    <col className="w-[9%]" />
+                    <col className="w-[9%]" />
+                    <col className="w-[9%]" />
+                    <col className="w-[7%]" />
+                    <col className="w-[9%]" />
+                    <col className="w-[10%]" />
                   </colgroup>
                   <thead className="bg-gray-50">
                     <tr>
@@ -814,7 +702,6 @@ export default function AdminTradesmenLeaderboardPage() {
                       </th>
                     </tr>
                   </thead>
-
                   <tbody>
                     {sortedItems.length === 0 && !loading && (
                       <tr>
@@ -832,32 +719,22 @@ export default function AdminTradesmenLeaderboardPage() {
                       const urlsToShow = it.urls || [];
                       const isOpen = menuUid === it.userId;
 
-                      const pendingPlan = getPendingPlan(it);
-                      const hasPending = !!pendingPlan;
-                      const canApproveReject = hasPending && !isRowBusy;
+                      const pendingPlan =
+                        it.purchasedPlan && it.purchasedPlan !== it.plan
+                          ? it.purchasedPlan
+                          : null;
 
-                      // unlocks display (approved + pending)
-                      const a = it.oneOffUnlocks;
-                      const p = it.oneOffUnlocksPending;
-                      const approved =
-                        typeof a === "number"
-                          ? a
-                          : typeof a === "string" && a.trim() !== ""
-                          ? Number(a)
-                          : 0;
-                      const pending =
-                        typeof p === "number"
-                          ? p
-                          : typeof p === "string" && p.trim() !== ""
-                          ? Number(p)
-                          : 0;
+                      const approved = it.oneOffUnlocks || 0;
+                      const pending = it.oneOffUnlocksPending || 0;
+
                       const unlocksDisplay =
                         pending > 0
                           ? `${approved} (${pending} pending)`
                           : String(approved);
 
-                      // NEW: gate unlock actions when there are no pending unlocks
-                      const canApproveRejectUnlock = pending > 0 && !isRowBusy;
+                      const hasPendingUnlock = pending > 0;
+                      const canApproveRejectUnlock =
+                        hasPendingUnlock && !isRowBusy;
 
                       const chChip =
                         (it.chStatus || "").toLowerCase() === "verified" ? (
@@ -872,11 +749,11 @@ export default function AdminTradesmenLeaderboardPage() {
                         <Chip text="None" tone="none" />
                       );
 
-                      // signal helpers
                       const warrantyText =
                         it.warrantyMonths > 0
                           ? `${it.warrantyMonths} months`
                           : "None";
+
                       const hasDiscountAny =
                         it.discountMin > 0 || it.discountMax > 0;
                       const discountText = hasDiscountAny
@@ -885,7 +762,6 @@ export default function AdminTradesmenLeaderboardPage() {
                           : `${it.discountMin}–${it.discountMax}%`
                         : "None";
 
-                      // NEW: canCancel based on plan !== 'free'
                       const effectivePlan = planLabel(it.plan);
                       const canCancel = effectivePlan !== "free" && !isRowBusy;
 
@@ -902,9 +778,16 @@ export default function AdminTradesmenLeaderboardPage() {
                             <div className="text-xs text-gray-500 break-words whitespace-normal">
                               {it.companyNumber || "—"}
                             </div>
-                            {hasPending && (
+
+                            {pendingPlan && (
                               <div className="mt-1 text-xs text-sky-700">
                                 Pending plan: <b>{pendingPlan}</b>
+                              </div>
+                            )}
+
+                            {hasPendingUnlock && (
+                              <div className="mt-1 text-xs text-amber-700">
+                                Pending one-off unlock
                               </div>
                             )}
                           </td>
@@ -924,7 +807,34 @@ export default function AdminTradesmenLeaderboardPage() {
                           <td className="px-3 py-2">
                             <StatusChip value={it.status} />
                           </td>
-                          <td className="px-3 py-2 text-xs">{effectivePlan}</td>
+                          <td className="px-3 py-2 text-xs">
+                            <div className="capitalize">{effectivePlan}</div>
+
+                            {/* Spotlight BADGE */}
+                            {it.spotlightActive && (
+                              <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-700 ring-1 ring-purple-200">
+                                ⭐ Spotlight Active
+                                {it.spotlightExpiresAt && (
+                                  <span className="opacity-80">
+                                    (until{" "}
+                                    {new Date(
+                                      it.spotlightExpiresAt
+                                    ).toLocaleDateString("en-GB")}
+                                    )
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Spotlight pending admin */}
+                            {!it.spotlightActive &&
+                              it.purchasedPlan === "spotlight" && (
+                                <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200">
+                                  ⏳ Spotlight Pending
+                                </div>
+                              )}
+                          </td>
+
                           <td className="px-3 py-2">
                             <FlagChip n={it.openFlags} />
                           </td>
@@ -993,7 +903,6 @@ export default function AdminTradesmenLeaderboardPage() {
                                   )
                                 }
                                 disabled={isRowBusy}
-                                data-testid={`row-actions-${it.userId}`}
                               >
                                 Actions
                                 <svg
@@ -1001,7 +910,6 @@ export default function AdminTradesmenLeaderboardPage() {
                                   height="12"
                                   viewBox="0 0 20 20"
                                   fill="currentColor"
-                                  aria-hidden="true"
                                 >
                                   <path d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 011.08 1.04l-4.25 4.25a.75.75 0 01-1.06 0L5.21 8.27a.75.75 0 01.02-1.06z" />
                                 </svg>
@@ -1012,16 +920,12 @@ export default function AdminTradesmenLeaderboardPage() {
                                   role="menu"
                                   className="absolute right-0 z-20 mt-2 w-56 origin-top-right rounded-lg border border-gray-200 bg-white py-1 shadow-xl ring-1 ring-black/5"
                                 >
+                                  {/* Pending plan */}
                                   <button
                                     role="menuitem"
                                     className="block w-full px-3 py-2 text-left text-sm hover:bg-green-50 disabled:opacity-50"
                                     onClick={() => approvePending(it.userId)}
-                                    disabled={!canApproveReject}
-                                    title={
-                                      canApproveReject
-                                        ? `Approve ${pendingPlan} plan`
-                                        : "No pending plan to approve"
-                                    }
+                                    disabled={!pendingPlan || isRowBusy}
                                   >
                                     Approve pending plan
                                   </button>
@@ -1029,29 +933,19 @@ export default function AdminTradesmenLeaderboardPage() {
                                     role="menuitem"
                                     className="block w-full px-3 py-2 text-left text-sm hover:bg-amber-50 disabled:opacity-50"
                                     onClick={() => rejectPending(it.userId)}
-                                    disabled={!canApproveReject}
-                                    title={
-                                      canApproveReject
-                                        ? `Reject ${pendingPlan} plan`
-                                        : "No pending plan to reject"
-                                    }
+                                    disabled={!pendingPlan || isRowBusy}
                                   >
                                     Reject pending plan
                                   </button>
 
                                   <div className="my-1 border-t border-gray-100" />
 
-                                  {/* One-off unlock approval/rejection (no popups) */}
+                                  {/* One-off unlocks */}
                                   <button
                                     role="menuitem"
                                     className="block w-full px-3 py-2 text-left text-sm hover:bg-sky-50 disabled:opacity-50"
                                     onClick={() => approveUnlock(it.userId)}
                                     disabled={!canApproveRejectUnlock}
-                                    title={
-                                      canApproveRejectUnlock
-                                        ? "Approve a one-off project unlock"
-                                        : "No pending unlocks to approve"
-                                    }
                                   >
                                     Approve one-off unlock
                                   </button>
@@ -1060,18 +954,13 @@ export default function AdminTradesmenLeaderboardPage() {
                                     className="block w-full px-3 py-2 text-left text-sm hover:bg-amber-50 disabled:opacity-50"
                                     onClick={() => rejectUnlock(it.userId)}
                                     disabled={!canApproveRejectUnlock}
-                                    title={
-                                      canApproveRejectUnlock
-                                        ? "Reject a one-off project unlock"
-                                        : "No pending unlocks to reject"
-                                    }
                                   >
                                     Reject one-off unlock
                                   </button>
 
                                   <div className="my-1 border-t border-gray-100" />
 
-                                  {/* NEW: Admin cancel actions */}
+                                  {/* Cancel subscription */}
                                   <button
                                     role="menuitem"
                                     className="block w-full px-3 py-2 text-left text-sm hover:bg-rose-50 disabled:opacity-50"
@@ -1079,12 +968,6 @@ export default function AdminTradesmenLeaderboardPage() {
                                       adminCancel(it.userId, false)
                                     }
                                     disabled={!canCancel}
-                                    title={
-                                      canCancel
-                                        ? "Cancel at period end"
-                                        : "No active subscription to cancel"
-                                    }
-                                    data-testid={`cancel-subscription-${it.userId}`}
                                   >
                                     Cancel subscription (period end)
                                   </button>
@@ -1092,26 +975,17 @@ export default function AdminTradesmenLeaderboardPage() {
                                     role="menuitem"
                                     className="block w-full px-3 py-2 text-left text-sm hover:bg-rose-50 disabled:opacity-50"
                                     onClick={() => {
-                                      console.log(
-                                        "[admin UI] open confirm cancel-now",
-                                        { uid: it.userId }
-                                      );
                                       setMenuUid(null);
                                       setConfirmCancelUid(it.userId);
                                     }}
                                     disabled={!canCancel}
-                                    title={
-                                      canCancel
-                                        ? "Cancel immediately"
-                                        : "No active subscription to cancel"
-                                    }
-                                    data-testid={`cancel-subscription-now-${it.userId}`}
                                   >
                                     Cancel subscription now
                                   </button>
 
                                   <div className="my-1 border-t border-gray-100" />
 
+                                  {/* Flag */}
                                   <button
                                     role="menuitem"
                                     className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
@@ -1123,6 +997,7 @@ export default function AdminTradesmenLeaderboardPage() {
 
                                   <div className="my-1 border-t border-gray-100" />
 
+                                  {/* Status changes */}
                                   <button
                                     role="menuitem"
                                     className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50 disabled:opacity-50"
@@ -1180,7 +1055,6 @@ export default function AdminTradesmenLeaderboardPage() {
                     className="px-3 py-2 border rounded disabled:opacity-50"
                     disabled={!canPrev || loading}
                     onClick={() => setOffset(Math.max(0, offset - limit))}
-                    data-testid="btn-prev"
                   >
                     Prev
                   </button>
@@ -1191,7 +1065,6 @@ export default function AdminTradesmenLeaderboardPage() {
                       setOffset(0);
                     }}
                     className="border rounded px-2 py-1"
-                    data-testid="select-page-size"
                   >
                     {[10, 25, 50, 100].map((n) => (
                       <option key={n} value={n}>
@@ -1203,7 +1076,6 @@ export default function AdminTradesmenLeaderboardPage() {
                     className="px-3 py-2 border rounded disabled:opacity-50"
                     disabled={!canNext || loading}
                     onClick={() => setOffset(offset + limit)}
-                    data-testid="btn-next"
                   >
                     Next
                   </button>
@@ -1214,7 +1086,7 @@ export default function AdminTradesmenLeaderboardPage() {
         </div>
       </AuthedOnly>
 
-      {/* ===== Inline Confirm Dialog (no browser confirm) ===== */}
+      {/* Confirm Cancel Dialog */}
       {confirmCancelUid && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
           <div className="w-[420px] rounded-xl bg-white p-5 shadow-xl">
@@ -1251,7 +1123,7 @@ export default function AdminTradesmenLeaderboardPage() {
   );
 }
 
-/* ===== SortHeader (uses parent state) ===== */
+/* ===== SortHeader Component ===== */
 function SortHeader({
   label,
   k,
@@ -1281,6 +1153,7 @@ function SortHeader({
     k === "createdAt"
       ? "desc"
       : "asc";
+
   return (
     <button
       type="button"

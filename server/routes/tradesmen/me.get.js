@@ -1,203 +1,82 @@
 // server/routes/tradesmen/me.get.js
+
 /**
  * GET /api/tradesmen/me
  * Auth: required
  *
- * Returns 200 in all cases:
- *  - { role: "tradesman", profile: { ...row } }  when a profile exists (or was just auto-claimed)
- *  - { role: "user",       profile: null }       when nothing to return
+ * Returns:
+ *   - { role: "tradesman", profile: {...} } if a tradesmen row exists for this uid
+ *   - { role: "user", profile: null } otherwise
  */
 module.exports = (router, ctx) => {
-  const { db, auth } = ctx;
+  const { auth, mysqlQuery } = ctx;
+  const TAG = "[tradesmen/me.get]";
 
-  const tblExists = (name) => {
-    try {
-      return !!db
-        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?")
-        .get(name);
-    } catch {
-      return false;
-    }
-  };
-  const hasCol = (table, col) => {
-    try {
-      const rows = db.prepare(`PRAGMA table_info(${table})`).all();
-      return rows.some((r) => r.name === col);
-    } catch {
-      return false;
-    }
-  };
-
-  const ensureRoleTradesman = (uid) => {
-    try {
-      if (!tblExists("user_roles")) {
-        db.prepare(
-          `CREATE TABLE IF NOT EXISTS user_roles (uid TEXT PRIMARY KEY, role TEXT NOT NULL)`
-        ).run();
-      }
-      db.prepare(
-        `INSERT INTO user_roles(uid, role) VALUES(?, 'tradesman')
-         ON CONFLICT(uid) DO UPDATE SET role='tradesman'`
-      ).run(uid);
-    } catch {}
-  };
-
-  function getProfileByUid(uid) {
-    if (!tblExists("tradesmen")) return null;
-    const key = hasCol("tradesmen", "user_id")
-      ? "user_id"
-      : hasCol("tradesmen", "uid")
-      ? "uid"
-      : null;
-    if (!key) return null;
-    return (
-      db.prepare(`SELECT * FROM tradesmen WHERE ${key}=? LIMIT 1`).get(uid) ||
-      null
-    );
+  if (!mysqlQuery) {
+    throw new Error("mysqlQuery not attached to ctx (MySQL required)");
   }
 
-  function claimDraftByEmail(uid, email) {
-    if (!email || !tblExists("tradesmen")) return null;
-
-    // Strategy A: claim an existing tradesmen row with matching email and no user binding yet
-    const bindableCol = hasCol("tradesmen", "user_id")
-      ? "user_id"
-      : hasCol("tradesmen", "uid")
-      ? "uid"
-      : null;
-    if (!bindableCol) return null;
-
-    let row = null;
-    try {
-      // email column must exist to match
-      if (hasCol("tradesmen", "email")) {
-        row = db
-          .prepare(
-            `SELECT * FROM tradesmen WHERE email=? AND (${bindableCol} IS NULL OR ${bindableCol}='') LIMIT 1`
-          )
-          .get(email);
-        if (row) {
-          db.prepare(
-            `UPDATE tradesmen
-               SET ${bindableCol}=?, updated_at=datetime('now')
-             WHERE rowid IN (SELECT rowid FROM tradesmen WHERE email=? AND (${bindableCol} IS NULL OR ${bindableCol}='') LIMIT 1)`
-          ).run(uid, email);
-          ensureRoleTradesman(uid);
-          return getProfileByUid(uid);
-        }
-      }
-    } catch {}
-
-    // Strategy B: if you kept a leads table, migrate the newest lead
-    if (tblExists("tradesmen_leads")) {
-      try {
-        const lead = db
-          .prepare(
-            `SELECT * FROM tradesmen_leads WHERE email=? AND (claimed_at IS NULL OR claimed_at='') ORDER BY created_at DESC LIMIT 1`
-          )
-          .get(email);
-        if (lead) {
-          // create a bound tradesmen row
-          const hasStatus = hasCol("tradesmen", "status");
-          const hasCompany = hasCol("tradesmen", "company_name");
-          const hasContact = hasCol("tradesmen", "contact_name");
-          const hasPhone = hasCol("tradesmen", "phone");
-          const hasEmail = hasCol("tradesmen", "email");
-          const hasTrades = hasCol("tradesmen", "trade_types");
-          const hasAreas = hasCol("tradesmen", "service_areas");
-
-          const cols = [
-            bindableCol,
-            hasCompany && "company_name",
-            hasContact && "contact_name",
-            hasPhone && "phone",
-            hasEmail && "email",
-            hasTrades && "trade_types",
-            hasAreas && "service_areas",
-            hasStatus && "status",
-          ].filter(Boolean);
-          const vals = [
-            uid,
-            hasCompany && lead.company_name,
-            hasContact && lead.contact_name,
-            hasPhone && lead.phone,
-            hasEmail && lead.email,
-            hasTrades && (lead.trade_types || ""),
-            hasAreas && (lead.service_areas || ""),
-            hasStatus && "draft",
-          ].filter((v) => v !== false);
-
-          db.prepare(
-            `INSERT INTO tradesmen (${cols.join(",")}) VALUES (${cols
-              .map(() => "?")
-              .join(",")})`
-          ).run(vals);
-
-          db.prepare(
-            `UPDATE tradesmen_leads SET claimed_at=datetime('now') WHERE id=?`
-          ).run(lead.id);
-          ensureRoleTradesman(uid);
-          return getProfileByUid(uid);
-        }
-      } catch {}
-    }
-
-    return null;
-  }
-
-  // attach photos from tradesmen_photos (if available)
-  function attachPhotos(uid, profile) {
-    if (!profile) return profile;
-    if (!tblExists("tradesmen_photos")) return profile;
+  router.get("/tradesmen/me", auth, async (req, res) => {
+    const uid = req.user.uid;
 
     try {
-      const rows = db
-        .prepare(
-          `SELECT url
-             FROM tradesmen_photos
-            WHERE tradesman_user_id=?
-            ORDER BY sort_order, id`
-        )
-        .all(uid);
-      const urls = rows.map((r) => r.url).filter(Boolean);
+      const rows = await mysqlQuery(
+        `
+        SELECT
+          user_id,
+          company_name,
+          contact_name,
+          phone,
+          email,
+          trade_types,
+          service_areas,
+          vmb_score,
+          vmb_badge,
+          subscription_status,
+          status,
+          company_number,
+          ch_status,
+          web_verified,
+          web_url,
+          social_links_json,
+          photo_count,
+          supporting_doc_count,
+          discount_min_percent,
+          discount_max_percent,
+          offers_discount,
+          warranty_months,
+          likes_count,
+          wins_count,
+          created_at,
+          updated_at
+        FROM tradesmen
+        WHERE user_id = ?
+        LIMIT 1
+        `,
+        [uid]
+      );
 
-      profile.photo_urls = urls;
-      // back-compat: also expose as gallery if not already set
-      if (!Array.isArray(profile.gallery)) {
-        profile.gallery = urls;
+      const profile = rows[0] || null;
+
+      if (!profile) {
+        // No tradesman row -> regular user
+        res.set("Cache-Control", "no-store");
+        return res.json({ role: "user", profile: null });
       }
-    } catch {
-      // swallow – photos are nice-to-have
-    }
-    return profile;
-  }
 
-  router.get("/tradesmen/me", auth, (req, res) => {
-    try {
-      const uid = req.user?.uid;
-      const email = req.user?.email || null;
-
-      // existing?
-      let profile = getProfileByUid(uid);
-
-      // no profile yet? try to auto-claim by email
-      if (!profile && email) {
-        profile = claimDraftByEmail(uid, email);
-      }
-
-      if (profile) {
-        profile = attachPhotos(uid, profile);
-        return res
-          .set("Cache-Control", "no-store")
-          .json({ role: "tradesman", profile });
-      }
-      return res
-        .set("Cache-Control", "no-store")
-        .json({ role: "user", profile: null });
+      // Any tradesmen row (draft/active/inactive) => role "tradesman"
+      res.set("Cache-Control", "no-store");
+      return res.json({ role: "tradesman", profile });
     } catch (e) {
-      return res
-        .set("Cache-Control", "no-store")
-        .json({ role: "user", profile: null });
+      console.error(`${TAG} error:`, e);
+      // On error, fail safe but keep shape
+      res.set("Cache-Control", "no-store");
+      return res.json({ role: "user", profile: null });
     }
   });
+
+  if (!ctx.__logged_tradesmen_me_get) {
+    ctx.__logged_tradesmen_me_get = true;
+    console.log("[routes] mounted: GET /tradesmen/me");
+  }
 };

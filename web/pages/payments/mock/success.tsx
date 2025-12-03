@@ -46,7 +46,11 @@ export default function MockSuccess() {
 
     if (!s && typeof window !== "undefined") {
       const sp = new URLSearchParams(window.location.search);
-      s = sp.get("session_id") || sp.get("sessionId") || sp.get("id") || undefined;
+      s =
+        sp.get("session_id") ||
+        sp.get("sessionId") ||
+        sp.get("id") ||
+        undefined;
     }
 
     if (s) {
@@ -84,7 +88,9 @@ export default function MockSuccess() {
     } catch (e: any) {
       if ((e?.response?.status ?? 0) !== 404) throw e;
     }
-    const { data } = await api.get(`/api/payments/checkout/${encodeURIComponent(id)}`);
+    const { data } = await api.get(
+      `/api/payments/checkout/${encodeURIComponent(id)}`
+    );
     return (data?.session || data || null) as Session | null;
   }
 
@@ -96,7 +102,11 @@ export default function MockSuccess() {
       .trim();
     const label0 = String(s?.items?.[0]?.label || "");
     const hasDuration = (md as any).durationDays != null;
-    return planId === "spotlight" || /one[-\s]?off/i.test(label0) || !!hasDuration;
+    return (
+      planId === "spotlight" ||
+      /one[-\s]?off/i.test(label0) ||
+      !!hasDuration
+    );
   }
 
   // Finalise spotlight: (1) mark mock session paid, (2) create payments_oneoff row
@@ -169,21 +179,35 @@ export default function MockSuccess() {
           sessionStorage.removeItem("vmb.lastPaidSessionId");
         } catch {}
 
-        // If this was a one-off unlock, bounce back to the project page
+        // ---------- NEW: redirect for one-off unlocks ----------
         const md = (s.metadata || {}) as Record<string, unknown>;
-        const typ = String(md.type || md.kind || md.vmb_type || "").toLowerCase();
-        const projectId = Number(md.projectId || md.project_id || md.vmb_project_id);
-        if (typ === "unlock_contact" && Number.isFinite(projectId) && projectId > 0) {
-          router.replace(`/projects/${projectId}?unlock=success`);
+        const typ = String(
+          md.type || md.kind || md.vmb_type || ""
+        ).toLowerCase();
+        const projectId = Number(
+          md.projectId || md.project_id || md.vmb_project_id
+        );
+
+        if (typ === "unlock_contact") {
+          // After a one-off contact unlock, always send tradesman
+          // back to their projects list, optionally tagging the project.
+          let target = "/tradesman/projects?unlock=success";
+          if (Number.isFinite(projectId) && projectId > 0) {
+            target += `&projectId=${projectId}`;
+          }
+          router.replace(target);
           return;
         }
+        // -------------------------------------------------------
 
         // If this was a spotlight one-off, ensure we write payments_oneoff now
         if (isSpotlightOneOff(s)) {
           await finaliseSpotlight(s);
         }
       } catch (e: any) {
-        setErr(e?.response?.data?.error || e?.message || "Unable to load session");
+        setErr(
+          e?.response?.data?.error || e?.message || "Unable to load session"
+        );
       } finally {
         if (!dead) setLoading(false);
       }
@@ -216,7 +240,10 @@ export default function MockSuccess() {
             <p className="font-medium text-rose-800">We hit a snag</p>
             <p className="mt-1 text-sm text-rose-700">{err}</p>
             <div className="mt-4">
-              <Link href="/" className="text-sm font-medium text-slate-700 underline">
+              <Link
+                href="/"
+                className="text-sm font-medium text-slate-700 underline"
+              >
                 Back to home
               </Link>
             </div>
@@ -230,13 +257,15 @@ export default function MockSuccess() {
     session?.total?.amount ??
     (Array.isArray(session?.items)
       ? session!.items!.reduce(
-          (sum, it) => sum + (it.price?.amount || 0) * (it.quantity || 1),
+          (sum, it) =>
+            sum + (it.price?.amount || 0) * (it.quantity || 1),
           0
         )
       : 0);
   const currency =
     session?.total?.currency ??
-    ((Array.isArray(session?.items) && session!.items![0]?.price?.currency) ||
+    ((Array.isArray(session?.items) &&
+      session!.items![0]?.price?.currency) ||
       "GBP");
 
   return (
@@ -250,13 +279,18 @@ export default function MockSuccess() {
           </p>
 
           {!!info && (
-            <p className="mt-2 text-sm text-slate-500" data-testid="success-info">
+            <p
+              className="mt-2 text-sm text-slate-500"
+              data-testid="success-info"
+            >
               {info}
             </p>
           )}
 
           <div className="mt-4">
-            <div className="text-xl font-semibold">{money(totalMinor, currency)}</div>
+            <div className="text-xl font-semibold">
+              {money(totalMinor, currency)}
+            </div>
           </div>
 
           {Array.isArray(session?.items) && session!.items!.length > 0 && (
@@ -268,7 +302,9 @@ export default function MockSuccess() {
                 >
                   <div>
                     <div className="font-medium">{it.label}</div>
-                    <div className="text-slate-500">Qty {it.quantity || 1}</div>
+                    <div className="text-slate-500">
+                      Qty {it.quantity || 1}
+                    </div>
                   </div>
                   <div className="font-medium">
                     {money(
@@ -282,7 +318,10 @@ export default function MockSuccess() {
           )}
 
           <div className="mt-6">
-            <Link href="/" className="text-sm font-medium text-slate-700 underline">
+            <Link
+              href="/"
+              className="text-sm font-medium text-slate-700 underline"
+            >
               Back to home
             </Link>
           </div>

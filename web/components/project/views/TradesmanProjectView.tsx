@@ -1,10 +1,14 @@
+// web/pages/projects/[id]/TradesmanProjectView.tsx
 import * as React from "react";
+import { useRouter } from "next/router";
 import ProjectDetailsCard from "@/components/project/ProjectDetailsCard";
 import ContactDetailsCard from "@/components/project/ContactDetailsCard";
 
 type VM = ReturnType<typeof import("./useProjectView").useProjectView>;
 
 export default function TradesmanProjectView({ vm }: { vm: VM }) {
+  const router = useRouter();
+
   const {
     project,
     isOwner,
@@ -30,6 +34,11 @@ export default function TradesmanProjectView({ vm }: { vm: VM }) {
   } = vm;
 
   if (!project) return null;
+
+  // Fallback: if the VM doesn't provide an upgrade handler,
+  // send tradesmen to the plans / pricing page.
+  const handleUpgrade =
+    onUpgradeClick || (() => router.push("/tradesman/plans"));
 
   return (
     <>
@@ -80,7 +89,7 @@ export default function TradesmanProjectView({ vm }: { vm: VM }) {
             locked={!ownerContact}
             loading={contactLoading}
             contact={ownerContact || undefined}
-            onUpgrade={onUpgradeClick}
+            onUpgrade={handleUpgrade}
           />
         </div>
       </div>

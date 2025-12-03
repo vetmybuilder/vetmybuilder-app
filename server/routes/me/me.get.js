@@ -1,23 +1,28 @@
-// server/v2/routes/me/me.get.js
+// server/routes/me/me.get.js
 /**
- * GET /api/v2/me
+ * GET /api/me
  * Auth: required (Bearer). Also fine to keep legacy /api/me mounted if you choose.
  * Response:
  *  { uid, email, firstName, lastName, username, displayName, initials }
  */
 module.exports = (router, ctx) => {
-  const { db, auth } = ctx;
+  const { auth, mysqlQuery } = ctx;
 
-  router.get("/me", auth, (req, res) => {
+  router.get("/me", auth, async (req, res) => {
     const uid = req.user.uid;
 
-    const row =
-      db
-        .prepare(
-          `SELECT uid, email, firstName, lastName, username
-           FROM users WHERE uid = ?`
-        )
-        .get(uid) || {};
+    let row = {};
+    try {
+      const rows = await mysqlQuery(
+        `SELECT uid, email, firstName, lastName, username
+         FROM users WHERE uid = ?`,
+        [uid]
+      );
+      row = rows[0] || {};
+    } catch (err) {
+      console.error("Error fetching user from MySQL in /api/me:", err);
+      return res.status(500).json({ error: "internal_error" });
+    }
 
     const email = row.email || req.user.email || null;
     const firstName = row.firstName || null;

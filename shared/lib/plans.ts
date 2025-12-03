@@ -1,127 +1,117 @@
-// shared/lib/plans.ts
 import { PLANS } from "../config/plans";
 
-export type PlanId = (typeof PLANS.plans)[number]["id"];
-export type Plan = (typeof PLANS.plans)[number];
+/**
+ * Types derived directly from new PLANS structure
+ */
+export type Plan = typeof PLANS.plans[number];
+export type PlanId = Plan["id"];
 
+/**
+ * Build fast lookup dictionary
+ */
 const byId: Record<PlanId, Plan> = PLANS.plans.reduce((acc, p) => {
-  acc[p.id] = p as Plan;
+  acc[p.id] = p;
   return acc;
 }, {} as Record<PlanId, Plan>);
 
+/**
+ * Get full plan definition
+ */
 export function getPlan(planId?: string | null): Plan | undefined {
   if (!planId) return undefined;
   return byId[planId as PlanId];
 }
 
+/**
+ * Weighting multiplier used by scoring logic
+ * Free = low, Gold = high, Spotlight/unlock = middle
+ *
+ * (Because new config removed scoring.tiers entirely,
+ *  we hard-code the tier weights for now)
+ */
 export function tierWeight(planId?: PlanId): number {
-  const key = (getPlan(planId)?.ranking.weightMultiplierKey ??
-    "free") as keyof typeof PLANS.scoring.tiers;
-  return PLANS.scoring.tiers[key] ?? 1.0;
+  switch (planId) {
+    case "gold":
+      return 1.0;
+    case "spotlight":
+      return 0.9; // visible but not ranked
+    case "unlock_contact":
+      return 0.8; // temporary one-off
+    case "free":
+    default:
+      return 0.6;
+  }
 }
 
 /**
- * Basic eligibility check for CH / Google / insurance.
+ * Does a user meet plan requirements?
  */
 export function isEligible(
   planId: PlanId,
   status: {
-    companiesHouseVerified?: boolean;
-    googleVerified?: boolean;
-    hasValidInsurance?: boolean;
+    chVerified?: boolean;
+    insurance?: boolean;
   }
 ): boolean {
   const plan = getPlan(planId);
   if (!plan) return false;
 
-  const needCH = !!plan.eligibility.requiresCompaniesHouseVerification;
-  const needG = !!plan.eligibility.requiresGoogleVerification;
-  const needIns = !!plan.eligibility.requiresValidInsurance;
+  const needCH = plan.requirements.chVerified;
+  const needIns = plan.requirements.insurance;
 
-  const hasCH = !!status.companiesHouseVerified;
-  const hasG = !!status.googleVerified;
-  const hasIns = !!status.hasValidInsurance;
+  const hasCH = !!status.chVerified;
+  const hasIns = !!status.insurance;
 
-  return (!needCH || hasCH) && (!needG || hasG) && (!needIns || hasIns);
+  return (!needCH || hasCH) && (!needIns || hasIns);
 }
 
 /**
- * Visibility helpers
+ * Should this plan show on owners' pages?
  */
 export function showsOnOwnersPage(planId?: PlanId): boolean {
   const plan = getPlan(planId);
-  return !!plan?.visibility.showOnOwnersPage;
-}
-export function contactAccessMode(planId?: PlanId) {
-  return getPlan(planId)?.contact_access.mode ?? "hidden";
-}
-
-/**
- * Guard to block actions if not eligible. Throw with helpful message.
- */
-export function assertEligibleOrThrow(
-  planId: PlanId,
-  status: {
-    companiesHouseVerified?: boolean;
-    googleVerified?: boolean;
-    hasValidInsurance?: boolean;
-  }
-) {
-  if (!isEligible(planId, status)) {
-    const plan = getPlan(planId)!;
-    const reqs: string[] = [];
-    if (plan.eligibility.requiresCompaniesHouseVerification)
-      reqs.push("Companies House verification");
-    if (plan.eligibility.requiresGoogleVerification)
-      reqs.push("Google verification");
-    if (plan.eligibility.requiresValidInsurance) reqs.push("valid insurance");
-    const reqText = reqs.join(", ");
-    throw new Error(`Not eligible for ${plan.name}. Required: ${reqText}.`);
-  }
-}
-
-/** Narrowing helper for optional minProjectBudget on visibility */
-function getMinProjectBudget(plan: Plan): number | undefined {
-  // Use an in-check to keep TS happy across the union type
-  const vis: unknown = plan.visibility;
-  if (
-    vis &&
-    typeof vis === "object" &&
-    "minProjectBudget" in (vis as Record<string, unknown>) &&
-    typeof (vis as Record<string, unknown>).minProjectBudget === "number"
-  ) {
-    return (vis as { minProjectBudget: number }).minProjectBudget;
-  }
-  return undefined;
-}
-
-/**
- * Can this plan appear for a given project budget?
- * e.g. Spotlight requires projectBudget >= minProjectBudget (15,000).
- */
-export function visibleForProjectBudget(
-  planId: PlanId,
-  projectBudget?: number | null
-): boolean {
-  const plan = getPlan(planId);
   if (!plan) return false;
-
-  const min = getMinProjectBudget(plan);
-  if (typeof min === "number") {
-    // If caller didn't pass a number, treat as not visible for safety.
-    if (typeof projectBudget !== "number") return false;
-    return projectBudget >= min;
-  }
-  return true; // no minimum -> visible everywhere
+  return !!plan.visibility.discoverable;
 }
 
-/** Return all plans visible for a given project budget. */
+/**
+ * Contact access mode:
+ * free            → none
+ * unlock_contact  → reveal_on_purchase
+ * gold            → one_off_payment
+ * spotlight       → none
+ */
+export function contactAccessMode(planId?: PlanId) {
+  return getPlan(planId)?.contactAccess.mode ?? "none";
+}
+
+/**
+ * Spotlight budget requirement:
+ * Only visible for budgets ≥ 15k
+ */
+export function spotlightMinBudget(): number {
+  return 15000;
+}
+
+/**
+ * Spotlight visibility helper
+ */
+export function spotlightAllowed(projectBudget?: number | null): boolean {
+  if (typeof projectBudget !== "number") return false;
+  return projectBudget >= spotlightMinBudget();
+}
+
+/**
+ * Return only plans that make sense for a given project
+ * (e.g. Spotlight filtered by budget)
+ */
 export function availablePlansForProject(
   projectBudget?: number | null
 ): Plan[] {
-  return PLANS.plans.filter((p) =>
-    visibleForProjectBudget(p.id as PlanId, projectBudget)
-  );
+  return PLANS.plans.filter((p) => {
+    if (p.id !== "spotlight") return true;
+    return spotlightAllowed(projectBudget);
+  });
 }
 
 export { PLANS };

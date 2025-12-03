@@ -1,3 +1,5 @@
+// server/routes/tradesmen/jobs.get.js
+
 /**
  * GET /api/tradesmen/jobs
  * Auth: ACTIVE tradesman only
@@ -5,15 +7,14 @@
  * Response: { items: [{id,name,type,location,createdAt,budget}], total }
  */
 module.exports = (router, ctx) => {
-  const { db, auth } = ctx;
+  const { auth, mysqlQuery } = ctx;
   const { requireActiveTradesman } = require("../../lib/roles");
 
-  const BASE = (ctx.API_PREFIX || "/api").replace(/\/+$/, "");
-  const at = (p) => `${BASE}${p.startsWith("/") ? p : `/${p}`}`;
-  // IMPORTANT: no "/api" here — the app mounts the router at /api already.
+  if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
+
+  const TAG = "[tradesmen/jobs.get]";
   const PATH = "/tradesmen/jobs";
 
-  // Log when the file mounts so you can see it in the server boot
   console.log(`[routes] mounted: GET ${PATH}`);
 
   // --- Budget extraction helpers ---
@@ -44,7 +45,6 @@ module.exports = (router, ctx) => {
     const m = text.match(/Budget:\s*([^\.\n\r]+)/i);
     if (m) {
       const candidate = m[1].trim();
-      // Normalize the candidate and try to map to one of our buckets
       const normalized = NORMALIZE_MAP[candidate] || candidate;
       if (BUDGETS.includes(normalized)) return normalized;
     }
@@ -52,10 +52,9 @@ module.exports = (router, ctx) => {
     return null;
   }
 
-  router.get(PATH, auth, requireActiveTradesman(ctx), (req, res) => {
+  router.get(PATH, auth, requireActiveTradesman(ctx), async (req, res) => {
     const uid = req.user.uid;
-    // Log each hit to help you diagnose path / auth issues
-    console.log(`[jobs] hit by uid=${uid} q=%j`, req.query);
+    console.log(`${TAG} hit by uid=${uid} q=%j`, req.query);
     console.log(
       `[trades/jobs] uid=${uid} role=${
         req.userRole
@@ -73,7 +72,8 @@ module.exports = (router, ctx) => {
 
     let limit = parseInt(String(req.query.limit || "50"), 10);
     if (!Number.isFinite(limit) || limit <= 0) limit = 50;
-    limit = Math.max(1, Math.min(200, limit));
+    limit = Math.max(1, Math.min(200, limit)); // clamp hard
+    const limitSql = limit; // safe to inline (we’ve just sanitised it)
 
     const wh = [`p.status = 'live'`];
     const params = [];
@@ -98,38 +98,43 @@ module.exports = (router, ctx) => {
     const whereSql = wh.length ? `WHERE ${wh.join(" AND ")}` : "";
 
     try {
-      // Pull description so we can parse out the budget, but don't return it raw
-      const rows = db
-        .prepare(
-          `
-            SELECT p.id, p.name, p.type, p.location, p.createdAt, p.description
+      // Main rows
+      const rows = await mysqlQuery(
+        `
+            SELECT p.id,
+                   p.name,
+                   p.type,
+                   p.location,
+                   p.createdAt,
+                   p.description
             FROM projects p
             ${whereSql}
             ORDER BY p.createdAt ${order}
-            LIMIT ?
-          `
-        )
-        .all(...params, limit);
+            LIMIT ${limitSql}
+          `,
+        params
+      );
 
-      const total = db
-        .prepare(
-          `
+      // Total count (without LIMIT)
+      const countRows = await mysqlQuery(
+        `
             SELECT COUNT(*) AS c
             FROM projects p
             ${whereSql}
-          `
-        )
-        .get(...params).c;
+          `,
+        params
+      );
+      const total = Number(countRows[0]?.c || 0);
 
       const items = rows.map(({ description, ...r }) => ({
         ...r,
         budget: extractBudget(description),
       }));
 
-      console.log(`[jobs] ok uid=${uid} items=${items.length} total=${total}`);
+      console.log(`${TAG} ok uid=${uid} items=${items.length} total=${total}`);
       return res.json({ items, total });
     } catch (e) {
-      console.error("[jobs] error", e);
+      console.error(`${TAG} error`, e);
       return res.status(500).json({ error: "Failed to load jobs" });
     }
   });

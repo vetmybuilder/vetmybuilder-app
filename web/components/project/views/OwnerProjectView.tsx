@@ -160,9 +160,13 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
     };
   }, [project?.id, api]);
 
-  // 🔑 Fetch Companies House verification for each recommendation on this project
+  // 🔑 Fetch Companies House + Google verification for each recommendation
   React.useEffect(() => {
-    if (!recs || recs.length === 0) {
+    // Prefer the shortlist items (ratings endpoint); fall back to raw recs
+    const src =
+      (shortlistItems && shortlistItems.length ? shortlistItems : recs) || [];
+
+    if (!src.length) {
       setRecVerification({});
       return;
     }
@@ -171,8 +175,9 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
 
     (async () => {
       const map: Record<number, Verification> = {};
+
       await Promise.all(
-        recs.map(async (r) => {
+        src.map(async (r: any) => {
           try {
             const { data } = await api.get(
               `/api/recommendations/${r.id}/verification`
@@ -181,10 +186,11 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
               map[r.id] = data.verification as Verification;
             }
           } catch {
-            // silently ignore; that rec will just show "Checking"
+            // silently ignore; those recs will just fall back to "Checking"
           }
         })
       );
+
       if (!cancelled) {
         setRecVerification(map);
       }
@@ -193,7 +199,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
     return () => {
       cancelled = true;
     };
-  }, [api, recs]);
+  }, [api, recs, shortlistItems]);
 
   // 🔹 NEW: fetch shortlist *with aggregated VMB scores* from ratings endpoint
   React.useEffect(() => {

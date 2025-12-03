@@ -15,7 +15,7 @@ type ContactStatus =
   | "error";
 
 type Props = {
-  locked: boolean;
+  locked: boolean; // legacy hint – we’ll combine this with the actual data
   loading?: boolean;
   contact?: Contact | null;
   title?: string;
@@ -35,9 +35,22 @@ export default function ContactDetailsCard({
   const name =
     [contact?.firstName, contact?.lastName].filter(Boolean).join(" ") || null;
 
+  const hasEmail = !!contact?.email;
+
+  // 🔑 TRUE lock state for the UI:
+  // - if parent says "locked"
+  // - OR we simply don't have an email
+  const effectiveLocked = locked || !hasEmail;
+
   const isPendingReview = status === "pending_admin_review";
-  const isNotUnlocked = status === "not_unlocked" || status === "unknown";
   const hasError = status === "error";
+
+  const handleUpgradeClick = () => {
+    if (onUpgrade) onUpgrade();
+  };
+
+  // Show the CTA whenever the card is effectively locked and not loading
+  const shouldShowUpgradeButton = effectiveLocked && !loading && !!onUpgrade;
 
   return (
     <aside
@@ -58,8 +71,8 @@ export default function ContactDetailsCard({
 
       {!loading && (
         <>
-          {/* Unlocked and loaded */}
-          {!locked && contact?.email ? (
+          {/* Unlocked and loaded: we only treat as unlocked if we actually have an email */}
+          {!effectiveLocked && hasEmail ? (
             <div className="space-y-3 text-sm text-slate-800">
               {name && (
                 <div>
@@ -74,10 +87,10 @@ export default function ContactDetailsCard({
                   Email
                 </div>
                 <a
-                  href={`mailto:${contact.email}`}
+                  href={`mailto:${contact!.email}`}
                   className="mt-0.5 inline-flex items-center text-sm font-medium text-emerald-700 hover:underline break-all"
                 >
-                  {contact.email}
+                  {contact!.email}
                 </a>
               </div>
               <p className="mt-2 text-[11px] text-slate-400">
@@ -126,11 +139,11 @@ export default function ContactDetailsCard({
                 </p>
               )}
 
-              {/* Upgrade CTA – only when we are not in pending-review state */}
-              {onUpgrade && isNotUnlocked && (
+              {/* Upgrade CTA – always show when effectively locked */}
+              {shouldShowUpgradeButton && (
                 <button
                   type="button"
-                  onClick={onUpgrade}
+                  onClick={handleUpgradeClick}
                   className="mt-1 inline-flex h-9 items-center justify-center rounded-full bg-slate-900 px-4 text-xs font-semibold text-white hover:bg-slate-900/90"
                   data-testid="btn-upgrade-plan"
                 >

@@ -1,433 +1,214 @@
-// server/routes/admin/subscriptions.post.js
 //
-// Approve / Reject a pending (draft) subscription OR spotlight one-off.
-// Routes (both variants supported):
-//   POST /admin/subscriptions/:userId/approve
-//   POST /admin/subscriptions/:userId/reject
-//   POST /admin/tradesmen/:userId/subscription/approve
-//   POST /admin/tradesmen/:userId/subscription/reject
+// POST /api/admin/subscriptions
 //
-// Body (optional): { reason?: string, spotlightDays?: number }
+// Admin approves / activates:
+//   - Gold (subscription)
+//   - Spotlight (one-off timed)
+//   - Unlock Contact (one-off per project)
+//   - Free → no-op
+//
+// Responsible for:
+//   1. Reading the pending payment session
+//   2. Validating plan type
+//   3. Updating the tradesman record
+//   4. Writing entitlement rows (spotlight/unlocks)
+//   5. Marking payment as “active”
+//
 
 module.exports = (router, ctx) => {
-  const { db, auth } = ctx;
-  if (!db) throw new Error("db not attached to ctx");
+  const { auth, mysqlQuery } = ctx;
+  const { PLANS } = require("../../../shared/config/plans");
 
-  // ---- admin guard (match leaderboard's logic) ----
-  const requireAdmin =
-    ctx.requireAdmin ||
-    ((req, res, next) => {
-      if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+  const API_BASE = ctx.API_PREFIX || "/api";
+  const PATH = "/admin/subscriptions";
 
-      const uid = req.user.uid;
-      let roleRow = null;
-      try {
-        roleRow = db.prepare(`SELECT role FROM user_roles WHERE uid=?`).get(uid);
-      } catch (_) {}
+  // ------------ Admin Gate ------------
+  async function isAdmin(req) {
+    const uid = req.user?.uid;
+    if (!uid) return false;
 
-      const role = String(roleRow?.role || "user").toLowerCase();
-
-      const allowlist = (process.env.ADMIN_EMAILS || "")
-        .split(",")
-        .map((s) => s.trim().toLowerCase())
-        .filter(Boolean);
-
-      const email = String(req.user?.email || "").trim().toLowerCase();
-      const isAdmin = role === "admin" || (email && allowlist.includes(email));
-
-      if (!isAdmin) return res.status(403).json({ error: "Forbidden" });
-      next();
-    });
-
-  // ---- safety: ensure audit table exists (idempotent) ----
-  function ensureSchema() {
     try {
-      db.prepare(
+      const rows = await mysqlQuery(
+        `SELECT role FROM user_roles WHERE uid = ? LIMIT 1`,
+        [uid]
+      );
+      if (!rows.length) return false;
+      return rows[0].role === "admin";
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ------------ Helpers ------------
+  function getPlan(planId) {
+    return PLANS.plans.find((p) => p.id === planId) || null;
+  }
+
+  function now() {
+    return new Date().toISOString().slice(0, 19).replace("T", " ");
+  }
+
+  router.post(PATH, auth, async (req, res) => {
+    try {
+      if (!(await isAdmin(req))) {
+        return res.status(403).json({
+          error: "forbidden",
+          details: "Admin role required",
+        });
+      }
+
+      const { userId, sessionId } = req.body;
+      if (!userId || !sessionId) {
+        return res.status(400).json({ error: "missing_parameters" });
+      }
+
+      // 1) Load payment session
+      const [session] = await mysqlQuery(
         `
-        CREATE TABLE IF NOT EXISTS subscriptions_history (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id TEXT NOT NULL,
-          event TEXT NOT NULL,                   -- 'approve' | 'reject'
-          from_status TEXT,
-          to_status TEXT,
-          from_plan TEXT,
-          to_plan TEXT,
-          purchased_plan TEXT,
-          actor TEXT,
-          reason TEXT,
-          at TEXT NOT NULL
-        )
-      `
-      ).run();
-    } catch (e) {
-      console.warn("[admin.subscriptions] ensureSchema:", e?.message || e);
-    }
-  }
-  ensureSchema();
+        SELECT *
+        FROM payments_oneoff
+        WHERE session_id = ?
+          AND user_id = ?
+        LIMIT 1
+        `,
+        [sessionId, userId]
+      );
 
-  /** Load current subscription snapshot for audit */
-  function getSnapshot(userId) {
-    return (
-      db
-        .prepare(
-          `SELECT subscription_status AS status,
-                  plan,
-                  purchased_plan
-             FROM tradesmen
-            WHERE user_id = ?`
-        )
-        .get(userId) || { status: null, plan: null, purchased_plan: null }
-    );
-  }
-
-  /** Get most recent draft subscription row id for a user & plan (if any) */
-  function getLatestDraftSubId(userId, planId) {
-    try {
-      const row = db
-        .prepare(
-          `SELECT id
-             FROM payments_subscription
-            WHERE buyer_uid = ?
-              AND plan_id   = ?
-              AND status    = 'draft'
-            ORDER BY created_at DESC
-            LIMIT 1`
-        )
-        .get(userId, planId);
-      return row?.id || null;
-    } catch {
-      return null;
-    }
-  }
-
-  /** Get most recent PENDING one-off payment row id for a user & type */
-  function getLatestPendingOneOffId(userId, type) {
-    try {
-      const row = db
-        .prepare(
-          `SELECT id
-             FROM payments_oneoff
-            WHERE user_id = ?
-              AND type     = ?
-              AND status   = 'pending'
-            ORDER BY created_at DESC
-            LIMIT 1`
-        )
-        .get(userId, type);
-      return row?.id || null;
-    } catch {
-      return null;
-    }
-  }
-
-  /** Append audit row */
-  function audit({
-    userId,
-    event,
-    from_status,
-    to_status,
-    from_plan,
-    to_plan,
-    purchased_plan,
-    actor,
-    reason,
-  }) {
-    db.prepare(
-      `INSERT INTO subscriptions_history
-         (user_id, event,
-          from_status, to_status,
-          from_plan, to_plan,
-          purchased_plan, actor, reason, at)
-       VALUES
-         (@userId, @event,
-          @from_status, @to_status,
-          @from_plan, @to_plan,
-          @purchased_plan, @actor, @reason, @at)`
-    ).run({
-      userId,
-      event,
-      from_status,
-      to_status,
-      from_plan,
-      to_plan,
-      purchased_plan,
-      actor,
-      reason: reason || null,
-      at: new Date().toISOString(),
-    });
-  }
-
-  // ---- core ops (shared) ----
-  function handleApprove(req, res) {
-    const userId = String(req.params.userId || "");
-    const reason = req.body?.reason || null;
-    const spotlightDays =
-      Number.isFinite(req.body?.spotlightDays) && req.body.spotlightDays > 0
-        ? Math.floor(req.body.spotlightDays)
-        : 30; // default 30 days
-    const actor = req.user?.email || req.user?.uid || "admin";
-
-    try {
-      const before = getSnapshot(userId);
-      if (!before) return res.status(404).json({ error: "Not found" });
-
-      const pending = (before.purchased_plan || "").toLowerCase();
-      if (!pending) {
-        return res
-          .status(400)
-          .json({ error: "No purchased_plan to approve for this user" });
+      if (!session) {
+        return res.status(404).json({ error: "session_not_found" });
       }
 
-      db.exec("BEGIN");
-      const nowIso = new Date().toISOString();
+      const planId = session.plan_id;
+      const plan = getPlan(planId);
 
-      // --- Spotlight one-off approval path ---
-      if (pending === "spotlight") {
-        const paymentId = getLatestPendingOneOffId(userId, "spotlight");
-        if (!paymentId) {
-          db.exec("ROLLBACK");
-          return res
-            .status(400)
-            .json({ error: "No pending spotlight one-off payment found" });
-        }
+      if (!plan) {
+        return res.status(400).json({ error: "invalid_plan" });
+      }
 
-        // 1) Activate tradesman spotlight
-        db.prepare(
-          `UPDATE tradesmen
-              SET subscription_status = 'active',
-                  plan                = 'spotlight',
-                  plan_update_at      = @now,
-                  purchased_plan      = NULL,
-                  updated_at          = @now
-            WHERE user_id = @uid`
-        ).run({ uid: userId, now: nowIso });
+      const planType = plan.type; // "one_off" | "subscription"
+      const isUnlock = plan.id === "unlock_contact";
+      const isSpotlight = plan.id === "spotlight";
+      const isGold = plan.id === "gold";
 
-        // 2) Activate payments_oneoff + set expiry
-        const expires = new Date();
-        expires.setDate(expires.getDate() + spotlightDays);
-        db.prepare(
-          `UPDATE payments_oneoff
-              SET status = 'active',
-                  expires_at = @exp
-            WHERE id = @id`
-        ).run({ id: paymentId, exp: expires.toISOString() });
+      // Validate required metadata
+      const projectId = session.entity_id || null;
 
-        // 3) Audit
-        audit({
-          userId,
-          event: "approve",
-          from_status: before.status,
-          to_status: "active",
-          from_plan: before.plan,
-          to_plan: "spotlight",
-          purchased_plan: "spotlight",
-          actor,
-          reason,
-        });
+      // 2) Approve the payment session
+      await mysqlQuery(
+        `
+        UPDATE payments_oneoff
+        SET status = 'active', activated_at = ?
+        WHERE id = ?
+        `,
+        [now(), session.id]
+      );
 
-        db.exec("COMMIT");
+      // 3) Process entitlement based on plan type
+      // ---------------------------------------------------------
+      // GOLD (subscription)
+      // ---------------------------------------------------------
+      if (isGold) {
+        await mysqlQuery(
+          `
+          UPDATE tradesmen
+          SET plan = 'gold',
+              subscription_status = 'active',
+              subscription_started_at = ?,
+              updated_at = ?
+          WHERE user_id = ?
+          `,
+          [now(), now(), userId]
+        );
+
         return res.json({
           ok: true,
-          user_id: userId,
-          new_status: "active",
-          new_plan: "spotlight",
-          oneoff_id: paymentId,
-          expires_at: expires.toISOString(),
-        });
-      }
-
-      // --- Subscription approval path (gold, etc.) ---
-      // 1) Activate tradesman subscription
-      db.prepare(
-        `UPDATE tradesmen
-            SET subscription_status = 'active',
-                plan                = @pending,
-                plan_update_at      = @now,
-                purchased_plan      = NULL,
-                updated_at          = @now
-          WHERE user_id = @uid`
-      ).run({ uid: userId, pending, now: nowIso });
-
-      // 2) Flip the latest draft subscription for THIS plan -> succeeded
-      const subId = getLatestDraftSubId(userId, pending);
-      if (subId) {
-        db.prepare(
-          `UPDATE payments_subscription
-              SET status = 'succeeded'
-            WHERE id = ?`
-        ).run(subId);
-      }
-
-      // 3) Audit
-      audit({
-        userId,
-        event: "approve",
-        from_status: before.status,
-        to_status: "active",
-        from_plan: before.plan,
-        to_plan: pending,
-        purchased_plan: pending,
-        actor,
-        reason,
-      });
-
-      db.exec("COMMIT");
-      return res.json({
-        ok: true,
-        user_id: userId,
-        new_status: "active",
-        new_plan: pending,
-      });
-    } catch (e) {
-      try {
-        db.exec("ROLLBACK");
-      } catch (_) {}
-      return res.status(500).json({ error: e?.message || "Approve failed" });
-    }
-  }
-
-  function handleReject(req, res) {
-    const userId = String(req.params.userId || "");
-    const reason = req.body?.reason || null;
-    const actor = req.user?.email || req.user?.uid || "admin";
-
-    try {
-      const before = getSnapshot(userId);
-      if (!before) return res.status(404).json({ error: "Not found" });
-
-      db.exec("BEGIN");
-      const nowIso = new Date().toISOString();
-      const pending = (before.purchased_plan || "").toLowerCase();
-
-      // --- Spotlight one-off rejection path ---
-      if (pending === "spotlight") {
-        const paymentId = getLatestPendingOneOffId(userId, "spotlight");
-        if (paymentId) {
-          db.prepare(
-            `UPDATE payments_oneoff
-                SET status = 'rejected',
-                    expires_at = NULL
-              WHERE id = ?`
-          ).run(paymentId);
-        }
-
-        // Downgrade tradesman to free + clear pending
-        db.prepare(
-          `UPDATE tradesmen
-              SET subscription_status = 'inactive',
-                  plan                = 'free',
-                  plan_update_at      = @now,
-                  purchased_plan      = NULL,
-                  updated_at          = @now
-            WHERE user_id = @uid`
-        ).run({ uid: userId, now: nowIso });
-
-        audit({
+          message: "Gold subscription activated",
           userId,
-          event: "reject",
-          from_status: before.status,
-          to_status: "inactive",
-          from_plan: before.plan,
-          to_plan: "free",
-          purchased_plan: "spotlight",
-          actor,
-          reason,
+          plan: "gold",
         });
+      }
 
-        db.exec("COMMIT");
+      // ---------------------------------------------------------
+      // SPOTLIGHT (one-off), duration in days, timed expiry
+      // ---------------------------------------------------------
+      if (isSpotlight) {
+        const duration = Number(plan.durationDays || 30);
+        const start = now();
+        const expiry = new Date(Date.now() + duration * 86400 * 1000)
+          .toISOString()
+          .slice(0, 19)
+          .replace("T", " ");
+
+        await mysqlQuery(
+          `
+          INSERT INTO tradesmen_spotlights
+          (user_id, started_at, expires_at, session_id)
+          VALUES (?, ?, ?, ?)
+          `,
+          [userId, start, expiry, sessionId]
+        );
+
         return res.json({
           ok: true,
-          user_id: userId,
-          new_status: "inactive",
-          new_plan: "free",
+          message: "Spotlight activated",
+          userId,
+          expires_at: expiry,
         });
       }
 
-      // --- Subscription rejection path ---
-      // Downgrade tradesman to free + clear pending
-      db.prepare(
-        `UPDATE tradesmen
-            SET subscription_status = 'inactive',
-                plan                = 'free',
-                plan_update_at      = @now,
-                purchased_plan      = NULL,
-                updated_at          = @now
-          WHERE user_id = @uid`
-      ).run({ uid: userId, now: nowIso });
+      // ---------------------------------------------------------
+      // UNLOCK CONTACT (per project)
+      // ---------------------------------------------------------
+      if (isUnlock) {
+        if (!projectId) {
+          return res.status(400).json({
+            error: "missing_project_id_for_unlock_contact",
+          });
+        }
 
-      // Mark latest draft subscription for the pending plan -> rejected
-      const subId = pending ? getLatestDraftSubId(userId, pending) : null;
-      if (subId) {
-        db.prepare(
-          `UPDATE payments_subscription
-              SET status = 'rejected'
-            WHERE id = ?`
-        ).run(subId);
+        // Insert entitlement
+        await mysqlQuery(
+          `
+          INSERT INTO project_contact_unlocks
+          (user_id, project_id, session_id, unlocked_at)
+          VALUES (?, ?, ?, ?)
+          `,
+          [userId, projectId, sessionId, now()]
+        );
+
+        return res.json({
+          ok: true,
+          message: "Contact unlocked for project",
+          userId,
+          projectId,
+        });
       }
 
-      audit({
-        userId,
-        event: "reject",
-        from_status: before.status,
-        to_status: "inactive",
-        from_plan: before.plan,
-        to_plan: "free",
-        purchased_plan: pending || null,
-        actor,
-        reason,
-      });
+      // ---------------------------------------------------------
+      // FREE → NO-OP
+      // ---------------------------------------------------------
+      if (plan.id === "free") {
+        return res.json({
+          ok: true,
+          note: "Free plan requires no admin action",
+        });
+      }
 
-      db.exec("COMMIT");
       return res.json({
         ok: true,
-        user_id: userId,
-        new_status: "inactive",
-        new_plan: "free",
+        message: `Plan '${planId}' activated`,
       });
     } catch (e) {
-      try {
-        db.exec("ROLLBACK");
-      } catch (_) {}
-      return res.status(500).json({ error: e?.message || "Reject failed" });
+      console.error("[admin/subscriptions.post] error", e);
+      return res.status(500).json({
+        error: "server_error",
+        detail: e?.message,
+      });
     }
-  }
+  });
 
-  // ---- original paths ----
-  router.post(
-    "/admin/subscriptions/:userId/approve",
-    auth,
-    requireAdmin,
-    handleApprove
-  );
-  router.post(
-    "/admin/subscriptions/:userId/reject",
-    auth,
-    requireAdmin,
-    handleReject
-  );
-
-  // ---- UI alias paths ----
-  router.post(
-    "/admin/tradesmen/:userId/subscription/approve",
-    auth,
-    requireAdmin,
-    handleApprove
-  );
-  router.post(
-    "/admin/tradesmen/:userId/subscription/reject",
-    auth,
-    requireAdmin,
-    handleReject
-  );
-
-  if (!ctx.__logged_admin_subscription_routes) {
-    ctx.__logged_admin_subscription_routes = true;
-    const base = ctx.API_PREFIX || "/api";
-    console.log(
-      `[routes] mounted: POST ${base}/admin/subscriptions/:userId/approve (and alias /admin/tradesmen/:userId/subscription/approve)`
-    );
-    console.log(
-      `[routes] mounted: POST ${base}/admin/subscriptions/:userId/reject  (and alias /admin/tradesmen/:userId/subscription/reject)`
-    );
+  if (!ctx.__logged_admin_subscriptions_post) {
+    ctx.__logged_admin_subscriptions_post = true;
+    console.log(`[routes] mounted: POST ${API_BASE}${PATH}`);
   }
 };

@@ -1,6 +1,6 @@
-// server/v2/routes/debug/reclinks.get.js
+// server/routes/debug/reclinks.get.js
 /**
- * GET /api/v2/debug/reclinks/:projectId   (also /api/debug/reclinks/:projectId if mounted)
+ * GET /api/debug/reclinks/:projectId   (also /api/debug/reclinks/:projectId if mounted)
  * Auth: required (owner only)
  * Response: { rows: Array<{ id, token, createdAt }> }
  */

@@ -1,274 +1,317 @@
 // server/routes/admin/subscriptions.cancel.post.js
 //
-// Admin-only: cancel a user's Gold monthly subscription.
-// Default behavior is "cancel at period end" (keeps benefits until created_at + 1 month).
-// Optional immediate cancellation with body { immediate: true }.
+// ADMIN — Cancel GOLD subscription (period-end or immediate)
 //
-// Routes (both variants supported):
+// Keep both routes:
 //   POST /admin/subscriptions/:userId/cancel
 //   POST /admin/tradesmen/:userId/subscription/cancel
 //
-// Body (optional): { immediate?: boolean, reason?: string }
+// Only GOLD exists. No platinum.
+//
 
 module.exports = (router, ctx) => {
-  const { db, auth } = ctx;
-  if (!db) throw new Error("db not attached to ctx");
+  const { db, auth, mysqlQuery } = ctx;
+  if (!db && !mysqlQuery)
+    throw new Error("db or mysqlQuery not attached to ctx");
 
   const log = ctx.log || console;
 
-  // ---- admin guard (mirror your pattern) ----
+  const hasMysql = typeof mysqlQuery === "function";
+  const isBetter = !!db?.prepare;
+
+  // ---------- tiny dialect helpers ----------
+  const queryAll = async (sql, params = []) => {
+    if (hasMysql) return mysqlQuery(sql, params);
+    if (isBetter) return db.prepare(sql).all(...[].concat(params));
+    const [rows] = await db.execute(sql, params);
+    return rows;
+  };
+
+  const queryOne = async (sql, params = []) => {
+    const rows = await queryAll(sql, params);
+    return rows?.[0] || null;
+  };
+
+  const run = async (sql, params = []) => {
+    if (hasMysql) return mysqlQuery(sql, params);
+    if (isBetter) return db.prepare(sql).run(...[].concat(params));
+    const [res] = await db.execute(sql, params);
+    return res;
+  };
+
+  const beginTx = () => {
+    if (!hasMysql && db?.exec) db.exec("BEGIN");
+  };
+  const commitTx = () => {
+    if (!hasMysql && db?.exec) db.exec("COMMIT");
+  };
+  const rollbackTx = () => {
+    if (!hasMysql && db?.exec) db.exec("ROLLBACK");
+  };
+
+  // ---------- Admin Guard ----------
   const requireAdmin =
     ctx.requireAdmin ||
-    ((req, res, next) => {
+    (async (req, res, next) => {
       if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
       let roleRow = null;
       try {
-        roleRow = db
-          .prepare(`SELECT role FROM user_roles WHERE uid=?`)
-          .get(req.user.uid);
+        roleRow = await queryOne(`SELECT role FROM user_roles WHERE uid = ?`, [
+          req.user.uid,
+        ]);
       } catch (_) {}
 
       const role = String(roleRow?.role || "user").toLowerCase();
+
       const allowlist = (process.env.ADMIN_EMAILS || "")
         .split(",")
-        .map((s) => s.trim().toLowerCase())
+        .map((x) => x.trim().toLowerCase())
         .filter(Boolean);
+
       const email = String(req.user?.email || "")
         .trim()
         .toLowerCase();
+
       const isAdmin = role === "admin" || (email && allowlist.includes(email));
 
       if (!isAdmin) return res.status(403).json({ error: "Forbidden" });
       next();
     });
 
-  // ---- safety: ensure audit table exists (idempotent) ----
-  function ensureSchema() {
+  // ---------- Ensure audit table ----------
+  async function ensureSchema() {
     try {
-      db.prepare(
-        `
-        CREATE TABLE IF NOT EXISTS subscriptions_history (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id TEXT NOT NULL,
-          event TEXT NOT NULL,                   -- 'approve' | 'reject' | 'admin_cancel' | 'admin_cancel_now' | 'sweep_finalize'
-          from_status TEXT,
-          to_status TEXT,
-          from_plan TEXT,
-          to_plan TEXT,
-          purchased_plan TEXT,
-          actor TEXT,
-          reason TEXT,
-          at TEXT NOT NULL
-        )
-      `
-      ).run();
+      if (hasMysql) {
+        await run(`
+          CREATE TABLE IF NOT EXISTS subscriptions_history (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            user_id VARCHAR(255) NOT NULL,
+            event VARCHAR(64) NOT NULL,
+            from_status VARCHAR(64),
+            to_status VARCHAR(64),
+            from_plan VARCHAR(64),
+            to_plan VARCHAR(64),
+            purchased_plan VARCHAR(64),
+            actor VARCHAR(255),
+            reason TEXT,
+            at DATETIME NOT NULL
+          )
+        `);
+      } else {
+        await run(`
+          CREATE TABLE IF NOT EXISTS subscriptions_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            event TEXT NOT NULL,
+            from_status TEXT,
+            to_status TEXT,
+            from_plan TEXT,
+            to_plan TEXT,
+            purchased_plan TEXT,
+            actor TEXT,
+            reason TEXT,
+            at TEXT NOT NULL
+          )
+        `);
+      }
     } catch (e) {
-      console.warn(
-        "[admin.subscriptions.cancel] ensureSchema:",
-        e?.message || e
-      );
+      console.warn("[admin.subscriptions.cancel] ensureSchema:", e);
     }
   }
-  ensureSchema();
 
-  /** Snapshot of current tradesmen subscription fields (for audit) */
-  function getSnapshot(userId) {
+  // ---------- Snapshot ----------
+  async function getSnapshot(userId) {
     return (
-      db
-        .prepare(
-          `SELECT subscription_status AS status,
-                  plan,
-                  purchased_plan,
-                  plan_update_at,
-                  plan_updated_at
-             FROM tradesmen
-            WHERE user_id = ?`
-        )
-        .get(userId) || { status: null, plan: null, purchased_plan: null }
+      (await queryOne(
+        `
+        SELECT subscription_status AS status,
+               plan,
+               purchased_plan,
+               plan_update_at,
+               plan_updated_at
+          FROM tradesmen
+         WHERE user_id = ?
+        `,
+        [userId]
+      )) || {
+        status: null,
+        plan: null,
+        purchased_plan: null,
+        plan_update_at: null,
+        plan_updated_at: null,
+      }
     );
   }
 
-  /** Latest Gold subscription for a user with one of the candidate statuses */
-  function getLatestGoldSub(userId, statuses) {
+  // ---------- Find latest GOLD subscription ----------
+  async function getLatestGoldSub(userId, statuses) {
+    if (!statuses.length) return null;
     const placeholders = statuses.map(() => "?").join(",");
-    return db
-      .prepare(
-        `
-        SELECT *
-          FROM payments_subscription
-         WHERE buyer_uid = ?
-           AND plan_id = 'gold'
-           AND status IN (${placeholders})
-         ORDER BY created_at DESC
-         LIMIT 1
-        `
-      )
-      .get(userId, ...statuses);
+
+    return await queryOne(
+      `
+      SELECT *
+        FROM payments_subscription
+       WHERE buyer_uid = ?
+         AND plan_id = 'gold'
+         AND status IN (${placeholders})
+       ORDER BY created_at DESC
+       LIMIT 1
+      `,
+      [userId, ...statuses]
+    );
   }
 
-  function audit({
-    userId,
-    event,
-    from_status,
-    to_status,
-    from_plan,
-    to_plan,
-    purchased_plan,
-    actor,
-    reason,
-  }) {
-    db.prepare(
-      `INSERT INTO subscriptions_history
-         (user_id, event,
-          from_status, to_status,
-          from_plan, to_plan,
-          purchased_plan, actor, reason, at)
-       VALUES
-         (@userId, @event,
-          @from_status, @to_status,
-          @from_plan, @to_plan,
-          @purchased_plan, @actor, @reason, @at)`
-    ).run({
-      userId,
-      event,
-      from_status,
-      to_status,
-      from_plan,
-      to_plan,
-      purchased_plan: purchased_plan ?? null,
-      actor,
-      reason: reason || null,
-      at: new Date().toISOString(),
-    });
+  // ---------- Audit log ----------
+  async function audit(evt) {
+    await run(
+      `
+      INSERT INTO subscriptions_history
+        (user_id, event,
+         from_status, to_status,
+         from_plan, to_plan,
+         purchased_plan, actor, reason, at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        evt.userId,
+        evt.event,
+        evt.from_status,
+        evt.to_status,
+        evt.from_plan,
+        evt.to_plan,
+        evt.purchased_plan,
+        evt.actor,
+        evt.reason || null,
+        new Date().toISOString(),
+      ]
+    );
   }
 
-  function asIso(d) {
-    try {
-      return new Date(d).toISOString();
-    } catch {
-      return new Date().toISOString();
-    }
+  function isoNow() {
+    return new Date().toISOString();
   }
-  function addOneMonthISO(iso) {
+
+  function add1Month(iso) {
     const d = new Date(iso || Date.now());
-    const m = d.getMonth();
-    d.setMonth(m + 1);
+    d.setMonth(d.getMonth() + 1);
     return d.toISOString();
   }
 
-  function handleAdminCancel(req, res) {
+  // ---------- Main handler ----------
+  async function handleAdminCancel(req, res) {
+    await ensureSchema();
+
     const userId = String(req.params.userId || "");
-    const immediate = !!req.body?.immediate;
-    const reason = req.body?.reason || null;
-    const actor = req.user?.email || req.user?.uid || "admin";
     if (!userId) return res.status(400).json({ error: "userId required" });
 
-    log.info?.("[admin.cancel] request", { userId, immediate, reason, actor });
+    const immediate = !!req.body?.immediate;
+    const reason = req.body?.reason || null;
+    const actor = req.user?.email || req.user?.uid;
 
-    const before = getSnapshot(userId);
+    const before = await getSnapshot(userId);
     if (!before) return res.status(404).json({ error: "User not found" });
 
-    // IMPORTANT: include 'succeeded' as a cancellable state for the mock flow
-    const cancellableStatuses = ["succeeded", "active", "trialing", "canceled_pending"];
-    const sub = getLatestGoldSub(userId, cancellableStatuses);
+    // IMPORTANT:
+    // Cancel any GOLD subscription in status:
+    //   succeeded, active, trialing, canceled_pending
+    const cancellable = ["succeeded", "active", "trialing", "canceled_pending"];
 
+    const sub = await getLatestGoldSub(userId, cancellable);
     if (!sub) {
-      log.info?.("[admin.cancel] no cancellable subscription", { userId });
       return res.status(404).json({
         error: "no_subscription",
-        hint: "No Gold subscription found in a cancellable state",
+        hint: "No GOLD subscription found in cancellable state",
       });
     }
 
-    log.info?.("[admin.cancel] matched subscription", {
-      id: sub.id,
-      status: sub.status,
-      created_at: sub.created_at,
-    });
-
-    const nowIso = new Date().toISOString();
+    const now = isoNow();
 
     try {
-      db.exec("BEGIN");
+      beginTx();
 
-      let resultPayload = null;
+      let payload = null;
 
       if (immediate) {
-        // Immediate: flip to 'canceled' and downgrade now
-        db.prepare(
-          `UPDATE payments_subscription SET status = 'canceled' WHERE id = @id`
-        ).run({ id: sub.id });
+        // Immediate: end benefits now
+        await run(
+          `UPDATE payments_subscription SET status = 'canceled' WHERE id = ?`,
+          [sub.id]
+        );
 
-        db.prepare(
+        await run(
           `
           UPDATE tradesmen
              SET plan                = 'free',
                  purchased_plan      = NULL,
                  subscription_status = 'canceled',
                  plan_update_at      = NULL,
-                 plan_updated_at     = @now,
-                 updated_at          = @now
-           WHERE user_id = @uid
-        `
-        ).run({ uid: userId, now: nowIso });
+                 plan_updated_at     = ?,
+                 updated_at          = ?
+           WHERE user_id = ?
+        `,
+          [now, now, userId]
+        );
 
-        audit({
+        await audit({
           userId,
           event: "admin_cancel_now",
           from_status: before.status,
           to_status: "canceled",
           from_plan: before.plan,
           to_plan: "free",
-          purchased_plan: before.purchased_plan ?? null,
+          purchased_plan: before.purchased_plan,
           actor,
           reason,
         });
 
-        resultPayload = {
+        payload = {
           ok: true,
           user_id: userId,
           status: "canceled",
           plan: "free",
           immediate: true,
           subscription_id: sub.id,
-          canceled_at: nowIso,
+          canceled_at: now,
         };
       } else {
-        // Period-end: mark 'canceled_pending' and keep benefits until cancelAt
+        // Period end: mark canceled_pending, keep benefits until next renewal
         const cancelAtISO =
-          (before.plan_update_at && asIso(before.plan_update_at)) ||
-          (before.plan_updated_at && asIso(before.plan_updated_at)) ||
-          addOneMonthISO(asIso(sub.created_at));
+          before.plan_update_at ||
+          before.plan_updated_at ||
+          add1Month(sub.created_at);
 
-        db.prepare(
-          `UPDATE payments_subscription SET status = 'canceled_pending' WHERE id = @id`
-        ).run({ id: sub.id });
+        await run(
+          `UPDATE payments_subscription SET status = 'canceled_pending' WHERE id = ?`,
+          [sub.id]
+        );
 
-        db.prepare(
+        await run(
           `
           UPDATE tradesmen
              SET subscription_status = 'canceled_pending',
-                 plan_update_at      = @cancelAt,
-                 plan_updated_at     = @cancelAt,
-                 updated_at          = @now
-           WHERE user_id = @uid
-        `
-        ).run({ uid: userId, cancelAt: cancelAtISO, now: nowIso });
+                 plan_update_at      = ?,
+                 plan_updated_at     = ?,
+                 updated_at          = ?
+           WHERE user_id = ?
+        `,
+          [cancelAtISO, now, now, userId]
+        );
 
-        audit({
+        await audit({
           userId,
           event: "admin_cancel",
           from_status: before.status,
           to_status: "canceled_pending",
           from_plan: before.plan,
           to_plan: before.plan || "gold",
-          purchased_plan: before.purchased_plan ?? null,
+          purchased_plan: before.purchased_plan,
           actor,
           reason,
         });
 
-        resultPayload = {
+        payload = {
           ok: true,
           user_id: userId,
           status: "canceled_pending",
@@ -278,25 +321,27 @@ module.exports = (router, ctx) => {
         };
       }
 
-      db.exec("COMMIT");
+      commitTx();
 
+      // Best-effort SSE
       try {
-        if (typeof ctx.sseSend === "function") {
-          ctx.sseSend(userId, { type: "plan.updated", ...resultPayload });
-        }
+        ctx.sseSend?.(userId, {
+          type: "plan.updated",
+          ...payload,
+        });
       } catch (_) {}
 
-      return res.json(resultPayload);
+      return res.json(payload);
     } catch (e) {
-      try {
-        db.exec("ROLLBACK");
-      } catch (_) {}
-      return res
-        .status(500)
-        .json({ error: "internal_error", details: e?.message || String(e) });
+      rollbackTx();
+      return res.status(500).json({
+        error: "internal_error",
+        details: e?.message || String(e),
+      });
     }
   }
 
+  // ---------- ROUTES (KEEP BOTH) ----------
   router.post(
     "/admin/subscriptions/:userId/cancel",
     auth,

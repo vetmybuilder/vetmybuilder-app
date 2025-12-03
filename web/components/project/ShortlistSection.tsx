@@ -65,9 +65,16 @@ export default function ShortlistSection({
 
     // Enrich each group with CH number (for display only)
     return base.map((g) => {
-      const top = g.top;
+      const top: any = g.top;
       const ver = recVerification[top.id];
-      const num = (ver?.companyNumber || "").trim() || null;
+
+      // Fallback: if there's no verification map entry yet, use CH fields from the ratings item
+      const num =
+        (ver?.companyNumber ||
+          (typeof top.chCompanyNumber === "string"
+            ? top.chCompanyNumber
+            : "")).trim() || null;
+
       return { ...g, companyNumber: num };
     });
   }, [items, recVerification]);
@@ -240,18 +247,35 @@ export default function ShortlistSection({
               data-testid="shortlist-list"
             >
               {groupsToShow.map((g) => {
-                const r = g.top;
+                const r: any = g.top;
                 const votes = g.totalLikes;
                 const hasVoted = r.myLike === 1;
                 const hasPhotos = !!recHasPhotos[r.id];
+
                 const ver = recVerification[r.id];
-                const vStatus = ver?.status;
-                const vLabel = chLabel(vStatus);
+
+                // 🔑 Derive verification fields:
+                const vStatus =
+                  (ver?.status ?? r.chStatus ?? undefined) as
+                    | Verification["status"]
+                    | undefined;
+
+                const vCompanyName =
+                  (ver?.companyName as string | undefined) ??
+                  (r.chCompanyName as string | undefined) ??
+                  undefined;
+
+                const checkedAt =
+                  (ver?.checkedAt as string | undefined) ??
+                  (r.chCheckedAt as string | undefined) ??
+                  undefined;
+
+                const vLabel = chLabel(vStatus as any);
 
                 const displayCompanyName =
-                  ver?.companyName &&
+                  vCompanyName &&
                   (vStatus === "verified" || vStatus === "ambiguous")
-                    ? ver.companyName.trim()
+                    ? vCompanyName.trim()
                     : g.company;
 
                 // 🔹 Decide which score to show:
@@ -274,7 +298,7 @@ export default function ShortlistSection({
                     ? overrideScore
                     : baseScore;
 
-                // 🔹 Google rating from verification (if present)
+                // 🔹 Google rating only comes from the verification map (not from ratings)
                 const verAny = ver as any;
                 const googleRating =
                   typeof verAny?.googleRating === "number"
@@ -366,12 +390,12 @@ export default function ShortlistSection({
                             <div className="flex items-center gap-2">
                               <span
                                 className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${chBadgeClass(
-                                  vStatus
+                                  vStatus as any
                                 )}`}
                                 title={`Companies House status${
-                                  ver?.checkedAt
+                                  checkedAt
                                     ? ` · checked ${new Date(
-                                        ver.checkedAt
+                                        checkedAt
                                       ).toLocaleString()}`
                                     : ""
                                 }${
@@ -381,7 +405,7 @@ export default function ShortlistSection({
                                 data-testid="shortlist-badge-ch"
                                 data-status={vStatus || "unknown"}
                               >
-                                {chIcon(vStatus)}
+                                {chIcon(vStatus as any)}
                                 <span data-testid="shortlist-badge-ch-text">
                                   {vLabel}
                                 </span>

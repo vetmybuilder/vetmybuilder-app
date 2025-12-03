@@ -44,20 +44,33 @@ export default function CompletedProjectInfoCard({
       </div>
 
       {/* Meta grid */}
-      <div className="grid grid-cols-2 gap-y-2 gap-x-3 text-[14px] leading-6 mt-2">
+      <div
+        className="
+          grid 
+          grid-cols-[auto,minmax(0,1fr)] 
+          gap-y-2 gap-x-3 
+          text-[14px] leading-6 mt-2
+        "
+      >
         <div className="text-slate-500">Type</div>
-        <div className="text-slate-900 font-medium" data-testid={`cell-${id}-type`}>
+        <div
+          className="text-slate-900 font-medium break-words min-w-0"
+          data-testid={`cell-${id}-type`}
+        >
           {type}
         </div>
 
         <div className="text-slate-500">Location</div>
-        <div className="text-slate-900 font-medium" data-testid={`cell-${id}-location`}>
+        <div
+          className="text-slate-900 font-medium break-words min-w-0"
+          data-testid={`cell-${id}-location`}
+        >
           {location}
         </div>
 
-        {/* Gallery row (explicit), while image card is also a link */}
+        {/* Gallery row */}
         <div className="text-slate-500">Gallery</div>
-        <div className="text-right sm:text-left">
+        <div className="min-w-0">
           {hasGallery ? (
             <Link
               href={`/projects/${id}/completed`}
@@ -67,7 +80,10 @@ export default function CompletedProjectInfoCard({
               View gallery
             </Link>
           ) : (
-            <span className="text-slate-400" data-testid={`cell-${id}-no-gallery`}>
+            <span
+              className="text-slate-400"
+              data-testid={`cell-${id}-no-gallery`}
+            >
               No photos
             </span>
           )}

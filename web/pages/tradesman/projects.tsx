@@ -51,7 +51,6 @@ export default function TradesmanProjects() {
 
   const canQuery = useMemo(() => !!user && !loading, [user, loading]);
 
-  // Auto-fetch whenever filters change
   useEffect(() => {
     if (!canQuery) return;
 
@@ -75,16 +74,32 @@ export default function TradesmanProjects() {
         );
         if (cancelled) return;
 
+        // ✅ NEW: handle soft gate codes that come back with 200
+        if (data?.code === "NOT_ACTIVE") {
+          setGate("notActive");
+          setItems([]);
+          setErr(null);
+          return;
+        }
+        if (data?.code === "NO_PROFILE") {
+          setGate("noProfile");
+          setItems([]);
+          setErr(null);
+          return;
+        }
+
         const nextItems: Project[] = Array.isArray(data?.items)
           ? data.items
           : [];
         setItems(nextItems);
+        setGate("none");
       } catch (e: any) {
         if (cancelled) return;
 
         const status = e?.response?.status;
         const code = e?.response?.data?.code;
 
+        // ✅ keep backwards-compat for old 403 behaviour
         if (status === 403 && code === "NOT_ACTIVE") {
           setGate("notActive");
           setItems([]);

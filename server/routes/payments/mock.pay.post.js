@@ -1,111 +1,54 @@
 // server/routes/payments/mock.pay.post.js
-
-// POST /api/payments/mock/:id/pay
-// POST /api/payments/mock/pay   { sessionId | session_id | id }
 //
-// - Marks the in-memory mock session paid.
-// - unlock_contact -> writes payments_oneoff (pending) for the unlock.
-// - spotlight      -> returns draft state (NO subscription write). You must call
-//                    /api/payments/oneoff/spotlight/purchase afterwards to write payments_oneoff.
-// - subscriptions (non-spotlight) -> writes payments_subscription (draft) and updates tradesmen.
+// FINAL MOCK PAYMENT FLOW (Option B – Clean, Simple)
+//
+// This endpoint:
+//   ✔ Creates INTENT ONLY
+//   ✔ Always sets status = 'pending_admin'
+//   ✔ Does NOT grant entitlement
+//   ✔ Does NOT mark as paid
+//   ✔ Does NOT auto-activate anything
+//
+// Admin must approve in:
+//   /api/admin/tradesmen/:uid/unlocks/approve       (one-off contact unlock)
+//   /api/admin/tradesmen/:uid/subscription/approve  (gold subscription)
+//   /api/admin/tradesmen/:uid/subscription/approve  (spotlight)
+//
+// Gold automatic contact access is handled in owner-contact.get.js (Step 3).
+//
 
 module.exports = (router, ctx) => {
-  const { auth, payments, db } = ctx;
+  const { auth, payments, mysqlQuery } = ctx;
   if (!payments) throw new Error("payments not attached to ctx");
-  if (!db) throw new Error("db not attached to ctx");
+  if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
-  function ensureUnlocksTable() {
-    db.prepare(
-      `CREATE TABLE IF NOT EXISTS project_contact_unlocks (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        project_id INTEGER NOT NULL,
-        buyer_uid  TEXT    NOT NULL,
-        payment_intent TEXT,
-        session_id  TEXT,
-        amount      INTEGER NOT NULL DEFAULT 0,
-        currency    TEXT    NOT NULL DEFAULT 'gbp',
-        status      TEXT    NOT NULL DEFAULT 'pending',
-        created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
-        UNIQUE (project_id, buyer_uid)
-      )`
-    ).run();
+  function resolveSessionId(req) {
+    return (
+      req.params?.id ||
+      req.body?.sessionId ||
+      req.body?.session_id ||
+      req.body?.id ||
+      req.query?.sessionId ||
+      req.query?.session_id ||
+      req.query?.id ||
+      ""
+    );
   }
 
-  function ensureOneOffTable() {
-    db.prepare(
-      `CREATE TABLE IF NOT EXISTS payments_oneoff (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id TEXT NOT NULL,
-        type TEXT NOT NULL,
-        entity_id INTEGER,
-        amount INTEGER NOT NULL,
-        currency TEXT NOT NULL DEFAULT 'GBP',
-        status TEXT NOT NULL DEFAULT 'pending',
-        provider_session_id TEXT,
-        provider_payment_intent TEXT,
-        expires_at DATETIME,
-        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )`
-    ).run();
-    db.prepare(
-      `CREATE INDEX IF NOT EXISTS idx_oneoff_user_type_entity
-         ON payments_oneoff (user_id, type, entity_id, status)`
-    ).run();
-  }
+  function computeTotal(items = []) {
+    let amount = 0;
+    let currency = "GBP";
 
-  function ensureSubscriptionsTable() {
-    db.prepare(
-      `CREATE TABLE IF NOT EXISTS payments_subscription (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        buyer_uid TEXT NOT NULL,
-        plan_id   TEXT NOT NULL,
-        amount    INTEGER NOT NULL,
-        currency  TEXT NOT NULL DEFAULT 'GBP',
-        status    TEXT NOT NULL DEFAULT 'pending',
-        provider_session_id      TEXT UNIQUE,
-        provider_customer_id     TEXT,
-        provider_subscription_id TEXT,
-        provider_payment_intent  TEXT,
-        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )`
-    ).run();
-  }
-
-  function computeTotalFromItems(items = []) {
-    let p = 0;
-    let c = "gbp";
     for (const it of items) {
       const qty = Number.isFinite(it.quantity) ? it.quantity : 1;
-      const amt = Number(it?.price?.amount || 0);
-      p += amt * qty;
-      c = (it?.price?.currency || c || "gbp").toLowerCase();
+      const a = Number(it?.price?.amount || 0);
+      amount += a * qty;
+      currency = it?.price?.currency
+        ? it.price.currency.toUpperCase()
+        : currency;
     }
-    return { amount: p, currency: c || "gbp" };
-  }
 
-  function tableHasColumn(table, column) {
-    try {
-      const rows = db.prepare(`PRAGMA table_info(${table})`).all();
-      return rows.some(
-        (r) => String(r.name).toLowerCase() === column.toLowerCase()
-      );
-    } catch {
-      return false;
-    }
-  }
-
-  // Robustly resolve the session id from param/body/query
-  function resolveSessionId(req) {
-    return String(
-      req.params?.id ||
-        req.body?.sessionId ||
-        req.body?.session_id ||
-        req.body?.id ||
-        req.query?.sessionId ||
-        req.query?.session_id ||
-        req.query?.id ||
-        ""
-    );
+    return { amount, currency };
   }
 
   async function handle(req, res) {
@@ -113,256 +56,171 @@ module.exports = (router, ctx) => {
       const uid = req.user?.uid;
       if (!uid) return res.status(401).json({ error: "Unauthorized" });
 
-      const id = resolveSessionId(req);
-      if (!id) return res.status(400).json({ error: "sessionId required" });
+      const sid = String(resolveSessionId(req));
+      if (!sid) return res.status(400).json({ error: "sessionId required" });
 
-      const s = payments.getSession(id);
-      if (!s) return res.status(404).json({ error: "Not found" });
+      const s = payments.getSession(sid);
+      if (!s) return res.status(404).json({ error: "Session not found" });
       if (s.userId !== uid) return res.status(403).json({ error: "Forbidden" });
 
-      const updated = payments.markPaid(id);
+      const md = s.metadata || {};
+      const { amount, currency } = computeTotal(s.items || []);
 
-      // Unified metadata extraction
-      const md = { ...(s?.metadata || {}), ...(updated?.metadata || {}) };
-      const typ = String(md.type || md.kind || md.vmb_type || "").toLowerCase();
+      const type = String(
+        md.type || md.vmb_type || md.kind || ""
+      ).toLowerCase();
+      const planId = String(md.planId || md.plan_id || "").toLowerCase();
 
-      const planIdLower = String(md.planId || md.plan_id || "").toLowerCase();
-      const firstLabel = String(
-        updated?.items?.[0]?.label || s?.items?.[0]?.label || ""
-      );
-      const isSpotlightOneOff =
-        planIdLower === "spotlight" ||
-        /one[-\s]?off/i.test(firstLabel) ||
-        !!md.durationDays; // your one-off mock sets durationDays
-
-      // ---------- ONE-OFF: unlock_contact ----------
-      if (typ === "unlock_contact") {
-        const projectId = Number(
-          md.projectId || md.project_id || md.vmb_project_id
-        );
+      // =====================================================================
+      // ONE-OFF CONTACT UNLOCK (free + spotlight only)
+      // =====================================================================
+      if (type === "unlock_contact") {
+        const projectId = Number(md.projectId || md.project_id);
         if (!Number.isFinite(projectId) || projectId <= 0) {
-          return res
-            .status(400)
-            .json({ error: "Missing/invalid projectId for unlock_contact" });
+          return res.status(400).json({ error: "Invalid projectId" });
         }
 
-        const total =
-          updated?.total ||
-          s?.total ||
-          computeTotalFromItems(updated?.items || s?.items || []);
-        const amount = Number(total?.amount || 0);
-        const currency = String(total?.currency || "gbp").toLowerCase();
+        // project_contact_unlocks → pending_admin
+        await mysqlQuery(
+          `
+          INSERT INTO project_contact_unlocks
+            (project_id, buyer_uid, session_id, amount, currency, status, created_at)
+          VALUES
+            (?, ?, ?, ?, ?, 'pending_admin', NOW())
+          ON DUPLICATE KEY UPDATE
+            session_id = VALUES(session_id),
+            amount = VALUES(amount),
+            currency = VALUES(currency),
+            status = 'pending_admin'
+          `,
+          [projectId, uid, sid, amount, currency]
+        );
 
-        ensureUnlocksTable();
+        // payments_oneoff → pending_admin
+        await mysqlQuery(
+          `
+          INSERT INTO payments_oneoff
+            (user_id, type, entity_id, amount, currency, status,
+             provider_session_id, provider_payment_intent, created_at)
+          VALUES
+            (?, 'unlock_contact', ?, ?, ?, 'pending_admin',
+             ?, CONCAT('mock:', ?), NOW())
+          ON DUPLICATE KEY UPDATE
+            amount = VALUES(amount),
+            currency = VALUES(currency),
+            status = 'pending_admin',
+            provider_session_id = VALUES(provider_session_id),
+            provider_payment_intent = VALUES(provider_payment_intent)
+          `,
+          [uid, projectId, amount, currency, sid, sid]
+        );
 
-        // Upsert pending unlock
-        db.prepare(
-          `INSERT INTO project_contact_unlocks
-             (project_id, buyer_uid, payment_intent, session_id, amount, currency, status)
-           VALUES (?, ?, NULL, ?, ?, ?, 'pending')
-           ON CONFLICT(project_id, buyer_uid) DO UPDATE SET
-             session_id = excluded.session_id,
-             amount     = CASE WHEN excluded.amount > 0 THEN excluded.amount ELSE project_contact_unlocks.amount END,
-             currency   = COALESCE(excluded.currency, project_contact_unlocks.currency),
-             status     = 'pending'`
-        ).run(projectId, uid, updated.id, amount, currency);
-
-        // Keep ONE-OFF payment as pending until admin approves
-        ensureOneOffTable();
-        const updOne = db
-          .prepare(
-            `UPDATE payments_oneoff
-              SET status = 'pending',
-                  amount = COALESCE(NULLIF(@amount, 0), amount),
-                  currency = COALESCE(@currency, currency),
-                  provider_session_id = COALESCE(provider_session_id, @sid),
-                  provider_payment_intent = COALESCE(provider_payment_intent, 'mock:' || @sid)
-            WHERE user_id = @uid
-              AND type = 'unlock_contact'
-              AND entity_id = @pid`
-          )
-          .run({
-            uid,
-            pid: projectId,
-            sid: updated.id,
-            amount,
-            currency: currency.toUpperCase(),
-          });
-
-        if (updOne.changes === 0) {
-          db.prepare(
-            `INSERT INTO payments_oneoff
-               (user_id, type, entity_id, amount, currency, status, provider_session_id, provider_payment_intent)
-             VALUES
-               (@uid, 'unlock_contact', @pid, @amount, @currency, 'pending', @sid, 'mock:' || @sid)`
-          ).run({
-            uid,
-            pid: projectId,
-            sid: updated.id,
-            amount,
-            currency: currency.toUpperCase(),
-          });
-        }
-
-        if (tableHasColumn("tradesmen", "updated_at")) {
-          db.prepare(
-            `UPDATE tradesmen SET updated_at = @now WHERE user_id = @uid`
-          ).run({
-            uid,
-            now: new Date().toISOString(),
-          });
-        }
-
-        return res.status(200).json({
+        return res.json({
           ok: true,
-          session: updated,
-          oneOff: { projectId, status: "pending" },
+          type: "unlock_contact",
+          status: "pending_admin",
+          projectId,
+          amount,
+          currency,
+          sessionId: sid,
         });
       }
 
-      // ---------- ONE-OFF: spotlight (NO subscription write here) ----------
-      if (isSpotlightOneOff) {
-        // Only echo draft state; client must call /payments/oneoff/spotlight/purchase afterwards
-        return res.status(200).json({
+      // =====================================================================
+      // SPOTLIGHT (one-off, 30 days)
+      // =====================================================================
+      if (planId === "spotlight") {
+        await mysqlQuery(
+          `
+          INSERT INTO payments_oneoff
+            (user_id, type, amount, currency, status,
+             provider_session_id, provider_payment_intent, created_at)
+          VALUES
+            (?, 'spotlight', ?, ?, 'pending_admin',
+             ?, CONCAT('mock:', ?), NOW())
+          ON DUPLICATE KEY UPDATE
+            amount = VALUES(amount),
+            currency = VALUES(currency),
+            status = 'pending_admin',
+            provider_session_id = VALUES(provider_session_id),
+            provider_payment_intent = VALUES(provider_payment_intent)
+          `,
+          [uid, amount, currency, sid, sid]
+        );
+
+        await mysqlQuery(
+          `UPDATE tradesmen SET purchased_plan = 'spotlight', updated_at = NOW()
+           WHERE user_id = ?`,
+          [uid]
+        );
+
+        return res.json({
           ok: true,
-          session: updated,
-          subscription: { planId: "spotlight", status: "draft" },
+          type: "spotlight",
+          status: "pending_admin",
+          amount,
+          currency,
+          sessionId: sid,
         });
       }
 
-      // ---------- SUBSCRIPTION (non-spotlight) ----------
-      if (
-        typ === "subscription" ||
-        /subscription/i.test(firstLabel) ||
-        !!md.cadence
-      ) {
-        if (planIdLower === "spotlight") {
-          // Belt & braces — never treat spotlight as subscription
-          return res.status(200).json({
-            ok: true,
-            session: updated,
-            subscription: { planId: "spotlight", status: "draft" },
-          });
-        }
+      // =====================================================================
+      // GOLD SUBSCRIPTION
+      // =====================================================================
+      if (type === "subscription" || planId === "gold") {
+        const plan = planId || "gold";
 
-        const planId = planIdLower || "gold";
-        ensureSubscriptionsTable();
+        await mysqlQuery(
+          `
+          INSERT INTO payments_subscription
+            (buyer_uid, plan_id, amount, currency, status,
+             provider_session_id, provider_payment_intent, created_at)
+          VALUES
+            (?, ?, ?, ?, 'pending_admin',
+             ?, CONCAT('mock:', ?), NOW())
+          ON DUPLICATE KEY UPDATE
+            plan_id = VALUES(plan_id),
+            amount  = VALUES(amount),
+            currency = VALUES(currency),
+            status = 'pending_admin',
+            provider_session_id = VALUES(provider_session_id),
+            provider_payment_intent = VALUES(provider_payment_intent)
+          `,
+          [uid, plan, amount, currency, sid, sid]
+        );
 
-        // Upsert subscription row as DRAFT (awaiting admin approval)
-        const updSub = db
-          .prepare(
-            `UPDATE payments_subscription
-              SET status = 'draft',
-                  plan_id = COALESCE(NULLIF(@planId,''), plan_id),
-                  amount  = COALESCE(NULLIF(@amount,0), amount),
-                  currency= COALESCE(@currency, currency),
-                  provider_payment_intent = COALESCE(provider_payment_intent, 'mock:' || @sid)
-            WHERE provider_session_id = @sid`
-          )
-          .run({
-            sid: updated.id,
-            planId,
-            amount: Number(
-              (updated?.total && updated.total.amount) ||
-                (s?.total && s.total.amount) ||
-                0
-            ),
-            currency: String(
-              (updated?.total && updated.total.currency) ||
-                (s?.total && s.total.currency) ||
-                "GBP"
-            ).toUpperCase(),
-          });
+        await mysqlQuery(
+          `UPDATE tradesmen SET purchased_plan = ?, updated_at = NOW()
+           WHERE user_id = ?`,
+          [plan, uid]
+        );
 
-        if (updSub.changes === 0) {
-          // 🔧 FIX: explicitly set created_at so NOT NULL constraint is always satisfied,
-          // even if the existing table definition has no DEFAULT for created_at.
-          db.prepare(
-            `INSERT INTO payments_subscription
-               (buyer_uid, plan_id, amount, currency, status, provider_session_id, provider_payment_intent, created_at)
-             VALUES
-               (@uid, @planId, @amount, @currency, 'draft', @sid, 'mock:' || @sid, datetime('now'))`
-          ).run({
-            uid,
-            planId,
-            amount: Number(
-              (updated?.total && updated.total.amount) ||
-                (s?.total && s.total.amount) ||
-                0
-            ),
-            currency: String(
-              (updated?.total && updated.total.currency) ||
-                (s?.total && s.total.currency) ||
-                "GBP"
-            ).toUpperCase(),
-            sid: updated.id,
-          });
-        }
-
-        // Persist workflow on tradesmen (draft/free + purchased_plan)
-        try {
-          db.exec("BEGIN");
-
-          const prior =
-            db
-              .prepare(
-                `SELECT subscription_status AS status, plan
-                   FROM tradesmen
-                  WHERE user_id = ?`
-              )
-              .get(uid) || {};
-
-          db.prepare(
-            `UPDATE tradesmen
-                SET subscription_status = 'draft',
-                    plan                = 'free',
-                    plan_update_at      = NULL,
-                    purchased_plan      = COALESCE(@purchasedPlan, purchased_plan),
-                    updated_at          = @now
-              WHERE user_id = @uid`
-          ).run({
-            uid,
-            purchasedPlan: planId,
-            now: new Date().toISOString(),
-          });
-
-          db.prepare(
-            `INSERT INTO subscriptions_history
-               (user_id, event, from_status, to_status, from_plan, to_plan, purchased_plan, actor, reason, at)
-             VALUES
-               (@uid, 'purchase', @from_status, 'draft', @from_plan, 'free', @purchased_plan, 'system', NULL, @at)`
-          ).run({
-            uid,
-            from_status: prior.status ?? null,
-            from_plan: prior.plan ?? null,
-            purchased_plan: planId,
-            at: new Date().toISOString(),
-          });
-
-          db.exec("COMMIT");
-        } catch (e) {
-          try {
-            db.exec("ROLLBACK");
-          } catch {}
-          console.warn(
-            "[payments.mock.pay] subscription persist warning:",
-            e?.message || e
-          );
-        }
-
-        return res.status(200).json({
+        return res.json({
           ok: true,
-          session: updated,
-          subscription: { planId, status: "draft" },
+          type: "subscription",
+          plan,
+          status: "pending_admin",
+          amount,
+          currency,
+          sessionId: sid,
         });
       }
 
-      // ---------- default ----------
-      return res.status(200).json({ ok: true, session: updated });
+      // =====================================================================
+      // FALLBACK — unhandled payment type
+      // =====================================================================
+      return res.json({
+        ok: true,
+        type: "unknown",
+        sessionId: sid,
+        note: "Unhandled payment type",
+      });
     } catch (e) {
-      return res
-        .status(500)
-        .json({ error: e?.message || "Failed to mark paid" });
+      console.error("[mock.pay.post] error:", e);
+      return res.status(500).json({
+        error: "server_error",
+        message: e?.message || String(e),
+      });
     }
   }
 
