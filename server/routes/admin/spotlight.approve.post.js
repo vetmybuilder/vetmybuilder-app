@@ -1,8 +1,13 @@
 /**
- * POST /api/admin/spotlight/:paymentId/approve
+ * POST /api/admin/spotlight/approve
  *
  * Admin approval for a Spotlight one-off purchase.
- * After approval -> payment becomes active -> entitlement starts.
+ *
+ * NEW PIPELINE (matches Gold + Unlock Contact):
+ *
+ *   1. Buyer completes mock checkout → pending_admin
+ *   2. Admin approves via this route  → pending_payment
+ *   3. mock.webhook.post finalises   → active
  */
 
 module.exports = (router, ctx) => {
@@ -11,56 +16,40 @@ module.exports = (router, ctx) => {
 
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
-  console.log("[routes] mounted: POST /admin/spotlight/:paymentId/approve");
-
-  // Helper: check if user already has active spotlight
-  async function hasActiveSpotlight(userId) {
-    const rows = await mysqlQuery(
-      `
-      SELECT id
-      FROM payments_oneoff
-      WHERE user_id = ?
-        AND type = 'spotlight'
-        AND status = 'active'
-      LIMIT 1
-    `,
-      [userId]
-    );
-    return rows.length > 0;
-  }
+  console.log("[routes] mounted: POST /admin/spotlight/approve");
 
   router.post(
-    "/admin/spotlight/:paymentId/approve",
+    "/admin/spotlight/approve",
     auth,
     requireAdmin(ctx),
     async (req, res) => {
       try {
-        const paymentId = Number(req.params.paymentId);
-        if (!Number.isFinite(paymentId)) {
+        const { sessionId } = req.body;
+
+        if (!sessionId) {
           return res.status(400).json({
             ok: false,
-            error: "INVALID_ID",
-            message: "Invalid paymentId",
+            error: "sessionId_required",
           });
         }
 
-        // --- Fetch payment ---
+        // Fetch spotlight payment row
         const rows = await mysqlQuery(
           `
           SELECT *
           FROM payments_oneoff
-          WHERE id = ?
+          WHERE provider_session_id = ?
             AND type = 'spotlight'
           LIMIT 1
         `,
-          [paymentId]
+          [sessionId]
         );
 
         if (!rows.length) {
           return res.status(404).json({
             ok: false,
-            error: "NOT_FOUND",
-            message: "Spotlight purchase not found",
+            error: "not_found",
+            message: "Spotlight purchase not found for this sessionId",
           });
         }
 
@@ -69,56 +58,35 @@ module.exports = (router, ctx) => {
         if (row.status !== "pending_admin") {
           return res.status(400).json({
             ok: false,
-            error: "NOT_PENDING",
-            message: "This Spotlight is not pending admin approval",
+            error: "not_pending_admin",
+            message: `Spotlight is currently '${row.status}', cannot approve`,
           });
         }
 
-        const userId = row.user_id;
-
-        // --- Rule: only one active Spotlight at a time ---
-        if (await hasActiveSpotlight(userId)) {
-          return res.status(409).json({
-            ok: false,
-            error: "ACTIVE_EXISTS",
-            message: "User already has an active Spotlight",
-          });
-        }
-
-        // --- Mark as admin_approved ---
-        await mysqlQuery(
+        // Move spotlight → pending_payment
+        const result = await mysqlQuery(
           `
           UPDATE payments_oneoff
-          SET status = 'admin_approved',
-              admin_approved_at = NOW()
-          WHERE id = ?
+          SET status = 'pending_payment',
+              updated_at = NOW()
+          WHERE provider_session_id = ?
+            AND type = 'spotlight'
+            AND status = 'pending_admin'
         `,
-          [paymentId]
-        );
-
-        // --- Activate Spotlight NOW ---
-        await mysqlQuery(
-          `
-          UPDATE payments_oneoff
-          SET status = 'active',
-              activated_at = NOW(),
-              expires_at = DATE_ADD(NOW(), INTERVAL 30 DAY)
-          WHERE id = ?
-        `,
-          [paymentId]
+          [sessionId]
         );
 
         return res.json({
           ok: true,
-          paymentId,
-          activated: true,
-          expiresAt: new Date(Date.now() + 30 * 24 * 3600 * 1000),
+          status: "pending_payment",
+          sessionId,
+          updated: result.affectedRows,
         });
       } catch (err) {
         console.error("[admin.spotlight.approve] error:", err);
         return res.status(500).json({
           ok: false,
-          error: "SERVER_ERROR",
+          error: "server_error",
           message: err?.message || "Unknown error",
         });
       }

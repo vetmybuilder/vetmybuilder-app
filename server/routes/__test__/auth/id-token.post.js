@@ -1,4 +1,4 @@
-// server/v2/routes/__test__/auth/id-token.post.js
+// server/routes/__test__/auth/id-token.post.js
 
 /**
  * POST /api/__test__/auth/id-token
@@ -14,6 +14,9 @@ module.exports = (router, ctx) => {
     resolveFirebaseApiKey,
     fetch = global.fetch,
   } = ctx;
+
+const prefix = ctx.API_PREFIX || "";
+console.log("ROUTE MOUNT>>>>>>>>>>:", prefix + "/__test__/auth/id-token");
 
   router.post("/__test__/auth/id-token", async (req, res) => {
     const ok = assertTestAccess(req, res);

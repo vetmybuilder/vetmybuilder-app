@@ -1,6 +1,6 @@
-// server/routes/payments/mock.webhook.post.js
 //
-// FINAL MOCK WEBHOOK – updated to match your DB schema (no activated_at)
+// MOCK WEBHOOK – FINAL VERSION (supports unlock_contact, spotlight, gold)
+// 3-stage model: checkout → pending_admin → pending_payment → active
 //
 
 module.exports = (router, ctx) => {
@@ -13,6 +13,9 @@ module.exports = (router, ctx) => {
   // FINALISERS
   // ---------------------------------------------------------
 
+  //
+  // 1) FINALISE ONE-OFF CONTACT UNLOCK
+  //
   async function finaliseOneOffUnlock(row) {
     const { user_id, entity_id, id: paymentId } = row;
 
@@ -20,6 +23,7 @@ module.exports = (router, ctx) => {
     await mysqlQuery(
       `UPDATE payments_oneoff
          SET status = 'active',
+             activated_at = NOW(),
              updated_at = NOW()
        WHERE id = ?`,
       [paymentId]
@@ -43,12 +47,18 @@ module.exports = (router, ctx) => {
     };
   }
 
+  //
+  // 2) FINALISE SPOTLIGHT
+  //
   async function finaliseSpotlight(row) {
-    const { id: paymentId } = row;
+    const { id: paymentId, user_id } = row;
 
+    // Spotlight → active
     await mysqlQuery(
       `UPDATE payments_oneoff
          SET status = 'active',
+             activated_at = NOW(),
+             expires_at = DATE_ADD(NOW(), INTERVAL 30 DAY),
              updated_at = NOW()
        WHERE id = ?`,
       [paymentId]
@@ -56,11 +66,14 @@ module.exports = (router, ctx) => {
 
     return {
       type: "spotlight",
-      userId: row.user_id,
+      userId: user_id,
       status: "active",
     };
   }
 
+  //
+  // 3) FINALISE GOLD SUBSCRIPTION
+  //
   async function finaliseSubscription(row) {
     const { buyer_uid, plan_id, id: paymentId } = row;
     const plan = String(plan_id).toLowerCase();
@@ -70,10 +83,12 @@ module.exports = (router, ctx) => {
       return null;
     }
 
+    // payments_subscription → active
     await mysqlQuery(
       `
       UPDATE payments_subscription
-        SET status = 'active'
+        SET status = 'active',
+            activated_at = NOW()
       WHERE id = ?
       `,
       [paymentId]
@@ -112,7 +127,9 @@ module.exports = (router, ctx) => {
       if (!sessionId)
         return res.status(400).json({ error: "sessionId required" });
 
-      // Look up matching rows in BOTH tables for both statuses
+      //
+      // MATCH one-off payments
+      //
       const oneOffRows = await mysqlQuery(
         `
         SELECT *
@@ -123,6 +140,9 @@ module.exports = (router, ctx) => {
         [sessionId]
       );
 
+      //
+      // MATCH subscriptions
+      //
       const subRows = await mysqlQuery(
         `
         SELECT *
@@ -157,10 +177,9 @@ module.exports = (router, ctx) => {
       });
     } catch (e) {
       console.error(`${TAG} error`, e);
-      return res.status(500).json({
-        error: "server_error",
-        details: e?.message,
-      });
+      return res
+        .status(500)
+        .json({ error: "server_error", details: e?.message });
     }
   });
 
