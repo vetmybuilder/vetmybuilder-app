@@ -3,25 +3,17 @@
 /**
  * GET /api/tradesmen/featured
  * Auth: required
- *
- * Query:
- *   projectId?=123                // used to tailor to project.type + decide Spotlight applicability (>= £15k)
- *   goldFirst=true|false          // default true
- *   onlyGold=true|false           // default false
- *   page?=1
- *   limit?=24 (max 50)
- *
- * Data source: tradesmen table (+ payments_oneoff only to exclude Spotlight-active)
  */
-
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
+  const log = ctx.log || console;
+  const TAG = "[tradesmen/featured.get]";
 
-  if (!mysqlQuery) {
-    throw new Error("mysqlQuery not attached to ctx (MySQL required)");
-  }
+  if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
-  // -------- Budget helpers (same logic as spotlight route; NO hard-coded columns) --------
+  log.info?.(`${TAG} mounted`);
+
+  // ---------------- Budget helpers ----------------
   const NUM_KEYS_UPPER = [
     "budget_max",
     "maxBudget",
@@ -38,6 +30,7 @@ module.exports = (router, ctx) => {
     "expectedCost",
     "expected_cost",
   ];
+
   const NUM_KEYS_LOWER = [
     "budget_min",
     "minBudget",
@@ -60,142 +53,103 @@ module.exports = (router, ctx) => {
       scope = text.slice(start, end);
     }
     scope = scope.replace(/–|—/g, "-").replace(/\bto\b/gi, "-");
+
     const re =
       /£?\s*([0-9]{1,3}(?:,[0-9]{3})*|\d+(?:\.\d+)?)\s*(k|m)?\s*(\+)?/gi;
     let m;
     const vals = [];
     while ((m = re.exec(scope)) !== null) {
-      let n = m[1].replace(/,/g, "");
-      let v = parseFloat(n);
+      const num = parseFloat(m[1].replace(/,/g, ""));
       const unit = (m[2] || "").toLowerCase();
+      let v = num;
       if (unit === "k") v *= 1000;
       if (unit === "m") v *= 1000000;
       if (Number.isFinite(v)) vals.push(v);
     }
-    if (!vals.length) return 0;
-    return Math.max(...vals);
+    return vals.length ? Math.max(...vals) : 0;
   };
 
   const getProjectUpperBudget = async (projectId) => {
     if (!projectId) return 0;
-
-    let rows;
     try {
-      rows = await mysqlQuery(`SELECT * FROM projects WHERE id = ? LIMIT 1`, [
-        projectId,
-      ]);
-    } catch (e) {
-      console.warn(
-        "[tradesmen/featured] getProjectUpperBudget failed:",
-        e?.message || e
-      );
-      return 0;
-    }
-
-    const row = rows[0];
-    if (!row) return 0;
-
-    const pickNum = (keys) => {
-      for (const k of keys) {
-        if (Object.prototype.hasOwnProperty.call(row, k)) {
-          const v = Number(row[k]);
-          if (Number.isFinite(v) && v > 0) return v;
-        }
-      }
-      return null;
-    };
-
-    const explicitUpper = pickNum(NUM_KEYS_UPPER);
-    const explicitLower = pickNum(NUM_KEYS_LOWER);
-    const upper =
-      explicitUpper != null
-        ? explicitUpper
-        : explicitLower != null
-        ? explicitLower
-        : 0;
-    if (upper > 0) return upper;
-
-    const text =
-      row.description ||
-      row.details ||
-      row.desc ||
-      row.summary ||
-      row.notes ||
-      "";
-    return parseMoneyUpperFromText(String(text));
-  };
-
-  // -------- Project-type helper (for tailoring Featured to project) --------
-  /**
-   * Returns a keyword to match against tradesmen.trade_types
-   * e.g. project.type "External Wall Insulation" -> "external wall insulation"
-   */
-  const getProjectTypeKeyword = async (projectId) => {
-    if (!projectId) return null;
-
-    let rows;
-    try {
-      rows = await mysqlQuery(
-        `
-        SELECT id, name, type, description
-        FROM projects
-        WHERE id = ?
-        LIMIT 1
-      `,
+      const rows = await mysqlQuery(
+        `SELECT * FROM projects WHERE id=? LIMIT 1`,
         [projectId]
       );
+      const row = rows[0];
+      if (!row) return 0;
+
+      const pickNum = (keys) => {
+        for (const k of keys) {
+          if (Object.prototype.hasOwnProperty.call(row, k)) {
+            const v = Number(row[k]);
+            if (Number.isFinite(v) && v > 0) return v;
+          }
+        }
+        return null;
+      };
+
+      const explicitUpper = pickNum(NUM_KEYS_UPPER);
+      const explicitLower = pickNum(NUM_KEYS_LOWER);
+      if (explicitUpper) return explicitUpper;
+      if (explicitLower) return explicitLower;
+
+      const text =
+        row.description ||
+        row.details ||
+        row.desc ||
+        row.summary ||
+        row.notes ||
+        "";
+      return parseMoneyUpperFromText(text);
     } catch (e) {
-      console.warn(
-        "[tradesmen/featured] getProjectTypeKeyword failed:",
-        e?.message || e
-      );
-      return null;
+      log.warn?.(`${TAG} getProjectUpperBudget failed`, { error: e?.message });
+      return 0;
     }
-
-    const row = rows[0];
-    if (!row) return null;
-
-    const rawType =
-      (row.type && String(row.type).trim()) ||
-      (row.name && String(row.name).trim()) ||
-      "";
-
-    if (!rawType) return null;
-    return rawType.toLowerCase();
   };
 
-  // -------- Matching helpers --------
+  // ---------------- Type keyword ----------------
+  const getProjectTypeKeyword = async (projectId) => {
+    if (!projectId) return null;
+    try {
+      const rows = await mysqlQuery(
+        `SELECT id, name, type FROM projects WHERE id=? LIMIT 1`,
+        [projectId]
+      );
+      const row = rows[0];
+      if (!row) return null;
+      const raw = row.type || row.name || "";
+      return raw ? raw.toLowerCase().trim() : null;
+    } catch (e) {
+      log.warn?.(`${TAG} getProjectTypeKeyword failed`, { error: e?.message });
+      return null;
+    }
+  };
+
+  // ---------------- Matching helpers ----------------
   const normalise = (s) =>
     String(s || "")
       .toLowerCase()
       .replace(/\s+/g, " ")
       .trim();
 
-  /**
-   * trade_types is a comma/pipe separated list.
-   * We consider it a match if ANY token equals the project type
-   * OR either string contains the other (to tolerate "Bathroom Refresh" vs "Bathroom").
-   */
   const hasTradeMatch = (tradeTypes, projectTypeLower) => {
     if (!tradeTypes || !projectTypeLower) return false;
     const kw = normalise(projectTypeLower);
-    if (!kw) return false;
-
     const parts = String(tradeTypes)
       .split(/[,|]/)
       .map(normalise)
       .filter(Boolean);
-
     return parts.some((p) => p === kw || p.includes(kw) || kw.includes(p));
   };
 
-  // -------- Tier helpers --------
+  // ---------------- Tier helpers ----------------
   const tierRank = (tier) => {
     const t = String(tier || "").toLowerCase();
     if (t === "spotlight") return 0;
     if (t === "gold") return 1;
     if (t === "unlock") return 2;
-    return 3; // free/unknown
+    return 3;
   };
 
   const normaliseTier = (row) => {
@@ -218,13 +172,11 @@ module.exports = (router, ctx) => {
     try {
       const parsed = JSON.parse(serviceAreas);
       if (Array.isArray(parsed) && parsed.length) return String(parsed[0]);
-    } catch (_) {
-      const first = String(serviceAreas)
-        .split(/[,\s]+/)
-        .filter(Boolean)[0];
-      return first || null;
-    }
-    return null;
+    } catch {}
+    const first = String(serviceAreas)
+      .split(/[,\s]+/)
+      .filter(Boolean)[0];
+    return first || null;
   };
 
   const parseSocials = (json) => {
@@ -232,67 +184,56 @@ module.exports = (router, ctx) => {
     try {
       const v = JSON.parse(json);
       if (Array.isArray(v)) return v.filter(Boolean).map(String);
-      if (v && typeof v === "object") {
+      if (v && typeof v === "object")
         return Object.values(v).filter(Boolean).map(String);
-      }
     } catch {}
     return [];
   };
 
-  // Hard-coded stars (per request)
   const HARD_STARS = 4.8;
 
-  // Placeholder gallery
   const makePlaceholders = (seed) => [
     `https://placehold.co/400x300?text=Project+${encodeURIComponent(seed)}+1`,
     `https://placehold.co/400x300?text=Project+${encodeURIComponent(seed)}+2`,
     `https://placehold.co/400x300?text=Project+${encodeURIComponent(seed)}+3`,
   ];
 
-  // Active Spotlight set (by payments_oneoff expiry)
   const getActiveSpotlightUserIds = async () => {
     try {
       const rows = await mysqlQuery(
         `
         SELECT DISTINCT user_id
           FROM payments_oneoff
-         WHERE LOWER(COALESCE(type,''))   = 'spotlight'
-           AND LOWER(COALESCE(status,'')) = 'active'
+         WHERE LOWER(COALESCE(type,''))='spotlight'
+           AND LOWER(COALESCE(status,''))='active'
            AND (expires_at IS NULL OR expires_at > NOW())
-        `,
-        []
+        `
       );
       return new Set(rows.map((r) => String(r.user_id)));
     } catch (e) {
-      console.warn(
-        "[tradesmen/featured] getActiveSpotlightUserIds failed:",
-        e?.message || e
-      );
+      log.warn?.(`${TAG} getActiveSpotlightUserIds failed`, {
+        error: e?.message,
+      });
       return new Set();
     }
   };
 
-  // Resolve which photos table exists (tradesmen_photos vs tradesman_photos)
+  // ---------------- Photo table ----------------
   const resolvePhotoTable = async () => {
     if (ctx._vmbPhotoTableResolved) return ctx._vmbPhotoTableResolved;
-
     try {
       const rows = await mysqlQuery(
         `
         SELECT TABLE_NAME
           FROM information_schema.TABLES
          WHERE TABLE_SCHEMA = DATABASE()
-           AND TABLE_NAME IN ('tradesmen_photos', 'tradesman_photos')
+           AND TABLE_NAME IN ('tradesmen_photos','tradesman_photos')
          LIMIT 1
-        `,
-        []
+        `
       );
       ctx._vmbPhotoTableResolved = rows[0]?.TABLE_NAME || null;
     } catch (e) {
-      console.warn(
-        "[tradesmen/featured] resolvePhotoTable failed:",
-        e?.message || e
-      );
+      log.warn?.(`${TAG} resolvePhotoTable failed`, { error: e?.message });
       ctx._vmbPhotoTableResolved = null;
     }
     return ctx._vmbPhotoTableResolved;
@@ -300,160 +241,128 @@ module.exports = (router, ctx) => {
 
   const loadPhotosByUser = async (userIds) => {
     const map = new Map();
-    if (!userIds || !userIds.length) return map;
+    const table = await resolvePhotoTable();
+    if (!table) return map;
 
-    const photoTable = await resolvePhotoTable();
-    if (!photoTable) return map;
+    // ⭐ FIX: avoid SQL error when IN () is empty
+    if (!userIds || userIds.length === 0) {
+      return map; // nothing to load
+    }
 
-    const placeholders = userIds.map(() => "?").join(",");
-    let photoRows = [];
     try {
-      photoRows = await mysqlQuery(
+      const placeholders = userIds.map(() => "?").join(",");
+      const rows = await mysqlQuery(
         `
-        SELECT tradesman_user_id, url, sort_order, created_at
-          FROM ${photoTable}
-         WHERE tradesman_user_id IN (${placeholders})
-         ORDER BY tradesman_user_id,
-                  COALESCE(sort_order, 999999) ASC,
-                  created_at ASC
-        `,
+      SELECT tradesman_user_id, url
+      FROM ${table}
+      WHERE tradesman_user_id IN (${placeholders})
+      ORDER BY tradesman_user_id, COALESCE(sort_order,999999), created_at
+      `,
         userIds
       );
+
+      for (const r of rows) {
+        const uid = String(r.tradesman_user_id);
+        if (!map.has(uid)) map.set(uid, []);
+        map.get(uid).push(r.url);
+      }
     } catch (e) {
-      console.warn(
-        "[tradesmen/featured] loadPhotosByUser failed:",
-        e?.message || e
-      );
-      return map;
+      log.warn?.(`${TAG} loadPhotosByUser failed`, { error: e?.message });
     }
 
-    for (const p of photoRows) {
-      const uid = String(p.tradesman_user_id);
-      if (!map.has(uid)) map.set(uid, []);
-      map.get(uid).push(p.url);
-    }
     return map;
   };
 
+  // ---------------- Route handler ----------------
   router.get("/tradesmen/featured", auth, async (req, res) => {
+    log.info?.(`${TAG} request`, { query: req.query });
+
     try {
-      const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
+      const page = Math.max(1, parseInt(req.query.page ?? "1", 10));
       const limit = Math.min(
         50,
-        Math.max(1, parseInt(String(req.query.limit ?? "24"), 10))
+        Math.max(1, parseInt(req.query.limit ?? "24", 10))
       );
       const goldFirst =
         String(req.query.goldFirst ?? "true").toLowerCase() !== "false";
       const onlyGold =
         String(req.query.onlyGold ?? "false").toLowerCase() === "true";
       const projectId = req.query.projectId
-        ? Number(String(req.query.projectId))
+        ? Number(req.query.projectId)
         : null;
 
-      // --- project context ---
       const projectTypeKeyword = projectId
         ? await getProjectTypeKeyword(projectId)
         : null;
-      const projectKwLc = projectTypeKeyword
-        ? projectTypeKeyword.toLowerCase()
-        : null;
 
-      // If the project’s budget >= 15k, Spotlight applies and we EXCLUDE spotlight-active
-      const THRESHOLD = 15000;
+      const projectKwLc = projectTypeKeyword || null;
+
       const projectUpper = projectId
         ? await getProjectUpperBudget(projectId)
         : 0;
-      const spotlightApplies = projectUpper >= THRESHOLD;
-      const spotlightActive = await getActiveSpotlightUserIds();
 
-      // --- base rows from tradesmen ---
+      const spotlightActive = await getActiveSpotlightUserIds();
+      const spotlightApplies = projectUpper >= 15000;
+
       let rows;
       try {
         rows = await mysqlQuery(
           `
-          SELECT
-            user_id,
-            company_name,
-            contact_name,
-            status,
-            subscription_status,
-            plan,
-            purchased_plan,
-            ch_status,
-            service_areas,
-            trade_types,
-            vmb_badge,
-            offers_discount,
-            warranty_months,
-            wins_count,
-            photo_count,
-            likes_count,
-            phone,
-            email,
-            web_url,
-            social_links_json,
-            company_number,
-            vmb_score
-          FROM tradesmen
-          WHERE COALESCE(status,'active') != 'banned'
-        `,
-          []
+          SELECT *
+            FROM tradesmen
+           WHERE COALESCE(status,'active') != 'banned'
+        `
         );
       } catch (e) {
-        console.error("[/tradesmen/featured] tradesmen SELECT failed:", e);
-        return res.status(500).json({
-          error: "FEATURED_TRADESMEN_FAILED",
-          message: "Failed to load tradesmen",
-        });
+        log.error?.(`${TAG} tradesmen SELECT failed`, { error: e?.message });
+        return res.status(500).json({ error: "FEATURED_TRADESMEN_FAILED" });
       }
 
-      // ---------- load real photo URLs from photos table ----------
-      const userIds = rows.map((r) => String(r.user_id));
-      const photosByUser = await loadPhotosByUser(userIds);
-      // ---------- END PHOTO LOADING ----------
+      const ids = rows.map((r) => String(r.user_id));
+      const photos = await loadPhotosByUser(ids);
 
-      let shaped = rows
+      const shaped = rows
         .map((r) => {
           const tier = normaliseTier(r);
           const uid = String(r.user_id);
 
-          // always exclude active Spotlight from Featured
           if (spotlightActive.has(uid)) return null;
           if (onlyGold && tier !== "gold") return null;
 
-          const builderId = uid;
-          const outward = firstServiceArea(r.service_areas);
-
-          const photoUrls = photosByUser.get(builderId) || [];
-          const avatarUrl = photoUrls.length > 0 ? photoUrls[0] : null;
-          const gallery =
-            photoUrls.length > 0
-              ? photoUrls.slice(0, 3)
-              : makePlaceholders(builderId);
+          const photoUrls = photos.get(uid) || [];
+          const avatarUrl = photoUrls[0] || null;
 
           const matchesProjectType = hasTradeMatch(r.trade_types, projectKwLc);
 
           return {
-            builderId,
-            companyName: r.company_name || null,
+            builderId: uid,
+            companyName: r.company_name,
             displayName: r.company_name || r.contact_name || "Tradesman",
             tier,
-            tierActiveUntil: null,
-            purchasedPlan: r.purchased_plan || r.plan || null,
+            purchasedPlan: r.purchased_plan || r.plan,
             badges: {
               companiesHouseVerified: isChVerified(r),
               insuranceValid: false,
             },
             avatarUrl,
-            gallery,
+            gallery:
+              photoUrls.length > 0
+                ? photoUrls.slice(0, 3)
+                : makePlaceholders(uid),
             stats: {
               completed: Number(r.wins_count || 0),
               photos: Number(r.photo_count || photoUrls.length || 0),
               reviews: Number(r.likes_count || 0),
               stars: HARD_STARS,
             },
-            score: Number(r.vmb_score ?? 0),
-            location: { outward },
+            score: Number(r.vmb_score || 0),
+
+            // ❌ OLD: leaked service area outward postcodes
+            // location: { outward: firstServiceArea(r.service_areas) },
+
+            // ✅ NEW: remove location entirely (Option A)
+            location: null,
+
             phone: r.phone || null,
             email: r.email || null,
             website: r.web_url || null,
@@ -466,31 +375,26 @@ module.exports = (router, ctx) => {
           };
         })
         .filter(Boolean);
-
-      // Sort: 1) project-type matches first, 2) paid tiers, 3) score desc, 4) name A→Z
       shaped.sort((a, b) => {
         if (projectKwLc) {
-          const am = a.matchesProjectType ? 1 : 0;
-          const bm = b.matchesProjectType ? 1 : 0;
-          if (am !== bm) return bm - am; // matches first
+          if (a.matchesProjectType !== b.matchesProjectType)
+            return b.matchesProjectType - a.matchesProjectType;
         }
-
         if (goldFirst) {
           const t = tierRank(a.tier) - tierRank(b.tier);
           if (t !== 0) return t;
         }
-
         const s = (b.score || 0) - (a.score || 0);
         if (s !== 0) return s;
 
-        const nameA = (a.companyName || a.displayName || "").toLowerCase();
-        const nameB = (b.companyName || b.displayName || "").toLowerCase();
-        return nameA.localeCompare(nameB);
+        return (a.companyName || "").localeCompare(b.companyName || "");
       });
 
       const total = shaped.length;
       const start = (page - 1) * limit;
       const items = shaped.slice(start, start + limit);
+
+      log.info?.(`${TAG} success`, { total, returned: items.length });
 
       return res.json({
         items,
@@ -501,10 +405,10 @@ module.exports = (router, ctx) => {
         spotlightExcluded: spotlightApplies ? spotlightActive.size : 0,
       });
     } catch (err) {
-      console.error("[/tradesmen/featured] error:", err);
+      log.error?.(`${TAG} handler error`, { error: err?.message });
       return res.status(500).json({
         error: "FEATURED_TRADESMEN_FAILED",
-        message: err?.message || String(err),
+        message: err?.message,
       });
     }
   });

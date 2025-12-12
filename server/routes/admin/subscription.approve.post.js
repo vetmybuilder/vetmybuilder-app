@@ -1,84 +1,138 @@
 /**
  * POST /api/admin/tradesmen/:uid/subscription/approve
  *
- * Admin approves a pending subscription.
- * Moves purchased_plan → plan, sets subscription_status = 'active'.
+ * Admin approves a pending subscription (from payments_subscription).
+ * Marks subscription as active and updates tradesmen.plan accordingly.
+ *
+ * NEW:
+ *   - Only allowed when tradesman.verification_status = 'approved'
  */
+
+const { logger, withRequest } = require("../../lib/logger");
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
   const { requireAdmin } = require("../../lib/roles");
 
-  console.log(
-    "[routes] mounted: POST /admin/tradesmen/:uid/subscription/approve"
-  );
+  const TAG = "admin.subscription.approve";
 
   router.post(
     "/admin/tradesmen/:uid/subscription/approve",
     auth,
     requireAdmin(ctx),
     async (req, res) => {
+      const log = withRequest(req).child({ route: TAG });
+
       try {
         const uid = req.params.uid;
 
-        // Look up purchased_plan
-        const rows = await mysqlQuery(
+        // STEP 0 — Ensure tradesman exists + is verified
+        const [tradesman] = await mysqlQuery(
           `
-          SELECT purchased_plan
-          FROM tradesmen
-          WHERE user_id = ?
-          LIMIT 1
+          SELECT verification_status
+            FROM tradesmen
+           WHERE user_id = ?
+           LIMIT 1
         `,
           [uid]
         );
 
-        if (!rows.length) {
-          console.warn(
-            "[admin.subscription.approve] no tradesman found for uid:",
-            uid
-          );
+        if (!tradesman) {
+          log.warn({ uid }, "Tradesman not found for subscription approve");
           return res.status(404).json({
             error: "not_found",
             message: "Tradesman not found",
           });
         }
 
-        const pendingPlan = rows[0].purchased_plan;
-        if (!pendingPlan) {
-          console.warn(
-            "[admin.subscription.approve] no pending purchased_plan for uid:",
-            uid
+        const verificationStatus = String(
+          tradesman.verification_status || ""
+        ).toLowerCase();
+
+        if (verificationStatus !== "approved") {
+          log.warn(
+            { uid, verificationStatus },
+            "Subscription approve blocked – verification not approved"
           );
           return res.status(400).json({
-            error: "no_pending_plan",
-            message: "No purchased_plan exists to approve",
+            error: "verification_not_approved",
+            code: "VERIFICATION_REQUIRED",
+            message:
+              "Cannot activate subscription until verification is approved.",
           });
         }
 
-        // Move purchased_plan → plan
-        await mysqlQuery(
+        // STEP 1 — Get latest pending subscription from payments_subscription
+        const subRows = await mysqlQuery(
           `
-          UPDATE tradesmen
-             SET plan = purchased_plan,
-                 purchased_plan = NULL,
-                 subscription_status = 'active',
-                 plan_updated_at = NOW()
-           WHERE user_id = ?
+          SELECT id, plan_id, status
+          FROM payments_subscription
+          WHERE buyer_uid = ?
+          ORDER BY created_at DESC, id DESC
+          LIMIT 1
         `,
           [uid]
         );
 
-        console.log(
-          `[admin.subscription.approve] Approved plan '${pendingPlan}' for uid ${uid}`
+        if (!subRows.length) {
+          log.warn({ uid }, "No subscription rows found");
+          return res.status(400).json({
+            error: "no_pending_plan",
+            message: "No subscription found for this user",
+          });
+        }
+
+        const sub = subRows[0];
+
+        if (String(sub.status).toLowerCase() !== "pending_admin") {
+          log.warn({ uid, status: sub.status }, "Subscription not pending");
+          return res.status(400).json({
+            error: "no_pending_plan",
+            message: "No pending subscription to approve",
+          });
+        }
+
+        const planId = sub.plan_id;
+
+        // STEP 2 — Approve subscription in payments_subscription
+        await mysqlQuery(
+          `
+          UPDATE payments_subscription
+             SET status = 'active'
+           WHERE id = ?
+        `,
+          [sub.id]
         );
+
+        // STEP 3 — Update tradesmen table (entitlement)
+        await mysqlQuery(
+          `
+          UPDATE tradesmen
+             SET plan = ?,
+                 plan_updated_at = NOW(),
+                 subscription_status = 'active'
+           WHERE user_id = ?
+        `,
+          [planId, uid]
+        );
+
+        log.info({ uid, approvedPlan: planId }, "Subscription approved");
 
         return res.json({
           ok: true,
           uid,
-          approvedPlan: pendingPlan,
+          approvedPlan: planId,
         });
       } catch (e) {
-        console.error("[admin.subscription.approve] error:", e);
+        logger.error(
+          {
+            route: TAG,
+            err: e?.message,
+            stack: e?.stack,
+          },
+          "Subscription approve failed"
+        );
+
         return res.status(500).json({
           error: "server_error",
           message: e?.message || "Server error",

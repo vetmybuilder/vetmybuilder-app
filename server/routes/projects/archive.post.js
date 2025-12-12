@@ -6,75 +6,81 @@
  */
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
+  if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
+
+  // Structured logger (same pattern used across upgraded routes)
+  const { logger, withRequest } = require("../../lib/logger");
 
   router.post("/projects/:id/archive", auth, async (req, res) => {
-    const uid = req.user.uid;
-    const id = Number(req.params.id);
+    const uid = req.user?.uid;
+    const projectId = Number(req.params.id);
 
-    if (!Number.isFinite(id)) {
+    const log = withRequest(req, logger).child({
+      route: "/projects/:id/archive",
+      action: "archive_project",
+      uid,
+      projectId,
+    });
+
+    if (!Number.isFinite(projectId)) {
+      log.warn("Invalid projectId");
       return res.status(400).json({ error: "Invalid id" });
     }
 
+    // ------------------------------
     // Fetch current project
-    let currentRows;
+    // ------------------------------
+    let current;
     try {
-      currentRows = await mysqlQuery(`SELECT * FROM projects WHERE id = ?`, [
-        id,
+      const rows = await mysqlQuery(`SELECT * FROM projects WHERE id = ?`, [
+        projectId,
       ]);
+      current = rows[0] || null;
     } catch (err) {
-      console.error("MySQL fetch error (archive):", err);
+      log.error(
+        { error: err?.message, stack: err?.stack },
+        "MySQL error fetching project"
+      );
       return res.status(500).json({ error: "internal_error" });
     }
 
-    const current = currentRows[0] || null;
-    if (!current) return res.status(404).json({ error: "Not found" });
+    if (!current) {
+      log.info("Project not found");
+      return res.status(404).json({ error: "Not found" });
+    }
 
     if (String(current.ownerUserId) !== String(uid)) {
+      log.warn(
+        { ownerUserId: current.ownerUserId },
+        "Forbidden — user is not project owner"
+      );
       return res.status(403).json({ error: "Forbidden" });
     }
 
-    // Archive it
+    // ------------------------------
+    // Archive project
+    // ------------------------------
     try {
-      await mysqlQuery(`UPDATE projects SET status='archived' WHERE id = ?`, [
-        id,
-      ]);
+      await mysqlQuery(
+        `UPDATE projects SET status='archived', updatedAt = NOW() WHERE id = ?`,
+        [projectId]
+      );
 
       const updatedRows = await mysqlQuery(
         `SELECT * FROM projects WHERE id = ?`,
-        [id]
+        [projectId]
       );
-      return res.json({ project: updatedRows[0] });
+      const project = updatedRows[0] || null;
+
+      log.info({ newStatus: project?.status }, "Project archived successfully");
+
+      return res.json({ project });
     } catch (err) {
-      console.error("MySQL update error (archive):", err);
+      log.error(
+        { error: err?.message, stack: err?.stack },
+        "MySQL error archiving project"
+      );
       return res.status(500).json({ error: "internal_error" });
     }
   });
 };
-
-// // server/routes/projects/archive.post.js
-// /**
-//  * POST /api/projects/:id/archive
-//  * Auth: required (owner only)
-//  * Response: { project }
-//  */
-// module.exports = (router, ctx) => {
-//   const { db, auth } = ctx;
-
-//   router.post("/projects/:id/archive", auth, (req, res) => {
-//     const uid = req.user.uid;
-//     const id = Number(req.params.id);
-//     if (!Number.isFinite(id)) {
-//       return res.status(400).json({ error: "Invalid id" });
-//     }
-
-//     const current = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
-//     if (!current) return res.status(404).json({ error: "Not found" });
-//     if (String(current.ownerUserId) !== String(uid)) {
-//       return res.status(403).json({ error: "Forbidden" });
-//     }
-
-//     db.prepare(`UPDATE projects SET status='archived' WHERE id=?`).run(id);
-//     const updated = db.prepare(`SELECT * FROM projects WHERE id=?`).get(id);
-//     return res.json({ project: updated });
-//   });
-// };

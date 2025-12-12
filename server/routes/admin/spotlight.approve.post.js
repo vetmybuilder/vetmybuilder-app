@@ -3,12 +3,13 @@
  *
  * Admin approval for a Spotlight one-off purchase.
  *
- * NEW PIPELINE (matches Gold + Unlock Contact):
- *
+ * NEW PIPELINE:
  *   1. Buyer completes mock checkout → pending_admin
- *   2. Admin approves via this route  → pending_payment
+ *   2. Admin approves via this route → pending_payment
  *   3. mock.webhook.post finalises   → active
  */
+
+const { logger, withRequest } = require("../../lib/logger");
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
@@ -16,17 +17,20 @@ module.exports = (router, ctx) => {
 
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
-  console.log("[routes] mounted: POST /admin/spotlight/approve");
+  const TAG = "admin.spotlight.approve";
 
   router.post(
     "/admin/spotlight/approve",
     auth,
     requireAdmin(ctx),
     async (req, res) => {
+      const log = withRequest(req).child({ route: TAG });
+
       try {
         const { sessionId } = req.body;
 
         if (!sessionId) {
+          log.warn("Missing sessionId");
           return res.status(400).json({
             ok: false,
             error: "sessionId_required",
@@ -46,6 +50,7 @@ module.exports = (router, ctx) => {
         );
 
         if (!rows.length) {
+          log.warn({ sessionId }, "Spotlight purchase not found");
           return res.status(404).json({
             ok: false,
             error: "not_found",
@@ -56,6 +61,11 @@ module.exports = (router, ctx) => {
         const row = rows[0];
 
         if (row.status !== "pending_admin") {
+          log.warn(
+            { sessionId, currentStatus: row.status },
+            "Spotlight not in pending_admin state"
+          );
+
           return res.status(400).json({
             ok: false,
             error: "not_pending_admin",
@@ -76,6 +86,14 @@ module.exports = (router, ctx) => {
           [sessionId]
         );
 
+        log.info(
+          {
+            sessionId,
+            updated: result.affectedRows,
+          },
+          "Spotlight moved to pending_payment"
+        );
+
         return res.json({
           ok: true,
           status: "pending_payment",
@@ -83,7 +101,15 @@ module.exports = (router, ctx) => {
           updated: result.affectedRows,
         });
       } catch (err) {
-        console.error("[admin.spotlight.approve] error:", err);
+        logger.error(
+          {
+            route: TAG,
+            err: err?.message,
+            stack: err?.stack,
+          },
+          "Spotlight approval failed"
+        );
+
         return res.status(500).json({
           ok: false,
           error: "server_error",

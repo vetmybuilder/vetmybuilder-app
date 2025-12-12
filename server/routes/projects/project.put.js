@@ -1,18 +1,20 @@
-// server/routes/projects/project.put.js
-/**
- * PUT /api/projects/:id
- * Auth: required (owner only)
- * Body: partial fields; we merge with current then validate
- * Returns: { project }
- *
- * IMPORTANT:
- * - location (which effectively holds the postcode) CANNOT be changed via this endpoint.
- */
+//
+// PUT /api/projects/:id
+// Auth: owner only
+//
+
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
   const { z } = require("zod");
+  const { logger, withRequest } = require("../../lib/logger");
 
-  // Same constraints as create
+  // Remove full UK postcode → keep only outward code
+  const stripFullPostcodes = (s) => {
+    if (!s) return s;
+    const fullPC = /\b([A-Z]{1,2}\d{1,2}[A-Z]?)\s*\d[A-Z]{2}\b/gi;
+    return s.replace(fullPC, (_, outward) => outward.toUpperCase());
+  };
+
   const ProjectSchema = z.object({
     name: z.string().min(2).max(120),
     type: z.string().min(2).max(80),
@@ -23,12 +25,19 @@ module.exports = (router, ctx) => {
   });
 
   router.put("/projects/:id", auth, async (req, res) => {
+    const log = withRequest(req, logger).child({
+      route: "/projects/:id [PUT]",
+    });
+
     const uid = req.user.uid;
     const id = Number(req.params.id);
+
     if (!Number.isFinite(id)) {
-      return res.status(400).json({ error: "Invalid id" });
+      log.warn("Invalid project ID");
+      return res.status(400).json({ error: "invalid_project_id" });
     }
 
+    // Load current
     let current;
     try {
       const rows = await mysqlQuery(`SELECT * FROM projects WHERE id = ?`, [
@@ -36,38 +45,33 @@ module.exports = (router, ctx) => {
       ]);
       current = rows[0] || null;
     } catch (err) {
-      console.error("Error fetching project for update (MySQL):", err);
+      log.error({ err }, "MySQL error loading project");
       return res.status(500).json({ error: "internal_error" });
     }
 
-    if (!current) return res.status(404).json({ error: "Not found" });
+    if (!current) return res.status(404).json({ error: "not_found" });
+
     if (String(current.ownerUserId) !== String(uid)) {
-      return res.status(403).json({ error: "Forbidden" });
+      return res.status(403).json({ error: "forbidden" });
     }
 
-    // ---- Location / postcode protection ----
-    // If client sends `location` and it's different to what we have stored,
-    // we block the update. This endpoint must not be used to change the postcode.
+    // Reject location change
     if (Object.prototype.hasOwnProperty.call(req.body || {}, "location")) {
-      const incomingLocation = (req.body.location ?? "").toString().trim();
-      const currentLocation = (current.location ?? "").toString().trim();
-
-      if (incomingLocation && incomingLocation !== currentLocation) {
-        return res
-          .status(400)
-          .json({
-            error: "Not allowed. Location cannot be updated via this endpoint.",
-          });
+      const incoming = String(req.body.location ?? "").trim();
+      const stored = String(current.location ?? "").trim();
+      if (incoming && incoming !== stored) {
+        return res.status(400).json({
+          error: "location_update_not_allowed",
+          message: "Location cannot be updated via this endpoint.",
+        });
       }
-      // If they send the same value, it's effectively a no-op and we just ignore it.
     }
 
-    // Merge incoming with current values
-    // NOTE: for location we always keep the current value to be safe.
+    // Merge update
     const fields = {
-      name: String(req.body?.name ?? current.name),
-      type: String(req.body?.type ?? current.type),
-      location: String(current.location), // force existing location
+      name: stripFullPostcodes(String(req.body?.name ?? current.name)),
+      type: stripFullPostcodes(String(req.body?.type ?? current.type)),
+      location: String(current.location),
       description: String(req.body?.description ?? current.description),
       propertyType: String(req.body?.propertyType ?? current.propertyType),
       bedrooms:
@@ -78,20 +82,19 @@ module.exports = (router, ctx) => {
 
     try {
       ProjectSchema.parse(fields);
-    } catch {
-      return res.status(400).json({ error: "Invalid payload" });
+    } catch (err) {
+      log.warn({ err }, "Validation failed");
+      return res.status(400).json({ error: "invalid_payload" });
     }
 
+    // Apply update
     try {
       await mysqlQuery(
-        `UPDATE projects SET
-           name = ?,
-           type = ?,
-           location = ?,
-           description = ?,
-           propertyType = ?,
-           bedrooms = ?
-         WHERE id = ?`,
+        `
+        UPDATE projects SET
+          name = ?, type = ?, location = ?, description = ?, propertyType = ?, bedrooms = ?
+        WHERE id = ?
+      `,
         [
           fields.name,
           fields.type,
@@ -106,81 +109,10 @@ module.exports = (router, ctx) => {
       const rows = await mysqlQuery(`SELECT * FROM projects WHERE id = ?`, [
         id,
       ]);
-      const updated = rows[0] || null;
-
-      return res.json({ project: updated });
+      return res.json({ project: rows[0] || null });
     } catch (err) {
-      console.error("Error updating project (MySQL):", err);
+      log.error({ err }, "MySQL error updating project");
       return res.status(500).json({ error: "internal_error" });
     }
   });
 };
-
-// // server/routes/projects/project.put.js
-// /**
-//  * PUT /api/projects/:id
-//  * Auth: required (owner only)
-//  * Body: partial fields; we merge with current then validate
-//  * Returns: { project }
-//  */
-// module.exports = (router, ctx) => {
-//   const { db, auth } = ctx;
-//   const { z } = require("zod");
-
-//   // Same constraints as create
-//   const ProjectSchema = z.object({
-//     name: z.string().min(2).max(120),
-//     type: z.string().min(2).max(80),
-//     location: z.string().min(2).max(120),
-//     description: z.string().min(2).max(2000),
-//     propertyType: z.string().min(2).max(80),
-//     bedrooms: z.coerce.number().int().min(0).max(20),
-//   });
-
-//   router.put("/projects/:id", auth, (req, res) => {
-//     const uid = req.user.uid;
-//     const id = Number(req.params.id);
-//     if (!Number.isFinite(id)) {
-//       return res.status(400).json({ error: "Invalid id" });
-//     }
-
-//     const current = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
-//     if (!current) return res.status(404).json({ error: "Not found" });
-//     if (String(current.ownerUserId) !== String(uid)) {
-//       return res.status(403).json({ error: "Forbidden" });
-//     }
-
-//     // Merge incoming with current values
-//     const fields = {
-//       name: String(req.body?.name ?? current.name),
-//       type: String(req.body?.type ?? current.type),
-//       location: String(req.body?.location ?? current.location),
-//       description: String(req.body?.description ?? current.description),
-//       propertyType: String(req.body?.propertyType ?? current.propertyType),
-//       bedrooms:
-//         req.body?.bedrooms !== undefined
-//           ? Number(req.body.bedrooms)
-//           : Number(current.bedrooms),
-//     };
-
-//     try {
-//       ProjectSchema.parse(fields);
-//     } catch {
-//       return res.status(400).json({ error: "Invalid payload" });
-//     }
-
-//     db.prepare(
-//       `UPDATE projects SET
-//          name=@name,
-//          type=@type,
-//          location=@location,
-//          description=@description,
-//          propertyType=@propertyType,
-//          bedrooms=@bedrooms
-//        WHERE id=@id`
-//     ).run({ ...fields, id });
-
-//     const updated = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
-//     return res.json({ project: updated });
-//   });
-// };

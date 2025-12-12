@@ -36,7 +36,7 @@ function buildRouter(ctx) {
 
   // Payments (mock) — attach if not already provided by the caller
   if (!ctx.payments) {
-    attachPayments(ctx); // logs “[payments] mock attached …”
+    attachPayments(ctx);
   }
 
   // Validation and helpers
@@ -198,17 +198,17 @@ function buildRouter(ctx) {
   require("./routes/payments/mock.webhook.post")(router, ctx);
 
   // ---------------- Admin ----------------
-  require("./routes/admin/tradesmen.get")(router, ctx); //migrated
-  require("./routes/admin/tradesman.status.post")(router, ctx); //migrated
-  require("./routes/admin/tradesman.flag.post")(router, ctx); //migrated
-  require("./routes/admin/subscriptions.post")(router, ctx); //migrated
-  require("./routes/admin/tradesmen.unlocks.post")(router, ctx); //migrated
-  require("./routes/admin/subscription.sweep.post")(router, ctx); //migrated
-  require("./routes/admin/subscriptions.cancel.post")(router, ctx); //migrated
-  require("./routes/admin/recommendation-leaderboard.get")(router, ctx); //migrated
-  require("./routes/admin/spotlight.approve.post")(router, ctx); //migrated
-  require("./routes/admin/spotlight.reject.post")(router, ctx); //migrated
-  require("./routes/admin/pending-payments.get")(router, ctx); //migrated
+  require("./routes/admin/tradesmen.get")(router, ctx);
+  require("./routes/admin/tradesman.status.post")(router, ctx);
+  require("./routes/admin/tradesman.flag.post")(router, ctx);
+  require("./routes/admin/subscriptions.post")(router, ctx);
+  require("./routes/admin/tradesmen.unlocks.post")(router, ctx);
+  require("./routes/admin/subscription.sweep.post")(router, ctx);
+  require("./routes/admin/subscriptions.cancel.post")(router, ctx);
+  require("./routes/admin/recommendation-leaderboard.get")(router, ctx);
+  require("./routes/admin/spotlight.approve.post")(router, ctx);
+  require("./routes/admin/spotlight.reject.post")(router, ctx);
+  require("./routes/admin/pending-payments.get")(router, ctx);
   require("./routes/admin/subscription.approve.post")(router, ctx);
   require("./routes/admin/subscription.reject.post")(router, ctx);
 

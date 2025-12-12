@@ -6,11 +6,17 @@
  */
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
+  const { logger, withRequest } = require("../../lib/logger");
 
   router.post("/notifications/read-all", auth, async (req, res) => {
+    const log = withRequest(req, logger).child({
+      route: "POST /api/notifications/read-all",
+    });
+
+    log.debug({ uid: req.user.uid }, "Marking all notifications as read");
+
     try {
-      // Use NOW() so we don't have to worry about JS datetime formatting
-      await mysqlQuery(
+      const result = await mysqlQuery(
         `UPDATE notifications
             SET readAt = NOW()
           WHERE userId = ?
@@ -18,30 +24,26 @@ module.exports = (router, ctx) => {
         [req.user.uid]
       );
 
+      log.info(
+        {
+          uid: req.user.uid,
+          affected: result?.affectedRows ?? null,
+        },
+        "All notifications marked as read"
+      );
+
       return res.json({ ok: true });
     } catch (err) {
-      console.error("Error marking all notifications as read in MySQL:", err);
+      log.error(
+        {
+          uid: req.user.uid,
+          errMsg: err?.message,
+          stack: err?.stack,
+        },
+        "Failed to mark all notifications as read"
+      );
+
       return res.status(500).json({ error: "internal_error" });
     }
   });
 };
-
-// // server/routes/notifications/read-all.post.js
-// /**
-//  * POST /api/notifications/read-all
-//  * Auth: required
-//  * Response: { ok: true }
-//  */
-// module.exports = (router, ctx) => {
-//   const { db, auth } = ctx;
-
-//   router.post("/notifications/read-all", auth, (req, res) => {
-//     db.prepare(
-//       `UPDATE notifications
-//           SET readAt = ?
-//         WHERE userId = ? AND readAt IS NULL`
-//     ).run(new Date().toISOString(), req.user.uid);
-
-//     return res.json({ ok: true });
-//   });
-// };

@@ -1,10 +1,12 @@
 // web/components/forms/DescriptionBuilder.tsx
+
 import * as React from "react";
 import Select from "@/components/forms/Select";
 
 type Props = {
-  value: string; // current description text
+  value: string;
   onChange: (next: string) => void;
+  category?: string | null;
   className?: string;
   "data-testid"?: string;
 };
@@ -20,16 +22,68 @@ const TIMEFRAMES = [
 
 const BUDGETS = ["Under £5k", "£5k–£15k", "£15k–£30k", "£30k–£60k", "£60k+"];
 
-const ACCESS_CHIPS: Chip[] = [
-  { label: "Weekdays", value: "Weekdays" },
-  { label: "Weekends only", value: "Weekends only" },
-  { label: "Evenings OK", value: "Evenings OK" },
-  { label: "Owner at home", value: "Owner at home" },
-  { label: "Keys can be provided", value: "Keys can be provided" },
-  { label: "Parking available", value: "Parking available" },
-  { label: "Parking permit needed", value: "Parking permit needed" },
-  { label: "Limited access", value: "Limited access" },
+//
+// ACCESS CHIP GROUPS
+//
+const INSULATION_ACCESS_CHIPS: Chip[] = [
+  { label: "Side access available", value: "side_access_available" },
+  { label: "Narrow side access (<800mm)", value: "narrow_side_access" },
+  { label: "Rear access available", value: "rear_access_available" },
+  { label: "No rear access", value: "no_rear_access" },
+  { label: "Scaffolding required", value: "scaffolding_required" },
+  { label: "Scaffolding already present", value: "scaffolding_present" },
+
+  { label: "Loft easy to access", value: "loft_easy" },
+  { label: "Restricted loft height", value: "loft_restricted" },
+  { label: "Boarded loft", value: "loft_boarded" },
+  { label: "Small loft hatch", value: "small_loft_hatch" },
+
+  { label: "Parking close to property", value: "parking_close" },
+  { label: "Long hose needed (no close parking)", value: "long_hose_needed" },
+
+  { label: "Asbestos suspected", value: "asbestos_suspected" },
+  { label: "Waste removal needed", value: "waste_removal" },
 ];
+
+const CONSTRUCTION_ACCESS_CHIPS: Chip[] = [
+  { label: "Skip can be placed on driveway", value: "skip_driveway" },
+  { label: "Skip must be placed on road", value: "skip_road" },
+  { label: "Scaffolding required", value: "scaffolding_required" },
+  { label: "Rear access available", value: "rear_access" },
+  { label: "No rear access", value: "no_rear_access" },
+  { label: "Parking available", value: "parking_available" },
+  { label: "Permit required", value: "permit_required" },
+];
+
+const GENERAL_ACCESS_CHIPS: Chip[] = [
+  { label: "Easy access", value: "easy_access" },
+  { label: "Restricted access", value: "restricted_access" },
+  { label: "Parking available", value: "parking_available" },
+  { label: "Street parking only", value: "street_parking" },
+  { label: "Permit required", value: "permit_required" },
+  { label: "Pets at home", value: "pets" },
+  { label: "Someone home to let in", value: "someone_home" },
+  { label: "Keys can be left", value: "keys_left" },
+];
+
+function getAccessChips(category: string | null | undefined): Chip[] {
+  if (!category) return GENERAL_ACCESS_CHIPS;
+
+  if (category === "Insulation") {
+    return INSULATION_ACCESS_CHIPS;
+  }
+
+  if (
+    category === "Extensions & Conversions" ||
+    category === "Roofing" ||
+    category === "Exterior & Structure" ||
+    category === "Masonry & Structural"
+  ) {
+    return CONSTRUCTION_ACCESS_CHIPS;
+  }
+
+  return GENERAL_ACCESS_CHIPS;
+}
 
 const MATERIALS_OPTIONS = [
   "Supplied by tradesman",
@@ -68,39 +122,20 @@ function ChipToggle({
 export default function DescriptionBuilder({
   value,
   onChange,
+  category = null,
   className = "",
   "data-testid": testId,
 }: Props) {
-  // local structured fields
-  const [timeframe, setTimeframe] = React.useState<string>("");
-  const [budget, setBudget] = React.useState<string>("");
-  const [materials, setMaterials] = React.useState<string>("");
+  const [timeframe, setTimeframe] = React.useState("");
+  const [budget, setBudget] = React.useState("");
+  const [materials, setMaterials] = React.useState("");
   const [access, setAccess] = React.useState<string[]>([]);
-  const [notes, setNotes] = React.useState<string>("");
+  const [notes, setNotes] = React.useState("");
 
-  // Compose a friendly, readable description
-  const composed = React.useMemo(() => {
-    const lines: string[] = [];
-
-    if (timeframe) lines.push(`Timeframe: ${timeframe}.`);
-    if (budget) lines.push(`Budget: ${budget}.`);
-    if (materials) lines.push(`Materials: ${materials}.`);
-    if (access.length > 0) lines.push(`Access: ${access.join(", ")}.`);
-
-    const extra = normalize(notes);
-    if (extra) lines.push(extra);
-
-    return lines.join("\n");
-  }, [timeframe, budget, materials, access, notes]);
-
-  // Emit changes upward automatically
-  React.useEffect(() => {
-    onChange(composed);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [composed]);
-
-  // If the parent had an existing free-text value, we leave it as-is in preview.
-  // We don't attempt to parse it back into fields to avoid guesswork.
+  const ACCESS_CHIPS = React.useMemo(
+    () => getAccessChips(category),
+    [category]
+  );
 
   function toggleAccess(v: string) {
     setAccess((prev) =>
@@ -108,48 +143,73 @@ export default function DescriptionBuilder({
     );
   }
 
+  const composed = React.useMemo(() => {
+    const lines: string[] = [];
+
+    if (timeframe) lines.push(`Timeframe: ${timeframe}.`);
+    if (budget) lines.push(`Budget: ${budget}.`);
+    if (materials) lines.push(`Materials: ${materials}.`);
+
+    // Convert selected access values → labels
+    if (access.length > 0) {
+      const labelMap = ACCESS_CHIPS.reduce<Record<string, string>>(
+        (acc, chip) => {
+          acc[chip.value] = chip.label;
+          return acc;
+        },
+        {}
+      );
+
+      const labels = access.map((v) => labelMap[v] || v);
+      lines.push(`Access: ${labels.join(", ")}.`);
+    }
+
+    const extra = normalize(notes);
+    if (extra) lines.push(extra);
+
+    return lines.join("\n");
+  }, [timeframe, budget, materials, access, notes, ACCESS_CHIPS]);
+
+  React.useEffect(() => {
+    onChange(composed);
+  }, [composed]);
+
   return (
     <div className={className} data-testid={testId || "description-builder"}>
-      {/* Timeframe */}
-      <div>
-        <Select
-          id="db-timeframe"
-          label="Desired timeframe"
-          placeholder="Select timeframe"
-          value={timeframe || null}
-          onChange={(v) => setTimeframe(v)}
-          options={TIMEFRAMES}
-          data-testid="db-timeframe"
-        />
-      </div>
+      <Select
+        id="db-timeframe"
+        label="Desired timeframe"
+        placeholder="Select timeframe"
+        value={timeframe || null}
+        onChange={setTimeframe}
+        options={TIMEFRAMES}
+        data-testid="db-timeframe"
+      />
 
-      {/* Budget */}
       <div className="mt-3">
         <Select
           id="db-budget"
           label="Estimated budget"
           placeholder="Select a budget band"
           value={budget || null}
-          onChange={(v) => setBudget(v)}
+          onChange={setBudget}
           options={BUDGETS}
           data-testid="db-budget"
         />
       </div>
 
-      {/* Materials */}
       <div className="mt-3">
         <Select
           id="db-materials"
           label="Materials"
           placeholder="Who will supply materials?"
           value={materials || null}
-          onChange={(v) => setMaterials(v)}
+          onChange={setMaterials}
           options={MATERIALS_OPTIONS}
           data-testid="db-materials"
         />
       </div>
 
-      {/* Access */}
       <div className="mt-3">
         <div className="text-xs text-slate-500 mb-1">Access constraints</div>
         <div className="flex flex-wrap gap-2" data-testid="db-access">
@@ -165,7 +225,6 @@ export default function DescriptionBuilder({
         </div>
       </div>
 
-      {/* Extra notes */}
       <div className="mt-4">
         <label htmlFor="db-notes" className="text-xs text-slate-500">
           Extra notes (optional)
@@ -173,14 +232,13 @@ export default function DescriptionBuilder({
         <textarea
           id="db-notes"
           className="input min-h-32 mt-1"
-          placeholder="Anything else the tradesman should know (rooms, scope highlights, timing specifics, constraints, etc.)"
+          placeholder="Anything else the tradesman should know…"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           data-testid="db-notes"
         />
       </div>
 
-      {/* Live preview */}
       <div className="mt-4">
         <div className="text-xs uppercase tracking-wide text-gray-500">
           Preview

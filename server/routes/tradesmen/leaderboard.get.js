@@ -1,11 +1,12 @@
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery, extractLocationTokens } = ctx;
-
-  if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
+  const log = ctx.log || console;
 
   const API_BASE = ctx.API_PREFIX || "/api";
   const PATH = "/tradesmen/leaderboard";
   const TAG = "[tradesmen/leaderboard.get]";
+
+  if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
   const int = (v, d = 0) => {
     const n = Number.parseInt(String(v ?? ""), 10);
@@ -22,36 +23,50 @@ module.exports = (router, ctx) => {
     const uid = req.user?.uid;
     if (!uid) return false;
 
-    let role = "user";
     try {
       const rows = await mysqlQuery(
         `SELECT role FROM user_roles WHERE uid = ? LIMIT 1`,
         [uid]
       );
-      role = String(rows?.[0]?.role || "user").toLowerCase();
-    } catch (_) {}
+      const role = String(rows?.[0]?.role || "user").toLowerCase();
 
-    const allowlist = (process.env.ADMIN_EMAILS || "")
-      .split(",")
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean);
+      const allowlist = (process.env.ADMIN_EMAILS || "")
+        .split(",")
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean);
 
-    const email = String(req.user?.email || "")
-      .trim()
-      .toLowerCase();
+      const email = String(req.user?.email || "")
+        .trim()
+        .toLowerCase();
 
-    return role === "admin" || allowlist.includes(email);
+      return role === "admin" || allowlist.includes(email);
+    } catch (err) {
+      log.warn(`${TAG} isAdmin lookup failed:`, err?.message || err);
+      return false;
+    }
   }
 
+  // --------------------------------------------------------
+  // Handler
+  // --------------------------------------------------------
   const handler = async (req, res) => {
+    log.info(`${TAG} request`, {
+      uid: req.user?.uid || null,
+      q: req.query.q || "",
+      trade: req.query.trade || "",
+      near: req.query.near || "",
+    });
+
     try {
       if (!(await isAdmin(req))) {
+        log.warn(`${TAG} forbidden – not admin`);
         return res.status(403).json({
           error: "forbidden",
           details: "admin role required",
         });
       }
 
+      /* ---------------- Parse filters ---------------- */
       const q = String(req.query.q || "").trim();
       const trade = String(req.query.trade || "").trim();
       const near = String(req.query.near || "").trim();
@@ -69,6 +84,7 @@ module.exports = (router, ctx) => {
       const where = [];
       const params = [];
 
+      /* ---------------- Search filters ---------------- */
       if (q) {
         const qLower = q.toLowerCase();
         where.push(`
@@ -90,22 +106,11 @@ module.exports = (router, ctx) => {
         params.push(`,${trade.toLowerCase()},`);
       }
 
-      if (webVerifiedOnly) {
-        where.push(`COALESCE(t.web_verified, 0) = 1`);
-      }
-
-      if (chVerifiedOnly) {
+      if (webVerifiedOnly) where.push(`COALESCE(t.web_verified, 0) = 1`);
+      if (chVerifiedOnly)
         where.push(`LOWER(COALESCE(t.ch_status,'')) = 'verified'`);
-      }
-
-      if (hasPhotos) {
-        where.push(`COALESCE(t.photo_count, 0) >= 3`);
-      }
-
-      if (hasDocs) {
-        where.push(`COALESCE(t.supporting_doc_count, 0) >= 2`);
-      }
-
+      if (hasPhotos) where.push(`COALESCE(t.photo_count, 0) >= 3`);
+      if (hasDocs) where.push(`COALESCE(t.supporting_doc_count, 0) >= 2`);
       if (hasDiscount) {
         where.push(`
           (
@@ -114,7 +119,6 @@ module.exports = (router, ctx) => {
           )
         `);
       }
-
       if (hasWebsites) {
         where.push(`
           (
@@ -124,10 +128,12 @@ module.exports = (router, ctx) => {
         `);
       }
 
+      /* ---------------- NEAR filter ---------------- */
       if (near) {
         try {
           const tok = extractLocationTokens?.(near);
           const ors = [];
+
           if (tok?.full) {
             ors.push(`INSTR(CONCAT(',', t.service_areas, ','), ?) > 0`);
             params.push(`,${tok.full},`);
@@ -144,8 +150,10 @@ module.exports = (router, ctx) => {
             ors.push(`LOWER(t.service_areas) LIKE ?`);
             params.push(`%${tok.city.toLowerCase()}%`);
           }
+
           if (ors.length) where.push(`(${ors.join(" OR ")})`);
-        } catch (_) {
+        } catch (err) {
+          log.warn(`${TAG} extractLocationTokens error:`, err?.message || err);
           where.push(`LOWER(t.service_areas) LIKE ?`);
           params.push(`%${near.toLowerCase()}%`);
         }
@@ -153,7 +161,7 @@ module.exports = (router, ctx) => {
 
       const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
-      // ====== UNLOCK SELECTS ======
+      /* ---------------- UNLOCK SELECTS ---------------- */
       const unlockSelect = `
         (
           SELECT COUNT(*)
@@ -180,14 +188,16 @@ module.exports = (router, ctx) => {
         ) AS pending_ids
       `;
 
-      // === total count ===
+      /* ---------------- COUNT ---------------- */
       const countRows = await mysqlQuery(
         `SELECT COUNT(*) AS c FROM tradesmen t ${whereSql}`,
         params
       );
       const total = Number(countRows?.[0]?.c || 0);
 
-      // === fetch rows ===
+      log.info(`${TAG} total=${total} limit=${limit} offset=${offset}`);
+
+      /* ---------------- FETCH ---------------- */
       const rows = await mysqlQuery(
         `
         SELECT
@@ -211,10 +221,29 @@ module.exports = (router, ctx) => {
           t.supporting_doc_count,
           t.likes_count,
           t.wins_count,
-          COALESCE(t.status, t.subscription_status, 'draft') AS status,
+
+          COALESCE(t.status, 'draft') AS status,
           COALESCE(t.plan, 'free') AS plan,
-          t.purchased_plan,   -- RESTORED FOR UI
+          t.purchased_plan,
+
+          (
+            SELECT s.status
+            FROM payments_subscription s
+            WHERE s.buyer_uid = t.user_id
+            ORDER BY s.id DESC
+            LIMIT 1
+          ) AS subscription_status,
+
+          (
+            SELECT s.plan_id
+            FROM payments_subscription s
+            WHERE s.buyer_uid = t.user_id
+            ORDER BY s.id DESC
+            LIMIT 1
+          ) AS latest_subscription_plan,
+
           ${unlockSelect},
+
           t.created_at,
           t.updated_at
         FROM tradesmen t
@@ -225,7 +254,7 @@ module.exports = (router, ctx) => {
         params
       );
 
-      // === map rows to UI shape ===
+      /* ---------------- MAP TO UI FORMAT ---------------- */
       const items = rows.map((r) => {
         let social = [];
         try {
@@ -245,15 +274,27 @@ module.exports = (router, ctx) => {
         const plan = r.plan || "free";
         const isGold = plan === "gold";
 
+        const subStatus = (r.subscription_status || "").toLowerCase().trim();
+
+        let pendingPlan = null;
+        if (subStatus === "pending_admin") {
+          pendingPlan = r.latest_subscription_plan || null;
+        }
+        if (subStatus === "active") pendingPlan = null;
+
+        const hasGlobalContact = plan === "gold" && subStatus === "active";
+
         return {
           userId: r.user_id,
           company: r.company_name,
           status: String(r.status || "draft"),
+
           plan,
-          purchasedPlan: r.purchased_plan || null, // 🔥 RESTORED
+          purchasedPlan: r.purchased_plan || null,
+          pendingPlan,
+          hasGlobalContact,
 
-          openFlags: 0, // still unused for now
-
+          openFlags: 0,
           urls,
           score: Number(r.vmb_score || 0),
           companyNumber: r.company_number || null,
@@ -278,9 +319,11 @@ module.exports = (router, ctx) => {
         };
       });
 
+      log.info(`${TAG} returning ${items.length} items`);
+
       return res.json({ items, total, offset, limit });
     } catch (e) {
-      console.error(TAG, e);
+      log.error(`${TAG} server error`, e);
       return res.status(500).json({ error: "server_error" });
     }
   };
@@ -289,6 +332,6 @@ module.exports = (router, ctx) => {
 
   if (!ctx.__logged_tradesmen_leaderboard_get) {
     ctx.__logged_tradesmen_leaderboard_get = true;
-    console.log(`[routes] mounted: GET ${API_BASE}${PATH}`);
+    log.info(`[routes] mounted: GET ${API_BASE}${PATH}`);
   }
 };

@@ -5,17 +5,22 @@
  * Admin-only.
  */
 
+const { logger, withRequest } = require("../../lib/logger");
+
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
   const { requireAdmin } = require("../../lib/roles");
 
-  console.log("[routes] mounted: GET /admin/pending-payments");
+  // Mount log (only when DEBUG_SERVER=1)
+  logger.debug("[routes] mounted: GET /admin/pending-payments");
 
   router.get(
     "/admin/pending-payments",
     auth,
     requireAdmin(ctx),
     async (req, res) => {
+      const log = withRequest(req);
+
       try {
         const rows = await mysqlQuery(
           `
@@ -54,9 +59,18 @@ module.exports = (router, ctx) => {
           },
         }));
 
+        log.debug({ count: items.length }, "Fetched pending admin payments");
+
         return res.json({ items });
-      } catch (e) {
-        console.error("[admin.pending-payments] error:", e);
+      } catch (err) {
+        logger.error(
+          {
+            err: err?.message,
+            route: "/admin/pending-payments",
+          },
+          "Failed to load pending admin payments"
+        );
+
         return res.status(500).json({ error: "server_error" });
       }
     }

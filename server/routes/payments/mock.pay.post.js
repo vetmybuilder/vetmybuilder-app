@@ -2,23 +2,13 @@
 //
 // FINAL MOCK PAYMENT FLOW (Option B – Clean, Simple)
 //
-// This endpoint:
-//   ✔ Creates INTENT ONLY
-//   ✔ Always sets status = 'pending_admin'
-//   ✔ Does NOT grant entitlement
-//   ✔ Does NOT mark as paid
-//   ✔ Does NOT auto-activate anything
-//
-// Admin must approve in:
-//   /api/admin/tradesmen/:uid/unlocks/approve       (one-off contact unlock)
-//   /api/admin/tradesmen/:uid/subscription/approve  (gold subscription)
-//   /api/admin/tradesmen/:uid/subscription/approve  (spotlight)
-//
-// Gold automatic contact access is handled in owner-contact.get.js (Step 3).
-//
+// Creates INTENT ONLY → always pending_admin.
+// Admin must approve later. No entitlements are activated here.
 
 module.exports = (router, ctx) => {
   const { auth, payments, mysqlQuery } = ctx;
+  const { logger, withRequest } = require("../../lib/logger");
+
   if (!payments) throw new Error("payments not attached to ctx");
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
@@ -52,16 +42,36 @@ module.exports = (router, ctx) => {
   }
 
   async function handle(req, res) {
+    const log = withRequest(req, logger).child({
+      route: "POST /api/payments/mock/pay",
+    });
+
     try {
       const uid = req.user?.uid;
-      if (!uid) return res.status(401).json({ error: "Unauthorized" });
+      if (!uid) {
+        log.warn("Unauthorized request");
+        return res.status(401).json({ error: "unauthorized" });
+      }
 
       const sid = String(resolveSessionId(req));
-      if (!sid) return res.status(400).json({ error: "sessionId required" });
+      if (!sid) {
+        log.warn("Missing sessionId");
+        return res.status(400).json({ error: "sessionId_required" });
+      }
 
       const s = payments.getSession(sid);
-      if (!s) return res.status(404).json({ error: "Session not found" });
-      if (s.userId !== uid) return res.status(403).json({ error: "Forbidden" });
+      if (!s) {
+        log.warn({ sid }, "Payment session not found");
+        return res.status(404).json({ error: "session_not_found" });
+      }
+
+      if (s.userId !== uid) {
+        log.warn(
+          { sid, owner: s.userId, requester: uid },
+          "User attempted to pay for session they do not own"
+        );
+        return res.status(403).json({ error: "forbidden" });
+      }
 
       const md = s.metadata || {};
       const { amount, currency } = computeTotal(s.items || []);
@@ -71,16 +81,26 @@ module.exports = (router, ctx) => {
       ).toLowerCase();
       const planId = String(md.planId || md.plan_id || "").toLowerCase();
 
+      log.info(
+        { sid, type, planId, amount, currency },
+        "Processing mock payment"
+      );
+
       // =====================================================================
-      // ONE-OFF CONTACT UNLOCK (free + spotlight only)
+      // UNLOCK CONTACT — one off per project
       // =====================================================================
       if (type === "unlock_contact") {
         const projectId = Number(md.projectId || md.project_id);
         if (!Number.isFinite(projectId) || projectId <= 0) {
-          return res.status(400).json({ error: "Invalid projectId" });
+          log.warn({ projectId }, "Invalid projectId for unlock_contact");
+          return res.status(400).json({ error: "invalid_projectId" });
         }
 
-        // project_contact_unlocks → pending_admin
+        log.info(
+          { sid, projectId },
+          "Creating pending_admin unlock_contact intent"
+        );
+
         await mysqlQuery(
           `
           INSERT INTO project_contact_unlocks
@@ -96,7 +116,6 @@ module.exports = (router, ctx) => {
           [projectId, uid, sid, amount, currency]
         );
 
-        // payments_oneoff → pending_admin
         await mysqlQuery(
           `
           INSERT INTO payments_oneoff
@@ -115,6 +134,11 @@ module.exports = (router, ctx) => {
           [uid, projectId, amount, currency, sid, sid]
         );
 
+        log.info(
+          { sid, uid, projectId },
+          "Unlock intent stored as pending_admin"
+        );
+
         return res.json({
           ok: true,
           type: "unlock_contact",
@@ -127,9 +151,11 @@ module.exports = (router, ctx) => {
       }
 
       // =====================================================================
-      // SPOTLIGHT (one-off, 30 days)
+      // SPOTLIGHT — one-off upgrade
       // =====================================================================
       if (planId === "spotlight") {
+        log.info({ sid }, "Creating pending_admin spotlight intent");
+
         await mysqlQuery(
           `
           INSERT INTO payments_oneoff
@@ -154,6 +180,8 @@ module.exports = (router, ctx) => {
           [uid]
         );
 
+        log.info({ sid, uid }, "Spotlight purchase recorded as pending_admin");
+
         return res.json({
           ok: true,
           type: "spotlight",
@@ -165,10 +193,12 @@ module.exports = (router, ctx) => {
       }
 
       // =====================================================================
-      // GOLD SUBSCRIPTION
+      // GOLD SUBSCRIPTION (recurring)
       // =====================================================================
       if (type === "subscription" || planId === "gold") {
         const plan = planId || "gold";
+
+        log.info({ sid, plan }, "Creating pending_admin subscription intent");
 
         await mysqlQuery(
           `
@@ -195,6 +225,8 @@ module.exports = (router, ctx) => {
           [plan, uid]
         );
 
+        log.info({ sid, uid, plan }, "Subscription stored as pending_admin");
+
         return res.json({
           ok: true,
           type: "subscription",
@@ -207,8 +239,10 @@ module.exports = (router, ctx) => {
       }
 
       // =====================================================================
-      // FALLBACK — unhandled payment type
+      // FALLBACK — unknown type
       // =====================================================================
+      log.warn({ sid, type, planId }, "Unhandled payment type");
+
       return res.json({
         ok: true,
         type: "unknown",
@@ -216,10 +250,14 @@ module.exports = (router, ctx) => {
         note: "Unhandled payment type",
       });
     } catch (e) {
-      console.error("[mock.pay.post] error:", e);
+      log.error(
+        { errMsg: e?.message, stack: e?.stack },
+        "Unexpected error processing mock payment"
+      );
+
       return res.status(500).json({
         error: "server_error",
-        message: e?.message || String(e),
+        message: e?.message || "Unexpected error",
       });
     }
   }

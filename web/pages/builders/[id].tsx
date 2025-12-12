@@ -784,17 +784,12 @@ export default function BuilderProfile() {
 
                     {/* quick stats */}
                     <div className="mt-2 flex flex-wrap items-center gap-4 text-xs sm:text-sm text-neutral-700">
-                      <span data-testid="builder-votes">
-                        <ThumbsUpIcon className="mr-1 inline-block h-4 w-4 align-middle" />{" "}
-                        <span className="tabular-nums">
-                          {builder.likes ?? 0}
-                        </span>{" "}
-                        vote{(builder.likes ?? 0) === 1 ? "" : "s"}
-                      </span>
                       {user ? (
                         <>
                           <span>
-                            <ScoreChip value={score ?? builder.score} />
+                            {false && builder && (
+                              <ScoreChip value={score ?? builder?.score} />
+                            )}
                           </span>
 
                           {verification?.googleRating != null &&
@@ -979,7 +974,7 @@ export default function BuilderProfile() {
                 )}
               </div>
 
-              {/* RIGHT: Profile details – phone + email list */}
+              {/* RIGHT: Profile details – phone only (no emails) */}
               <div className="space-y-6">
                 <section
                   className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm"
@@ -996,117 +991,78 @@ export default function BuilderProfile() {
                         <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
                           Contact details
                         </h3>
+
                         <div className="space-y-4">
-                          {/* Phone numbers */}
+                          {/* Phone numbers ONLY */}
                           <div data-testid="builder-phone">
                             <span className="text-[11px] uppercase tracking-wide text-slate-500 block">
                               Phone
                             </span>
 
-                            {primaryPhone ? (
-                              <div className="mt-0.5 flex items-center gap-2">
-                                <a
-                                  href={`tel:${primaryPhone}`}
-                                  className="text-sm text-emerald-700 tabular-nums hover:underline"
-                                >
-                                  {primaryPhone}
-                                </a>
-                                <span className="rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-medium uppercase tracking-wide px-2 py-0.5">
-                                  Primary
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="mt-0.5 block text-sm text-slate-400">
-                                Not provided
-                              </span>
-                            )}
+                            {(() => {
+                              // Deduplicate phone numbers
+                              const uniquePhones = [...new Set(aggPhones)];
+                              const primaryPhone = uniquePhones[0] || null;
+                              const secondaryPhones = uniquePhones.slice(1);
 
-                            {aggPhones.length > 1 && (
-                              <ul className="mt-2 space-y-1">
-                                {aggPhones.slice(1).map((p, idx) => (
-                                  <li key={`${p}-${idx}`}>
-                                    <div className="flex items-center gap-2 text-xs">
+                              return (
+                                <>
+                                  {/* Primary */}
+                                  {primaryPhone ? (
+                                    <div className="mt-0.5 flex items-center gap-2">
                                       <a
-                                        href={`tel:${p}`}
-                                        className="text-slate-700 tabular-nums hover:underline"
+                                        href={`tel:${primaryPhone}`}
+                                        className="text-sm text-emerald-700 tabular-nums hover:underline"
                                       >
-                                        {p}
+                                        {primaryPhone}
                                       </a>
-                                      <span className="rounded-full bg-slate-100 text-slate-600 text-[10px] font-medium uppercase tracking-wide px-2 py-0.5">
-                                        Secondary
+                                      <span className="rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-medium uppercase tracking-wide px-2 py-0.5">
+                                        Primary
                                       </span>
                                     </div>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
+                                  ) : (
+                                    <span className="mt-0.5 block text-sm text-slate-400">
+                                      Not provided
+                                    </span>
+                                  )}
+
+                                  {/* Secondary unique numbers */}
+                                  {secondaryPhones.length > 0 && (
+                                    <ul className="mt-2 space-y-1">
+                                      {secondaryPhones.map((p, idx) => (
+                                        <li key={`${p}-${idx}`}>
+                                          <div className="flex items-center gap-2 text-xs">
+                                            <a
+                                              href={`tel:${p}`}
+                                              className="text-slate-700 tabular-nums hover:underline"
+                                            >
+                                              {p}
+                                            </a>
+                                            <span className="rounded-full bg-slate-100 text-slate-600 text-[10px] font-medium uppercase tracking-wide px-2 py-0.5">
+                                              Secondary
+                                            </span>
+                                          </div>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
 
-                          {/* Emails */}
-                          <div data-testid="builder-email">
-                            <span className="text-[11px] uppercase tracking-wide text-slate-500 block">
-                              Email
-                            </span>
-
-                            {primaryEmail ? (
-                              <div className="mt-0.5 flex items-center gap-2">
-                                <a
-                                  href={`mailto:${primaryEmail}`}
-                                  className="text-sm text-emerald-700 break-all hover:underline"
-                                >
-                                  {primaryEmail}
-                                </a>
-                                <span className="rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-medium uppercase tracking-wide px-2 py-0.5">
-                                  Primary
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="mt-0.5 block text-sm text-slate-400">
-                                Not provided
-                              </span>
-                            )}
-
-                            {aggEmails.length > 1 && (
-                              <ul className="mt-2 space-y-1">
-                                {aggEmails.slice(1).map((e, idx) => (
-                                  <li key={`${e}-${idx}`}>
-                                    <div className="flex items-center gap-2 text-xs">
-                                      <a
-                                        href={`mailto:${e}`}
-                                        className="break-all text-slate-700 hover:underline"
-                                      >
-                                        {e}
-                                      </a>
-                                      <span className="rounded-full bg-slate-100 text-slate-600 text-[10px] font-medium uppercase tracking-wide px-2 py-0.5">
-                                        Secondary
-                                      </span>
-                                    </div>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
+                          {/* EMAIL REMOVED COMPLETELY */}
                         </div>
                       </section>
                     </div>
                   ) : (
-                    <BlurUnlock
-                      previewCount={0}
-                      label="contact details"
-                      totalCount={undefined}
-                    >
+                    <BlurUnlock previewCount={0} label="contact details">
                       <div className="space-y-4" aria-hidden>
                         <div>
                           <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                             Phone
                           </div>
                           <SkeletonLine className="mt-1 h-4 w-32" />
-                        </div>
-                        <div>
-                          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            Email
-                          </div>
-                          <SkeletonLine className="mt-1 h-4 w-40" />
                         </div>
                       </div>
                     </BlurUnlock>

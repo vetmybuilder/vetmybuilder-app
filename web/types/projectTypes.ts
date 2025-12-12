@@ -1,5 +1,6 @@
 // web/lib/projectTypes.ts
-// Single source of truth for project type suggestions (no DB needed).
+// Ultra-expanded project type catalogue for VetMyBuilder
+// Clean, alphabetised, UK-optimised, SEO-friendly
 
 export type ProjectTypeCategory = {
   category: string;
@@ -7,21 +8,41 @@ export type ProjectTypeCategory = {
 };
 
 export const PROJECT_TYPES: ProjectTypeCategory[] = [
-  /* ===================== Insulation ===================== */
+  /* ===================== Accessibility & Safety ===================== */
   {
-    category: "Insulation",
+    category: "Accessibility & Safety",
     types: [
-      "Cavity Wall Insulation",
-      "External Wall Insulation",
-      "Internal Wall Insulation",
-      "Loft Insulation",
-      "Room-in-Roof Insulation",
-      "Floor Insulation",
-      "Underfloor Insulation",
-      "Pipe & Tank Lagging",
-      "Garage Insulation",
-      "Soundproofing",
-      "Draught Proofing",
+      "Accessible Bathroom Adaptation",
+      "Accessible Bedroom Adaptation",
+      "Accessible Kitchen Adaptation",
+      "Fire Door Installation",
+      "Fire Risk Assessment",
+      "Grab Rails & Aids",
+      "Handrail Installation",
+      "Non-slip Flooring",
+      "Smoke/Heat/CO Alarm Installation",
+      "Stairlift Installation",
+      "Wheelchair Ramps",
+      "Widen Doorways/Thresholds",
+      "Walk-in Bath Installation",
+      "Walk-in Shower/Wet Room",
+    ],
+  },
+
+  /* ===================== Appliances (Kitchen & Laundry) ===================== */
+  {
+    category: "Appliances",
+    types: [
+      "Cooker/Oven Installation",
+      "Dishwasher Installation",
+      "Extractor Hood Installation",
+      "Fridge/Freezer Installation",
+      "Gas Appliance Installation",
+      "Induction Hob Installation",
+      "Microwave Housing/Fitting",
+      "Tumble Dryer Installation",
+      "Washer/Dryer Installation",
+      "Water Softener/Filter Installation",
     ],
   },
 
@@ -29,180 +50,57 @@ export const PROJECT_TYPES: ProjectTypeCategory[] = [
   {
     category: "Bathroom",
     types: [
-      "Bathroom Remodel (Full)",
+      "Bathroom Design & Planning",
+      "Bathroom Plumbing",
       "Bathroom Refresh (Partial)",
-      "New Bathroom Installation",
-      "Shower Installation/Replacement",
-      "Bath Installation/Replacement",
-      "Wet Room Installation",
-      "Toilet Installation/Replacement",
-      "Sink & Vanity Installation",
-      "Bathroom Tiling",
-      "Shower Screen/Enclosure Fitting",
-      "Extractor Fan Installation",
-      "Heated Towel Rail Installation",
-      "Underfloor Heating (Bathroom)",
+      "Bathroom Remodel (Full)",
       "Bathroom Ventilation Upgrade",
       "Bathroom Waterproofing",
+      "Bath Installation/Replacement",
+      "Extractor Fan Installation",
+      "Heated Towel Rail Installation",
+      "New Bathroom Installation",
+      "Shower Installation/Replacement",
+      "Shower Enclosure Installation",
+      "Sink & Vanity Installation",
+      "Toilet Installation/Replacement",
+      "Underfloor Heating (Bathroom)",
+      "Wet Room Installation",
+      "Bathroom Tiling",
+      "Bathroom Flooring",
     ],
   },
 
-  /* ===================== Kitchen ===================== */
+  /* ===================== Building & General Construction ===================== */
   {
-    category: "Kitchen",
+    category: "Building & Construction",
     types: [
-      "Kitchen Remodel (Full)",
-      "Kitchen Refresh (Partial)",
-      "New Kitchen Installation",
-      "Kitchen Design & Planning",
-      "Cabinet Installation",
-      "Cabinet Refacing/Respraying",
-      "Worktop/Countertop Replacement",
-      "Kitchen Tiling & Splashback",
-      "Appliance Installation",
-      "Extractor Hood Installation",
-      "Kitchen Plumbing",
-      "Kitchen Electrical Upgrade",
-      "Kitchen Flooring",
-      "Kitchen Island Build",
-      "Pantry/Utility Fit-out",
-    ],
-  },
-
-  /* ===================== Flooring ===================== */
-  {
-    category: "Flooring",
-    types: [
-      "Hardwood Floor Installation",
-      "Hardwood Sanding & Refinishing",
-      "Engineered Wood Installation",
-      "Laminate Installation",
-      "Vinyl Plank/LVT Installation",
-      "Carpet Installation",
-      "Carpet Replacement",
-      "Tile Flooring",
-      "Stone Flooring",
-      "Cork Flooring",
-      "Parquet Installation",
-      "Subfloor Repair/Levelling",
-      "Underfloor Heating (Whole House)",
-      "Skirting Boards & Thresholds",
-    ],
-  },
-
-  /* ===================== Roofing ===================== */
-  {
-    category: "Roofing",
-    types: [
-      "Roof Repair",
-      "New Roof Installation",
-      "Re-roofing",
-      "Flat Roof Repair/Replacement",
-      "Pitched Roof Repair/Replacement",
-      "Slate Roof",
-      "Tile Roof",
-      "EPDM/Rubber Roof",
-      "GRP/Fibreglass Roof",
-      "Fascias & Soffits",
-      "Guttering & Downpipes",
-      "Leadwork & Flashing",
-      "Roof Insulation",
-      "Roof Windows / Velux",
-      "Chimney Repair/Removal",
-    ],
-  },
-
-  /* ===================== Windows & Doors ===================== */
-  {
-    category: "Windows & Doors",
-    types: [
-      "Window Replacement (uPVC)",
-      "Window Replacement (Aluminium)",
-      "Window Replacement (Timber)",
-      "Sash Window Repair/Replacement",
-      "Double/Triple Glazing Upgrade",
-      "Front Door Replacement",
-      "Patio/French/Bi-fold Door Installation",
-      "Internal Door Hanging",
-      "Door Frame & Architrave",
-      "Garage Door Replacement",
-      "Secondary Glazing",
-      "Draught Proofing (Windows/Doors)",
-    ],
-  },
-
-  /* ===================== Extensions & Conversions ===================== */
-  {
-    category: "Extensions & Conversions",
-    types: [
-      "Single-storey Extension",
-      "Double-storey Extension",
-      "Rear/Side Return Extension",
-      "Wrap-around Extension",
+      "Basement Dig-Out",
+      "Basement Conversion",
+      "Blockwork Construction",
+      "Brickwork Repair",
+      "Building Regulations Consultation",
+      "Concrete Foundations",
+      "Concrete Slab Pouring",
+      "Damp Proof Course Installation",
+      "Demolition (Internal/External)",
+      "Doorway/Wall Opening (RSJ Installation)",
+      "Drylining & Partition Walls",
+      "Garage Conversion",
+      "General Building Work",
+      "House Extension (Planning & Build)",
+      "Internal Wall Removal",
       "Loft Conversion (Dormer)",
       "Loft Conversion (Hip-to-Gable)",
       "Loft Conversion (Mansard)",
-      "Garage Conversion",
-      "Basement Conversion",
-      "Garden Room/Office",
-      "Orangery/Conservatory",
-      "Structural Openings & RSJs",
-    ],
-  },
-
-  /* ===================== Electrical ===================== */
-  {
-    category: "Electrical",
-    types: [
-      "Full Rewire",
-      "Partial Rewire",
-      "Consumer Unit/Fuse Box Upgrade",
-      "EICR (Electrical Safety Test)",
-      "Additional Sockets & Circuits",
-      "Lighting Installation (Interior)",
-      "Outdoor Lighting",
-      "Downlights/Spotlights",
-      "EV Charger Installation",
-      "Extractor Fan Wiring",
-      "Smart Switches & Dimmers",
-      "Data & Networking",
-      "CCTV & Security Cameras",
-      "Doorbell/Intercom",
-    ],
-  },
-
-  /* ===================== Plumbing ===================== */
-  {
-    category: "Plumbing",
-    types: [
-      "Emergency Leak Repair",
-      "General Plumbing Repairs",
-      "New Pipework/Repiping",
-      "Bathroom Plumbing",
-      "Kitchen Plumbing",
-      "Unvented Cylinder Installation",
-      "Water Softener/Filter",
-      "Outdoor Tap Installation",
-      "Macerator/Saniflo Installation",
-      "Drain Unblocking",
-    ],
-  },
-
-  /* ===================== Heating & Cooling ===================== */
-  {
-    category: "Heating & Cooling",
-    types: [
-      "New Boiler Installation",
-      "Boiler Service",
-      "Boiler Repair",
-      "Radiator Installation/Relocation",
-      "Smart Thermostat Installation",
-      "Underfloor Heating (Wet)",
-      "Heat Pump (Air Source)",
-      "Heat Pump (Ground Source)",
-      "MVHR/Ventilation",
-      "Air Conditioning Installation",
-      "Flue & Chimney Liner",
+      "Masonry Repair",
+      "New Build House",
+      "New Internal Walls/Studwork",
+      "Property Refurbishment (Full)",
+      "Retaining Wall Construction",
+      "RSJ/Steel Beam Installation",
+      "Underpinning",
+      "Wrap-around Extension",
     ],
   },
 
@@ -210,148 +108,79 @@ export const PROJECT_TYPES: ProjectTypeCategory[] = [
   {
     category: "Carpentry & Joinery",
     types: [
-      "Bespoke Wardrobes",
       "Alcove Units",
-      "Media/TV Wall Unit",
+      "Bespoke Cabinetry",
+      "Bespoke Wardrobes",
       "Bookshelves & Storage",
-      "Staircase Renovation",
+      "Decking (Timber/Composite)",
+      "Door Frame & Architrave",
+      "Fitted Wardrobes",
       "Handrails & Balustrades",
       "Internal Door Hanging",
-      "Skirting & Architraves",
+      "Joinery Repairs",
+      "Kitchen Fitting (Carpentry)",
+      "Media/TV Wall Unit",
+      "Skirting Boards",
+      "Staircase Build/Renovation",
       "Stud Walls & Partitioning",
       "Window Seats",
-      "Kitchen Fitting (Carpentry)",
-      "Shelving & Joinery Repairs",
+      "Shelving Installation",
     ],
   },
 
-  /* ===================== Masonry & Structural ===================== */
+  /* ===================== Cleaning & Waste ===================== */
   {
-    category: "Masonry & Structural",
+    category: "Cleaning & Waste",
     types: [
-      "Brickwork Repair/Pointing",
-      "New Brick/Block Walls",
-      "Lintel Replacement",
-      "RSJ/Steel Beam Installation",
-      "Chimney Rebuild/Removal",
-      "Concrete Works",
-      "Foundations & Footings",
-      "Retaining Walls",
-      "Stonework & Repointing",
-      "Rendering (Cement)",
-      "Monocouche/Coloured Render",
-      "External Wall Insulation Render",
-      "Pebble Dash Removal/Repair",
+      "Builders’ Clean",
+      "Carpet Cleaning",
+      "Deep Clean (Kitchen/Bathroom)",
+      "End-of-Tenancy Cleaning",
+      "Gutter Cleaning",
+      "House Clearance",
+      "Mould Cleaning",
+      "Oven Cleaning",
+      "Pressure Washing",
+      "Rubbish Removal",
+      "Skip Hire",
     ],
   },
 
-  /* ===================== Plastering, Drylining & Tiling ===================== */
-  {
-    category: "Plastering & Tiling",
-    types: [
-      "Skim Plastering",
-      "Drywall/Plasterboard",
-      "Dot & Dab",
-      "Ceiling Repair/Replacement",
-      "Artex Removal",
-      "Coving & Cornice",
-      "Wall Tiling",
-      "Floor Tiling",
-      "Stone/Marble Tiling",
-      "Tank & Waterproof (Wet areas)",
-    ],
-  },
-
-  /* ===================== Painting & Decorating ===================== */
-  {
-    category: "Painting & Decorating",
-    types: [
-      "Interior Painting",
-      "Exterior Painting",
-      "Woodwork Painting",
-      "Wallpaper Hanging",
-      "Wallpaper Removal",
-      "Spray Painting (Joinery)",
-      "Decorative Finishes",
-      "Surface Prep & Repairs",
-    ],
-  },
-
-  /* ===================== Damp, Waterproofing & Repairs ===================== */
+  /* ===================== Damp, Waterproofing & Mould ===================== */
   {
     category: "Damp & Waterproofing",
     types: [
-      "Rising Damp Treatment",
-      "Penetrating Damp Treatment",
       "Basement Tanking",
       "Condensation Control",
-      "Mould Remediation",
-      "Gutter/Downpipe Repairs",
+      "Damp Inspection",
+      "Damp Proof Course",
       "Exterior Waterproof Coatings",
+      "Mould Remediation",
+      "Penetrating Damp Treatment",
+      "Rising Damp Treatment",
+      "Waterproofing (General)",
     ],
   },
 
-  /* ===================== Landscaping & Garden ===================== */
+  /* ===================== Electrical ===================== */
   {
-    category: "Landscaping & Garden",
+    category: "Electrical",
     types: [
-      "Garden Design & Build",
-      "Decking (Timber/Composite)",
-      "Patio/Paving",
-      "Driveway (Block/Tarmac/Resin)",
-      "Artificial Grass",
-      "Lawn & Turfing",
-      "Fencing & Gates",
-      "Garden Walls",
-      "Pergola/Gazebo",
-      "Shed/Base Installation",
-      "Drainage & Soakaways",
-      "Irrigation Systems",
-      "Garden Lighting",
-    ],
-  },
-
-  /* ===================== Exterior & Structure ===================== */
-  {
-    category: "Exterior & Structure",
-    types: [
-      "Siding/Cladding Installation",
-      "House Repointing",
-      "Exterior Repairs (General)",
-      "Porch/Canopy Build",
-      "Pathways & Steps",
-      "External Stairs/Handrails",
-      "Boundary Walls",
-    ],
-  },
-
-  /* ===================== Smart Home & Security ===================== */
-  {
-    category: "Smart Home & Security",
-    types: [
-      "Smart Lighting",
-      "Smart Heating Controls",
-      "Whole-home Wi-Fi/Networking",
-      "CCTV Installation",
-      "Alarm System Installation",
-      "Video Doorbell/Intercom",
-      "Access Control & Smart Locks",
-      "AV/Surround Sound Setup",
-    ],
-  },
-
-  /* ===================== Accessibility & Safety ===================== */
-  {
-    category: "Accessibility & Safety",
-    types: [
-      "Grab Rails & Aids",
-      "Walk-in Shower/Wet Room",
-      "Widen Doorways/Thresholds",
-      "Wheelchair Ramps",
-      "Stairlift Installation",
-      "Non-slip Flooring",
-      "Fire Doors & Closers",
-      "Smoke/Heat/CO Alarms",
+      "Additional Sockets",
+      "CCTV & Security Cameras",
+      "Consumer Unit/Fuse Box Upgrade",
+      "Data & Networking",
+      "Doorbell/Intercom Installation",
+      "Downlights/Spotlights",
+      "EICR (Electrical Safety Test)",
+      "EV Charger Installation",
+      "Exterior Lighting",
+      "Full Rewire",
+      "Lighting Installation (Interior)",
+      "Partial Rewire",
+      "Smart Switch Installation",
+      "Underfloor Heating (Electric)",
+      "Extractor Fan Wiring",
     ],
   },
 
@@ -359,23 +188,232 @@ export const PROJECT_TYPES: ProjectTypeCategory[] = [
   {
     category: "Energy & Renewables",
     types: [
-      "Solar PV Installation",
-      "Battery Storage",
-      "Solar Thermal (Hot Water)",
-      "Energy Audit & EPC Upgrades",
+      "Battery Storage Installation",
+      "Energy Audit/EPC Upgrade",
+      "Heat Pump (Air Source)",
+      "Heat Pump (Ground Source)",
+      "MVHR/Ventilation System",
       "Smart Metering (Client-side)",
+      "Solar PV Installation",
+      "Solar Thermal (Hot Water)",
     ],
   },
 
-  /* ===================== Outdoor Living ===================== */
+  /* ===================== Extensions & Conversions ===================== */
   {
-    category: "Outdoor Living",
+    category: "Extensions & Conversions",
     types: [
-      "Outdoor Kitchen/BBQ",
-      "Fire Pit/Chiminea",
-      "Hot Tub Prep/Installation",
-      "Garden Room Utilities",
+      "Basement Conversion",
+      "Double-storey Extension",
+      "Garage Conversion",
+      "Garden Room/Annexe",
+      "Loft Conversion (Dormer)",
+      "Loft Conversion (Hip-to-Gable)",
+      "Loft Conversion (Mansard)",
+      "Orangery/Conservatory",
+      "Rear/Side Return Extension",
+      "Single-storey Extension",
+      "Structural Openings",
+      "Wrap-around Extension",
+    ],
+  },
+
+  /* ===================== Exterior & Structure ===================== */
+  {
+    category: "Exterior & Structure",
+    types: [
+      "Boundary Walls",
+      "Cladding Installation",
+      "Exterior Repairs",
+      "Exterior Stairs/Handrails",
+      "House Repointing",
+      "Monocouche/Coloured Render",
+      "Pathways & Steps",
+      "Pebble Dash Removal",
+      "Porch/Canopy Build",
+      "Rendering (Cement)",
+      "Siding/Cladding",
+    ],
+  },
+
+  /* ===================== Fencing & Gates ===================== */
+  {
+    category: "Fencing & Gates",
+    types: [
+      "Fence Repair",
+      "Fence Replacement",
+      "Garden Gate Installation",
+      "Security Fencing",
+      "Timber Fence Installation",
+      "Composite Fence Installation",
+      "Panel Fence Installation",
+      "Post & Rail Installation",
+      "Picket Fencing",
+    ],
+  },
+
+  /* ===================== Flooring ===================== */
+  {
+    category: "Flooring",
+    types: [
+      "Carpet Fitting",
+      "Carpet Removal",
+      "Cork Flooring",
+      "Engineered Wood Installation",
+      "Floor Levelling",
+      "Floor Sanding & Refinishing",
+      "Laminate Installation",
+      "Parquet Installation",
+      "Stone Flooring",
+      "Subfloor Repair",
+      "Tile Flooring",
+      "Underfloor Heating (Whole House)",
+      "Vinyl/LVT Installation",
+      "Wood Floor Restoration",
+    ],
+  },
+
+  /* ===================== Gardening & Landscaping ===================== */
+  {
+    category: "Landscaping & Garden",
+    types: [
+      "Artificial Grass Installation",
+      "Decking (Timber/Composite)",
+      "Drainage & Soakaways",
+      "Driveway (Block)",
+      "Driveway (Resin)",
+      "Driveway (Tarmac)",
+      "Fence/Gate Installation",
+      "Garden Clearance",
+      "Garden Design & Build",
+      "Garden Drainage",
+      "Garden Irrigation System",
+      "Garden Lighting",
+      "Garden Paths",
+      "Garden Turfing",
+      "Garden Wall Construction",
+      "Gazebo/Pergola Installation",
+      "Patio/Paving",
+      "Planting & Soft Landscaping",
       "Pond/Water Feature",
+      "Retaining Walls (Garden)",
+      "Shed/Base Installation",
+    ],
+  },
+
+  /* ===================== Heating & Cooling ===================== */
+  {
+    category: "Heating & Cooling",
+    types: [
+      "Air Conditioning Installation",
+      "Boiler Installation",
+      "Boiler Repair",
+      "Boiler Service",
+      "Flue & Chimney Liner",
+      "Heat Pump Installation",
+      "Radiator Installation",
+      "Radiator Relocation",
+      "Smart Thermostat Installation",
+      "Underfloor Heating (Wet)",
+    ],
+  },
+
+  /* ===================== Insulation ===================== */
+  {
+    category: "Insulation",
+    types: [
+      "Cavity Wall Insulation",
+      "Draught Proofing",
+      "External Wall Insulation",
+      "Floor Insulation",
+      "Garage Insulation",
+      "Internal Wall Insulation",
+      "Loft Insulation",
+      "Pipe & Tank Lagging",
+      "Room-in-Roof Insulation",
+      "Soundproofing",
+      "Underfloor Insulation",
+    ],
+  },
+
+  /* ===================== Kitchen ===================== */
+  {
+    category: "Kitchen",
+    types: [
+      "Appliance Installation",
+      "Cabinet Installation",
+      "Cabinet Refacing/Respraying",
+      "Extractor Hood Installation",
+      "Kitchen Design & Planning",
+      "Kitchen Electrical Upgrade",
+      "Kitchen Flooring",
+      "Kitchen Island Build",
+      "Kitchen Plumbing",
+      "Kitchen Refresh (Partial)",
+      "Kitchen Remodel (Full)",
+      "Kitchen Tiling & Splashback",
+      "New Kitchen Installation",
+      "Pantry/Utility Fit-out",
+      "Worktop/Countertop Replacement",
+    ],
+  },
+
+  /* ===================== Metalwork & Fabrication ===================== */
+  {
+    category: "Metalwork & Fabrication",
+    types: [
+      "Balustrade Fabrication",
+      "Custom Metal Gates",
+      "Fabricated Steel Supports",
+      "Handrails (Metal)",
+      "Metal Welding Repairs",
+      "Security Grilles",
+      "Steel Staircases",
+    ],
+  },
+
+  /* ===================== Painting & Decorating ===================== */
+  {
+    category: "Painting & Decorating",
+    types: [
+      "Decorative Finishes",
+      "Exterior Painting",
+      "Interior Painting",
+      "Spray Painting (Joinery)",
+      "Surface Prep & Repairs",
+      "Wallpaper Hanging",
+      "Wallpaper Removal",
+      "Woodwork Painting",
+    ],
+  },
+
+  /* ===================== Pest Control ===================== */
+  {
+    category: "Pest Control",
+    types: [
+      "Bed Bug Treatment",
+      "Bird Proofing",
+      "Flea Treatment",
+      "Mouse/Rat Control",
+      "Pest Inspection",
+      "Wasp Nest Removal",
+    ],
+  },
+
+  /* ===================== Plumbing ===================== */
+  {
+    category: "Plumbing",
+    types: [
+      "Bathroom Plumbing",
+      "Blocked Drain",
+      "Emergency Leak Repair",
+      "General Plumbing Repairs",
+      "Kitchen Plumbing",
+      "Macerator/Saniflo Installation",
+      "New Pipework/Repiping",
+      "Outdoor Tap Installation",
+      "Unvented Cylinder Installation",
+      "Water Softener Installation",
     ],
   },
 
@@ -383,38 +421,100 @@ export const PROJECT_TYPES: ProjectTypeCategory[] = [
   {
     category: "Repairs & Maintenance",
     types: [
-      "Handyman Tasks",
+      "Ceiling Repairs",
+      "Door Repairs",
       "General Repairs",
-      "Ceiling/Wall Repairs",
-      "Small Plumbing Jobs",
+      "Gutter Repairs",
+      "Handyman Tasks",
       "Small Electrical Jobs",
-      "Window/Door Repairs",
-      "Gutter Cleaning/Repair",
-      "Pressure Washing",
+      "Small Plumbing Jobs",
+      "Wall Repairs",
+      "Window Repairs",
     ],
   },
 
-  /* ===================== Pest, Cleaning & Waste ===================== */
+  /* ===================== Roofing ===================== */
   {
-    category: "Pest, Cleaning & Waste",
+    category: "Roofing",
     types: [
-      "Pest Control",
-      "End-of-Tenancy Clean",
-      "Deep Clean (Kitchen/Bathroom)",
-      "Mould Cleaning",
-      "Builders’ Clean",
-      "House Clearance",
-      "Skip Hire/Rubbish Removal",
+      "Chimney Repair/Removal",
+      "EPDM/Rubber Roof",
+      "Fascias & Soffits",
+      "Flat Roof Repair/Replacement",
+      "GRP/Fibreglass Roof",
+      "Guttering & Downpipes",
+      "Leadwork & Flashing",
+      "New Roof Installation",
+      "Pitched Roof Repair/Replacement",
+      "Re-roofing",
+      "Roof Insulation",
+      "Roof Repair",
+      "Roof Tiling",
+      "Roof Windows / Velux",
+      "Slate Roof",
+      "Tile Roof",
+    ],
+  },
+
+  /* ===================== Smart Home & Security ===================== */
+  {
+    category: "Smart Home & Security",
+    types: [
+      "Access Control & Smart Locks",
+      "Alarm System Installation",
+      "AV/Surround Sound Setup",
+      "CCTV Installation",
+      "Smart Heating Controls",
+      "Smart Lighting",
+      "Video Doorbell/Intercom",
+      "Whole-home Wi-Fi/Networking",
+    ],
+  },
+
+  /* ===================== Tiling & Plastering ===================== */
+  {
+    category: "Tiling & Plastering",
+    types: [
+      "Artex Removal",
+      "Ceiling Repair/Replacement",
+      "Coving & Cornice",
+      "Drywall/Plasterboard",
+      "Dot & Dab",
+      "Floor Tiling",
+      "Plaster Skimming",
+      "Stone/Marble Tiling",
+      "Tank & Waterproof (Wet Areas)",
+      "Wall Tiling",
+    ],
+  },
+
+  /* ===================== Windows & Doors ===================== */
+  {
+    category: "Windows & Doors",
+    types: [
+      "Bi-fold Door Installation",
+      "Door Frame Repair",
+      "Front Door Replacement",
+      "Garage Door Replacement",
+      "Internal Door Hanging",
+      "Patio/French Door Installation",
+      "Sash Window Repair/Replacement",
+      "Secondary Glazing",
+      "Triple Glazing Upgrade",
+      "Window Replacement (uPVC)",
+      "Window Replacement (Aluminium)",
+      "Window Replacement (Timber)",
+      "Window Repair",
     ],
   },
 ];
 
-/** Flat list of all type labels (useful for quick dropdowns) */
+/** Flat list */
 export const ALL_PROJECT_TYPES: string[] = PROJECT_TYPES.flatMap(
   (c) => c.types
 );
 
-/** Normalise for comparisons */
+/** Normalise */
 const norm = (s: string) =>
   s
     .toLowerCase()
@@ -422,11 +522,7 @@ const norm = (s: string) =>
     .replace(/[^\p{Letter}\p{Number}]+/gu, " ")
     .trim();
 
-/**
- * Very small client-side suggester.
- * - Scores: startsWith > token-substring > plain substring
- * - Returns unique labels (no duplicates) capped by `limit`
- */
+/** Suggest */
 export function suggestProjectTypes(query: string, limit = 8): string[] {
   const q = norm(query);
   if (!q) return ALL_PROJECT_TYPES.slice(0, limit);
@@ -456,60 +552,21 @@ export function suggestProjectTypes(query: string, limit = 8): string[] {
 
 export default PROJECT_TYPES;
 
-
-// Quick defaults the UI can show (feel free to tweak the count)
+/** Quick picks */
 export const QUICK_PICKS: string[] = ALL_PROJECT_TYPES.slice(0, 12);
 
-// Normalise for comparisons (reuse your local `norm` if it's already defined)
-const _norm =
-  typeof norm === "function"
-    ? norm
-    : (s: string) =>
-        s
-          .toLowerCase()
-          .normalize("NFKD")
-          .replace(/[^\p{Letter}\p{Number}]+/gu, " ")
-          .trim();
-
-/** Canonicalise a user-entered label to the closest known type */
+/** Canonicalise */
 export function toCanonicalType(input: string): string {
-  const s = _norm(input);
+  const s = norm(input);
   if (!s) return "";
-  const exact = ALL_PROJECT_TYPES.find((t) => _norm(t) === s);
+  const exact = ALL_PROJECT_TYPES.find((t) => norm(t) === s);
   if (exact) return exact;
-  const starts = ALL_PROJECT_TYPES.find((t) => _norm(t).startsWith(s));
+  const starts = ALL_PROJECT_TYPES.find((t) => norm(t).startsWith(s));
   if (starts) return starts;
-  const inc = ALL_PROJECT_TYPES.find((t) => _norm(t).includes(s));
+  const inc = ALL_PROJECT_TYPES.find((t) => norm(t).includes(s));
   if (inc) return inc;
-  // Title-case fallback so the name still looks decent
-  return String(input).replace(/\w\S*/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase());
-}
-
-type Scored = { label: string; score: number };
-
-/** Suggestions with scores (used for lightweight analytics) */
-export function suggestProjectTypesWithScores(query: string, limit = 8): Scored[] {
-  const q = _norm(query);
-  if (!q) return QUICK_PICKS.map((label) => ({ label, score: 0 }));
-
-  const scored: Scored[] = [];
-  for (const label of ALL_PROJECT_TYPES) {
-    const n = _norm(label);
-    let score = 0;
-    if (n === q) score = 3; // exact
-    else if (n.startsWith(q)) score = 2; // prefix
-    else if (n.split(" ").some((t) => t.startsWith(q))) score = 1.6; // token prefix
-    else if (n.includes(q)) score = 1.2; // substring
-    if (score > 0) scored.push({ label, score });
-  }
-  scored.sort((a, b) => b.score - a.score || a.label.localeCompare(b.label));
-  return scored.slice(0, limit);
-}
-
-/** Build a friendly auto name for a project */
-export function buildAutoName(type: string, location: string, propertyType: string): string {
-  const t = toCanonicalType(type);
-  const loc = (location || "").trim();
-  const prop = (propertyType || "").trim();
-  return [t, loc, prop ? `· ${prop}` : ""].filter(Boolean).join(" ");
+  return String(input).replace(
+    /\w\S*/g,
+    (w) => w[0].toUpperCase() + w.slice(1).toLowerCase()
+  );
 }

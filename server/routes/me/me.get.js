@@ -1,14 +1,17 @@
 // server/routes/me/me.get.js
 /**
  * GET /api/me
- * Auth: required (Bearer). Also fine to keep legacy /api/me mounted if you choose.
+ * Auth: required.
  * Response:
  *  { uid, email, firstName, lastName, username, displayName, initials }
  */
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
+  const { logger, withRequest } = require("../../lib/logger");
 
   router.get("/me", auth, async (req, res) => {
+    const log = withRequest(req, logger).child({ route: "GET /api/me" });
+
     const uid = req.user.uid;
 
     let row = {};
@@ -20,7 +23,14 @@ module.exports = (router, ctx) => {
       );
       row = rows[0] || {};
     } catch (err) {
-      console.error("Error fetching user from MySQL in /api/me:", err);
+      log.error(
+        {
+          errMsg: err?.message,
+          stack: err?.stack,
+          uid,
+        },
+        "MySQL error fetching user in /api/me"
+      );
       return res.status(500).json({ error: "internal_error" });
     }
 
@@ -52,6 +62,9 @@ module.exports = (router, ctx) => {
         : undefined;
 
     res.set("Cache-Control", "no-store");
+
+    log.info({ uid }, "Returned /api/me profile");
+
     res.json({
       uid,
       email,

@@ -1,4 +1,3 @@
-// server/routes/account/account.post.js
 /**
  * POST /api/account
  * Auth: required
@@ -7,6 +6,7 @@
  * Response: { ok: true }
  */
 const { updateUserLocationMysql } = require("../../lib/location");
+const { logger, withRequest } = require("../../lib/logger");
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
@@ -16,6 +16,7 @@ module.exports = (router, ctx) => {
   }
 
   router.post("/account", auth, async (req, res) => {
+    const log = withRequest(req);
     const uid = req.user.uid;
 
     const firstName = (req.body?.firstName ?? "").toString().trim() || null;
@@ -36,6 +37,7 @@ module.exports = (router, ctx) => {
         );
 
         if (takenRows.length > 0) {
+          log.warn({ username }, "username already taken");
           return res
             .status(409)
             .json({ error: "That username is already taken." });
@@ -50,11 +52,10 @@ module.exports = (router, ctx) => {
         [uid]
       );
       const existing = existingRows[0] || null;
-
       const email = existing?.email ?? req.user.email ?? null;
 
       if (!existing) {
-        // 3a) Insert new user – let MySQL set createdAt via NOW()
+        // Insert new user
         await mysqlQuery(
           `INSERT INTO users (
              uid,
@@ -67,35 +68,41 @@ module.exports = (router, ctx) => {
            ) VALUES (
              ?, ?, NOW(), ?, ?, ?, ?
            )`,
-          [
-            uid,
-            email,
-            firstName,
-            lastName,
-            username,
-            location || null,
-          ]
+          [uid, email, firstName, lastName, username, location || null]
         );
+
+        log.info("created new user row in MySQL");
       } else {
-        // 3b) Update existing user (preserve createdAt)
+        // Update existing user
         await mysqlQuery(
           `UPDATE users
-              SET email      = ?,
-                  firstName  = ?,
-                  lastName   = ?,
-                  username   = ?,
+              SET email       = ?,
+                  firstName   = ?,
+                  lastName    = ?,
+                  username    = ?,
                   locationRaw = ?
             WHERE uid = ?`,
           [email, firstName, lastName, username, location || null, uid]
         );
+
+        log.info("updated existing user row in MySQL");
       }
 
-      // 4) Update postcode / sector / outward / city based on this location
+      // 4) Update postcode / sector / outward / city
       await updateUserLocationMysql(mysqlQuery, uid, location);
+      log.info("updated user location tokens");
 
       return res.json({ ok: true });
     } catch (err) {
-      console.error("Error in /api/account (MySQL):", err);
+      logger.error(
+        {
+          err: err?.message,
+          uid,
+          body: req.body,
+        },
+        "Error in POST /api/account"
+      );
+
       return res.status(500).json({ error: "internal_error" });
     }
   });

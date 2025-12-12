@@ -1,91 +1,69 @@
 // server/routes/payments/checkout.session.get.js
+
 module.exports = (router, ctx) => {
   const { auth } = ctx;
-  const log = ctx.log || console;
+  const { logger, withRequest } = require("../../lib/logger");
 
+  /** Resolve a session ID from params or query */
   function resolveSessionId(req) {
-    // If we have a param ID and it's not literally "session", use it.
-    const paramId = req.params && req.params.id;
-    if (paramId && paramId !== "session") {
-      return String(paramId);
-    }
+    const p = req.params?.id;
+    if (p && p !== "session") return String(p);
 
-    // Otherwise fall back to query params
-    const qId =
-      req.query?.sessionId || req.query?.session_id || req.query?.id || "";
-    return String(qId || "");
+    return String(
+      req.query?.sessionId || req.query?.session_id || req.query?.id || ""
+    );
   }
 
+  /** Main handler */
   function handleGet(req, res) {
+    const log = withRequest(req, logger).child({
+      route: "GET /api/payments/checkout/session",
+    });
+
     try {
       const payments = ctx.payments;
+
       if (!payments || typeof payments.getSession !== "function") {
-        return res.status(500).json({ error: "payments not initialised" });
+        log.error("Payments module is not initialised");
+        return res.status(500).json({ error: "payments_not_initialised" });
       }
 
       const id = resolveSessionId(req);
+
       if (!id) {
-        return res.status(400).json({ error: "sessionId required" });
+        log.warn("Missing sessionId");
+        return res.status(400).json({ error: "sessionId_required" });
       }
 
       const session = payments.getSession(id);
       if (!session) {
-        log.warn?.("[payments.session] not found id=%s", id);
-        return res.status(404).json({ error: "Not found" });
+        log.warn({ sessionId: id }, "Session not found");
+        return res.status(404).json({ error: "not_found" });
       }
 
-      // Optional: ensure the current user owns the session
+      // Optional: ownership validation
       if (req.user?.uid && session.userId && session.userId !== req.user.uid) {
-        return res.status(403).json({ error: "Forbidden" });
+        log.warn(
+          { sessionId: id, owner: session.userId, requester: req.user.uid },
+          "Forbidden — session does not belong to user"
+        );
+        return res.status(403).json({ error: "forbidden" });
       }
 
+      log.info({ sessionId: id }, "Session retrieved");
       return res.status(200).json({ ok: true, session });
     } catch (e) {
-      log.error?.("[payments.session] error: %s", e?.stack || e?.message || e);
+      logger.error(
+        { errMsg: e?.message, stack: e?.stack },
+        "Unexpected error retrieving checkout session"
+      );
       return res
         .status(500)
-        .json({ error: e?.message || "Failed to load session" });
+        .json({ error: "server_error", detail: e?.message });
     }
   }
 
-  // IMPORTANT: define the more specific 'session' route first
+  // Register more specific route first
   router.get("/payments/checkout/session", auth, handleGet);
   router.get("/payments/checkout/:id", auth, handleGet);
 };
-
-// // server/routes/payments/checkout.session.get.js
-// module.exports = (router, ctx) => {
-//   const auth = ctx.auth;
-//   const log = ctx.log || console;
-
-//   function handleGet(req, res) {
-//     try {
-//       const payments = ctx.payments;
-//       if (!payments || typeof payments.getSession !== "function") {
-//         return res.status(500).json({ error: "payments not initialised" });
-//       }
-
-//       const id = String(req.params.id || "");
-//       const session = payments.getSession(id);
-//       if (!session) {
-//         log.warn?.("[payments.session] not found id=%s", id);
-//         return res.status(404).json({ error: "Not found" });
-//       }
-
-//       // Optional: ensure the current user owns the session
-//       if (req.user?.uid && session.userId && session.userId !== req.user.uid) {
-//         return res.status(403).json({ error: "Forbidden" });
-//       }
-
-//       return res.status(200).json({ ok: true, session });
-//     } catch (e) {
-//       log.error?.("[payments.session] error: %s", e?.stack || e?.message || e);
-//       return res
-//         .status(500)
-//         .json({ error: e?.message || "Failed to load session" });
-//     }
-//   }
-
-//   // Existing path some code still uses
-//   router.get("/payments/checkout/:id", auth, handleGet);
-// };

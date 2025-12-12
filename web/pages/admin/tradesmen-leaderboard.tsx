@@ -32,13 +32,13 @@ type Item = {
   updatedAt: string;
 
   plan?: "free" | "gold" | "platinum" | string | null;
-  purchasedPlan?: "free" | "gold" | "platinum" | string | null;
+  purchasedPlan?: string | null; // deprecated but harmless
+  pendingPlan?: "free" | "gold" | "platinum" | "spotlight" | string | null; // ⭐ REQUIRED
   spotlightActive?: boolean | null;
   spotlightExpiresAt?: string | null;
 
-  // New simplified unlock data
-  oneOffUnlocks?: number | null; // approved
-  oneOffUnlocksPending?: number | null; // pending
+  oneOffUnlocks?: number | null;
+  oneOffUnlocksPending?: number | null;
 };
 
 type Resp = { items: Item[]; total: number; offset: number; limit: number };
@@ -719,10 +719,7 @@ export default function AdminTradesmenLeaderboardPage() {
                       const urlsToShow = it.urls || [];
                       const isOpen = menuUid === it.userId;
 
-                      const pendingPlan =
-                        it.purchasedPlan && it.purchasedPlan !== it.plan
-                          ? it.purchasedPlan
-                          : null;
+                      const pendingPlan = it.pendingPlan || null;
 
                       const approved = it.oneOffUnlocks || 0;
                       const pending = it.oneOffUnlocksPending || 0;
@@ -828,7 +825,7 @@ export default function AdminTradesmenLeaderboardPage() {
 
                             {/* Spotlight pending admin */}
                             {!it.spotlightActive &&
-                              it.purchasedPlan === "spotlight" && (
+                              pendingPlan === "spotlight" && (
                                 <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200">
                                   ⏳ Spotlight Pending
                                 </div>

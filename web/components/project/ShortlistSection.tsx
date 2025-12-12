@@ -70,10 +70,10 @@ export default function ShortlistSection({
 
       // Fallback: if there's no verification map entry yet, use CH fields from the ratings item
       const num =
-        (ver?.companyNumber ||
-          (typeof top.chCompanyNumber === "string"
-            ? top.chCompanyNumber
-            : "")).trim() || null;
+        (
+          ver?.companyNumber ||
+          (typeof top.chCompanyNumber === "string" ? top.chCompanyNumber : "")
+        ).trim() || null;
 
       return { ...g, companyNumber: num };
     });
@@ -250,15 +250,16 @@ export default function ShortlistSection({
                 const r: any = g.top;
                 const votes = g.totalLikes;
                 const hasVoted = r.myLike === 1;
-                const hasPhotos = !!recHasPhotos[r.id];
+                const hasPhotos =
+                  recHasPhotos?.[r.id] === true ||
+                  (Array.isArray(r.photos) && r.photos.length > 0);
 
                 const ver = recVerification[r.id];
 
                 // 🔑 Derive verification fields:
-                const vStatus =
-                  (ver?.status ?? r.chStatus ?? undefined) as
-                    | Verification["status"]
-                    | undefined;
+                const vStatus = (ver?.status ?? r.chStatus ?? undefined) as
+                  | Verification["status"]
+                  | undefined;
 
                 const vCompanyName =
                   (ver?.companyName as string | undefined) ??
@@ -316,7 +317,9 @@ export default function ShortlistSection({
                 if (r.fromFriend) {
                   recommenderText = "Recommended via your friend.";
                 } else if (r.fromCommunity) {
-                  recommenderText = "Recommended by a neighbour in your area.";
+                  recommenderText = `Community recommendation made on ${new Date(
+                    r.createdAt
+                  ).toLocaleDateString()}`;
                 }
 
                 return (
@@ -363,8 +366,8 @@ export default function ShortlistSection({
                             </div>
 
                             <div className="shrink-0 flex items-center gap-3 whitespace-nowrap">
-                              <ScoreChip value={scoreToShow} />
-                              <div
+                              {false && <ScoreChip value={scoreToShow} />}
+                              {/* <div
                                 className="text-xs text-slate-500 tabular-nums flex items-center gap-1"
                                 aria-label={`${votes} votes`}
                                 data-testid="shortlist-votes"
@@ -372,7 +375,7 @@ export default function ShortlistSection({
                               >
                                 <ThumbsUpIcon className="h-3.5 w-3.5 -mt-px" />{" "}
                                 {votes}
-                              </div>
+                              </div> */}
                             </div>
                           </div>
 
@@ -419,14 +422,6 @@ export default function ShortlistSection({
                                   Friend
                                 </span>
                               ) : null}
-                              {r.fromCommunity ? (
-                                <span
-                                  className="badge green"
-                                  data-testid="shortlist-badge-community"
-                                >
-                                  Neighbourhood
-                                </span>
-                              ) : null}
                               {hasPhotos && (
                                 <span
                                   className="inline-flex items-center gap-1 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-0.5 text-xs"
@@ -434,7 +429,7 @@ export default function ShortlistSection({
                                   data-testid="shortlist-badge-photos"
                                 >
                                   <CameraIcon className="h-3.5 w-3.5" />
-                                  Gallery
+                                  Photos
                                 </span>
                               )}
                             </div>
@@ -448,12 +443,6 @@ export default function ShortlistSection({
                                   className="text-xs sm:text-sm"
                                 />
                               )}
-                              <div
-                                className="text-xs text-slate-500"
-                                data-testid="shortlist-date"
-                              >
-                                {new Date(r.createdAt).toLocaleDateString()}
-                              </div>
                             </div>
                           </div>
 

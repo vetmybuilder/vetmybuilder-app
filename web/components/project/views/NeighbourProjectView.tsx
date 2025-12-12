@@ -2,11 +2,13 @@
 import * as React from "react";
 import Link from "next/link";
 import ProjectDetailsSummaryCard from "@/components/project/ProjectDetailsSummaryCard";
+import { useAuth } from "@/utils/auth";
 
 type VM = ReturnType<typeof import("./useProjectView").useProjectView>;
 
 export default function NeighbourProjectView({ vm }: { vm: VM }) {
   const { project } = vm;
+  const { user } = useAuth(); // 👈 NEW — detect guest vs logged-in
 
   if (!project) return null;
 
@@ -23,19 +25,21 @@ export default function NeighbourProjectView({ vm }: { vm: VM }) {
 
   return (
     <>
-      {/* Back to projects */}
-      <div className="mb-3">
-        <Link
-          href={{ pathname: "/projects", query: { tab: "mine" } }}
-          className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900"
-          data-testid="link-back-to-projects-neighbour"
-        >
-          <span aria-hidden>←</span>
-          <span>Back to projects</span>
-        </Link>
-      </div>
+      {/* Back to projects — ONLY SHOW IF LOGGED IN */}
+      {user && (
+        <div className="mb-3">
+          <Link
+            href={{ pathname: "/projects", query: { tab: "mine" } }}
+            className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900"
+            data-testid="link-back-to-projects-neighbour"
+          >
+            <span aria-hidden>←</span>
+            <span>Back to projects</span>
+          </Link>
+        </div>
+      )}
 
-      {/* Shared project details card (same look as tradesman accordion) */}
+      {/* Shared project details card */}
       <section className="mb-6">
         <ProjectDetailsSummaryCard
           project={summaryProject}

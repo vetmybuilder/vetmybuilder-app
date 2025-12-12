@@ -4,28 +4,32 @@
  * Returns:
  *   { ok: true, exists: boolean, existsNormalized: boolean, projectId: string }
  *
- * Notes:
- * - Checks Firebase Auth (not your DB).
- * - Normalizes Gmail-style aliases (dots and "+tag") when checking.
- * - Safe to use in both dev and prod; shows projectId for sanity checks.
+ * Checks Firebase Auth for email existence, including normalized Gmail variants.
  */
-module.exports = (router, ctx) => {
-  const { auth } = ctx; // your API auth middleware (if any); this route usually does NOT require login
 
-  // Lazy init Firebase Admin if your app hasn't already
+const { logger, withRequest } = require("../../lib/logger");
+
+module.exports = (router, ctx) => {
+  const { auth } = ctx; // route does NOT require auth, kept for consistency
+
+  // Firebase Admin lazy-init
   let admin;
   try {
     admin = require("firebase-admin");
   } catch (e) {
-    console.error("[check-email] firebase-admin not installed");
+    logger.error(
+      { err: e?.message },
+      "[check-email] firebase-admin not installed"
+    );
   }
 
-  // ensure admin app
   function getAdmin() {
-    if (!admin) throw new Error("firebase-admin not available");
+    if (!admin) {
+      throw new Error("firebase-admin not available");
+    }
     if (admin.apps && admin.apps.length) return admin;
-    // Init if not already initialized; use default credentials / env
-    admin.initializeApp();
+
+    admin.initializeApp(); // safe default init
     return admin;
   }
 
@@ -33,46 +37,62 @@ module.exports = (router, ctx) => {
     const email = String(raw || "")
       .trim()
       .toLowerCase();
+
     const m = email.match(/^([^@]+)@(gmail\.com|googlemail\.com)$/i);
     if (!m) return email;
+
     let local = m[1];
-    // strip +tag
-    local = local.replace(/\+.*/, "");
-    // remove dots
-    local = local.replace(/\./g, "");
+    local = local.replace(/\+.*/, ""); // remove +tag
+    local = local.replace(/\./g, ""); // remove dots
+
     return `${local}@gmail.com`;
   };
 
   router.post("/auth/check-email", async (req, res) => {
+    const log = withRequest(req).child({ route: "auth.check-email" });
+
     try {
       const raw = String(req.body?.email || "").trim();
-      if (!raw)
+      if (!raw) {
+        log.warn("Missing email in request");
         return res.status(400).json({ ok: false, error: "email required" });
+      }
 
       const email = raw.toLowerCase();
       const norm = normalizeGmail(email);
 
-      const adm = getAdmin();
-      const projectId =
-        (adm.app && adm.app().options && adm.app().options.projectId) ||
-        process.env.GCLOUD_PROJECT ||
-        "";
+      log.info(
+        { email, normalized: norm },
+        "Checking email existence in Firebase Auth"
+      );
 
-      const hit = async (addr) => {
+      const adm = getAdmin();
+
+      const projectId =
+        adm?.app?.().options?.projectId || process.env.GCLOUD_PROJECT || "";
+
+      async function hit(addr) {
         try {
           const user = await adm.auth().getUserByEmail(addr);
           return !!user?.uid;
         } catch (e) {
-          // auth/user-not-found is expected → not exists
-          if (e?.code === "auth/user-not-found") return false;
-          // any other error: surface as 502 to reveal misconfig
-          console.error(
-            "[check-email] getUserByEmail error:",
-            e?.code || e?.message || e
+          if (e?.code === "auth/user-not-found") {
+            return false;
+          }
+
+          log.error(
+            {
+              lookupEmail: addr,
+              errCode: e?.code,
+              errMsg: e?.message,
+            },
+            "Failed Firebase getUserByEmail call"
           );
+
+          // Something wrong with Firebase — treat as provider error
           throw e;
         }
-      };
+      }
 
       const exists = await hit(email);
       let existsNormalized = exists;
@@ -81,11 +101,36 @@ module.exports = (router, ctx) => {
         existsNormalized = await hit(norm);
       }
 
-      return res.json({ ok: true, exists, existsNormalized, projectId });
+      log.info(
+        {
+          email,
+          exists,
+          existsNormalized,
+          normalized: norm,
+          projectId,
+        },
+        "Email lookup complete"
+      );
+
+      return res.json({
+        ok: true,
+        exists,
+        existsNormalized,
+        projectId,
+      });
     } catch (e) {
-      return res
-        .status(502)
-        .json({ ok: false, error: e?.message || "provider_error" });
+      log.error(
+        {
+          err: e?.message,
+          stack: e?.stack,
+        },
+        "Unhandled error in check-email endpoint"
+      );
+
+      return res.status(502).json({
+        ok: false,
+        error: e?.message || "provider_error",
+      });
     }
   });
 };

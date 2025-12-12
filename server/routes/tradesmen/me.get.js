@@ -10,6 +10,7 @@
  */
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
+  const log = ctx.log || console;
   const TAG = "[tradesmen/me.get]";
 
   if (!mysqlQuery) {
@@ -18,6 +19,7 @@ module.exports = (router, ctx) => {
 
   router.get("/tradesmen/me", auth, async (req, res) => {
     const uid = req.user.uid;
+    log.info(`${TAG} request`, { uid });
 
     try {
       const rows = await mysqlQuery(
@@ -59,17 +61,25 @@ module.exports = (router, ctx) => {
       const profile = rows[0] || null;
 
       if (!profile) {
-        // No tradesman row -> regular user
+        log.info(`${TAG} no tradesman row found`, { uid });
         res.set("Cache-Control", "no-store");
         return res.json({ role: "user", profile: null });
       }
 
-      // Any tradesmen row (draft/active/inactive) => role "tradesman"
+      log.info(`${TAG} tradesman found`, {
+        uid,
+        company: profile.company_name,
+        status: profile.status,
+        vmb_score: profile.vmb_score,
+        badge: profile.vmb_badge,
+      });
+
       res.set("Cache-Control", "no-store");
       return res.json({ role: "tradesman", profile });
     } catch (e) {
-      console.error(`${TAG} error:`, e);
-      // On error, fail safe but keep shape
+      log.error(`${TAG} error`, { uid, error: e?.message || e });
+
+      // Fail safe but with correct shape
       res.set("Cache-Control", "no-store");
       return res.json({ role: "user", profile: null });
     }
@@ -77,6 +87,6 @@ module.exports = (router, ctx) => {
 
   if (!ctx.__logged_tradesmen_me_get) {
     ctx.__logged_tradesmen_me_get = true;
-    console.log("[routes] mounted: GET /tradesmen/me");
+    log.info("[routes] mounted: GET /tradesmen/me");
   }
 };

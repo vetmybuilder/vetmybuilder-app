@@ -1,19 +1,22 @@
 //
 // POST /api/admin/subscriptions
 //
-// Admin approves / activates:
+// Admin activates one-off or subscription plans:
+//
 //   - Gold (subscription)
 //   - Spotlight (one-off timed)
 //   - Unlock Contact (one-off per project)
 //   - Free → no-op
 //
 // Responsible for:
-//   1. Reading the pending payment session
+//   1. Reading pending payment session
 //   2. Validating plan type
-//   3. Updating the tradesman record
-//   4. Writing entitlement rows (spotlight/unlocks)
+//   3. Updating tradesman record
+//   4. Writing entitlement rows
 //   5. Marking payment as “active”
 //
+
+const { logger, withRequest } = require("../../lib/logger");
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
@@ -23,18 +26,24 @@ module.exports = (router, ctx) => {
   const PATH = "/admin/subscriptions";
 
   // ------------ Admin Gate ------------
-  async function isAdmin(req) {
+  async function isAdmin(req, log) {
     const uid = req.user?.uid;
-    if (!uid) return false;
+    if (!uid) {
+      log.warn("Admin check failed: no uid");
+      return false;
+    }
 
     try {
       const rows = await mysqlQuery(
         `SELECT role FROM user_roles WHERE uid = ? LIMIT 1`,
         [uid]
       );
-      if (!rows.length) return false;
-      return rows[0].role === "admin";
+      const ok = rows.length && rows[0].role === "admin";
+
+      if (!ok) log.warn({ uid }, "Admin check failed");
+      return ok;
     } catch (e) {
+      log.error({ err: e?.message }, "Admin lookup error");
       return false;
     }
   }
@@ -48,9 +57,17 @@ module.exports = (router, ctx) => {
     return new Date().toISOString().slice(0, 19).replace("T", " ");
   }
 
+  // ------------ Main Route ------------
   router.post(PATH, auth, async (req, res) => {
+    const log = withRequest(req).child({
+      route: "admin/subscriptions.post",
+      bodyUserId: req.body?.userId,
+      bodySessionId: req.body?.sessionId,
+    });
+
     try {
-      if (!(await isAdmin(req))) {
+      if (!(await isAdmin(req, log))) {
+        log.warn("Forbidden: not admin");
         return res.status(403).json({
           error: "forbidden",
           details: "Admin role required",
@@ -59,10 +76,11 @@ module.exports = (router, ctx) => {
 
       const { userId, sessionId } = req.body;
       if (!userId || !sessionId) {
+        log.warn("Missing parameters");
         return res.status(400).json({ error: "missing_parameters" });
       }
 
-      // 1) Load payment session
+      // ---- Load payment session ----
       const [session] = await mysqlQuery(
         `
         SELECT *
@@ -75,6 +93,7 @@ module.exports = (router, ctx) => {
       );
 
       if (!session) {
+        log.warn({ userId, sessionId }, "Payment session not found");
         return res.status(404).json({ error: "session_not_found" });
       }
 
@@ -82,32 +101,34 @@ module.exports = (router, ctx) => {
       const plan = getPlan(planId);
 
       if (!plan) {
+        log.warn({ planId }, "Invalid plan");
         return res.status(400).json({ error: "invalid_plan" });
       }
 
-      const planType = plan.type; // "one_off" | "subscription"
+      const planType = plan.type; // one_off | subscription
       const isUnlock = plan.id === "unlock_contact";
       const isSpotlight = plan.id === "spotlight";
       const isGold = plan.id === "gold";
-
-      // Validate required metadata
       const projectId = session.entity_id || null;
 
-      // 2) Approve the payment session
+      // ---- Mark payment session active ----
       await mysqlQuery(
         `
         UPDATE payments_oneoff
         SET status = 'active', activated_at = ?
         WHERE id = ?
-        `,
+      `,
         [now(), session.id]
       );
 
-      // 3) Process entitlement based on plan type
+      log.info({ userId, sessionId, planId }, "Payment session activated");
+
       // ---------------------------------------------------------
-      // GOLD (subscription)
+      // GOLD — subscription plan
       // ---------------------------------------------------------
       if (isGold) {
+        log.info({ userId, planId }, "Activating Gold subscription");
+
         await mysqlQuery(
           `
           UPDATE tradesmen
@@ -116,7 +137,7 @@ module.exports = (router, ctx) => {
               subscription_started_at = ?,
               updated_at = ?
           WHERE user_id = ?
-          `,
+        `,
           [now(), now(), userId]
         );
 
@@ -129,7 +150,7 @@ module.exports = (router, ctx) => {
       }
 
       // ---------------------------------------------------------
-      // SPOTLIGHT (one-off), duration in days, timed expiry
+      // SPOTLIGHT — one-off, timed expiry
       // ---------------------------------------------------------
       if (isSpotlight) {
         const duration = Number(plan.durationDays || 30);
@@ -139,12 +160,17 @@ module.exports = (router, ctx) => {
           .slice(0, 19)
           .replace("T", " ");
 
+        log.info(
+          { userId, duration, expires_at: expiry },
+          "Activating Spotlight"
+        );
+
         await mysqlQuery(
           `
           INSERT INTO tradesmen_spotlights
           (user_id, started_at, expires_at, session_id)
           VALUES (?, ?, ?, ?)
-          `,
+        `,
           [userId, start, expiry, sessionId]
         );
 
@@ -157,22 +183,24 @@ module.exports = (router, ctx) => {
       }
 
       // ---------------------------------------------------------
-      // UNLOCK CONTACT (per project)
+      // UNLOCK CONTACT — one-off per project
       // ---------------------------------------------------------
       if (isUnlock) {
         if (!projectId) {
+          log.warn("Missing projectId for unlock");
           return res.status(400).json({
             error: "missing_project_id_for_unlock_contact",
           });
         }
 
-        // Insert entitlement
+        log.info({ userId, projectId }, "Unlocking contact for project");
+
         await mysqlQuery(
           `
           INSERT INTO project_contact_unlocks
           (user_id, project_id, session_id, unlocked_at)
           VALUES (?, ?, ?, ?)
-          `,
+        `,
           [userId, projectId, sessionId, now()]
         );
 
@@ -185,21 +213,29 @@ module.exports = (router, ctx) => {
       }
 
       // ---------------------------------------------------------
-      // FREE → NO-OP
+      // FREE — no entitlement required
       // ---------------------------------------------------------
       if (plan.id === "free") {
+        log.info({ userId }, "Free plan — no admin action");
         return res.json({
           ok: true,
           note: "Free plan requires no admin action",
         });
       }
 
+      // Fallback catch-all
+      log.info({ userId, planId }, "Generic plan activation");
       return res.json({
         ok: true,
         message: `Plan '${planId}' activated`,
       });
     } catch (e) {
-      console.error("[admin/subscriptions.post] error", e);
+      const log = withRequest(req);
+      log.error(
+        { err: e?.message, stack: e?.stack },
+        "Subscription activation failed"
+      );
+
       return res.status(500).json({
         error: "server_error",
         detail: e?.message,
@@ -207,8 +243,13 @@ module.exports = (router, ctx) => {
     }
   });
 
+  // ---- MOUNT LOG ----
   if (!ctx.__logged_admin_subscriptions_post) {
     ctx.__logged_admin_subscriptions_post = true;
-    console.log(`[routes] mounted: POST ${API_BASE}${PATH}`);
+
+    logger.info(
+      { route: `${API_BASE}${PATH}` },
+      "Mounted: POST admin/subscriptions"
+    );
   }
 };

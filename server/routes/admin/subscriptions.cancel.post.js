@@ -2,24 +2,21 @@
 //
 // ADMIN — Cancel GOLD subscription (period-end or immediate)
 //
-// Keep both routes:
+// Routes:
 //   POST /admin/subscriptions/:userId/cancel
 //   POST /admin/tradesmen/:userId/subscription/cancel
 //
-// Only GOLD exists. No platinum.
-//
+
+const { logger, withRequest } = require("../../lib/logger");
 
 module.exports = (router, ctx) => {
   const { db, auth, mysqlQuery } = ctx;
   if (!db && !mysqlQuery)
     throw new Error("db or mysqlQuery not attached to ctx");
 
-  const log = ctx.log || console;
-
   const hasMysql = typeof mysqlQuery === "function";
   const isBetter = !!db?.prepare;
 
-  // ---------- tiny dialect helpers ----------
   const queryAll = async (sql, params = []) => {
     if (hasMysql) return mysqlQuery(sql, params);
     if (isBetter) return db.prepare(sql).all(...[].concat(params));
@@ -49,18 +46,26 @@ module.exports = (router, ctx) => {
     if (!hasMysql && db?.exec) db.exec("ROLLBACK");
   };
 
-  // ---------- Admin Guard ----------
   const requireAdmin =
     ctx.requireAdmin ||
     (async (req, res, next) => {
-      if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+      const log = withRequest(req).child({
+        route: "admin.subscriptions.cancel",
+      });
+
+      if (!req.user) {
+        log.warn("Unauthorized: missing user");
+        return res.status(401).json({ error: "Unauthorized" });
+      }
 
       let roleRow = null;
       try {
         roleRow = await queryOne(`SELECT role FROM user_roles WHERE uid = ?`, [
           req.user.uid,
         ]);
-      } catch (_) {}
+      } catch (e) {
+        log.warn({ err: e?.message }, "Failed role lookup");
+      }
 
       const role = String(roleRow?.role || "user").toLowerCase();
 
@@ -75,12 +80,15 @@ module.exports = (router, ctx) => {
 
       const isAdmin = role === "admin" || (email && allowlist.includes(email));
 
-      if (!isAdmin) return res.status(403).json({ error: "Forbidden" });
+      if (!isAdmin) {
+        log.warn({ uid: req.user.uid, email }, "Forbidden: not admin");
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
       next();
     });
 
-  // ---------- Ensure audit table ----------
-  async function ensureSchema() {
+  async function ensureSchema(reqLog) {
     try {
       if (hasMysql) {
         await run(`
@@ -116,11 +124,10 @@ module.exports = (router, ctx) => {
         `);
       }
     } catch (e) {
-      console.warn("[admin.subscriptions.cancel] ensureSchema:", e);
+      reqLog.error({ err: e?.message }, "Failed ensureSchema");
     }
   }
 
-  // ---------- Snapshot ----------
   async function getSnapshot(userId) {
     return (
       (await queryOne(
@@ -144,12 +151,11 @@ module.exports = (router, ctx) => {
     );
   }
 
-  // ---------- Find latest GOLD subscription ----------
   async function getLatestGoldSub(userId, statuses) {
     if (!statuses.length) return null;
     const placeholders = statuses.map(() => "?").join(",");
 
-    return await queryOne(
+    return queryOne(
       `
       SELECT *
         FROM payments_subscription
@@ -163,7 +169,6 @@ module.exports = (router, ctx) => {
     );
   }
 
-  // ---------- Audit log ----------
   async function audit(evt) {
     await run(
       `
@@ -184,49 +189,64 @@ module.exports = (router, ctx) => {
         evt.purchased_plan,
         evt.actor,
         evt.reason || null,
-        new Date().toISOString(),
+        mysqlNow(),
       ]
     );
   }
 
-  function isoNow() {
-    return new Date().toISOString();
+  function mysqlNow() {
+    const d = new Date();
+    return d.toISOString().slice(0, 19).replace("T", " ");
   }
 
   function add1Month(iso) {
     const d = new Date(iso || Date.now());
     d.setMonth(d.getMonth() + 1);
-    return d.toISOString();
+    return d.toISOString().slice(0, 19).replace("T", " ");
   }
 
-  // ---------- Main handler ----------
   async function handleAdminCancel(req, res) {
-    await ensureSchema();
+    const log = withRequest(req).child({
+      route: "admin.subscriptions.cancel",
+      userId: req.params.userId,
+    });
+
+    await ensureSchema(log);
 
     const userId = String(req.params.userId || "");
-    if (!userId) return res.status(400).json({ error: "userId required" });
+    if (!userId) {
+      log.warn("Missing userId");
+      return res.status(400).json({ error: "userId required" });
+    }
 
     const immediate = !!req.body?.immediate;
     const reason = req.body?.reason || null;
     const actor = req.user?.email || req.user?.uid;
 
     const before = await getSnapshot(userId);
-    if (!before) return res.status(404).json({ error: "User not found" });
+    if (!before) {
+      log.warn("User not found");
+      return res.status(404).json({ error: "User not found" });
+    }
 
-    // IMPORTANT:
-    // Cancel any GOLD subscription in status:
-    //   succeeded, active, trialing, canceled_pending
-    const cancellable = ["succeeded", "active", "trialing", "canceled_pending"];
-
+    const cancellable = [
+      "succeeded",
+      "active",
+      "trialing",
+      "canceled_pending",
+      "canceled",
+    ];
     const sub = await getLatestGoldSub(userId, cancellable);
+
     if (!sub) {
+      log.info("No cancellable gold subscription");
       return res.status(404).json({
         error: "no_subscription",
         hint: "No GOLD subscription found in cancellable state",
       });
     }
 
-    const now = isoNow();
+    const now = mysqlNow();
 
     try {
       beginTx();
@@ -234,7 +254,6 @@ module.exports = (router, ctx) => {
       let payload = null;
 
       if (immediate) {
-        // Immediate: end benefits now
         await run(
           `UPDATE payments_subscription SET status = 'canceled' WHERE id = ?`,
           [sub.id]
@@ -275,8 +294,9 @@ module.exports = (router, ctx) => {
           subscription_id: sub.id,
           canceled_at: now,
         };
+
+        log.info({ payload }, "Immediate cancel processed");
       } else {
-        // Period end: mark canceled_pending, keep benefits until next renewal
         const cancelAtISO =
           before.plan_update_at ||
           before.plan_updated_at ||
@@ -319,21 +339,25 @@ module.exports = (router, ctx) => {
           cancel_at: cancelAtISO,
           subscription_id: sub.id,
         };
+
+        log.info({ payload }, "Period-end cancel processed");
       }
 
       commitTx();
 
-      // Best-effort SSE
       try {
         ctx.sseSend?.(userId, {
           type: "plan.updated",
           ...payload,
         });
-      } catch (_) {}
+      } catch (_) {
+        log.warn("SSE send failed (non-fatal)");
+      }
 
       return res.json(payload);
     } catch (e) {
       rollbackTx();
+      log.error({ err: e?.message, stack: e?.stack }, "Cancel failed");
       return res.status(500).json({
         error: "internal_error",
         details: e?.message || String(e),
@@ -341,13 +365,13 @@ module.exports = (router, ctx) => {
     }
   }
 
-  // ---------- ROUTES (KEEP BOTH) ----------
   router.post(
     "/admin/subscriptions/:userId/cancel",
     auth,
     requireAdmin,
     handleAdminCancel
   );
+
   router.post(
     "/admin/tradesmen/:userId/subscription/cancel",
     auth,
@@ -358,8 +382,15 @@ module.exports = (router, ctx) => {
   if (!ctx.__logged_admin_subscription_cancel) {
     ctx.__logged_admin_subscription_cancel = true;
     const base = ctx.API_PREFIX || "/api";
-    console.log(
-      `[routes] mounted: POST ${base}/admin/subscriptions/:userId/cancel (and alias /admin/tradesmen/:userId/subscription/cancel)`
+
+    logger.info(
+      {
+        routes: [
+          `${base}/admin/subscriptions/:userId/cancel`,
+          `${base}/admin/tradesmen/:userId/subscription/cancel`,
+        ],
+      },
+      "Mounted admin subscription cancellation routes"
     );
   }
 };

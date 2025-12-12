@@ -6,6 +6,7 @@ import PlansModal from "@/components/plans/PlansModal";
 import AccordionRow from "@/components/AccordionRow";
 import ProjectDetailsSummaryCard from "@/components/project/ProjectDetailsSummaryCard";
 import type { PlanId } from "@/shared/lib/plans";
+import { useRouter } from "next/router";
 
 /** Shape from tradesman/projects list */
 export type ListProject = {
@@ -51,7 +52,13 @@ type ContactStatus =
   | "not_unlocked"
   | "pending_admin_review"
   | "loaded"
-  | "error";
+  | "error"
+  // extended for verification + payment flow
+  | "verification_required"
+  | "verification_pending"
+  | "verification_rejected"
+  | "payment_required"
+  | "unlock_rejected";
 
 type Props = {
   project: ListProject;
@@ -65,6 +72,7 @@ export default function TradesmanProjectAccordionRow({
   onToggle,
 }: Props) {
   const api = useApi();
+  const router = useRouter();
 
   // ----- project details -----
   const [fullProject, setFullProject] = React.useState<FullProject | null>(
@@ -210,32 +218,72 @@ export default function TradesmanProjectAccordionRow({
         if (cancelled) return;
 
         const ok = Boolean(data?.ok);
-        const code = String(
-          data?.error ||
-            data?.entitlement?.oneOffStatus ||
-            data?.entitlement?.subscriptionStatus ||
-            ""
-        ).toLowerCase();
+        const unlocked = Boolean(data?.unlocked);
+        const email = data?.email || data?.owner?.email || null;
 
-        if (ok && data?.email) {
+        if (ok && unlocked && email) {
           // Fully unlocked – we have contact details
           setOwnerContact({
-            firstName: data.firstName ?? null,
-            lastName: data.lastName ?? null,
-            email: data.email ?? null,
+            firstName: data.firstName ?? data?.owner?.firstName ?? null,
+            lastName: data.lastName ?? data?.owner?.lastName ?? null,
+            email: email,
           });
           setContactStatus("loaded");
         } else {
           // Locked / pending states
           setOwnerContact(null);
 
-          if (code === "pending_admin_review" || code === "pending") {
-            setContactStatus("pending_admin_review");
-          } else if (code === "not_unlocked") {
-            setContactStatus("not_unlocked");
-          } else {
-            setContactStatus("error");
+          const state = String(data?.state || "").toLowerCase();
+          const error = String(data?.error || "").toLowerCase();
+
+          let nextStatus: ContactStatus = "not_unlocked";
+
+          switch (state) {
+            case "verification_required":
+              nextStatus = "verification_required";
+              break;
+            case "verification_pending":
+              nextStatus = "verification_pending";
+              break;
+            case "verification_rejected":
+              nextStatus = "verification_rejected";
+              break;
+            case "pending_admin_review":
+              nextStatus = "pending_admin_review";
+              break;
+            case "payment_required":
+              nextStatus = "payment_required";
+              break;
+            case "unlock_rejected":
+              nextStatus = "unlock_rejected";
+              break;
+            case "no_entitlement":
+            case "project_not_live":
+            case "owner_cannot_request_own_contact":
+              nextStatus = "not_unlocked";
+              break;
+            default: {
+              if (
+                error === "verification_required" ||
+                error === "verification_pending" ||
+                error === "verification_rejected"
+              ) {
+                nextStatus = error as ContactStatus;
+              } else if (error === "payment_required") {
+                nextStatus = "payment_required";
+              } else if (error === "pending_admin_review") {
+                nextStatus = "pending_admin_review";
+              } else if (error === "unlock_rejected") {
+                nextStatus = "unlock_rejected";
+              } else if (error === "not_unlocked" || !error) {
+                nextStatus = "not_unlocked";
+              } else {
+                nextStatus = "error";
+              }
+            }
           }
+
+          setContactStatus(nextStatus);
         }
       } catch (e: any) {
         if (cancelled) return;
@@ -320,6 +368,22 @@ export default function TradesmanProjectAccordionRow({
     status,
     createdAt: effectiveProject.createdAt,
     description: descriptionRaw,
+  };
+
+  // ----- Upgrade / CTA handler -----
+  const handleUpgradeClick = () => {
+    // If verification is not approved yet, send them to manage profile
+    if (
+      contactStatus === "verification_required" ||
+      contactStatus === "verification_rejected" ||
+      contactStatus === "verification_pending"
+    ) {
+      router.push("/tradesman/register");
+      return;
+    }
+
+    // Otherwise, they're verified and we can show plans/payment
+    setPlansOpen(true);
   };
 
   return (
@@ -412,7 +476,7 @@ export default function TradesmanProjectAccordionRow({
           locked={contactStatus !== "loaded"}
           loading={contactLoading}
           contact={ownerContact || undefined}
-          onUpgrade={() => setPlansOpen(true)}
+          onUpgrade={handleUpgradeClick}
           title="Homeowner contact"
           status={contactStatus}
         />

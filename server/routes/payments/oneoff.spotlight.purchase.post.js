@@ -1,3 +1,4 @@
+// server/routes/payments/oneoff/spotlight/purchase.post.js
 /**
  * POST /api/payments/oneoff/spotlight/purchase
  * Creates/updates a payments_oneoff row with status "pending_admin".
@@ -6,6 +7,7 @@
 
 module.exports = (router, ctx) => {
   const { auth, requireTradesman, mysqlQuery } = ctx;
+  const { logger, withRequest } = require("../../lib/logger");
 
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
@@ -14,6 +16,10 @@ module.exports = (router, ctx) => {
     auth,
     requireTradesman,
     async (req, res) => {
+      const log = withRequest(req, logger).child({
+        route: "/payments/oneoff/spotlight/purchase",
+      });
+
       try {
         const authedUid =
           req.user?.uid || req.user?.user_id || req.user?.id || null;
@@ -26,8 +32,9 @@ module.exports = (router, ctx) => {
           provider_payment_intent,
         } = req.body || {};
 
-        const userId = String(bodyUserId || authedUid || "");
+        const userId = String(bodyUserId || authedUid || "").trim();
         if (!userId) {
+          log.warn("Missing userId");
           return res.status(400).json({
             ok: false,
             error: "MISSING_USER",
@@ -37,28 +44,35 @@ module.exports = (router, ctx) => {
 
         const totalAmount = Number(amount);
         const totalCurrency = String(currency || "GBP").toUpperCase();
-        const sessionId = String(provider_session_id || "");
+        const sessionId = String(provider_session_id || "").trim();
         const paymentIntent = provider_payment_intent || null;
 
+        log.info(
+          { userId, sessionId, amount: totalAmount, currency: totalCurrency },
+          "Spotlight purchase initiated"
+        );
+
         // -------------------------------------------------------
-        // 1) Mark tradesman as pending Spotlight (draft state)
+        // 1) Mark tradesman as pending Spotlight
         // -------------------------------------------------------
         await mysqlQuery(
           `
           UPDATE tradesmen
-          SET purchased_plan  = 'spotlight',
+          SET purchased_plan      = 'spotlight',
               subscription_status = 'draft',
-              plan_updated_at = NOW()
+              plan_updated_at     = NOW()
           WHERE user_id = ?
           `,
           [userId]
         );
 
-        let paymentId = null;
+        log.info({ userId }, "Tradesman marked spotlight-pending");
 
         // -------------------------------------------------------
         // 2) UPSERT payments_oneoff
         // -------------------------------------------------------
+        let paymentId = null;
+
         if (sessionId) {
           const existing = await mysqlQuery(
             `SELECT id FROM payments_oneoff WHERE provider_session_id = ? LIMIT 1`,
@@ -66,7 +80,7 @@ module.exports = (router, ctx) => {
           );
 
           if (existing.length > 0) {
-            const id = existing[0].id;
+            paymentId = existing[0].id;
 
             await mysqlQuery(
               `
@@ -84,21 +98,24 @@ module.exports = (router, ctx) => {
                 Number.isFinite(totalAmount) ? totalAmount : null,
                 totalCurrency,
                 paymentIntent,
-                id,
+                paymentId,
               ]
             );
 
-            paymentId = id;
+            log.info(
+              { paymentId, sessionId },
+              "Updated existing payments_oneoff row (pending_admin)"
+            );
           }
         }
 
+        // Insert if not updated above
         if (paymentId == null) {
           const result = await mysqlQuery(
             `
             INSERT INTO payments_oneoff
               (user_id, type, entity_id, amount, currency, status,
-               provider_session_id, provider_payment_intent,
-               created_at)
+               provider_session_id, provider_payment_intent, created_at)
             VALUES
               (?, 'spotlight', NULL, ?, ?, 'pending_admin',
                ?, ?, NOW())
@@ -111,8 +128,19 @@ module.exports = (router, ctx) => {
               paymentIntent,
             ]
           );
+
           paymentId = result.insertId;
+
+          log.info(
+            { paymentId, sessionId },
+            "Created new payments_oneoff row (pending_admin)"
+          );
         }
+
+        log.info(
+          { paymentId, userId },
+          "Spotlight purchase recorded successfully"
+        );
 
         return res.json({
           ok: true,
@@ -120,7 +148,10 @@ module.exports = (router, ctx) => {
           subscription: { planId: "spotlight", status: "pending_admin" },
         });
       } catch (e) {
-        console.error("[spotlight.purchase] error", e);
+        log.error(
+          { error: e?.message, stack: e?.stack },
+          "Spotlight purchase failure"
+        );
         return res.status(500).json({
           ok: false,
           error: "ONEOFF_SPOTLIGHT_FAILED",

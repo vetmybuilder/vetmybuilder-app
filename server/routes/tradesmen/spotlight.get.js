@@ -1,44 +1,46 @@
 // server/routes/tradesmen/spotlight.get.js
-
 /**
  * GET /api/tradesmen/spotlight
  * Auth: required
  *
  * Query:
  *   projectId=123
- *   limit?=999  (server caps to 200)
+ *   limit?=999  (server caps 200)
  *
- * Selection rules (fixed):
- *   - payments_oneoff: type='spotlight' AND status='active' AND expires_at > NOW()
- *   - join to tradesmen by user_id (exclude banned)
- *   - Project budget upper >= £15,000 (derived safely; parses description if needed)
- *
- * Rotation:
- *   - tradesmen_spotlight_views: views ASC, last_viewed_at ASC, then random tiebreak
+ * Rules:
+ *   - One-off payment type='spotlight', status='active', expires_at > NOW()
+ *   - Tradesman must not be banned
+ *   - Project’s upper budget must be >= £15,000
+ *   - Fair rotation using tradesmen_spotlight_views
  */
+
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
+  const log = ctx.log || console;
+  const TAG = "[tradesmen/spotlight.get]";
+  const ROUTE = "/tradesmen/spotlight";
+
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
-  const TAG = "[tradesmen/spotlight.get]";
+  /* -------------------------------------------------------------------------- */
+  /*                               HELPERS                                      */
+  /* -------------------------------------------------------------------------- */
 
   async function tableExists(name) {
     try {
-      const pattern = String(name)
-        .replace(/\\/g, "\\\\")
-        .replace(/_/g, "\\_")
-        .replace(/%/g, "\\%")
-        .replace(/'/g, "\\'");
-      const sql = `SHOW TABLES LIKE '${pattern}'`;
-      const rows = await mysqlQuery(sql);
+      const safe = name.replace(/[`]/g, "");
+      const rows = await mysqlQuery(`SHOW TABLES LIKE '${safe}'`);
       return rows.length > 0;
     } catch (e) {
-      console.warn(`${TAG} tableExists(${name}) failed:`, e?.message || e);
+      log.warn(`${TAG} tableExists(${name}) failed`, {
+        error: e?.message || e,
+      });
       return false;
     }
   }
 
-  // ---- Budget helpers (same logic as before) ----
+  /* ----- Budget helpers ----------------------------------------------------- */
+
   const NUM_KEYS_UPPER = [
     "budget_max",
     "maxBudget",
@@ -55,6 +57,7 @@ module.exports = (router, ctx) => {
     "expectedCost",
     "expected_cost",
   ];
+
   const NUM_KEYS_LOWER = [
     "budget_min",
     "minBudget",
@@ -67,31 +70,23 @@ module.exports = (router, ctx) => {
     "budget",
   ];
 
-  const parseMoneyUpperFromText = (text) => {
-    if (!text || typeof text !== "string") return 0;
+  const parseMoneyUpperFromText = (txt = "") => {
+    txt = String(txt)
+      .replace(/–|—/g, "-")
+      .replace(/\bto\b/gi, "-");
 
-    let scope = text;
-    const idx = text.toLowerCase().indexOf("budget");
-    if (idx !== -1) {
-      const start = Math.max(0, idx - 30);
-      const end = Math.min(text.length, idx + 120);
-      scope = text.slice(start, end);
-    }
-
-    scope = scope.replace(/–|—/g, "-").replace(/\bto\b/gi, "-");
-
-    const re =
-      /£?\s*([0-9]{1,3}(?:,[0-9]{3})*|\d+(?:\.\d+)?)\s*(k|m)?\s*(\+)?/gi;
+    const regex = /£?\s*([0-9]{1,3}(?:,[0-9]{3})*|\d+(?:\.\d+)?)(k|m)?/gi;
+    const values = [];
     let m;
-    const vals = [];
-    while ((m = re.exec(scope)) !== null) {
+
+    while ((m = regex.exec(txt))) {
       let v = parseFloat(m[1].replace(/,/g, ""));
-      const unit = (m[2] || "").toLowerCase();
-      if (unit === "k") v *= 1000;
-      if (unit === "m") v *= 1000000;
-      if (Number.isFinite(v)) vals.push(v);
+      if ((m[2] || "").toLowerCase() === "k") v *= 1000;
+      if ((m[2] || "").toLowerCase() === "m") v *= 1_000_000;
+      if (Number.isFinite(v)) values.push(v);
     }
-    return vals.length ? Math.max(...vals) : 0;
+
+    return values.length ? Math.max(...values) : 0;
   };
 
   async function getProjectUpperBudget(projectId) {
@@ -104,50 +99,38 @@ module.exports = (router, ctx) => {
     const row = rows[0];
     if (!row) return 0;
 
-    const pickNum = (keys) => {
+    const pick = (keys) => {
       for (const k of keys) {
-        if (Object.prototype.hasOwnProperty.call(row, k)) {
-          const v = Number(row[k]);
-          if (Number.isFinite(v) && v > 0) return v;
-        }
+        if (row[k] != null && Number(row[k]) > 0) return Number(row[k]);
       }
       return null;
     };
 
-    const explicitUpper = pickNum(NUM_KEYS_UPPER);
-    const explicitLower = pickNum(NUM_KEYS_LOWER);
-    const upper =
-      explicitUpper != null
-        ? explicitUpper
-        : explicitLower != null
-        ? explicitLower
-        : 0;
-    if (upper > 0) return upper;
+    const upper = pick(NUM_KEYS_UPPER);
+    if (upper != null) return upper;
 
-    const text =
-      row.description ||
-      row.details ||
-      row.desc ||
-      row.summary ||
-      row.notes ||
-      "";
-    return parseMoneyUpperFromText(String(text));
+    const lower = pick(NUM_KEYS_LOWER);
+    if (lower != null) return lower;
+
+    return parseMoneyUpperFromText(
+      row.description || row.details || row.summary || row.notes || ""
+    );
   }
 
-  // ---- Image helpers ----
-  const makeAbsolute = (p) => {
-    if (!p) return null;
-    const s = String(p);
-    if (/^https?:\/\//i.test(s)) return s;
+  /* ----- Photo URL helper -------------------------------------------------- */
+
+  const makeAbsolute = (url) => {
+    if (!url) return null;
+    if (/^https?:\/\//i.test(url)) return url;
+
     const base =
       process.env.MEDIA_BASE_URL ||
       process.env.PUBLIC_BASE_URL ||
       process.env.NEXT_PUBLIC_API_BASE_URL ||
       "";
-    if (!base) return s.startsWith("/") ? s : `/${s}`;
-    const cleanBase = base.endsWith("/") ? base.slice(0, -1) : base;
-    const cleanPath = s.startsWith("/") ? s : `/${s}`;
-    return `${cleanBase}${cleanPath}`;
+
+    if (!base) return url.startsWith("/") ? url : `/${url}`;
+    return `${base.replace(/\/$/, "")}/${url.replace(/^\//, "")}`;
   };
 
   async function ensureViewsTable() {
@@ -157,80 +140,90 @@ module.exports = (router, ctx) => {
           tradesman_user_id VARCHAR(255) NOT NULL PRIMARY KEY,
           views INT NOT NULL DEFAULT 0,
           last_viewed_at DATETIME NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
       `);
     } catch (e) {
-      console.warn(`${TAG} ensureViewsTable failed:`, e?.message || e);
+      log.error(`${TAG} failed to ensure views table`, {
+        error: e?.message || e,
+      });
     }
   }
 
-  router.get("/tradesmen/spotlight", auth, async (req, res) => {
-    try {
-      const projectIdStr = String(req.query.projectId || "");
-      if (!projectIdStr) {
-        return res.status(400).json({
-          error: "SPOTLIGHT_TRADESMEN_FAILED",
-          message: "projectId is required",
-        });
-      }
-      const projectId = Number(projectIdStr);
+  /* -------------------------------------------------------------------------- */
+  /*                                 ROUTE                                      */
+  /* -------------------------------------------------------------------------- */
 
-      // If core tables are missing, just respond with an empty list
+  router.get(ROUTE, auth, async (req, res) => {
+    const projectId = Number(req.query.projectId || "");
+    const limitReq = parseInt(req.query.limit ?? "999", 10);
+    const limit = Math.min(200, Math.max(1, limitReq));
+
+    log.info(`${TAG} hit`, { projectId, limit });
+
+    if (!projectId) {
+      log.warn(`${TAG} missing projectId`);
+      return res.status(400).json({
+        error: "SPOTLIGHT_TRADESMEN_FAILED",
+        message: "projectId is required",
+      });
+    }
+
+    try {
       const hasTradesmen = await tableExists("tradesmen");
-      const hasOneOff = await tableExists("payments_oneoff");
-      if (!hasTradesmen || !hasOneOff) {
+      const hasOneoff = await tableExists("payments_oneoff");
+
+      if (!hasTradesmen || !hasOneoff) {
+        log.warn(`${TAG} required tables missing`, { hasTradesmen, hasOneoff });
         const projectUpper = await getProjectUpperBudget(projectId);
+
         return res.json({
           items: [],
           total: 0,
           page: 1,
           limit: 0,
-          projectBudgetUpper: projectUpper,
+          projectUpper,
           threshold: 15000,
         });
       }
 
-      const THRESHOLD = 15000;
       const projectUpper = await getProjectUpperBudget(projectId);
-      if (!(projectUpper >= THRESHOLD)) {
+      const THRESHOLD = 15000;
+
+      log.info(`${TAG} budget check`, { projectUpper, threshold: THRESHOLD });
+
+      if (projectUpper < THRESHOLD) {
         return res.json({
           items: [],
           total: 0,
           page: 1,
           limit: 0,
-          projectBudgetUpper: projectUpper,
+          projectUpper,
           threshold: THRESHOLD,
         });
       }
 
-      const limitReq = parseInt(String(req.query.limit ?? "999"), 10);
-      const limit = Math.min(
-        200,
-        Math.max(1, Number.isFinite(limitReq) ? limitReq : 999)
-      );
-
       const nowIso = new Date().toISOString();
 
-      // --- FIXED SELECTION (MySQL, via mysqlQuery) ---
       const rows = await mysqlQuery(
         `
         SELECT
-          t.user_id      AS userId,
+          t.user_id AS userId,
           t.company_name AS companyName,
           t.contact_name AS contactName,
-          t.status       AS tStatus,
-          o.expires_at   AS expiresAt
+          t.status AS tStatus,
+          o.expires_at AS expiresAt
         FROM payments_oneoff o
-        JOIN tradesmen t
-          ON t.user_id = o.user_id
-        WHERE LOWER(COALESCE(o.type, ''))   = 'spotlight'
-          AND LOWER(COALESCE(o.status, '')) = 'active'
+        JOIN tradesmen t ON t.user_id = o.user_id
+        WHERE LOWER(o.type) = 'spotlight'
+          AND LOWER(o.status) = 'active'
           AND (o.expires_at IS NULL OR o.expires_at > ?)
-          AND COALESCE(t.status, 'active')  != 'banned'
+          AND COALESCE(t.status, 'active') != 'banned'
         ORDER BY o.expires_at ASC
         `,
         [nowIso]
       );
+
+      log.info(`${TAG} spotlight count`, { count: rows.length });
 
       if (!rows.length) {
         return res.json({
@@ -238,50 +231,51 @@ module.exports = (router, ctx) => {
           total: 0,
           page: 1,
           limit,
-          projectBudgetUpper: projectUpper,
+          projectUpper,
           threshold: THRESHOLD,
         });
       }
 
-      // --- Photo table detection (MySQL) ---
-      const hasTradesmanPhotos = await tableExists("tradesman_photos");
-      const hasTradesmenPhotos = await tableExists("tradesmen_photos");
-      const PHOTO_TABLE = hasTradesmanPhotos
+      const hasTP1 = await tableExists("tradesman_photos");
+      const hasTP2 = await tableExists("tradesmen_photos");
+      const PHOTO_TABLE = hasTP1
         ? "tradesman_photos"
-        : hasTradesmenPhotos
+        : hasTP2
         ? "tradesmen_photos"
         : null;
 
-      async function loadPhotosFor(uid) {
+      log.info(`${TAG} photo table`, { PHOTO_TABLE });
+
+      async function loadPhotos(userId) {
         if (!PHOTO_TABLE) return [];
-        const photos = await mysqlQuery(
+        const rows = await mysqlQuery(
           `
-          SELECT url, sort_order, created_at
-            FROM ${PHOTO_TABLE}
-           WHERE tradesman_user_id = ?
-           ORDER BY COALESCE(sort_order, 999999) ASC, created_at ASC
+          SELECT url
+          FROM ${PHOTO_TABLE}
+          WHERE tradesman_user_id = ?
+          ORDER BY COALESCE(sort_order, 9999), created_at
           `,
-          [uid]
+          [userId]
         );
-        return photos.map((p) => makeAbsolute(p.url));
+        return rows.map((x) => makeAbsolute(x.url));
       }
 
-      // Fair rotation bookkeeping
       await ensureViewsTable();
+
       const viewRows = await mysqlQuery(
         `SELECT tradesman_user_id, views, last_viewed_at FROM tradesmen_spotlight_views`
       );
+
       const viewMap = new Map(
         viewRows.map((v) => [String(v.tradesman_user_id), v])
       );
 
       const sorted = rows
         .map((r) => {
-          const key = String(r.userId);
-          const v = viewMap.get(key);
+          const v = viewMap.get(String(r.userId));
           return {
             ...r,
-            __views: v ? Number(v.views || 0) : 0,
+            __views: Number(v?.views || 0),
             __last: v?.last_viewed_at || null,
           };
         })
@@ -296,12 +290,12 @@ module.exports = (router, ctx) => {
       const pick = sorted.slice(0, limit);
 
       const items = [];
+
       for (const r of pick) {
-        const builderId = String(r.userId);
-        const gallery = await loadPhotosFor(builderId);
+        const gallery = await loadPhotos(r.userId);
 
         items.push({
-          builderId,
+          builderId: String(r.userId),
           companyName: r.companyName || null,
           displayName: r.companyName || r.contactName || "Tradesman",
           tierActiveUntil: r.expiresAt || null,
@@ -309,17 +303,18 @@ module.exports = (router, ctx) => {
         });
       }
 
-      // increment views
-      for (const i of items) {
+      log.info(`${TAG} returning spotlight items`, {
+        count: items.length,
+      });
+
+      for (const item of items) {
         await mysqlQuery(
           `
           INSERT INTO tradesmen_spotlight_views (tradesman_user_id, views, last_viewed_at)
           VALUES (?, 1, NOW())
-          ON DUPLICATE KEY UPDATE
-            views = views + 1,
-            last_viewed_at = NOW()
-        `,
-          [i.builderId]
+          ON DUPLICATE KEY UPDATE views = views + 1, last_viewed_at = NOW()
+          `,
+          [item.builderId]
         );
       }
 
@@ -328,15 +323,20 @@ module.exports = (router, ctx) => {
         total: rows.length,
         page: 1,
         limit,
-        projectBudgetUpper: projectUpper,
+        projectUpper,
         threshold: THRESHOLD,
       });
-    } catch (err) {
-      console.error(`${TAG} error:`, err);
+    } catch (e) {
+      log.error(`${TAG} failed`, { error: e?.message || e });
       return res.status(500).json({
         error: "SPOTLIGHT_TRADESMEN_FAILED",
-        message: err?.message || String(err),
+        message: e?.message || String(e),
       });
     }
   });
+
+  if (!ctx.__logged_spotlight_get) {
+    ctx.__logged_spotlight_get = true;
+    log.info(`[routes] mounted: GET ${ROUTE}`);
+  }
 };

@@ -2,36 +2,42 @@
 /**
  * GET /api/tradesmen/top
  * Auth: required
- * Query: page, pageSize (defaults 1, 10), order=desc|asc (score)
+ * Query: page, pageSize, order=desc|asc
  * Returns: { items, total, page, pageSize }
- *
- * Scoring:
- *  1) were they recommended (count of distinct recommenders)          -> weight 1.0 each
- *  2) completed projects (count)                                      -> weight 2.0 each
- *  3) vote up on recommendations (sum of +1 votes)                    -> weight 0.5 each
- *  4) photos on completed projects (count of photos, min aggregated)  -> weight 0.3 each (extra boost if >=2)
- *  5) positive review (wouldUseAgain=1 count)                         -> weight 2.5 each
- *
- * Columns returned:
- *   builderId, tradesmanName, verified (0/1), recommenderName, photosCount, starRating (0..5), score
  */
+
 module.exports = (router, ctx) => {
   const { db, auth } = ctx;
+  const log = ctx.log || console;
+  const TAG = "[tradesmen/top.get]";
+  const ROUTE = "/tradesmen/top";
 
-  router.get("/tradesmen/top", auth, (req, res) => {
-    const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
-    const pageSize = Math.min(
-      50,
-      Math.max(1, parseInt(String(req.query.pageSize ?? "10"), 10))
-    );
-    const order =
-      String(req.query.order).toLowerCase() === "asc" ? "ASC" : "DESC";
-    const offset = (page - 1) * pageSize;
+  router.get(ROUTE, auth, (req, res) => {
+    try {
+      const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
+      const pageSize = Math.min(
+        50,
+        Math.max(1, parseInt(String(req.query.pageSize ?? "10"), 10))
+      );
+      const order =
+        String(req.query.order || "desc").toLowerCase() === "asc"
+          ? "ASC"
+          : "DESC";
+      const offset = (page - 1) * pageSize;
 
-    // Heavily defensive COALESCEs to tolerate schema column name variants
-    const rows = db
-      .prepare(
-        `
+      log.info(`${TAG} hit`, {
+        page,
+        pageSize,
+        order,
+        offset,
+      });
+
+      // Execute full ranking SQL (SQLite)
+      let rows;
+      try {
+        rows = db
+          .prepare(
+            `
 WITH rec AS (
   SELECT
     COALESCE(r.builderUserId, r.builderId, r.tradesmanId, r.tradesmanUserId, r.userId) AS builderId,
@@ -69,7 +75,8 @@ wins AS (
     p.ownerUserId AS ownerUserId
   FROM project_closures pc
   JOIN projects p ON p.id = pc.projectId
-  WHERE p.status='completed' AND pc.winnerRecommendationId IS NOT NULL
+  WHERE p.status='completed'
+    AND pc.winnerRecommendationId IS NOT NULL
 ),
 win_with_builder AS (
   SELECT
@@ -79,14 +86,14 @@ win_with_builder AS (
   JOIN recommendations rr ON rr.id = w.recId
 ),
 completed_by_builder AS (
-  SELECT
-    builderId,
-    COUNT(*) AS completedCount
+  SELECT builderId, COUNT(*) AS completedCount
   FROM win_with_builder
   GROUP BY builderId
 ),
 photos_by_project AS (
-  SELECT projectId, COUNT(*) AS c FROM project_closure_photos GROUP BY projectId
+  SELECT projectId, COUNT(*) AS c
+  FROM project_closure_photos
+  GROUP BY projectId
 ),
 photos_by_builder AS (
   SELECT
@@ -99,13 +106,13 @@ photos_by_builder AS (
 would_use_again_by_builder AS (
   SELECT
     w.builderId,
-    COALESCE(SUM(CASE WHEN pc.wouldUseAgain=1 THEN 1 ELSE 0 END),0) AS wouldUseAgainCount
+    COALESCE(SUM(CASE WHEN pc.wouldUseAgain=1 THEN 1 ELSE 0 END), 0)
+      AS wouldUseAgainCount
   FROM win_with_builder w
   JOIN project_closures pc ON pc.projectId = w.projectId
   GROUP BY w.builderId
 ),
 recommender_name AS (
-  -- choose the most frequent recommender for that builder
   SELECT
     r.builderId,
     r.recommenderUserId,
@@ -121,20 +128,26 @@ best_recommender AS (
       ROW_NUMBER() OVER (PARTITION BY builderId ORDER BY c DESC) AS rn_
     FROM recommender_name rn
   ) t
-  WHERE rn_=1
+  WHERE rn_ = 1
 ),
 builder_profile AS (
   SELECT
     u.uid AS builderId,
-    COALESCE(u.displayName, u.name, u.fullName, u.email, 'Tradesman') AS tradesmanName,
-    CASE WHEN u.verified=1 THEN 1 ELSE 0 END AS verified
+    COALESCE(u.displayName, u.name, u.fullName, u.email, 'Tradesman')
+      AS tradesmanName,
+    CASE WHEN u.verified = 1 THEN 1 ELSE 0 END AS verified
   FROM users u
 )
 SELECT
   bp.builderId,
   bp.tradesmanName,
   bp.verified,
-  COALESCE((SELECT COALESCE(u.displayName,u.name,u.fullName,u.email) FROM users u WHERE u.uid = br.recommenderUserId), NULL) AS recommenderName,
+  COALESCE(
+    (SELECT COALESCE(u.displayName,u.name,u.fullName,u.email)
+       FROM users u
+      WHERE u.uid = br.recommenderUserId),
+    NULL
+  ) AS recommenderName,
   COALESCE(pbb.photosCount, 0) AS photosCount,
   COALESCE(rbb.recommendedCount, 0) AS recommendedCount,
   COALESCE(vbb.voteUps, 0) AS voteUps,
@@ -147,45 +160,76 @@ LEFT JOIN completed_by_builder cbb ON cbb.builderId = bp.builderId
 LEFT JOIN photos_by_builder pbb ON pbb.builderId = bp.builderId
 LEFT JOIN would_use_again_by_builder wuab ON wuab.builderId = bp.builderId
 LEFT JOIN best_recommender br ON br.builderId = bp.builderId
-WHERE (COALESCE(cbb.completedCount,0) > 0) -- only those who completed at least one project
-`
-      )
-      .all();
+WHERE COALESCE(cbb.completedCount,0) > 0
+            `
+          )
+          .all();
+      } catch (e) {
+        log.error(`${TAG} SQL execution failed`, { error: e?.message || e });
+        return res.status(500).json({
+          error: "TOP_TRADESMEN_SQL_FAILED",
+          message: e?.message || String(e),
+        });
+      }
 
-    // scoring
-    const itemsScored = rows.map((r) => {
-      const recommended = Number(r.recommendedCount || 0);
-      const completed = Number(r.completedCount || 0);
-      const voteUps = Number(r.voteUps || 0);
-      const photos = Number(r.photosCount || 0);
-      const wouldUseAgain = Number(r.wouldUseAgainCount || 0);
+      log.info(`${TAG} SQL returned rows`, { count: rows.length });
 
-      const score =
-        1.0 * recommended +
-        2.0 * completed +
-        0.5 * voteUps +
-        0.3 * photos +
-        2.5 * wouldUseAgain +
-        (photos >= 2 ? 0.7 : 0); // small bonus for 2+ photos
+      /* ----- Compute scores ----- */
 
-      // normalize to 0..5 stars (simple min-max cap)
-      // Here we map score using a soft scale; feel free to adjust divisor.
-      const starRating = Math.max(0, Math.min(5, score / 3));
+      const itemsScored = rows.map((r) => {
+        const recommended = Number(r.recommendedCount || 0);
+        const completed = Number(r.completedCount || 0);
+        const voteUps = Number(r.voteUps || 0);
+        const photos = Number(r.photosCount || 0);
+        const wouldUseAgain = Number(r.wouldUseAgainCount || 0);
 
-      return { ...r, score, starRating: Number(starRating.toFixed(1)) };
-    });
+        const score =
+          1.0 * recommended +
+          2.0 * completed +
+          0.5 * voteUps +
+          0.3 * photos +
+          2.5 * wouldUseAgain +
+          (photos >= 2 ? 0.7 : 0);
 
-    const total = itemsScored.length;
-    const sorted = itemsScored.sort((a, b) =>
-      order === "ASC" ? a.score - b.score : b.score - a.score
-    );
-    const pageItems = sorted.slice(offset, offset + pageSize);
+        const starRating = Math.max(0, Math.min(5, score / 3));
 
-    return res.json({
-      items: pageItems,
-      total,
-      page,
-      pageSize,
-    });
+        return {
+          ...r,
+          score,
+          starRating: Number(starRating.toFixed(1)),
+        };
+      });
+
+      const sorted = itemsScored.sort((a, b) =>
+        order === "ASC" ? a.score - b.score : b.score - a.score
+      );
+
+      const pageItems = sorted.slice(offset, offset + pageSize);
+
+      log.info(`${TAG} responding`, {
+        total: itemsScored.length,
+        returned: pageItems.length,
+        page,
+        pageSize,
+      });
+
+      return res.json({
+        items: pageItems,
+        total: itemsScored.length,
+        page,
+        pageSize,
+      });
+    } catch (e) {
+      log.error(`${TAG} unexpected failure`, { error: e?.message || e });
+      return res.status(500).json({
+        error: "TOP_TRADESMEN_FAILED",
+        message: e?.message || String(e),
+      });
+    }
   });
+
+  if (!ctx.__logged_top_get) {
+    ctx.__logged_top_get = true;
+    log.info(`[routes] mounted: GET ${ROUTE}`);
+  }
 };

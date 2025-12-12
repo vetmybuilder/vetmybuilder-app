@@ -2,25 +2,29 @@
 //
 // GET /api/projects/:id/closure
 // Auth: required
-// Visibility:
+//
+// Visibility Rules:
 //  - Owner can always view
-//  - Non-owner can view if project is completed AND they are in the same area
-//    (same rules as close.photos.get.js)
+//  - Non-owner may view ONLY IF:
+//        • project.status === 'completed'
+//        • AND they are in the same area (same logic as close.photos.get.js)
+//
 // Response:
 //  {
 //    projectId,
-//    didGoAhead: 0|1,
-//    reasons: string[],
-//    otherReason: string|null,
-//    winnerRecommendationId: number|null,
-//    wouldUseAgain: 0|1|null,
-//    createdBy: string,
-//    createdAt: string,
+//    didGoAhead,
+//    reasons,
+//    otherReason,
+//    winnerRecommendationId,
+//    wouldUseAgain,
+//    createdBy,
+//    createdAt,
 //    winner?: { id, company, name } | null
 //  }
 
 module.exports = (router, ctx) => {
-  const { db, auth } = ctx;
+  const { auth, mysqlQuery } = ctx;
+  const { logger, withRequest } = require("../../lib/logger");
 
   function norm(s) {
     return String(s || "")
@@ -28,95 +32,151 @@ module.exports = (router, ctx) => {
       .replace(/\s+/g, "");
   }
 
-  router.get("/projects/:id/closure", auth, (req, res) => {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id)) {
-      return res.status(400).json({ error: "Invalid id" });
+  router.get("/projects/:id/closure", auth, async (req, res) => {
+    const projectId = Number(req.params.id);
+    const viewerUid = req.user?.uid;
+
+    const log = withRequest(req, logger).child({
+      route: "/projects/:id/closure",
+      projectId,
+      viewerUid,
+    });
+
+    // ------------------------------------------------------
+    // Validate ID
+    // ------------------------------------------------------
+    if (!Number.isFinite(projectId)) {
+      log.warn("Invalid project ID");
+      return res.status(400).json({ error: "invalid_project_id" });
     }
 
-    // Load project (for ownership + location)
-    const project = db
-      .prepare(
-        `SELECT id, ownerUserId, status, location
-           FROM projects
-          WHERE id = ?`
-      )
-      .get(id);
+    // ------------------------------------------------------
+    // Load project
+    // ------------------------------------------------------
+    let project;
+    try {
+      const rows = await mysqlQuery(
+        `
+        SELECT 
+          id,
+          ownerUserId,
+          status,
+          location
+        FROM projects
+        WHERE id = ?
+        `,
+        [projectId]
+      );
+      project = rows[0] || null;
+    } catch (err) {
+      log.error({ err }, "Failed to load project");
+      return res.status(500).json({ error: "internal_error" });
+    }
 
-    if (!project) return res.status(404).json({ error: "Not found" });
+    if (!project) {
+      log.info("Project not found");
+      return res.status(404).json({ error: "not_found" });
+    }
 
-    // --- Authorization (same logic as close.photos.get.js) ---
+    // ------------------------------------------------------
+    // Visibility rules
+    // ------------------------------------------------------
     let allow = false;
 
     // 1) Owner can always see
-    if (req.user.uid === project.ownerUserId) {
+    if (viewerUid === project.ownerUserId) {
       allow = true;
     } else {
-      // 2) Completed community visibility:
-      //    Any authenticated user in the same area may view closure info
-      //    when the project is completed.
+      // 2) Completed + same-area check
       if (project.status === "completed") {
-        const me =
-          db.prepare(`SELECT * FROM users WHERE uid = ?`).get(req.user.uid) ||
-          null;
+        try {
+          const meRows = await mysqlQuery(
+            `
+            SELECT locationRaw,
+                   postcodeOutward,
+                   postcodeSector,
+                   postcode,
+                   city
+            FROM users
+            WHERE uid = ?
+            `,
+            [viewerUid]
+          );
+          const me = meRows[0] || null;
 
-        const candidateKeys = [
-          "location",
-          "postcodeOutward",
-          "postcodeSector",
-          "postcode",
-          "city",
-        ];
-        const tokens = [];
-        if (me && typeof me === "object") {
-          for (const k of candidateKeys) {
-            if (Object.prototype.hasOwnProperty.call(me, k)) {
-              const v = String(me[k] ?? "").trim();
-              if (v) tokens.push(v);
+          const tokens = [];
+          if (me) {
+            const candidateFields = [
+              me.locationRaw,
+              me.postcodeOutward,
+              me.postcodeSector,
+              me.postcode,
+              me.city,
+            ];
+            for (const v of candidateFields) {
+              const s = String(v || "").trim();
+              if (s) tokens.push(s);
             }
           }
-        }
 
-        const normTokens = Array.from(new Set(tokens.map(norm))).filter(
-          Boolean
-        );
-        const projLoc = norm(project.location);
+          const normTokens = Array.from(new Set(tokens.map(norm))).filter(
+            Boolean
+          );
+          const projLoc = norm(project.location);
 
-        if (
-          projLoc &&
-          normTokens.length > 0 &&
-          normTokens.some((t) => projLoc.includes(t))
-        ) {
-          allow = true;
+          if (
+            projLoc &&
+            normTokens.length > 0 &&
+            normTokens.some((t) => projLoc.includes(t))
+          ) {
+            allow = true;
+          }
+        } catch (err) {
+          log.error({ err }, "Failed during same-area visibility check");
         }
       }
     }
 
-    if (!allow) return res.status(403).json({ error: "Forbidden" });
+    if (!allow) {
+      log.info("Viewer not permitted to access project closure");
+      return res.status(403).json({ error: "forbidden" });
+    }
 
-    // Load closure row (if any)
-    const closure =
-      db
-        .prepare(
-          `SELECT
-             projectId,
-             didGoAhead,
-             reasons,
-             otherReason,
-             winnerRecommendationId,
-             wouldUseAgain,
-             createdBy,
-             createdAt
-           FROM project_closures
-          WHERE projectId = ?
-          LIMIT 1`
-        )
-        .get(id) || null;
+    // ------------------------------------------------------
+    // Load closure row
+    // ------------------------------------------------------
+    let closure;
+    try {
+      const rows = await mysqlQuery(
+        `
+        SELECT
+          projectId,
+          didGoAhead,
+          reasons,
+          otherReason,
+          winnerRecommendationId,
+          wouldUseAgain,
+          createdBy,
+          createdAt
+        FROM project_closures
+        WHERE projectId = ?
+        LIMIT 1
+        `,
+        [projectId]
+      );
+      closure = rows[0] || null;
+    } catch (err) {
+      log.error({ err }, "Failed to load project_closures");
+      return res.status(500).json({ error: "internal_error" });
+    }
 
-    // If no closure exists yet, respond with a minimal object
+    // ------------------------------------------------------
+    // No closure row yet → return minimal
+    // ------------------------------------------------------
     if (!closure) {
+      log.info("Project has no closure record yet");
       return res.json({
-        projectId: id,
+        projectId,
         didGoAhead: null,
         reasons: [],
         otherReason: null,
@@ -128,29 +188,41 @@ module.exports = (router, ctx) => {
       });
     }
 
-    // Parse reasons
+    // ------------------------------------------------------
+    // Parse reasons[] JSON
+    // ------------------------------------------------------
     let reasonsArr = [];
     try {
       const parsed = JSON.parse(closure.reasons || "[]");
       if (Array.isArray(parsed)) reasonsArr = parsed.map(String);
-    } catch (_) {
+    } catch {
       reasonsArr = [];
     }
 
-    // Winner (optional)
+    // ------------------------------------------------------
+    // Fetch winner (if any)
+    // ------------------------------------------------------
     let winner = null;
     if (closure.winnerRecommendationId) {
-      winner =
-        db
-          .prepare(
-            `SELECT id, company, name
-               FROM recommendations
-              WHERE id = ?
-              LIMIT 1`
-          )
-          .get(closure.winnerRecommendationId) || null;
+      try {
+        const rows = await mysqlQuery(
+          `
+          SELECT id, company, name
+          FROM recommendations
+          WHERE id = ?
+          LIMIT 1
+          `,
+          [closure.winnerRecommendationId]
+        );
+        winner = rows[0] || null;
+      } catch (err) {
+        log.error({ err }, "Failed to load winner recommendation");
+      }
     }
 
+    // ------------------------------------------------------
+    // Build final response
+    // ------------------------------------------------------
     return res.json({
       projectId: closure.projectId,
       didGoAhead:
@@ -170,414 +242,3 @@ module.exports = (router, ctx) => {
     });
   });
 };
-
-// /**
-//  * GET /api/v2/projects   (also /api/projects if you mounted v2 there)
-//  * Auth: required
-//  * Query:
-//  *   tab=mine|community|favourites|archived|recommended|completed|completedCommunity (default: mine)
-//  *   name, type, location, property
-//  *   status=all|pending|live|archived (default: all)   -- only affects "mine"
-//  *   sort=createdAt|name (default: createdAt)
-//  *   order=asc|desc (default: desc)
-//  *   page=1.., pageSize=1..50 (defaults: 1, 10)
-//  * Response: { items, total, page, pageSize }
-//  */
-// module.exports = (router, ctx) => {
-//   const { db, auth, touchUserMw } = ctx;
-
-//   router.get("/projects", auth, touchUserMw, (req, res) => {
-//     const uid = req.user.uid;
-
-//     const allowedTabs = new Set([
-//       "mine",
-//       "community",
-//       "favourites",
-//       "archived",
-//       "completed",
-//       "completedCommunity", // NEW
-//       "recommended",
-//     ]);
-//     const tabRaw = String(req.query.tab || "mine").toLowerCase();
-//     const tab = allowedTabs.has(tabRaw) ? tabRaw : "mine";
-
-//     // Filters
-//     const qName = String(req.query.name ?? "").trim();
-//     const qType = String(req.query.type ?? "").trim();
-//     const qLocation = String(req.query.location ?? "").trim();
-//     const qProperty = String(req.query.property ?? "").trim();
-//     const rawStatus = String(req.query.status ?? "all").toLowerCase();
-
-//     // Sorting
-//     const allowedSort = new Set(["createdAt", "name"]);
-//     const sort = allowedSort.has(String(req.query.sort))
-//       ? String(req.query.sort)
-//       : "createdAt";
-//     const order =
-//       String(req.query.order).toLowerCase() === "asc" ? "ASC" : "DESC";
-
-//     // Paging
-//     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
-//     const pageSize = Math.min(
-//       50,
-//       Math.max(1, parseInt(String(req.query.pageSize ?? "10"), 10))
-//     );
-//     const offset = (page - 1) * pageSize;
-
-//     // Common WHERE builder (free text filters)
-//     const whereParts = [];
-//     const whereParams = [];
-
-//     if (qName) {
-//       whereParts.push(`p.name LIKE ? COLLATE NOCASE`);
-//       whereParams.push(`%${qName}%`);
-//     }
-//     if (qType) {
-//       whereParts.push(`p.type LIKE ? COLLATE NOCASE`);
-//       whereParams.push(`%${qType}%`);
-//     }
-//     if (qLocation) {
-//       whereParts.push(`p.location LIKE ? COLLATE NOCASE`);
-//       whereParams.push(`%${qLocation}%`);
-//     }
-//     if (qProperty) {
-//       whereParts.push(`p.propertyType LIKE ? COLLATE NOCASE`);
-//       whereParams.push(`%${qProperty}%`);
-//     }
-
-//     const applyWhere = (extraParts = [], extraParams = []) => {
-//       const parts = [...extraParts, ...whereParts];
-//       const sql = parts.length ? `WHERE ${parts.join(" AND ")}` : "";
-//       const params = [...extraParams, ...whereParams];
-//       return { sql, params };
-//     };
-
-//     const respond = (rows, total) =>
-//       res.json({ items: rows, total, page, pageSize });
-
-//     // --- MINE ---
-//     if (tab === "mine") {
-//       const extra = [];
-//       const extraParams = [];
-
-//       // Exclude archived by default from My Projects
-//       if (rawStatus === "all") {
-//         extra.push(`p.status <> 'archived'`);
-//       } else {
-//         extra.push(`p.status = ?`);
-//         extraParams.push(rawStatus);
-//       }
-
-//       const { sql, params } = applyWhere(extra, extraParams);
-
-//       const countRow = db
-//         .prepare(
-//           `SELECT COUNT(*) AS c
-//              FROM projects p
-//             ${
-//               sql
-//                 ? sql.replace("WHERE", "WHERE p.ownerUserId = ? AND")
-//                 : "WHERE p.ownerUserId = ?"
-//             }`
-//         )
-//         .get(uid, ...params);
-
-//       const rows = db
-//         .prepare(
-//           `SELECT p.*,
-//                   CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite,
-//                   0 AS canFavourite
-//              FROM projects p
-//              LEFT JOIN project_closures pc ON pc.projectId = p.id
-//              LEFT JOIN favourites f
-//                ON f.projectId = p.id AND f.userId = ?
-//             ${
-//               sql
-//                 ? sql.replace("WHERE", "WHERE p.ownerUserId = ? AND")
-//                 : "WHERE p.ownerUserId = ?"
-//             }
-//             ORDER BY p.${sort} ${order}
-//             LIMIT ? OFFSET ?`
-//         )
-//         .all(uid, uid, ...params, pageSize, offset);
-
-//       return respond(rows, countRow.c);
-//     }
-
-//     // --- ARCHIVED (mine only) ---
-//     if (tab === "archived") {
-//       const extra = [`p.ownerUserId = ?`, `p.status = 'archived'`];
-//       const extraParams = [uid];
-//       const { sql, params } = applyWhere(extra, extraParams);
-
-//       const countRow = db
-//         .prepare(`SELECT COUNT(*) AS c FROM projects p ${sql}`)
-//         .get(...params);
-
-//       const rows = db
-//         .prepare(
-//           `SELECT p.*,
-//                   CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite,
-//                   0 AS canFavourite
-//              FROM projects p
-//              LEFT JOIN project_closures pc ON pc.projectId = p.id
-//              LEFT JOIN favourites f
-//                ON f.projectId = p.id AND f.userId = ?
-//             ${sql}
-//             ORDER BY p.${sort} ${order}
-//             LIMIT ? OFFSET ?`
-//         )
-//         .all(uid, ...params, pageSize, offset);
-
-//       return respond(rows, countRow.c);
-//     }
-
-//     // --- COMPLETED (mine only) ---
-//     if (tab === "completed") {
-//       const extra = [`p.ownerUserId = ?`, `p.status = 'completed'`];
-//       const extraParams = [uid];
-//       const { sql, params } = applyWhere(extra, extraParams);
-
-//       const countRow = db
-//         .prepare(`SELECT COUNT(*) AS c FROM projects p ${sql}`)
-//         .get(...params);
-
-//       const rows = db
-//         .prepare(
-//           `SELECT
-//               p.*,
-//               pc.winnerRecommendationId AS _winnerRecommendationId,
-//               /* resolve winner builder id for UI linking (best-effort if present) */
-//               COALESCE(r.builderUserId, r.builderId, r.tradesmanId, r.tradesmanUserId, r.userId) AS _winnerBuilderId,
-//               /* tell UI whether there are any closure photos */
-//               EXISTS(SELECT 1 FROM project_closure_photos cpp WHERE cpp.projectId = p.id) AS _hasClosurePhotos,
-//               /* favourites info (legacy fields kept for UI compatibility) */
-//               CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite,
-//               0 AS canFavourite
-//            FROM projects p
-//            LEFT JOIN project_closures pc ON pc.projectId = p.id
-//            LEFT JOIN recommendations r ON r.id = pc.winnerRecommendationId
-//            LEFT JOIN favourites f ON f.projectId = p.id AND f.userId = ?
-//            ${sql}
-//            ORDER BY p.${sort} ${order}
-//            LIMIT ? OFFSET ?`
-//         )
-//         .all(uid, ...params, pageSize, offset);
-
-//       return respond(rows, countRow.c);
-//     }
-
-//     // --- COMPLETED COMMUNITY (same area, not mine) ---
-//     if (tab === "completedCommunity") {
-//       // Pull viewer location tokens
-//       const me =
-//         db.prepare(`SELECT * FROM users WHERE uid = ?`).get(uid) || null;
-
-//       const candidateKeys = [
-//         "location",
-//         "postcodeOutward",
-//         "postcodeSector",
-//         "postcode",
-//         "city",
-//       ];
-//       const tokens = [];
-//       if (me && typeof me === "object") {
-//         for (const k of candidateKeys) {
-//           if (Object.prototype.hasOwnProperty.call(me, k)) {
-//             const v = String(me[k] ?? "").trim();
-//             if (v) tokens.push(v);
-//           }
-//         }
-//       }
-//       if (tokens.length === 0) return respond([], 0);
-
-//       const norm = (s) =>
-//         String(s || "")
-//           .toLowerCase()
-//           .replace(/\s+/g, "");
-//       const normTokens = Array.from(new Set(tokens.map(norm))).filter(Boolean);
-
-//       const areaOr = normTokens
-//         .map(() => `REPLACE(LOWER(p.location),' ','') LIKE '%' || ? || '%'`)
-//         .join(" OR ");
-//       const areaParams = normTokens;
-
-//       // Base: completed, not mine, IN AREA
-//       const baseParts = [`p.status = 'completed'`, `p.ownerUserId <> ?`];
-//       const baseParams = [uid];
-
-//       if (areaOr) {
-//         baseParts.push(`(${areaOr})`);
-//         baseParams.push(...areaParams);
-//       }
-
-//       const { sql, params } = applyWhere(baseParts, baseParams);
-
-//       const countRow = db
-//         .prepare(`SELECT COUNT(*) AS c FROM projects p ${sql}`)
-//         .get(...params);
-
-//       // Return similar fields as "completed" for UI parity
-//       const rows = db
-//         .prepare(
-//           `SELECT
-//               p.*,
-//               pc.winnerRecommendationId AS _winnerRecommendationId,
-//               EXISTS(SELECT 1 FROM project_closure_photos cpp WHERE cpp.projectId = p.id) AS _hasClosurePhotos,
-//               0 AS isFavourite,
-//               0 AS canFavourite
-//            FROM projects p
-//            LEFT JOIN project_closures pc ON pc.projectId = p.id
-//            ${sql}
-//            ORDER BY p.${sort} ${order}
-//            LIMIT ? OFFSET ?`
-//         )
-//         .all(...params, pageSize, offset);
-
-//       return respond(rows, countRow.c);
-//     }
-
-//     // --- COMMUNITY ---
-//     if (tab === "community") {
-//       const me =
-//         db.prepare(`SELECT * FROM users WHERE uid = ?`).get(uid) || null;
-
-//       const candidateKeys = [
-//         "location",
-//         "postcodeOutward",
-//         "postcodeSector",
-//         "postcode",
-//         "city",
-//       ];
-//       const tokens = [];
-//       if (me && typeof me === "object") {
-//         for (const k of candidateKeys) {
-//           if (Object.prototype.hasOwnProperty.call(me, k)) {
-//             const v = String(me[k] ?? "").trim();
-//             if (v) tokens.push(v);
-//           }
-//         }
-//       }
-//       if (tokens.length === 0) return respond([], 0);
-
-//       const norm = (s) =>
-//         String(s || "")
-//           .toLowerCase()
-//           .replace(/\s+/g, "");
-//       const normTokens = Array.from(new Set(tokens.map(norm))).filter(Boolean);
-
-//       const areaOr = normTokens
-//         .map(() => `REPLACE(LOWER(p.location),' ','') LIKE '%' || ? || '%'`)
-//         .join(" OR ");
-//       const areaParams = normTokens;
-
-//       const baseParts = [
-//         `p.status = 'live'`,
-//         `p.ownerUserId <> ?`,
-//         `NOT EXISTS (SELECT 1 FROM favourites fx WHERE fx.projectId = p.id AND fx.userId = ?)`,
-//       ];
-//       const baseParams = [uid, uid];
-
-//       if (areaOr) {
-//         baseParts.push(`(${areaOr})`);
-//         baseParams.push(...areaParams);
-//       }
-
-//       const { sql, params } = applyWhere(baseParts, baseParams);
-
-//       const countRow = db
-//         .prepare(`SELECT COUNT(*) AS c FROM projects p ${sql}`)
-//         .get(...params);
-
-//       const rows = db
-//         .prepare(
-//           `SELECT p.*,
-//                   0 AS isFavourite,
-//                   1 AS canFavourite
-//              FROM projects p
-//             ${sql}
-//             ORDER BY p.${sort} ${order}
-//             LIMIT ? OFFSET ?`
-//         )
-//         .all(...params, pageSize, offset);
-
-//       return respond(rows, countRow.c);
-//     }
-
-//     // --- FAVOURITES ---
-//     if (tab === "favourites") {
-//       const whereSQL = whereParts.length
-//         ? `AND ${whereParts.join(" AND ")}`
-//         : "";
-
-//       const countRow = db
-//         .prepare(
-//           `SELECT COUNT(*) AS c
-//              FROM favourites f
-//              JOIN projects p ON p.id = f.projectId
-//             WHERE f.userId = ?
-//               ${whereSQL}`
-//         )
-//         .get(uid, ...whereParams);
-
-//       const rows = db
-//         .prepare(
-//           `SELECT p.*,
-//                   1 AS isFavourite,
-//                   0 AS canFavourite
-//              FROM favourites f
-//              JOIN projects p ON p.id = f.projectId
-//             WHERE f.userId = ?
-//               ${whereSQL}
-//             ORDER BY p.${sort} ${order}
-//             LIMIT ? OFFSET ?`
-//         )
-//         .all(uid, ...whereParams, pageSize, offset);
-
-//       return respond(rows, countRow.c);
-//     }
-
-//     // --- RECOMMENDED ---
-//     if (tab === "recommended") {
-//       const extra = [];
-//       if (rawStatus !== "all") {
-//         extra.push(`p.status = ?`);
-//         whereParams.push(rawStatus);
-//       }
-//       const whereSql =
-//         whereParts.length || extra.length
-//           ? `AND ${[...extra, ...whereParts].join(" AND ")}`
-//           : "";
-
-//       const countRow = db
-//         .prepare(
-//           `SELECT COUNT(*) AS c
-//              FROM recommendations r
-//              JOIN projects p ON p.id = r.projectId
-//             WHERE r.recommenderUserId = ?
-//               ${whereSql}`
-//         )
-//         .get(uid, ...whereParams);
-
-//       const rows = db
-//         .prepare(
-//           `SELECT p.*,
-//                   CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite,
-//                   0 AS canFavourite
-//              FROM recommendations r
-//              JOIN projects p ON p.id = r.projectId
-//              LEFT JOIN favourites f
-//                ON f.projectId = p.id AND f.userId = ?
-//             WHERE r.recommenderUserId = ?
-//               ${whereSql}
-//             ORDER BY p.${sort} ${order}
-//             LIMIT ? OFFSET ?`
-//         )
-//         .all(uid, uid, ...whereParams, pageSize, offset);
-
-//       return respond(rows, countRow.c);
-//     }
-
-//     return respond([], 0);
-//   });
-// };

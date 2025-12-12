@@ -47,7 +47,6 @@ export function useProjectView() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 
-  // query + routing
   const projectId = useMemo(() => {
     const raw = router.query.id;
     const n = Number(Array.isArray(raw) ? raw[0] : raw);
@@ -62,31 +61,26 @@ export function useProjectView() {
     | Tab
     | undefined;
 
-  // core state
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
-
   const [flash, setFlash] = useState<Flash | null>(null);
+
   useEffect(() => {
     if (!flash) return;
     const t = setTimeout(() => setFlash(null), 5000);
     return () => clearTimeout(t);
   }, [flash]);
 
-  // user role
   const [isTrades, setIsTrades] = useState(false);
-  const [currentPlanId, setCurrentPlanId] = useState<PlanId | undefined>(
-    "free"
+  const [currentPlanId, setCurrentPlanId] = useState<PlanId>("free");
+  const [subStatus, setSubStatus] = useState<"inactive" | "draft" | "active">(
+    "inactive"
   );
-  const [subStatus, setSubStatus] = useState<
-    "inactive" | "draft" | "active" | undefined
-  >("inactive");
   const [pendingPlanId, setPendingPlanId] = useState<PlanId | null>(null);
-  const effectivePlanId: PlanId =
-    subStatus === "active" ? currentPlanId || "free" : "free";
 
-  // contact (trades)
+  const [contactUnlocked, setContactUnlocked] = useState(false);
+  const [contactError, setContactError] = useState<string | null>(null);
   const [ownerContact, setOwnerContact] = useState<{
     firstName?: string | null;
     lastName?: string | null;
@@ -94,7 +88,6 @@ export function useProjectView() {
   } | null>(null);
   const [contactLoading, setContactLoading] = useState(false);
 
-  // shortlist (owner view)
   const [recs, setRecs] = useState<Recommendation[] | null>(null);
   const [recTotal, setRecTotal] = useState(0);
   const [recsErr, setRecsErr] = useState<string | null>(null);
@@ -103,15 +96,12 @@ export function useProjectView() {
   const [closeOpen, setCloseOpen] = useState(false);
   const [plansOpen, setPlansOpen] = useState(false);
 
-  // trades share state
   const [interestBusy, setInterestBusy] = useState(false);
   const [interestSent, setInterestSent] = useState(false);
   const [shareCheckDone, setShareCheckDone] = useState(false);
 
-  // copy invite
   const [copyingInvite, setCopyingInvite] = useState(false);
 
-  // detect owner vs trades
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -130,32 +120,20 @@ export function useProjectView() {
         const hasProfile = !!data?.profile;
 
         const status =
-          (data?.profile?.subscription_status as
-            | "inactive"
-            | "draft"
-            | "active"
-            | undefined) ||
-          (data?.profile?.subscriptionStatus as
-            | "inactive"
-            | "draft"
-            | "active"
-            | undefined);
+          data?.profile?.subscription_status ||
+          data?.profile?.subscriptionStatus ||
+          "inactive";
 
-        const livePlan =
-          (data?.profile?.plan as PlanId | undefined) ||
-          (data?.profile?.planId as PlanId | undefined) ||
-          "free";
+        const livePlan = data?.profile?.plan || data?.profile?.planId || "free";
 
         const pending =
-          (data?.profile?.purchased_plan as PlanId | undefined) ||
-          (data?.profile?.purchasedPlan as PlanId | undefined) ||
-          null;
+          data?.profile?.purchased_plan || data?.profile?.purchasedPlan || null;
 
         if (alive) {
           setIsTrades(role === "tradesman" || hasProfile);
-          setSubStatus(status || "inactive");
-          setCurrentPlanId((livePlan as PlanId) || "free");
-          setPendingPlanId((pending as PlanId) || null);
+          setSubStatus(status);
+          setCurrentPlanId(livePlan);
+          setPendingPlanId(pending);
         }
       } catch {
         if (alive) {
@@ -171,9 +149,8 @@ export function useProjectView() {
     };
   }, [api, user]);
 
-  // load project
   useEffect(() => {
-    if (!router.isReady || authLoading || !user || !projectId) return;
+    if (!router.isReady || authLoading || !projectId) return;
     let alive = true;
     setLoading(true);
     setErrorStatus(null);
@@ -194,9 +171,8 @@ export function useProjectView() {
     return () => {
       alive = false;
     };
-  }, [api, projectId, router.isReady, authLoading, user]);
+  }, [api, projectId, router.isReady, authLoading]);
 
-  // derived
   const isOwner = !!(user && project && user.uid === project?.ownerUserId);
   const statusLower = (project?.status || "").toLowerCase();
   const isArchived = statusLower === "archived";
@@ -209,7 +185,6 @@ export function useProjectView() {
     ? "/tradesman/projects"
     : `/projects${sourceTab ? `?tab=${sourceTab}` : ""}`;
 
-  // shortlist for owners
   useEffect(() => {
     if (!project?.id || isTrades) return;
     let dead = false;
@@ -221,37 +196,20 @@ export function useProjectView() {
           { params: { limit: 6 } }
         );
         if (dead) return;
-        const list: Recommendation[] = Array.isArray(r1.data?.items)
-          ? r1.data.items
-          : Array.isArray(r1.data?.recommendations)
-          ? r1.data.recommendations
-          : Array.isArray(r1.data)
-          ? r1.data
-          : [];
-        const total =
-          Number(r1.data?.total) ||
-          Number(r1.data?.count) ||
-          (Array.isArray(list) ? list.length : 0);
+        const list: Recommendation[] =
+          r1.data?.items || r1.data?.recommendations || r1.data || [];
+        const total = r1.data?.total || r1.data?.count || list.length;
         setRecs(list);
         setRecTotal(total);
-        return;
-      } catch (e1: any) {
+      } catch (e1) {
         try {
           const r2 = await api.get(`/api/recommendations`, {
             params: { projectId: project.id, limit: 6 },
           });
           if (dead) return;
-          const list: Recommendation[] = Array.isArray(r2.data?.items)
-            ? r2.data.items
-            : Array.isArray(r2.data?.recommendations)
-            ? r2.data.recommendations
-            : Array.isArray(r2.data)
-            ? r2.data
-            : [];
-          const total =
-            Number(r2.data?.total) ||
-            Number(r2.data?.count) ||
-            (Array.isArray(list) ? list.length : 0);
+          const list: Recommendation[] =
+            r2.data?.items || r2.data?.recommendations || r2.data || [];
+          const total = r2.data?.total || r2.data?.count || list.length;
           setRecs(list);
           setRecTotal(total);
         } catch (e2: any) {
@@ -272,7 +230,6 @@ export function useProjectView() {
     };
   }, [api, project?.id, isTrades]);
 
-  // trades: already shared?
   useEffect(() => {
     if (!project?.id) return;
     if (!isTrades) {
@@ -304,7 +261,6 @@ export function useProjectView() {
     };
   }, [api, isTrades, project?.id]);
 
-  // actions
   const onPublish = async () => {
     if (!project || busy) return;
     setBusy(true);
@@ -345,7 +301,10 @@ export function useProjectView() {
     try {
       const { data } = await api.post(`/api/projects/${project.id}/unarchive`);
       setProject(data.project);
-      setFlash({ kind: "success", text: "Project unarchived" });
+      setFlash({
+        kind: "success",
+        text: "Project unarchived",
+      });
     } catch (e: any) {
       setFlash({
         kind: "error",
@@ -356,7 +315,6 @@ export function useProjectView() {
     }
   };
 
-  // 🔹 actual close-project API call (used by modal)
   const doCloseSubmit = async (payload: {
     didGoAhead: boolean;
     reasons: string[];
@@ -504,8 +462,8 @@ export function useProjectView() {
     else void startSubscriptionCheckout(planId);
   };
 
-  // contact entitlement
   const unlockQuery = String((router.query.unlock || "") as string);
+
   const entitledToContact =
     !!project &&
     isTrades &&
@@ -514,6 +472,7 @@ export function useProjectView() {
     isLive &&
     subStatus === "active" &&
     currentPlanId !== "free";
+
   const canAttemptContact =
     !!project &&
     isTrades &&
@@ -524,21 +483,41 @@ export function useProjectView() {
 
   useEffect(() => {
     (async () => {
-      if (!project?.id || !canAttemptContact) return;
+      if (!project?.id) return;
+
+      if (!canAttemptContact) {
+        setContactUnlocked(false);
+        setContactError("not_unlocked");
+        setOwnerContact(null);
+        return;
+      }
+
       setContactLoading(true);
+      setContactUnlocked(false);
+      setContactError(null);
+
       try {
         const { data } = await api.get(
-          `/api/projects/${project.id}/owner-contact`
+          `/api/projects/${project.id}/contact-details`
         );
-        const owner = data?.owner || data || {};
-        setOwnerContact({
-          firstName: owner.firstName ?? null,
-          lastName: owner.lastName ?? null,
-          email: owner.email ?? null,
-        });
+
+        setContactUnlocked(!!data?.unlocked);
+        setContactError(data?.error ?? null);
+
+        if (data?.unlocked && data?.owner) {
+          setOwnerContact({
+            firstName: data.owner.firstName ?? null,
+            lastName: data.owner.lastName ?? null,
+            email: data.owner.email ?? null,
+          });
+        } else {
+          setOwnerContact(null);
+        }
       } catch (e: any) {
+        setContactUnlocked(false);
+        setContactError("error");
         const status = e?.response?.status ?? e?.status;
-        if (status !== 403)
+        if (status !== 403) {
           setFlash({
             kind: "error",
             text:
@@ -546,6 +525,7 @@ export function useProjectView() {
               e?.message ||
               "Failed to load contact",
           });
+        }
         setOwnerContact(null);
       } finally {
         setContactLoading(false);
@@ -553,7 +533,6 @@ export function useProjectView() {
     })();
   }, [api, project?.id, canAttemptContact, unlockQuery]);
 
-  // copy invite
   const copyInvite = async () => {
     if (!project || copyingInvite) return;
     setCopyingInvite(true);
@@ -607,7 +586,6 @@ export function useProjectView() {
     }
   };
 
-  // small helpers for the page wrapper
   const loadingUi =
     authLoading || (router.isReady && loading) ? (
       <p className="py-10 text-sm text-slate-500" data-testid="project-loading">
@@ -635,15 +613,12 @@ export function useProjectView() {
   );
 
   return {
-    // state
     project,
     loading,
     errorStatus,
     flash,
     setFlash,
-
     busy,
-
     isOwner,
     isTrades,
     isLive,
@@ -652,35 +627,30 @@ export function useProjectView() {
     isCompleted,
     canPublish,
     backHref,
-
-    // owner shortlist
+    currentPlanId,
+    subStatus,
+    pendingPlanId,
     recs,
     recTotal,
     recsErr,
-
-    // trades contact
     ownerContact,
     contactLoading,
-
-    // trades share/contact gating
+    contactUnlocked,
+    contactError,
     interestBusy,
     interestSent,
     shareCheckDone,
-
-    // actions
     onPublish,
     onArchive,
     onUnarchive,
-    onCloseProject: () => setCloseOpen(true), // opens modal
-    doCloseSubmit, // actual submit handler (used only by modal)
+    onCloseProject: () => setCloseOpen(true),
+    doCloseSubmit,
     copyInvite,
     copyingInvite,
     onUpgradeClick: () => setPlansOpen(true),
     startOneOffCheckout,
     startSubscriptionCheckout,
     handlePlanSelect,
-
-    // ui bits for wrapper
     loadingUi,
     closeProjectModal,
     plansModal,

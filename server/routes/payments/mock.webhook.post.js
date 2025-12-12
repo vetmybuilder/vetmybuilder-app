@@ -1,3 +1,4 @@
+// server/routes/payments/mock.webhook.post.js
 //
 // MOCK WEBHOOK – FINAL VERSION (supports unlock_contact, spotlight, gold)
 // 3-stage model: checkout → pending_admin → pending_payment → active
@@ -5,21 +6,24 @@
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
+  const { logger, withRequest } = require("../../lib/logger");
+
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
-  const TAG = "[mock.webhook]";
+  const TAG = "payments.mock.webhook";
 
   // ---------------------------------------------------------
-  // FINALISERS
+  // FINALISERS (unchanged logic, wrapped with logs)
   // ---------------------------------------------------------
 
-  //
-  // 1) FINALISE ONE-OFF CONTACT UNLOCK
-  //
-  async function finaliseOneOffUnlock(row) {
+  async function finaliseOneOffUnlock(row, log) {
     const { user_id, entity_id, id: paymentId } = row;
 
-    // payments_oneoff → active
+    log.info(
+      { paymentId, user_id, projectId: entity_id },
+      "Finalising one-off unlock_contact"
+    );
+
     await mysqlQuery(
       `UPDATE payments_oneoff
          SET status = 'active',
@@ -29,7 +33,6 @@ module.exports = (router, ctx) => {
       [paymentId]
     );
 
-    // project_contact_unlocks → active
     await mysqlQuery(
       `UPDATE project_contact_unlocks
          SET status = 'active',
@@ -47,13 +50,11 @@ module.exports = (router, ctx) => {
     };
   }
 
-  //
-  // 2) FINALISE SPOTLIGHT
-  //
-  async function finaliseSpotlight(row) {
+  async function finaliseSpotlight(row, log) {
     const { id: paymentId, user_id } = row;
 
-    // Spotlight → active
+    log.info({ paymentId, user_id }, "Finalising spotlight");
+
     await mysqlQuery(
       `UPDATE payments_oneoff
          SET status = 'active',
@@ -71,19 +72,17 @@ module.exports = (router, ctx) => {
     };
   }
 
-  //
-  // 3) FINALISE GOLD SUBSCRIPTION
-  //
-  async function finaliseSubscription(row) {
+  async function finaliseSubscription(row, log) {
     const { buyer_uid, plan_id, id: paymentId } = row;
     const plan = String(plan_id).toLowerCase();
 
     if (plan !== "gold") {
-      console.warn(`${TAG} ignoring unknown subscription`, plan);
+      log.warn({ plan_id }, "Ignoring unsupported subscription plan");
       return null;
     }
 
-    // payments_subscription → active
+    log.info({ paymentId, buyer_uid }, "Finalising gold subscription");
+
     await mysqlQuery(
       `
       UPDATE payments_subscription
@@ -94,7 +93,6 @@ module.exports = (router, ctx) => {
       [paymentId]
     );
 
-    // tradesmen → apply subscription
     await mysqlQuery(
       `
       UPDATE tradesmen
@@ -122,14 +120,23 @@ module.exports = (router, ctx) => {
   // ---------------------------------------------------------
 
   router.post("/payments/mock/webhook", auth, async (req, res) => {
+    const log = withRequest(req, logger).child({
+      route: "/payments/mock/webhook",
+    });
+
     try {
       const { sessionId } = req.body;
-      if (!sessionId)
-        return res.status(400).json({ error: "sessionId required" });
 
-      //
-      // MATCH one-off payments
-      //
+      if (!sessionId) {
+        log.warn("Missing sessionId in webhook");
+        return res.status(400).json({ error: "sessionId required" });
+      }
+
+      log.info({ sessionId }, "Webhook triggered");
+
+      // -----------------------------------------------------
+      // FETCH MATCHING ONE-OFFS
+      // -----------------------------------------------------
       const oneOffRows = await mysqlQuery(
         `
         SELECT *
@@ -140,9 +147,11 @@ module.exports = (router, ctx) => {
         [sessionId]
       );
 
-      //
-      // MATCH subscriptions
-      //
+      log.info({ found: oneOffRows.length }, "Matched one-off payments");
+
+      // -----------------------------------------------------
+      // FETCH MATCHING SUBSCRIPTIONS
+      // -----------------------------------------------------
       const subRows = await mysqlQuery(
         `
         SELECT *
@@ -153,35 +162,46 @@ module.exports = (router, ctx) => {
         [sessionId]
       );
 
-      let results = [];
+      log.info({ found: subRows.length }, "Matched subscription payments");
 
-      // FINALISE ONE-OFFS
+      // -----------------------------------------------------
+      // PROCESS
+      // -----------------------------------------------------
+      const processed = [];
+
       for (const row of oneOffRows) {
         if (row.type === "unlock_contact") {
-          results.push(await finaliseOneOffUnlock(row));
+          processed.push(await finaliseOneOffUnlock(row, log));
         } else if (row.type === "spotlight") {
-          results.push(await finaliseSpotlight(row));
+          processed.push(await finaliseSpotlight(row, log));
+        } else {
+          log.warn({ type: row.type }, "Unknown one-off type skipped");
         }
       }
 
-      // FINALISE SUBSCRIPTIONS
       for (const row of subRows) {
-        const r = await finaliseSubscription(row);
-        if (r) results.push(r);
+        const out = await finaliseSubscription(row, log);
+        if (out) processed.push(out);
       }
+
+      log.info({ processedCount: processed.length }, "Webhook completed");
 
       return res.json({
         ok: true,
         sessionId,
-        processed: results,
+        processed,
       });
     } catch (e) {
-      console.error(`${TAG} error`, e);
-      return res
-        .status(500)
-        .json({ error: "server_error", details: e?.message });
+      log.error(
+        { error: e?.message, stack: e?.stack },
+        "Webhook error occurred"
+      );
+      return res.status(500).json({
+        error: "server_error",
+        details: e?.message,
+      });
     }
   });
 
-  console.log("[routes] mounted: POST /payments/mock/webhook");
+  logger.info("[routes] mounted: POST /payments/mock/webhook");
 };

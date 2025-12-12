@@ -1,231 +1,118 @@
 // server/routes/tradesmen/me.put.js
+
 module.exports = (router, ctx) => {
   const { db, auth, mysqlQuery } = ctx;
-  const TAG = "[me.put]";
+  const log = ctx.log || console;
+  const TAG = "[tradesmen/me.put]";
 
   if (!db && !mysqlQuery) {
     throw new Error("db or mysqlQuery must be attached to ctx");
   }
 
   const hasMysql = typeof mysqlQuery === "function";
-  const isBetter = !!db?.prepare; // better-sqlite3
+  const isBetter = !!db?.prepare;
 
-  // ---------- small dialect helpers ----------
+  // ---------- helpers ----------
   const queryAll = async (sql, params = []) => {
-    if (hasMysql) {
-      const rows = await mysqlQuery(sql, params);
-      return rows;
-    }
-    if (isBetter) {
-      return db.prepare(sql).all(...[].concat(params));
-    }
+    if (hasMysql) return mysqlQuery(sql, params);
+    if (isBetter) return db.prepare(sql).all(...[].concat(params));
     const [rows] = await db.execute(sql, params);
     return rows;
   };
 
   const queryOne = async (sql, params = []) => {
     const rows = await queryAll(sql, params);
-    return rows && rows[0] ? rows[0] : null;
+    return rows?.[0] || null;
   };
 
   const run = async (sql, params = []) => {
-    if (hasMysql) {
-      await mysqlQuery(sql, params);
-      return;
-    }
-    if (isBetter) {
-      return db.prepare(sql).run(...[].concat(params));
-    }
+    if (hasMysql) return mysqlQuery(sql, params);
+    if (isBetter) return db.prepare(sql).run(...[].concat(params));
     const [result] = await db.execute(sql, params);
     return result;
   };
 
   const beginTx = () => {
-    if (hasMysql) return; // rely on autocommit; ops are small
-    if (db?.exec) db.exec("BEGIN");
+    if (!hasMysql && db?.exec) db.exec("BEGIN");
   };
 
   const commitTx = () => {
-    if (hasMysql) return;
-    if (db?.exec) db.exec("COMMIT");
+    if (!hasMysql && db?.exec) db.exec("COMMIT");
   };
 
   const rollbackTx = () => {
-    if (hasMysql) return;
-    try {
-      db?.exec && db.exec("ROLLBACK");
-    } catch (_) {}
+    if (!hasMysql && db?.exec) {
+      try {
+        db.exec("ROLLBACK");
+      } catch (_) {}
+    }
   };
 
-  // ---------- CH + location helpers ----------
+  // ---- CH + location helpers ----
   let matchByName = ctx.matchByName;
   let extractLocationTokens = ctx.extractLocationTokens;
 
-  // Prefer ctx.extractLocationTokens; fall back to lib/location
   if (!extractLocationTokens) {
     try {
       const loc = require("../../lib/location");
       extractLocationTokens =
         loc.extractLocationTokens || extractLocationTokens;
-    } catch {
-      // last-resort fallback (very rough)
-      extractLocationTokens =
-        extractLocationTokens ||
-        ((s) => {
-          const v = String(s || "").toUpperCase();
-          const first = v.split(/[,;|]/)[0].trim();
-          const out = first.match(/^([A-Z]{1,2}\d{1,2}[A-Z]?)\b/);
-          const sec = first.match(/^([A-Z]{1,2}\d{1,2}[A-Z]?\s*\d)\b/);
-          return {
-            full: first || null,
-            outward: out ? out[1] : null,
-            sector: sec ? sec[1].replace(/\s+/, "") : null,
-          };
-        });
-    }
+    } catch {}
   }
 
   if (!matchByName) {
     try {
       const ch = require("../../lib/companiesHouse");
       matchByName = ch.matchByName || matchByName;
-    } catch {
-      // ok, CH matching just won't run
-    }
+    } catch {}
   }
 
-  // ---------- SQLite-only schema safety (dev) ----------
-  if (isBetter && !hasMysql) {
-    const tblCols = (name) =>
-      new Set(
-        db
-          .prepare(`PRAGMA table_info(${name})`)
-          .all()
-          .map((r) => r.name)
-      );
-    const addColIfMissing = (tbl, colDef, colName) => {
-      const cols = tblCols(tbl);
-      if (!cols.has(colName)) {
-        console.log(`${TAG} ALTER TABLE ${tbl} ADD COLUMN ${colDef}`);
-        db.prepare(`ALTER TABLE ${tbl} ADD COLUMN ${colDef}`).run();
-      }
-    };
-
-    addColIfMissing("tradesmen", "company_number TEXT", "company_number");
-    addColIfMissing("tradesmen", "ch_status TEXT", "ch_status");
-    addColIfMissing("tradesmen", "ch_name TEXT", "ch_name");
-    addColIfMissing("tradesmen", "ch_checked_at TEXT", "ch_checked_at");
-    addColIfMissing(
-      "tradesmen",
-      "ch_match_score INTEGER DEFAULT 0",
-      "ch_match_score"
-    );
-    addColIfMissing(
-      "tradesmen",
-      "photo_count INTEGER DEFAULT 0",
-      "photo_count"
-    );
-    addColIfMissing(
-      "tradesmen",
-      "supporting_doc_count INTEGER DEFAULT 0",
-      "supporting_doc_count"
-    );
-    addColIfMissing(
-      "tradesmen",
-      "offers_discount INTEGER DEFAULT 0",
-      "offers_discount"
-    );
-    addColIfMissing(
-      "tradesmen",
-      "warranty_months INTEGER DEFAULT 0",
-      "warranty_months"
-    );
-    addColIfMissing(
-      "tradesmen",
-      "web_verified INTEGER DEFAULT 0",
-      "web_verified"
-    );
-    addColIfMissing("tradesmen", "web_url TEXT", "web_url");
-    addColIfMissing("tradesmen", "vmb_score INTEGER DEFAULT 0", "vmb_score");
-    addColIfMissing(
-      "tradesmen",
-      "vmb_badge TEXT DEFAULT 'bronze'",
-      "vmb_badge"
-    );
-    addColIfMissing(
-      "tradesmen",
-      "discount_min_percent INTEGER DEFAULT 0",
-      "discount_min_percent"
-    );
-    addColIfMissing(
-      "tradesmen",
-      "discount_max_percent INTEGER DEFAULT 0",
-      "discount_max_percent"
-    );
-  }
-
-  // ---------- tradesmen_photos table (dialect-safe) ----------
+  // ---- ensure tradesmen_photos (MySQL/SQLite safe) ----
   let photosEnsured = false;
   async function ensurePhotosTable() {
     if (photosEnsured) return;
-    if (hasMysql) {
-      await run(
-        `
-        CREATE TABLE IF NOT EXISTS tradesmen_photos (
-          id                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-          tradesman_user_id VARCHAR(255) NOT NULL,
-          url               TEXT NOT NULL,
-          sort_order        INT NOT NULL DEFAULT 0,
-          created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          KEY idx_tradesmen_photos_user (tradesman_user_id, sort_order)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-      `
-      );
-    } else if (isBetter) {
-      db.prepare(
-        `
-        CREATE TABLE IF NOT EXISTS tradesmen_photos (
-          id                INTEGER PRIMARY KEY AUTOINCREMENT,
-          tradesman_user_id TEXT NOT NULL,
-          url               TEXT NOT NULL,
-          sort_order        INTEGER NOT NULL DEFAULT 0,
-          created_at        TEXT NOT NULL DEFAULT (datetime('now'))
-        )
-      `
-      ).run();
-      db.prepare(
-        `
-        CREATE INDEX IF NOT EXISTS idx_tradesmen_photos_user
-          ON tradesmen_photos(tradesman_user_id, sort_order)
-      `
-      ).run();
-    } else {
-      // generic sqlite via db.execute
-      await run(
-        `
-        CREATE TABLE IF NOT EXISTS tradesmen_photos (
-          id                INTEGER PRIMARY KEY AUTOINCREMENT,
-          tradesman_user_id TEXT NOT NULL,
-          url               TEXT NOT NULL,
-          sort_order        INTEGER NOT NULL DEFAULT 0,
-          created_at        TEXT NOT NULL DEFAULT (datetime('now'))
-        )
-      `
-      );
-      await run(
-        `
-        CREATE INDEX IF NOT EXISTS idx_tradesmen_photos_user
-          ON tradesmen_photos(tradesman_user_id, sort_order)
-      `
-      );
-    }
     photosEnsured = true;
+    log.info(`${TAG} ensuring tradesmen_photos table...`);
+
+    if (hasMysql) {
+      await run(`
+        CREATE TABLE IF NOT EXISTS tradesmen_photos (
+          id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+          tradesman_user_id VARCHAR(255) NOT NULL,
+          url TEXT NOT NULL,
+          sort_order INT NOT NULL DEFAULT 0,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          KEY idx_tradesmen_photos_user (tradesman_user_id, sort_order)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      `);
+      return;
+    }
+
+    if (isBetter) {
+      db.prepare(
+        `
+        CREATE TABLE IF NOT EXISTS tradesmen_photos (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          tradesman_user_id TEXT NOT NULL,
+          url TEXT NOT NULL,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+      `
+      ).run();
+
+      db.prepare(
+        `
+        CREATE INDEX IF NOT EXISTS idx_tradesmen_photos_user
+          ON tradesmen_photos(tradesman_user_id, sort_order)
+      `
+      ).run();
+    }
   }
 
-  // ---------- helpers ----------
+  // ---- small utilities ----
   const int = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v) : d);
-  const toCSV = (arr) =>
-    Array.isArray(arr) ? arr.join(",") : typeof arr === "string" ? arr : "";
+  const toCSV = (arr) => (Array.isArray(arr) ? arr.join(",") : arr || "");
   const toArr = (x) =>
     Array.isArray(x)
       ? x
@@ -236,7 +123,19 @@ module.exports = (router, ctx) => {
           .filter(Boolean)
       : [];
 
-  // scoring (same weights)
+  const toPhotoArray = (body) => {
+    if (!body) return [];
+    const buckets = [];
+    if (Array.isArray(body.workPhotos)) buckets.push(body.workPhotos);
+    if (Array.isArray(body.photos)) buckets.push(body.photos);
+    if (Array.isArray(body.photoUrls)) buckets.push(body.photoUrls);
+    return buckets
+      .flat()
+      .filter(Boolean)
+      .map((u) => String(u).trim());
+  };
+
+  // ---- scoring ----
   const WEIGHTS = {
     serviceAreasMin3: 10,
     webPresenceAny: 5,
@@ -249,11 +148,13 @@ module.exports = (router, ctx) => {
   };
   const toBadge = (s) =>
     s >= 85 ? "platinum" : s >= 70 ? "gold" : s >= 50 ? "silver" : "bronze";
+
   const lerpWarranty = (m) => {
     const v = Math.max(0, int(m, 0));
     if (v >= 36) return 20;
     return Math.round((v / 36) * 20);
   };
+
   function computeScore(row) {
     const saCount = toArr(row.service_areas).length;
     const tradeCount = toArr(row.trade_types).length;
@@ -281,46 +182,43 @@ module.exports = (router, ctx) => {
     return { score: Math.max(0, Math.min(100, score)), badge: toBadge(score) };
   }
 
-  // Normalise photos from body: workPhotos | photos | photoUrls
-  const toPhotoArray = (body) => {
-    if (!body) return [];
-    const buckets = [];
-    if (Array.isArray(body.workPhotos)) buckets.push(body.workPhotos);
-    if (Array.isArray(body.photos)) buckets.push(body.photos);
-    if (Array.isArray(body.photoUrls)) buckets.push(body.photoUrls);
-
-    const flat = buckets.flat().filter(Boolean);
-    return flat.map((u) => String(u).trim()).filter((u) => u.length > 0);
-  };
-
   // ---------- ROUTE ----------
   router.put("/tradesmen/me", auth, async (req, res) => {
+    const uid = req.user.uid;
+
+    log.info(`${TAG} incoming update`, {
+      uid,
+      companyName: req.body?.companyName,
+      tradeTypes: req.body?.tradeTypes,
+      serviceAreas: req.body?.serviceAreas,
+    });
+
     try {
       await ensurePhotosTable();
 
-      const uid = req.user.uid;
       const body = req.body || {};
-
       const companyName = (body.companyName || "").trim();
-      if (!companyName)
+
+      if (!companyName) {
+        log.warn(`${TAG} missing companyName`, { uid });
         return res.status(400).json({ error: "companyName_required" });
+      }
 
       const contactName = body.contactName || null;
       const phone = body.phone || null;
       const email = body.email || null;
+
       const tradeTypes = toCSV(body.tradeTypes);
       const serviceAreas = toCSV(body.serviceAreas);
       const website = (body.website || "").trim() || null;
       const socialLinks = JSON.stringify(toArr(body.socialLinks));
 
-      // NEW: pull actual photo URLs
       const photoUrls = toPhotoArray(body);
       const photoCount =
         (photoUrls && photoUrls.length) || int(body.photoCount, 0);
 
       const supportingDocCount = int(body.supportingDocCount, 0);
 
-      // NEW: explicit min/max; keep legacy aggregate for back-compat
       const discountMinPercent = int(
         body.discountMinPercent ?? body.discountMin,
         0
@@ -342,58 +240,56 @@ module.exports = (router, ctx) => {
       let chCheckedAt = null;
       let chMatchScore = 0;
 
-      console.log(
-        `${TAG} uid=${uid} name="${companyName}" areas="${serviceAreas}" trades="${tradeTypes}" ` +
-          `preCH={num:${companyNumber || "-"}, status:${chStatus || "-"}} ` +
-          `discounts={min:${discountMinPercent}, max:${discountMaxPercent}, agg:${offersDiscount}} ` +
-          `photos=${photoCount}, urls=${photoUrls.length}`
-      );
-
-      // fill from CH if needed
-      try {
-        if (!companyNumber && typeof matchByName === "function") {
-          const toks = extractLocationTokens
-            ? extractLocationTokens(serviceAreas || "")
-            : {};
-          const locationHint =
-            toks?.sector ||
-            toks?.outward ||
+      // --- Companies House auto-fill ---
+      if (!companyNumber && typeof matchByName === "function") {
+        try {
+          const toks = extractLocationTokens?.(serviceAreas || "") || {};
+          const hint =
+            toks.sector ||
+            toks.outward ||
             (serviceAreas.split(",")[0] || "").trim() ||
             null;
 
-          const r = await Promise.resolve(
-            matchByName({ name: companyName, locationHint })
-          );
+          const result = await matchByName({
+            name: companyName,
+            locationHint: hint,
+          });
+
           chCheckedAt = new Date().toISOString();
-          const verdict = String(r?.verdict || "").toLowerCase();
+          const verdict = String(result?.verdict || "").toLowerCase();
+
           chStatus =
             chStatus ||
             (["verified", "good", "exact"].includes(verdict)
               ? "verified"
               : verdict || "ambiguous");
-          if (r?.best) {
-            companyNumber = r.best.number || null;
-            chName = r.best.name || null;
-            chMatchScore = Number(r.best.score || 0);
+
+          if (result?.best) {
+            companyNumber = result.best.number || null;
+            chName = result.best.name || null;
+            chMatchScore = Number(result.best.score || 0);
           }
-          console.log(
-            `${TAG} CH => verdict=${verdict} num=${
-              companyNumber || "-"
-            } status=${chStatus || "-"} score=${chMatchScore}`
-          );
+
+          log.info(`${TAG} CH match`, {
+            uid,
+            verdict,
+            companyNumber,
+            chStatus,
+            chMatchScore,
+          });
+        } catch (e) {
+          log.warn(`${TAG} CH lookup failed`, {
+            uid,
+            error: e?.message || e,
+          });
         }
-      } catch (e) {
-        console.warn(`${TAG} CH error:`, e?.message || e);
       }
 
-      // ---------- transaction ----------
+      // ---------- DB transaction ----------
       beginTx();
       try {
-        const nowIso = new Date().toISOString();
-
-        // Upsert core tradesman row
+        // UPSERT main row…
         if (hasMysql) {
-          // MySQL: use ON DUPLICATE KEY UPDATE on PK user_id
           await run(
             `
             INSERT INTO tradesmen (
@@ -428,11 +324,11 @@ module.exports = (router, ctx) => {
               supporting_doc_count= VALUES(supporting_doc_count),
               discount_min_percent= VALUES(discount_min_percent),
               discount_max_percent= VALUES(discount_max_percent),
-              company_number      = COALESCE(VALUES(company_number), tradesmen.company_number),
-              ch_status           = COALESCE(VALUES(ch_status), tradesmen.ch_status),
-              ch_name             = COALESCE(VALUES(ch_name), tradesmen.ch_name),
-              ch_checked_at       = COALESCE(VALUES(ch_checked_at), tradesmen.ch_checked_at),
-              ch_match_score      = COALESCE(VALUES(ch_match_score), tradesmen.ch_match_score),
+              company_number      = COALESCE(VALUES(company_number), company_number),
+              ch_status           = COALESCE(VALUES(ch_status), ch_status),
+              ch_name             = COALESCE(VALUES(ch_name), ch_name),
+              ch_checked_at       = COALESCE(VALUES(ch_checked_at), ch_checked_at),
+              ch_match_score      = COALESCE(VALUES(ch_match_score), ch_match_score),
               updated_at          = NOW()
           `,
             [
@@ -459,7 +355,7 @@ module.exports = (router, ctx) => {
             ]
           );
         } else {
-          // SQLite path (better-sqlite3 or generic)
+          // SQLite path
           await run(
             `
             INSERT INTO tradesmen (
@@ -494,11 +390,11 @@ module.exports = (router, ctx) => {
               supporting_doc_count= excluded.supporting_doc_count,
               discount_min_percent= excluded.discount_min_percent,
               discount_max_percent= excluded.discount_max_percent,
-              company_number      = COALESCE(excluded.company_number, tradesmen.company_number),
-              ch_status           = COALESCE(excluded.ch_status, tradesmen.ch_status),
-              ch_name             = COALESCE(excluded.ch_name, tradesmen.ch_name),
-              ch_checked_at       = COALESCE(excluded.ch_checked_at, tradesmen.ch_checked_at),
-              ch_match_score      = COALESCE(excluded.ch_match_score, tradesmen.ch_match_score),
+              company_number      = COALESCE(excluded.company_number, company_number),
+              ch_status           = COALESCE(excluded.ch_status, ch_status),
+              ch_name             = COALESCE(excluded.ch_name, ch_name),
+              ch_checked_at       = COALESCE(excluded.ch_checked_at, ch_checked_at),
+              ch_match_score      = COALESCE(excluded.ch_match_score, ch_match_score),
               updated_at          = datetime('now')
           `,
             [
@@ -526,7 +422,9 @@ module.exports = (router, ctx) => {
           );
         }
 
-        // Sync tradesmen_photos from photoUrls
+        log.info(`${TAG} upserted tradesmen row`, { uid });
+
+        // SYNC PHOTOS
         await run(`DELETE FROM tradesmen_photos WHERE tradesman_user_id = ?`, [
           uid,
         ]);
@@ -543,26 +441,26 @@ module.exports = (router, ctx) => {
               [uid, url, idx++]
             );
           }
-          console.log(
-            `${TAG} inserted ${photoUrls.length} photos into tradesmen_photos for uid=${uid}`
-          );
+          log.info(`${TAG} synced photos`, {
+            uid,
+            count: photoUrls.length,
+          });
         } else {
-          console.log(`${TAG} no photoUrls provided for uid=${uid}`);
+          log.info(`${TAG} no photos provided`, { uid });
         }
 
-        // Recompute score + badge
-        const r = await queryOne(`SELECT * FROM tradesmen WHERE user_id = ?`, [
-          uid,
-        ]);
-        const { score, badge } = computeScore(r);
+        // RECOMPUTE SCORE
+        const row = await queryOne(
+          `SELECT * FROM tradesmen WHERE user_id = ?`,
+          [uid]
+        );
+        const { score, badge } = computeScore(row);
 
         if (hasMysql) {
           await run(
             `
             UPDATE tradesmen
-               SET vmb_score = ?,
-                   vmb_badge = ?,
-                   updated_at = NOW()
+               SET vmb_score = ?, vmb_badge = ?, updated_at = NOW()
              WHERE user_id = ?
           `,
             [score, badge, uid]
@@ -571,9 +469,7 @@ module.exports = (router, ctx) => {
           await run(
             `
             UPDATE tradesmen
-               SET vmb_score = ?,
-                   vmb_badge = ?,
-                   updated_at = datetime('now')
+               SET vmb_score = ?, vmb_badge = ?, updated_at = datetime('now')
              WHERE user_id = ?
           `,
             [score, badge, uid]
@@ -582,33 +478,39 @@ module.exports = (router, ctx) => {
 
         commitTx();
 
-        const row = await queryOne(
+        log.info(`${TAG} saved successfully`, {
+          uid,
+          score,
+          badge,
+          companyNumber,
+          chStatus,
+        });
+
+        const finalRow = await queryOne(
           `SELECT * FROM tradesmen WHERE user_id = ?`,
           [uid]
         );
-        console.log(
-          `${TAG} saved uid=${uid} -> company_number=${
-            row.company_number || "-"
-          } ch_status=${row.ch_status || "-"} score=${row.vmb_score} badge=${
-            row.vmb_badge
-          } min=${row.discount_min_percent} max=${
-            row.discount_max_percent
-          } photos=${row.photo_count}`
-        );
-        return res.json({ ok: true, profile: row });
+
+        return res.json({ ok: true, profile: finalRow });
       } catch (e) {
         rollbackTx();
-        console.error(`${TAG} db error:`, e?.message || e);
+        log.error(`${TAG} db error`, {
+          uid,
+          error: e?.message || e,
+        });
         return res.status(500).json({ error: "server_error" });
       }
     } catch (outer) {
-      console.error(`${TAG} outer error:`, outer?.message || outer);
+      log.error(`${TAG} unexpected error`, {
+        uid,
+        error: outer?.message || outer,
+      });
       return res.status(500).json({ error: "server_error" });
     }
   });
 
   if (!ctx.__logged_tradesmen_me_put) {
     ctx.__logged_tradesmen_me_put = true;
-    console.log(`[routes] mounted: PUT /tradesmen/me`);
+    log.info("[routes] mounted: PUT /tradesmen/me");
   }
 };

@@ -1,27 +1,31 @@
-// web/pages/projects/[id].tsx
+// pages/projects/[id].tsx
 import * as React from "react";
 import { useEffect, useState } from "react";
-import AuthedOnly from "@/components/AuthedOnly";
 import { useProjectView } from "@/components/project/views/useProjectView";
 import OwnerProjectView from "@/components/project/views/OwnerProjectView";
 import TradesmanProjectView from "@/components/project/views/TradesmanProjectView";
 import NeighbourProjectView from "@/components/project/views/NeighbourProjectView";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
+import { useRouter } from "next/router";
 
 type ViewerRole = "unknown" | "owner" | "trades" | "home";
 
 export default function ProjectViewPage() {
   const vm = useProjectView();
   const api = useApi();
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
 
   const [viewerRole, setViewerRole] = useState<ViewerRole>("unknown");
 
-  // Decide if a non-owner viewer is a tradesman or just a homeowner
+  // ---------------------------------------------------------
+  // 1) Determine role (guest/homeowner/tradesman)
+  // ---------------------------------------------------------
   useEffect(() => {
-    let alive = true;
+    if (authLoading) return;
 
+    // Not logged in → homeowner-style viewer
     if (!user) {
       setViewerRole("home");
       return;
@@ -30,51 +34,66 @@ export default function ProjectViewPage() {
     (async () => {
       try {
         const { data } = await api.get("/api/tradesmen/me");
-        const role = String(data?.role || "").toLowerCase();
-        const prof = data?.profile || null;
-        const isTrades = role === "tradesman" || !!prof;
-        if (!alive) return;
+        const isTrades =
+          String(data?.role || "").toLowerCase() === "tradesman" ||
+          !!data?.profile;
+
         setViewerRole(isTrades ? "trades" : "home");
       } catch {
-        if (!alive) return;
-        // If the trades API fails, assume they are just a homeowner
         setViewerRole("home");
       }
     })();
+  }, [api, user, authLoading]);
 
-    return () => {
-      alive = false;
-    };
-  }, [api, user]);
+  // ---------------------------------------------------------
+  // 2) REDIRECT tradesmen away from homeowner project views
+  // ---------------------------------------------------------
+  useEffect(() => {
+    if (viewerRole !== "trades") return;
+    router.replace("/tradesman/projects");
+  }, [viewerRole, router]);
 
-  const ready = !vm.loading && !vm.errorStatus && !!vm.project;
+  // ---------------------------------------------------------
+  // 3) Prevent UI render until:
+  //    - project is loaded
+  //    - role is known
+  // ---------------------------------------------------------
+  const ready =
+    !vm.loading && !vm.errorStatus && !!vm.project && viewerRole !== "unknown";
 
-  let viewContent: React.ReactNode = null;
-
-  if (ready) {
-    if (vm.isOwner) {
-      viewContent = <OwnerProjectView vm={vm} />;
-    } else if (viewerRole === "trades") {
-      viewContent = <TradesmanProjectView vm={vm} />;
-    } else if (viewerRole === "home") {
-      viewContent = <NeighbourProjectView vm={vm} />;
-    }
+  if (!ready) {
+    return (
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
+        {vm.loadingUi}
+      </div>
+    );
   }
 
+  // ---------------------------------------------------------
+  // 4) Select correct view
+  // ---------------------------------------------------------
+  let viewContent: React.ReactNode = null;
+
+  if (vm.isOwner) {
+    viewContent = <OwnerProjectView vm={vm} />;
+  } else if (viewerRole === "home") {
+    viewContent = <NeighbourProjectView vm={vm} />;
+  } else if (viewerRole === "trades") {
+    // (This will never show — redirect already handled)
+    viewContent = <TradesmanProjectView vm={vm} />;
+  }
+
+  // ---------------------------------------------------------
+  // 5) FINAL RENDER
+  // ---------------------------------------------------------
   return (
-    <AuthedOnly>
-      <div
-        className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8"
-        data-testid="project-view-page"
-      >
-        {vm.loadingUi}
-
-        {viewContent}
-
-        {/* Global modals common to all views */}
-        {vm.closeProjectModal}
-        {vm.plansModal}
-      </div>
-    </AuthedOnly>
+    <div
+      className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8"
+      data-testid="project-view-page"
+    >
+      {viewContent}
+      {vm.closeProjectModal}
+      {vm.plansModal}
+    </div>
   );
 }

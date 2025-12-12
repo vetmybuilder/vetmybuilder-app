@@ -90,6 +90,9 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
   const [featured, setFeatured] = React.useState<FeaturedTradesman[]>([]);
   const [featuredErr, setFeaturedErr] = React.useState<string | null>(null);
   const [featuredLoading, setFeaturedLoading] = React.useState(false);
+  const [recHasPhotos, setRecHasPhotos] = React.useState<
+    Record<number, boolean>
+  >({});
 
   // 🔑 Companies House verification per recommendation
   const [recVerification, setRecVerification] = React.useState<
@@ -160,39 +163,54 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
     };
   }, [project?.id, api]);
 
-  // 🔑 Fetch Companies House + Google verification for each recommendation
+  // 🔥🔥 FULL BLOCK REPLACED WITH OPTION A (PHOTO CHECK FIX) 🔥🔥
+  // 🔑 Fetch Companies House + Google verification + photos for each recommendation (Option A)
   React.useEffect(() => {
-    // Prefer the shortlist items (ratings endpoint); fall back to raw recs
     const src =
       (shortlistItems && shortlistItems.length ? shortlistItems : recs) || [];
 
     if (!src.length) {
       setRecVerification({});
+      setRecHasPhotos({});
       return;
     }
 
     let cancelled = false;
 
     (async () => {
-      const map: Record<number, Verification> = {};
+      const verMap: Record<number, Verification> = {};
+      const photosMap: Record<number, boolean> = {};
 
       await Promise.all(
         src.map(async (r: any) => {
+          const recId = r.id;
+
+          // --- Verification fetch ---
           try {
             const { data } = await api.get(
-              `/api/recommendations/${r.id}/verification`
+              `/api/recommendations/${recId}/verification`
             );
             if (!cancelled && data?.verification) {
-              map[r.id] = data.verification as Verification;
+              verMap[recId] = data.verification as Verification;
             }
           } catch {
-            // silently ignore; those recs will just fall back to "Checking"
+            /* ignore */
+          }
+
+          // --- PHOTO DETECTION (OPTION A) ---
+          try {
+            const { data } = await api.get(`/api/recommendations/${recId}`);
+            const arr = data?.recommendation?.photos ?? [];
+            photosMap[recId] = Array.isArray(arr) && arr.length > 0;
+          } catch {
+            photosMap[recId] = false;
           }
         })
       );
 
       if (!cancelled) {
-        setRecVerification(map);
+        setRecVerification(verMap);
+        setRecHasPhotos(photosMap);
       }
     })();
 
@@ -200,6 +218,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
       cancelled = true;
     };
   }, [api, recs, shortlistItems]);
+  // 🔥🔥 END OF OPTION A UPDATE 🔥🔥
 
   // 🔹 NEW: fetch shortlist *with aggregated VMB scores* from ratings endpoint
   React.useEffect(() => {
@@ -359,7 +378,6 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
               const key = `vmb_neighbourhood_shared_${project.id}`;
               window.localStorage.setItem(key, "1");
             }
-            // TODO: call backend flag if you want to block community sharing server-side
           }
 
           await handleShare(channel);
@@ -438,7 +456,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
               </span>
             </div>
 
-            {/* Primary CTA: Share / Share & Publish – bottom-left under badges */}
+            {/* Primary CTA: Share */}
             <div className="mt-4 space-y-1">
               <div
                 className="flex flex-wrap gap-2"
@@ -574,7 +592,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
             canVote={false}
             votingId={null}
             onVoteUp={async () => {}}
-            recHasPhotos={{}}
+            recHasPhotos={recHasPhotos} // ⭐ OPTION A now works properly
             recVerification={recVerification}
             showOwnerShareCta={
               !isLive &&
@@ -587,7 +605,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
           {recsErr && <p className="mt-2 text-sm text-rose-600">{recsErr}</p>}
         </div>
 
-        {/* RIGHT: Spotlight (auto-rotated by server, shows all) */}
+        {/* RIGHT: Spotlight */}
         <div>
           <section
             aria-label="Spotlight tradesmen"

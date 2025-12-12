@@ -1,4 +1,3 @@
-// web/pages/projects/[id]/TradesmanProjectView.tsx
 import * as React from "react";
 import { useRouter } from "next/router";
 import ProjectDetailsCard from "@/components/project/ProjectDetailsCard";
@@ -25,24 +24,22 @@ export default function TradesmanProjectView({ vm }: { vm: VM }) {
     onArchive,
     onUnarchive,
     onCloseProject,
-    interestBusy,
-    interestSent,
-    shareCheckDone,
+
     ownerContact,
     contactLoading,
+    contactUnlocked,
+    contactError,
+
     onUpgradeClick,
   } = vm;
 
   if (!project) return null;
 
-  // Fallback: if the VM doesn't provide an upgrade handler,
-  // send tradesmen to the plans / pricing page.
   const handleUpgrade =
     onUpgradeClick || (() => router.push("/tradesman/plans"));
 
   return (
     <>
-      {/* Back to projects for tradesmen */}
       {isTrades && !isOwner && (
         <div className="mb-4">
           <a
@@ -72,23 +69,26 @@ export default function TradesmanProjectView({ vm }: { vm: VM }) {
             onOpenCloseModal={onCloseProject}
             canAddRec={false}
             showShareButton={
-              !!project &&
-              isTrades &&
-              !isOwner &&
-              isLive &&
-              !isClosed &&
-              !interestSent &&
-              shareCheckDone
+              !!project && isTrades && !isOwner && isLive && !isClosed
             }
-            shareBusy={interestBusy}
+            shareBusy={false}
           />
         </div>
 
         <div>
           <ContactDetailsCard
-            locked={!ownerContact}
+            locked={!contactUnlocked}
             loading={contactLoading}
             contact={ownerContact || undefined}
+            status={
+              contactError === "pending_admin_review"
+                ? "pending_admin_review"
+                : contactError === "not_unlocked"
+                ? "not_unlocked"
+                : contactError === "error"
+                ? "error"
+                : undefined
+            }
             onUpgrade={handleUpgrade}
           />
         </div>

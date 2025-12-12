@@ -1,6 +1,9 @@
 // server/routes/tradesmen/tradesman.get.js
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
+  const log = ctx.log || console;
+  const TAG = "[tradesmen/tradesman.get]";
+  const ROUTE = "/tradesmen/:uid";
 
   if (!mysqlQuery) {
     throw new Error("mysqlQuery not attached to ctx (MySQL required)");
@@ -9,18 +12,21 @@ module.exports = (router, ctx) => {
   /* ---------- helpers ---------- */
 
   const tableExists = async (name) => {
-    // mysql2 prepared statements don't support ? in SHOW TABLES,
-    // so we have to inline the value (it's internal, not user input).
     const safe = String(name || "").replace(/`/g, "");
     const sql = `SHOW TABLES LIKE '${safe}'`;
+
     try {
-      const rows = await mysqlQuery(sql, []); // no params
+      const rows = await mysqlQuery(sql, []);
       return Array.isArray(rows) && rows.length > 0;
     } catch (e) {
-      console.error("[/tradesmen/:uid] tableExists error:", e);
+      log.warn(`${TAG} tableExists failed`, {
+        table: name,
+        error: e?.message || e,
+      });
       return false;
     }
   };
+
   const isChVerified = (row) =>
     String(row?.ch_status || "").toLowerCase() === "verified";
 
@@ -32,9 +38,7 @@ module.exports = (router, ctx) => {
       if (v && typeof v === "object") {
         return Object.values(v).filter(Boolean).map(String);
       }
-    } catch {
-      // ignore
-    }
+    } catch (_) {}
     return [];
   };
 
@@ -66,9 +70,7 @@ module.exports = (router, ctx) => {
           .map((v) => String(v).trim())
           .filter(Boolean);
       }
-    } catch {
-      // fall back to plain string parsing
-    }
+    } catch (_) {}
     return String(serviceAreas)
       .split(/[,\s]+/)
       .map((s) => s.trim())
@@ -85,20 +87,23 @@ module.exports = (router, ctx) => {
     if (!path) return null;
     const s = String(path);
     if (/^https?:\/\//i.test(s)) return s;
+
     const base =
       process.env.MEDIA_BASE_URL ||
       process.env.PUBLIC_BASE_URL ||
       process.env.NEXT_PUBLIC_API_BASE_URL ||
       "";
+
     if (!base) return s.startsWith("/") ? s : `/${s}`;
+
     const cleanBase = base.endsWith("/") ? base.slice(0, -1) : base;
     const cleanPath = s.startsWith("/") ? s : `/${s}`;
     return `${cleanBase}${cleanPath}`;
   };
 
-  // Detect which photo table exists (once per process)
   const resolvePhotoTable = async () => {
     if (ctx._vmbPhotoTableResolved) return ctx._vmbPhotoTableResolved;
+
     try {
       const rows = await mysqlQuery(
         `
@@ -109,20 +114,20 @@ module.exports = (router, ctx) => {
          LIMIT 1
         `
       );
+
       ctx._vmbPhotoTableResolved = rows?.[0]?.TABLE_NAME || null;
     } catch (e) {
-      console.warn(
-        "[/tradesmen/:uid] resolvePhotoTable failed:",
-        e?.message || e
-      );
+      log.warn(`${TAG} resolvePhotoTable failed`, { error: e?.message || e });
       ctx._vmbPhotoTableResolved = null;
     }
+
     return ctx._vmbPhotoTableResolved;
   };
 
   const loadPhotoUrlsFor = async (uid) => {
     const table = await resolvePhotoTable();
     if (!table) return [];
+
     try {
       const rows = await mysqlQuery(
         `
@@ -135,18 +140,20 @@ module.exports = (router, ctx) => {
       );
       return (rows || []).map((p) => makeAbsolute(p.url));
     } catch (e) {
-      console.warn(
-        "[/tradesmen/:uid] loadPhotoUrlsFor failed:",
-        e?.message || e
-      );
+      log.warn(`${TAG} loadPhotoUrlsFor failed`, {
+        uid,
+        error: e?.message || e,
+      });
       return [];
     }
   };
 
   const isFavouriteForViewer = async (viewerId, builderId) => {
     if (!viewerId) return 0;
+
     const hasFav = await tableExists("favourite_tradesmen");
     if (!hasFav) return 0;
+
     try {
       const rows = await mysqlQuery(
         `
@@ -160,27 +167,34 @@ module.exports = (router, ctx) => {
       );
       return rows.length ? 1 : 0;
     } catch (e) {
-      console.warn(
-        "[/tradesmen/:uid] favourite lookup failed:",
-        e?.message || e
-      );
+      log.warn(`${TAG} favourite lookup failed`, {
+        viewerId,
+        builderId,
+        error: e?.message || e,
+      });
       return 0;
     }
   };
 
   /* ---------- route ---------- */
 
-  router.get("/tradesmen/:uid", auth, async (req, res) => {
+  router.get(ROUTE, auth, async (req, res) => {
+    const uid = String(req.params.uid || "").trim();
+    log.info(`${TAG} hit`, { uid });
+
     try {
       const hasTradesmen = await tableExists("tradesmen");
       if (!hasTradesmen) {
+        log.error(`${TAG} missing tradesmen table`);
         return res.status(500).json({ error: "NO_TRADESMEN_TABLE" });
       }
 
-      const uid = String(req.params.uid || "").trim();
-      if (!uid) return res.status(400).json({ error: "MISSING_UID" });
+      if (!uid) {
+        log.warn(`${TAG} missing uid param`);
+        return res.status(400).json({ error: "MISSING_UID" });
+      }
 
-      // 1) Load tradesman row – SELECT * so we never break on column names
+      /* 1) Load tradesman row */
       let rows;
       try {
         rows = await mysqlQuery(
@@ -188,7 +202,10 @@ module.exports = (router, ctx) => {
           [uid]
         );
       } catch (e) {
-        console.error("[/tradesmen/:uid] SELECT error:", e);
+        log.error(`${TAG} SELECT error`, {
+          stage: "select_tradesman",
+          error: e?.message || e,
+        });
         return res.status(500).json({
           error: "FAILED",
           stage: "select_tradesman",
@@ -196,25 +213,26 @@ module.exports = (router, ctx) => {
         });
       }
 
-      const row = rows && rows[0];
+      const row = rows?.[0];
       if (!row || String(row.status || "").toLowerCase() === "banned") {
+        log.warn(`${TAG} tradesman not found or banned`, { uid });
         return res.status(404).json({ error: "NOT_FOUND" });
       }
 
-      // 2) Photos
+      /* 2) Photos */
       const photoUrls = await loadPhotoUrlsFor(uid);
       const gallery = photoUrls.length ? photoUrls : makePlaceholders(uid);
-      const avatarUrl = photoUrls.length ? photoUrls[0] : null;
+      const avatarUrl = photoUrls[0] || null;
 
-      // 3) Service areas / outward code
+      /* 3) Service areas */
       const serviceAreas = parseServiceAreas(row.service_areas);
       const outward = serviceAreas[0] || null;
 
-      // 4) Favourite flag
-      const viewerId = req.user && req.user.uid;
+      /* 4) Favourite flag */
+      const viewerId = req.user?.uid;
       const isFavourite = await isFavouriteForViewer(viewerId, uid);
 
-      // 5) Google review fields (may or may not exist in this schema)
+      /* 5) Google review metadata */
       const googlePlaceId = row.google_place_id || null;
       const googleRating =
         row.google_rating === null || row.google_rating === undefined
@@ -246,12 +264,10 @@ module.exports = (router, ctx) => {
         stats: {
           completed: Number(row.wins_count || 0),
           photos: Number(row.photo_count || photoUrls.length || 0),
-          // Prefer Google review count if available, else likes_count
           reviews:
             googleReviewsCount && Number.isFinite(googleReviewsCount)
               ? googleReviewsCount
               : Number(row.likes_count || 0),
-          // Prefer Google rating if available, else legacy 4.8
           stars:
             googleRating !== null && Number.isFinite(googleRating)
               ? googleRating
@@ -273,15 +289,22 @@ module.exports = (router, ctx) => {
         createdAt: row.created_at || null,
         isFavourite,
 
-        // expose Google pieces to the front-end (for GoogleRatingChip)
         googlePlaceId,
         googleRating,
         googleReviewsCount,
       };
 
+      log.info(`${TAG} success`, {
+        uid,
+        tier,
+        galleryCount: gallery.length,
+        googleRating,
+        googleReviewsCount,
+      });
+
       return res.json({ item: payload });
     } catch (e) {
-      console.error("[/tradesmen/:uid] UNHANDLED ERROR:", e);
+      log.error(`${TAG} unhandled error`, { error: e?.message || e });
       return res.status(500).json({
         error: "FAILED",
         stage: "outer",
@@ -292,6 +315,6 @@ module.exports = (router, ctx) => {
 
   if (!ctx.__logged_tradesman_get) {
     ctx.__logged_tradesman_get = true;
-    console.log("[routes] mounted: GET /api/tradesmen/:uid");
+    log.info(`[routes] mounted: GET ${ROUTE}`);
   }
 };

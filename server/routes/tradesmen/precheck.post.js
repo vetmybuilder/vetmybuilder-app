@@ -2,29 +2,48 @@
 /**
  * POST /api/tradesmen/precheck   (PUBLIC)
  * Body: { name: string, postcode?: string }
- * Uses Companies House match by name to pre-fill company number/status before account creation.
+ * Uses Companies House match-by-name to prefill company number/status.
  */
 module.exports = (router, ctx) => {
   const { matchByName } = ctx;
+  const log = ctx.log || console;
+  const TAG = "[tradesmen/precheck.post]";
   const ROUTE = "/tradesmen/precheck";
 
   router.post(ROUTE, async (req, res) => {
+    const body = req.body || {};
+    const name = String(body.name || "").trim();
+    const postcode = String(body.postcode || "").trim() || undefined;
+
+    log.info(`${TAG} hit`, { name, postcode });
+
     try {
-      const name = String(req.body?.name || "").trim();
-      const postcode = String(req.body?.postcode || "").trim() || undefined;
-      if (!name)
+      if (!name) {
+        log.warn(`${TAG} name missing`);
         return res.status(400).json({ ok: false, error: "name_required" });
+      }
+
+      if (typeof matchByName !== "function") {
+        log.error(`${TAG} matchByName missing on ctx`);
+        return res.status(500).json({ ok: false, error: "config_error" });
+      }
 
       const result = await matchByName({ name, locationHint: postcode });
+
+      log.info(`${TAG} CH result`, {
+        verdict: result?.verdict,
+        best: result?.best || null,
+      });
+
       return res.json({ ok: true, ...result });
     } catch (e) {
-      console.error("[precheck] failed", e);
+      log.error(`${TAG} failed`, { error: e?.message || e });
       return res.status(500).json({ ok: false, error: "server_error" });
     }
   });
 
   if (!ctx.__logged_tradesmen_precheck) {
     ctx.__logged_tradesmen_precheck = true;
-    console.log(`[routes] mounted: POST ${ROUTE}`);
+    log.info(`[routes] mounted: POST ${ROUTE}`);
   }
 };

@@ -6,8 +6,8 @@ require("dotenv").config({
   path: path.resolve(process.cwd(), "web/.env.local"),
 });
 
-// ---------------------- DEBUG FLAG ----------------------
-const DEBUG = process.env.DEBUG_SERVER === "1";
+// ---------------------- LOGGER ----------------------
+const { logger, withRequest } = require("./lib/logger");
 
 const express = require("express");
 const cors = require("cors");
@@ -21,9 +21,7 @@ const { authMiddleware } = require("./lib/middleware");
 const { clientsByUser, sseSend } = require("./lib/sse");
 const { upload, UPLOAD_DIR } = require("./lib/uploads");
 const { extractLocationTokens, updateUserLocation } = require("./lib/location");
-const {
-  RecSchema /* ProjectSchema not needed in index */,
-} = require("./lib/validation");
+const { RecSchema } = require("./lib/validation");
 const { cleanPhone } = require("./lib/phone");
 const { resolveFirebaseApiKey, PUBLIC_API_BASE } = require("./lib/config");
 
@@ -51,19 +49,25 @@ app.use(
     credentials: false,
   })
 );
+
 app.options("*", cors());
 app.use(express.json());
 
-/* -------------------- ultra-early request logger -------------------- */
+/* -------------------- HTTP request logger -------------------- */
 app.use((req, res, next) => {
-  const t0 = Date.now();
-  const { method } = req;
-  const url = req.originalUrl || req.url;
+  const start = Date.now();
+  const log = withRequest(req);
+
   res.on("finish", () => {
-    const ms = Date.now() - t0;
-    if (DEBUG)
-      console.log(`[http] ${method} ${url} -> ${res.statusCode} in ${ms}ms`);
+    log.info(
+      {
+        status: res.statusCode,
+        duration: Date.now() - start,
+      },
+      "http request"
+    );
   });
+
   next();
 });
 
@@ -74,27 +78,34 @@ const TEST_SECRET = process.env.E2E_TEST_SECRET || "";
 
 function assertTestAccess(req, res) {
   if (!TEST_ROUTES_ENABLED) return res.status(404).json({ error: "Not found" });
+
   const hdr = req.header("X-Test-Secret") || "";
   if (!TEST_SECRET || hdr !== TEST_SECRET) {
     return res.status(401).json({ error: "Unauthorized (test)" });
   }
+
   return true;
 }
 
 function wipeAllRows(_db) {
-  if (DEBUG) console.warn("[test] wipeAllRows is a no-op in MySQL mode");
+  logger.warn("wipeAllRows called – no-op under MySQL mode");
 }
 
 /* -------------------- Firebase Admin -------------------- */
 (function initFirebaseAdmin() {
   const credsRaw = process.env.FIREBASE_ADMIN_CREDENTIALS_JSON;
+
   if (!credsRaw) {
-    if (DEBUG) console.warn("[server] FIREBASE_ADMIN_CREDENTIALS_JSON missing");
+    logger.warn("FIREBASE_ADMIN_CREDENTIALS_JSON missing");
     return;
   }
+
   const creds = JSON.parse(credsRaw);
-  if (!admin.apps.length)
+
+  if (!admin.apps.length) {
     admin.initializeApp({ credential: admin.credential.cert(creds) });
+    logger.info("Firebase Admin initialised");
+  }
 })();
 
 function optionalAuth(adminInstance) {
@@ -104,9 +115,13 @@ function optionalAuth(adminInstance) {
       if (h.startsWith("Bearer ")) {
         const token = h.slice(7);
         const decoded = await adminInstance.auth().verifyIdToken(token);
-        req.user = { uid: decoded.uid, email: decoded.email || null };
+
+        req.user = {
+          uid: decoded.uid,
+          email: decoded.email || null,
+        };
       }
-    } catch (_e) {
+    } catch (_) {
       // ignore invalid tokens
     }
     next();
@@ -115,78 +130,82 @@ function optionalAuth(adminInstance) {
 
 /* -------------------- DB & health -------------------- */
 const db = initDb(process.env.DATABASE_URL || "./data/app.db");
-if (runMigrations) runMigrations(db);
+
+// Disable SQLite migrations unless explicitly enabled
+const ENABLE_MIGRATIONS = process.env.ENABLE_SQLITE_MIGRATIONS === "1";
+
+if (ENABLE_MIGRATIONS) {
+  logger.warn("⚠️ ENABLE_SQLITE_MIGRATIONS=1 → running legacy migrations");
+  if (runMigrations) runMigrations(db);
+} else {
+  logger.info("SQLite migrations disabled (MySQL mode)");
+}
 
 let notifyUsers = null;
 try {
   const mod = require("./lib/notify");
   notifyUsers = mod.notifyUsers || mod;
-} catch (_) {}
+} catch (_) {
+  // silent fallback
+}
 
 if (!notifyUsers) {
   notifyUsers = async function fallbackNotifyUsers(_dbConn, uids, payload) {
-    try {
-      const now = new Date().toISOString();
-      const ids = Array.isArray(uids) ? uids : [];
+    const now = new Date().toISOString();
+    const ids = Array.isArray(uids) ? uids : [];
+    if (!ids.length) return;
 
-      if (!ids.length) return;
+    const insertSql = `
+      INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `;
 
-      const insertSql = `
-        INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `;
+    for (const uid of ids) {
+      try {
+        await mysqlQuery(insertSql, [
+          uid,
+          payload.type || "info",
+          String(payload.message || ""),
+          typeof payload.projectId === "number" ? payload.projectId : null,
+          payload.linkPath || null,
+          now,
+        ]);
+      } catch (err) {
+        logger.warn(
+          { error: err?.message, uid },
+          "notifyUsers fallback insert error"
+        );
+      }
 
-      for (const uid of ids) {
-        try {
-          await mysqlQuery(insertSql, [
-            uid,
-            payload.type || "info",
-            String(payload.message || ""),
-            typeof payload.projectId === "number" ? payload.projectId : null,
-            payload.linkPath || null,
-            now,
-          ]);
-        } catch (err) {
-          if (DEBUG)
-            console.warn(
-              "[notifyUsers fallback] insert error:",
-              err?.message || err
+      const set = clientsByUser.get(uid);
+      if (set && set.size) {
+        for (const res of set) {
+          try {
+            sseSend(res, "notification", {
+              type: payload.type || "info",
+              message: String(payload.message || ""),
+              projectId:
+                typeof payload.projectId === "number"
+                  ? payload.projectId
+                  : null,
+              linkPath: payload.linkPath || null,
+              createdAt: now,
+            });
+          } catch (e) {
+            logger.warn(
+              { error: e?.message, uid },
+              "notifyUsers fallback SSE send error"
             );
-        }
-
-        const set = clientsByUser.get(uid);
-        if (set && set.size) {
-          for (const res of set) {
-            try {
-              sseSend(res, "notification", {
-                type: payload.type || "info",
-                message: String(payload.message || ""),
-                projectId:
-                  typeof payload.projectId === "number"
-                    ? payload.projectId
-                    : null,
-                linkPath: payload.linkPath || null,
-                createdAt: now,
-              });
-            } catch (e) {
-              if (DEBUG)
-                console.warn(
-                  "[notifyUsers fallback] SSE send error:",
-                  e?.message || e
-                );
-            }
           }
         }
       }
-    } catch (e) {
-      if (DEBUG)
-        console.warn("[notifyUsers fallback] general error:", e?.message || e);
     }
   };
 }
 
 const auth = authMiddleware(admin);
 
+/* -------------------- Health -------------------- */
 app.get("/health", (_req, res) =>
   res.json({ ok: true, now: new Date().toISOString() })
 );
@@ -211,37 +230,27 @@ async function handlePublicStats(_req, res) {
       shortlists: shortRows[0]?.c || 0,
     });
   } catch (e) {
-    console.error("stats error", e);
+    logger.error({ error: e?.message }, "stats endpoint error");
     return res.status(500).json({ error: "Failed to load stats" });
   }
 }
+
 app.get("/api/stats", handlePublicStats);
 app.get("/api/stats/public", handlePublicStats);
 
 /* -------------------- Uploads (static) -------------------- */
-if (DEBUG) {
-  console.log("[uploads] UPLOAD_DIR:", UPLOAD_DIR);
-  try {
-    const exists = fs.existsSync(UPLOAD_DIR);
-    console.log("[uploads] exists?", exists);
-    if (exists) {
-      console.log("[uploads] top-level contents:", fs.readdirSync(UPLOAD_DIR));
-    }
-  } catch (e) {
-    console.log("[uploads] error reading UPLOAD_DIR:", e?.message || e);
-  }
-}
+logger.info({ uploadDir: UPLOAD_DIR }, "uploads initialised");
 
 app.use(
   "/uploads",
   (req, res, next) => {
-    if (DEBUG) console.log("[uploads] request", req.method, req.path);
+    withRequest(req).info("uploads request");
     next();
   },
   express.static(UPLOAD_DIR, { maxAge: "7d", index: false })
 );
 
-/* -------------------- router -------------------- */
+/* -------------------- Build router -------------------- */
 const { buildRouter } = require("./buildRouter");
 
 const touchUserMw = (_req, _res, next) => next();
@@ -251,6 +260,7 @@ const router = buildRouter({
   mysqlQuery,
   admin,
   auth,
+  optionalAuth: optionalAuth(admin),
   touchUserMw,
   assertTestAccess,
   wipeAllRows,
@@ -276,5 +286,6 @@ const router = buildRouter({
 app.use("/api", router);
 
 /* -------------------- Start server -------------------- */
-if (DEBUG) console.log(`[server] http://localhost:${PORT}`);
-app.listen(PORT);
+app.listen(PORT, () => {
+  logger.info({ port: PORT }, "server started");
+});

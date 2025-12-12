@@ -18,35 +18,43 @@ export function useProjectTypeSuggester(opts?: {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Curated quick-pick chips (must exist in ALL_PROJECT_TYPES)
+  /**
+   * Curated quick-pick chips:
+   * These are the most common / most searched-for UK home improvement projects.
+   * They MUST exist in ALL_PROJECT_TYPES.
+   */
   const chips = useMemo<string[]>(
     () =>
       [
         "Kitchen Remodel (Full)",
         "Bathroom Remodel (Full)",
         "Roof Repair",
-        "Driveway (Block/Tarmac/Resin)",
-        "Garden Design & Build",
         "Loft Conversion (Dormer)",
         "Single-storey Extension",
+        "Garden Design & Build",
+        "Driveway (Block)",
         "Full Rewire",
+        "Boiler Installation",
+        "New Bathroom Installation",
+        "New Kitchen Installation",
+        "Plaster Skimming",
       ].filter((t) => ALL_PROJECT_TYPES.includes(t)),
     []
   );
 
   // Debounced local filtering
   useEffect(() => {
-    let t: any;
-    setLoading(true);
-    t = setTimeout(() => {
-      const list = value.trim() ? suggestProjectTypes(value, limit) : chips; // show chips when empty
+    const timer = setTimeout(() => {
+      setLoading(true);
+      const list = value.trim() ? suggestProjectTypes(value, limit) : chips;
       setSuggestions(list);
       setLoading(false);
     }, debounceMs);
-    return () => clearTimeout(t);
+
+    return () => clearTimeout(timer);
   }, [value, limit, debounceMs, chips]);
 
-  // Imperative helpers (optional)
+  // Imperative helpers
   const pick = (label: string) => setValue(label);
   const clear = () => setValue("");
 
@@ -54,7 +62,7 @@ export function useProjectTypeSuggester(opts?: {
     value,
     setValue,
     suggestions,
-    chips, // quick-picks to render as pills
+    chips,
     loading,
     pick,
     clear,

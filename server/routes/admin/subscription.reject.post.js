@@ -5,19 +5,21 @@
  * Sets purchased_plan = NULL (no changes to plan).
  */
 
+const { logger, withRequest } = require("../../lib/logger");
+
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
   const { requireAdmin } = require("../../lib/roles");
 
-  console.log(
-    "[routes] mounted: POST /admin/tradesmen/:uid/subscription/reject"
-  );
+  const TAG = "admin.subscription.reject";
 
   router.post(
     "/admin/tradesmen/:uid/subscription/reject",
     auth,
     requireAdmin(ctx),
     async (req, res) => {
+      const log = withRequest(req).child({ route: TAG });
+
       try {
         const uid = req.params.uid;
 
@@ -33,6 +35,7 @@ module.exports = (router, ctx) => {
         );
 
         if (!rows.length) {
+          log.warn({ uid }, "Tradesman not found");
           return res.status(404).json({
             error: "not_found",
             message: "Tradesman not found",
@@ -41,6 +44,7 @@ module.exports = (router, ctx) => {
 
         const pendingPlan = rows[0].purchased_plan;
         if (!pendingPlan) {
+          log.warn({ uid }, "No purchased_plan to reject");
           return res.status(400).json({
             error: "no_pending_plan",
             message: "No purchased_plan exists to reject",
@@ -58,13 +62,23 @@ module.exports = (router, ctx) => {
           [uid]
         );
 
+        log.info({ uid, rejectedPlan: pendingPlan }, "Subscription rejected");
+
         return res.json({
           ok: true,
           uid,
           rejectedPlan: pendingPlan,
         });
       } catch (e) {
-        console.error("[admin.subscription.reject] error:", e);
+        logger.error(
+          {
+            route: TAG,
+            err: e?.message,
+            stack: e?.stack,
+          },
+          "Subscription reject failed"
+        );
+
         return res.status(500).json({
           error: "server_error",
           message: e?.message || "Server error",

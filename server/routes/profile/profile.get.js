@@ -1,58 +1,57 @@
 // server/routes/profile/profile.get.js
 /**
- * GET /api/profile  (also /api/profile if mounted there)
+ * GET /api/profile
  * Auth: required
  * Response: { profile | null }
  */
+
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
+  if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
+
+  // structured logger
+  const { logger, withRequest } = require("../../lib/logger");
 
   router.get("/profile", auth, async (req, res) => {
-    const uid = req.user.uid;
+    const log = withRequest(req, logger).child({ route: "/profile" });
+    const uid = req.user?.uid;
+
+    if (!uid) {
+      log.warn("Missing uid in authenticated request");
+      return res.status(401).json({ error: "unauthorized" });
+    }
+
+    log.info({ uid }, "Profile request received");
 
     try {
       const rows = await mysqlQuery(
-        `SELECT uid AS userId,
-                locationRaw,
-                postcode,
-                postcodeSector,
-                postcodeOutward,
-                city,
-                createdAt AS updatedAt
-           FROM users
-          WHERE uid = ?`,
+        `
+        SELECT
+          uid AS userId,
+          locationRaw,
+          postcode,
+          postcodeSector,
+          postcodeOutward,
+          city,
+          createdAt AS updatedAt
+        FROM users
+        WHERE uid = ?
+        `,
         [uid]
       );
 
-      const row = rows[0] || null;
-      return res.json({ profile: row });
+      const profile = rows[0] || null;
+
+      log.info({ uid, hasProfile: !!profile }, "Profile query completed");
+
+      return res.json({ profile });
     } catch (err) {
-      console.error(
-        "Error fetching profile from MySQL in /api/v2/profile:",
-        err
+      log.error(
+        { uid, error: err?.message, stack: err?.stack },
+        "Failed to fetch profile"
       );
+
       return res.status(500).json({ error: "internal_error" });
     }
   });
 };
-
-// // server/routes/profile/profile.get.js
-// /**
-//  * GET /api/profile  (also /api/profile if mounted there)
-//  * Auth: required
-//  * Response: { profile | null }
-//  */
-// module.exports = (router, ctx) => {
-//   const { db, auth } = ctx;
-
-//   router.get("/profile", auth, (req, res) => {
-//     const uid = req.user.uid;
-//     const row = db
-//       .prepare(
-//         `SELECT uid AS userId, locationRaw, postcode, postcodeSector, postcodeOutward, city, createdAt AS updatedAt
-//            FROM users WHERE uid = ?`
-//       )
-//       .get(uid);
-//     return res.json({ profile: row || null });
-//   });
-// };

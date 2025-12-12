@@ -1,3 +1,4 @@
+// server/routes/payments/spotlight/purchase.post.js
 /**
  * POST /api/payments/spotlight/purchase
  *
@@ -7,45 +8,77 @@
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
-  const TAG = "[spotlight.purchase]";
+  const { logger, withRequest } = require("../../lib/logger");
+
+  if (!mysqlQuery) {
+    throw new Error("mysqlQuery not attached to ctx");
+  }
 
   router.post("/payments/spotlight/purchase", auth, async (req, res) => {
+    const log = withRequest(req, logger).child({
+      route: "/payments/spotlight/purchase",
+    });
+
     try {
       const userId = req.user?.uid;
       if (!userId) {
+        log.warn("Unauthenticated spotlight purchase attempt");
         return res.status(401).json({ ok: false, error: "UNAUTHENTICATED" });
       }
 
-      const { currency, origin } = req.body;
+      const { currency, origin } = req.body || {};
 
       if (!currency) {
+        log.warn("Missing currency field");
         return res.status(400).json({
           ok: false,
           error: "CURRENCY_REQUIRED",
         });
       }
 
-      // Amount is fixed for Spotlight
+      if (!origin) {
+        log.warn("Missing origin field");
+        return res.status(400).json({
+          ok: false,
+          error: "ORIGIN_REQUIRED",
+        });
+      }
+
+      // Spotlight price is fixed
       const AMOUNT = 3999;
 
-      // --- Create sessionId (mock style) ---
+      // Create mock session ID
       const sessionId = `cs_test_${Math.random().toString(36).slice(2)}`;
 
-      // --- Insert into payments_oneoff ---
+      log.info(
+        { userId, currency, sessionId, amount: AMOUNT },
+        "Spotlight purchase initiated"
+      );
+
+      // -------------------------------------------------------------------
+      // INSERT PAYMENT ROW
+      // -------------------------------------------------------------------
       await mysqlQuery(
         `
         INSERT INTO payments_oneoff
-          (user_id, type, amount, currency, status, provider_session_id, created_at, updated_at)
+          (user_id, type, amount, currency, status,
+           provider_session_id, created_at, updated_at)
         VALUES
-          (?, 'spotlight', ?, ?, 'pending_admin', ?, NOW(), NOW())
+          (?, 'spotlight', ?, ?, 'pending_admin',
+           ?, NOW(), NOW())
         `,
         [userId, AMOUNT, currency, sessionId]
       );
 
-      // --- Build checkout response ---
+      log.info(
+        { userId, sessionId, amount: AMOUNT },
+        "Inserted payments_oneoff spotlight purchase (pending_admin)"
+      );
+
+      // Build hosted checkout URL
       const hostedURL = `${origin}/payments/mock/checkout/${sessionId}`;
 
-      return res.json({
+      const response = {
         ok: true,
         sessionId,
         session: {
@@ -69,9 +102,21 @@ module.exports = (router, ctx) => {
           },
         },
         hosted_url: hostedURL,
-      });
+      };
+
+      log.info(
+        { sessionId, userId },
+        "Spotlight purchase session created; returning session details"
+      );
+
+      return res.json(response);
     } catch (err) {
-      console.error(`${TAG} error`, err);
+      const logErr = err?.message || String(err);
+      log.error(
+        { error: logErr, stack: err?.stack },
+        "Spotlight purchase failed"
+      );
+
       return res.status(500).json({
         ok: false,
         error: "SPOTLIGHT_PURCHASE_FAILED",

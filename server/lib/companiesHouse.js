@@ -2,7 +2,7 @@
 const LIVE_BASE = "https://api.company-information.service.gov.uk";
 const SANDBOX_BASE = "https://api-sandbox.company-information.service.gov.uk";
 
-// --- NEW: fuzzy matching libs
+// Fuzzy matching libs
 const Fuse = require("fuse.js");
 const removeAccents = require("remove-accents");
 const jaroWinkler =
@@ -13,7 +13,19 @@ const dice =
 
 const TAG = "[CH]";
 
-// Prefer CH_KEY but accept common aliases to reduce config errors
+// -------------------------------------------------------
+// Local logger (module-level). Routes may wrap calls with ctx.log.
+// -------------------------------------------------------
+const log = {
+  info: (...a) => console.log(...a),
+  warn: (...a) => console.warn(...a),
+  error: (...a) => console.error(...a),
+};
+
+/* =======================================================
+   CONFIG HELPERS
+   ======================================================= */
+
 function resolveKey() {
   return (
     process.env.CH_KEY ||
@@ -23,7 +35,6 @@ function resolveKey() {
   );
 }
 
-/** Build correct Basic header: base64("<key>:") */
 function buildAuthHeader(rawKey) {
   const key = String(rawKey || "").trim();
   if (!key) throw new Error("CH_KEY missing");
@@ -36,7 +47,9 @@ function getBaseUrl() {
   return env === "sandbox" ? SANDBOX_BASE : LIVE_BASE;
 }
 
-// One-time diag on module load
+/* =======================================================
+   ONE-TIME DIAGNOSTIC ON LOAD
+   ======================================================= */
 (function bootDiag() {
   const key = resolveKey();
   const base = getBaseUrl();
@@ -46,12 +59,17 @@ function getBaseUrl() {
     const b64 = Buffer.from(`${key}:`).toString("base64");
     sample = hasKey ? `${b64.slice(0, 8)}… (len=${b64.length})` : "";
   } catch {}
-  console.log(
+
+  log.info(
     `${TAG} init env=${process.env.CH_ENV || "live"} base=${base} key=${
       hasKey ? "present" : "MISSING"
     } auth=${hasKey ? `Basic ${sample}` : "(none)"}`
   );
 })();
+
+/* =======================================================
+   HTTP WRAPPER
+   ======================================================= */
 
 async function chFetch(pathname, { method = "GET", signal } = {}) {
   const base = getBaseUrl();
@@ -64,11 +82,14 @@ async function chFetch(pathname, { method = "GET", signal } = {}) {
 
   const t0 = Date.now();
   let res;
+
   try {
     res = await fetch(url, { method, headers, signal });
   } catch (e) {
     const ms = Date.now() - t0;
-    console.error(`${TAG} net error ${method} ${pathname} after ${ms}ms:`, e?.message || e);
+    log.error(`${TAG} net error ${method} ${pathname} after ${ms}ms`, {
+      error: e?.message || e,
+    });
     throw e;
   }
 
@@ -80,48 +101,64 @@ async function chFetch(pathname, { method = "GET", signal } = {}) {
   const ms = Date.now() - t0;
 
   if (!res.ok) {
-    console.error(`${TAG} ${method} ${pathname} -> ${res.status} in ${ms}ms body:`, bodyText?.slice(0, 500) || "(empty)");
+    log.error(`${TAG} ${method} ${pathname} -> ${res.status} in ${ms}ms`, {
+      body: bodyText?.slice(0, 500) || "(empty)",
+    });
     const err = new Error(`CH ${pathname} failed: ${res.status}`);
     err.status = res.status;
     err.body = bodyText;
     throw err;
   }
 
-  console.log(`${TAG} ${method} ${pathname} -> ${res.status} in ${ms}ms`);
+  log.info(`${TAG} ${method} ${pathname} -> ${res.status} in ${ms}ms`);
+
   return bodyText ? JSON.parse(bodyText) : null;
 }
+
+/* =======================================================
+   BASIC CH ENDPOINTS
+   ======================================================= */
 
 async function searchCompanies({ name, itemsPerPage = 50 }) {
   const q = encodeURIComponent(name);
   const ipp = Math.max(1, Math.min(100, itemsPerPage));
   const path = `/search/companies?q=${q}&items_per_page=${ipp}`;
+
   const data = await chFetch(path);
   const count = Array.isArray(data?.items) ? data.items.length : 0;
-  console.log(`${TAG} search "${name}" -> items=${count}`);
+
+  log.info(`${TAG} search "${name}" -> items=${count}`);
   return data;
 }
 
 async function getCompanyProfile(companyNumber) {
   const num = String(companyNumber || "").trim();
-  console.log(`${TAG} profile num=${num}`);
+
+  log.info(`${TAG} profile num=${num}`);
+
   if (!/^\d{6,8}$/.test(num)) {
     const e = new Error("Invalid companyNumber");
     e.status = 400;
     throw e;
   }
+
   const data = await chFetch(`/company/${num}`);
   const status = String(data?.company_status || "").toLowerCase();
-  console.log(`${TAG} profile ok num=${num} status=${status}`);
+
+  log.info(`${TAG} profile ok num=${num} status=${status}`);
+
   return data;
 }
 
-/* ---------------- Scoring utilities ---------------- */
+/* =======================================================
+   MATCHING / SCORING UTILS  (unchanged behaviour)
+   ======================================================= */
 
 const CONSTRUCTION_SIC_PREFIXES = ["41", "42", "43"];
 const FINE_SIC_WHITELIST = new Set([
   "43310",
   "43330",
-  "43341", // plastering, floor/wall covering, painting
+  "43341",
   "41201",
   "41202",
   "43210",
@@ -135,9 +172,7 @@ const FINE_SIC_WHITELIST = new Set([
   "43999",
 ]);
 
-// --- helpers for name normalization ---
 function deCamel(s = "") {
-  // PRHenryBuilder -> PR Henry Builder, XMLParserX -> XML Parser X
   return String(s)
     .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
     .replace(/([a-z])([A-Z])/g, "$1 $2");
@@ -159,11 +194,9 @@ function normName(s = "") {
 function nameScore(aTitle, qName) {
   const a = normName(aTitle);
   const b0 = normName(qName);
-  const b = normName(deCamel(qName)); // try de-camelized query
-
+  const b = normName(deCamel(qName));
   if (!a || !(b || b0)) return 0;
 
-  // Exact/starts/includes on normalized names
   if (a === b || a === b0) return 70;
   if (
     a.startsWith(b) ||
@@ -175,14 +208,12 @@ function nameScore(aTitle, qName) {
   if (a.includes(b) || b.includes(a) || a.includes(b0) || b0.includes(a))
     return 35;
 
-  // Compact (no-space) comparisons catch PRHenryBuilder vs "pr henry builder"
   const ac = compact(a);
   const bc = compact(b || b0);
   if (ac === bc) return 70;
   if (ac.startsWith(bc) || bc.startsWith(ac)) return 55;
   if (ac.includes(bc) || bc.includes(ac)) return 35;
 
-  // Token overlap (Jaccard-ish) gives partial credit on shuffled words
   const aT = new Set(a.split(" ").filter(Boolean));
   const bT = new Set((b || b0).split(" ").filter(Boolean));
   const inter = [...aT].filter((t) => bT.has(t)).length;
@@ -238,8 +269,8 @@ function hasStrongEvidence({ item, profile, qName, locHint }) {
   const active =
     String(profile?.company_status || "").toLowerCase() === "active";
   const inConstruction = hasConstructionSIC(profile?.sic_codes);
-  const nameOK = nameScore(item.title, qName) >= 60; // solid name match
-  const locOK = addressMatchesHint(profile, locHint); // optional
+  const nameOK = nameScore(item.title, qName) >= 60;
+  const locOK = addressMatchesHint(profile, locHint);
   return active && inConstruction && (nameOK || locOK);
 }
 
@@ -250,12 +281,9 @@ function buildScore({ item, profile, qName, locHint }) {
   if (hasConstructionSIC(profile?.sic_codes)) score += 10;
   if (addressMatchesHint(profile, locHint)) score += 5;
   score += companyAgeBoost(profile);
-
-  // NEW: if it's clearly the right, active construction company, bump to Verified threshold
   if (hasStrongEvidence({ item, profile, qName, locHint })) {
     score = Math.max(score, 85);
   }
-
   return Math.max(0, Math.min(score, 100));
 }
 
@@ -272,7 +300,9 @@ function serialize(entry) {
   };
 }
 
-/* ---------------- NEW: Fuzzy shortlist helpers ---------------- */
+/* =======================================================
+   FUZZY MATCHING HELPERS
+   ======================================================= */
 
 const SUFFIX_RE =
   /\b(limited|ltd|llp|plc|company|co\.?|service|services|builder|builders)\b/gi;
@@ -292,14 +322,13 @@ function compactNoSpace(s = "") {
   return normalizeForFuse(s).replace(/\s+/g, "");
 }
 
-// 0..100 combined score (tuned for company names)
 function fuzzyNameScore(query, candidate) {
   const q = normalizeForFuse(query);
   const c = normalizeForFuse(candidate);
   if (!q || !c) return 0;
 
-  const jw = jaroWinkler(compactNoSpace(q), compactNoSpace(c)); // 0..1
-  const d = dice(q.split(" "), c.split(" ")); // 0..1
+  const jw = jaroWinkler(compactNoSpace(q), compactNoSpace(c));
+  const d = dice(q.split(" "), c.split(" "));
   return Math.round((0.7 * jw + 0.3 * d) * 100);
 }
 
@@ -316,14 +345,25 @@ function pickBestCompany(userInput, chItems) {
     .search(userInput)
     .map((r) => r.item)
     .slice(0, 20);
+
   const pool = shortlist.length ? shortlist : chItems.slice(0, 50);
 
   const ranked = pool
-    .map((item) => {
-      const name = item.title || item.company_name || "";
-      return { item, score: fuzzyNameScore(userInput, name) };
-    })
+    .map((item) => ({
+      item,
+      score: fuzzyNameScore(userInput, item.title || item.company_name || ""),
+    }))
     .sort((a, b) => b.score - a.score);
+
+  log.info(`${TAG} pickBest`, {
+    input: userInput,
+    pool: pool.length,
+    top3: ranked.slice(0, 3).map((r) => ({
+      number: r.item?.company_number,
+      title: r.item?.title,
+      score: r.score,
+    })),
+  });
 
   const best = ranked[0];
   const verdict = !best
@@ -334,17 +374,7 @@ function pickBestCompany(userInput, chItems) {
     ? "ambiguous"
     : "ambiguous";
 
-  // extra logging
-  console.log(
-    `${TAG} pickBest: input="${userInput}" pool=${pool.length} top3=`,
-    ranked.slice(0, 3).map((r) => ({
-      n: r.item?.company_number,
-      title: r.item?.title,
-      score: r.score,
-    }))
-  );
-
-  return { verdict, best: best || null, ranked: ranked.slice(0, 5) };
+  return { verdict, best, ranked: ranked.slice(0, 5) };
 }
 
 function buildQueryVariants(name) {
@@ -354,15 +384,18 @@ function buildQueryVariants(name) {
   return unique([name, base, stripped]);
 }
 
-/* ---------------- Matching ---------------- */
+/* =======================================================
+   PUBLIC: matchByName (MAIN ENTRY)
+   ======================================================= */
 
-// Public: best-effort verify by name(+optional postcode/city)
-// Uses fuzzy shortlist (Fuse+Talisman) then your buildScore to finalize.
 async function matchByName({ name, locationHint }) {
-  const variants = buildQueryVariants(name);
-  console.log(`${TAG} matchByName name="${name}" hint="${locationHint || ""}" variants=`, variants);
+  log.info(`${TAG} matchByName`, {
+    name,
+    hint: locationHint || "",
+  });
 
-  // 1) Query CH with a few variants to be tolerant of PRHenryBuilder, LTD/LLP noise, etc.
+  const variants = buildQueryVariants(name);
+
   const allItems = [];
   const seen = new Set();
 
@@ -370,7 +403,9 @@ async function matchByName({ name, locationHint }) {
     try {
       const search = await searchCompanies({ name: q });
       const items = Array.isArray(search?.items) ? search.items : [];
-      console.log(`${TAG} variant "${q}" got items=${items.length}`);
+
+      log.info(`${TAG} variant "${q}" got ${items.length} items`);
+
       for (const it of items) {
         const key = String(it?.company_number || "").trim();
         if (!key || seen.has(key)) continue;
@@ -379,74 +414,83 @@ async function matchByName({ name, locationHint }) {
         allItems.push(it);
       }
     } catch (e) {
-      console.warn(`${TAG} variant "${q}" failed:`, e?.message || e);
+      log.warn(`${TAG} variant "${q}" failed`, { error: e?.message || e });
     }
   }
 
-  console.log(`${TAG} merged unique items=${allItems.length}`);
+  log.info(`${TAG} merged unique items=${allItems.length}`);
 
   if (!allItems.length) {
-    console.log(`${TAG} no items => verdict=no_match`);
+    log.info(`${TAG} no items – verdict=no_match`);
     return { verdict: "no_match", best: null, candidates: [] };
   }
 
-  // 2) Fuzzy shortlist/rank by name similarity
-  const ranked = pickBestCompany(name, allItems); // { verdict, best, ranked }
+  const ranked = pickBestCompany(name, allItems);
 
-  // Take up to 10 best-ranked items for profiles (fallback to raw if empty)
   const topItems =
     (ranked.ranked || []).map((x) => x.item).slice(0, 10) ||
     allItems.slice(0, 10);
-  const top = topItems.filter((i) => i && i.company_number);
 
-  // 3) Fetch profiles for the shortlist
-  const profs = await Promise.all(
-    top.map(async (i) => {
+  const profiles = await Promise.all(
+    topItems.map(async (i) => {
       try {
         return await getCompanyProfile(i.company_number);
       } catch (e) {
-        console.warn(`${TAG} profile fetch fail num=${i.company_number}:`, e?.message || e);
+        log.warn(`${TAG} profile fetch fail`, {
+          num: i.company_number,
+          error: e?.message || e,
+        });
         return null;
       }
     })
   );
 
-  // 4) Final scoring using your existing buildScore
-  const scored = top
-    .map((it, idx) => {
-      const profile = profs[idx];
-      const score = profile
+  const scored = topItems
+    .map((it, idx) => ({
+      item: it,
+      profile: profiles[idx],
+      score: profiles[idx]
         ? buildScore({
             item: it,
-            profile,
+            profile: profiles[idx],
             qName: name,
             locHint: locationHint,
           })
-        : 0;
-      return { item: it, profile, score };
-    })
+        : 0,
+    }))
     .sort((a, b) => b.score - a.score);
 
   const best = scored[0] || null;
 
   if (!best) {
-    console.log(`${TAG} scored empty => verdict=no_match`);
+    log.info(`${TAG} scored empty => verdict=no_match`);
     return { verdict: "no_match", best: null, candidates: [] };
   }
 
-  const verdict = best.score >= 85 ? "verified" : best.score >= 70 ? "ambiguous" : "ambiguous";
+  const verdict =
+    best.score >= 85
+      ? "verified"
+      : best.score >= 70
+      ? "ambiguous"
+      : "ambiguous";
+
   const out = {
     verdict,
     best: serialize(best),
     candidates: scored.slice(0, 3).map(serialize),
   };
 
-  console.log(
-    `${TAG} verdict=${verdict} best={num:${out.best?.number}, name:"${out.best?.name}", status:${out.best?.status}, score:${out.best?.score}}`
-  );
+  log.info(`${TAG} final verdict`, {
+    verdict,
+    best: out.best,
+  });
 
   return out;
 }
+
+/* =======================================================
+   DEBUG DIAGNOSTIC
+   ======================================================= */
 
 function chDiag() {
   const key = String(resolveKey() || "").trim();
@@ -457,6 +501,7 @@ function chDiag() {
     const b64 = Buffer.from(`${key}:`).toString("base64");
     sample = hasKey ? `${b64.slice(0, 8)}… (len=${b64.length})` : "";
   } catch {}
+
   return {
     env: process.env.CH_ENV || "live",
     base,

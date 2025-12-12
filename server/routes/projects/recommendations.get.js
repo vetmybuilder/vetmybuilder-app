@@ -7,13 +7,11 @@
  * Query: page, pageSize, limit
  *
  * Returns recommendations ranked primarily by createdAt (most recent first).
- * Scoring for shortlist is provided canonically by /api/recommendations/ratings.
- *
- * NOTE:
- *   - We DO NOT return any recommender PII (name/email/phone)
+ * Does not return recommender PII.
  */
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery, extractLocationTokens } = ctx;
+  const log = ctx.log || console;
 
   if (!mysqlQuery) {
     throw new Error("mysqlQuery not attached to ctx (MySQL required)");
@@ -25,9 +23,12 @@ module.exports = (router, ctx) => {
   };
 
   router.get("/projects/:id/recommendations", auth, async (req, res) => {
+    const projectId = Number(req.params.id);
+    log.info?.("[projects.recommendations] start", { projectId });
+
     try {
-      const projectId = Number(req.params.id);
       if (!Number.isFinite(projectId)) {
+        log.warn?.("[projects.recommendations] invalid id", { projectId });
         return res.status(400).json({ error: "Invalid id" });
       }
 
@@ -40,7 +41,10 @@ module.exports = (router, ctx) => {
         [projectId]
       );
       const proj = projRows[0];
-      if (!proj) return res.status(404).json({ error: "Not found" });
+      if (!proj) {
+        log.warn?.("[projects.recommendations] not found", { projectId });
+        return res.status(404).json({ error: "Not found" });
+      }
 
       const uid = req.user?.uid || null;
       const isOwner = !!uid && String(uid) === String(proj.ownerUserId ?? "");
@@ -50,13 +54,18 @@ module.exports = (router, ctx) => {
       const isCompleted = statusLc === "completed";
 
       if (!isOwner && !isLive && !isCompleted) {
+        log.warn?.("[projects.recommendations] visibility restricted", {
+          projectId,
+          uid,
+          status: statusLc,
+        });
         return res.status(404).json({ error: "Not found" });
       }
 
       // ---- Paging ----
       const page = Math.max(1, toInt(req.query.page ?? "1", 1));
       const pageSizeQuery = toInt(req.query.pageSize, 10);
-      const limitQuery = toInt(req.query.limit, null); // supports &limit=6
+      const limitQuery = toInt(req.query.limit, null);
 
       const pageSize = Math.max(
         1,
@@ -77,6 +86,9 @@ module.exports = (router, ctx) => {
       const total = Number(totalRows?.[0]?.c || 0);
 
       if (total === 0) {
+        log.info?.("[projects.recommendations] no recommendations", {
+          projectId,
+        });
         return res.json({
           items: [],
           total: 0,
@@ -92,7 +104,7 @@ module.exports = (router, ctx) => {
 
       const viewerId = String(uid || "");
 
-      // IMPORTANT: LIMIT/OFFSET are interpolated to avoid mysqld_stmt_execute issues
+      // IMPORTANT: LIMIT/OFFSET interpolated because of mysql libs
       const sql = `
         SELECT
           r.id,
@@ -107,14 +119,13 @@ module.exports = (router, ctx) => {
 
           COALESCE(v.likes, 0) AS likes,
 
-          CASE
-            WHEN mv.userId IS NULL THEN 0 ELSE 1
-          END AS myLike,
+          CASE WHEN mv.userId IS NULL THEN 0 ELSE 1 END AS myLike,
 
           u.postcode        AS u_postcode,
           u.postcodeSector  AS u_sector,
           u.postcodeOutward AS u_outward,
           u.city            AS u_city
+
         FROM recommendations r
         LEFT JOIN (
           SELECT recommendationId, COUNT(*) AS likes
@@ -173,9 +184,13 @@ module.exports = (router, ctx) => {
           myLike: r.myLike ? 1 : 0,
           fromFriend,
           fromCommunity,
-          // shortlist uses /api/recommendations/ratings for real VMB score
           score: 0,
         };
+      });
+
+      log.info?.("[projects.recommendations] done", {
+        projectId,
+        count: items.length,
       });
 
       return res.json({
@@ -185,10 +200,10 @@ module.exports = (router, ctx) => {
         pageSize: safeLimit,
       });
     } catch (err) {
-      console.error("[GET /projects/:id/recommendations] MySQL error:", err);
-      return res
-        .status(500)
-        .json({ error: "internal_error_loading_recommendations" });
+      log.error?.("[projects.recommendations] error", err);
+      return res.status(500).json({
+        error: "internal_error_loading_recommendations",
+      });
     }
   });
 };

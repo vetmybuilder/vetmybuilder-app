@@ -1,30 +1,25 @@
 // server/routes/tradesmen/interest.get.js
 
-/**
- * GET /tradesmen/interest?projectId=123
- * Auth: tradesman
- * → { shared: boolean, recommendationId?: number, shareId?: number, linkPath?: string }
- *
- * Behavior:
- * - Primary check: trade_shares (new one-time share flow)
- * - Fallback: tradesman_interests (legacy flow with recommendationId)
- */
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery, requireTradesman = null } = ctx;
+  const log = ctx.log || console;
+  const TAG = "[tradesmen/interest.get]";
 
-  if (!mysqlQuery) {
-    throw new Error("mysqlQuery not attached to ctx (MySQL required)");
-  }
+  if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
+
+  log.info?.(`${TAG} mounted`);
 
   router.get(
     "/tradesmen/interest",
     auth,
     maybe(requireTradesman),
     async (req, res) => {
-      try {
-        const uid = req.user?.uid;
-        const projectId = Number(req.query.projectId);
+      const uid = req.user?.uid;
+      const projectId = Number(req.query.projectId);
 
+      log.info?.(`${TAG} request`, { uid, projectId });
+
+      try {
         if (!uid) {
           return res.status(401).json({ error: "Unauthorized" });
         }
@@ -32,183 +27,67 @@ module.exports = (router, ctx) => {
           return res.status(400).json({ error: "projectId is required" });
         }
 
-        // --- 1) New flow: has the tradesman already submitted a share? ---
+        // new flow
         let share = null;
         try {
-          const shareRows = await mysqlQuery(
-            `SELECT id
-               FROM trade_shares
-              WHERE project_id = ?
-                AND tradesman_uid = ?
-              LIMIT 1`,
+          const rows = await mysqlQuery(
+            `SELECT id FROM trade_shares WHERE project_id=? AND tradesman_uid=? LIMIT 1`,
             [projectId, uid]
           );
-          share = shareRows[0] || null;
+          share = rows[0] || null;
         } catch (e) {
-          // If table is missing or other error, treat as "no share" and fall through
-          console.warn(
-            "[tradesmen/interest.get] trade_shares lookup failed:",
-            e?.message || e
-          );
+          log.warn?.(`${TAG} trade_shares lookup failed`, {
+            error: e?.message,
+          });
         }
 
         if (share) {
+          log.info?.(`${TAG} share found`, { shareId: share.id });
           return res.json({
             ok: true,
             shared: true,
             shareId: Number(share.id),
-            // Deep-link to the owner's "Shared profiles" list for this project.
             linkPath: `/projects/${projectId}/shares`,
           });
         }
 
-        // --- 2) Legacy flow: fall back to tradesman_interests (recommendationId) ---
-        let legacyRow = null;
+        // legacy
+        let legacy = null;
         try {
           const rows = await mysqlQuery(
-            `SELECT recommendationId
-               FROM tradesman_interests
-              WHERE projectId = ?
-                AND fromUid = ?
-              LIMIT 1`,
+            `SELECT recommendationId FROM tradesman_interests WHERE projectId=? AND fromUid=? LIMIT 1`,
             [projectId, uid]
           );
-          legacyRow = rows[0] || null;
+          legacy = rows[0] || null;
         } catch (e) {
-          // If legacy table doesn't exist, just treat as not shared
-          console.warn(
-            "[tradesmen/interest.get] tradesman_interests lookup failed:",
-            e?.message || e
-          );
+          log.warn?.(`${TAG} legacy table lookup failed`, {
+            error: e?.message,
+          });
         }
 
-        if (!legacyRow) {
+        if (!legacy) {
+          log.info?.(`${TAG} no share found`);
           return res.json({ ok: true, shared: false });
         }
 
-        const recommendationId = Number(legacyRow.recommendationId);
+        log.info?.(`${TAG} legacy share found`, {
+          recommendationId: legacy.recommendationId,
+        });
+
         return res.json({
           ok: true,
           shared: true,
-          recommendationId,
-          // Preserve old link shape for legacy consumers
-          linkPath: `/builders/${recommendationId}`,
+          recommendationId: Number(legacy.recommendationId),
+          linkPath: `/builders/${legacy.recommendationId}`,
         });
       } catch (e) {
-        console.error("[tradesmen/interest.get] error", e);
+        log.error?.(`${TAG} error`, { error: e?.message });
         return res.status(500).json({ error: "Failed to load interest state" });
       }
     }
   );
 };
 
-/* ---- shared helpers (kept local so file stays self-contained) ---- */
-function maybe(mw) {
-  if (typeof mw !== "function") return (_req, _res, next) => next();
-  return mw;
+function maybe(fn) {
+  return typeof fn === "function" ? fn : (_req, _res, next) => next();
 }
-
-// /**
-//  * GET /tradesmen/interest?projectId=123
-//  * Auth: tradesman
-//  * → { shared: boolean, recommendationId?: number, shareId?: number, linkPath?: string }
-//  *
-//  * Behavior:
-//  * - Primary check: trade_shares (new one-time share flow)
-//  * - Fallback: tradesman_interests (legacy flow with recommendationId)
-//  */
-// module.exports = (router, ctx) => {
-//   const { db, auth, requireTradesman = null } = ctx;
-
-//   ensureTradeSharesTable(db); // new flow table (safe to ensure)
-//   ensureInterestsTable(db); // legacy table (kept for back-compat)
-
-//   router.get(
-//     "/tradesmen/interest",
-//     auth,
-//     maybe(requireTradesman),
-//     (req, res) => {
-//       const uid = req.user.uid;
-//       const projectId = Number(req.query.projectId);
-//       if (!Number.isFinite(projectId)) {
-//         return res.status(400).json({ error: "projectId is required" });
-//       }
-
-//       // --- 1) New flow: has the tradesman already submitted a share? ---
-//       const share = db
-//         .prepare(
-//           `SELECT id FROM trade_shares WHERE project_id = ? AND tradesman_uid = ? LIMIT 1`
-//         )
-//         .get(projectId, uid);
-
-//       if (share) {
-//         return res.json({
-//           ok: true,
-//           shared: true,
-//           shareId: Number(share.id),
-//           // Deep-link to the owner's "Shared profiles" list for this project.
-//           linkPath: `/projects/${projectId}/shares`,
-//         });
-//       }
-
-//       // --- 2) Legacy flow: fall back to tradesman_interests (recommendationId) ---
-//       const row = db
-//         .prepare(
-//           `SELECT recommendationId
-//          FROM tradesman_interests
-//         WHERE projectId = ? AND fromUid = ?
-//         LIMIT 1`
-//         )
-//         .get(projectId, uid);
-
-//       if (!row) return res.json({ ok: true, shared: false });
-
-//       const recommendationId = Number(row.recommendationId);
-//       return res.json({
-//         ok: true,
-//         shared: true,
-//         recommendationId,
-//         // Preserve old link shape for legacy consumers
-//         linkPath: `/builders/${recommendationId}`,
-//       });
-//     }
-//   );
-// };
-
-// /* ---- shared helpers (kept local so file stays self-contained) ---- */
-// function maybe(mw) {
-//   if (typeof mw !== "function") return (_req, _res, next) => next();
-//   return mw;
-// }
-
-// function ensureInterestsTable(db) {
-//   db.prepare(
-//     `
-//     CREATE TABLE IF NOT EXISTS tradesman_interests (
-//       id INTEGER PRIMARY KEY AUTOINCREMENT,
-//       projectId INTEGER NOT NULL,
-//       fromUid TEXT NOT NULL,
-//       recommendationId INTEGER NOT NULL,
-//       note TEXT,
-//       createdAt TEXT NOT NULL,
-//       UNIQUE(projectId, fromUid)
-//     )
-//   `
-//   ).run();
-// }
-
-// function ensureTradeSharesTable(db) {
-//   db.prepare(
-//     `
-//     CREATE TABLE IF NOT EXISTS trade_shares (
-//       id INTEGER PRIMARY KEY AUTOINCREMENT,
-//       project_id INTEGER NOT NULL,
-//       tradesman_uid TEXT NOT NULL,
-//       photos_json TEXT NOT NULL DEFAULT '[]',
-//       message TEXT DEFAULT '',
-//       created_at TEXT NOT NULL DEFAULT (datetime('now')),
-//       UNIQUE(project_id, tradesman_uid)
-//     )
-//   `
-//   ).run();
-// }
