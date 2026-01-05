@@ -9,6 +9,8 @@
  *    reasons?: string[],
  *    otherReason?: string,
  *    selectedRecommendationId?: number,
+ *    winnerRecommendationId?: number,   // (accepted)
+ *    winnerRecId?: number,              // (accepted)
  *    winnerTradesmanUid?: string,
  *    winnerFromCommunity?: boolean/0/1/"true"/"false",
  *    wouldUseAgain?: boolean/0/1/"true"/"false"/null
@@ -20,6 +22,18 @@ module.exports = (router, ctx) => {
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
   const { logger, withRequest } = require("../../lib/logger");
+
+  // helper: take first defined/non-empty value from a list of keys
+  function pickBody(reqBody, keys) {
+    const b = reqBody || {};
+    for (const k of keys) {
+      const v = b?.[k];
+      if (v === undefined || v === null) continue;
+      if (typeof v === "string" && !v.trim()) continue;
+      return v;
+    }
+    return undefined;
+  }
 
   router.post("/projects/:id/close", auth, async (req, res) => {
     const uid = req.user?.uid;
@@ -72,17 +86,30 @@ module.exports = (router, ctx) => {
       // ---------------------------------------------------------
       // PARSE BODY
       // ---------------------------------------------------------
-      const {
-        didGoAhead,
-        reasons,
-        otherReason,
-        selectedRecommendationId,
-        winnerTradesmanUid: winnerTradesmanUidRaw,
-        winnerFromCommunity,
-        wouldUseAgain,
-      } = req.body || {};
+      const body = req.body || {};
 
-      const did = !!didGoAhead;
+      const didGoAhead = !!body.didGoAhead;
+      const reasons = body.reasons;
+      const otherReason = body.otherReason;
+
+      // IMPORTANT: support multiple field names for winner rec id
+      const winnerRecRaw = pickBody(body, [
+        "selectedRecommendationId",
+        "winnerRecommendationId",
+        "winnerRecId",
+        "winner_recommendation_id",
+        "_winnerRecommendationId",
+      ]);
+
+      const winnerTradesmanUidRaw = pickBody(body, [
+        "winnerTradesmanUid",
+        "winner_tradesman_uid",
+        "_winnerTradesmanUid",
+      ]);
+
+      const winnerFromCommunity = body.winnerFromCommunity;
+      const wouldUseAgain = body.wouldUseAgain;
+
       const now = new Date().toISOString();
 
       // ---------------------------------------------------------
@@ -105,17 +132,19 @@ module.exports = (router, ctx) => {
       // ---------------------------------------------------------
       // WINNER LOGIC (recommendation or shared-profile)
       // ---------------------------------------------------------
-      const candidateWinnerId = Number(selectedRecommendationId);
+      const candidateWinnerId = Number(
+        typeof winnerRecRaw === "string" ? winnerRecRaw.trim() : winnerRecRaw
+      );
+
       const winnerRecommendationId =
         Number.isFinite(candidateWinnerId) && candidateWinnerId > 0
           ? candidateWinnerId
           : null;
 
-      // Shared-profile winner applies only when no rec winner
-      const winnerTradesmanUid =
-        !winnerRecommendationId && winnerTradesmanUidRaw
-          ? String(winnerTradesmanUidRaw).trim() || null
-          : null;
+      // Always accept tradesman uid if provided (even when winnerRecommendationId exists)
+      const winnerTradesmanUid = winnerTradesmanUidRaw
+        ? String(winnerTradesmanUidRaw).trim() || null
+        : null;
 
       const winnerFromCommunityNum =
         winnerFromCommunity === 1 ||
@@ -145,11 +174,22 @@ module.exports = (router, ctx) => {
 
       const hasWinner = !!winnerRecommendationId || !!winnerTradesmanUid;
 
+      log.info(
+        {
+          didGoAhead,
+          winnerRecommendationId,
+          winnerTradesmanUid,
+          winnerFromCommunityNum,
+          hasWinner,
+        },
+        "Close payload normalised"
+      );
+
       // ---------------------------------------------------------
       // APPLY PROJECT STATUS TRANSITION
       // ---------------------------------------------------------
       try {
-        if (!did) {
+        if (!didGoAhead) {
           // did NOT go ahead → archived
           await mysqlQuery(
             `UPDATE projects
@@ -203,16 +243,18 @@ module.exports = (router, ctx) => {
                  otherReason = ?,
                  winnerRecommendationId = ?,
                  winner_tradesman_uid = ?,
+                 winner_from_community = ?,
                  wouldUseAgain = ?,
                  createdBy = ?,
                  createdAt = ?
              WHERE projectId = ?`,
             [
-              did ? 1 : 0,
+              didGoAhead ? 1 : 0,
               reasonsJson,
               otherReason || null,
               winnerRecommendationId || null,
               winnerTradesmanUid || null,
+              winnerFromCommunityNum,
               wouldUseAgainNorm,
               uid,
               now,
@@ -224,15 +266,17 @@ module.exports = (router, ctx) => {
             `INSERT INTO project_closures
              (projectId, didGoAhead, reasons, otherReason,
               winnerRecommendationId, winner_tradesman_uid,
+              winner_from_community,
               wouldUseAgain, createdBy, createdAt)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               projectId,
-              did ? 1 : 0,
+              didGoAhead ? 1 : 0,
               reasonsJson,
               otherReason || null,
               winnerRecommendationId || null,
               winnerTradesmanUid || null,
+              winnerFromCommunityNum,
               wouldUseAgainNorm,
               uid,
               now,

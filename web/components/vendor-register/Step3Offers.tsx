@@ -1,4 +1,6 @@
 // web/components/vendor-register/Step3Offers.tsx
+import React from "react";
+
 type Props = {
   discountMin: number;
   discountMax: number;
@@ -12,6 +14,9 @@ type Props = {
   busy?: boolean;
   okMsg?: string | null;
   err?: string | null;
+
+  /** Override the bottom-right submit button label (defaults to "Next") */
+  primaryLabel?: string;
 };
 
 export default function Step3Offers({
@@ -27,6 +32,7 @@ export default function Step3Offers({
   busy,
   okMsg,
   err,
+  primaryLabel = "Next",
 }: Props) {
   return (
     <form
@@ -162,7 +168,7 @@ export default function Step3Offers({
           disabled={busy}
           data-testid="btn-continue"
         >
-          {busy ? "Saving…" : "Next"}
+          {busy ? "Saving…" : primaryLabel}
         </button>
       </div>
     </form>

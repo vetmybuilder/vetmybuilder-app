@@ -196,7 +196,13 @@ function OwnerProjects() {
   const [loading, setLoading] = useState(true);
   const [announce, setAnnounce] = useState("");
 
+  // Cancel / ignore stale responses (tab switching causes overlapping requests)
+  const reqSeqRef = useRef(0);
+
   useEffect(() => {
+    // bump sequence to invalidate any in-flight responses from previous inputs
+    reqSeqRef.current += 1;
+
     setItems([]);
     setTotal(0);
     setPage(1);
@@ -204,6 +210,8 @@ function OwnerProjects() {
   }, [tab, chipType, chipStatus, sort, order]);
 
   async function fetchPage(p = 1) {
+    const mySeq = ++reqSeqRef.current;
+
     // Never fetch projects for favourites tab
     if (tab === "favourites") {
       setLoading(false);
@@ -214,6 +222,7 @@ function OwnerProjects() {
     }
 
     setLoading(true);
+
     try {
       const params = new URLSearchParams({
         tab: String(tab),
@@ -226,38 +235,59 @@ function OwnerProjects() {
       if (chipStatus) params.set("status", chipStatus as any);
 
       const res = await api.get<ApiList>(`/api/projects?${params.toString()}`);
+
+      // ignore stale responses (old tab/filters)
+      if (mySeq !== reqSeqRef.current) return;
+
       const newItems = res.data.items ?? [];
-      setItems((prev) => (p === 1 ? newItems : [...prev, ...newItems]));
       const nextTotal = Number(res.data.total ?? 0);
-      setTotal(nextTotal);
-      const totalSoFar =
-        p === 1 ? newItems.length : items.length + newItems.length;
-      setHasMore(totalSoFar < nextTotal);
-      setPage(p);
-      setAnnounce(`Loaded ${totalSoFar} of ${nextTotal} projects`);
+
+      setItems((prev) => {
+        const merged = p === 1 ? newItems : [...prev, ...newItems];
+        const totalSoFar = merged.length;
+
+        // keep these in sync with the same response we just applied
+        setTotal(nextTotal);
+        setHasMore(totalSoFar < nextTotal);
+        setPage(p);
+        setAnnounce(`Loaded ${totalSoFar} of ${nextTotal} projects`);
+
+        return merged;
+      });
     } catch {
+      if (mySeq !== reqSeqRef.current) return;
       if (p === 1) {
         setItems([]);
         setTotal(0);
         setHasMore(false);
       }
     } finally {
-      setLoading(false);
+      if (mySeq === reqSeqRef.current) {
+        setLoading(false);
+      }
     }
   }
 
   const inputsKey = `${tab}|${chipType}|${chipStatus}|${sort}|${order}`;
   useEffect(() => {
     if (authLoading || !user || !router.isReady) return;
+
     if (tab === "favourites") {
       // No project fetch for favourites tab
+      reqSeqRef.current += 1; // invalidate in-flight
       setLoading(false);
       setItems([]);
       setTotal(0);
       setHasMore(false);
       return;
     }
+
     fetchPage(1);
+
+    // invalidate if inputs change / component unmounts before request resolves
+    return () => {
+      reqSeqRef.current += 1;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user, router.isReady, inputsKey]);
 
@@ -265,6 +295,7 @@ function OwnerProjects() {
   useEffect(() => {
     if (tab === "favourites") return; // no infinite scroll for favourites
     if (!sentinelRef.current) return;
+
     const io = new IntersectionObserver(
       (entries) => {
         const vis = entries.some((e) => e.isIntersecting);
@@ -274,8 +305,10 @@ function OwnerProjects() {
       },
       { rootMargin: "200px" }
     );
+
     io.observe(sentinelRef.current);
     return () => io.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasMore, loading, page, inputsKey, tab]);
 
   const isCompletedLikeView =
@@ -388,6 +421,11 @@ function OwnerProjects() {
                     (trades as any)?.[Number(recId)]
                 );
 
+                const tradesmanUid =
+                  (p as any)._winnerTradesmanUid ??
+                  (p as any).winner_tradesman_uid ??
+                  null;
+
                 const tradesmanLabel = fromServer || fromHook || "—";
 
                 return (
@@ -400,6 +438,7 @@ function OwnerProjects() {
                     location={p.location}
                     coverPhotoUrl={p.coverPhotoUrl}
                     tradesmanLabel={tradesmanLabel}
+                    tradesmanUid={tradesmanUid}
                     onOpenBuilder={() => {
                       if (!recId) return;
                       const n = Number(recId);

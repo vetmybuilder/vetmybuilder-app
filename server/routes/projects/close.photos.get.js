@@ -14,8 +14,26 @@ module.exports = (router, ctx) => {
   const uploadsRoot =
     ctx.UPLOAD_DIR || ctx.uploadsDir || path.join(process.cwd(), "uploads");
 
-  const API_BASE =
-    ctx.PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_BASE || "";
+  /**
+   * IMPORTANT:
+   * Your static files are served at:
+   *   http://<host>:<port>/uploads/...
+   * NOT:
+   *   http://<host>:<port>/api/uploads/...
+   *
+   * So we must build fileUrl WITHOUT "/api".
+   *
+   * Prefer:
+   * - ctx.PUBLIC_BASE_URL (if you have it)
+   * - NEXT_PUBLIC_SITE_URL / SITE_URL / PUBLIC_BASE_URL
+   * - else fall back to request origin at runtime
+   */
+  const STATIC_BASE =
+    ctx.PUBLIC_BASE_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.SITE_URL ||
+    process.env.PUBLIC_BASE_URL ||
+    "";
 
   function normalizeUploadPath(p) {
     if (!p) return p;
@@ -29,6 +47,28 @@ module.exports = (router, ctx) => {
   function toAbsDiskPath(normalized) {
     const rel = String(normalized).replace(/^\/?uploads\//, "");
     return path.join(uploadsRoot, rel);
+  }
+
+  function reqOrigin(req) {
+    const proto =
+      (req.headers["x-forwarded-proto"] || "")
+        .toString()
+        .split(",")[0]
+        .trim() ||
+      req.protocol ||
+      "http";
+    const host =
+      (req.headers["x-forwarded-host"] || "").toString().split(",")[0].trim() ||
+      req.headers.host ||
+      "";
+    if (!host) return "";
+    return `${proto}://${host}`;
+  }
+
+  function joinBaseAndPath(base, p) {
+    const b = String(base || "").replace(/\/+$/, "");
+    const pathPart = String(p || "").startsWith("/") ? String(p) : `/${p}`;
+    return `${b}${pathPart}`;
   }
 
   router.get("/projects/:id/close/photos", auth, async (req, res) => {
@@ -111,6 +151,12 @@ module.exports = (router, ctx) => {
     const seen = new Set();
     const photos = [];
 
+    // Decide base for absolute URLs (NO "/api")
+    const base =
+      /^https?:\/\//i.test(STATIC_BASE) && STATIC_BASE
+        ? STATIC_BASE
+        : reqOrigin(req);
+
     for (const r of rows) {
       const browserPath = normalizeUploadPath(r.filePath);
       if (!browserPath) continue;
@@ -124,10 +170,8 @@ module.exports = (router, ctx) => {
       if (seen.has(browserPath)) continue;
       seen.add(browserPath);
 
-      const useAbsolute = /^https?:\/\//i.test(API_BASE);
-      const fileUrl = useAbsolute
-        ? API_BASE.replace(/\/+$/, "") + browserPath
-        : browserPath;
+      // Absolute if we can, otherwise return relative "/uploads/..."
+      const fileUrl = base ? joinBaseAndPath(base, browserPath) : browserPath;
 
       photos.push({
         ...r,

@@ -54,6 +54,13 @@ export default function ProjectTabs({
     ? "flex flex-col gap-3"
     : "flex items-center justify-center gap-8";
 
+  const handleTabClick = (next: ProjectTabKey) => {
+    // Prevent re-firing onChange when clicking the already-active tab
+    // (avoids double fetch / flicker in parent when tab state is derived from URL).
+    if (next === value) return;
+    onChange(next);
+  };
+
   return (
     <div
       role="tablist"
@@ -81,20 +88,21 @@ export default function ProjectTabs({
             role="tab"
             aria-selected={active}
             data-testid={t.testId}
-            onClick={() => onChange(t.key)}
+            onClick={() => handleTabClick(t.key)}
             className={`${base} ${colorClasses}`}
             title={t.label}
           >
-            {/* text */}
             <span>{t.label.toUpperCase()}</span>
 
-            {/* underline indicator (no borders / pills on the button itself) */}
+            {/* hover underline */}
             <span
               aria-hidden
               className="pointer-events-none absolute inset-x-0 -bottom-1 h-[2px] rounded-full
                          opacity-0 group-hover:opacity-60 transition-opacity duration-150"
               style={{ backgroundColor: t.color }}
             />
+
+            {/* active underline */}
             {active && (
               <span
                 aria-hidden

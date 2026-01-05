@@ -10,26 +10,35 @@ type Props = {
   status?: Status;
   type: string;
   location: string;
+
   // image hints
   coverPhotoUrl?: string | null;
-  // builder
+
+  // tradesman
   tradesmanLabel: string; // "—" if unknown
+  tradesmanUid?: string | null;
+
+  // fallback behaviour (builders/<recId>) used when no tradesmanUid
   onOpenBuilder: () => void;
+
   // gallery flags
   hasGallery: boolean;
 };
 
-export default function CompletedProjectCard({
-  id,
-  name,
-  status,
-  type,
-  location,
-  coverPhotoUrl,
-  tradesmanLabel,
-  onOpenBuilder,
-  hasGallery,
-}: Props) {
+export default function CompletedProjectCard(props: Props) {
+  const {
+    id,
+    name,
+    status,
+    type,
+    location,
+    coverPhotoUrl,
+    tradesmanLabel,
+    tradesmanUid,
+    onOpenBuilder,
+    hasGallery,
+  } = props;
+
   return (
     <div className="contents" data-testid={`completed-card-${id}`}>
       <CompletedProjectImageCard
@@ -37,13 +46,15 @@ export default function CompletedProjectCard({
         status={status}
         name={name}
         hasGallery={hasGallery}
-        fallbackImageUrl={coverPhotoUrl || undefined}
+        fallbackImageUrl={coverPhotoUrl ?? undefined}
       />
+
       <CompletedProjectInfoCard
         id={id}
         type={type}
         location={location}
         tradesmanLabel={tradesmanLabel}
+        tradesmanUid={tradesmanUid ?? null}
         onOpenBuilder={onOpenBuilder}
         hasGallery={hasGallery}
       />

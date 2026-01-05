@@ -126,8 +126,6 @@ function buildRouter(ctx) {
   require("./routes/projects/projects.get")(router, ctx); //migrated
   require("./routes/projects/projects.post")(router, ctx); //migrated
   require("./routes/projects/publish.post")(router, ctx); //migrated
-  // require("./routes/projects/unfavourite.post")(router, ctx); //TODO: check if this route is used anywhere in flow
-  // require("./routes/projects/favourite.post")(router, ctx);  //TODO: check if this route is used anywhere in flow
   require("./routes/projects/project.get")(router, ctx); //migrated
   require("./routes/projects/project.put")(router, ctx); //migrated
   require("./routes/projects/archive.post")(router, ctx); //migrated

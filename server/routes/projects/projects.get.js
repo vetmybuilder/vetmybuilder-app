@@ -238,13 +238,28 @@ module.exports = (router, ctx) => {
         const rows = await mysqlQuery(
           `SELECT
               p.*,
+
               pc.winnerRecommendationId AS _winnerRecommendationId,
+              pc.winner_tradesman_uid AS _winnerTradesmanUid,
+
+              -- Best-effort label so UI can show something even if hook fails.
+              -- 1) If winner is a recommendation → show recommendation.company (fallback to name)
+              -- 2) Else if winner is a tradesman uid → show tradesmen.company_name
+              COALESCE(
+                (SELECT NULLIF(TRIM(r.company), '') FROM recommendations r WHERE r.id = pc.winnerRecommendationId LIMIT 1),
+                (SELECT NULLIF(TRIM(r.name), '') FROM recommendations r WHERE r.id = pc.winnerRecommendationId LIMIT 1),
+                (SELECT NULLIF(TRIM(t.company_name), '') FROM tradesmen t WHERE t.user_id = pc.winner_tradesman_uid LIMIT 1),
+                NULL
+              ) AS _winnerTradesmanName,
+
               EXISTS(
                 SELECT 1 FROM project_closure_photos cpp
                 WHERE cpp.projectId = p.id
               ) AS _hasClosurePhotos,
+
               CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite,
               0 AS canFavourite
+
            FROM projects p
            LEFT JOIN project_closures pc ON pc.projectId = p.id
            LEFT JOIN favourites f ON f.projectId = p.id AND f.userId = ?
@@ -297,13 +312,25 @@ module.exports = (router, ctx) => {
         const rows = await mysqlQuery(
           `SELECT
               p.*,
+
               pc.winnerRecommendationId AS _winnerRecommendationId,
+              pc.winner_tradesman_uid AS _winnerTradesmanUid,
+
+              COALESCE(
+                (SELECT NULLIF(TRIM(r.company), '') FROM recommendations r WHERE r.id = pc.winnerRecommendationId LIMIT 1),
+                (SELECT NULLIF(TRIM(r.name), '') FROM recommendations r WHERE r.id = pc.winnerRecommendationId LIMIT 1),
+                (SELECT NULLIF(TRIM(t.company_name), '') FROM tradesmen t WHERE t.user_id = pc.winner_tradesman_uid LIMIT 1),
+                NULL
+              ) AS _winnerTradesmanName,
+
               EXISTS(
                 SELECT 1 FROM project_closure_photos cpp
                 WHERE cpp.projectId = p.id
               ) AS _hasClosurePhotos,
+
               CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite,
               0 AS canFavourite
+
            FROM projects p
            LEFT JOIN project_closures pc ON pc.projectId = p.id
            LEFT JOIN favourites f ON f.projectId = p.id AND f.userId = ?

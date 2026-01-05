@@ -415,7 +415,7 @@ function Inner() {
       }
 
       setTimeout(() => {
-        router.push("/tradesman/profile");
+        router.push("/tradesman/projects");
       }, 600);
     } catch (e: any) {
       const msg =
@@ -471,7 +471,10 @@ function Inner() {
             ].map(({ n, label }, i) => {
               const isActive = step === n;
               return (
-                <li key={n} className="flex-none inline-flex items-center gap-2">
+                <li
+                  key={n}
+                  className="flex-none inline-flex items-center gap-2"
+                >
                   <button
                     type="button"
                     onClick={() => setStep(n)}
@@ -585,6 +588,7 @@ function Inner() {
             busy={busy}
             okMsg={okMsg || undefined}
             err={err || undefined}
+            primaryLabel="Save"
           />
         )}
       </div>

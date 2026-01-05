@@ -1,6 +1,6 @@
 // web/pages/tradesman/[id].tsx
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
@@ -68,6 +68,28 @@ function Inner() {
   // NEW: shared photos from trade_shares
   const [sharedImages, setSharedImages] = useState<GalleryImage[]>([]);
   const [sharedLoading, setSharedLoading] = useState(false);
+
+  // --- Back target: prefer explicit returnTo/from, otherwise go to projects completed tab ---
+  const backHref = useMemo(() => {
+    const q: any = router.query || {};
+    const raw =
+      (Array.isArray(q.returnTo) ? q.returnTo[0] : q.returnTo) ||
+      (Array.isArray(q.from) ? q.from[0] : q.from) ||
+      "";
+
+    const s = String(raw || "").trim();
+    // Only allow internal paths
+    if (s && s.startsWith("/")) return s;
+
+    // Fallback
+    return "/projects?tab=completed";
+  }, [router.query]);
+
+  const handleBackToProjects = () => {
+    // Don't rely on router.back() because Next can restore /projects from bfcache
+    // leaving stale state; pushing /projects triggers the refresh hooks on that page.
+    router.push(backHref);
+  };
 
   // ---- Load tradesman profile ----
   useEffect(() => {
@@ -228,8 +250,10 @@ function Inner() {
       <header className="mb-6">
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={handleBackToProjects}
           className="mb-3 text-xs font-medium text-slate-500 hover:text-slate-700"
+          data-testid="btn-back-to-projects"
+          aria-label="Back to projects"
         >
           ← Back to projects
         </button>

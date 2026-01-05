@@ -1,35 +1,46 @@
+// web/pages/projects/[id]/completed.tsx
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
 import { useRouter } from "next/router";
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import LightboxGallery, {
+  type GalleryImage,
+} from "@/components/LightboxGallery";
 
 type Photo = {
   id: number;
-  filePath: string; // e.g. "/uploads/abc.jpg"
-  fileUrl?: string; // e.g. "http://localhost:8787/uploads/abc.jpg"
+  filePath: string; // e.g. "/uploads/abc.jpg" or "/api/uploads/abc.jpg"
+  fileUrl?: string; // e.g. "http://localhost:8787/api/uploads/abc.jpg"
   mime?: string | null;
   sizeBytes?: number | null;
   createdAt: string;
 };
 
 function joinUrl(base: string, path: string) {
-  const b = base.replace(/\/+$/, "");
-  const p = path.startsWith("/") ? path : `/${path}`;
+  const b = String(base || "").replace(/\/+$/, "");
+  const p = String(path || "").startsWith("/")
+    ? String(path || "")
+    : `/${path || ""}`;
   return `${b}${p}`;
 }
 
 function computeSrc(p: Photo) {
-  // Prefer absolute URL provided by server
   if (p.fileUrl && /^https?:\/\//i.test(p.fileUrl)) return p.fileUrl;
   const base = (process.env.NEXT_PUBLIC_API_BASE || "").trim();
   if (base) return joinUrl(base, p.filePath || "");
-  // last resort: relative (works only if your Next rewrites are active)
   return p.filePath || "";
 }
 
-export default function CompletedGallery() {
+export default function CompletedGalleryPage() {
+  return (
+    <AuthedOnly>
+      <Inner />
+    </AuthedOnly>
+  );
+}
+
+function Inner() {
   const api = useApi();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -43,7 +54,6 @@ export default function CompletedGallery() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-  const [openIdx, setOpenIdx] = useState<number | null>(null);
 
   useEffect(() => {
     if (!router.isReady || authLoading || !user || !projectId) return;
@@ -59,6 +69,7 @@ export default function CompletedGallery() {
           `/api/projects/${projectId}/close/photos`
         );
         if (!alive) return;
+
         const list: Photo[] = Array.isArray(data?.photos) ? data.photos : [];
         setPhotos(list);
       } catch (e: any) {
@@ -80,99 +91,140 @@ export default function CompletedGallery() {
     };
   }, [api, router.isReady, authLoading, user, projectId]);
 
+  const galleryImages: GalleryImage[] = useMemo(() => {
+    return (photos || []).map((p, i) => {
+      const src = computeSrc(p);
+      return {
+        id: i,
+        thumbUrl: src,
+        fullUrl: src,
+        alt: `Completed project photo ${i + 1}`,
+      };
+    });
+  }, [photos]);
+
+  const onBackToProjects = () => {
+    // Don’t use router.back(): it can return to the completed tab without query state,
+    // which means the completed list doesn’t re-fetch correctly and cards show missing winner labels.
+    // Instead, navigate explicitly to the completed tab (preserve sort/order/page if present).
+    const q = router.query || {};
+
+    const sort =
+      typeof q.sort === "string" && q.sort.trim() ? q.sort.trim() : "createdAt";
+    const order =
+      typeof q.order === "string" && q.order.trim() ? q.order.trim() : "desc";
+    const page =
+      typeof q.page === "string" && q.page.trim() ? q.page.trim() : "1";
+    const pageSize =
+      typeof q.pageSize === "string" && q.pageSize.trim()
+        ? q.pageSize.trim()
+        : "12";
+
+    router.push({
+      pathname: "/projects",
+      query: {
+        tab: "completed",
+        sort,
+        order,
+        page,
+        pageSize,
+      },
+    });
+  };
+
   return (
-    <AuthedOnly>
-      <div
-        className="mx-auto max-w-5xl p-4"
-        data-testid="completed-gallery-page"
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Completed project photos</h1>
-          {projectId != null && (
-            <Link
-              href={'/projects/'}
-              className="btn"
-              data-testid="btn-back-project"
-            >
-              Back to project
-            </Link>
-          )}
+    <div
+      className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-6"
+      data-testid="completed-gallery-page"
+    >
+      <header className="mb-6">
+        <button
+          type="button"
+          onClick={onBackToProjects}
+          className="mb-3 text-xs font-medium text-slate-500 hover:text-slate-700"
+          data-testid="btn-back-to-projects"
+          aria-label="Back to projects"
+        >
+          ← Back to projects
+        </button>
+
+        <h1
+          className="text-2xl sm:text-3xl font-semibold tracking-tight text-neutral-900"
+          data-testid="completed-gallery-title"
+        >
+          Completed project photos
+        </h1>
+
+        <p
+          className="mt-1 text-sm text-slate-600"
+          data-testid="completed-gallery-subtitle"
+        >
+          Photos uploaded when the project was marked as completed.
+        </p>
+      </header>
+
+      {authLoading && (
+        <div className="text-sm text-slate-500" data-testid="gallery-auth">
+          Authorising…
         </div>
+      )}
 
-        {authLoading && <p className="text-slate-500">Authorising…</p>}
-        {!authLoading && loading && <p className="text-slate-500">Loading…</p>}
-        {!authLoading && !loading && err && (
-          <p className="text-red-600" data-testid="gallery-error">
-            {err}
-          </p>
-        )}
+      {!authLoading && loading && (
+        <div className="text-sm text-slate-500" data-testid="gallery-loading">
+          Loading…
+        </div>
+      )}
 
-        {!authLoading && !loading && !err && photos.length === 0 && (
-          <p className="text-slate-500" data-testid="gallery-empty">
-            No photos uploaded yet.
-          </p>
-        )}
+      {!authLoading && !loading && err && (
+        <div
+          className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700 whitespace-pre-line"
+          role="alert"
+          data-testid="gallery-error"
+        >
+          {err}
+        </div>
+      )}
 
-        {!authLoading && !loading && !err && photos.length > 0 && (
-          <>
-            <ul
-              className="grid grid-cols-2 sm:grid-cols-3 gap-3"
-              data-testid="gallery-grid"
+      {!authLoading && !loading && !err && (
+        <section
+          className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"
+          data-testid="completed-gallery-card"
+          aria-label="Project photos"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h2
+              className="text-sm sm:text-base font-semibold text-slate-900"
+              data-testid="completed-gallery-card-title"
             >
-              {photos.map((p, i) => {
-                const src = computeSrc(p);
-                return (
-                  <li
-                    key={p.id}
-                    className="rounded-lg overflow-hidden border"
-                    data-testid={`gallery-item-${p.id}`}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={src}
-                      alt={`Photo ${p.id}`}
-                      className="block w-full h-48 object-cover bg-slate-100 cursor-zoom-in"
-                      loading="lazy"
-                      crossOrigin="anonymous"
-                      onClick={() => setOpenIdx(i)}
-                      onError={(e) => {
-                        const el = e.currentTarget as HTMLImageElement;
-                        el.style.opacity = "0.35";
-                        el.alt = `Failed to load ${src}`;
-                      }}
-                    />
-                  </li>
-                );
-              })}
-            </ul>
+              Project photos
+            </h2>
+            <span
+              className="text-xs text-slate-500"
+              data-testid="completed-gallery-count"
+            >
+              {galleryImages.length} photo
+              {galleryImages.length === 1 ? "" : "s"}
+            </span>
+          </div>
 
-            {/* Minimal lightbox using plain <img>, no next/image */}
-            {openIdx != null && photos[openIdx] && (
-              <div
-                role="dialog"
-                aria-modal="true"
-                className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
-                onClick={() => setOpenIdx(null)}
-                data-testid="lightbox"
-              >
-                <button
-                  className="absolute top-4 right-4 btn"
-                  onClick={() => setOpenIdx(null)}
-                  aria-label="Close"
-                >
-                  Close
-                </button>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={computeSrc(photos[openIdx])}
-                  alt={`Photo ${photos[openIdx].id}`}
-                  className="max-h-[90vh] max-w-[90vw] object-contain"
-                />
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </AuthedOnly>
+          {galleryImages.length > 0 ? (
+            <div data-testid="completed-gallery-grid">
+              <LightboxGallery
+                images={galleryImages}
+                cols={4}
+                rounded="rounded-xl"
+              />
+            </div>
+          ) : (
+            <p
+              className="text-sm text-slate-500"
+              data-testid="completed-gallery-empty"
+            >
+              No photos have been uploaded yet.
+            </p>
+          )}
+        </section>
+      )}
+    </div>
   );
 }

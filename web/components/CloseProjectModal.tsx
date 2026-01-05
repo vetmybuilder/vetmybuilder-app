@@ -34,7 +34,14 @@ type Props = {
   projectId: number;
   open: boolean;
   onClose: () => void;
+
+  /**
+   * IMPORTANT:
+   * Parent currently handles posting + any redirects.
+   * We will send a payload that includes extra alias keys to avoid mapping bugs.
+   */
   onSubmit: (payload: ClosePayload) => Promise<void> | void;
+
   projectName?: string;
 
   /**
@@ -212,6 +219,7 @@ export default function CloseProjectModal({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (busy) return;
+
     setBusy(true);
     try {
       const selected = selectedWinnerKey;
@@ -221,7 +229,10 @@ export default function CloseProjectModal({
       let winnerFromCommunity = false;
 
       if (didGoAhead && selected) {
-        const [kind, raw] = selected.split(":");
+        // split once only: "rec:<id>" or "share:<uid>"
+        const idx = selected.indexOf(":");
+        const kind = idx >= 0 ? selected.slice(0, idx) : selected;
+        const raw = idx >= 0 ? selected.slice(idx + 1) : "";
 
         if (kind === "rec") {
           const id = Number(raw);
@@ -238,10 +249,12 @@ export default function CloseProjectModal({
           }
         } else if (kind === "share") {
           winnerTradesmanUid = raw || undefined;
+          winnerFromCommunity = false;
         }
       }
 
-      await onSubmit({
+      // Send a payload with alias keys too, so parent/server mapping can’t drop it.
+      const payload: ClosePayload & Record<string, any> = {
         didGoAhead,
         reasons: didGoAhead ? [] : reasons,
         otherReason: didGoAhead
@@ -250,10 +263,21 @@ export default function CloseProjectModal({
           ? otherText.trim()
           : undefined,
 
+        // canonical keys (what we *want*)
         selectedRecommendationId: winnerRecommendationId,
         winnerTradesmanUid,
         winnerFromCommunity: didGoAhead ? winnerFromCommunity : false,
-      });
+
+        // aliases (to survive parent mapping / older server versions)
+        winnerRecommendationId: winnerRecommendationId,
+        winnerRecId: winnerRecommendationId,
+        winner_recommendation_id: winnerRecommendationId,
+
+        winner_tradesman_uid: winnerTradesmanUid,
+        _winnerTradesmanUid: winnerTradesmanUid,
+      };
+
+      await onSubmit(payload);
 
       // Upload photos AFTER successful close
       if (didGoAhead && files.length > 0) {

@@ -32,6 +32,11 @@ module.exports = (router, ctx) => {
     return result;
   };
 
+  function mysqlNow() {
+    const d = new Date();
+    return d.toISOString().slice(0, 19).replace("T", " ");
+  }
+
   const beginTx = () => {
     if (!hasMysql && db?.exec) db.exec("BEGIN");
   };
@@ -255,7 +260,7 @@ module.exports = (router, ctx) => {
             locationHint: hint,
           });
 
-          chCheckedAt = new Date().toISOString();
+          chCheckedAt = hasMysql ? mysqlNow() : new Date().toISOString();
           const verdict = String(result?.verdict || "").toLowerCase();
 
           chStatus =
