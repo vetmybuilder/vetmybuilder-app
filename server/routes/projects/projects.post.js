@@ -1,13 +1,20 @@
-// server/v2/routes/projects/projects.post.js
 /**
- * POST /api/v2/projects  (also /api/projects if v2 is mounted there)
+ * POST /api/projects
  * Auth: required (owner = current user)
  * Body: { name, type, location, description, propertyType, bedrooms }
  * Returns: 201 { project }
  */
 module.exports = (router, ctx) => {
-  const { db, auth } = ctx;
+  const { auth, mysqlQuery } = ctx;
+  const log = ctx.log || console;
   const { z } = require("zod");
+
+  // Remove full UK postcode → keep only outward code
+  const stripFullPostcodes = (s) => {
+    if (!s) return s;
+    const fullPC = /\b([A-Z]{1,2}\d{1,2}[A-Z]?)\s*\d[A-Z]{2}\b/gi;
+    return s.replace(fullPC, (_, outward) => outward.toUpperCase());
+  };
 
   const ProjectSchema = z.object({
     name: z.string().min(2).max(120),
@@ -18,38 +25,62 @@ module.exports = (router, ctx) => {
     bedrooms: z.coerce.number().int().min(0).max(20),
   });
 
-  router.post("/projects", auth, (req, res) => {
+  router.post("/projects", auth, async (req, res) => {
+    log.info?.("[projects.post] start");
+
     const uid = req.user.uid;
 
     let body;
     try {
       body = ProjectSchema.parse({
-        name: req.body?.name,
-        type: req.body?.type,
-        location: req.body?.location,
+        name: stripFullPostcodes(req.body?.name),
+        type: stripFullPostcodes(req.body?.type),
+        location: stripFullPostcodes(req.body?.location),
         description: req.body?.description,
         propertyType: req.body?.propertyType,
         bedrooms: req.body?.bedrooms,
       });
     } catch {
+      log.warn?.("[projects.post] invalid payload");
       return res.status(400).json({ error: "Invalid payload" });
     }
 
-    const now = new Date().toISOString();
+    // MySQL-friendly timestamp
+    const now = new Date().toISOString().slice(0, 19).replace("T", " ");
 
-    const info = db
-      .prepare(
-        `INSERT INTO projects
+    try {
+      const result = await mysqlQuery(
+        `
+        INSERT INTO projects
           (name, type, location, description, propertyType, bedrooms, status, createdAt, ownerUserId)
-         VALUES
-          (@name, @type, @location, @description, @propertyType, @bedrooms, 'pending', @createdAt, @owner)`
-      )
-      .run({ ...body, createdAt: now, owner: uid });
+        VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)
+      `,
+        [
+          body.name,
+          body.type,
+          body.location,
+          body.description,
+          body.propertyType,
+          body.bedrooms,
+          now,
+          uid,
+        ]
+      );
 
-    const project = db
-      .prepare(`SELECT * FROM projects WHERE id = ?`)
-      .get(info.lastInsertRowid);
+      const insertedId = result.insertId;
+      if (!insertedId) {
+        log.error?.("[projects.post] insert failed: no insertId");
+        return res.status(500).json({ error: "internal_error" });
+      }
 
-    return res.status(201).json({ project });
+      const rows = await mysqlQuery(`SELECT * FROM projects WHERE id = ?`, [
+        insertedId,
+      ]);
+
+      return res.status(201).json({ project: rows[0] || null });
+    } catch (err) {
+      log.error?.("[projects.post] error", err);
+      return res.status(500).json({ error: "internal_error" });
+    }
   });
 };

@@ -1,4 +1,3 @@
-// web/utils/auth.tsx
 import {
   createContext,
   useContext,
@@ -8,7 +7,19 @@ import {
   useCallback,
 } from "react";
 import { initFirebase } from "./firebase";
-import { onIdTokenChanged, signOut, type User as FbUser } from "firebase/auth";
+import {
+  onIdTokenChanged,
+  signOut,
+  type User as FbUser,
+  isSignInWithEmailLink,
+  sendSignInLinkToEmail,
+  signInWithEmailLink,
+  signInWithPopup,
+  GoogleAuthProvider,
+  OAuthProvider,
+} from "firebase/auth";
+
+const REG_SENTINEL = "__vendor_registration_in_progress__";
 
 /** Server user shape we care about */
 type AccountUser = {
@@ -29,32 +40,45 @@ type Ctx = {
     | null;
   token: string | null;
   loading: boolean;
-  /** Optional: instantly seed names after signup */
+
+  ensureSignedIn: () => Promise<FbUser>;
   hydrateFromSignup: (u: {
     firstName?: string | null;
     lastName?: string | null;
     username?: string | null;
     email?: string | null;
   }) => void;
-  /** NEW: merge profile fields locally so UI (e.g. initials) updates instantly */
   mergeUser: (u: Partial<AccountUser>) => void;
+
+  startEmailLinkSignIn: (email: string, continueUrl?: string) => Promise<void>;
+  completeEmailLinkSignInIfPresent: () => Promise<FbUser | null>;
+
+  signInWithGoogle: () => Promise<FbUser>;
+  signInWithApple: () => Promise<FbUser>;
 };
 
 const AuthCtx = createContext<Ctx>({
   user: null,
   token: null,
   loading: true,
+  ensureSignedIn: async () => {
+    throw new Error("ensureSignedIn not ready");
+  },
   hydrateFromSignup: () => {},
   mergeUser: () => {},
+  startEmailLinkSignIn: async () => {},
+  completeEmailLinkSignInIfPresent: async () => null,
+  signInWithGoogle: async () => {
+    throw new Error("Google sign-in not ready");
+  },
+  signInWithApple: async () => {
+    throw new Error("Apple sign-in not ready");
+  },
 });
 
-/* ---------- helpers (NO email/uid fallbacks) ---------- */
+/* ---------- helpers ---------- */
 
-function computeDisplayName(u: {
-  firstName?: string | null;
-  lastName?: string | null;
-  username?: string | null;
-}) {
+function computeDisplayName(u: { firstName?: string | null; lastName?: string | null; username?: string | null; }) {
   const fn = (u.firstName || "").trim();
   const ln = (u.lastName || "").trim();
   if (fn || ln) return `${fn} ${ln}`.trim();
@@ -62,11 +86,7 @@ function computeDisplayName(u: {
   return un || undefined;
 }
 
-function computeInitials(u: {
-  firstName?: string | null;
-  lastName?: string | null;
-  username?: string | null;
-}) {
+function computeInitials(u: { firstName?: string | null; lastName?: string | null; username?: string | null; }) {
   const fn = (u.firstName || "").trim();
   const ln = (u.lastName || "").trim();
   if (fn || ln) {
@@ -75,7 +95,6 @@ function computeInitials(u: {
     const ab = (a + b || a || b).toUpperCase();
     return ab || undefined;
   }
-
   const un = (u.username || "").trim();
   if (un) {
     const parts = un.split(/[.\-_ ]+/).filter(Boolean);
@@ -84,16 +103,62 @@ function computeInitials(u: {
     const ab = (a + b || a).toUpperCase();
     return ab;
   }
-
-  // show skeleton in UI until names/username are present
   return undefined;
 }
 
+/* --- auth path helpers & return target management --- */
+
+function isAuthPath(pathname: string) {
+  return (
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname === "/auth/complete" ||
+    pathname === "/tradesman/login" ||
+    pathname === "/tradesman/register"
+  );
+}
+
+function rememberReturnToFallbackFromReferrer() {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  try {
+    if (sessionStorage.getItem("vmb:returnTo")) return; // already set
+    const ref = document.referrer;
+    if (!ref) return;
+    const u = new URL(ref);
+    if (u.origin !== window.location.origin) return; // only same-origin
+    if (isAuthPath(u.pathname)) return;
+    sessionStorage.setItem("vmb:returnTo", u.pathname + u.search);
+  } catch {}
+}
+
+function getReturnTo(): string {
+  if (typeof window === "undefined") return "/";
+  try {
+    const v = sessionStorage.getItem("vmb:returnTo");
+    if (!v) return "/";
+    if (v === REG_SENTINEL) return "/"; // never redirect to sentinel
+    return v.startsWith("/") ? v : "/";
+  } catch {
+    return "/";
+  }
+}
+
+function setReturnToIfEmpty(path?: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const existing = sessionStorage.getItem("vmb:returnTo");
+    if (existing) return;
+    const candidate =
+      path ||
+      (window.location && !isAuthPath(window.location.pathname)
+        ? window.location.pathname + window.location.search
+        : "/");
+    sessionStorage.setItem("vmb:returnTo", candidate || "/");
+  } catch {}
+}
+
 /* Build a safe extended user object */
-function buildExtendedUser(
-  fbUser: FbUser,
-  base: Partial<AccountUser>
-): Ctx["user"] {
+function buildExtendedUser(fbUser: FbUser, base: Partial<AccountUser>): Ctx["user"] {
   const firstName = base.firstName ?? null;
   const lastName = base.lastName ?? null;
   const username = base.username ?? null;
@@ -109,8 +174,8 @@ function buildExtendedUser(
     firstName,
     lastName,
     username,
-    displayName, // may be undefined if unknown (UI shows skeleton)
-    initials, // may be undefined if unknown (UI shows skeleton)
+    displayName,
+    initials,
   }) as any;
 }
 
@@ -121,7 +186,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // optimistically seed names right after signup (optional helper)
+  const [waiters, setWaiters] = useState<Array<(u: FbUser) => void>>([]);
+
+  useEffect(() => {
+    rememberReturnToFallbackFromReferrer();
+  }, []);
+
   const hydrateFromSignup: Ctx["hydrateFromSignup"] = useCallback(
     ({ firstName = null, lastName = null, username = null, email = null }) => {
       setUser((prev) => {
@@ -138,7 +208,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
-  /** NEW: merge fields locally after /account save so initials/update instantly */
   const mergeUser: Ctx["mergeUser"] = useCallback((patch) => {
     setUser((prev) => {
       if (!prev) return prev;
@@ -152,6 +221,89 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const ensureSignedIn = useCallback<Ctx["ensureSignedIn"]>(async () => {
+    const gsid = (window as any).__GSID || null;
+
+    const auth = initFirebase();
+    const current = auth.currentUser;
+    if (current) return current;
+
+    try {
+      if (typeof window !== "undefined" && window.location) {
+        const here = window.location.pathname + window.location.search;
+        if (!isAuthPath(window.location.pathname)) {
+          setReturnToIfEmpty(here);
+        }
+      }
+    } catch {}
+
+    try {
+      window.dispatchEvent(
+        new CustomEvent("vmb:auth:required", { detail: { gsid, ts: Date.now() } })
+      );
+    } catch {}
+
+    return new Promise<FbUser>((resolve) => {
+      setWaiters((prev) => [...prev, resolve]);
+    });
+  }, []);
+
+  const startEmailLinkSignIn = useCallback<Ctx["startEmailLinkSignIn"]>(
+    async (email, continueUrl) => {
+      const auth = initFirebase();
+      setReturnToIfEmpty();
+      const url =
+        continueUrl ||
+        (typeof window !== "undefined"
+          ? window.location.origin + "/auth/complete"
+          : "https://vetmybuilder.com/auth/complete");
+      const settings = { url, handleCodeInApp: true };
+      try {
+        localStorage.setItem("vmb.magic.email", email);
+      } catch {}
+      await sendSignInLinkToEmail(auth, email, settings);
+    },
+    []
+  );
+
+  const completeEmailLinkSignInIfPresent = useCallback<Ctx["completeEmailLinkSignInIfPresent"]>(
+    async () => {
+      if (typeof window === "undefined") return null;
+      const auth = initFirebase();
+      const href = window.location.href;
+      if (!isSignInWithEmailLink(auth, href)) return null;
+
+      let email = "";
+      try {
+        email = localStorage.getItem("vmb.magic.email") || "";
+      } catch {}
+      if (!email) {
+        throw new Error("EMAIL_REQUIRED");
+      }
+
+      const cred = await signInWithEmailLink(auth, email, href);
+      try {
+        localStorage.removeItem("vmb.magic.email");
+      } catch {}
+      return cred.user;
+    },
+    []
+  );
+
+  const signInWithGoogle = useCallback<Ctx["signInWithGoogle"]>(async () => {
+    const auth = initFirebase();
+    const provider = new GoogleAuthProvider();
+    const cred = await signInWithPopup(auth, provider);
+    return cred.user;
+  }, []);
+
+  const signInWithApple = useCallback<Ctx["signInWithApple"]>(async () => {
+    const auth = initFirebase();
+    const provider = new OAuthProvider("apple.com");
+    const cred = await signInWithPopup(auth, provider);
+    return cred.user;
+  }, []);
+
   useEffect(() => {
     const auth = initFirebase();
     let alive = true;
@@ -162,6 +314,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (!alive) return;
           setUser(null);
           setToken(null);
+          try {
+            window.dispatchEvent(
+              new CustomEvent("vmb:auth:changed", {
+                detail: { uid: null, gsid: (window as any).__GSID || null, ts: Date.now() },
+              })
+            );
+          } catch {}
           return;
         }
 
@@ -169,7 +328,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!alive) return;
         setToken(t);
 
-        // Start with a minimal extended user (no email/uid-derived display/initials)
         let merged: Ctx["user"] = buildExtendedUser(fbUser, {
           uid: fbUser.uid,
           email: fbUser.email ?? null,
@@ -178,12 +336,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           username: null,
         });
 
-        // Try /api/me for canonical user fields
         try {
-          const meRes = await fetch("/api/me", {
-            headers: { Authorization: `Bearer ${t}` },
-            cache: "no-store",
-          });
+          const meRes = await fetch("/api/me", { headers: { Authorization: `Bearer ${t}` }, cache: "no-store" });
 
           let firstName: string | null = null;
           let lastName: string | null = null;
@@ -200,7 +354,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             username = me.username ?? null;
           }
 
-          // If names still missing, fall back to /api/account (used by Account page)
           if (!firstName && !lastName && !username) {
             const accRes = await fetch("/api/account", {
               headers: { Authorization: `Bearer ${t}` },
@@ -217,19 +370,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           }
 
-          merged = buildExtendedUser(fbUser, {
-            uid,
-            email,
-            firstName,
-            lastName,
-            username,
-          });
-        } catch {
-          // keep minimal merged; UI will show skeleton until next successful fetch
-        }
+          merged = buildExtendedUser(fbUser, { uid, email, firstName, lastName, username });
+        } catch {}
 
         if (!alive) return;
         setUser(merged);
+
+        if (waiters.length > 0 && fbUser) {
+          waiters.forEach((fn) => fn(fbUser));
+          setWaiters([]);
+        }
+
+        // Redirect off auth pages after login — but skip if sentinel is set
+        try {
+          if (typeof window !== "undefined" && fbUser) {
+            const { pathname } = window.location;
+            const rtRaw = sessionStorage.getItem("vmb:returnTo");
+            if (isAuthPath(pathname) && rtRaw !== REG_SENTINEL) {
+              const rt = getReturnTo();
+              const already = sessionStorage.getItem("vmb:didLoginRedirect");
+              if (!already) {
+                sessionStorage.setItem("vmb:didLoginRedirect", String(Date.now()));
+                window.location.replace(rt || "/");
+              }
+            }
+          }
+        } catch {}
+
+        try {
+          window.dispatchEvent(
+            new CustomEvent("vmb:auth:changed", {
+              detail: { uid: fbUser.uid, gsid: (window as any).__GSID || null, ts: Date.now() },
+            })
+          );
+        } catch {}
       } finally {
         if (alive) setLoading(false);
       }
@@ -239,11 +413,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       alive = false;
       unsub();
     };
-  }, []);
+  }, [waiters]);
 
   const value = useMemo(
-    () => ({ user, token, loading, hydrateFromSignup, mergeUser }),
-    [user, token, loading, hydrateFromSignup, mergeUser]
+    () => ({
+      user,
+      token,
+      loading,
+      ensureSignedIn,
+      hydrateFromSignup,
+      mergeUser,
+      startEmailLinkSignIn,
+      completeEmailLinkSignInIfPresent,
+      signInWithGoogle,
+      signInWithApple,
+    }),
+    [
+      user,
+      token,
+      loading,
+      ensureSignedIn,
+      hydrateFromSignup,
+      mergeUser,
+      startEmailLinkSignIn,
+      completeEmailLinkSignInIfPresent,
+      signInWithGoogle,
+      signInWithApple,
+    ]
   );
 
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
@@ -260,12 +456,10 @@ export async function signOutUser() {
   try {
     await signOut(auth);
   } finally {
-    // Clear any local caches that could keep stale UI around
     try {
       sessionStorage.clear();
       localStorage.clear();
     } catch {}
-
     try {
       await fetch("/api/logout", { method: "POST", credentials: "include" });
     } catch {}

@@ -1,8 +1,16 @@
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
-import { useMemo, useRef, useState } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
-import Link from "next/link";
+import Select from "@/components/forms/Select";
+import { PROJECT_TYPES, type ProjectTypeCategory } from "@/types/projectTypes";
+import LocationField from "@/components/forms/LocationField";
+import BedroomsSelect from "@/components/forms/BedroomsSelect";
+import DescriptionBuilder from "@/components/forms/DescriptionBuilder";
+import SearchableSelect from "@/components/forms/SearchableSelect";
+import ProgressBar from "@/components/ProgressBar";
+
+/* ===== Constants & helpers ===== */
 
 const PROPERTY_TYPES = [
   "Detached",
@@ -17,99 +25,207 @@ const PROPERTY_TYPES = [
   "Other",
 ] as const;
 
+function normalize(s: string) {
+  return s.trim().replace(/\s+/g, " ");
+}
+
+function buildAutoNameSimple(
+  primaryType: string,
+  location: string,
+  propertyType?: string
+) {
+  const loc = (location || "").trim();
+  const prop = (propertyType || "").trim();
+  if (loc && prop) return `${primaryType} in ${loc} (${prop})`;
+  if (loc) return `${primaryType} in ${loc}`;
+  return primaryType;
+}
+
+/* ===== Types ===== */
 type FormShape = {
-  name: string;
-  type: string;
+  category: string | null;
+  selectedTypes: string[];
+  otherEnabled: boolean;
+  otherText: string;
+
   location: string;
   description: string;
   propertyType: string;
-  bedrooms: number | string;
+  bedrooms: number;
 };
 
 export default function NewProject() {
   const api = useApi();
   const router = useRouter();
 
+  // Scroll target (just above the card, under header)
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const shouldScrollRef = useRef(false);
+
   const [form, setForm] = useState<FormShape>({
-    name: "",
-    type: "",
+    category: null,
+    selectedTypes: [],
+    otherEnabled: false,
+    otherText: "",
+
     location: "",
     description: "",
     propertyType: "",
     bedrooms: 0,
   });
+
   const [step, setStep] = useState(0);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const set = (k: keyof FormShape, v: any) =>
-    setForm((prev) => ({ ...prev, [k]: v }));
+  /* ===== Scroll to top *after* step content is rendered ===== */
+  useEffect(() => {
+    if (!shouldScrollRef.current) return;
 
-  const STEPS = useMemo(
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+    });
+
+    shouldScrollRef.current = false;
+  }, [step]);
+
+  /* ===== Derived lists ===== */
+
+  const CATEGORY_OPTIONS = useMemo(
     () =>
-      [
-        {
-          key: "name",
-          title: "Project name",
-          hint: "e.g. Bathroom refit, Loft conversion",
-        },
-        {
-          key: "type",
-          title: "Type of work",
-          hint: "e.g. Kitchen remodel, Extension, Boiler install",
-        },
-        {
-          key: "location",
-          title: "Location",
-          hint: "Postcode, borough, or city (e.g. E4, Walthamstow)",
-        },
-        { key: "propertyType", title: "Property type" },
-        { key: "bedrooms", title: "Bedrooms" },
-        {
-          key: "description",
-          title: "Brief description",
-          hint: "Add helpful details: scope, timing, budget ballpark, etc.",
-        },
-        { key: "review", title: "Review & create" },
-      ] as const,
+      [...PROJECT_TYPES]
+        .map((c) => c.category)
+        .sort((a, b) => a.localeCompare(b)),
     []
   );
-  type StepKey = (typeof STEPS)[number]["key"];
+
+  const SUBTYPE_OPTIONS = useMemo(() => {
+    if (!form.category) return [];
+    const bucket = PROJECT_TYPES.find(
+      (c: ProjectTypeCategory) => c.category === form.category
+    );
+    return bucket ? [...bucket.types].sort((a, b) => a.localeCompare(b)) : [];
+  }, [form.category]);
+
+  const set = <K extends keyof FormShape>(k: K, v: FormShape[K]) =>
+    setForm((prev) => ({ ...prev, [k]: v }));
+
+  /* ===== Steps ===== */
+
+  const STEPS = [
+    { key: "category", title: "Category" },
+    { key: "subtypes", title: "Type of work" },
+    { key: "location", title: "Location" },
+    { key: "propertyType", title: "Property type" },
+    { key: "bedrooms", title: "Bedrooms" },
+    { key: "description", title: "Brief description" },
+    { key: "review", title: "Review & create" },
+  ] as const;
+
   const maxStep = STEPS.length - 1;
 
+  function hasAnySubtype() {
+    const picked = form.selectedTypes.length > 0;
+    const otherOk = form.otherEnabled && form.otherText.trim().length >= 2;
+    return picked || otherOk;
+  }
+
   function isStepValid(idx: number): boolean {
-    const k = STEPS[idx].key as StepKey;
-    if (k === "review") {
-      return (
-        !!form.name.trim() &&
-        !!form.type.trim() &&
-        !!form.location.trim() &&
-        !!form.propertyType.trim() &&
-        Number(form.bedrooms) >= 0 &&
-        String(form.description).trim().length >= 2
-      );
-    }
-    switch (k) {
-      case "name":
-      case "type":
+    const key = STEPS[idx].key;
+    switch (key) {
+      case "category":
+        return !!form.category;
+      case "subtypes":
+        return hasAnySubtype();
       case "location":
       case "propertyType":
-        return !!String(form[k]).trim();
+        return !!String(form[key]).trim();
       case "bedrooms":
-        return String(form.bedrooms) !== "" && Number(form.bedrooms) >= 0;
+        return Number(form.bedrooms) >= 0;
       case "description":
-        return String(form.description).trim().length >= 2;
+        return form.description.trim().length >= 2;
+      case "review":
+        return (
+          !!form.category &&
+          hasAnySubtype() &&
+          !!form.location.trim() &&
+          !!form.propertyType.trim() &&
+          String(form.description).trim().length >= 2
+        );
       default:
         return true;
     }
   }
 
+  /* ===== Navigation helpers ===== */
+
+  const autoNext = (force = false) => {
+    // For auto-advance (e.g. category), allow a forced move so we don't rely on
+    // state having updated synchronously.
+    if (step < maxStep && (force || isStepValid(step))) {
+      shouldScrollRef.current = true;
+      setStep((s) => s + 1);
+    }
+  };
+
+  const next = () => {
+    if (step < maxStep && isStepValid(step)) {
+      shouldScrollRef.current = true;
+      setErr(null);
+      setStep((s) => s + 1);
+    }
+  };
+
+  const back = () => {
+    if (step === 0) return;
+    shouldScrollRef.current = true;
+    setErr(null);
+    setStep((s) => Math.max(0, s - 1));
+  };
+
+  /* ===== Submit ===== */
+
   async function onCreate() {
     if (!isStepValid(maxStep)) return;
     setBusy(true);
     setErr(null);
+
     try {
-      const payload = { ...form, bedrooms: Number(form.bedrooms) || 0 };
+      const primaryType =
+        form.selectedTypes[0] || normalize(form.otherText || "General work");
+
+      const extras = form.selectedTypes.slice(1);
+      const descExtras =
+        extras.length > 0
+          ? `\n\nAdditional work types: ${extras.join(", ")}${
+              form.otherEnabled && form.otherText.trim()
+                ? `, ${normalize(form.otherText)}`
+                : ""
+            }`
+          : form.otherEnabled && form.otherText.trim()
+          ? `\n\nAdditional work types: ${normalize(form.otherText)}`
+          : "";
+
+      const autoName = buildAutoNameSimple(
+        primaryType,
+        form.location,
+        form.propertyType
+      );
+
+      const payload = {
+        name: autoName,
+        type: primaryType,
+        location: form.location,
+        description: normalize((form.description || "") + descExtras),
+        propertyType: form.propertyType,
+        bedrooms: Number(form.bedrooms) || 0,
+      };
+
       const { data } = await api.post("/api/projects", payload);
       router.replace(`/projects/${data.project.id}`);
     } catch (e: any) {
@@ -119,334 +235,322 @@ export default function NewProject() {
     }
   }
 
-  const next = () => {
-    if (step < maxStep && isStepValid(step)) {
-      setErr(null);
-      setStep((s) => s + 1);
-    }
-  };
-  const back = () => {
-    setErr(null);
-    setStep((s) => Math.max(0, s - 1));
+  /* ===== Toggle subtype ===== */
+
+  function toggleSubtype(label: string) {
+    setForm((prev) => {
+      const exists = prev.selectedTypes.some(
+        (t) => t.toLowerCase() === label.toLowerCase()
+      );
+      const next = exists
+        ? prev.selectedTypes.filter(
+            (t) => t.toLowerCase() !== label.toLowerCase()
+          )
+        : [...prev.selectedTypes, label];
+
+      return { ...prev, selectedTypes: next };
+    });
+  }
+
+  /* ===== IDs & preview ===== */
+
+  const ids = {
+    category: "np-category",
+    subtypes: "np-subtypes",
+    location: "np-location",
+    propertyType: "np-property",
+    bedrooms: "np-beds",
+    description: "np-desc",
   };
 
-  const inputRef = useRef<
-    HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null
-  >(null);
+  const primaryPreview =
+    form.selectedTypes[0] || (form.otherEnabled ? form.otherText.trim() : "");
 
-  const handleEnter = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      if (step < maxStep) next();
-    }
-  };
-
-  const ids = useMemo(
-    () => ({
-      name: "np-name",
-      type: "np-type",
-      location: "np-location",
-      propertyType: "np-property",
-      bedrooms: "np-beds",
-      description: "np-desc",
-    }),
-    []
+  const reviewAutoName = buildAutoNameSimple(
+    primaryPreview || "Project",
+    form.location,
+    form.propertyType
   );
+
+  /* ===== Render ===== */
 
   return (
     <AuthedOnly>
-      <div
-        className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8"
-        data-testid="create-project-page"
-      >
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+        {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1
-              className="text-2xl font-semibold tracking-tight"
-              data-testid="create-project-title"
-            >
+            <h1 className="text-2xl font-semibold tracking-tight">
               Create Project
             </h1>
             <p className="mt-1 text-sm text-gray-500">
-              Tell us about the work you need and we’ll get the ball rolling.
+              Choose a category, tick the work you need, and add a few details.
             </p>
           </div>
-          <Link
-            href="/projects"
-            aria-label="Back to my projects"
-            title="Back to my projects"
-            className="btn-back"
+
+          {/* Back to projects */}
+          <button
+            type="button"
+            onClick={() => router.push("/projects")}
+            className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"
             data-testid="btn-back-to-projects"
           >
-            <svg
-              viewBox="0 0 24 24"
-              className="icon-24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M10 19l-7-7 7-7" />
-              <path d="M3 12h18" />
-            </svg>
-            <span className="sr-only">Back to my projects</span>
-          </Link>
+            <span className="text-lg">←</span>
+            Back
+          </button>
         </div>
 
-        <div
-          className="mb-6 flex items-center gap-2"
-          aria-label="Progress"
-          data-testid="wizard-progress"
-        >
-          {STEPS.map((_, i) => (
-            <span
-              key={i}
-              className={`h-1.5 flex-1 rounded-full transition ${
-                i <= step ? "bg-blue-600" : "bg-gray-200"
-              }`}
-              aria-current={i === step ? "step" : undefined}
-            />
-          ))}
+        {/* Progress Bar (scroll target) */}
+        <div ref={scrollRef}>
+          <ProgressBar current={step} total={STEPS.length} />
         </div>
 
-        <div
-          className="relative w-full overflow-hidden rounded-2xl bg-white border border-gray-200"
-          data-testid="wizard"
-          data-current-step={STEPS[step].key}
-        >
+        {/* Wizard */}
+        <div className="mt-4 relative w-full overflow-hidden rounded-2xl bg-white border border-gray-200">
           <div
             className="flex w-full transition-transform duration-300 ease-out"
             style={{ transform: `translateX(-${step * 100}%)` }}
           >
-            {STEPS.map((s, i) => {
-              const active = i === step;
+            {STEPS.map((s, idx) => {
               const titleId = `step-${s.key}-title`;
+
               return (
                 <section
                   key={s.key}
                   role="region"
                   aria-labelledby={titleId}
-                  aria-hidden={active ? undefined : true}
                   className="w-full shrink-0 px-6 py-6 sm:px-10 sm:py-10"
                 >
                   <h2 id={titleId} className="text-lg font-semibold">
                     {s.title}
                   </h2>
-                  {"hint" in s && s.hint && (
-                    <p className="mt-1 text-sm text-gray-500">{s.hint}</p>
-                  )}
 
                   <div className="mt-5 grid max-w-3xl gap-4">
-                    {s.key === "name" && (
-                      <>
-                        <label htmlFor={ids.name} className="sr-only">
-                          Project name
-                        </label>
-                        <input
-                          id={ids.name}
-                          ref={inputRef as any}
-                          className="input"
-                          placeholder="Project name"
-                          aria-label="Project name"
-                          value={form.name}
-                          onChange={(e) => set("name", e.target.value)}
-                          onKeyDown={handleEnter}
-                          data-testid="field-name"
-                        />
-                      </>
+                    {/* Category */}
+                    {s.key === "category" && (
+                      <SearchableSelect
+                        id={ids.category}
+                        label="Category"
+                        placeholder="Search categories..."
+                        value={form.category}
+                        onChange={(v) => {
+                          set("category", v);
+                          set("selectedTypes", []);
+                          set("otherEnabled", false);
+                          set("otherText", "");
+                          // Force auto-advance when a category is actually selected
+                          if (v && v.trim().length > 0) {
+                            autoNext(true);
+                          }
+                        }}
+                        options={CATEGORY_OPTIONS}
+                        dataTestId="field-category"
+                      />
                     )}
 
-                    {s.key === "type" && (
-                      <>
-                        <label htmlFor={ids.type} className="sr-only">
-                          Type of work
-                        </label>
-                        <input
-                          id={ids.type}
-                          ref={inputRef as any}
-                          className="input"
-                          placeholder="Type (e.g., Kitchen remodel)"
-                          aria-label="Type of work"
-                          value={form.type}
-                          onChange={(e) => set("type", e.target.value)}
-                          onKeyDown={handleEnter}
-                          data-testid="field-type"
-                        />
-                      </>
+                    {/* Subtypes */}
+                    {s.key === "subtypes" && (
+                      <div>
+                        {!form.category ? (
+                          <p className="text-sm text-slate-500">
+                            Pick a category first.
+                          </p>
+                        ) : (
+                          <>
+                            <div className="text-xs text-slate-500 mb-1">
+                              Select all that apply
+                            </div>
+
+                            <div
+                              id={ids.subtypes}
+                              className="grid grid-cols-1 sm:grid-cols-2 gap-2"
+                            >
+                              {SUBTYPE_OPTIONS.map((t) => {
+                                const checked = form.selectedTypes.some(
+                                  (x) => x.toLowerCase() === t.toLowerCase()
+                                );
+                                return (
+                                  <label
+                                    key={t}
+                                    className={`flex items-center gap-2 rounded-xl border px-3 py-2 cursor-pointer transition ${
+                                      checked
+                                        ? "border-indigo-300 bg-indigo-50"
+                                        : "border-slate-200 hover:bg-slate-50"
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      className="checkbox"
+                                      checked={checked}
+                                      onChange={(e) => {
+                                        e.stopPropagation();
+                                        toggleSubtype(t);
+                                      }}
+                                    />
+                                    <span className="text-sm">{t}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+
+                            {/* Other */}
+                            <div className="mt-3 rounded-xl border border-slate-200 p-3">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  className="checkbox"
+                                  checked={form.otherEnabled}
+                                  onChange={(e) =>
+                                    set("otherEnabled", e.target.checked)
+                                  }
+                                />
+                                <span className="text-sm">Other…</span>
+                              </label>
+
+                              {form.otherEnabled && (
+                                <input
+                                  className="input mt-2"
+                                  placeholder="Describe another type of work"
+                                  value={form.otherText}
+                                  onChange={(e) => {
+                                    set("otherText", e.target.value);
+                                  }}
+                                />
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
                     )}
 
+                    {/* Location */}
                     {s.key === "location" && (
-                      <>
-                        <label htmlFor={ids.location} className="sr-only">
-                          Location
-                        </label>
-                        <input
-                          id={ids.location}
-                          ref={inputRef as any}
-                          className="input"
-                          placeholder="Location (postcode, borough, city)"
-                          aria-label="Location"
-                          value={form.location}
-                          onChange={(e) => set("location", e.target.value)}
-                          onKeyDown={handleEnter}
-                          data-testid="field-location"
-                        />
-                      </>
+                      <LocationField
+                        id={ids.location}
+                        label="Location"
+                        value={form.location}
+                        onChange={(v) => {
+                          set("location", v.toUpperCase());
+                        }}
+                        dataTestId="field-location"
+                      />
                     )}
 
+                    {/* Property type */}
                     {s.key === "propertyType" && (
-                      <>
-                        <label htmlFor={ids.propertyType} className="sr-only">
-                          Property type
-                        </label>
-                        <select
-                          id={ids.propertyType}
-                          ref={inputRef as any}
-                          className="input"
-                          aria-label="Property type"
-                          value={form.propertyType}
-                          onChange={(e) => set("propertyType", e.target.value)}
-                          onKeyDown={handleEnter}
-                          data-testid="field-property"
-                        >
-                          <option value="" disabled>
-                            Select property type
-                          </option>
-                          {PROPERTY_TYPES.map((pt) => (
-                            <option key={pt} value={pt}>
-                              {pt}
-                            </option>
-                          ))}
-                        </select>
-                      </>
+                      <Select
+                        id={ids.propertyType}
+                        label="Property type"
+                        placeholder="Select property type"
+                        value={form.propertyType || null}
+                        onChange={(v) => {
+                          set("propertyType", v);
+                        }}
+                        options={Array.from(PROPERTY_TYPES)}
+                      />
                     )}
 
+                    {/* Bedrooms */}
                     {s.key === "bedrooms" && (
-                      <>
-                        <label htmlFor={ids.bedrooms} className="sr-only">
-                          Bedrooms
-                        </label>
-                        <input
-                          id={ids.bedrooms}
-                          ref={inputRef as any}
-                          className="input"
-                          placeholder="Bedrooms"
-                          aria-label="Bedrooms"
-                          type="number"
-                          min={0}
-                          value={form.bedrooms}
-                          onChange={(e) => set("bedrooms", e.target.value)}
-                          onKeyDown={handleEnter}
-                          data-testid="field-bedrooms"
-                        />
-                      </>
+                      <BedroomsSelect
+                        id={ids.bedrooms}
+                        value={Number(form.bedrooms) || 0}
+                        onChange={(n) => {
+                          set("bedrooms", n);
+                        }}
+                      />
                     )}
 
+                    {/* Description */}
                     {s.key === "description" && (
-                      <>
-                        <label htmlFor={ids.description} className="sr-only">
-                          Description
-                        </label>
-                        <textarea
-                          id={ids.description}
-                          ref={inputRef as any}
-                          className="input min-h-36"
-                          placeholder="Brief description of the work"
-                          aria-label="Description"
-                          value={form.description}
-                          onChange={(e) => set("description", e.target.value)}
-                          onKeyDown={handleEnter}
-                          data-testid="field-description"
-                        />
-                      </>
+                      <DescriptionBuilder
+                        value={form.description}
+                        onChange={(next) => set("description", next)}
+                        category={form.category}
+                      />
                     )}
 
-                    {/* review section */}
+                    {/* Review */}
                     {s.key === "review" && (
-                      <div className="space-y-3 text-sm" data-testid="review">
+                      <div className="space-y-3 text-sm">
                         <ReviewRow
-                          label="Project name"
-                          value={form.name}
-                          dataTestId="review-name"
+                          label="Project name (auto)"
+                          value={reviewAutoName}
                         />
                         <ReviewRow
-                          label="Type of work"
-                          value={form.type}
-                          dataTestId="review-type"
+                          label="Category"
+                          value={form.category || "—"}
                         />
                         <ReviewRow
-                          label="Location"
-                          value={form.location}
-                          dataTestId="review-location"
+                          label="Type(s) of work"
+                          value={
+                            [
+                              ...form.selectedTypes,
+                              ...(form.otherEnabled && form.otherText.trim()
+                                ? [normalize(form.otherText)]
+                                : []),
+                            ].join(", ") || "—"
+                          }
                         />
+                        <ReviewRow label="Location" value={form.location} />
                         <ReviewRow
                           label="Property type"
                           value={form.propertyType}
-                          dataTestId="review-property"
                         />
                         <ReviewRow
                           label="Bedrooms"
                           value={String(form.bedrooms || 0)}
-                          dataTestId="review-bedrooms"
                         />
                         <ReviewRow
                           label="Description"
                           value={form.description}
                           multiline
-                          dataTestId="review-description"
                         />
                       </div>
                     )}
                   </div>
 
-                  {err && (
-                    <p
-                      className="mt-3 text-sm text-red-600"
-                      role="alert"
-                      data-testid="create-error"
-                    >
+                  {err && idx === step && (
+                    <p className="mt-3 text-sm text-red-600" role="alert">
                       {err}
                     </p>
                   )}
 
-                  <div className="mt-8 flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={back}
-                      disabled={step === 0 || busy}
-                      className="btn-outline disabled:opacity-50"
-                      aria-label="Back"
-                      data-testid="wizard-back"
-                    >
-                      Back
-                    </button>
+                  {/* Navigation buttons – only from step 1 onwards */}
+                  {idx === step && step > 0 && (
+                    <div className="mt-10 flex items-center justify-center gap-4">
+                      {/* Previous */}
+                      <button
+                        type="button"
+                        onClick={back}
+                        disabled={busy}
+                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-6 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-40"
+                      >
+                        ◀ Previous
+                      </button>
 
-                    {step < maxStep ? (
-                      <button
-                        type="button"
-                        onClick={next}
-                        disabled={!isStepValid(step) || busy}
-                        className="btn disabled:opacity-50"
-                        aria-label={`Next: ${s.title}`}
-                        data-testid="wizard-next"
-                      >
-                        Next
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={onCreate}
-                        disabled={!isStepValid(step) || busy}
-                        className="btn disabled:opacity-50"
-                        aria-label="Create Project"
-                        data-testid="wizard-create"
-                      >
-                        {busy ? "Creating..." : "Create Project"}
-                      </button>
-                    )}
-                  </div>
+                      {/* Next / Create */}
+                      {step < maxStep ? (
+                        <button
+                          type="button"
+                          onClick={next}
+                          disabled={!isStepValid(step) || busy}
+                          className="inline-flex items-center gap-2 rounded-full bg-[#F6A72B] px-8 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#e59520] disabled:opacity-40"
+                        >
+                          Next ▶
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={onCreate}
+                          disabled={!isStepValid(step) || busy}
+                          className="inline-flex items-center gap-2 rounded-full bg-[#F6A72B] px-8 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#e59520] disabled:opacity-40"
+                        >
+                          {busy ? "Creating…" : "Create Project"}
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </section>
               );
             })}
@@ -457,16 +561,16 @@ export default function NewProject() {
   );
 }
 
+/* ====== Review Row ====== */
+
 function ReviewRow({
   label,
   value,
   multiline,
-  dataTestId,
 }: {
   label: string;
   value: string;
   multiline?: boolean;
-  dataTestId: string;
 }) {
   return (
     <div>
@@ -474,17 +578,11 @@ function ReviewRow({
         {label}
       </div>
       {multiline ? (
-        <p
-          className="mt-1 whitespace-pre-wrap rounded-lg border border-gray-200 bg-gray-50 p-3 text-gray-900"
-          data-testid={dataTestId} // ← correct attribute
-        >
+        <p className="mt-1 whitespace-pre-wrap rounded-lg border border-gray-200 bg-gray-50 p-3 text-gray-900">
           {value || "—"}
         </p>
       ) : (
-        <div
-          className="mt-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-gray-900"
-          data-testid={dataTestId} // ← correct attribute
-        >
+        <div className="mt-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-gray-900">
           {value || "—"}
         </div>
       )}

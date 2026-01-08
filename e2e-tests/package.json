@@ -1,19 +1,24 @@
 {
-  "name": "vmb-e2e-tests",
+  "name": "vetmybuilder-e2e-tests",
   "private": true,
   "version": "1.0.0",
+  "description": "Playwright E2E/API test framework for VetMyBuilder",
   "scripts": {
-    "test": "playwright test -c playwright.config.ts",
-    "test:headed": "playwright test -c playwright.config.ts --headed --project=chromium",
-    "test:ui": "playwright test -c playwright.config.ts --ui"
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report",
+    "codegen": "playwright codegen"
   },
   "devDependencies": {
     "@playwright/test": "^1.47.2",
     "@types/chance": "^1.1.7",
+    "@types/node": "^20.11.30",
     "dotenv": "^16.4.5",
     "typescript": "^5.4.0"
   },
   "dependencies": {
-    "chance": "^1.1.13"
+    "chance": "^1.1.13",
+    "mysql2": "^3.16.0"
   }
 }

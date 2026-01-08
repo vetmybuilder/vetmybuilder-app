@@ -1,15 +1,20 @@
-// server/v2/routes/projects/project.get.js
-/**
- * GET /api/v2/projects/:id  (also /api/projects/:id if mounted there)
- * Auth: optional
- * - Anonymous: only live projects visible (401 if not live)
- * - Authenticated: owner or live (404 if not owner & not live)
- * Response: { project }
- */
-module.exports = (router, ctx) => {
-  const { db, admin, touchUserMw } = ctx;
+//
+// GET /api/projects/:id
+//
+// Visibility Rules:
+//   • Anonymous → only LIVE projects visible (else 401)
+//   • Authenticated → owner OR (live|completed). Others receive 404
+//
+// Logging: structured logger + withRequest
+//
 
-  // optional auth middleware (mirrors your server/index.js helper)
+const { formatPostcode } = require("../../lib/location"); // ⭐ ensure this strips inward code
+
+module.exports = (router, ctx) => {
+  const { admin, touchUserMw, mysqlQuery } = ctx;
+  const { logger, withRequest } = require("../../lib/logger");
+
+  // Optional bearer auth
   function optionalAuth(adminInstance) {
     return async (req, _res, next) => {
       try {
@@ -17,45 +22,107 @@ module.exports = (router, ctx) => {
         if (h.startsWith("Bearer ")) {
           const token = h.slice(7);
           const decoded = await adminInstance.auth().verifyIdToken(token);
-          req.user = { uid: decoded.uid, email: decoded.email || null };
+          req.user = {
+            uid: decoded.uid,
+            email: decoded.email || null,
+          };
         }
       } catch {
-        // ignore invalid/expired tokens
+        // ignore
       }
       next();
     };
   }
 
-  router.get("/projects/:id", optionalAuth(admin), touchUserMw, (req, res) => {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id)) {
-      return res.status(400).json({ error: "Invalid id" });
-    }
+  router.get(
+    "/projects/:id",
+    optionalAuth(admin),
+    touchUserMw,
+    async (req, res) => {
+      const projectId = Number(req.params.id);
+      const log = withRequest(req, logger).child({
+        route: "/projects/:id",
+        projectId,
+      });
 
-    const project = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
-    if (!project) return res.status(404).json({ error: "Not found" });
+      if (!Number.isFinite(projectId)) {
+        log.warn("Invalid project ID");
+        return res.status(400).json({ error: "invalid_project_id" });
+      }
 
-    const status = String(project.status || "").toLowerCase();
-    const isLive = status === "live";
-    const viewerUid = req.user?.uid ?? null;
-    const isOwner =
-      !!viewerUid && String(project.ownerUserId) === String(viewerUid);
+      // --------------------------------------------
+      // Load project
+      // --------------------------------------------
+      let project;
+      try {
+        const rows = await mysqlQuery(
+          `
+          SELECT *
+          FROM projects
+          WHERE id = ?
+        `,
+          [projectId]
+        );
+        project = rows[0] || null;
+      } catch (err) {
+        log.error({ err }, "MySQL error while fetching project");
+        return res.status(500).json({ error: "internal_error" });
+      }
 
-    // Unauthenticated viewers: only live projects are visible
-    if (!viewerUid) {
-      if (!isLive)
-        return res.status(401).json({ error: "Missing bearer token" });
+      if (!project) {
+        log.info("Project not found");
+        return res.status(404).json({ error: "not_found" });
+      }
+
+      const status = String(project.status || "").toLowerCase();
+      const isLive = status === "live";
+      const isCompleted = status === "completed";
+
+      const viewerUid = req.user?.uid || null;
+      const isOwner =
+        viewerUid && String(project.ownerUserId) === String(viewerUid);
+
+      // --------------------------------------------------
+      // ⭐ ALWAYS SANITISE LOCATION BEFORE RETURNING
+      // --------------------------------------------------
+      try {
+        project.location = formatPostcode(project.location);
+      } catch {
+        // fallback if helper fails
+        project.location = String(project.location || "").trim();
+      }
+
+      // --------------------------------------------------
+      // Anonymous viewer logic
+      // --------------------------------------------------
+      if (!viewerUid) {
+        if (!isLive) {
+          log.info("Anonymous viewer attempted non-live project");
+          return res.status(401).json({ error: "missing_bearer_token" });
+        }
+
+        res.set("Cache-Control", "no-store");
+        log.info("Anonymous viewer accessing live project");
+        return res.json({ project });
+      }
+
+      // --------------------------------------------------
+      // Authenticated viewer logic
+      // Only owner OR (live|completed) users can see
+      // All others → pretend it doesn't exist
+      // --------------------------------------------------
+      if (!isOwner && !isLive && !isCompleted) {
+        log.info("Non-owner viewer blocked from non-visible project");
+        return res.status(404).json({ error: "not_found" });
+      }
+
       res.set("Cache-Control", "no-store");
+      log.info("Authenticated viewer accessing project", {
+        isOwner,
+        status,
+      });
+
       return res.json({ project });
     }
-
-    // Authenticated viewers: only owner or live
-    if (!isOwner && !isLive) {
-      // Use 404 to avoid leaking the project's existence
-      return res.status(404).json({ error: "Not found" });
-    }
-
-    res.set("Cache-Control", "no-store");
-    return res.json({ project });
-  });
+  );
 };

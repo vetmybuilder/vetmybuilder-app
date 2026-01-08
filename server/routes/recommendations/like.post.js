@@ -1,59 +1,106 @@
-// server/v2/routes/recommendations/like.post.js
+// server/routes/recommendations/like.post.js
+
 /**
- * POST /api/v2/recommendations/:id/like
+ * POST /api/recommendations/:id/like
  * Auth: required
- * Effect: one like per user (INSERT OR IGNORE)
+ * Effect: one like per user (INSERT IGNORE semantics)
  * Response: { ok: true, recommendationId, likes, myLike }
  */
+
 module.exports = (router, ctx) => {
-  const { db, auth } = ctx;
+  const { mysqlQuery, auth } = ctx;
+  const log = ctx.log || console;
+  const TAG = "[recommendations.like.post]";
 
-  router.post("/recommendations/:id/like", auth, (req, res) => {
-    const userId = req.user.uid;
+  if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
+
+  router.post("/recommendations/:id/like", auth, async (req, res) => {
+    const userId = req.user?.uid;
     const recId = Number(req.params.id);
-    if (!Number.isFinite(recId)) {
-      return res.status(400).json({ error: "Bad id" });
-    }
 
-    const rec = db
-      .prepare(`SELECT id, projectId FROM recommendations WHERE id = ?`)
-      .get(recId);
-    if (!rec)
-      return res.status(404).json({ error: "Recommendation not found" });
+    log.info?.(`${TAG} start`, { userId, recId });
 
-    const proj = db
-      .prepare(`SELECT ownerUserId FROM projects WHERE id = ?`)
-      .get(rec.projectId);
-    if (!proj) return res.status(404).json({ error: "Project not found" });
-    if (String(proj.ownerUserId) === String(userId)) {
-      return res.status(403).json({ error: "Owner cannot like" });
-    }
+    try {
+      if (!Number.isFinite(recId)) {
+        log.warn?.(`${TAG} bad id`, { recId });
+        return res.status(400).json({ error: "Bad id" });
+      }
 
-    db.prepare(
-      `INSERT OR IGNORE INTO recommendation_votes (recommendationId, userId, value)
-       VALUES (?, ?, 1)`
-    ).run(recId, userId);
+      // Ensure recommendation exists
+      const recRows = await mysqlQuery(
+        `SELECT id, projectId
+           FROM recommendations
+          WHERE id = ?
+          LIMIT 1`,
+        [recId]
+      );
+      const rec = recRows[0];
 
-    const row = db
-      .prepare(
+      if (!rec) {
+        log.warn?.(`${TAG} recommendation not found`, { recId });
+        return res.status(404).json({ error: "Recommendation not found" });
+      }
+
+      // Load project + owner to prevent owners from liking their own recommendations
+      const projRows = await mysqlQuery(
+        `SELECT ownerUserId
+           FROM projects
+          WHERE id = ?
+          LIMIT 1`,
+        [rec.projectId]
+      );
+      const proj = projRows[0];
+
+      if (!proj) {
+        log.warn?.(`${TAG} project missing`, { projectId: rec.projectId });
+        return res.status(404).json({ error: "Project not found" });
+      }
+
+      if (String(proj.ownerUserId) === String(userId)) {
+        log.warn?.(`${TAG} owner tried to like`, {
+          userId,
+          projectId: rec.projectId,
+        });
+        return res.status(403).json({ error: "Owner cannot like" });
+      }
+
+      // INSERT IGNORE → one like per user
+      await mysqlQuery(
+        `INSERT IGNORE INTO recommendation_votes (recommendationId, userId, value)
+         VALUES (?, ?, 1)`,
+        [recId, userId]
+      );
+
+      // Count total likes
+      const likeCountRows = await mysqlQuery(
         `SELECT COUNT(*) AS likes
            FROM recommendation_votes
-          WHERE recommendationId = ? AND value = 1`
-      )
-      .get(recId);
+          WHERE recommendationId = ? AND value = 1`,
+        [recId]
+      );
+      const likes = Number(likeCountRows[0]?.likes || 0);
 
-    const myLike = !!db
-      .prepare(
-        `SELECT 1 FROM recommendation_votes
-          WHERE recommendationId = ? AND userId = ? LIMIT 1`
-      )
-      .get(recId, userId);
+      // Has THIS user liked it?
+      const myLikeRows = await mysqlQuery(
+        `SELECT 1
+           FROM recommendation_votes
+          WHERE recommendationId = ? AND userId = ? AND value = 1
+          LIMIT 1`,
+        [recId, userId]
+      );
+      const myLike = myLikeRows.length > 0;
 
-    return res.json({
-      ok: true,
-      recommendationId: recId,
-      likes: row.likes || 0,
-      myLike,
-    });
+      log.info?.(`${TAG} like updated`, { recId, userId, likes, myLike });
+
+      return res.json({
+        ok: true,
+        recommendationId: recId,
+        likes,
+        myLike,
+      });
+    } catch (err) {
+      log.error?.(`${TAG} error`, err);
+      return res.status(500).json({ error: "Internal error toggling like" });
+    }
   });
 };

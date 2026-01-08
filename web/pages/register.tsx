@@ -1,17 +1,38 @@
 // web/pages/register.tsx
 import Head from "next/head";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useApi } from "@/utils/api";
 import { initFirebase } from "@/utils/firebase";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { useAuth } from "@/utils/auth";
+import { ensureEmailAvailable } from "@/utils/email";
 
 export default function Register() {
   const api = useApi();
   const router = useRouter();
   const { hydrateFromSignup } = useAuth();
+
+  // Resolve explicit ?next= from the URL (ignore sessionStorage here)
+  const explicitNext = useMemo(() => {
+    if (!router.isReady) return null;
+    const n = router.query.next;
+    const v = typeof n === "string" ? n : Array.isArray(n) ? n[0] : "";
+    return v && v.startsWith("/") ? v : null;
+  }, [router.isReady, router.query.next]);
+
+  // Default landing page after signup
+  const nextPath = explicitNext || "/projects";
+
+  // Persist next target for other parts of the flow (login etc.)
+  useEffect(() => {
+    try {
+      if (nextPath) {
+        sessionStorage.setItem("vmb:returnTo", nextPath);
+      }
+    } catch {}
+  }, [nextPath]);
 
   const [form, setForm] = useState({
     firstName: "",
@@ -19,7 +40,7 @@ export default function Register() {
     username: "",
     email: "",
     password: "",
-    location: "", // NEW: postcode/city at signup
+    location: "",
   });
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -34,6 +55,9 @@ export default function Register() {
     try {
       const { firstName, lastName, username, email, password, location } = form;
 
+      // Check email availability (including aliases) BEFORE hitting Firebase
+      await ensureEmailAvailable(api, email.trim());
+
       const auth = initFirebase();
       const cred = await createUserWithEmailAndPassword(auth, email, password);
 
@@ -42,10 +66,9 @@ export default function Register() {
           displayName: `${firstName} ${lastName}`.trim(),
         });
       } catch {
-        // non-fatal
+        /* non-fatal */
       }
 
-      // include location so server writes it to users table
       await api.post("/api/account", {
         firstName,
         lastName,
@@ -53,12 +76,42 @@ export default function Register() {
         location,
       });
 
-      // Optimistically seed auth context so initials render immediately
       hydrateFromSignup({ firstName, lastName, username, email });
 
-      router.replace("/projects");
+      // Final redirect target after successful signup
+      const target = nextPath || "/projects";
+
+      try {
+        sessionStorage.setItem("vmb:returnTo", target);
+        sessionStorage.setItem("vmb:didLoginRedirect", String(Date.now()));
+      } catch {}
+
+      router.replace(target);
     } catch (e: any) {
-      setErr(e?.message || "Registration failed");
+      // Prefer our custom email message (ensureEmailAvailable) if present
+      const raw = e?.message || "";
+
+      if (
+        raw.includes("already exists (including aliases)") ||
+        raw.includes("already exists. Try signing in")
+      ) {
+        setErr(
+          "An account with this email already exists. Try signing in instead."
+        );
+      } else if (raw.startsWith("Firebase:")) {
+        // Fallback mapping for other Firebase auth errors
+        if (raw.includes("auth/email-already-in-use")) {
+          setErr(
+            "An account with this email already exists. Try signing in instead."
+          );
+        } else if (raw.includes("auth/weak-password")) {
+          setErr("Your password is too weak. Try a longer password.");
+        } else {
+          setErr("Registration failed. Please double-check your details.");
+        }
+      } else {
+        setErr(raw || "Registration failed");
+      }
     } finally {
       setLoading(false);
     }
@@ -193,7 +246,7 @@ export default function Register() {
             data-testid="input-password"
           />
 
-          {/* NEW: Location at signup */}
+          {/* Location at signup */}
           <label
             className="text-sm"
             htmlFor="reg-loc"
@@ -237,7 +290,11 @@ export default function Register() {
 
           <p className="text-sm text-slate-600" data-testid="register-to-login">
             Already have an account?{" "}
-            <Link className="link" href="/login" data-testid="link-to-login">
+            <Link
+              className="link"
+              href={{ pathname: "/login", query: { next: nextPath } }}
+              data-testid="link-to-login"
+            >
               Sign in
             </Link>
           </p>

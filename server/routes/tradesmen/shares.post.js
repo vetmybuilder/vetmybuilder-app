@@ -1,0 +1,308 @@
+// server/routes/tradesmen/shares.post.js
+/**
+ * POST /api/tradesmen/shares
+ * Auth: tradesman only
+ * One submission per (project, tradesman)
+ */
+
+const path = require("node:path");
+
+module.exports = (router, ctx) => {
+  const {
+    auth,
+    mysqlQuery,
+    notifyUsers,
+    upload,
+    PUBLIC_API_BASE = "",
+    db,
+  } = ctx;
+
+  const log = ctx.log || console;
+  const TAG = "[tradesmen/shares.post]";
+
+  if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
+
+  // Multer middleware
+  const withUploads =
+    typeof upload?.array === "function"
+      ? upload.array("photos", 8)
+      : (_req, _res, next) => next();
+
+  // Helpers --------------------------------------------------------------------
+
+  const projectById = async (id) => {
+    const rows = await mysqlQuery(
+      `SELECT * FROM projects WHERE id = ? LIMIT 1`,
+      [id]
+    );
+    return rows[0] || null;
+  };
+
+  const isLive = (p) => String(p?.status || "").toLowerCase() === "live";
+
+  async function findTradesmanByUid(uid) {
+    if (!uid) return null;
+    const rows = await mysqlQuery(
+      `SELECT * FROM tradesmen WHERE user_id = ? LIMIT 1`,
+      [uid]
+    );
+    return rows[0] || null;
+  }
+
+  async function resolveBuilderLinkPath(tm) {
+    if (!tm) return null;
+    if (tm.user_id) return `/tradesman/${tm.user_id}`;
+    if (tm.profile_slug) return `/builder/${tm.profile_slug}`;
+    if (tm.id) return `/builder/${tm.id}`;
+    return null;
+  }
+
+  const ABS_BASE = String(PUBLIC_API_BASE || "").replace(/\/+$/g, "");
+  const toRelUrl = (filename) => (filename ? `/uploads/${filename}` : "");
+  const toAbsUrl = (rel) => (rel ? `${ABS_BASE}${rel}` : "");
+
+  const filesToPhotos = (files = []) =>
+    files.map((f) => {
+      const filename = f.filename || "";
+      const rel = toRelUrl(filename);
+      const abs = toAbsUrl(rel);
+      return {
+        name: f.originalname || filename || "",
+        type: f.mimetype || "",
+        size: Number(f.size) || 0,
+        filename,
+        url: rel,
+        absoluteUrl: abs,
+      };
+    });
+
+  const extractProjectId = (req) => {
+    const first = (...vals) =>
+      vals.find(
+        (v) => v !== undefined && v !== null && String(v).trim() !== ""
+      );
+
+    const fromBody = first(
+      req.body?.projectId,
+      req.body?.pid,
+      req.body?.project_id
+    );
+    const fromQuery = first(req.query?.projectId, req.query?.pid);
+    const fromHead = first(
+      req.headers["x-vmb-project"],
+      req.headers["x-project-id"]
+    );
+
+    let fromRef = null;
+    const ref = req.headers?.referer || req.headers?.referrer || "";
+    const m = ref.match(/\/projects\/(\d+)(?:\/|$)/i);
+    if (m && m[1]) fromRef = m[1];
+
+    const raw = first(fromBody, fromQuery, fromHead, fromRef);
+    const n = Number(String(raw || "").trim());
+    return Number.isFinite(n) && n > 0 ? n : NaN;
+  };
+
+  async function createNotification({
+    userId,
+    type,
+    message,
+    projectId,
+    linkPath,
+  }) {
+    try {
+      await mysqlQuery(
+        `INSERT INTO notifications
+           (userId, type, message, projectId, linkPath, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [userId, type, message, projectId, linkPath || null, new Date()]
+      );
+    } catch (err) {
+      log.warn(`${TAG} notification insert failed`, { error: err?.message });
+    }
+  }
+
+  // Route ----------------------------------------------------------------------
+
+  router.post("/tradesmen/shares", auth, withUploads, async (req, res) => {
+    const uid = req.user?.uid || req.user?.id;
+
+    log.info(`${TAG} incoming request`, {
+      uid,
+      bodyKeys: Object.keys(req.body || {}),
+      filesCount: (req.files || []).length,
+    });
+
+    try {
+      if (!uid) return res.status(401).json({ error: "Unauthorized" });
+
+      const tm = await findTradesmanByUid(uid);
+      if (!tm) {
+        log.warn(`${TAG} user is not tradesman`, { uid });
+        return res
+          .status(403)
+          .json({ error: "Only tradesmen can share profiles." });
+      }
+
+      const pid = extractProjectId(req);
+      if (!Number.isFinite(pid)) {
+        log.warn(`${TAG} invalid projectId`, { pidRaw: req.body?.projectId });
+        return res.status(400).json({ error: "Invalid projectId" });
+      }
+
+      const project = await projectById(pid);
+      if (!project) {
+        log.warn(`${TAG} project not found`, { pid });
+        return res.status(404).json({ error: "Project not found" });
+      }
+
+      if (String(project.ownerUserId) === String(uid)) {
+        return res
+          .status(400)
+          .json({ error: "You cannot share to your own project." });
+      }
+      if (!isLive(project)) {
+        return res
+          .status(400)
+          .json({ error: "Project is not live and cannot accept shares." });
+      }
+
+      const companyName =
+        tm.company_name ||
+        tm.companyName ||
+        tm.name ||
+        tm.contact_name ||
+        "A tradesman";
+
+      const projectName = project.name || "your project";
+      const notifMessage = `${companyName} is interested in your ${projectName} and has shared their profile.`;
+
+      // Check existing share
+      const existingRows = await mysqlQuery(
+        `
+        SELECT id, created_at
+          FROM trade_shares
+         WHERE project_id = ? AND tradesman_uid = ?
+         LIMIT 1
+        `,
+        [pid, uid]
+      );
+      const existing = existingRows[0] || null;
+
+      // Photos
+      let photos = [];
+      if (Array.isArray(req.files) && req.files.length) {
+        photos = filesToPhotos(req.files);
+      } else if (Array.isArray(req.body?.photos)) {
+        photos = (req.body.photos || []).map((p) => {
+          const filename = p.filename || "";
+          let rel = p.url || (filename ? toRelUrl(filename) : "");
+          rel = rel.replace(/^\/api\/uploads\//, "/uploads/");
+          const abs = p.absoluteUrl
+            ? p.absoluteUrl.replace(/\/api\/uploads\//, "/uploads/")
+            : toAbsUrl(rel);
+          return { ...p, filename, url: rel, absoluteUrl: abs };
+        });
+      }
+
+      const message = String(req.body?.message || "");
+
+      // If already shared → re-notify owner
+      if (existing) {
+        log.info(`${TAG} idempotent hit`, { shareId: existing.id });
+
+        try {
+          const linkPath =
+            (await resolveBuilderLinkPath(tm)) || `/projects/${pid}/shares`;
+
+          await createNotification({
+            userId: project.ownerUserId,
+            type: "tradesman_shared_profile",
+            message: notifMessage,
+            projectId: pid,
+            linkPath,
+          });
+
+          if (typeof notifyUsers === "function" && db) {
+            notifyUsers(db, [project.ownerUserId], {
+              type: "tradesman_shared_profile",
+              message: notifMessage,
+              projectId: pid,
+              shareId: existing.id,
+              linkPath,
+            });
+          }
+        } catch (err) {
+          log.warn(`${TAG} re-notify failed`, { error: err?.message });
+        }
+
+        return res.json({
+          ok: true,
+          already: true,
+          id: existing.id,
+          createdAt: existing.created_at,
+        });
+      }
+
+      // Insert new share
+      const insertResult = await mysqlQuery(
+        `
+        INSERT INTO trade_shares
+          (project_id, tradesman_uid, photos_json, message, created_at)
+        VALUES (?, ?, ?, ?, NOW())
+        `,
+        [pid, uid, JSON.stringify(photos || []), message]
+      );
+
+      const shareId = insertResult.insertId;
+      log.info(`${TAG} share created`, { shareId });
+
+      const rowRows = await mysqlQuery(
+        `SELECT * FROM trade_shares WHERE id = ? LIMIT 1`,
+        [shareId]
+      );
+      const row = rowRows[0];
+
+      // Notify owner
+      try {
+        const linkPath =
+          (await resolveBuilderLinkPath(tm)) || `/projects/${pid}/shares`;
+
+        await createNotification({
+          userId: project.ownerUserId,
+          type: "tradesman_shared_profile",
+          message: notifMessage,
+          projectId: pid,
+          linkPath,
+        });
+
+        if (typeof notifyUsers === "function" && db) {
+          notifyUsers(db, [project.ownerUserId], {
+            type: "tradesman_shared_profile",
+            message: notifMessage,
+            projectId: pid,
+            shareId: row.id,
+            linkPath,
+          });
+        }
+      } catch (e) {
+        log.warn(`${TAG} notify failed`, { error: e?.message });
+      }
+
+      return res.status(201).json({
+        ok: true,
+        share: {
+          id: row.id,
+          projectId: row.project_id,
+          tradesmanUid: row.tradesman_uid,
+          photos,
+          message: row.message || "",
+          createdAt: row.created_at,
+        },
+      });
+    } catch (e) {
+      log.error(`${TAG} unexpected`, { error: e?.message, stack: e?.stack });
+      return res.status(500).json({ error: "Failed to save share" });
+    }
+  });
+};

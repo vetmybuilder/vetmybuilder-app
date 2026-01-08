@@ -1,6 +1,6 @@
-// server/v2/routes/projects/publish.post.js
+// server/routes/projects/publish.post.js
 /**
- * POST /api/v2/projects/:id/publish
+ * POST /api/projects/:id/publish
  * Auth: required (owner only)
  *
  * Behavior:
@@ -13,92 +13,210 @@
  * - notifies local users (by postcode / city) + prior recommenders in area
  */
 module.exports = (router, ctx) => {
-  const { db, auth, extractLocationTokens, notifyUsers } = ctx;
+  const { db, auth, extractLocationTokens, notifyUsers, mysqlQuery } = ctx;
+  const log = ctx.log || console;
 
-  router.post("/projects/:id/publish", auth, (req, res) => {
+  router.post("/projects/:id/publish", auth, async (req, res) => {
     const id = Number(req.params.id);
-    if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+    log.info?.("[projects.publish] start", { id });
 
-    const existing = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
-    if (!existing) return res.status(404).json({ error: "Not found" });
+    if (Number.isNaN(id)) {
+      log.warn?.("[projects.publish] invalid id");
+      return res.status(400).json({ error: "Invalid id" });
+    }
+
+    let existing;
+    try {
+      const rows = await mysqlQuery(`SELECT * FROM projects WHERE id = ?`, [
+        id,
+      ]);
+      existing = rows[0] || null;
+    } catch (err) {
+      log.error?.("[projects.publish] fetch error", err);
+      return res.status(500).json({ error: "internal_error" });
+    }
+
+    if (!existing) {
+      log.warn?.("[projects.publish] project not found", { id });
+      return res.status(404).json({ error: "Not found" });
+    }
+
     if (String(existing.ownerUserId) !== String(req.user.uid)) {
+      log.warn?.("[projects.publish] forbidden (not owner)", {
+        id,
+        owner: existing.ownerUserId,
+        viewer: req.user.uid,
+      });
       return res.status(403).json({ error: "Forbidden" });
     }
 
     const status = String(existing.status || "").toLowerCase();
+
     if (status === "archived") {
+      log.warn?.("[projects.publish] archived project", { id });
       return res
         .status(400)
         .json({ error: "Project is archived. Unarchive before publishing." });
     }
+
     if (status === "live") {
-      return res.json({ project: existing }); // idempotent
+      // idempotent
+      log.info?.("[projects.publish] already live", { id });
+      return res.json({ project: existing });
     }
 
-    // Publish
-    db.prepare(`UPDATE projects SET status='live' WHERE id=?`).run(id);
-    const updated = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
+    // ----- PUBLISH -----
+    let updated = existing;
+    try {
+      await mysqlQuery(`UPDATE projects SET status = 'live' WHERE id = ?`, [
+        id,
+      ]);
+      const rows = await mysqlQuery(`SELECT * FROM projects WHERE id = ?`, [
+        id,
+      ]);
+      updated = rows[0] || existing;
+    } catch (err) {
+      log.error?.("[projects.publish] update-to-live error", err);
+      return res.status(500).json({ error: "internal_error" });
+    }
+
+    // Respond to client immediately
     res.json({ project: updated });
 
-    // ---- Target local users using users table location fields ----
+    // ---- BACKGROUND NOTIFICATIONS ----
     try {
       const locTokens = extractLocationTokens(updated.location);
+      log.info?.("[projects.publish] locTokens", { id, locTokens });
+
       const whereParts = [];
-      const areaParams = {};
+      const areaParams = [];
 
       if (locTokens.full) {
-        whereParts.push("u.postcode = @full");
-        areaParams.full = locTokens.full;
+        whereParts.push("u.postcode = ?");
+        areaParams.push(locTokens.full);
       }
       if (locTokens.sector) {
-        whereParts.push("u.postcodeSector = @sector");
-        areaParams.sector = locTokens.sector;
+        whereParts.push("u.postcodeSector = ?");
+        areaParams.push(locTokens.sector);
       }
       if (locTokens.outward) {
-        whereParts.push("u.postcodeOutward = @outward");
-        areaParams.outward = locTokens.outward;
+        whereParts.push("u.postcodeOutward = ?");
+        areaParams.push(locTokens.outward);
       }
       if (locTokens.city) {
-        whereParts.push("u.city = @city");
-        areaParams.city = String(locTokens.city).toLowerCase();
+        whereParts.push("LOWER(u.city) = ?");
+        areaParams.push(String(locTokens.city).toLowerCase());
       }
-      if (!whereParts.length) return;
+
+      if (!whereParts.length) {
+        log.warn?.(
+          "[projects.publish] no location tokens extracted; skipping notifications",
+          { id }
+        );
+        return;
+      }
 
       const areaWhere = whereParts.join(" OR ");
 
-      const areaUsers = db
-        .prepare(
+      // ---- Local users ----
+      let areaUsers = [];
+      try {
+        const areaUserRows = await mysqlQuery(
           `SELECT u.uid AS uid
              FROM users u
-            WHERE (${areaWhere}) AND u.uid != @owner`
-        )
-        .all({ ...areaParams, owner: updated.ownerUserId })
-        .map((r) => r.uid);
+            WHERE (${areaWhere})
+              AND u.uid <> ?`,
+          [...areaParams, updated.ownerUserId]
+        );
 
-      const recUsers = db
-        .prepare(
+        areaUsers = areaUserRows
+          .map((r) => (r && r.uid ? String(r.uid) : null))
+          .filter(Boolean);
+
+        log.info?.("[projects.publish] areaUsers", {
+          id,
+          count: areaUsers.length,
+        });
+      } catch (err) {
+        log.warn?.("[projects.publish] areaUsers load error", err);
+      }
+
+      // ---- Prior recommenders in area ----
+      let recUsers = [];
+      try {
+        const recUserRows = await mysqlQuery(
           `SELECT DISTINCT r.recommenderUserId AS uid
              FROM recommendations r
              JOIN users u ON u.uid = r.recommenderUserId
-            WHERE r.projectId = @pid
+            WHERE r.projectId = ?
               AND r.recommenderUserId IS NOT NULL
               AND (${areaWhere})
-              AND r.recommenderUserId != @owner`
-        )
-        .all({ ...areaParams, pid: id, owner: updated.ownerUserId })
-        .map((r) => r.uid);
+              AND r.recommenderUserId <> ?`,
+          [id, ...areaParams, updated.ownerUserId]
+        );
+
+        recUsers = recUserRows
+          .map((r) => (r && r.uid ? String(r.uid) : null))
+          .filter(Boolean);
+
+        log.info?.("[projects.publish] recUsers", {
+          id,
+          count: recUsers.length,
+        });
+      } catch (err) {
+        log.warn?.("[projects.publish] recUsers load error", err);
+      }
 
       const targets = Array.from(new Set([...areaUsers, ...recUsers]));
-      if (targets.length && typeof notifyUsers === "function") {
-        notifyUsers(db, targets, {
-          type: "project_live_local",
-          message: `A new project “${updated.name}” in your area is now live`,
-          projectId: id,
-          linkPath: `/projects/${id}`,
+      log.info?.("[projects.publish] notification targets", {
+        id,
+        count: targets.length,
+      });
+
+      if (!targets.length) return;
+
+      // ---- Build notification ----
+      const message = `A new project “${updated.name}” in your area is now live`;
+      const linkPath = `/projects/${id}`;
+      const createdAt = new Date();
+
+      // ---- Insert notifications into MySQL ----
+      let inserted = 0;
+      try {
+        for (const uid of targets) {
+          await mysqlQuery(
+            `INSERT INTO notifications
+               (userId, type, message, projectId, linkPath, createdAt)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [uid, "project_live_local", message, id, linkPath, createdAt]
+          );
+          inserted++;
+        }
+        log.info?.("[projects.publish] notifications inserted", {
+          id,
+          count: inserted,
         });
+      } catch (err) {
+        log.warn?.("[projects.publish] MySQL notification insert error", err);
       }
-    } catch (e) {
-      console.warn("[v2 publish] notify/targeting failed", e);
+
+      // ---- Legacy notifyUsers (SSE/email) ----
+      if (typeof notifyUsers === "function" && db && targets.length) {
+        try {
+          notifyUsers(db, targets, {
+            type: "project_live_local",
+            message,
+            projectId: id,
+            linkPath,
+          });
+        } catch (err) {
+          log.warn?.("[projects.publish] notifyUsers legacy error", err);
+        }
+      }
+
+      log.info?.("[projects.publish] done", { id });
+    } catch (err) {
+      log.error?.("[projects.publish] background notify error", err);
     }
   });
 };

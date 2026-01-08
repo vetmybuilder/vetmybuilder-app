@@ -1,10 +1,21 @@
+// web/pages/projects/index.tsx
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import StatusBadge from "@/components/StatusBadge";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { type ProjectTabKey } from "@/components/ProjectTabs";
+import { useRouter } from "next/router";
 import { useAuth } from "@/utils/auth";
-import ProjectTabs, { type ProjectTabKey } from "@/components/ProjectTabs";
+import ProjectImageCard from "@/components/project/ProjectImageCard";
+import ProjectInfoCard from "@/components/project/ProjectInfoCard";
+import { useTradesmanLabels } from "@/hooks/useTradesmanLabels";
+import CompletedProjectCard from "@/components/project/CompletedProjectCard";
+import ProjectFilters, {
+  type ProjectFiltersValue,
+} from "@/components/filters/ProjectFilters";
+import FavouriteTradesmenSection from "@/components/tradesmen/FavouriteTradesmenSection";
+import SafetyVerificationCard from "@/components/SafetyVerificationCard";
+
+type Status = "pending" | "live" | "completed" | "archived";
 
 type Project = {
   id: number;
@@ -14,9 +25,15 @@ type Project = {
   propertyType: string;
   bedrooms: number;
   createdAt: string;
-  status?: "pending" | "live" | "archived";
-  ownerUserId?: string;
-  isFavourite?: 0 | 1 | boolean;
+  status?: Status;
+  completedAt?: string | null;
+  archivedAt?: string | null;
+  coverPhotoUrl?: string | null;
+  _winnerRecommendationId?: number | string;
+  _winnerTradesmanName?: string | null;
+  _hasClosurePhotos?: 0 | 1 | boolean;
+  hasClosurePhotos?: boolean | number | null;
+  closurePhotoCount?: number | null;
 };
 
 type ApiList = {
@@ -26,161 +43,304 @@ type ApiList = {
   pageSize: number;
 };
 
-function useDebounced<T>(value: T, delay = 300) {
-  const [v, setV] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setV(value), delay);
-    return () => clearTimeout(t);
-  }, [value, delay]);
-  return v;
-}
+// local tab type so we can include "favourites"
+type OwnerTab = ProjectTabKey | "favourites";
 
-/** Small icons */
-function InfoIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden {...props}>
-      <path d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm0-11a1 1 0 1 1 0-2 1 1 0 0 1 0 2ZM9 9a1 1 0 0 1 1-1h1a1 1 0 1 1 0 2v4h1a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2h2V9Z" />
-    </svg>
-  );
-}
-function XIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      aria-hidden
-      {...props}
-    >
-      <path
-        d="M18 6 6 18M6 6l12 12"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
+/* ===== Outer page: auth + gate ===== */
 export default function ProjectsPage() {
+  return (
+    <AuthedOnly>
+      <ProjectsGate />
+    </AuthedOnly>
+  );
+}
+
+/* Small component that decides where to send the user. */
+function ProjectsGate() {
   const api = useApi();
-  const { user, loading: authLoading } = useAuth();
-
-  // Tabs (now using the dedicated ProjectTabs component)
-  const [tab, setTab] = useState<ProjectTabKey>("mine");
-
-  // Filters
-  const [fName, setFName] = useState("");
-  const [fType, setFType] = useState("");
-  const [fLocation, setFLocation] = useState("");
-  const [fProperty, setFProperty] = useState("");
-  const [status, setStatus] = useState<"all" | "pending" | "live" | "archived">(
-    "all"
+  const router = useRouter();
+  const { loading: authLoading } = useAuth();
+  const [status, setStatus] = useState<"checking" | "ok" | "redirect">(
+    "checking"
   );
 
-  const dName = useDebounced(fName);
-  const dType = useDebounced(fType);
-  const dLocation = useDebounced(fLocation);
-  const dProperty = useDebounced(fProperty);
-
-  // Sorting & paging
-  const [sort, setSort] = useState<"createdAt" | "name">("createdAt");
-  const [order, setOrder] = useState<"asc" | "desc">("desc");
-  const [page, setPage] = useState(1);
-  const pageSize = 10;
-
-  // Data
-  const [data, setData] = useState<ApiList>({
-    items: [],
-    total: 0,
-    page: 1,
-    pageSize,
-  });
-  const [loading, setLoading] = useState(true);
-
-  // reset page & clear status for tabs that don't use it
   useEffect(() => {
-    setPage(1);
-    if (
-      tab === "community" ||
-      tab === "favourites" ||
-      tab === "archived" ||
-      tab === "recommended"
-    ) {
-      setStatus("all");
-    }
-  }, [tab]);
-
-  // Normalize status sent to API:
-  // - Only "mine" honors the status filter (and never sends "archived").
-  // - All other tabs use "all" (rely on server-side tab filtering).
-  const effectiveStatus = useMemo(() => {
-    if (tab !== "mine") return "all";
-    if (status === "archived") return "all";
-    return status;
-  }, [tab, status]);
-
-  // Load list
-  useEffect(() => {
-    if (authLoading || !user) return;
     let alive = true;
-    setLoading(true);
+    if (!router.isReady || authLoading) return;
 
-    const params = new URLSearchParams({
-      tab,
-      status: effectiveStatus,
-      name: dName,
-      type: dType,
-      location: dLocation,
-      property: dProperty,
-      sort,
-      order,
-      page: String(page),
-      pageSize: String(pageSize),
-    });
+    // Fast path: cached flag (set by header or prior checks)
+    try {
+      if (sessionStorage.getItem("vmb:isTradesman") === "1") {
+        setStatus("redirect");
+        router.replace("/tradesman/projects");
+        return;
+      }
+    } catch {}
 
+    // Authoritative path
     (async () => {
       try {
-        const res = await api.get<ApiList>(
-          `/api/projects?${params.toString()}`
-        );
+        const { data } = await api.get("/api/tradesmen/me");
+        const isT =
+          String(data?.role || "").toLowerCase() === "tradesman" ||
+          !!data?.profile;
         if (!alive) return;
-        setData({
-          items: res.data.items ?? [],
-          total: Number(res.data.total ?? 0),
-          page: Number(res.data.page ?? 1),
-          pageSize: Number(res.data.pageSize ?? pageSize),
-        });
+        if (isT) {
+          try {
+            sessionStorage.setItem("vmb:isTradesman", "1");
+          } catch {}
+          setStatus("redirect");
+          router.replace("/tradesman/projects");
+          return;
+        }
       } catch {
-        if (!alive) return;
-        setData({ items: [], total: 0, page: 1, pageSize });
-      } finally {
-        if (alive) setLoading(false);
+        // ignore: means not a tradesman or not provisioned yet
       }
+      if (alive) setStatus("ok");
     })();
 
     return () => {
       alive = false;
     };
-  }, [
-    api,
-    authLoading,
-    user,
-    tab,
-    dName,
-    dType,
-    dLocation,
-    dProperty,
-    effectiveStatus,
-    sort,
-    order,
-    page,
-  ]);
+  }, [api, router, authLoading]);
 
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil((data.total || 0) / pageSize)),
-    [data.total]
+  if (status === "redirect") {
+    return (
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 text-sm text-slate-500">
+        Redirecting…
+      </div>
+    );
+  }
+
+  if (status !== "ok") {
+    return (
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 text-sm text-slate-500">
+        Loading…
+      </div>
+    );
+  }
+
+  return <OwnerProjects />;
+}
+
+/* ===== Helpers ===== */
+
+const normalizeHookLabel = (v: unknown) => {
+  const s = (typeof v === "string" ? v : "").trim();
+  if (!s) return "";
+  if (/^#\d+$/i.test(s)) return "";
+  if (s === "—" || s === "=") return "";
+  return s;
+};
+
+const hasGallery = (p: Project) => {
+  const v =
+    p.hasClosurePhotos ??
+    p._hasClosurePhotos ??
+    p.closurePhotoCount ??
+    (p as any).photosCount ??
+    0;
+  return typeof v === "boolean" ? v : Number(v) > 0;
+};
+
+/* ===== Actual owner projects UI ===== */
+
+function OwnerProjects() {
+  const api = useApi();
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+
+  // ---- Tab derived from URL (single source of truth) ----
+  const [tab, setTab] = useState<OwnerTab>("mine");
+
+  useEffect(() => {
+    if (!router.isReady) return;
+    const raw = router.query?.tab;
+    const t = (Array.isArray(raw) ? raw[0] : raw) as string | undefined;
+
+    const allowed: OwnerTab[] = [
+      "mine",
+      "archived",
+      "completed",
+      "completedCommunity",
+      "recommended",
+      "favourites",
+    ];
+    const next: OwnerTab = allowed.includes(t as OwnerTab)
+      ? (t as OwnerTab)
+      : "mine";
+
+    if (next !== tab) {
+      setTab(next);
+    }
+  }, [router.isReady, router.query.tab, tab]);
+
+  // ---- Filters ----
+  const [chipType, setChipType] = useState<string>("");
+  const [chipStatus, setChipStatus] = useState<string>("");
+  useEffect(() => {
+    setChipType("");
+    setChipStatus("");
+  }, [tab]);
+
+  // Sorting
+  const [sort, setSort] = useState<"createdAt" | "name">("createdAt");
+  const [order, setOrder] = useState<"asc" | "desc">("desc");
+
+  // Progressive loading
+  const PAGE_SIZE = 12;
+  const [items, setItems] = useState<Project[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [announce, setAnnounce] = useState("");
+
+  // Cancel / ignore stale responses (tab switching causes overlapping requests)
+  const reqSeqRef = useRef(0);
+
+  useEffect(() => {
+    // bump sequence to invalidate any in-flight responses from previous inputs
+    reqSeqRef.current += 1;
+
+    setItems([]);
+    setTotal(0);
+    setPage(1);
+    setHasMore(true);
+  }, [tab, chipType, chipStatus, sort, order]);
+
+  async function fetchPage(p = 1) {
+    const mySeq = ++reqSeqRef.current;
+
+    // Never fetch projects for favourites tab
+    if (tab === "favourites") {
+      setLoading(false);
+      setItems([]);
+      setTotal(0);
+      setHasMore(false);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const params = new URLSearchParams({
+        tab: String(tab),
+        sort,
+        order,
+        page: String(p),
+        pageSize: String(PAGE_SIZE),
+      });
+      if (chipType) params.set("type", chipType);
+      if (chipStatus) params.set("status", chipStatus as any);
+
+      const res = await api.get<ApiList>(`/api/projects?${params.toString()}`);
+
+      // ignore stale responses (old tab/filters)
+      if (mySeq !== reqSeqRef.current) return;
+
+      const newItems = res.data.items ?? [];
+      const nextTotal = Number(res.data.total ?? 0);
+
+      setItems((prev) => {
+        const merged = p === 1 ? newItems : [...prev, ...newItems];
+        const totalSoFar = merged.length;
+
+        // keep these in sync with the same response we just applied
+        setTotal(nextTotal);
+        setHasMore(totalSoFar < nextTotal);
+        setPage(p);
+        setAnnounce(`Loaded ${totalSoFar} of ${nextTotal} projects`);
+
+        return merged;
+      });
+    } catch {
+      if (mySeq !== reqSeqRef.current) return;
+      if (p === 1) {
+        setItems([]);
+        setTotal(0);
+        setHasMore(false);
+      }
+    } finally {
+      if (mySeq === reqSeqRef.current) {
+        setLoading(false);
+      }
+    }
+  }
+
+  const inputsKey = `${tab}|${chipType}|${chipStatus}|${sort}|${order}`;
+  useEffect(() => {
+    if (authLoading || !user || !router.isReady) return;
+
+    if (tab === "favourites") {
+      // No project fetch for favourites tab
+      reqSeqRef.current += 1; // invalidate in-flight
+      setLoading(false);
+      setItems([]);
+      setTotal(0);
+      setHasMore(false);
+      return;
+    }
+
+    fetchPage(1);
+
+    // invalidate if inputs change / component unmounts before request resolves
+    return () => {
+      reqSeqRef.current += 1;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user, router.isReady, inputsKey]);
+
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (tab === "favourites") return; // no infinite scroll for favourites
+    if (!sentinelRef.current) return;
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        const vis = entries.some((e) => e.isIntersecting);
+        if (vis && hasMore && !loading) {
+          fetchPage(page + 1);
+        }
+      },
+      { rootMargin: "200px" }
+    );
+
+    io.observe(sentinelRef.current);
+    return () => io.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasMore, loading, page, inputsKey, tab]);
+
+  const isCompletedLikeView =
+    tab === "completed" || tab === "completedCommunity";
+
+  const { labels: trades } = useTradesmanLabels(
+    isCompletedLikeView,
+    isCompletedLikeView ? (items as any[]) || [] : [],
+    api
   );
+
+  const { typeOptions, statusOptions } = useMemo(() => {
+    const types = new Set<string>();
+    const statuses = new Set<Status>();
+    for (const p of items) {
+      if (p?.type) types.add(p.type);
+      if (p?.status) statuses.add(p.status);
+    }
+    const typeOptions = Array.from(types).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" })
+    );
+    const orderMap: Record<Status, number> = {
+      live: 0,
+      pending: 1,
+      completed: 2,
+      archived: 3,
+    };
+    const statusOptions = Array.from(statuses).sort(
+      (a, b) => orderMap[a] - orderMap[b]
+    );
+    return { typeOptions, statusOptions };
+  }, [items]);
 
   const toggleSort = (col: "name" | "createdAt") => {
     if (sort === col) setOrder((o) => (o === "asc" ? "desc" : "asc"));
@@ -190,400 +350,180 @@ export default function ProjectsPage() {
     }
   };
 
-  const ids = {
-    name: "proj-filter-name",
-    type: "proj-filter-type",
-    location: "proj-filter-location",
-    property: "proj-filter-property",
-    status: "proj-filter-status",
-  };
-
-  // optimistic favourite/unfavourite
-  async function onAddFavourite(p: Project) {
-    try {
-      setData((prev) => ({
-        ...prev,
-        items: prev.items.map((it) =>
-          it.id === p.id ? { ...it, isFavourite: 1 } : it
-        ),
-      }));
-      await api.post(`/api/projects/${p.id}/favourite`);
-      if (tab === "community") {
-        setData((prev) => ({
-          ...prev,
-          items: prev.items.filter((it) => it.id !== p.id),
-          total: Math.max(0, prev.total - 1),
-        }));
-      }
-    } catch {
-      setData((prev) => ({
-        ...prev,
-        items: prev.items.map((it) =>
-          it.id === p.id ? { ...it, isFavourite: 0 } : it
-        ),
-      }));
-    }
-  }
-
-  async function onRemoveFavourite(p: Project) {
-    try {
-      setData((prev) => ({
-        ...prev,
-        items: prev.items.map((it) =>
-          it.id === p.id ? { ...it, isFavourite: 0 } : it
-        ),
-      }));
-      await api.post(`/api/projects/${p.id}/unfavourite`);
-      if (tab === "favourites") {
-        setData((prev) => ({
-          ...prev,
-          items: prev.items.filter((it) => it.id !== p.id),
-          total: Math.max(0, prev.total - 1),
-        }));
-      }
-    } catch {
-      setData((prev) => ({
-        ...prev,
-        items: prev.items.map((it) =>
-          it.id === p.id ? { ...it, isFavourite: 1 } : it
-        ),
-      }));
-    }
-  }
+  const SkeletonCard = () => (
+    <div className="rounded-2xl border border-slate-200 p-3 animate-pulse">
+      <div className="aspect-[4/3] rounded-xl bg-slate-200 mb-3" />
+      <div className="h-4 w-3/4 bg-slate-200 rounded mb-2" />
+      <div className="space-y-2">
+        <div className="h-3 w-1/2 bg-slate-200 rounded" />
+        <div className="h-3 w-2/3 bg-slate-200 rounded" />
+        <div className="h-3 w-1/3 bg-slate-200 rounded" />
+      </div>
+    </div>
+  );
 
   return (
-    <AuthedOnly>
-      <div
-        className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8"
-        data-testid="projects-page"
+    <div
+      className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8"
+      data-testid="projects-page"
+    >
+      {/* top padding so content doesn’t crash into header */}
+      <div className="pt-4" />
+
+      {/* Safety & verification card at the top */}
+      <section
+        aria-label="Safety and verification"
+        data-testid="projects-safety-card"
+        className="mb-6"
       >
-        <div className="flex items-center justify-between mb-5">
-          <h1 className="text-xl font-semibold" data-testid="projects-title">
-            Projects
-          </h1>
-          <Link
-            className="btn"
-            href="/projects/new"
-            id="btn-create-project"
-            data-testid="btn-create-project"
-            aria-label="Create a new Project"
-            data-name="create-project"
-          >
-            Create a new Project
-          </Link>
+        <SafetyVerificationCard />
+      </section>
+
+      {/* Projects filters only for project tabs (not favourites) */}
+      {tab !== "favourites" && (
+        <ProjectFilters
+          typeOptions={typeOptions}
+          statusOptions={statusOptions as any}
+          items={items as any}
+          value={{ type: chipType, status: chipStatus }}
+          onChange={(next: ProjectFiltersValue) => {
+            setChipType(next.type);
+            setChipStatus(next.status);
+          }}
+        />
+      )}
+
+      {/* Main content */}
+      {tab === "favourites" ? (
+        <div className="mt-2" data-testid="projects-list-favourites">
+          <FavouriteTradesmenSection />
         </div>
+      ) : (
+        <div className="mt-2" data-testid="projects-list">
+          {tab === "completed" || tab === "completedCommunity" ? (
+            <div
+              className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5"
+              data-testid="projects-card-grid-completed"
+            >
+              {items.map((p) => {
+                const recId =
+                  (p as any)._winnerRecommendationId ??
+                  (p as any)._winner_rec_id ??
+                  (p as any)._winnerId;
 
-        {/* Centered icon tabs */}
-        <ProjectTabs value={tab} onChange={setTab} />
+                const fromServer = normalizeHookLabel(
+                  (p as any)._winnerTradesmanName
+                );
 
-        {/* Card: Filters + Table */}
-        <div className="mt-4 rounded-2xl border border-indigo-200/60 bg-white/90 shadow-sm ring-1 ring-indigo-200/40 backdrop-blur">
-          {/* Filters */}
-          <div
-            className="card mb-0 border-0 shadow-none px-4 sm:px-6 pt-4"
-            data-testid="projects-filters"
-          >
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
-              <div>
-                <label className="text-xs text-zinc-500" htmlFor={ids.name}>
-                  Name
-                </label>
-                <input
-                  id={ids.name}
-                  name="name"
-                  className="input"
-                  value={fName}
-                  onChange={(e) => setFName(e.target.value)}
-                  placeholder="Search name..."
-                  data-testid="filter-name"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-zinc-500" htmlFor={ids.type}>
-                  Type
-                </label>
-                <input
-                  id={ids.type}
-                  name="type"
-                  className="input"
-                  value={fType}
-                  onChange={(e) => setFType(e.target.value)}
-                  placeholder="Kitchen, Bathroom..."
-                  data-testid="filter-type"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-zinc-500" htmlFor={ids.location}>
-                  Location
-                </label>
-                <input
-                  id={ids.location}
-                  name="location"
-                  className="input"
-                  value={fLocation}
-                  onChange={(e) => setFLocation(e.target.value)}
-                  placeholder="Postcode, city..."
-                  data-testid="filter-location"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-zinc-500" htmlFor={ids.property}>
-                  Property
-                </label>
-                <input
-                  id={ids.property}
-                  name="property"
-                  className="input"
-                  value={fProperty}
-                  onChange={(e) => setFProperty(e.target.value)}
-                  placeholder="Semi-Detached, Flat..."
-                  data-testid="filter-property"
-                />
-              </div>
+                const fromHook = normalizeHookLabel(
+                  (trades as any)?.[recId] ??
+                    (trades as any)?.[String(recId)] ??
+                    (trades as any)?.[Number(recId)]
+                );
 
-              {/* Status filter: ONLY for My Projects (no 'Archived' option) */}
-              {tab === "mine" && (
-                <div>
-                  <label className="text-xs text-zinc-500" htmlFor={ids.status}>
-                    Status
-                  </label>
-                  <select
-                    id={ids.status}
-                    name="status"
-                    className="input"
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as any)}
-                    data-testid="filter-status"
-                  >
-                    <option value="all">All</option>
-                    <option value="pending">Pending</option>
-                    <option value="live">Live</option>
-                  </select>
+                const tradesmanUid =
+                  (p as any)._winnerTradesmanUid ??
+                  (p as any).winner_tradesman_uid ??
+                  null;
+
+                const tradesmanLabel = fromServer || fromHook || "—";
+
+                return (
+                  <CompletedProjectCard
+                    key={p.id}
+                    id={p.id}
+                    name={p.name}
+                    status={p.status}
+                    type={p.type}
+                    location={p.location}
+                    coverPhotoUrl={p.coverPhotoUrl}
+                    tradesmanLabel={tradesmanLabel}
+                    tradesmanUid={tradesmanUid}
+                    onOpenBuilder={() => {
+                      if (!recId) return;
+                      const n = Number(recId);
+                      const slug = Number.isFinite(n)
+                        ? String(n)
+                        : String(recId);
+                      router.push(`/builders/${encodeURIComponent(slug)}`);
+                    }}
+                    hasGallery={hasGallery(p)}
+                  />
+                );
+              })}
+              {loading &&
+                [...Array(4)].map((_, i) => <SkeletonCard key={`skc-${i}`} />)}
+              {items.length === 0 && !loading && (
+                <div
+                  className="col-span-full text-sm text-zinc-400"
+                  data-testid="projects-empty"
+                >
+                  No projects.
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Table */}
-          {loading ? (
-            <p className="px-4 sm:px-6 py-4" data-testid="projects-loading">
-              Loading...
-            </p>
           ) : (
-            <div className="px-2 sm:px-4 pb-4" data-testid="projects-list">
-              <div className="overflow-x-auto">
-                <table
-                  className="table min-w-full"
-                  data-testid="projects-table"
-                  id="projects-table"
-                >
-                  <thead>
-                    <tr>
-                      <th
-                        className="cursor-pointer select-none"
-                        onClick={() => toggleSort("name")}
-                        data-testid="th-name"
-                        id="th-name"
-                        data-colname="Name"
-                      >
-                        <span className="label">Name</span>
-                      </th>
-                      <th
-                        data-testid="th-type"
-                        id="th-type"
-                        data-colname="Type"
-                      >
-                        <span className="label">Type</span>
-                      </th>
-                      <th
-                        data-testid="th-location"
-                        id="th-location"
-                        data-colname="Location"
-                      >
-                        <span className="label">Location</span>
-                      </th>
-                      <th
-                        data-testid="th-property"
-                        id="th-property"
-                        data-colname="Property"
-                      >
-                        <span className="label">Property</span>
-                      </th>
-                      <th
-                        data-testid="th-beds"
-                        id="th-beds"
-                        data-colname="Beds"
-                      >
-                        <span className="label">Beds</span>
-                      </th>
-                      <th
-                        className="cursor-pointer select-none"
-                        onClick={() => toggleSort("createdAt")}
-                        data-testid="th-created"
-                        id="th-created"
-                        data-colname="Created"
-                      >
-                        <span className="label">Created</span>
-                      </th>
-                      <th
-                        data-testid="th-status"
-                        id="th-status"
-                        data-colname="Status"
-                      >
-                        <span className="label">Status</span>
-                      </th>
-
-                      {(tab === "community" || tab === "favourites") && (
-                        <th
-                          data-testid="th-actions"
-                          id="th-actions"
-                          data-colname="Actions"
-                          className="w-40"
-                        >
-                          <span className="label">Actions</span>
-                          {tab === "favourites" && (
-                            <button
-                              type="button"
-                              className="ml-2 inline-flex align-middle text-slate-400 hover:text-slate-600"
-                              title="Removing a favourite moves it back to Community Projects"
-                              aria-label="Actions help"
-                              tabIndex={0}
-                              data-testid="actions-tooltip"
-                              onClick={(e) => e.preventDefault()}
-                            >
-                              <InfoIcon className="h-4 w-4" />
-                            </button>
-                          )}
-                        </th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.items.map((p) => {
-                      const isFav =
-                        p.isFavourite === 1 || p.isFavourite === true;
-                      return (
-                        <tr
-                          key={p.id}
-                          data-testid={`row-${p.id}`}
-                          id={`row-${p.id}`}
-                        >
-                          <td data-testid={`cell-${p.id}-name`}>
-                            <Link
-                              className="link"
-                              href={`/projects/${p.id}`}
-                              data-testid={`link-${p.id}-name`}
-                              id={`link-${p.id}-name`}
-                              aria-label={`Open project ${p.name}`}
-                              data-name={`project-${p.id}-link`}
-                            >
-                              {p.name}
-                            </Link>
-                          </td>
-                          <td data-testid={`cell-${p.id}-type`}>{p.type}</td>
-                          <td data-testid={`cell-${p.id}-location`}>
-                            {p.location}
-                          </td>
-                          <td data-testid={`cell-${p.id}-property`}>
-                            {p.propertyType}
-                          </td>
-                          <td data-testid={`cell-${p.id}-beds`}>
-                            {p.bedrooms}
-                          </td>
-                          <td data-testid={`cell-${p.id}-created`}>
-                            {new Date(p.createdAt).toLocaleString()}
-                          </td>
-                          <td data-testid={`cell-${p.id}-status`}>
-                            <StatusBadge
-                              value={p.status || "pending"}
-                              size="sm"
-                            />
-                          </td>
-
-                          {(tab === "community" || tab === "favourites") && (
-                            <td
-                              data-testid={`cell-${p.id}-actions`}
-                              className="py-2"
-                            >
-                              {tab === "community" ? (
-                                <button
-                                  onClick={() => onAddFavourite(p)}
-                                  aria-label="Add to favourites"
-                                  data-testid={`btn-${p.id}-add-favourite`}
-                                  className="inline-flex items-center justify-center rounded-md bg-amber-500 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-amber-400 shadow-sm hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition"
-                                >
-                                  Add to favourites
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => onRemoveFavourite(p)}
-                                  aria-label="Remove from favourites (moves back to Community Projects)"
-                                  title="Remove from favourites — moves back to Community Projects"
-                                  data-testid={`btn-${p.id}-remove-favourite`}
-                                  className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 transition"
-                                >
-                                  <XIcon className="h-5 w-5" />
-                                  <span className="sr-only">
-                                    Remove from favourites
-                                  </span>
-                                </button>
-                              )}
-                            </td>
-                          )}
-                        </tr>
-                      );
-                    })}
-                    {data.items.length === 0 && (
-                      <tr>
-                        <td
-                          colSpan={
-                            tab === "community" || tab === "favourites" ? 8 : 7
-                          }
-                          className="text-sm text-zinc-400"
-                          data-testid="projects-empty"
-                        >
-                          No projects.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              <div
-                className="flex items-center justify-between mt-4"
-                data-testid="projects-pager"
-              >
-                <button
-                  className="btn disabled:opacity-50"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  id="pager-prev"
-                  data-testid="pager-prev"
-                >
-                  Prev
-                </button>
-                <div
-                  className="text-sm"
-                  data-testid="pager-summary"
-                  id="pager-summary"
-                >
-                  Page {page} / {totalPages} &nbsp; • &nbsp; Total: {data.total}
+            <div
+              className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5"
+              data-testid="projects-card-grid"
+            >
+              {items.map((p) => (
+                <div className="contents" key={p.id}>
+                  <ProjectImageCard
+                    id={p.id}
+                    status={p.status}
+                    imageUrl={
+                      p.coverPhotoUrl ||
+                      "https://cdn.home-designing.com/wp-content/uploads/2024/08/Graceful-Mid-Century-Modern-Living-Rooms.jpg"
+                    }
+                    name={p.name}
+                  />
+                  <ProjectInfoCard
+                    id={p.id}
+                    name={p.name}
+                    type={p.type}
+                    location={p.location}
+                    propertyType={p.propertyType}
+                    bedrooms={p.bedrooms}
+                    createdAt={p.createdAt}
+                    status={p.status}
+                  />
                 </div>
-                <button
-                  className="btn disabled:opacity-50"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  id="pager-next"
-                  data-testid="pager-next"
+              ))}
+              {loading &&
+                [...Array(4)].map((_, i) => <SkeletonCard key={`sk-${i}`} />)}
+              {items.length === 0 && !loading && (
+                <div
+                  className="col-span-full text-sm text-zinc-400"
+                  data-testid="projects-empty"
                 >
-                  Next
-                </button>
-              </div>
+                  No projects.
+                </div>
+              )}
             </div>
           )}
+
+          <div ref={sentinelRef} />
+
+          <div className="flex flex-col items-center gap-2 mt-6">
+            <div className="text-sm text-slate-600">
+              Showing {items.length} of {total}
+            </div>
+            <button
+              className="btn disabled:opacity-50"
+              onClick={() => fetchPage(page + 1)}
+              disabled={!hasMore || loading}
+              id="load-more"
+              data-testid="load-more"
+            >
+              {loading ? "Loading…" : hasMore ? "Load more" : "All caught up"}
+            </button>
+            <div className="sr-only" aria-live="polite">
+              {announce}
+            </div>
+          </div>
         </div>
-      </div>
-    </AuthedOnly>
+      )}
+    </div>
   );
 }

@@ -1,13 +1,30 @@
-// web/next.config.mjs
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
 
+  // Allow imports from ../shared (and other external dirs)
+  experimental: {
+    externalDir: true,
+  },
+
+  // Proxy /api/* and /uploads/* to Express backend in dev.
   async rewrites() {
-    const target = process.env.NEXT_PUBLIC_API_BASE || "/api";
+    const apiBase = (
+      process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8787/api"
+    ).replace(/\/+$/, "");
+    const uploadsBase = "http://localhost:8787/uploads";
+
     return [
-      { source: "/api/:path*", destination: `${target}/api/:path*` },
-      { source: "/uploads/:path*", destination: `${target}/uploads/:path*` },
+      // existing API proxy
+      {
+        source: "/api/:path*",
+        destination: `${apiBase}/:path*`,
+      },
+      // NEW uploads proxy so /uploads/... works locally
+      {
+        source: "/uploads/:path*",
+        destination: `${uploadsBase}/:path*`,
+      },
     ];
   },
 };

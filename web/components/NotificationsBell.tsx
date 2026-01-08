@@ -166,19 +166,14 @@ export default function NotificationsBell() {
     };
   }, [user, apiBase]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function markAllRead() {
-    if (busy || unread === 0) return;
+  // CLEAR ALL: mark everything read on server then clear list locally
+  async function clearAll() {
+    if (busy || items.length === 0) return;
     setBusy(true);
     try {
       await api.post("/api/notifications/read-all");
-      // Clear dot and reflect read state locally
       setUnread(0);
-      setItems((prev) =>
-        prev.map((i) => ({
-          ...i,
-          readAt: i.readAt ?? new Date().toISOString(),
-        }))
-      );
+      setItems([]); // remove all notifications from the panel
     } finally {
       setBusy(false);
     }
@@ -271,10 +266,10 @@ export default function NotificationsBell() {
 
             <button
               className="text-xs rounded-md px-2 py-1 ring-1 ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
-              onClick={markAllRead}
-              disabled={busy || unread === 0}
+              onClick={clearAll}
+              disabled={busy || items.length === 0}
             >
-              Mark all read
+              Clear all
             </button>
           </div>
 
@@ -315,27 +310,6 @@ export default function NotificationsBell() {
                 );
               })
             )}
-          </div>
-
-          <div className="px-3 py-2 border-t border-gray-100 bg-gray-50/50">
-            <Link
-              href="/projects"
-              className="inline-flex items-center gap-1 text-xs text-indigo-700 hover:underline"
-              onClick={() => setOpen(false)}
-            >
-              View projects
-              <svg
-                className="h-3 w-3"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                aria-hidden
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M7.21 14.77a.75.75 0 0 1 0-1.06l3.46-3.46-3.46-3.46a.75.75 0 0 1 1.06-1.06l4 4a.75.75 0 0 1 0 1.06l-4 4a.75.75 0 0 1-1.06 0Z"
-                />
-              </svg>
-            </Link>
           </div>
         </div>
       )}

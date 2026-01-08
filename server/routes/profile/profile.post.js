@@ -1,27 +1,79 @@
-// server/v2/routes/profile/profile.post.js
+// server/routes/profile/profile.post.js
 /**
- * POST /api/v2/profile  (also /api/profile if mounted there)
+ * POST /api/profile
  * Auth: required
  * Body: { location }
- * Effect: updates location tokens on users row
+ * Effect: updates location tokens on users row (MySQL)
  * Response: { profile }
  */
-module.exports = (router, ctx) => {
-  const { db, auth, updateUserLocation } = ctx;
 
-  router.post("/profile", auth, (req, res) => {
-    const uid = req.user.uid;
+const { updateUserLocationMysql } = require("../../lib/location");
+
+module.exports = (router, ctx) => {
+  const { auth, mysqlQuery } = ctx;
+  if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
+
+  // structured logger
+  const { logger, withRequest } = require("../../lib/logger");
+
+  router.post("/profile", auth, async (req, res) => {
+    const uid = req.user?.uid;
     const loc = String(req.body?.location ?? "").trim();
 
-    updateUserLocation(db, uid, loc);
+    const log = withRequest(req, logger).child({
+      route: "/profile",
+      action: "update_location",
+      uid,
+    });
 
-    const row = db
-      .prepare(
-        `SELECT uid AS userId, locationRaw, postcode, postcodeSector, postcodeOutward, city, createdAt AS updatedAt
-           FROM users WHERE uid = ?`
-      )
-      .get(uid);
+    if (!uid) {
+      log.warn("Missing uid in authenticated POST /profile");
+      return res.status(401).json({ error: "unauthorized" });
+    }
 
-    return res.json({ profile: row });
+    log.info({ locationProvided: loc !== "" }, "Profile update received");
+
+    try {
+      // Update location fields in MySQL
+      await updateUserLocationMysql(mysqlQuery, uid, loc);
+
+      // Reload updated profile
+      const rows = await mysqlQuery(
+        `
+        SELECT
+          uid AS userId,
+          locationRaw,
+          postcode,
+          postcodeSector,
+          postcodeOutward,
+          city,
+          createdAt AS updatedAt
+        FROM users
+        WHERE uid = ?
+        `,
+        [uid]
+      );
+
+      const profile = rows[0] || null;
+
+      log.info(
+        { updated: !!profile, locationRaw: profile?.locationRaw },
+        "Profile location updated successfully"
+      );
+
+      return res.json({ profile });
+    } catch (err) {
+      log.error(
+        {
+          error: err?.message,
+          stack: err?.stack,
+          location: loc,
+          uid,
+        },
+        "Error updating profile location"
+      );
+
+      return res.status(500).json({ error: "internal_error" });
+    }
   });
 };

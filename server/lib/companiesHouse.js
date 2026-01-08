@@ -1,9 +1,40 @@
-// server/lib/companiesHouse.js
 /* eslint-disable */
 const LIVE_BASE = "https://api.company-information.service.gov.uk";
 const SANDBOX_BASE = "https://api-sandbox.company-information.service.gov.uk";
 
-/** Build correct Basic header: base64("<key>:") */
+// Fuzzy matching libs
+const Fuse = require("fuse.js");
+const removeAccents = require("remove-accents");
+const jaroWinkler =
+  require("talisman/metrics/jaro-winkler").default ||
+  require("talisman/metrics/jaro-winkler");
+const dice =
+  require("talisman/metrics/dice").default || require("talisman/metrics/dice");
+
+const TAG = "[CH]";
+
+// -------------------------------------------------------
+// Local logger (module-level). Routes may wrap calls with ctx.log.
+// -------------------------------------------------------
+const log = {
+  info: (...a) => console.log(...a),
+  warn: (...a) => console.warn(...a),
+  error: (...a) => console.error(...a),
+};
+
+/* =======================================================
+   CONFIG HELPERS
+   ======================================================= */
+
+function resolveKey() {
+  return (
+    process.env.CH_KEY ||
+    process.env.CH_API_KEY ||
+    process.env.COMPANIES_HOUSE_API_KEY ||
+    ""
+  );
+}
+
 function buildAuthHeader(rawKey) {
   const key = String(rawKey || "").trim();
   if (!key) throw new Error("CH_KEY missing");
@@ -16,54 +47,118 @@ function getBaseUrl() {
   return env === "sandbox" ? SANDBOX_BASE : LIVE_BASE;
 }
 
+/* =======================================================
+   ONE-TIME DIAGNOSTIC ON LOAD
+   ======================================================= */
+(function bootDiag() {
+  const key = resolveKey();
+  const base = getBaseUrl();
+  const hasKey = !!String(key).trim();
+  let sample = "";
+  try {
+    const b64 = Buffer.from(`${key}:`).toString("base64");
+    sample = hasKey ? `${b64.slice(0, 8)}… (len=${b64.length})` : "";
+  } catch {}
+
+  log.info(
+    `${TAG} init env=${process.env.CH_ENV || "live"} base=${base} key=${
+      hasKey ? "present" : "MISSING"
+    } auth=${hasKey ? `Basic ${sample}` : "(none)"}`
+  );
+})();
+
+/* =======================================================
+   HTTP WRAPPER
+   ======================================================= */
+
 async function chFetch(pathname, { method = "GET", signal } = {}) {
   const base = getBaseUrl();
   const url = `${base}${pathname}`;
   const headers = {
     Accept: "application/json",
-    Authorization: buildAuthHeader(process.env.CH_KEY),
+    Authorization: buildAuthHeader(resolveKey()),
     "User-Agent": "vetmybuilder/1.0",
   };
 
-  const res = await fetch(url, { method, headers, signal });
+  const t0 = Date.now();
+  let res;
+
+  try {
+    res = await fetch(url, { method, headers, signal });
+  } catch (e) {
+    const ms = Date.now() - t0;
+    log.error(`${TAG} net error ${method} ${pathname} after ${ms}ms`, {
+      error: e?.message || e,
+    });
+    throw e;
+  }
 
   let bodyText = "";
   try {
     bodyText = await res.text();
   } catch {}
+
+  const ms = Date.now() - t0;
+
   if (!res.ok) {
-    const msg = `CH ${pathname} failed: ${res.status} ${bodyText || ""}`.trim();
-    const err = new Error(msg);
+    log.error(`${TAG} ${method} ${pathname} -> ${res.status} in ${ms}ms`, {
+      body: bodyText?.slice(0, 500) || "(empty)",
+    });
+    const err = new Error(`CH ${pathname} failed: ${res.status}`);
     err.status = res.status;
     err.body = bodyText;
     throw err;
   }
+
+  log.info(`${TAG} ${method} ${pathname} -> ${res.status} in ${ms}ms`);
+
   return bodyText ? JSON.parse(bodyText) : null;
 }
+
+/* =======================================================
+   BASIC CH ENDPOINTS
+   ======================================================= */
 
 async function searchCompanies({ name, itemsPerPage = 50 }) {
   const q = encodeURIComponent(name);
   const ipp = Math.max(1, Math.min(100, itemsPerPage));
-  return chFetch(`/search/companies?q=${q}&items_per_page=${ipp}`);
+  const path = `/search/companies?q=${q}&items_per_page=${ipp}`;
+
+  const data = await chFetch(path);
+  const count = Array.isArray(data?.items) ? data.items.length : 0;
+
+  log.info(`${TAG} search "${name}" -> items=${count}`);
+  return data;
 }
 
 async function getCompanyProfile(companyNumber) {
   const num = String(companyNumber || "").trim();
+
+  log.info(`${TAG} profile num=${num}`);
+
   if (!/^\d{6,8}$/.test(num)) {
     const e = new Error("Invalid companyNumber");
     e.status = 400;
     throw e;
   }
-  return chFetch(`/company/${num}`);
+
+  const data = await chFetch(`/company/${num}`);
+  const status = String(data?.company_status || "").toLowerCase();
+
+  log.info(`${TAG} profile ok num=${num} status=${status}`);
+
+  return data;
 }
 
-/* ---------------- Scoring utilities ---------------- */
+/* =======================================================
+   MATCHING / SCORING UTILS  (unchanged behaviour)
+   ======================================================= */
 
 const CONSTRUCTION_SIC_PREFIXES = ["41", "42", "43"];
 const FINE_SIC_WHITELIST = new Set([
   "43310",
   "43330",
-  "43341", // plastering, floor/wall covering, painting
+  "43341",
   "41201",
   "41202",
   "43210",
@@ -74,8 +169,18 @@ const FINE_SIC_WHITELIST = new Set([
   "43390",
   "43910",
   "43991",
-  "43999"
+  "43999",
 ]);
+
+function deCamel(s = "") {
+  return String(s)
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+    .replace(/([a-z])([A-Z])/g, "$1 $2");
+}
+
+function compact(s = "") {
+  return String(s).replace(/\s+/g, "");
+}
 
 function normName(s = "") {
   return String(s)
@@ -88,11 +193,35 @@ function normName(s = "") {
 
 function nameScore(aTitle, qName) {
   const a = normName(aTitle);
-  const b = normName(qName);
-  if (!a || !b) return 0;
-  if (a === b) return 70;
-  if (a.startsWith(b) || b.startsWith(a)) return 55;
-  if (a.includes(b) || b.includes(a)) return 35;
+  const b0 = normName(qName);
+  const b = normName(deCamel(qName));
+  if (!a || !(b || b0)) return 0;
+
+  if (a === b || a === b0) return 70;
+  if (
+    a.startsWith(b) ||
+    b.startsWith(a) ||
+    a.startsWith(b0) ||
+    b0.startsWith(a)
+  )
+    return 55;
+  if (a.includes(b) || b.includes(a) || a.includes(b0) || b0.includes(a))
+    return 35;
+
+  const ac = compact(a);
+  const bc = compact(b || b0);
+  if (ac === bc) return 70;
+  if (ac.startsWith(bc) || bc.startsWith(ac)) return 55;
+  if (ac.includes(bc) || bc.includes(ac)) return 35;
+
+  const aT = new Set(a.split(" ").filter(Boolean));
+  const bT = new Set((b || b0).split(" ").filter(Boolean));
+  const inter = [...aT].filter((t) => bT.has(t)).length;
+  const j = inter / Math.max(1, bT.size);
+  if (j >= 0.8) return 60;
+  if (j >= 0.6) return 45;
+  if (j >= 0.4) return 30;
+
   return 0;
 }
 
@@ -136,6 +265,15 @@ function statusScore(profile) {
   return 0;
 }
 
+function hasStrongEvidence({ item, profile, qName, locHint }) {
+  const active =
+    String(profile?.company_status || "").toLowerCase() === "active";
+  const inConstruction = hasConstructionSIC(profile?.sic_codes);
+  const nameOK = nameScore(item.title, qName) >= 60;
+  const locOK = addressMatchesHint(profile, locHint);
+  return active && inConstruction && (nameOK || locOK);
+}
+
 function buildScore({ item, profile, qName, locHint }) {
   let score = 0;
   score += nameScore(item.title, qName);
@@ -143,6 +281,9 @@ function buildScore({ item, profile, qName, locHint }) {
   if (hasConstructionSIC(profile?.sic_codes)) score += 10;
   if (addressMatchesHint(profile, locHint)) score += 5;
   score += companyAgeBoost(profile);
+  if (hasStrongEvidence({ item, profile, qName, locHint })) {
+    score = Math.max(score, 85);
+  }
   return Math.max(0, Math.min(score, 100));
 }
 
@@ -159,52 +300,200 @@ function serialize(entry) {
   };
 }
 
-// Public: best-effort verify by name(+optional postcode/city)
-async function matchByName({ name, locationHint }) {
-  const search = await searchCompanies({ name });
-  const items = Array.isArray(search?.items) ? search.items : [];
-  if (!items.length) return { verdict: "no_match", best: null, candidates: [] };
+/* =======================================================
+   FUZZY MATCHING HELPERS
+   ======================================================= */
 
-  // Fetch profiles for top 10 search hits
-  const top = items.slice(0, 10).filter((i) => i?.company_number);
-  const profs = await Promise.all(
-    top.map(async (i) => {
+const SUFFIX_RE =
+  /\b(limited|ltd|llp|plc|company|co\.?|service|services|builder|builders)\b/gi;
+
+function normalizeForFuse(s = "") {
+  return removeAccents(
+    deCamel(String(s))
+      .replace(/&/g, " and ")
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .replace(SUFFIX_RE, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+  ).toLowerCase();
+}
+
+function compactNoSpace(s = "") {
+  return normalizeForFuse(s).replace(/\s+/g, "");
+}
+
+function fuzzyNameScore(query, candidate) {
+  const q = normalizeForFuse(query);
+  const c = normalizeForFuse(candidate);
+  if (!q || !c) return 0;
+
+  const jw = jaroWinkler(compactNoSpace(q), compactNoSpace(c));
+  const d = dice(q.split(" "), c.split(" "));
+  return Math.round((0.7 * jw + 0.3 * d) * 100);
+}
+
+function pickBestCompany(userInput, chItems) {
+  const fuse = new Fuse(chItems, {
+    keys: ["title", "company_name"],
+    includeScore: true,
+    threshold: 0.4,
+    ignoreLocation: true,
+    minMatchCharLength: 2,
+  });
+
+  const shortlist = fuse
+    .search(userInput)
+    .map((r) => r.item)
+    .slice(0, 20);
+
+  const pool = shortlist.length ? shortlist : chItems.slice(0, 50);
+
+  const ranked = pool
+    .map((item) => ({
+      item,
+      score: fuzzyNameScore(userInput, item.title || item.company_name || ""),
+    }))
+    .sort((a, b) => b.score - a.score);
+
+  log.info(`${TAG} pickBest`, {
+    input: userInput,
+    pool: pool.length,
+    top3: ranked.slice(0, 3).map((r) => ({
+      number: r.item?.company_number,
+      title: r.item?.title,
+      score: r.score,
+    })),
+  });
+
+  const best = ranked[0];
+  const verdict = !best
+    ? "no_match"
+    : best.score >= 85
+    ? "verified"
+    : best.score >= 70
+    ? "ambiguous"
+    : "ambiguous";
+
+  return { verdict, best, ranked: ranked.slice(0, 5) };
+}
+
+function buildQueryVariants(name) {
+  const base = deCamel(name);
+  const stripped = base.replace(SUFFIX_RE, " ").replace(/\s+/g, " ").trim();
+  const unique = (arr) => [...new Set(arr.filter(Boolean))];
+  return unique([name, base, stripped]);
+}
+
+/* =======================================================
+   PUBLIC: matchByName (MAIN ENTRY)
+   ======================================================= */
+
+async function matchByName({ name, locationHint }) {
+  log.info(`${TAG} matchByName`, {
+    name,
+    hint: locationHint || "",
+  });
+
+  const variants = buildQueryVariants(name);
+
+  const allItems = [];
+  const seen = new Set();
+
+  for (const q of variants) {
+    try {
+      const search = await searchCompanies({ name: q });
+      const items = Array.isArray(search?.items) ? search.items : [];
+
+      log.info(`${TAG} variant "${q}" got ${items.length} items`);
+
+      for (const it of items) {
+        const key = String(it?.company_number || "").trim();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        if (!it.title && it.company_name) it.title = it.company_name;
+        allItems.push(it);
+      }
+    } catch (e) {
+      log.warn(`${TAG} variant "${q}" failed`, { error: e?.message || e });
+    }
+  }
+
+  log.info(`${TAG} merged unique items=${allItems.length}`);
+
+  if (!allItems.length) {
+    log.info(`${TAG} no items – verdict=no_match`);
+    return { verdict: "no_match", best: null, candidates: [] };
+  }
+
+  const ranked = pickBestCompany(name, allItems);
+
+  const topItems =
+    (ranked.ranked || []).map((x) => x.item).slice(0, 10) ||
+    allItems.slice(0, 10);
+
+  const profiles = await Promise.all(
+    topItems.map(async (i) => {
       try {
         return await getCompanyProfile(i.company_number);
-      } catch {
+      } catch (e) {
+        log.warn(`${TAG} profile fetch fail`, {
+          num: i.company_number,
+          error: e?.message || e,
+        });
         return null;
       }
     })
   );
 
-  const scored = top
-    .map((it, idx) => {
-      const profile = profs[idx];
-      const score = profile
-        ? buildScore({ item: it, profile, qName: name, locHint: locationHint })
-        : 0;
-      return { item: it, profile, score };
-    })
+  const scored = topItems
+    .map((it, idx) => ({
+      item: it,
+      profile: profiles[idx],
+      score: profiles[idx]
+        ? buildScore({
+            item: it,
+            profile: profiles[idx],
+            qName: name,
+            locHint: locationHint,
+          })
+        : 0,
+    }))
     .sort((a, b) => b.score - a.score);
 
   const best = scored[0] || null;
-  if (!best || best.score < 70) {
-    return {
-      verdict: best ? "ambiguous" : "no_match",
-      best: best ? serialize(best) : null,
-      candidates: scored.slice(0, 3).map(serialize),
-    };
+
+  if (!best) {
+    log.info(`${TAG} scored empty => verdict=no_match`);
+    return { verdict: "no_match", best: null, candidates: [] };
   }
 
-  return {
-    verdict: best.score >= 85 ? "verified" : "ambiguous",
+  const verdict =
+    best.score >= 85
+      ? "verified"
+      : best.score >= 70
+      ? "ambiguous"
+      : "ambiguous";
+
+  const out = {
+    verdict,
     best: serialize(best),
     candidates: scored.slice(0, 3).map(serialize),
   };
+
+  log.info(`${TAG} final verdict`, {
+    verdict,
+    best: out.best,
+  });
+
+  return out;
 }
 
+/* =======================================================
+   DEBUG DIAGNOSTIC
+   ======================================================= */
+
 function chDiag() {
-  const key = String(process.env.CH_KEY || "").trim();
+  const key = String(resolveKey() || "").trim();
   const hasKey = !!key;
   const base = getBaseUrl();
   let sample = "";
@@ -212,6 +501,7 @@ function chDiag() {
     const b64 = Buffer.from(`${key}:`).toString("base64");
     sample = hasKey ? `${b64.slice(0, 8)}… (len=${b64.length})` : "";
   } catch {}
+
   return {
     env: process.env.CH_ENV || "live",
     base,

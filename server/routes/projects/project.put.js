@@ -1,15 +1,20 @@
-// server/v2/routes/projects/project.put.js
-/**
- * PUT /api/v2/projects/:id   (also /api/projects/:id if v2 is mounted there)
- * Auth: required (owner only)
- * Body: partial fields; we merge with current then validate
- * Returns: { project }
- */
-module.exports = (router, ctx) => {
-  const { db, auth } = ctx;
-  const { z } = require("zod");
+//
+// PUT /api/projects/:id
+// Auth: owner only
+//
 
-  // Same constraints as create
+module.exports = (router, ctx) => {
+  const { auth, mysqlQuery } = ctx;
+  const { z } = require("zod");
+  const { logger, withRequest } = require("../../lib/logger");
+
+  // Remove full UK postcode → keep only outward code
+  const stripFullPostcodes = (s) => {
+    if (!s) return s;
+    const fullPC = /\b([A-Z]{1,2}\d{1,2}[A-Z]?)\s*\d[A-Z]{2}\b/gi;
+    return s.replace(fullPC, (_, outward) => outward.toUpperCase());
+  };
+
   const ProjectSchema = z.object({
     name: z.string().min(2).max(120),
     type: z.string().min(2).max(80),
@@ -19,24 +24,54 @@ module.exports = (router, ctx) => {
     bedrooms: z.coerce.number().int().min(0).max(20),
   });
 
-  router.put("/projects/:id", auth, (req, res) => {
+  router.put("/projects/:id", auth, async (req, res) => {
+    const log = withRequest(req, logger).child({
+      route: "/projects/:id [PUT]",
+    });
+
     const uid = req.user.uid;
     const id = Number(req.params.id);
+
     if (!Number.isFinite(id)) {
-      return res.status(400).json({ error: "Invalid id" });
+      log.warn("Invalid project ID");
+      return res.status(400).json({ error: "invalid_project_id" });
     }
 
-    const current = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
-    if (!current) return res.status(404).json({ error: "Not found" });
+    // Load current
+    let current;
+    try {
+      const rows = await mysqlQuery(`SELECT * FROM projects WHERE id = ?`, [
+        id,
+      ]);
+      current = rows[0] || null;
+    } catch (err) {
+      log.error({ err }, "MySQL error loading project");
+      return res.status(500).json({ error: "internal_error" });
+    }
+
+    if (!current) return res.status(404).json({ error: "not_found" });
+
     if (String(current.ownerUserId) !== String(uid)) {
-      return res.status(403).json({ error: "Forbidden" });
+      return res.status(403).json({ error: "forbidden" });
     }
 
-    // Merge incoming with current values
+    // Reject location change
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, "location")) {
+      const incoming = String(req.body.location ?? "").trim();
+      const stored = String(current.location ?? "").trim();
+      if (incoming && incoming !== stored) {
+        return res.status(400).json({
+          error: "location_update_not_allowed",
+          message: "Location cannot be updated via this endpoint.",
+        });
+      }
+    }
+
+    // Merge update
     const fields = {
-      name: String(req.body?.name ?? current.name),
-      type: String(req.body?.type ?? current.type),
-      location: String(req.body?.location ?? current.location),
+      name: stripFullPostcodes(String(req.body?.name ?? current.name)),
+      type: stripFullPostcodes(String(req.body?.type ?? current.type)),
+      location: String(current.location),
       description: String(req.body?.description ?? current.description),
       propertyType: String(req.body?.propertyType ?? current.propertyType),
       bedrooms:
@@ -47,22 +82,37 @@ module.exports = (router, ctx) => {
 
     try {
       ProjectSchema.parse(fields);
-    } catch {
-      return res.status(400).json({ error: "Invalid payload" });
+    } catch (err) {
+      log.warn({ err }, "Validation failed");
+      return res.status(400).json({ error: "invalid_payload" });
     }
 
-    db.prepare(
-      `UPDATE projects SET
-         name=@name,
-         type=@type,
-         location=@location,
-         description=@description,
-         propertyType=@propertyType,
-         bedrooms=@bedrooms
-       WHERE id=@id`
-    ).run({ ...fields, id });
+    // Apply update
+    try {
+      await mysqlQuery(
+        `
+        UPDATE projects SET
+          name = ?, type = ?, location = ?, description = ?, propertyType = ?, bedrooms = ?
+        WHERE id = ?
+      `,
+        [
+          fields.name,
+          fields.type,
+          fields.location,
+          fields.description,
+          fields.propertyType,
+          fields.bedrooms,
+          id,
+        ]
+      );
 
-    const updated = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
-    return res.json({ project: updated });
+      const rows = await mysqlQuery(`SELECT * FROM projects WHERE id = ?`, [
+        id,
+      ]);
+      return res.json({ project: rows[0] || null });
+    } catch (err) {
+      log.error({ err }, "MySQL error updating project");
+      return res.status(500).json({ error: "internal_error" });
+    }
   });
 };

@@ -2,13 +2,36 @@
 import Head from "next/head";
 import { initFirebase } from "@/utils/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 
 export default function Login() {
   const auth = initFirebase();
   const router = useRouter();
+
+  // Read the *explicit* ?next= from the URL (no fallback here).
+  const nextRaw = useMemo(() => {
+    if (!router.isReady) return "";
+    const n = router.query.next;
+    return typeof n === "string" ? n : Array.isArray(n) ? n[0] : "";
+  }, [router.isReady, router.query.next]);
+
+  const hasExplicitNext = !!nextRaw;
+
+  // Is this login being used for a tradesman flow?
+  const isVendorFlow =
+    hasExplicitNext &&
+    (nextRaw.startsWith("/tradesman/") || nextRaw.startsWith("/trades/"));
+
+  // Where to send the user after a successful login
+  //  - If ?next= is provided, always honour it (admin / tradesman flows)
+  //  - Otherwise (normal homeowner login), go to /projects
+  const nextPath = useMemo(() => {
+    if (nextRaw && nextRaw.startsWith("/")) return nextRaw;
+    return "/projects";
+  }, [nextRaw]);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -18,9 +41,20 @@ export default function Login() {
     e.preventDefault();
     setBusy(true);
     setErr(null);
+
     try {
+      // 🔹 Force the global "returnTo" target BEFORE Firebase auth resolves.
+      // This ensures any AuthProvider redirect uses the same path we intend.
+      try {
+        sessionStorage.setItem("vmb:returnTo", nextPath || "/projects");
+      } catch {
+        // ignore storage errors
+      }
+
       await signInWithEmailAndPassword(auth, email, password);
-      router.replace("/projects");
+
+      // And explicitly navigate there from the login page.
+      await router.replace(nextPath || "/projects");
     } catch (e: any) {
       setErr(e.message || "Failed to login");
     } finally {
@@ -112,7 +146,11 @@ export default function Login() {
           >
             Don’t have an account?{" "}
             <Link
-              href="/register"
+              href={
+                isVendorFlow
+                  ? { pathname: "/tradesman/register-tradesmen" }
+                  : { pathname: "/register" }
+              }
               className="text-indigo-600 hover:text-indigo-500"
               data-testid="link-to-register"
             >

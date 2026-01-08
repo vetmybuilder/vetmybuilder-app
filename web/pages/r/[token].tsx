@@ -111,14 +111,12 @@ export default function RecommendViaMagicLink() {
     e.preventDefault();
     if (!info || submitting) return;
 
-    // Block invalid HTML5 constraints (e.g., required name)
     const formEl = e.currentTarget;
     if (!formEl.checkValidity()) {
       formEl.reportValidity();
       return;
     }
     if (formInvalid) {
-      // Defensive guard (mirrors the disabled state)
       formEl.reportValidity();
       return;
     }
@@ -126,16 +124,14 @@ export default function RecommendViaMagicLink() {
     setSubmitting(true);
     setErr(null);
 
-    // Turn off redirect via ?noRedirect=1 or env var
     const disableRedirect =
       router.query.noRedirect === "1" ||
       process.env.NEXT_PUBLIC_DISABLE_MAGIC_REDIRECT === "1";
 
     try {
       const rating = form.hireAgain === "yes" ? 5 : 1;
-      const endpoint = `${getApiBase()}/api/recommendations/magic/${
-        info.token
-      }`;
+      // 👇 match the GET path
+      const endpoint = `/api/recommendations/magic/${info.token}`;
 
       const idToken = await resolveIdToken(user);
       const authHeaders: HeadersInit | undefined = idToken
@@ -201,11 +197,10 @@ export default function RecommendViaMagicLink() {
         } catch {}
       }
 
-      // Auto-like is handled server-side for anonymous users.
-      // For logged-in users, do it client-side as well (idempotent).
+      // Auto-like (idempotent)
       if (form.hireAgain === "yes" && recommendationId && idToken) {
         try {
-          const likeEndpoint = `${getApiBase()}/api/recommendations/${recommendationId}/like`;
+          const likeEndpoint = `/api/recommendations/${recommendationId}/like`;
           await fetch(likeEndpoint, {
             method: "POST",
             headers: { Authorization: `Bearer ${idToken}` },
@@ -255,11 +250,6 @@ export default function RecommendViaMagicLink() {
               ? "Recommend"
               : `Recommend for “${info?.project?.name ?? ""}”`}
           </h1>
-          {info && !submitted && (
-            <Link href={`/projects/${info.project.id}`} className="btn-outline">
-              Back to project
-            </Link>
-          )}
         </div>
 
         <div

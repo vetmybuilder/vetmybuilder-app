@@ -1,40 +1,48 @@
-// server/v2/routes/projects/projects.get.js
 /**
- * GET /api/v2/projects   (also /api/projects if you mounted v2 there)
+ * GET /api/projects
  * Auth: required
  * Query:
- *   tab=mine|community|favourites|archived|recommended (default: mine)
+ *   tab=mine|community|favourites|archived|completed|completedCommunity|recommended
  *   name, type, location, property
- *   status=all|pending|live|archived (default: all)   -- only affects "mine"
- *   sort=createdAt|name (default: createdAt)
- *   order=asc|desc (default: desc)
- *   page=1.., pageSize=1..50 (defaults: 1, 10)
+ *   status=all|pending|live|archived
+ *   sort=createdAt|name
+ *   order=asc|desc
+ *   page=1.., pageSize=1..50
  * Response: { items, total, page, pageSize }
  */
-module.exports = (router, ctx) => {
-  const { db, auth, touchUserMw } = ctx;
 
-  router.get("/projects", auth, touchUserMw, (req, res) => {
+const { formatPostcode } = require("../../lib/location");
+
+module.exports = (router, ctx) => {
+  const { auth, touchUserMw, mysqlQuery } = ctx;
+  const log = ctx.log || console;
+
+  router.get("/projects", auth, touchUserMw, async (req, res) => {
+    log.info?.("[projects.get] start");
+
     const uid = req.user.uid;
+
+    res.set("Cache-Control", "no-store");
+    res.set("Vary", "Authorization, Cookie");
 
     const allowedTabs = new Set([
       "mine",
       "community",
       "favourites",
       "archived",
+      "completed",
+      "completedcommunity",
       "recommended",
     ]);
     const tabRaw = String(req.query.tab || "mine").toLowerCase();
     const tab = allowedTabs.has(tabRaw) ? tabRaw : "mine";
 
-    // Filters
     const qName = String(req.query.name ?? "").trim();
     const qType = String(req.query.type ?? "").trim();
     const qLocation = String(req.query.location ?? "").trim();
     const qProperty = String(req.query.property ?? "").trim();
     const rawStatus = String(req.query.status ?? "all").toLowerCase();
 
-    // Sorting
     const allowedSort = new Set(["createdAt", "name"]);
     const sort = allowedSort.has(String(req.query.sort))
       ? String(req.query.sort)
@@ -42,7 +50,6 @@ module.exports = (router, ctx) => {
     const order =
       String(req.query.order).toLowerCase() === "asc" ? "ASC" : "DESC";
 
-    // Paging
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
     const pageSize = Math.min(
       50,
@@ -50,255 +57,415 @@ module.exports = (router, ctx) => {
     );
     const offset = (page - 1) * pageSize;
 
-    // Common WHERE builder (free text filters)
     const whereParts = [];
     const whereParams = [];
 
     if (qName) {
-      whereParts.push(`p.name LIKE ? COLLATE NOCASE`);
+      whereParts.push(`p.name LIKE ?`);
       whereParams.push(`%${qName}%`);
     }
     if (qType) {
-      whereParts.push(`p.type LIKE ? COLLATE NOCASE`);
+      whereParts.push(`p.type LIKE ?`);
       whereParams.push(`%${qType}%`);
     }
     if (qLocation) {
-      whereParts.push(`p.location LIKE ? COLLATE NOCASE`);
+      whereParts.push(`p.location LIKE ?`);
       whereParams.push(`%${qLocation}%`);
     }
     if (qProperty) {
-      whereParts.push(`p.propertyType LIKE ? COLLATE NOCASE`);
+      whereParts.push(`p.propertyType LIKE ?`);
       whereParams.push(`%${qProperty}%`);
     }
 
-    const applyWhere = (extraParts = [], extraParams = []) => {
-      const parts = [...extraParts, ...whereParts];
+    const applyWhere = (baseParts = [], baseParams = []) => {
+      const parts = [...baseParts, ...whereParts];
       const sql = parts.length ? `WHERE ${parts.join(" AND ")}` : "";
-      const params = [...extraParams, ...whereParams];
+      const params = [...baseParams, ...whereParams];
       return { sql, params };
     };
 
-    const respond = (rows, total) =>
-      res.json({ items: rows, total, page, pageSize });
+    const respond = (rows, total) => {
+      rows.forEach((r) => {
+        r.location = formatPostcode(r.location);
+      });
+      log.info?.("[projects.get] end");
+      return res.json({ items: rows, total, page, pageSize });
+    };
 
-    // --- MINE ---
-    if (tab === "mine") {
-      const extra = [];
-      const extraParams = [];
+    const deriveAreaTokens = async () => {
+      const tokens = [];
 
-      // Exclude archived by default from My Projects
-      if (rawStatus === "all") {
-        extra.push(`p.status <> 'archived'`);
-      } else {
-        extra.push(`p.status = ?`);
-        extraParams.push(rawStatus);
+      const meRows = await mysqlQuery(
+        `SELECT locationRaw, postcodeOutward, postcodeSector, postcode, city
+         FROM users WHERE uid = ?`,
+        [uid]
+      );
+      const me = meRows[0] || null;
+      if (me) {
+        const fields = [
+          me.locationRaw,
+          me.postcodeOutward,
+          me.postcodeSector,
+          me.postcode,
+          me.city,
+        ];
+        for (const v of fields) {
+          const s = String(v ?? "").trim();
+          if (s) tokens.push(s);
+        }
       }
 
-      const { sql, params } = applyWhere(extra, extraParams);
-
-      const countRow = db
-        .prepare(
-          `SELECT COUNT(*) AS c
-             FROM projects p
-            ${
-              sql
-                ? sql.replace("WHERE", "WHERE p.ownerUserId = ? AND")
-                : "WHERE p.ownerUserId = ?"
-            }`
-        )
-        .get(uid, ...params);
-
-      const rows = db
-        .prepare(
-          `SELECT p.*,
-                  CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite,
-                  0 AS canFavourite
-             FROM projects p
-             LEFT JOIN favourites f
-               ON f.projectId = p.id AND f.userId = ?
-            ${
-              sql
-                ? sql.replace("WHERE", "WHERE p.ownerUserId = ? AND")
-                : "WHERE p.ownerUserId = ?"
-            }
-            ORDER BY p.${sort} ${order}
-            LIMIT ? OFFSET ?`
-        )
-        .all(uid, uid, ...params, pageSize, offset);
-
-      return respond(rows, countRow.c);
-    }
-
-    // --- ARCHIVED (mine only) ---
-    if (tab === "archived") {
-      const extra = [`p.ownerUserId = ?`, `p.status = 'archived'`];
-      const extraParams = [uid];
-      const { sql, params } = applyWhere(extra, extraParams);
-
-      const countRow = db
-        .prepare(`SELECT COUNT(*) AS c FROM projects p ${sql}`)
-        .get(...params);
-
-      const rows = db
-        .prepare(
-          `SELECT p.*,
-                  CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite,
-                  0 AS canFavourite
-             FROM projects p
-             LEFT JOIN favourites f
-               ON f.projectId = p.id AND f.userId = ?
-            ${sql}
-            ORDER BY p.${sort} ${order}
-            LIMIT ? OFFSET ?`
-        )
-        .all(uid, ...params, pageSize, offset);
-
-      return respond(rows, countRow.c);
-    }
-
-    // --- COMMUNITY ---
-    if (tab === "community") {
-      // Read full user row; pull any usable location tokens
-      const me =
-        db.prepare(`SELECT * FROM users WHERE uid = ?`).get(uid) || null;
-
-      const candidateKeys = [
-        "location",
-        "postcodeOutward",
-        "postcodeSector",
-        "postcode",
-        "city",
-      ];
-      const tokens = [];
-      if (me && typeof me === "object") {
-        for (const k of candidateKeys) {
-          if (Object.prototype.hasOwnProperty.call(me, k)) {
-            const v = String(me[k] ?? "").trim();
+      if (tokens.length === 0) {
+        const tRows = await mysqlQuery(
+          `SELECT service_areas FROM tradesmen WHERE user_id = ? LIMIT 1`,
+          [uid]
+        );
+        const t = tRows[0] || null;
+        const sa = t ? String(t.service_areas || "") : "";
+        if (sa) {
+          for (const part of sa.split(/[,\s]+/)) {
+            const v = part.trim();
             if (v) tokens.push(v);
           }
         }
       }
-      if (tokens.length === 0) return respond([], 0);
+
+      if (tokens.length === 0 && qLocation) {
+        tokens.push(qLocation);
+      }
 
       const norm = (s) =>
         String(s || "")
           .toLowerCase()
           .replace(/\s+/g, "");
-      const normTokens = Array.from(new Set(tokens.map(norm))).filter(Boolean);
 
-      const areaOr = normTokens
-        .map(() => `REPLACE(LOWER(p.location),' ','') LIKE '%' || ? || '%'`)
-        .join(" OR ");
-      const areaParams = normTokens;
+      return Array.from(new Set(tokens.map(norm))).filter(Boolean);
+    };
 
-      // Base: live, not mine, IN AREA, and **NOT ALREADY FAVOURITED**
-      const baseParts = [
-        `p.status = 'live'`,
-        `p.ownerUserId <> ?`,
-        `NOT EXISTS (SELECT 1 FROM favourites fx WHERE fx.projectId = p.id AND fx.userId = ?)`,
-      ];
-      const baseParams = [uid, uid];
+    try {
+      //
+      // -------- TABS --------
+      //
 
-      if (areaOr) {
-        baseParts.push(`(${areaOr})`);
-        baseParams.push(...areaParams);
-      }
+      // ********** MINE **********
+      if (tab === "mine") {
+        const baseParts = ["p.ownerUserId = ?"];
+        const baseParams = [uid];
 
-      const { sql, params } = applyWhere(baseParts, baseParams);
+        if (rawStatus === "all") {
+          baseParts.push(`p.status <> 'archived'`);
+        } else {
+          baseParts.push(`p.status = ?`);
+          baseParams.push(rawStatus);
+        }
 
-      const countRow = db
-        .prepare(`SELECT COUNT(*) AS c FROM projects p ${sql}`)
-        .get(...params);
+        const { sql, params } = applyWhere(baseParts, baseParams);
 
-      const rows = db
-        .prepare(
-          `SELECT p.*,
-                  0 AS isFavourite,
-                  1 AS canFavourite
-             FROM projects p
-            ${sql}
-            ORDER BY p.${sort} ${order}
-            LIMIT ? OFFSET ?`
-        )
-        .all(...params, pageSize, offset);
+        const countRows = await mysqlQuery(
+          `SELECT COUNT(*) AS c FROM projects p ${sql}`,
+          params
+        );
+        const total = countRows[0]?.c || 0;
 
-      return respond(rows, countRow.c);
-    }
-
-    // --- FAVOURITES ---
-    if (tab === "favourites") {
-      const whereSQL = whereParts.length
-        ? `AND ${whereParts.join(" AND ")}`
-        : "";
-
-      const countRow = db
-        .prepare(
-          `SELECT COUNT(*) AS c
-             FROM favourites f
-             JOIN projects p ON p.id = f.projectId
-            WHERE f.userId = ?
-              ${whereSQL}`
-        )
-        .get(uid, ...whereParams);
-
-      const rows = db
-        .prepare(
-          `SELECT p.*,
-                  1 AS isFavourite,
-                  0 AS canFavourite
-             FROM favourites f
-             JOIN projects p ON p.id = f.projectId
-            WHERE f.userId = ?
-              ${whereSQL}
-            ORDER BY p.${sort} ${order}
-            LIMIT ? OFFSET ?`
-        )
-        .all(uid, ...whereParams, pageSize, offset);
-
-      return respond(rows, countRow.c);
-    }
-
-    // --- RECOMMENDED (legacy kept, but favouriting disabled in UI) ---
-    if (tab === "recommended") {
-      const extra = [];
-      if (rawStatus !== "all") {
-        extra.push(`p.status = ?`);
-        whereParams.push(rawStatus);
-      }
-      const whereSql =
-        whereParts.length || extra.length
-          ? `AND ${[...extra, ...whereParts].join(" AND ")}`
-          : "";
-
-      const countRow = db
-        .prepare(
-          `SELECT COUNT(*) AS c
-             FROM recommendations r
-             JOIN projects p ON p.id = r.projectId
-            WHERE r.recommenderUserId = ?
-              ${whereSql}`
-        )
-        .get(uid, ...whereParams);
-
-      const rows = db
-        .prepare(
+        const rows = await mysqlQuery(
           `SELECT p.*,
                   CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite,
                   0 AS canFavourite
-             FROM recommendations r
-             JOIN projects p ON p.id = r.projectId
-             LEFT JOIN favourites f
-               ON f.projectId = p.id AND f.userId = ?
-            WHERE r.recommenderUserId = ?
-              ${whereSql}
-            ORDER BY p.${sort} ${order}
-            LIMIT ? OFFSET ?`
-        )
-        .all(uid, uid, ...whereParams, pageSize, offset);
+           FROM projects p
+           LEFT JOIN project_closures pc ON pc.projectId = p.id
+           LEFT JOIN favourites f ON f.projectId = p.id AND f.userId = ?
+           ${sql}
+           ORDER BY p.${sort} ${order}
+           LIMIT ${pageSize} OFFSET ${offset}`,
+          [uid, ...params]
+        );
 
-      return respond(rows, countRow.c);
+        return respond(rows, total);
+      }
+
+      // ********** ARCHIVED **********
+      if (tab === "archived") {
+        const baseParts = ["p.ownerUserId = ?", `p.status = 'archived'`];
+        const baseParams = [uid];
+        const { sql, params } = applyWhere(baseParts, baseParams);
+
+        const countRows = await mysqlQuery(
+          `SELECT COUNT(*) AS c FROM projects p ${sql}`,
+          params
+        );
+        const total = countRows[0]?.c || 0;
+
+        const rows = await mysqlQuery(
+          `SELECT p.*,
+                  CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite,
+                  0 AS canFavourite
+           FROM projects p
+           LEFT JOIN project_closures pc ON pc.projectId = p.id
+           LEFT JOIN favourites f ON f.projectId = p.id AND f.userId = ?
+           ${sql}
+           ORDER BY p.${sort} ${order}
+           LIMIT ${pageSize} OFFSET ${offset}`,
+          [uid, ...params]
+        );
+
+        return respond(rows, total);
+      }
+
+      // ********** COMPLETED (mine) **********
+      if (tab === "completed") {
+        const baseParts = ["p.ownerUserId = ?"];
+        const baseParams = [uid];
+        const { sql: baseSql, params } = applyWhere(baseParts, baseParams);
+
+        const statusFilter = `
+          (p.status = 'completed'
+           OR (p.status = 'archived' AND pc.didGoAhead = 1))
+        `.trim();
+
+        const completedSql = baseSql
+          ? `${baseSql} AND ${statusFilter}`
+          : `WHERE ${statusFilter}`;
+
+        const countRows = await mysqlQuery(
+          `SELECT COUNT(*) AS c
+           FROM projects p
+           LEFT JOIN project_closures pc ON pc.projectId = p.id
+           ${completedSql}`,
+          params
+        );
+        const total = countRows[0]?.c || 0;
+
+        const rows = await mysqlQuery(
+          `SELECT
+              p.*,
+
+              pc.winnerRecommendationId AS _winnerRecommendationId,
+              pc.winner_tradesman_uid AS _winnerTradesmanUid,
+
+              -- Best-effort label so UI can show something even if hook fails.
+              -- 1) If winner is a recommendation → show recommendation.company (fallback to name)
+              -- 2) Else if winner is a tradesman uid → show tradesmen.company_name
+              COALESCE(
+                (SELECT NULLIF(TRIM(r.company), '') FROM recommendations r WHERE r.id = pc.winnerRecommendationId LIMIT 1),
+                (SELECT NULLIF(TRIM(r.name), '') FROM recommendations r WHERE r.id = pc.winnerRecommendationId LIMIT 1),
+                (SELECT NULLIF(TRIM(t.company_name), '') FROM tradesmen t WHERE t.user_id = pc.winner_tradesman_uid LIMIT 1),
+                NULL
+              ) AS _winnerTradesmanName,
+
+              EXISTS(
+                SELECT 1 FROM project_closure_photos cpp
+                WHERE cpp.projectId = p.id
+              ) AS _hasClosurePhotos,
+
+              CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite,
+              0 AS canFavourite
+
+           FROM projects p
+           LEFT JOIN project_closures pc ON pc.projectId = p.id
+           LEFT JOIN favourites f ON f.projectId = p.id AND f.userId = ?
+           ${completedSql}
+           ORDER BY p.${sort} ${order}
+           LIMIT ${pageSize} OFFSET ${offset}`,
+          [uid, ...params]
+        );
+
+        return respond(rows, total);
+      }
+
+      // ********** COMPLETED COMMUNITY **********
+      if (tab === "completedcommunity") {
+        const normTokens = await deriveAreaTokens();
+
+        const baseParts = [`p.ownerUserId <> ?`];
+        const baseParams = [uid];
+
+        if (normTokens.length) {
+          const areaOr = normTokens
+            .map(
+              () => `REPLACE(LOWER(p.location),' ','') LIKE CONCAT('%', ?, '%')`
+            )
+            .join(" OR ");
+          baseParts.push(`(${areaOr})`);
+          baseParams.push(...normTokens);
+        }
+
+        const { sql: baseSql, params } = applyWhere(baseParts, baseParams);
+
+        const statusFilter = `
+          (p.status = 'completed'
+           OR (p.status = 'archived' AND pc.didGoAhead = 1))
+        `.trim();
+
+        const completedSql = baseSql
+          ? `${baseSql} AND ${statusFilter}`
+          : `WHERE ${statusFilter}`;
+
+        const countRows = await mysqlQuery(
+          `SELECT COUNT(*) AS c
+           FROM projects p
+           LEFT JOIN project_closures pc ON pc.projectId = p.id
+           ${completedSql}`,
+          params
+        );
+        const total = countRows[0]?.c || 0;
+
+        const rows = await mysqlQuery(
+          `SELECT
+              p.*,
+
+              pc.winnerRecommendationId AS _winnerRecommendationId,
+              pc.winner_tradesman_uid AS _winnerTradesmanUid,
+
+              COALESCE(
+                (SELECT NULLIF(TRIM(r.company), '') FROM recommendations r WHERE r.id = pc.winnerRecommendationId LIMIT 1),
+                (SELECT NULLIF(TRIM(r.name), '') FROM recommendations r WHERE r.id = pc.winnerRecommendationId LIMIT 1),
+                (SELECT NULLIF(TRIM(t.company_name), '') FROM tradesmen t WHERE t.user_id = pc.winner_tradesman_uid LIMIT 1),
+                NULL
+              ) AS _winnerTradesmanName,
+
+              EXISTS(
+                SELECT 1 FROM project_closure_photos cpp
+                WHERE cpp.projectId = p.id
+              ) AS _hasClosurePhotos,
+
+              CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite,
+              0 AS canFavourite
+
+           FROM projects p
+           LEFT JOIN project_closures pc ON pc.projectId = p.id
+           LEFT JOIN favourites f ON f.projectId = p.id AND f.userId = ?
+           ${completedSql}
+           ORDER BY p.${sort} ${order}
+           LIMIT ${pageSize} OFFSET ${offset}`,
+          [uid, ...params]
+        );
+
+        return respond(rows, total);
+      }
+
+      // ********** COMMUNITY **********
+      if (tab === "community") {
+        const normTokens = await deriveAreaTokens();
+
+        const baseParts = [
+          `p.status = 'live'`,
+          `p.ownerUserId <> ?`,
+          `NOT EXISTS (
+             SELECT 1 FROM favourites fx
+             WHERE fx.projectId = p.id AND fx.userId = ?
+           )`,
+        ];
+        const baseParams = [uid, uid];
+
+        if (normTokens.length) {
+          const areaOr = normTokens
+            .map(
+              () => `REPLACE(LOWER(p.location),' ','') LIKE CONCAT('%', ?, '%')`
+            )
+            .join(" OR ");
+          baseParts.push(`(${areaOr})`);
+          baseParams.push(...normTokens);
+        }
+
+        const { sql, params } = applyWhere(baseParts, baseParams);
+
+        const countRows = await mysqlQuery(
+          `SELECT COUNT(*) AS c FROM projects p ${sql}`,
+          params
+        );
+        const total = countRows[0]?.c || 0;
+
+        const rows = await mysqlQuery(
+          `SELECT p.*,
+                  0 AS isFavourite,
+                  1 AS canFavourite
+           FROM projects p
+           ${sql}
+           ORDER BY p.${sort} ${order}
+           LIMIT ${pageSize} OFFSET ${offset}`,
+          params
+        );
+
+        return respond(rows, total);
+      }
+
+      // ********** FAVOURITES **********
+      if (tab === "favourites") {
+        const whereSQL = whereParts.length
+          ? `AND ${whereParts.join(" AND ")}`
+          : "";
+
+        const countRows = await mysqlQuery(
+          `SELECT COUNT(*) AS c
+           FROM favourites f
+           JOIN projects p ON p.id = f.projectId
+           WHERE f.userId = ?
+           ${whereSQL}`,
+          [uid, ...whereParams]
+        );
+        const total = countRows[0]?.c || 0;
+
+        const rows = await mysqlQuery(
+          `SELECT p.*,
+                  1 AS isFavourite,
+                  0 AS canFavourite
+           FROM favourites f
+           JOIN projects p ON p.id = f.projectId
+           WHERE f.userId = ?
+           ${whereSQL}
+           ORDER BY p.${sort} ${order}
+           LIMIT ${pageSize} OFFSET ${offset}`,
+          [uid, ...whereParams]
+        );
+
+        return respond(rows, total);
+      }
+
+      // ********** RECOMMENDED **********
+      if (tab === "recommended") {
+        const extra = [];
+        const extraParams = [];
+        if (rawStatus !== "all") {
+          extra.push(`p.status = ?`);
+          extraParams.push(rawStatus);
+        }
+
+        const allParts = [...extra, ...whereParts];
+        const whereSql =
+          allParts.length > 0 ? `AND ${allParts.join(" AND ")}` : "";
+
+        const countRows = await mysqlQuery(
+          `SELECT COUNT(*) AS c
+           FROM recommendations r
+           JOIN projects p ON p.id = r.projectId
+           WHERE r.recommenderUserId = ?
+           ${whereSql}`,
+          [uid, ...extraParams, ...whereParams]
+        );
+        const total = countRows[0]?.c || 0;
+
+        const rows = await mysqlQuery(
+          `SELECT p.*,
+                  CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite,
+                  0 AS canFavourite
+           FROM recommendations r
+           JOIN projects p ON p.id = r.projectId
+           LEFT JOIN favourites f
+           ON f.projectId = p.id AND f.userId = ?
+           WHERE r.recommenderUserId = ?
+           ${whereSql}
+           ORDER BY p.${sort} ${order}
+           LIMIT ${pageSize} OFFSET ${offset}`,
+          [uid, uid, ...extraParams, ...whereParams]
+        );
+
+        return respond(rows, total);
+      }
+
+      return respond([], 0);
+    } catch (err) {
+      log.error?.("[projects.get] error", err);
+      return res.status(500).json({ error: "internal_error" });
     }
-
-    return respond([], 0);
   });
 };
