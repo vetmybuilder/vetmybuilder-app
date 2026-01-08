@@ -1,210 +1,106 @@
-// e2e-tests/src/models/Recommendation.ts
 import Chance from "chance";
 
 const chance = new Chance();
 
-export type RecommendationPhotoInput = {
-  /** filename (e.g. "after.jpg") */
-  name: string;
-  /** MIME type (e.g. "image/jpeg") */
-  mimeType: string;
-  /** Raw bytes */
-  buffer: Buffer;
-};
-
 export type RecommendationInput = {
-  /** Recommender’s name (can be "Anonymous" for magic) */
   name: string;
-  email?: string | null;
-  phone?: string | null;
-  /** Company being recommended */
   company: string;
-  /** 1..5 (server clamps); optional for magic (can be derived from hireAgain) */
-  rating?: number | null;
-  /** Free text */
   comment: string;
-  /** "platform" | "magic" (or custom string) */
-  source?: string | null;
-  /** Optional UX hint (magic only); server may map to rating */
-  hireAgain?:
-    | boolean
-    | 0
-    | 1
-    | "0"
-    | "1"
-    | "true"
-    | "false"
-    | "yes"
-    | "no"
-    | null;
-  /** Photos; Playwright form helper will send only the FIRST item reliably */
-  photos?: RecommendationPhotoInput[] | null;
+  rating?: number;
+  email?: string;
+  phone?: string;
+  source?: "platform" | "magic";
+  locationHint?: string;
+  companyPostcode?: string;
+  companyCity?: string;
 };
 
-export default class Recommendation implements RecommendationInput {
-  name: string;
-  email?: string | null;
-  phone?: string | null;
-  company: string;
-  rating?: number | null;
-  comment: string;
-  source?: string | null;
-  hireAgain?:
-    | boolean
-    | 0
-    | 1
-    | "0"
-    | "1"
-    | "true"
-    | "false"
-    | "yes"
-    | "no"
-    | null;
-  photos?: RecommendationPhotoInput[] | null;
+export default class Recommendation {
+  name!: string;
+  company!: string;
+  comment!: string;
+  rating?: number;
+  email?: string;
+  phone?: string;
+  source?: "platform" | "magic";
+  locationHint?: string;
+  companyPostcode?: string;
+  companyCity?: string;
 
-  // optional persisted-ish fields if you want to hydrate later
-  id?: number;
-
-  constructor(init?: Partial<RecommendationInput & { id?: number }>) {
-    this.name = init?.name ?? chance.name();
-    this.email = init?.email ?? `${chance.first().toLowerCase()}@example.com`;
-    this.phone = init?.phone ?? "+447700900123";
-    this.company =
-      init?.company ?? `${chance.capitalize(chance.word())} Builders`;
-    this.rating = init?.rating ?? 5;
-    this.comment =
-      init?.comment ??
-      chance.sentence({ words: 12 }) + " " + chance.sentence({ words: 10 });
-    this.source = init?.source ?? "platform";
-    this.hireAgain = init?.hireAgain ?? undefined;
-    this.photos = init?.photos ?? null;
-    this.id = init?.id;
+  static aRecommendation(): Recommendation {
+    return new Recommendation();
   }
 
-  /* ---------------- Factories ---------------- */
-
-  /** Random but sensible defaults */
-  static aRecommendation(
-    overrides?: Partial<RecommendationInput & { id?: number }>
-  ) {
-    return new Recommendation(overrides);
-  }
-
-  /** Create many at once */
-  static many(
-    count: number,
-    factory?: (i: number) => Partial<RecommendationInput>
-  ) {
-    const arr: Recommendation[] = [];
-    for (let i = 0; i < count; i++) {
-      arr.push(Recommendation.aRecommendation(factory?.(i)));
-    }
-    return arr;
-  }
-
-  /* ---------------- Fluent builders ---------------- */
-
-  withId(v: number) {
-    this.id = v;
+  withRandomDetails(): Recommendation {
+    this.name = chance.name();
+    this.company = chance.company();
+    this.comment = chance.sentence();
+    this.rating = 5;
     return this;
   }
 
-  withName(v: string) {
-    this.name = v;
-    return this;
-  }
-
-  withEmail(v?: string | null) {
-    this.email = v ?? null;
-    return this;
-  }
-
-  withPhone(v?: string | null) {
-    this.phone = v ?? null;
-    return this;
-  }
-
-  /** Alias to set the company (the tradesperson) */
-  withTradesman(companyName: string) {
-    this.company = companyName;
-    return this;
-  }
-
-  withRecommenderName(name: string) {
+  withName(name: string): Recommendation {
     this.name = name;
     return this;
   }
 
-  withCompany(v: string) {
-    this.company = v;
+  withCompany(company: string): Recommendation {
+    this.company = company;
     return this;
   }
 
-  withRating(v?: number | null) {
-    this.rating = v ?? null;
+  withComment(comment: string): Recommendation {
+    this.comment = comment;
     return this;
   }
 
-  withComment(v: string) {
-    this.comment = v;
+  withRating(rating: number): Recommendation {
+    this.rating = rating;
     return this;
   }
 
-  withSource(v: "platform" | "magic" | string | null) {
-    this.source = v;
+  withEmail(email: string): Recommendation {
+    this.email = email;
     return this;
   }
 
-  withHireAgain(v: RecommendationInput["hireAgain"]) {
-    this.hireAgain = v;
+  withPhone(phone: string): Recommendation {
+    this.phone = phone;
     return this;
   }
 
-  /** Replace all pictures */
-  withPictures(photos: RecommendationPhotoInput[]) {
-    this.photos = photos;
+  withSource(source: "platform" | "magic"): Recommendation {
+    this.source = source;
     return this;
   }
 
-  /** Append picture(s) */
-  addPictures(...photos: RecommendationPhotoInput[]) {
-    this.photos = [...(this.photos ?? []), ...photos];
+  withLocationHint(hint: string): Recommendation {
+    this.locationHint = hint;
     return this;
   }
 
-  /** Convenience for a single picture */
-  withPicture(photo: RecommendationPhotoInput) {
-    return this.addPictures(photo);
+  withCompanyPostcode(postcode: string): Recommendation {
+    this.companyPostcode = postcode;
+    return this;
   }
 
-  /* ---------------- API adapters ---------------- */
+  withCompanyCity(city: string): Recommendation {
+    this.companyCity = city;
+    return this;
+  }
 
-  /** JSON body for RecommendationsApi.create (no photos) */
-  toJSON(): RecommendationInput {
+  toPayload(): RecommendationInput {
     return {
       name: this.name,
-      email: this.email ?? undefined,
-      phone: this.phone ?? undefined,
       company: this.company,
-      rating: this.rating ?? undefined,
       comment: this.comment,
-      source: this.source ?? undefined,
-      // hireAgain is ignored for platform JSON (server doesn’t use it there)
-    };
-  }
-
-  /** What your `RecommendationsApi` expects (works for JSON or multipart-first-photo). */
-  toInput(): RecommendationInput {
-    return {
-      name: this.name,
-      email: this.email ?? undefined,
-      phone: this.phone ?? undefined,
-      company: this.company,
-      rating: this.rating ?? undefined,
-      comment: this.comment,
-      source: this.source ?? undefined,
-      hireAgain: this.hireAgain ?? undefined,
-      photos: this.photos && this.photos.length ? this.photos : undefined,
+      rating: this.rating,
+      email: this.email,
+      phone: this.phone,
+      source: this.source,
+      locationHint: this.locationHint,
+      companyPostcode: this.companyPostcode,
+      companyCity: this.companyCity,
     };
   }
 }
