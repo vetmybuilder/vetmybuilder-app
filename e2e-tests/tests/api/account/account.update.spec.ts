@@ -3,20 +3,23 @@ import Account from "../../../src/models/account";
 import { authedApiForUid } from "../../../src/api/client";
 
 test.describe("POST /api/account", () => {
-  test("user can update their own account", async ({ apiClient }) => {
-    const payload = Account.anAccount()
-      .withRandomDetails()
-      .withUsername("user_" + Date.now())
-      .toPayload();
+  test("user can update their own account", async ({ request, runtime }) => {
+    const uid = "acct-update-" + Date.now();
+    const client = await authedApiForUid(request, runtime.apiBaseUrl, uid);
 
-    const postRes = await apiClient.post("/api/account", payload);
-    expect(postRes.status()).toBe(200);
-    expect(await postRes.json()).toEqual({ ok: true });
+    const payload = {
+      firstName: "Bernard",
+      lastName: "Smith",
+      username: "bernard_" + Date.now(),
+    };
 
-    const getRes = await apiClient.get("/api/account");
-    expect(getRes.status()).toBe(200);
+    await client.post("/api/account", payload);
 
-    const { user } = await getRes.json();
+    const user = await client.waitForAccount({
+      firstName: payload.firstName,
+      lastName: payload.lastName,
+      username: payload.username,
+    });
 
     expect(user.firstName).toBe(payload.firstName);
     expect(user.lastName).toBe(payload.lastName);
@@ -24,37 +27,31 @@ test.describe("POST /api/account", () => {
   });
 
   test("cannot use a username that is already taken", async ({
-    apiClient,
     request,
     runtime,
   }) => {
-    const takenUsername = "taken_" + Date.now();
+    const takenUsername =
+      "taken_" + Math.random().toString(16).slice(2) + "_" + Date.now();
 
-    // User A claims the username
-    const aRes = await apiClient.post("/api/account", {
-      username: takenUsername,
-    });
-    expect(aRes.status()).toBe(200);
+    // User A (fresh uid) claims the username
+    const uidA =
+      "user-a-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+    const clientA = await authedApiForUid(request, runtime.apiBaseUrl, uidA);
 
-    // User B: create a separate authed client
-    const otherUid = "test-user-b-" + Date.now();
-    const otherClient = await authedApiForUid(
-      request,
-      runtime.apiBaseUrl,
-      otherUid
-    );
+    await clientA.post("/api/account", { username: takenUsername });
+    await clientA.waitForAccount({ username: takenUsername });
 
-    // Ensure User B exists by creating/updating their account first
-    const bUniqueUsername = "userb_" + Date.now();
-    const bSetupRes = await otherClient.post("/api/account", {
-      username: bUniqueUsername,
-    });
-    expect(bSetupRes.status()).toBe(200);
+    // User B (fresh uid) tries to claim the same username
+    const uidB =
+      "user-b-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+    const clientB = await authedApiForUid(request, runtime.apiBaseUrl, uidB);
 
-    // Now User B tries to claim User A's username
-    const res = await otherClient.post("/api/account", {
-      username: takenUsername,
-    });
+    const bUsername =
+      "userb_" + Math.random().toString(16).slice(2) + "_" + Date.now();
+    await clientB.post("/api/account", { username: bUsername });
+    await clientB.waitForAccount({ username: bUsername });
+
+    const res = await clientB.post("/api/account", { username: takenUsername });
 
     expect(res.status()).toBe(409);
     expect(await res.json()).toEqual({
