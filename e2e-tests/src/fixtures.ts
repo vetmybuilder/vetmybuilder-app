@@ -1,9 +1,8 @@
-// e2e-tests/src/fixtures.ts
 import { test as base, expect } from "@playwright/test";
 import { getRuntime } from "./config/runtime";
 import { ensureDatabase, applySchema, seedUsers } from "./db/manage-db";
 import { wipeDatabase } from "./db/wipe";
-import { api } from "./api/client";
+import { api, authedApiForUid } from "./api/client";
 
 type Runtime = ReturnType<typeof getRuntime>;
 type ApiClient = ReturnType<typeof api>;
@@ -24,29 +23,20 @@ export const test = base.extend<{ apiClient: ApiClient }, { runtime: Runtime }>(
       { scope: "worker" },
     ],
 
-    apiClient: async ({ request, runtime }, use) => {
-      const secret = process.env.E2E_TEST_SECRET;
+    apiClient: async ({ request, runtime, page }, use) => {
       const uid = process.env.TEST_USER_UID;
 
-      if (!secret || !uid) {
-        throw new Error("Missing E2E_TEST_SECRET or TEST_USER_UID");
+      if (!uid) {
+        throw new Error("Missing TEST_USER_UID");
       }
 
-      const tokenRes = await request.post(
-        `${runtime.apiBaseUrl}/api/__test__/auth/id-token`,
-        {
-          headers: { "X-Test-Secret": secret },
-          data: { uid },
-        }
+      const client = await authedApiForUid(
+        request,
+        runtime.apiBaseUrl,
+        uid,
+        page
       );
-
-      if (!tokenRes.ok()) {
-        throw new Error(`Failed to mint id token: ${tokenRes.status()}`);
-      }
-
-      const { idToken } = await tokenRes.json();
-
-      await use(api(request, runtime.apiBaseUrl, idToken));
+      await use(client);
     },
   }
 );

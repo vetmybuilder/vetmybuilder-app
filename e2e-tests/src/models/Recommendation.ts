@@ -1,4 +1,5 @@
 import Chance from "chance";
+import path from "path";
 
 const chance = new Chance();
 
@@ -10,9 +11,12 @@ export type RecommendationInput = {
   email?: string;
   phone?: string;
   source?: "platform" | "magic";
-  locationHint?: string;
-  companyPostcode?: string;
-  companyCity?: string;
+};
+
+type MultipartPhoto = {
+  name: string;
+  mimeType: string;
+  filePath: string;
 };
 
 export default class Recommendation {
@@ -23,9 +27,8 @@ export default class Recommendation {
   email?: string;
   phone?: string;
   source?: "platform" | "magic";
-  locationHint?: string;
-  companyPostcode?: string;
-  companyCity?: string;
+
+  private photos: MultipartPhoto[] = [];
 
   static aRecommendation(): Recommendation {
     return new Recommendation();
@@ -39,23 +42,8 @@ export default class Recommendation {
     return this;
   }
 
-  withName(name: string): Recommendation {
-    this.name = name;
-    return this;
-  }
-
   withCompany(company: string): Recommendation {
     this.company = company;
-    return this;
-  }
-
-  withComment(comment: string): Recommendation {
-    this.comment = comment;
-    return this;
-  }
-
-  withRating(rating: number): Recommendation {
-    this.rating = rating;
     return this;
   }
 
@@ -68,39 +56,47 @@ export default class Recommendation {
     this.phone = phone;
     return this;
   }
-
   withSource(source: "platform" | "magic"): Recommendation {
     this.source = source;
     return this;
   }
 
-  withLocationHint(hint: string): Recommendation {
-    this.locationHint = hint;
-    return this;
-  }
+  withPhotos(count: number): Recommendation {
+    const fixturesDir = path.resolve(__dirname, "../files");
 
-  withCompanyPostcode(postcode: string): Recommendation {
-    this.companyPostcode = postcode;
-    return this;
-  }
+    for (let i = 0; i < count; i++) {
+      const n = i + 1;
+      this.photos.push({
+        name: `photo${n}.jpg`,
+        mimeType: "image/jpeg",
+        filePath: path.join(fixturesDir, `photo${n}.jpg`),
+      });
+    }
 
-  withCompanyCity(city: string): Recommendation {
-    this.companyCity = city;
     return this;
   }
 
   toPayload(): RecommendationInput {
-    return {
+    const out: RecommendationInput = {
       name: this.name,
       company: this.company,
       comment: this.comment,
       rating: this.rating,
-      email: this.email,
-      phone: this.phone,
-      source: this.source,
-      locationHint: this.locationHint,
-      companyPostcode: this.companyPostcode,
-      companyCity: this.companyCity,
+    };
+
+    if (this.email) out.email = this.email;
+    if (this.phone) out.phone = this.phone;
+    if (this.source) out.source = this.source;
+
+    return out;
+  }
+
+  toMultipartPayload(): { fields: Record<string, any>; photos?: string[] } {
+    return {
+      fields: this.toPayload(),
+      photos: this.photos.length
+        ? this.photos.map((p) => p.filePath)
+        : undefined,
     };
   }
 }
