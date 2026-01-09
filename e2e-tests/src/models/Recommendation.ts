@@ -99,4 +99,9 @@ export default class Recommendation {
         : undefined,
     };
   }
+
+  asMagicRecommendation(): Recommendation {
+    this.source = "magic";
+    return this;
+  }
 }

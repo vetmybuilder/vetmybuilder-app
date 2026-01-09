@@ -1,6 +1,6 @@
 import { test, expect } from "../../../src/fixtures";
 import Project from "../../../src/models/project";
-import Recommendation from "../../../src/models/recommendation";
+import Recommendation from "../../../src/models/Recommendation";
 import { authedApiForUid } from "../../../src/api/client";
 
 test.describe("POST /api/projects/:id/recommendations", () => {

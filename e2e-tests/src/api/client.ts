@@ -260,6 +260,25 @@ export function api(
     });
   }
 
+  async function createProjectMagicLink(projectId: number) {
+    return request.post(`${baseUrl}/api/projects/${projectId}/magic-link`, {
+      headers,
+    });
+  }
+
+  async function rotateProjectMagicLink(projectId: number) {
+    return request.post(
+      `${baseUrl}/api/projects/${projectId}/magic-link?rotate=1`,
+      { headers }
+    );
+  }
+
+  async function postMagicRecommendation(token: string, payload: any) {
+    return request.post(`${baseUrl}/api/recommendations/magic/${token}`, {
+      data: payload,
+    });
+  }
+
   return {
     get: (urlPath: string) => request.get(baseUrl + urlPath, { headers }),
     post: (urlPath: string, data?: any) =>
@@ -274,6 +293,9 @@ export function api(
     getProjectRecommendation,
     uploadProjectClosePhotos,
     uploadProjectClosePhotosUnauthed,
+    createProjectMagicLink,
+    rotateProjectMagicLink,
+    postMagicRecommendation,
   };
 }
 
