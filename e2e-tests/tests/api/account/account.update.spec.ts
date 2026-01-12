@@ -1,11 +1,20 @@
 import { test, expect } from "../../../src/fixtures";
-import Account from "../../../src/models/account";
 import { authedApiForUid } from "../../../src/api/client";
 
+function getBaseURL(testInfo: any): string {
+  const baseURL = (testInfo?.project?.use as any)?.baseURL;
+  if (typeof baseURL !== "string" || !baseURL.length) {
+    throw new Error("Missing project baseURL");
+  }
+  return baseURL;
+}
+
 test.describe("POST /api/account", () => {
-  test("user can update their own account", async ({ request, runtime }) => {
+  test("user can update their own account", async ({ request }, testInfo) => {
     const uid = "acct-update-" + Date.now();
-    const client = await authedApiForUid(request, runtime.apiBaseUrl, uid);
+    const baseURL = getBaseURL(testInfo);
+
+    const client = await authedApiForUid(request, baseURL, uid);
 
     const payload = {
       firstName: "Bernard",
@@ -28,15 +37,16 @@ test.describe("POST /api/account", () => {
 
   test("cannot use a username that is already taken", async ({
     request,
-    runtime,
-  }) => {
+  }, testInfo) => {
+    const baseURL = getBaseURL(testInfo);
+
     const takenUsername =
       "taken_" + Math.random().toString(16).slice(2) + "_" + Date.now();
 
     // User A (fresh uid) claims the username
     const uidA =
       "user-a-" + Date.now() + "-" + Math.random().toString(16).slice(2);
-    const clientA = await authedApiForUid(request, runtime.apiBaseUrl, uidA);
+    const clientA = await authedApiForUid(request, baseURL, uidA);
 
     await clientA.post("/api/account", { username: takenUsername });
     await clientA.waitForAccount({ username: takenUsername });
@@ -44,7 +54,7 @@ test.describe("POST /api/account", () => {
     // User B (fresh uid) tries to claim the same username
     const uidB =
       "user-b-" + Date.now() + "-" + Math.random().toString(16).slice(2);
-    const clientB = await authedApiForUid(request, runtime.apiBaseUrl, uidB);
+    const clientB = await authedApiForUid(request, baseURL, uidB);
 
     const bUsername =
       "userb_" + Math.random().toString(16).slice(2) + "_" + Date.now();

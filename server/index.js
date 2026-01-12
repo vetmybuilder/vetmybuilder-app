@@ -36,7 +36,7 @@ const {
 const app = express();
 app.set("trust proxy", true);
 app.set("etag", false);
-const PORT = process.env.PORT || 8787;
+const PORT = Number(process.env.PORT || 8787);
 
 const PUBLIC_API_BASE_LOCAL =
   process.env.NEXT_PUBLIC_API_BASE || `http://localhost:${PORT}`;
@@ -73,7 +73,9 @@ app.use((req, res, next) => {
 
 /* -------------------- TEST-ONLY helpers -------------------- */
 const TEST_ROUTES_ENABLED =
-  process.env.NODE_ENV === "test" || process.env.ENABLE_TEST_ROUTES === "1";
+  process.env.NODE_ENV === "test" ||
+  process.env.ENABLE_TEST_ROUTES === "1" ||
+  String(process.env.TEST_ENV || "").toLowerCase() === "e2e";
 const TEST_SECRET = process.env.E2E_TEST_SECRET || "";
 
 function assertTestAccess(req, res) {
@@ -285,7 +287,16 @@ const router = buildRouter({
 
 app.use("/api", router);
 
+logger.info(
+  {
+    port: PORT,
+    db: process.env.MYSQL_DATABASE,
+    testShard: process.env.TEST_SHARD,
+  },
+  "boot env"
+);
+
 /* -------------------- Start server -------------------- */
-app.listen(PORT, () => {
+app.listen(PORT, "127.0.0.1", () => {
   logger.info({ port: PORT }, "server started");
 });

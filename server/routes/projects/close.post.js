@@ -70,7 +70,13 @@ module.exports = (router, ctx) => {
           { error: err?.message, stack: err?.stack },
           "MySQL fetch error (project)"
         );
-        return res.status(500).json({ error: "internal_error" });
+        return res.status(500).json({
+          error: "internal_error",
+          message:
+            process.env.TEST_ENV === "e2e"
+              ? err?.message || String(err)
+              : undefined,
+        });
       }
 
       if (!current) {
@@ -110,7 +116,7 @@ module.exports = (router, ctx) => {
       const winnerFromCommunity = body.winnerFromCommunity;
       const wouldUseAgain = body.wouldUseAgain;
 
-      const now = new Date().toISOString();
+      const now = new Date().toISOString().slice(0, 19).replace("T", " ");
 
       // ---------------------------------------------------------
       // NORMALISE REASONS
@@ -222,7 +228,13 @@ module.exports = (router, ctx) => {
           { error: err?.message, stack: err?.stack },
           "MySQL update error (project status)"
         );
-        return res.status(500).json({ error: "internal_error" });
+        return res.status(500).json({
+          error: "internal_error",
+          message:
+            process.env.TEST_ENV === "e2e"
+              ? err?.message || String(err)
+              : undefined,
+        });
       }
 
       // ---------------------------------------------------------
@@ -288,7 +300,13 @@ module.exports = (router, ctx) => {
           { error: err?.message, stack: err?.stack },
           "MySQL upsert error (project_closures)"
         );
-        return res.status(500).json({ error: "internal_error" });
+        return res.status(500).json({
+          error: "internal_error",
+          message:
+            process.env.TEST_ENV === "e2e"
+              ? err?.message || String(err)
+              : undefined,
+        });
       }
 
       // ---------------------------------------------------------
@@ -319,7 +337,13 @@ module.exports = (router, ctx) => {
           { error: err?.message, stack: err?.stack },
           "MySQL fetch/backfill error (completedAt)"
         );
-        return res.status(500).json({ error: "internal_error" });
+        return res.status(500).json({
+          error: "internal_error",
+          message:
+            process.env.TEST_ENV === "e2e"
+              ? err?.message || String(err)
+              : undefined,
+        });
       }
 
       log.info(

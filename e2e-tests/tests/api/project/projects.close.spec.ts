@@ -1,6 +1,6 @@
 import { test, expect } from "../../../src/fixtures";
 import Project from "../../../src/models/project";
-import Recommendation from "../../../src/models/recommendation";
+import Recommendation from "../../../src/models/Recommendation";
 import { authedApiForUid } from "../../../src/api/client";
 
 test.describe("POST /api/projects/:id/close", () => {
@@ -33,6 +33,11 @@ test.describe("POST /api/projects/:id/close", () => {
       wouldUseAgain: true,
       reasons: [],
     });
+
+    if (closeRes.status() !== 200) {
+      const text = await closeRes.text();
+      console.log("CLOSE 500 BODY:", text);
+    }
 
     expect(closeRes.status()).toBe(200);
 
@@ -90,8 +95,7 @@ test.describe("POST /api/projects/:id/close", () => {
   test("403 non-owner cannot close project", async ({
     apiClient,
     request,
-    runtime,
-  }) => {
+  }, testInfo) => {
     // Owner creates project
     const projectRes = await apiClient.post(
       "/api/projects",
@@ -103,11 +107,10 @@ test.describe("POST /api/projects/:id/close", () => {
 
     // Different user
     const otherUid = `not-owner-${Date.now()}`;
-    const otherClient = await authedApiForUid(
-      request,
-      runtime.apiBaseUrl,
-      otherUid
-    );
+    const baseURL = (testInfo?.project?.use as any)?.baseURL as string;
+    if (!baseURL) throw new Error("Missing project baseURL");
+
+    const otherClient = await authedApiForUid(request, baseURL, otherUid);
 
     // Non-owner attempts to close
     const res = await otherClient.post(`/api/projects/${project.id}/close`, {

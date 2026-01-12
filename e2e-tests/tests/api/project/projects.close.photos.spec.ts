@@ -43,7 +43,10 @@ test.describe("POST /api/projects/:id/close/photos", () => {
     expect(await res.json()).toEqual({ error: "Not found" });
   });
 
-  test("403 Forbidden (non-owner)", async ({ apiClient, request, runtime }) => {
+  test("403 Forbidden (non-owner)", async ({
+    apiClient,
+    request,
+  }, testInfo) => {
     const projectRes = await apiClient.post(
       "/api/projects",
       Project.aProject().withRandomDetails().toPayload()
@@ -53,11 +56,11 @@ test.describe("POST /api/projects/:id/close/photos", () => {
     const { project } = await projectRes.json();
 
     const otherUid = `not-owner-${Date.now()}`;
-    const otherClient = await authedApiForUid(
-      request,
-      runtime.apiBaseUrl,
-      otherUid
-    );
+
+    const baseURL = (testInfo?.project?.use as any)?.baseURL as string;
+    if (!baseURL) throw new Error("Missing project baseURL");
+
+    const otherClient = await authedApiForUid(request, baseURL, otherUid);
 
     const res = await otherClient.uploadProjectClosePhotos(project.id, [
       "src/files/photo1.jpg",

@@ -35,9 +35,16 @@ export function api(
   const headers: Record<string, string> = {};
   if (bearerToken) headers.Authorization = `Bearer ${bearerToken}`;
 
-  // Only needed for your /api/__test__ endpoints
   const testSecret = process.env.E2E_TEST_SECRET;
   if (testSecret) headers["X-Test-Secret"] = testSecret;
+
+  const E2E_ROOT = path.resolve(__dirname, "../..");
+
+  function resolveFilePath(p: string) {
+    if (!p) return p;
+    if (path.isAbsolute(p)) return p;
+    return path.resolve(E2E_ROOT, p);
+  }
 
   async function getJson(urlPath: string) {
     const res = await request.get(baseUrl + urlPath, { headers });
@@ -102,12 +109,16 @@ export function api(
   }
 
   function readPhotos(photoPaths: string[]) {
-    return photoPaths.map((p) => ({
-      name: path.basename(p),
-      mimeType: guessMimeType(p),
-      b64: fs.readFileSync(p).toString("base64"),
-    }));
+    return photoPaths.map((pRaw) => {
+      const p = resolveFilePath(pRaw);
+      return {
+        name: path.basename(p),
+        mimeType: guessMimeType(p),
+        b64: fs.readFileSync(p).toString("base64"),
+      };
+    });
   }
+
   async function postMultipartViaBrowser(
     urlPath: string,
     payload: { fields: Record<string, any>; photos?: string[] }
@@ -130,7 +141,6 @@ export function api(
           fd.set(k, v);
         }
 
-        // Route expects repeated field name: "photos"
         for (const p of args.photos) {
           const bin = atob(p.b64);
           const bytes = new Uint8Array(bin.length);
@@ -171,11 +181,54 @@ export function api(
     };
   }
 
+  async function postMultipartViaNodeFetch(
+    urlPath: string,
+    payload: { fields: Record<string, any>; photos?: string[] }
+  ): Promise<ResponseLike> {
+    const url = baseUrl + urlPath;
+    const fields = cleanFields(payload.fields);
+    const photoPaths = Array.isArray(payload.photos) ? payload.photos : [];
+
+    const fd = new FormData();
+
+    for (const [k, v] of Object.entries(fields)) {
+      fd.set(k, v);
+    }
+
+    for (const pRaw of photoPaths) {
+      const p = resolveFilePath(pRaw);
+      const buf = fs.readFileSync(p);
+      const mimeType = guessMimeType(p);
+      const filename = path.basename(p);
+      const blob = new Blob([buf], { type: mimeType });
+      fd.append("photos", blob, filename);
+    }
+
+    const h: Record<string, string> = {};
+    if (headers.Authorization) h.Authorization = headers.Authorization;
+    if (headers["X-Test-Secret"]) h["X-Test-Secret"] = headers["X-Test-Secret"];
+
+    const res = await fetch(url, { method: "POST", headers: h, body: fd });
+    const text = await res.text();
+
+    return {
+      status: () => res.status,
+      ok: () => res.status >= 200 && res.status < 300,
+      text: async () => text,
+      json: async () => {
+        try {
+          return text ? JSON.parse(text) : null;
+        } catch {
+          return null;
+        }
+      },
+    };
+  }
+
   async function postMultipart(
     urlPath: string,
     data: MultipartPayload
   ): Promise<ResponseLike> {
-    // New shape: { fields, photos: string[] }
     if ((data as any)?.fields) {
       const { fields, photos } = data as {
         fields: Record<string, any>;
@@ -184,16 +237,17 @@ export function api(
 
       const photoPaths = Array.isArray(photos) ? photos : [];
 
-      // 2+ photos -> browser FormData
       if (photoPaths.length > 1) {
-        return postMultipartViaBrowser(urlPath, { fields, photos: photoPaths });
+        return postMultipartViaNodeFetch(urlPath, {
+          fields,
+          photos: photoPaths,
+        });
       }
 
-      // 0 or 1 photo -> APIRequestContext multipart
       const multipart: Record<string, any> = cleanFields(fields);
 
       if (photoPaths.length === 1) {
-        const filePath = photoPaths[0]!;
+        const filePath = resolveFilePath(photoPaths[0]!);
         multipart.photos = {
           name: path.basename(filePath),
           mimeType: guessMimeType(filePath),
@@ -233,11 +287,7 @@ export function api(
     photoPaths: string[]
   ) {
     const payload = { fields: {}, photos: photoPaths };
-    const res = await postMultipart(
-      `/api/projects/${projectId}/close/photos`,
-      payload
-    );
-    return res;
+    return postMultipart(`/api/projects/${projectId}/close/photos`, payload);
   }
 
   async function uploadProjectClosePhotosUnauthed(
@@ -247,11 +297,11 @@ export function api(
     const multipart: Record<string, any> = {};
 
     if (photoPaths.length > 0) {
-      const filePath = photoPaths[0];
+      const p = resolveFilePath(photoPaths[0]!);
       multipart.photos = {
-        name: path.basename(filePath),
+        name: path.basename(p),
         mimeType: "image/jpeg",
-        buffer: fs.readFileSync(filePath),
+        buffer: fs.readFileSync(p),
       };
     }
 
@@ -276,7 +326,16 @@ export function api(
   async function postMagicRecommendation(token: string, payload: any) {
     return request.post(`${baseUrl}/api/recommendations/magic/${token}`, {
       data: payload,
+      headers,
     });
+  }
+
+  async function getTradesmanMe() {
+    return request.get(`${baseUrl}/api/tradesmen/me`, { headers });
+  }
+
+  async function getTradesmanMeUnauthed() {
+    return request.get(`${baseUrl}/api/tradesmen/me`);
   }
 
   return {
@@ -296,6 +355,11 @@ export function api(
     createProjectMagicLink,
     rotateProjectMagicLink,
     postMagicRecommendation,
+    getTradesmanMe,
+    getTradesmanMeUnauthed,
+
+    // kept for compatibility if you still call it anywhere
+    postMultipartViaBrowser,
   };
 }
 
@@ -305,6 +369,12 @@ export async function authedApiForUid(
   uid: string,
   page?: Page
 ) {
+  if (baseUrl.includes(":3000")) {
+    throw new Error(
+      `INVALID baseUrl passed to authedApiForUid: ${baseUrl} Use Playwright project baseURL (3100+) instead`
+    );
+  }
+
   const secret = process.env.E2E_TEST_SECRET;
   if (!secret) throw new Error("Missing E2E_TEST_SECRET");
 
