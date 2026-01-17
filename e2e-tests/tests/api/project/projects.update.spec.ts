@@ -1,12 +1,12 @@
 import { test, expect } from "../../../src/fixtures";
 import Project from "../../../src/models/project";
-import { authedApiForUid } from "../../../src/api/client";
+import { authedApiForUid } from "../../../src/api/services/client";
 
 test.describe("PUT /api/projects/:id", () => {
   test("owner can update a project (happy path)", async ({ apiClient }) => {
     const createdRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(createdRes.status()).toBe(201);
 
@@ -37,7 +37,7 @@ test.describe("PUT /api/projects/:id", () => {
   }) => {
     const createdRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(createdRes.status()).toBe(201);
 
@@ -63,7 +63,7 @@ test.describe("PUT /api/projects/:id", () => {
   }) => {
     const createdRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(createdRes.status()).toBe(201);
 
@@ -111,7 +111,7 @@ test.describe("PUT /api/projects/:id", () => {
   }) => {
     const createdRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(createdRes.status()).toBe(201);
 
@@ -120,7 +120,7 @@ test.describe("PUT /api/projects/:id", () => {
     const otherClient = await authedApiForUid(
       request,
       runtime.apiBaseUrl,
-      "other_owner_" + Date.now()
+      "other_owner_" + Date.now(),
     );
 
     const res = await otherClient.put(`/api/projects/${created.id}`, {
@@ -136,7 +136,7 @@ test.describe("PUT /api/projects/:id", () => {
   }) => {
     const createdRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(createdRes.status()).toBe(201);
 
@@ -152,7 +152,6 @@ test.describe("PUT /api/projects/:id", () => {
     });
 
     expect(res.status()).toBe(400);
-
     expect(await res.json()).toEqual({
       error: "location_update_not_allowed",
       message: "Location cannot be updated via this endpoint.",
@@ -164,7 +163,7 @@ test.describe("PUT /api/projects/:id", () => {
   }) => {
     const createdRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(createdRes.status()).toBe(201);
 
@@ -185,7 +184,7 @@ test.describe("PUT /api/projects/:id", () => {
   test("allows location field if it is empty string", async ({ apiClient }) => {
     const createdRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(createdRes.status()).toBe(201);
 
@@ -206,13 +205,12 @@ test.describe("PUT /api/projects/:id", () => {
   test("400 invalid_payload when validation fails", async ({ apiClient }) => {
     const createdRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(createdRes.status()).toBe(201);
 
     const { project: created } = await createdRes.json();
 
-    // name too short + bedrooms out of range
     const res = await apiClient.put(`/api/projects/${created.id}`, {
       name: "A",
       type: created.type,

@@ -1,6 +1,6 @@
 import { test, expect } from "../../../src/fixtures";
 import Tradesman from "../../../src/models/tradesman";
-import { authedApiForUid } from "../../../src/api/client";
+import { authedApiForUid } from "../../../src/api/services/client";
 import { uniq } from "../../../src/utils/formatters";
 
 test.describe("POST /api/admin/tradesmen/:uid/status (promotion)", () => {
@@ -20,7 +20,9 @@ test.describe("POST /api/admin/tradesmen/:uid/status (promotion)", () => {
 
     const joinRes = await request.post(
       `${runtime.apiBaseUrl}/api/tradesmen/join`,
-      { data: lead.toJoinPayload() }
+      {
+        data: lead.toJoinPayload(),
+      },
     );
     expect(joinRes.status()).toBe(201);
 
@@ -36,14 +38,14 @@ test.describe("POST /api/admin/tradesmen/:uid/status (promotion)", () => {
     const targetClient = await authedApiForUid(
       request,
       runtime.apiBaseUrl,
-      targetUid
+      targetUid,
     );
 
     await targetClient.post("/api/account", { username: uniq("u") });
 
     const promoteRes = await adminApiClient.post(
       `/api/admin/tradesmen/${leadId}/status`,
-      { status: "active", assignTo: targetUid }
+      { status: "active", assignTo: targetUid },
     );
     expect(promoteRes.status()).toBe(200);
 
@@ -56,7 +58,7 @@ test.describe("POST /api/admin/tradesmen/:uid/status (promotion)", () => {
     expect(body.tradesman.user_id).toBe(targetUid);
     expect(String(body.tradesman.status || "").toLowerCase()).toBe("active");
     expect(String(body.tradesman.verification_status || "").toLowerCase()).toBe(
-      "approved"
+      "approved",
     );
   });
 
@@ -76,7 +78,9 @@ test.describe("POST /api/admin/tradesmen/:uid/status (promotion)", () => {
 
     const joinRes = await request.post(
       `${runtime.apiBaseUrl}/api/tradesmen/join`,
-      { data: lead.toJoinPayload() }
+      {
+        data: lead.toJoinPayload(),
+      },
     );
     expect(joinRes.status()).toBe(201);
 
@@ -85,7 +89,7 @@ test.describe("POST /api/admin/tradesmen/:uid/status (promotion)", () => {
 
     const res = await adminApiClient.post(
       `/api/admin/tradesmen/${leadId}/status`,
-      { status: "inactive" }
+      { status: "inactive" },
     );
 
     expect(res.status()).toBe(200);
@@ -115,7 +119,9 @@ test.describe("POST /api/admin/tradesmen/:uid/status (promotion)", () => {
 
     const joinRes = await request.post(
       `${runtime.apiBaseUrl}/api/tradesmen/join`,
-      { data: lead.toJoinPayload() }
+      {
+        data: lead.toJoinPayload(),
+      },
     );
     expect(joinRes.status()).toBe(201);
 
@@ -124,7 +130,7 @@ test.describe("POST /api/admin/tradesmen/:uid/status (promotion)", () => {
 
     const res = await adminApiClient.post(
       `/api/admin/tradesmen/${leadId}/status`,
-      { status: "draft" }
+      { status: "draft" },
     );
 
     expect(res.status()).toBe(200);
@@ -137,7 +143,7 @@ test.describe("POST /api/admin/tradesmen/:uid/status (promotion)", () => {
     expect(body.tradesman.user_id).toBe(leadId);
     expect(String(body.tradesman.status || "").toLowerCase()).toBe("draft");
     expect(String(body.tradesman.verification_status || "").toLowerCase()).toBe(
-      "unverified"
+      "unverified",
     );
   });
 
@@ -157,7 +163,9 @@ test.describe("POST /api/admin/tradesmen/:uid/status (promotion)", () => {
 
     const joinRes = await request.post(
       `${runtime.apiBaseUrl}/api/tradesmen/join`,
-      { data: lead.toJoinPayload() }
+      {
+        data: lead.toJoinPayload(),
+      },
     );
     expect(joinRes.status()).toBe(201);
 
@@ -168,19 +176,19 @@ test.describe("POST /api/admin/tradesmen/:uid/status (promotion)", () => {
     const targetClient = await authedApiForUid(
       request,
       runtime.apiBaseUrl,
-      targetUid
+      targetUid,
     );
     await targetClient.post("/api/account", { username: uniq("u") });
 
     const promoteRes = await adminApiClient.post(
       `/api/admin/tradesmen/${leadId}/status`,
-      { status: "active", assignTo: targetUid }
+      { status: "active", assignTo: targetUid },
     );
     expect(promoteRes.status()).toBe(200);
 
     const inactiveRes = await adminApiClient.post(
       `/api/admin/tradesmen/${targetUid}/status`,
-      { status: "inactive" }
+      { status: "inactive" },
     );
     expect(inactiveRes.status()).toBe(200);
 
@@ -209,7 +217,9 @@ test.describe("POST /api/admin/tradesmen/:uid/status (promotion)", () => {
 
     const joinRes = await request.post(
       `${runtime.apiBaseUrl}/api/tradesmen/join`,
-      { data: lead.toJoinPayload() }
+      {
+        data: lead.toJoinPayload(),
+      },
     );
     expect(joinRes.status()).toBe(201);
 
@@ -220,19 +230,19 @@ test.describe("POST /api/admin/tradesmen/:uid/status (promotion)", () => {
     const targetClient = await authedApiForUid(
       request,
       runtime.apiBaseUrl,
-      targetUid
+      targetUid,
     );
     await targetClient.post("/api/account", { username: uniq("u") });
 
     const promoteRes = await adminApiClient.post(
       `/api/admin/tradesmen/${leadId}/status`,
-      { status: "active", assignTo: targetUid }
+      { status: "active", assignTo: targetUid },
     );
     expect(promoteRes.status()).toBe(200);
 
     const draftRes = await adminApiClient.post(
       `/api/admin/tradesmen/${targetUid}/status`,
-      { status: "draft" }
+      { status: "draft" },
     );
     expect(draftRes.status()).toBe(200);
 
@@ -244,7 +254,7 @@ test.describe("POST /api/admin/tradesmen/:uid/status (promotion)", () => {
     expect(body.tradesman.user_id).toBe(targetUid);
     expect(String(body.tradesman.status || "").toLowerCase()).toBe("draft");
     expect(String(body.tradesman.verification_status || "").toLowerCase()).toBe(
-      "unverified"
+      "unverified",
     );
   });
 
@@ -264,7 +274,9 @@ test.describe("POST /api/admin/tradesmen/:uid/status (promotion)", () => {
 
     const joinRes = await request.post(
       `${runtime.apiBaseUrl}/api/tradesmen/join`,
-      { data: lead.toJoinPayload() }
+      {
+        data: lead.toJoinPayload(),
+      },
     );
     expect(joinRes.status()).toBe(201);
 
@@ -273,9 +285,7 @@ test.describe("POST /api/admin/tradesmen/:uid/status (promotion)", () => {
 
     const res = await adminApiClient.post(
       `/api/admin/tradesmen/${leadId}/status`,
-      {
-        status: "active",
-      }
+      { status: "active" },
     );
 
     expect(res.status()).toBe(400);
@@ -295,7 +305,9 @@ test.describe("POST /api/admin/tradesmen/:uid/status (promotion)", () => {
 
     const joinRes = await request.post(
       `${runtime.apiBaseUrl}/api/tradesmen/join`,
-      { data: lead.toJoinPayload() }
+      {
+        data: lead.toJoinPayload(),
+      },
     );
     expect(joinRes.status()).toBe(201);
 
@@ -304,9 +316,7 @@ test.describe("POST /api/admin/tradesmen/:uid/status (promotion)", () => {
 
     const res = await adminApiClient.post(
       `/api/admin/tradesmen/${leadId}/status`,
-      {
-        status: "banana",
-      }
+      { status: "banana" },
     );
 
     expect(res.status()).toBe(400);
@@ -318,10 +328,7 @@ test.describe("POST /api/admin/tradesmen/:uid/status (promotion)", () => {
 
     const res = await adminApiClient.post(
       `/api/admin/tradesmen/${missingUid}/status`,
-      {
-        status: "active",
-        assignTo: "some-uid",
-      }
+      { status: "active", assignTo: "some-uid" },
     );
 
     expect(res.status()).toBe(404);
@@ -331,13 +338,13 @@ test.describe("POST /api/admin/tradesmen/:uid/status (promotion)", () => {
   test("401 unauthenticated", async ({ request, runtime }) => {
     const res = await request.post(
       `${runtime.apiBaseUrl}/api/admin/tradesmen/lead_x/status`,
-      { data: { status: "active", assignTo: "any" } }
+      { data: { status: "active", assignTo: "any" } },
     );
 
     expect(res.status()).toBe(401);
   });
 
-  test("non-admin user is blocked (401/403 depending on requireAdmin)", async ({
+  test("non-admin user is blocked (403 returned)", async ({
     request,
     runtime,
   }) => {
@@ -349,16 +356,16 @@ test.describe("POST /api/admin/tradesmen/:uid/status (promotion)", () => {
       assignTo: "any",
     });
 
-    expect([401, 403]).toContain(res.status());
+    expect(res.status()).toBe(403);
   });
 
-  test("GET is not allowed (expect 404/405 depending on server)", async ({
+  test("GET is not allowed (404 returned)", async ({
     request,
     runtime,
   }) => {
     const res = await request.get(
-      `${runtime.apiBaseUrl}/api/admin/tradesmen/lead_x/status`
+      `${runtime.apiBaseUrl}/api/admin/tradesmen/lead_x/status`,
     );
-    expect([404, 405]).toContain(res.status());
+    expect(res.status()).toBe(404);
   });
 });

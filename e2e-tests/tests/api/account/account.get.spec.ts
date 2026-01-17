@@ -1,12 +1,13 @@
+// tests/api/account/account.get.spec.ts
 import { test, expect } from "../../../src/fixtures";
-import { authedApiForUid } from "../../../src/api/client";
 
 test.describe("GET /api/account", () => {
   test("returns the current user", async ({ apiClient }) => {
     const res = await apiClient.get("/api/account");
     expect(res.status()).toBe(200);
 
-    const { user } = await res.json();
+    const body: any = await res.json();
+    const user = body?.user;
 
     expect(user).toBeTruthy();
     expect(user.uid).toBeTruthy();

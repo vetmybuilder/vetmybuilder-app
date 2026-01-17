@@ -1,13 +1,13 @@
 import { test, expect } from "../../../src/fixtures";
 import Project from "../../../src/models/project";
 import Recommendation from "../../../src/models/Recommendation";
-import { authedApiForUid } from "../../../src/api/client";
+import { authedApiForUid } from "../../../src/api/services/client";
 
 test.describe("POST /api/projects/:id/recommendations", () => {
   test("creates a recommendation", async ({ apiClient }) => {
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(projectRes.status()).toBe(201);
 
@@ -17,7 +17,7 @@ test.describe("POST /api/projects/:id/recommendations", () => {
 
     const res = await apiClient.post(
       `/api/projects/${project.id}/recommendations`,
-      rec.toPayload()
+      rec.toPayload(),
     );
     expect(res.status()).toBe(201);
 
@@ -35,7 +35,7 @@ test.describe("POST /api/projects/:id/recommendations", () => {
 
     const res = await apiClient.post(
       "/api/projects/nope/recommendations",
-      rec.toPayload()
+      rec.toPayload(),
     );
 
     expect(res.status()).toBe(400);
@@ -45,7 +45,7 @@ test.describe("POST /api/projects/:id/recommendations", () => {
   test("400 Invalid payload", async ({ apiClient }) => {
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(projectRes.status()).toBe(201);
 
@@ -57,7 +57,7 @@ test.describe("POST /api/projects/:id/recommendations", () => {
         name: "",
         company: "",
         comment: "",
-      }
+      },
     );
 
     expect(res.status()).toBe(400);
@@ -72,7 +72,7 @@ test.describe("POST /api/projects/:id/recommendations", () => {
   }) => {
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(projectRes.status()).toBe(201);
 
@@ -82,7 +82,7 @@ test.describe("POST /api/projects/:id/recommendations", () => {
 
     const res = await apiClient.post(
       `/api/projects/${project.id}/recommendations`,
-      rec.toPayload()
+      rec.toPayload(),
     );
     expect(res.status()).toBe(201);
 
@@ -98,7 +98,7 @@ test.describe("POST /api/projects/:id/recommendations", () => {
   }) => {
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(projectRes.status()).toBe(201);
 
@@ -110,7 +110,7 @@ test.describe("POST /api/projects/:id/recommendations", () => {
 
     const res = await request.post(
       `${runtime.apiBaseUrl}/api/projects/${project.id}/recommendations`,
-      { data: rec.toPayload() }
+      { data: rec.toPayload() },
     );
 
     expect(res.status()).toBe(201);
@@ -125,7 +125,7 @@ test.describe("POST /api/projects/:id/recommendations", () => {
   }) => {
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(projectRes.status()).toBe(201);
 
@@ -138,7 +138,7 @@ test.describe("POST /api/projects/:id/recommendations", () => {
       Recommendation.aRecommendation()
         .withRandomDetails()
         .withCompany(canonical)
-        .toPayload()
+        .toPayload(),
     );
 
     const secondRes = await apiClient.post(
@@ -146,7 +146,7 @@ test.describe("POST /api/projects/:id/recommendations", () => {
       Recommendation.aRecommendation()
         .withRandomDetails()
         .withCompany("acme plumbing ltd")
-        .toPayload()
+        .toPayload(),
     );
 
     const body = await secondRes.json();
@@ -157,7 +157,7 @@ test.describe("POST /api/projects/:id/recommendations", () => {
   test("can upload photos with a recommendation", async ({ apiClient }) => {
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(projectRes.status()).toBe(201);
 
@@ -172,7 +172,7 @@ test.describe("POST /api/projects/:id/recommendations", () => {
 
     const res = await apiClient.postMultipart(
       `/api/projects/${project.id}/recommendations`,
-      rec.toMultipartPayload()
+      rec.toMultipartPayload(),
     );
 
     expect(res.status()).toBe(201);
@@ -182,7 +182,7 @@ test.describe("POST /api/projects/:id/recommendations", () => {
 
     const created = await apiClient.getProjectRecommendation(
       project.id,
-      body.recommendationId
+      body.recommendationId,
     );
 
     expect(created).toBeTruthy();
@@ -197,42 +197,37 @@ test.describe("POST /api/projects/:id/recommendations", () => {
     request,
     runtime,
   }) => {
-    // Owner creates project
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(projectRes.status()).toBe(201);
 
     const { project } = await projectRes.json();
 
-    // Owner publishes project (makes it live)
     const publishRes = await apiClient.post(
-      `/api/projects/${project.id}/publish`
+      `/api/projects/${project.id}/publish`,
     );
     expect(publishRes.status()).toBe(200);
 
-    // Owner adds a recommendation
     const recRes = await apiClient.post(
       `/api/projects/${project.id}/recommendations`,
-      Recommendation.aRecommendation().withRandomDetails().toPayload()
+      Recommendation.aRecommendation().withRandomDetails().toPayload(),
     );
     expect(recRes.status()).toBe(201);
 
     const { recommendationId } = await recRes.json();
     expect(recommendationId).toBeTruthy();
 
-    // Different user (non-owner)
     const otherUid = `viewer-${Date.now()}`;
     const otherClient = await authedApiForUid(
       request,
       runtime.apiBaseUrl,
-      otherUid
+      otherUid,
     );
 
-    // Non-owner can now view recommendations because project is live
     const getRes = await otherClient.get(
-      `/api/projects/${project.id}/recommendations`
+      `/api/projects/${project.id}/recommendations`,
     );
     expect(getRes.status()).toBe(200);
 
@@ -245,33 +240,29 @@ test.describe("POST /api/projects/:id/recommendations", () => {
     request,
     runtime,
   }) => {
-    // Owner creates project (defaults to draft)
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(projectRes.status()).toBe(201);
 
     const { project } = await projectRes.json();
 
-    // Owner adds a recommendation (owner can do this)
     const recRes = await apiClient.post(
       `/api/projects/${project.id}/recommendations`,
-      Recommendation.aRecommendation().withRandomDetails().toPayload()
+      Recommendation.aRecommendation().withRandomDetails().toPayload(),
     );
     expect(recRes.status()).toBe(201);
 
-    // Different user (non-owner)
     const otherUid = `viewer-${Date.now()}`;
     const otherClient = await authedApiForUid(
       request,
       runtime.apiBaseUrl,
-      otherUid
+      otherUid,
     );
 
-    // Non-owner should NOT be able to view because project is still draft
     const getRes = await otherClient.get(
-      `/api/projects/${project.id}/recommendations`
+      `/api/projects/${project.id}/recommendations`,
     );
 
     expect(getRes.status()).toBe(404);

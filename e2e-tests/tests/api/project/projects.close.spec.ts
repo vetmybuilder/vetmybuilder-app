@@ -1,43 +1,35 @@
 import { test, expect } from "../../../src/fixtures";
 import Project from "../../../src/models/project";
 import Recommendation from "../../../src/models/Recommendation";
-import { authedApiForUid } from "../../../src/api/client";
+import { authedApiForUid } from "../../../src/api/services/client";
 
 test.describe("POST /api/projects/:id/close", () => {
   test("owner can close a project as completed when didGoAhead=true and winnerRecommendationId is provided", async ({
     apiClient,
   }) => {
-    // Owner creates project
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(projectRes.status()).toBe(201);
 
     const { project } = await projectRes.json();
 
-    // Owner adds a recommendation
     const recRes = await apiClient.post(
       `/api/projects/${project.id}/recommendations`,
-      Recommendation.aRecommendation().withRandomDetails().toPayload()
+      Recommendation.aRecommendation().withRandomDetails().toPayload(),
     );
     expect(recRes.status()).toBe(201);
 
     const recBody = await recRes.json();
     expect(recBody.recommendationId).toBeTruthy();
 
-    // Owner closes project with a winner
     const closeRes = await apiClient.post(`/api/projects/${project.id}/close`, {
       didGoAhead: true,
       winnerRecommendationId: recBody.recommendationId,
       wouldUseAgain: true,
       reasons: [],
     });
-
-    if (closeRes.status() !== 200) {
-      const text = await closeRes.text();
-      console.log("CLOSE 500 BODY:", text);
-    }
 
     expect(closeRes.status()).toBe(200);
 
@@ -48,16 +40,14 @@ test.describe("POST /api/projects/:id/close", () => {
   });
 
   test("didGoAhead=false archives the project", async ({ apiClient }) => {
-    // Owner creates a project
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(projectRes.status()).toBe(201);
 
     const { project } = await projectRes.json();
 
-    // Owner closes it (did NOT go ahead)
     const closeRes = await apiClient.post(`/api/projects/${project.id}/close`, {
       didGoAhead: false,
       reasons: ["budget"],
@@ -95,24 +85,23 @@ test.describe("POST /api/projects/:id/close", () => {
   test("403 non-owner cannot close project", async ({
     apiClient,
     request,
-  }, testInfo) => {
-    // Owner creates project
+    runtime,
+  }) => {
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(projectRes.status()).toBe(201);
 
     const { project } = await projectRes.json();
 
-    // Different user
     const otherUid = `not-owner-${Date.now()}`;
-    const baseURL = (testInfo?.project?.use as any)?.baseURL as string;
-    if (!baseURL) throw new Error("Missing project baseURL");
+    const otherClient = await authedApiForUid(
+      request,
+      runtime.apiBaseUrl,
+      otherUid,
+    );
 
-    const otherClient = await authedApiForUid(request, baseURL, otherUid);
-
-    // Non-owner attempts to close
     const res = await otherClient.post(`/api/projects/${project.id}/close`, {
       didGoAhead: false,
     });
@@ -126,7 +115,7 @@ test.describe("POST /api/projects/:id/close", () => {
   }) => {
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(projectRes.status()).toBe(201);
 
@@ -151,7 +140,7 @@ test.describe("POST /api/projects/:id/close", () => {
   }) => {
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(projectRes.status()).toBe(201);
 
@@ -159,7 +148,7 @@ test.describe("POST /api/projects/:id/close", () => {
 
     const recRes = await apiClient.post(
       `/api/projects/${project.id}/recommendations`,
-      Recommendation.aRecommendation().withRandomDetails().toPayload()
+      Recommendation.aRecommendation().withRandomDetails().toPayload(),
     );
     expect(recRes.status()).toBe(201);
 
@@ -186,7 +175,7 @@ test.describe("POST /api/projects/:id/close", () => {
   }) => {
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(projectRes.status()).toBe(201);
 

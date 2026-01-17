@@ -1,12 +1,12 @@
 import { test, expect } from "../../../src/fixtures";
 import Project from "../../../src/models/project";
-import { authedApiForUid } from "../../../src/api/client";
+import { authedApiForUid } from "../../../src/api/services/client";
 
 test.describe("POST /api/projects/:id/close/photos", () => {
   test("owner can upload closure photos", async ({ apiClient }) => {
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(projectRes.status()).toBe(201);
 
@@ -16,7 +16,7 @@ test.describe("POST /api/projects/:id/close/photos", () => {
 
     const res = await apiClient.uploadProjectClosePhotos(
       project.id,
-      photoPaths
+      photoPaths,
     );
 
     expect(res.status()).toBe(201);
@@ -43,24 +43,21 @@ test.describe("POST /api/projects/:id/close/photos", () => {
     expect(await res.json()).toEqual({ error: "Not found" });
   });
 
-  test("403 Forbidden (non-owner)", async ({
-    apiClient,
-    request,
-  }, testInfo) => {
+  test("403 Forbidden (non-owner)", async ({ apiClient, request, runtime }) => {
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(projectRes.status()).toBe(201);
 
     const { project } = await projectRes.json();
 
     const otherUid = `not-owner-${Date.now()}`;
-
-    const baseURL = (testInfo?.project?.use as any)?.baseURL as string;
-    if (!baseURL) throw new Error("Missing project baseURL");
-
-    const otherClient = await authedApiForUid(request, baseURL, otherUid);
+    const otherClient = await authedApiForUid(
+      request,
+      runtime.apiBaseUrl,
+      otherUid,
+    );
 
     const res = await otherClient.uploadProjectClosePhotos(project.id, [
       "src/files/photo1.jpg",
@@ -75,7 +72,7 @@ test.describe("POST /api/projects/:id/close/photos", () => {
   }) => {
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(projectRes.status()).toBe(201);
 
@@ -85,7 +82,7 @@ test.describe("POST /api/projects/:id/close/photos", () => {
       `/api/projects/${project.id}/close/photos`,
       {
         anything: "not-multipart",
-      }
+      },
     );
 
     expect(res.status()).toBe(200);
@@ -95,13 +92,12 @@ test.describe("POST /api/projects/:id/close/photos", () => {
   test("uploads are limited to 20 photos", async ({ apiClient }) => {
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(projectRes.status()).toBe(201);
 
     const { project } = await projectRes.json();
 
-    // Reuse the 6 fixture photos to build a 21 item list
     const base = [
       "src/files/photo1.jpg",
       "src/files/photo2.jpg",
@@ -115,7 +111,7 @@ test.describe("POST /api/projects/:id/close/photos", () => {
 
     const res = await apiClient.uploadProjectClosePhotos(
       project.id,
-      photoPaths
+      photoPaths,
     );
 
     expect(res.status()).toBe(201);
@@ -125,7 +121,7 @@ test.describe("POST /api/projects/:id/close/photos", () => {
   test("owner can upload a single closure photo", async ({ apiClient }) => {
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(projectRes.status()).toBe(201);
 
@@ -142,7 +138,7 @@ test.describe("POST /api/projects/:id/close/photos", () => {
   test("returns 401 when user is not authenticated", async ({ apiClient }) => {
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(projectRes.status()).toBe(201);
 
@@ -160,7 +156,7 @@ test.describe("POST /api/projects/:id/close/photos", () => {
   }) => {
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(projectRes.status()).toBe(201);
 

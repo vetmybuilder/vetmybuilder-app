@@ -2,7 +2,7 @@ import { test as base, expect } from "@playwright/test";
 import { getRuntime } from "./config/runtime";
 import { ensureDatabase, applySchema, seedUsers } from "./db/manage-db";
 import { wipeDatabase } from "./db/wipe";
-import { api, authedApiForUid } from "./api/client";
+import { api, authedApiForUid } from "./api/services/client";
 
 type Runtime = ReturnType<typeof getRuntime>;
 type ApiClient = ReturnType<typeof api>;

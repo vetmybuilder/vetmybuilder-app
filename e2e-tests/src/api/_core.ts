@@ -2,17 +2,17 @@ import { expect, type APIRequestContext, type Page } from "@playwright/test";
 import fs from "fs";
 import path from "path";
 
-type AccountExpectation = {
+export type AccountExpectation = {
   firstName?: string | null;
   lastName?: string | null;
   username?: string | null;
 };
 
-type MultipartPayload =
+export type MultipartPayload =
   | Record<string, any>
   | { fields: Record<string, any>; photos?: string[] };
 
-type ResponseLike = {
+export type ResponseLike = {
   status(): number;
   ok(): boolean;
   json(): Promise<any>;
@@ -26,12 +26,70 @@ type BrowserMultipartArgs = {
   authHeader: string;
 };
 
-export function api(
-  request: APIRequestContext,
-  baseUrl: string,
-  bearerToken?: string,
-  page?: Page
-) {
+export type ApiCore = {
+  request: APIRequestContext;
+  baseUrl: string;
+  headers: Record<string, string>;
+  page?: Page;
+
+  get: (urlPath: string) => Promise<any>;
+  post: (urlPath: string, data?: any) => Promise<any>;
+  put: (urlPath: string, data?: any) => Promise<any>;
+  del: (urlPath: string) => Promise<any>;
+
+  getJson: (urlPath: string) => Promise<{ res: any; json: any }>;
+  waitForAccount: (expected: AccountExpectation) => Promise<any>;
+
+  postMultipart: (
+    urlPath: string,
+    data: MultipartPayload,
+  ) => Promise<ResponseLike>;
+
+  // kept for compatibility if anything still calls it
+  postMultipartViaBrowser: (
+    urlPath: string,
+    payload: { fields: Record<string, any>; photos?: string[] },
+  ) => Promise<ResponseLike>;
+};
+
+function cleanFields(fields: Record<string, any>) {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(fields || {})) {
+    if (v === undefined || v === null) continue;
+    out[k] = String(v);
+  }
+  return out;
+}
+
+function guessMimeType(filePath: string) {
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
+  if (ext === ".png") return "image/png";
+  if (ext === ".webp") return "image/webp";
+  if (ext === ".gif") return "image/gif";
+  if (ext === ".txt") return "text/plain";
+  return "application/octet-stream";
+}
+
+export function safeTrim(v: any) {
+  return String(v ?? "").trim();
+}
+
+export function encodeIdForPath(idRaw: any) {
+  // IMPORTANT:
+  // - If you pass "" here, you'll end up with ".../tradesmen//favourite" which won't match the route => 404
+  // - Specs that want to hit the route with "blank" should use the ViaUrlParam helpers that encode spaces ("%20")
+  return encodeURIComponent(safeTrim(idRaw));
+}
+
+export function createApiCore(args: {
+  request: APIRequestContext;
+  baseUrl: string;
+  bearerToken?: string;
+  page?: Page;
+}): ApiCore {
+  const { request, baseUrl, bearerToken, page } = args;
+
   const headers: Record<string, string> = {};
   if (bearerToken) headers.Authorization = `Bearer ${bearerToken}`;
 
@@ -66,13 +124,11 @@ export function api(
           user.firstName !== expected.firstName
         )
           return false;
-
         if (
           expected.lastName !== undefined &&
           user.lastName !== expected.lastName
         )
           return false;
-
         if (
           expected.username !== undefined &&
           user.username !== expected.username
@@ -85,27 +141,6 @@ export function api(
 
     const { json } = await getJson("/api/account");
     return json?.user ?? null;
-  }
-
-  function cleanFields(fields: Record<string, any>) {
-    const out: Record<string, string> = {};
-    for (const [k, v] of Object.entries(fields || {})) {
-      if (v === undefined || v === null) continue;
-      out[k] = String(v);
-    }
-    return out;
-  }
-
-  function guessMimeType(filePath: string) {
-    const ext = path.extname(filePath).toLowerCase();
-
-    if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
-    if (ext === ".png") return "image/png";
-    if (ext === ".webp") return "image/webp";
-    if (ext === ".gif") return "image/gif";
-    if (ext === ".txt") return "text/plain";
-
-    return "application/octet-stream";
   }
 
   function readPhotos(photoPaths: string[]) {
@@ -121,11 +156,11 @@ export function api(
 
   async function postMultipartViaBrowser(
     urlPath: string,
-    payload: { fields: Record<string, any>; photos?: string[] }
+    payload: { fields: Record<string, any>; photos?: string[] },
   ): Promise<ResponseLike> {
     if (!page) {
       throw new Error(
-        "postMultipart requires Playwright 'page' when uploading multiple photos"
+        "postMultipart requires Playwright 'page' when uploading multiple photos",
       );
     }
 
@@ -134,25 +169,21 @@ export function api(
     const photos = payload.photos?.length ? readPhotos(payload.photos) : [];
 
     const result = await page.evaluate(
-      async (args: BrowserMultipartArgs) => {
+      async (p: BrowserMultipartArgs) => {
         const fd = new FormData();
+        for (const [k, v] of Object.entries(p.fields)) fd.set(k, v);
 
-        for (const [k, v] of Object.entries(args.fields)) {
-          fd.set(k, v);
-        }
-
-        for (const p of args.photos) {
-          const bin = atob(p.b64);
+        for (const photo of p.photos) {
+          const bin = atob(photo.b64);
           const bytes = new Uint8Array(bin.length);
           for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-
-          const file = new File([bytes], p.name, { type: p.mimeType });
-          fd.append("photos", file, p.name);
+          const file = new File([bytes], photo.name, { type: photo.mimeType });
+          fd.append("photos", file, photo.name);
         }
 
-        const res = await fetch(args.url, {
+        const res = await fetch(p.url, {
           method: "POST",
-          headers: args.authHeader ? { Authorization: args.authHeader } : {},
+          headers: p.authHeader ? { Authorization: p.authHeader } : {},
           body: fd,
         });
 
@@ -164,7 +195,7 @@ export function api(
         fields,
         photos,
         authHeader: headers.Authorization || "",
-      }
+      },
     );
 
     return {
@@ -183,17 +214,14 @@ export function api(
 
   async function postMultipartViaNodeFetch(
     urlPath: string,
-    payload: { fields: Record<string, any>; photos?: string[] }
+    payload: { fields: Record<string, any>; photos?: string[] },
   ): Promise<ResponseLike> {
     const url = baseUrl + urlPath;
     const fields = cleanFields(payload.fields);
     const photoPaths = Array.isArray(payload.photos) ? payload.photos : [];
 
     const fd = new FormData();
-
-    for (const [k, v] of Object.entries(fields)) {
-      fd.set(k, v);
-    }
+    for (const [k, v] of Object.entries(fields)) fd.set(k, v);
 
     for (const pRaw of photoPaths) {
       const p = resolveFilePath(pRaw);
@@ -227,14 +255,13 @@ export function api(
 
   async function postMultipart(
     urlPath: string,
-    data: MultipartPayload
+    data: MultipartPayload,
   ): Promise<ResponseLike> {
     if ((data as any)?.fields) {
       const { fields, photos } = data as {
         fields: Record<string, any>;
         photos?: string[];
       };
-
       const photoPaths = Array.isArray(photos) ? photos : [];
 
       if (photoPaths.length > 1) {
@@ -267,124 +294,26 @@ export function api(
     return res as unknown as ResponseLike;
   }
 
-  async function getProjectRecommendation(projectId: number, recId: number) {
-    const res = await request.get(
-      `${baseUrl}/api/projects/${projectId}/recommendations`,
-      { headers }
-    );
-
-    expect(res.ok()).toBe(true);
-
-    const body = await res.json();
-    const items = Array.isArray(body?.items) ? body.items : [];
-    const item = items.find((r: any) => r && r.id === recId);
-
-    return item || null;
-  }
-
-  async function uploadProjectClosePhotos(
-    projectId: number,
-    photoPaths: string[]
-  ) {
-    const payload = { fields: {}, photos: photoPaths };
-    return postMultipart(`/api/projects/${projectId}/close/photos`, payload);
-  }
-
-  async function uploadProjectClosePhotosUnauthed(
-    projectId: number,
-    photoPaths: string[]
-  ) {
-    const multipart: Record<string, any> = {};
-
-    if (photoPaths.length > 0) {
-      const p = resolveFilePath(photoPaths[0]!);
-      multipart.photos = {
-        name: path.basename(p),
-        mimeType: "image/jpeg",
-        buffer: fs.readFileSync(p),
-      };
-    }
-
-    return request.post(`${baseUrl}/api/projects/${projectId}/close/photos`, {
-      multipart,
-    });
-  }
-
-  async function createProjectMagicLink(projectId: number) {
-    return request.post(`${baseUrl}/api/projects/${projectId}/magic-link`, {
-      headers,
-    });
-  }
-
-  async function rotateProjectMagicLink(projectId: number) {
-    return request.post(
-      `${baseUrl}/api/projects/${projectId}/magic-link?rotate=1`,
-      { headers }
-    );
-  }
-
-  async function postMagicRecommendation(token: string, payload: any) {
-    return request.post(`${baseUrl}/api/recommendations/magic/${token}`, {
-      data: payload,
-      headers,
-    });
-  }
-
-  async function getTradesmanMe() {
-    return request.get(`${baseUrl}/api/tradesmen/me`, { headers });
-  }
-
-  async function getTradesmanMeUnauthed() {
-    return request.get(`${baseUrl}/api/tradesmen/me`);
-  }
-
-  return {
+  const http = {
     get: (urlPath: string) => request.get(baseUrl + urlPath, { headers }),
     post: (urlPath: string, data?: any) =>
       request.post(baseUrl + urlPath, { data, headers }),
     put: (urlPath: string, data?: any) =>
       request.put(baseUrl + urlPath, { data, headers }),
     del: (urlPath: string) => request.delete(baseUrl + urlPath, { headers }),
+  };
 
+  return {
+    request,
+    baseUrl,
+    headers,
+    page,
+
+    ...http,
     getJson,
     waitForAccount,
-    postMultipart,
-    getProjectRecommendation,
-    uploadProjectClosePhotos,
-    uploadProjectClosePhotosUnauthed,
-    createProjectMagicLink,
-    rotateProjectMagicLink,
-    postMagicRecommendation,
-    getTradesmanMe,
-    getTradesmanMeUnauthed,
 
-    // kept for compatibility if you still call it anywhere
+    postMultipart,
     postMultipartViaBrowser,
   };
-}
-
-export async function authedApiForUid(
-  request: APIRequestContext,
-  baseUrl: string,
-  uid: string,
-  page?: Page
-) {
-  if (baseUrl.includes(":3000")) {
-    throw new Error(
-      `INVALID baseUrl passed to authedApiForUid: ${baseUrl} Use Playwright project baseURL (3100+) instead`
-    );
-  }
-
-  const secret = process.env.E2E_TEST_SECRET;
-  if (!secret) throw new Error("Missing E2E_TEST_SECRET");
-
-  const res = await request.post(`${baseUrl}/api/__test__/auth/id-token`, {
-    headers: { "X-Test-Secret": secret },
-    data: { uid },
-  });
-
-  if (!res.ok()) throw new Error(`Failed to mint token: ${res.status()}`);
-
-  const { idToken } = await res.json();
-  return api(request, baseUrl, idToken, page);
 }

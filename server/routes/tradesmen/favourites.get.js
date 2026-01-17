@@ -6,52 +6,70 @@ module.exports = (router, ctx) => {
 
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
-  const parseServiceAreas = (serviceAreas) => {
+  function parseServiceAreas(serviceAreas) {
     if (!serviceAreas) return [];
+
     try {
       const parsed = JSON.parse(serviceAreas);
-      if (Array.isArray(parsed))
-        return parsed.filter(Boolean).map((v) => String(v).trim());
-      if (parsed && typeof parsed === "object")
+
+      if (Array.isArray(parsed)) {
+        return parsed.map((v) => String(v || "").trim()).filter(Boolean);
+      }
+
+      if (parsed && typeof parsed === "object") {
         return Object.values(parsed)
-          .filter(Boolean)
-          .map((v) => String(v).trim());
-    } catch {}
+          .map((v) => String(v || "").trim())
+          .filter(Boolean);
+      }
+    } catch {
+      // fall through
+    }
+
     return String(serviceAreas)
       .split(/[,\s]+/)
       .map((s) => s.trim())
       .filter(Boolean);
-  };
+  }
 
-  const normaliseTier = (row) => {
-    const raw =
-      (row.plan || row.purchased_plan || row.subscription_status || "free") +
-      "";
-    const t = raw.toLowerCase();
-    if (["spotlight", "gold", "unlock", "free"].includes(t)) return t;
-    if (t.includes("spot")) return "spotlight";
-    if (t.includes("gold")) return "gold";
-    if (t.includes("unlock")) return "unlock";
+  function normaliseTier(row) {
+    const raw = String(
+      row.plan || row.purchased_plan || row.subscription_status || "free",
+    )
+      .trim()
+      .toLowerCase();
+
+    if (["spotlight", "gold", "unlock", "free"].includes(raw)) return raw;
+    if (raw.includes("spot")) return "spotlight";
+    if (raw.includes("gold")) return "gold";
+    if (raw.includes("unlock")) return "unlock";
     return "free";
-  };
+  }
 
-  const makeAbsolute = (path) => {
-    if (!path) return null;
-    const s = String(path);
+  function makeAbsolute(urlOrPath) {
+    if (!urlOrPath) return null;
+
+    const s = String(urlOrPath).trim();
+    if (!s) return null;
     if (/^https?:\/\//i.test(s)) return s;
-    const base =
+
+    const base = (
       process.env.MEDIA_BASE_URL ||
       process.env.PUBLIC_BASE_URL ||
       process.env.NEXT_PUBLIC_API_BASE_URL ||
-      "";
-    if (!base) return s.startsWith("/") ? s : `/${s}`;
-    const cleanBase = base.endsWith("/") ? base.slice(0, -1) : base;
-    const cleanPath = s.startsWith("/") ? s : `/${s}`;
-    return `${cleanBase}${cleanPath}`;
-  };
+      ""
+    ).trim();
 
-  const resolvePhotoTable = async () => {
-    if (ctx._vmbPhotoTableResolved) return ctx._vmbPhotoTableResolved;
+    const cleanPath = s.startsWith("/") ? s : `/${s}`;
+    if (!base) return cleanPath;
+
+    const cleanBase = base.endsWith("/") ? base.slice(0, -1) : base;
+    return `${cleanBase}${cleanPath}`;
+  }
+
+  async function resolvePhotoTable() {
+    if (ctx._vmbPhotoTableResolved !== undefined)
+      return ctx._vmbPhotoTableResolved;
+
     try {
       const rows = await mysqlQuery(
         `
@@ -60,21 +78,24 @@ module.exports = (router, ctx) => {
          WHERE TABLE_SCHEMA = DATABASE()
            AND TABLE_NAME IN ('tradesmen_photos','tradesman_photos')
          LIMIT 1
-        `
+        `,
       );
+
       ctx._vmbPhotoTableResolved = rows[0]?.TABLE_NAME || null;
+      return ctx._vmbPhotoTableResolved;
     } catch (e) {
       log.warn?.(`${TAG} resolvePhotoTable failed`, { error: e?.message });
       ctx._vmbPhotoTableResolved = null;
+      return null;
     }
-    return ctx._vmbPhotoTableResolved;
-  };
+  }
 
-  const loadPhotosByBuilder = async (builderIds) => {
-    const map = {};
-    if (!builderIds?.length) return map;
+  async function loadPhotosByBuilder(builderIds) {
+    const out = {};
+    if (!Array.isArray(builderIds) || !builderIds.length) return out;
+
     const tbl = await resolvePhotoTable();
-    if (!tbl) return map;
+    if (!tbl) return out;
 
     try {
       const placeholders = builderIds.map(() => "?").join(",");
@@ -85,19 +106,21 @@ module.exports = (router, ctx) => {
          WHERE tradesman_user_id IN (${placeholders})
          ORDER BY tradesman_user_id, COALESCE(sort_order,999999), created_at
         `,
-        builderIds
+        builderIds,
       );
+
       for (const r of rows) {
-        const key = String(r.builderId);
-        if (!map[key]) map[key] = [];
-        map[key].push(r.url);
+        const key = String(r.builderId || "");
+        if (!key) continue;
+        if (!out[key]) out[key] = [];
+        out[key].push(r.url);
       }
     } catch (e) {
       log.warn?.(`${TAG} loadPhotosByBuilder error`, { error: e?.message });
     }
 
-    return map;
-  };
+    return out;
+  }
 
   router.get("/tradesmen/favourites", auth, async (req, res) => {
     const userId = req.user?.uid;
@@ -131,45 +154,55 @@ module.exports = (router, ctx) => {
           AND (t.status IS NULL OR LOWER(t.status) != 'banned')
         ORDER BY f.createdAt DESC
         `,
-        [userId]
+        [userId],
       );
     } catch (e) {
+      // Table doesn't exist yet (or schema not applied) -> treat as "no favourites"
       if (e?.errno === 1146) {
-        log.warn?.(`${TAG} favourites table missing`);
+        if (!ctx.__warned_missing_favourite_tradesmen) {
+          ctx.__warned_missing_favourite_tradesmen = true;
+          log.warn?.(`${TAG} favourite_tradesmen table missing`);
+        }
         return res.json({ items: [] });
       }
+
       log.error?.(`${TAG} SELECT failed`, { error: e?.message });
       return res.status(500).json({ error: "FAILED" });
     }
 
-    if (!rows.length) return res.json({ items: [] });
+    if (!rows?.length) {
+      log.info?.(`${TAG} end`, { count: 0 });
+      return res.json({ items: [] });
+    }
 
-    const photos = await loadPhotosByBuilder(
-      rows.map((r) => String(r.builderId))
-    );
+    const builderIds = rows.map((r) => String(r.builderId));
+    const photosByBuilder = await loadPhotosByBuilder(builderIds);
 
     const items = rows.map((r) => {
       const builderId = String(r.builderId);
-      const serviceAreas = parseServiceAreas(r.service_areas);
-      const tier = normaliseTier(r);
-      const urls = photos[builderId] || [];
+      const urls = photosByBuilder[builderId] || [];
       const avatarUrl = urls.length ? makeAbsolute(urls[0]) : null;
+
+      const photoCountFromTradesmen = Number(r.photo_count);
+      const photosCount = Number.isFinite(photoCountFromTradesmen)
+        ? photoCountFromTradesmen
+        : urls.length;
 
       return {
         builderId,
         companyName: r.company_name || null,
         displayName: r.company_name || r.contact_name || "Tradesman",
-        tier,
-        badge: r.vmb_badge,
+        tier: normaliseTier(r),
+        badge: r.vmb_badge || null,
         score: Number(r.vmb_score ?? 0),
-        serviceAreas,
+        serviceAreas: parseServiceAreas(r.service_areas),
         avatarUrl,
         stats: {
           completed: Number(r.wins_count || 0),
-          photos: Number(r.photo_count || urls.length || 0),
+          photos: Number(photosCount || 0),
           reviews: Number(r.likes_count || 0),
         },
-        isFavourite: 1,
+        isFavourite: true,
       };
     });
 

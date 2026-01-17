@@ -1,5 +1,5 @@
 import { test, expect } from "../../../src/fixtures";
-import { authedApiForUid } from "../../../src/api/client";
+import { authedApiForUid } from "../../../src/api/services/client";
 import Tradesman from "../../../src/models/tradesman";
 
 test.describe("GET /api/tradesmen/me", () => {
@@ -24,7 +24,7 @@ test.describe("GET /api/tradesmen/me", () => {
 
     const putRes = await apiClient.put(
       "/api/tradesmen/me",
-      tradesman.toPayload()
+      tradesman.toPayload(),
     );
     expect(putRes.status()).toBe(200);
 
@@ -48,7 +48,7 @@ test.describe("GET /api/tradesmen/me", () => {
 
     const putRes = await apiClient.put(
       "/api/tradesmen/me",
-      tradesman.toPayload()
+      tradesman.toPayload(),
     );
     expect(putRes.status()).toBe(200);
 
