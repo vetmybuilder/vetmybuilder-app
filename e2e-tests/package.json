@@ -5,10 +5,12 @@
   "description": "Playwright E2E/API test framework for VetMyBuilder",
   "scripts": {
     "test": "playwright test",
-    "test:headed": "playwright test --headed",
-    "test:ui": "playwright test --ui",
+    "test:api": "playwright test tests/api --project shard-1 --project shard-2 --project shard-3 --project shard-4",
+    "test:api:headed": "playwright test tests/api --headed --project shard-1 --project shard-2 --project shard-3 --project shard-4",
+    "test:ui": "playwright test tests/ui --project ui",
+    "test:ui:headed": "playwright test tests/ui --headed --project ui",
     "report": "playwright show-report",
-    "codegen": "playwright codegen"
+    "codegen": "playwright codegen http://localhost:3000"
   },
   "devDependencies": {
     "@playwright/test": "^1.47.2",

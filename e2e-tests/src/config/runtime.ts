@@ -56,7 +56,7 @@ function getShardLabel(shardIndex: number, totalShards: number): string {
  */
 export function getRuntime(
   workerIndex = 0,
-  shardIndexOverride?: number
+  shardIndexOverride?: number,
 ): Runtime {
   const totalShards = Number(env("TEST_TOTAL_SHARDS", "4"));
 
@@ -74,7 +74,7 @@ export function getRuntime(
   const basePort = Number(env("WEB_BASE_PORT", "3000"));
   const port = basePort + shardIndex;
 
-  const apiBaseUrl = `http://127.0.0.1:${port}`;
+  const apiBaseUrl = `http://localhost:${port}`;
   const webBaseUrl = apiBaseUrl; // API-only mode for e2e
 
   return {

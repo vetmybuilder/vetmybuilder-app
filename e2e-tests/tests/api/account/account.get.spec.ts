@@ -1,4 +1,3 @@
-// tests/api/account/account.get.spec.ts
 import { test, expect } from "../../../src/fixtures";
 
 test.describe("GET /api/account", () => {
