@@ -1,4 +1,3 @@
-// server/buildRouter.js
 const { Router } = require("express");
 const { requireTradesman } = require("./lib/roles");
 const ensureAdminTables = require("./boot/ensureAdminTables");
@@ -34,7 +33,7 @@ function buildRouter(ctx) {
     ctx.UPLOAD_DIR = ctx.UPLOAD_DIR || uploads.UPLOAD_DIR;
   }
 
-  // Payments (mock) — attach if not already provided by the caller
+  // Payments (mock)
   if (!ctx.payments) {
     attachPayments(ctx);
   }
@@ -64,22 +63,14 @@ function buildRouter(ctx) {
     ctx.chDiag = ctx.chDiag || ch.chDiag;
   }
 
-  // Notifications (fallback is provided by index, but keep reference available)
-  ctx.notifyUsers = ctx.notifyUsers || ((/* db, uids, payload */) => {});
+  ctx.notifyUsers = ctx.notifyUsers || (() => {});
 
-  // Background verification queue (now MySQL-backed; ensureCompanyVerificationTable is a no-op)
   const ensureCompanyVerificationTable = require("./boot/ensureCompanyVerificationTable");
   ensureCompanyVerificationTable(ctx.db);
 
   const {
     makeQueueCompanyVerification,
   } = require("./lib/companyVerifyHelpers");
-
-  if (!ctx.mysqlQuery) {
-    throw new Error(
-      "buildRouter: ctx.mysqlQuery is required for company verification"
-    );
-  }
 
   ctx.queueCompanyVerification =
     ctx.queueCompanyVerification ||
@@ -88,7 +79,6 @@ function buildRouter(ctx) {
       matchByName: ctx.matchByName,
     });
 
-  // Auth middlewares (expect provided by index)
   if (!ctx.auth) {
     throw new Error("buildRouter: ctx.auth is required (auth middleware)");
   }
@@ -108,48 +98,48 @@ function buildRouter(ctx) {
 
   // ---------------- auth ----------------
   require("./routes/auth/check-email.post")(router, ctx);
+  require("./routes/auth/signup.post")(router, ctx);
 
   // ---------------- Notifications & SSE ----------------
-  require("./routes/notifications/stream.get")(router, ctx); //migrated
-  require("./routes/notifications/notifications.get")(router, ctx); //migrated
-  require("./routes/notifications/notification.read.post")(router, ctx); //migrated
-  require("./routes/notifications/read-all.post")(router, ctx); //migrated
+  require("./routes/notifications/stream.get")(router, ctx);
+  require("./routes/notifications/notifications.get")(router, ctx);
+  require("./routes/notifications/notification.read.post")(router, ctx);
+  require("./routes/notifications/read-all.post")(router, ctx);
 
   // ---------------- Account / Profile / Me ----------------
-  require("./routes/accounts/account.get")(router, ctx); //migrated
-  require("./routes/account/account.post")(router, ctx); //migrated
-  require("./routes/profile/profile.get")(router, ctx); //migrated
-  require("./routes/profile/profile.post")(router, ctx); //migrated
-  require("./routes/me/me.get")(router, ctx); //migrated
+  require("./routes/accounts/account.get")(router, ctx);
+  require("./routes/account/account.post")(router, ctx);
+  require("./routes/profile/profile.get")(router, ctx);
+  require("./routes/profile/profile.post")(router, ctx);
+  require("./routes/me/me.get")(router, ctx);
 
   // ---------------- Projects ----------------
-  require("./routes/projects/projects.get")(router, ctx); //migrated
-  require("./routes/projects/projects.post")(router, ctx); //migrated
-  require("./routes/projects/publish.post")(router, ctx); //migrated
-  require("./routes/projects/project.get")(router, ctx); //migrated
-  require("./routes/projects/project.put")(router, ctx); //migrated
-  require("./routes/projects/archive.post")(router, ctx); //migrated
-  require("./routes/projects/unarchive.post")(router, ctx); //migrated
-  require("./routes/projects/close.post")(router, ctx); //migrated
-  require("./routes/projects/close.photos.post")(router, ctx); //migrated
-  require("./routes/projects/close.photos.get")(router, ctx); //migrated
-  require("./routes/projects/project-closure.get")(router, ctx); //TODO: migrated but check if this route is used anywhere in flow
-  require("./routes/projects/magic-link.post")(router, ctx); //migrated
-  require("./routes/projects/owner-contact.get")(router, ctx); //migrated
-  require("./routes/projects/unlock-contact.checkout.post")(router, ctx); //migrated
-  require("./routes/projects/shares.get")(router, ctx); //migrated
+  require("./routes/projects/projects.get")(router, ctx);
+  require("./routes/projects/projects.post")(router, ctx);
+  require("./routes/projects/publish.post")(router, ctx);
+  require("./routes/projects/project.get")(router, ctx);
+  require("./routes/projects/project.put")(router, ctx);
+  require("./routes/projects/archive.post")(router, ctx);
+  require("./routes/projects/unarchive.post")(router, ctx);
+  require("./routes/projects/close.post")(router, ctx);
+  require("./routes/projects/close.photos.post")(router, ctx);
+  require("./routes/projects/close.photos.get")(router, ctx);
+  require("./routes/projects/project-closure.get")(router, ctx);
+  require("./routes/projects/magic-link.post")(router, ctx);
+  require("./routes/projects/owner-contact.get")(router, ctx);
+  require("./routes/projects/unlock-contact.checkout.post")(router, ctx);
+  require("./routes/projects/shares.get")(router, ctx);
 
-  // Project recommendations
   require("./routes/projects/recommendations.get")(router, ctx);
-  require("./routes/projects/recommendations.post")(router, ctx); //migrated
+  require("./routes/projects/recommendations.post")(router, ctx);
 
   // ---------------- Recommendations ----------------
-  require("./routes/recommendations/magic.post")(router, ctx); //TODO: migrated but check if this route is used anywhere in flow
-  require("./routes/recommendations/magic.get")(router, ctx); //migrated
-  require("./routes/recommendations/like.post")(router, ctx); //migrated
-  require("./routes/recommendations/ratings.recommendations.get")(router, ctx); //migrated
-  require("./routes/recommendations/recommendation.get")(router, ctx); //migrated
-  require("./routes/recommendations/verification.get")(router, ctx); //migrated
+  require("./routes/recommendations/magic.post")(router, ctx);
+  require("./routes/recommendations/magic.get")(router, ctx);
+  require("./routes/recommendations/like.post")(router, ctx);
+  require("./routes/recommendations/ratings.recommendations.get")(router, ctx);
+  require("./routes/recommendations/recommendation.get")(router, ctx);
+  require("./routes/recommendations/verification.get")(router, ctx);
 
   // ---------------- Companies House helpers ----------------
   require("./routes/verify-company.get")(router, ctx);
@@ -158,28 +148,27 @@ function buildRouter(ctx) {
 
   // ---------------- Debug ----------------
   require("./routes/debug/reclinks.get")(router, ctx);
-  // require("./routes/debug/leaderboard.get")(router, ctx);
-  require("./routes/debug/trades-role.get")(router, ctx); //migrated
+  require("./routes/debug/trades-role.get")(router, ctx);
   require("./routes/debug/routes.get")(router, ctx);
 
   // ---------------- Tradesmen / Builders ----------------
   require("./routes/tradesmen/jobs.get")(router, ctx);
-  require("./routes/tradesmen/me.get")(router, ctx); //migrated
-  require("./routes/tradesmen/me.put")(router, ctx); //migrated
-  require("./routes/tradesmen/join.post")(router, ctx); //migrated
-  require("./routes/tradesmen/interest.post")(router, ctx); //migrated
-  require("./routes/tradesmen/interest.get")(router, ctx); //migrated
-  require("./routes/tradesmen/leaderboard.get")(router, ctx); //migrated
+  require("./routes/tradesmen/me.get")(router, ctx);
+  require("./routes/tradesmen/me.put")(router, ctx);
+  require("./routes/tradesmen/join.post")(router, ctx);
+  require("./routes/tradesmen/interest.post")(router, ctx);
+  require("./routes/tradesmen/interest.get")(router, ctx);
+  require("./routes/tradesmen/leaderboard.get")(router, ctx);
   require("./routes/tradesmen/precheck.post")(router, ctx);
-  require("./routes/tradesmen/shares.post")(router, ctx); //migrated
-  require("./routes/tradesmen/shares.get")(router, ctx); //migrated
-  require("./routes/tradesmen/featured.get")(router, ctx); //migrated
-  require("./routes/tradesmen/spotlight.get")(router, ctx); //migrated
+  require("./routes/tradesmen/shares.post")(router, ctx);
+  require("./routes/tradesmen/shares.get")(router, ctx);
+  require("./routes/tradesmen/featured.get")(router, ctx);
+  require("./routes/tradesmen/spotlight.get")(router, ctx);
   require("./routes/tradesmen/upload-photos.post")(router, ctx);
-  require("./routes/tradesmen/favourites.get")(router, ctx); //migrated
-  require("./routes/tradesmen/tradesman.get")(router, ctx); //migrated
-  require("./routes/tradesmen/favourite.post")(router, ctx); //migrated
-  require("./routes/tradesmen/google-reviews.get")(router, ctx); //migrated
+  require("./routes/tradesmen/favourites.get")(router, ctx);
+  require("./routes/tradesmen/tradesman.get")(router, ctx);
+  require("./routes/tradesmen/favourite.post")(router, ctx);
+  require("./routes/tradesmen/google-reviews.get")(router, ctx);
 
   // ---------------- Plans ----------------
   require("./routes/meta/plans.get")(router, ctx);
@@ -187,12 +176,12 @@ function buildRouter(ctx) {
   // ---------------- Payments (mock) ----------------
   require("./routes/payments/checkout.post")(router, ctx);
   require("./routes/payments/checkout.session.get")(router, ctx);
-  require("./routes/payments/mock.pay.post")(router, ctx); //migrated
+  require("./routes/payments/mock.pay.post")(router, ctx);
   require("./routes/payments/mock.cancel.post")(router, ctx);
   require("./routes/payments/mock.session.get")(router, ctx);
-  require("./routes/payments/subscription.uncancel.post")(router, ctx); //migrated
-  require("./routes/payments/oneoff.spotlight.purchase.post")(router, ctx); //migrated
-  require("./routes/payments/spotlight.purchase.post")(router, ctx); //migrated
+  require("./routes/payments/subscription.uncancel.post")(router, ctx);
+  require("./routes/payments/oneoff.spotlight.purchase.post")(router, ctx);
+  require("./routes/payments/spotlight.purchase.post")(router, ctx);
   require("./routes/payments/mock.webhook.post")(router, ctx);
 
   // ---------------- Admin ----------------

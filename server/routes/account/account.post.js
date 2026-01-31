@@ -2,7 +2,7 @@
  * POST /api/account
  * Auth: required
  * Body: { firstName?, lastName?, username?, location? }
- * Effect: upsert user fields; updates location tokens
+ * Effect: upsert user fields; updates location tokens (only when provided)
  * Response: { ok: true }
  */
 const { updateUserLocationMysql } = require("../../lib/location");
@@ -22,18 +22,45 @@ module.exports = (router, ctx) => {
     const firstName = (req.body?.firstName ?? "").toString().trim() || null;
     const lastName = (req.body?.lastName ?? "").toString().trim() || null;
     const username = (req.body?.username ?? "").toString().trim() || null;
-    const location = (req.body?.location ?? "").toString().trim() || "";
+    const location = (req.body?.location ?? "").toString().trim() || null;
 
     try {
-      // 1) Enforce username uniqueness
+      const existing = await mysqlQuery(
+        `
+        SELECT firstName, lastName, username
+        FROM users
+        WHERE uid = ?
+        LIMIT 1
+        `,
+        [uid],
+      );
+
+      const row = existing[0] || null;
+      const hasProfile =
+        !!String(row?.firstName || "").trim() ||
+        !!String(row?.lastName || "").trim() ||
+        !!String(row?.username || "").trim();
+
+      if (!hasProfile) {
+        if (!firstName || !lastName) {
+          log.warn({ uid }, "missing name fields for new profile");
+          return res.status(400).json({
+            error: "missing_profile_fields",
+            message: "First name and last name are required.",
+          });
+        }
+      }
+
       if (username) {
         const takenRows = await mysqlQuery(
-          `SELECT 1
-             FROM users
-            WHERE username = ?
-              AND uid <> ?
-            LIMIT 1`,
-          [username, uid]
+          `
+          SELECT 1
+          FROM users
+          WHERE username = ?
+            AND uid <> ?
+          LIMIT 1
+          `,
+          [username, uid],
         );
 
         if (takenRows.length > 0) {
@@ -44,65 +71,45 @@ module.exports = (router, ctx) => {
         }
       }
 
-      // 2) Check for existing user row
-      const existingRows = await mysqlQuery(
-        `SELECT email, createdAt
-           FROM users
-          WHERE uid = ?`,
-        [uid]
+      const email = req.user.email ?? null;
+
+      await mysqlQuery(
+        `
+        INSERT INTO users (
+          uid,
+          email,
+          createdAt,
+          firstName,
+          lastName,
+          username,
+          locationRaw
+        )
+        VALUES (
+          ?, ?, NOW(), ?, ?, ?, ?
+        )
+        ON DUPLICATE KEY UPDATE
+          email       = VALUES(email),
+          firstName   = COALESCE(VALUES(firstName), firstName),
+          lastName    = COALESCE(VALUES(lastName), lastName),
+          username    = COALESCE(VALUES(username), username),
+          locationRaw = COALESCE(VALUES(locationRaw), locationRaw)
+        `,
+        [uid, email, firstName, lastName, username, location],
       );
-      const existing = existingRows[0] || null;
-      const email = existing?.email ?? req.user.email ?? null;
 
-      if (!existing) {
-        // Insert new user
-        await mysqlQuery(
-          `INSERT INTO users (
-             uid,
-             email,
-             createdAt,
-             firstName,
-             lastName,
-             username,
-             locationRaw
-           ) VALUES (
-             ?, ?, NOW(), ?, ?, ?, ?
-           )`,
-          [uid, email, firstName, lastName, username, location || null]
-        );
+      log.info({ uid }, "upserted user row in MySQL");
 
-        log.info("created new user row in MySQL");
-      } else {
-        // Update existing user
-        await mysqlQuery(
-          `UPDATE users
-              SET email       = ?,
-                  firstName   = ?,
-                  lastName    = ?,
-                  username    = ?,
-                  locationRaw = ?
-            WHERE uid = ?`,
-          [email, firstName, lastName, username, location || null, uid]
-        );
-
-        log.info("updated existing user row in MySQL");
+      if (location) {
+        await updateUserLocationMysql(mysqlQuery, uid, location);
+        log.info({ uid }, "updated user location tokens");
       }
-
-      // 4) Update postcode / sector / outward / city
-      await updateUserLocationMysql(mysqlQuery, uid, location);
-      log.info("updated user location tokens");
 
       return res.json({ ok: true });
     } catch (err) {
       logger.error(
-        {
-          err: err?.message,
-          uid,
-          body: req.body,
-        },
-        "Error in POST /api/account"
+        { err: err?.message, uid, body: req.body },
+        "Error in POST /api/account",
       );
-
       return res.status(500).json({ error: "internal_error" });
     }
   });

@@ -6,63 +6,112 @@
  *  { uid, email, firstName, lastName, username, displayName, initials }
  */
 module.exports = (router, ctx) => {
-  const { auth, mysqlQuery } = ctx;
+  const { auth, mysqlQuery, touchUserMw } = ctx;
   const { logger, withRequest } = require("../../lib/logger");
 
-  router.get("/me", auth, async (req, res) => {
+  router.get("/me", auth, touchUserMw, async (req, res) => {
     const log = withRequest(req, logger).child({ route: "GET /api/me" });
-
     const uid = req.user.uid;
 
     let row = {};
     try {
       const rows = await mysqlQuery(
-        `SELECT uid, email, firstName, lastName, username
-         FROM users WHERE uid = ?`,
-        [uid]
+        `
+        SELECT uid, email, firstName, lastName, username
+        FROM users
+        WHERE uid = ?
+        LIMIT 1
+        `,
+        [uid],
       );
       row = rows[0] || {};
     } catch (err) {
       log.error(
-        {
-          errMsg: err?.message,
-          stack: err?.stack,
-          uid,
-        },
-        "MySQL error fetching user in /api/me"
+        { errMsg: err?.message, stack: err?.stack, uid },
+        "MySQL error fetching user in /api/me",
       );
       return res.status(500).json({ error: "internal_error" });
     }
 
-    const email = row.email || req.user.email || null;
-    const firstName = row.firstName || null;
-    const lastName = row.lastName || null;
-    const username = row.username || null;
+    let email = row.email ?? req.user.email ?? null;
+    let firstName = row.firstName ?? null;
+    let lastName = row.lastName ?? null;
+    let username = row.username ?? null;
+
+    /**
+     * 🔒 CRITICAL FIX
+     * If user exists but profile fields are missing,
+     * hydrate once from Firebase auth.
+     */
+    const profileMissing = !firstName && !lastName && !username;
+
+    if (profileMissing) {
+      const displayName = (req.user.displayName || "").trim();
+
+      let fn = null;
+      let ln = null;
+
+      if (displayName) {
+        const parts = displayName.split(/\s+/).filter(Boolean);
+        fn = parts[0] || null;
+        ln = parts.length > 1 ? parts.slice(1).join(" ") : null;
+      }
+
+      try {
+        await mysqlQuery(
+          `
+          UPDATE users
+          SET
+            email = COALESCE(email, ?),
+            firstName = ?,
+            lastName = ?
+          WHERE uid = ?
+          `,
+          [email, fn, ln, uid],
+        );
+
+        firstName = fn;
+        lastName = ln;
+
+        log.info(
+          { uid, firstName, lastName },
+          "Hydrated missing user profile from auth",
+        );
+      } catch (err) {
+        log.error(
+          { errMsg: err?.message, uid },
+          "Failed to hydrate missing user profile",
+        );
+      }
+    }
 
     const displayName =
       [firstName, lastName].filter(Boolean).join(" ") ||
       username ||
       email ||
-      uid;
+      null;
 
-    const initials =
-      firstName || lastName
-        ? `${(firstName || "").slice(0, 1)}${(lastName || "").slice(
-            0,
-            1
-          )}`.toUpperCase()
-        : username
-        ? username
-            .split(/[.\-_ ]+/)
-            .filter(Boolean)
-            .slice(0, 2)
-            .map((s) => s[0])
-            .join("")
-            .toUpperCase()
-        : undefined;
+    // Initials rules:
+    // 1) first + last
+    // 2) username parts
+    // 3) undefined (never UID/email)
+    let initials;
+    if (firstName || lastName) {
+      initials =
+        `${(firstName || "")[0] || ""}${(lastName || "")[0] || ""}`.toUpperCase() ||
+        undefined;
+    } else if (username) {
+      initials =
+        username
+          .split(/[.\-_ ]+/)
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((s) => s[0])
+          .join("")
+          .toUpperCase() || undefined;
+    }
 
     res.set("Cache-Control", "no-store");
-
     log.info({ uid }, "Returned /api/me profile");
 
     res.json({

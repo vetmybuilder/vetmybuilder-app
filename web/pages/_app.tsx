@@ -10,7 +10,7 @@ import AdminLayout from "@/components/AdminLayout";
 // NEW: minimal auth-path helper (local to _app only)
 const AUTH_PATHS = new Set([
   "/login",
-  "/register",
+  "/signup",
   "/auth/complete",
   "/tradesman/login",
   "/tradesman/register",

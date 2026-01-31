@@ -8,17 +8,19 @@ import { Home, User, Wrench, Heart } from "lucide-react";
 
 const NotificationsBell = dynamic(
   () => import("@/components/NotificationsBell"),
-  { ssr: false, loading: () => null }
+  { ssr: false, loading: () => null },
 );
 
 function computeInitials(u: any | null | undefined): string | undefined {
   if (!u) return undefined;
+
   const fn = (u.firstName || "").trim();
   const ln = (u.lastName || "").trim();
-  if (fn || ln)
-    return (
-      ((fn ? fn[0] : "") + (ln ? ln[0] : "") || "").toUpperCase() || undefined
-    );
+  if (fn || ln) {
+    const out = ((fn ? fn[0] : "") + (ln ? ln[0] : "")).toUpperCase();
+    return out || undefined;
+  }
+
   const dn = (u.displayName || "").trim();
   if (dn) {
     const parts = dn.split(/\s+/).filter(Boolean);
@@ -26,6 +28,7 @@ function computeInitials(u: any | null | undefined): string | undefined {
       parts[0]?.[0] + (parts[1]?.[0] || "") || dn.slice(0, 2)
     ).toUpperCase();
   }
+
   const un = (u.username || "").trim();
   if (un) {
     const parts = un.split(/[.\-_ ]+/).filter(Boolean);
@@ -33,7 +36,37 @@ function computeInitials(u: any | null | undefined): string | undefined {
       parts[0]?.[0] + (parts[1]?.[0] || "") || un.slice(0, 2)
     ).toUpperCase();
   }
+
   return undefined;
+}
+
+function InitialsBadge({
+  initials,
+  onClick,
+  testId,
+  ariaLabel = "Account menu",
+}: {
+  initials?: string;
+  onClick?: () => void;
+  testId?: string;
+  ariaLabel?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className="inline-flex h-9 w-9 items-center justify-center rounded-full ring-1 ring-gray-300/80 bg-white hover:bg-gray-50 shadow-sm"
+      data-testid={testId}
+    >
+      <span
+        aria-hidden
+        className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-semibold"
+      >
+        {initials || "U"}
+      </span>
+    </button>
+  );
 }
 
 // Owner-only project tabs shown in the header when on /projects
@@ -48,28 +81,28 @@ const PROJECT_HEADER_TABS: Array<{
     key: "mine",
     label: "MY PROJECTS",
     testId: "tab-my-projects",
-    activeColor: "#22c55e", // emerald
+    activeColor: "#22c55e",
     hoverColor: "#bbf7d0",
   },
   {
     key: "completed",
     label: "COMPLETED",
     testId: "tab-my-completed-projects",
-    activeColor: "#0ea5e9", // sky
+    activeColor: "#0ea5e9",
     hoverColor: "#bae6fd",
   },
   {
     key: "completedCommunity",
     label: "COMMUNITY",
     testId: "tab-completed-community-projects",
-    activeColor: "#f97316", // orange
+    activeColor: "#f97316",
     hoverColor: "#fed7aa",
   },
   {
     key: "favourites",
     label: "FAVOURITES",
     testId: "tab-favourites",
-    activeColor: "#6366f1", // indigo
+    activeColor: "#6366f1",
     hoverColor: "#e0e7ff",
   },
 ];
@@ -105,7 +138,7 @@ const TAB_HELPER: Record<
 };
 
 function getProjectsTabKey(
-  raw: any
+  raw: any,
 ): "mine" | "completed" | "completedCommunity" | "favourites" {
   const t = String(raw || "mine");
   if (t === "completed") return "completed";
@@ -141,8 +174,6 @@ export default function SiteHeader() {
       return;
     }
 
-    // We still allow trades info on non-admin pages, including home –
-    // but it doesn't affect the simple home header layout.
     (async () => {
       try {
         const { data } = await api.get("/api/tradesmen/me");
@@ -236,25 +267,21 @@ export default function SiteHeader() {
     ? getProjectsTabKey(
         Array.isArray(router.query?.tab)
           ? router.query.tab[0]
-          : router.query?.tab
+          : router.query?.tab,
       )
     : "mine";
 
   const helper = TAB_HELPER[currentProjectsTab];
 
   function handleProjectTabClick(
-    key: "mine" | "favourites" | "completed" | "completedCommunity"
+    key: "mine" | "favourites" | "completed" | "completedCommunity",
   ) {
-    // ✅ If already on this tab, do nothing (prevents extra pushes + refetch races)
     if (currentProjectsTab === key) {
       setMobileOpen(false);
       return;
     }
 
-    const nextQuery = {
-      ...router.query,
-      tab: key,
-    };
+    const nextQuery = { ...router.query, tab: key };
 
     router.push(
       {
@@ -262,7 +289,7 @@ export default function SiteHeader() {
         query: nextQuery,
       },
       undefined,
-      { shallow: true }
+      { shallow: true },
     );
 
     setMobileOpen(false);
@@ -287,7 +314,6 @@ export default function SiteHeader() {
             aria-label="Primary navigation"
             className="h-14 flex items-center justify-between gap-4"
           >
-            {/* Left: home icon */}
             <div className="flex items-center gap-3">
               <Link
                 href={homeHref}
@@ -305,7 +331,6 @@ export default function SiteHeader() {
               </Link>
             </div>
 
-            {/* Right: always show the two buttons */}
             <div className="flex items-center gap-3">
               <Link
                 href={tradesRegisterHref}
@@ -346,7 +371,7 @@ export default function SiteHeader() {
           data-testid="primary-nav"
           className="h-14 flex items-center justify-between gap-4"
         >
-          {/* Left: home icon (routes by role) */}
+          {/* Left */}
           <div className="flex items-center gap-3">
             <Link
               href={homeHref}
@@ -365,11 +390,10 @@ export default function SiteHeader() {
             </Link>
           </div>
 
-          {/* Center: owner project tabs (desktop only) */}
+          {/* Center (desktop only) */}
           <div className="flex-1 hidden md:flex items-center justify-center">
             {showProjectTabsInHeader && (
               <div className="flex flex-col items-center justify-center">
-                {/* tabs row */}
                 <div className="flex items-center justify-center gap-6 sm:gap-10">
                   {PROJECT_HEADER_TABS.map((t) => {
                     const active = currentProjectsTab === t.key;
@@ -410,7 +434,6 @@ export default function SiteHeader() {
                   })}
                 </div>
 
-                {/* ✅ helper copy (always visible) */}
                 {helper && (
                   <div
                     className="mt-2 inline-flex items-center gap-2 rounded-full bg-slate-50 px-3 py-1 text-xs text-slate-700 ring-1 ring-slate-200"
@@ -439,7 +462,7 @@ export default function SiteHeader() {
             )}
           </div>
 
-          {/* Right: desktop actions (unchanged from your previous behaviour) */}
+          {/* Right (desktop) */}
           <div
             className="hidden md:flex items-center gap-3"
             data-testid="nav-actions"
@@ -633,9 +656,22 @@ export default function SiteHeader() {
             )}
           </div>
 
-          {/* Right: mobile burger */}
+          {/* Right (mobile): bell + initials + burger */}
           <div className="flex md:hidden items-center gap-2">
             {user && <NotificationsBell />}
+
+            {user && !isTrades && (
+              <InitialsBadge
+                initials={initials}
+                testId="account-initials-badge-mobile"
+                onClick={() => {
+                  // On mobile, use the same account menu state as desktop.
+                  setOpenMenu((m) => (m === "account" ? null : "account"));
+                  setMobileOpen(false);
+                }}
+              />
+            )}
+
             <button
               type="button"
               aria-label="Open navigation menu"

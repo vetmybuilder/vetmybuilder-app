@@ -149,7 +149,7 @@ export default function Login() {
               href={
                 isVendorFlow
                   ? { pathname: "/tradesman/register-tradesmen" }
-                  : { pathname: "/register" }
+                  : { pathname: "/signup" }
               }
               className="text-indigo-600 hover:text-indigo-500"
               data-testid="link-to-register"

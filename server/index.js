@@ -47,7 +47,7 @@ app.use(
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: false,
-  })
+  }),
 );
 
 app.options("*", cors());
@@ -64,7 +64,7 @@ app.use((req, res, next) => {
         status: res.statusCode,
         duration: Date.now() - start,
       },
-      "http request"
+      "http request",
     );
   });
 
@@ -175,7 +175,7 @@ if (!notifyUsers) {
       } catch (err) {
         logger.warn(
           { error: err?.message, uid },
-          "notifyUsers fallback insert error"
+          "notifyUsers fallback insert error",
         );
       }
 
@@ -196,7 +196,7 @@ if (!notifyUsers) {
           } catch (e) {
             logger.warn(
               { error: e?.message, uid },
-              "notifyUsers fallback SSE send error"
+              "notifyUsers fallback SSE send error",
             );
           }
         }
@@ -209,7 +209,7 @@ const auth = authMiddleware(admin);
 
 /* -------------------- Health -------------------- */
 app.get("/health", (_req, res) =>
-  res.json({ ok: true, now: new Date().toISOString() })
+  res.json({ ok: true, now: new Date().toISOString() }),
 );
 
 /* -------------------- Public stats -------------------- */
@@ -249,13 +249,61 @@ app.use(
     withRequest(req).info("uploads request");
     next();
   },
-  express.static(UPLOAD_DIR, { maxAge: "7d", index: false })
+  express.static(UPLOAD_DIR, { maxAge: "7d", index: false }),
 );
 
 /* -------------------- Build router -------------------- */
 const { buildRouter } = require("./buildRouter");
 
-const touchUserMw = (_req, _res, next) => next();
+/**
+ * touchUserMw
+ * Ensures the authenticated user exists in the MySQL `users` table.
+ * Also (best-effort) seeds first/last name from the Firebase token's `name`
+ * so /api/me can show initials even if /api/account hasn't run yet.
+ */
+const touchUserMw = async (req, _res, next) => {
+  const uid = req.user?.uid;
+  if (!uid) return next();
+
+  const email = req.user?.email ?? null;
+
+  // Best-effort parse of Firebase token "name" claim
+  const fullName = String(req.user?.name || "").trim();
+  let firstName = null;
+  let lastName = null;
+
+  if (fullName) {
+    const parts = fullName.split(/\s+/).filter(Boolean);
+    if (parts.length === 1) {
+      firstName = parts[0];
+    } else if (parts.length >= 2) {
+      firstName = parts[0];
+      lastName = parts.slice(1).join(" ");
+    }
+  }
+
+  try {
+    await mysqlQuery(
+      `
+      INSERT INTO users (uid, email, createdAt, firstName, lastName)
+      VALUES (?, ?, NOW(), ?, ?)
+      ON DUPLICATE KEY UPDATE
+        email     = COALESCE(VALUES(email), email),
+        firstName = COALESCE(firstName, VALUES(firstName)),
+        lastName  = COALESCE(lastName, VALUES(lastName))
+      `,
+      [uid, email, firstName, lastName],
+    );
+  } catch (err) {
+    // Don't block requests if touch fails; log for diagnosis
+    logger.error(
+      { err: err?.message, uid, email },
+      "touchUserMw failed to upsert users row",
+    );
+  }
+
+  return next();
+};
 
 const router = buildRouter({
   db,
@@ -293,7 +341,11 @@ logger.info(
     db: process.env.MYSQL_DATABASE,
     testShard: process.env.TEST_SHARD,
   },
-  "boot env"
+  "boot env",
+);
+
+console.log(
+  `\n[VMB] API running on port ${PORT} using database: ${process.env.MYSQL_DATABASE}\n`,
 );
 
 /* -------------------- Start server -------------------- */
