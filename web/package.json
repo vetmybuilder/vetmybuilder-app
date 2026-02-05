@@ -9,6 +9,7 @@
     "lint": "echo 'lint skipped in POC'"
   },
   "devDependencies": {
-    "@types/react": "19.1.16"
+    "@types/react": "19.1.16",
+    "baseline-browser-mapping": "^2.9.19"
   }
 }

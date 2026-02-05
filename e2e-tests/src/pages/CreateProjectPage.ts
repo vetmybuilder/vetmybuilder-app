@@ -67,7 +67,18 @@ export class CreateProjectPage {
   }
 
   async createProject(input: CreateProjectInput, isMobile: boolean) {
-    await this.page.goto("/projects");
+    try {
+      await this.page.goto("/projects", { waitUntil: "domcontentloaded" });
+    } catch (e: any) {
+      // Next dev "Fast Refresh full reload" can abort navigations mid-flight.
+      const msg = String(e?.message || e);
+      if (msg.includes("net::ERR_ABORTED")) {
+        await this.page.waitForTimeout(500);
+        await this.page.goto("/projects", { waitUntil: "domcontentloaded" });
+      } else {
+        throw e;
+      }
+    }
 
     if (isMobile) {
       await this.mobileMenuButton.click();

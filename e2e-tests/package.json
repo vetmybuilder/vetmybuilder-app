@@ -9,20 +9,23 @@
     "test:api": "playwright test tests/api --project shard-1 --project shard-2 --project shard-3 --project shard-4",
     "test:api:headed": "playwright test tests/api --headed --project shard-1 --project shard-2 --project shard-3 --project shard-4",
 
-   "test:ui": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui",
+    "test:ui": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui",
     "test:ui:headless": "PW_HEADLESS=1 playwright test -c playwright.ui.config.ts tests/ui",
     "test:ui:headed": "playwright test -c playwright.ui.config.ts tests/ui --headed",
 
-    "test:ui:desktop": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui --project ui-desktop-chromium --project ui-desktop-firefox --project ui-desktop-webkit",
-    "test:ui:mobile": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui --project ui-mobile-chromium-android --project ui-mobile-chromium-iphone --project ui-mobile-webkit-iphone",
+    "test:ui:desktop": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui --project ui-desktop-chromium-s0 --project ui-desktop-firefox-s0 --project ui-desktop-webkit-s0 --project ui-desktop-chromium-s1 --project ui-desktop-firefox-s1 --project ui-desktop-webkit-s1 --project ui-desktop-chromium-s2 --project ui-desktop-firefox-s2 --project ui-desktop-webkit-s2 --project ui-desktop-chromium-s3 --project ui-desktop-firefox-s3 --project ui-desktop-webkit-s3",
 
-    "test:ui:chromium": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui --project ui-desktop-chromium",
-    "test:ui:firefox": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui --project ui-desktop-firefox",
-    "test:ui:webkit": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui --project ui-desktop-webkit",
+    "test:ui:mobile": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui --project ui-mobile-chromium-android-s0 --project ui-mobile-chromium-iphone-s0 --project ui-mobile-webkit-iphone-s0 --project ui-mobile-chromium-android-s1 --project ui-mobile-chromium-iphone-s1 --project ui-mobile-webkit-iphone-s1 --project ui-mobile-chromium-android-s2 --project ui-mobile-chromium-iphone-s2 --project ui-mobile-webkit-iphone-s2 --project ui-mobile-chromium-android-s3 --project ui-mobile-chromium-iphone-s3 --project ui-mobile-webkit-iphone-s3",
 
-    "test:ui:mobile:chromium": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui --project ui-mobile-chromium-android",
-    "test:ui:mobile:webkit": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui --project ui-mobile-webkit-iphone",
+    "test:ui:chromium": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui --project ui-desktop-chromium-s0 --project ui-desktop-chromium-s1 --project ui-desktop-chromium-s2 --project ui-desktop-chromium-s3",
 
+    "test:ui:firefox": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui --project ui-desktop-firefox-s0 --project ui-desktop-firefox-s1 --project ui-desktop-firefox-s2 --project ui-desktop-firefox-s3",
+
+    "test:ui:webkit": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui --project ui-desktop-webkit-s0 --project ui-desktop-webkit-s1 --project ui-desktop-webkit-s2 --project ui-desktop-webkit-s3",
+
+    "test:ui:mobile:chromium": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui --project ui-mobile-chromium-android-s0 --project ui-mobile-chromium-android-s1 --project ui-mobile-chromium-android-s2 --project ui-mobile-chromium-android-s3 --project ui-mobile-chromium-iphone-s0 --project ui-mobile-chromium-iphone-s1 --project ui-mobile-chromium-iphone-s2 --project ui-mobile-chromium-iphone-s3",
+
+"test:ui:mobile:webkit": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui --project ui-mobile-webkit-iphone-s0 --project ui-mobile-webkit-iphone-s1 --project ui-mobile-webkit-iphone-s2 --project ui-mobile-webkit-iphone-s3",
     "report": "playwright show-report",
     "codegen": "playwright codegen http://localhost:3000"
   },

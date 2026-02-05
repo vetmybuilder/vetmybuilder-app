@@ -23,11 +23,18 @@ type UiFixtures = {
   authHelper: AuthHelper;
 };
 
+function getUiShardIndex(testInfo: any): number {
+  const name = String(testInfo?.project?.name || "");
+  const m = name.match(/-s(\d+)$/);
+  const n = m ? Number(m[1]) : 0;
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
 export const test = base.extend<UiFixtures, { runtime: Runtime }>({
   runtime: [
     async ({}, use, testInfo) => {
-      // UI always uses shard 0 (API server on :3100)
-      const runtime = getRuntime(testInfo.workerIndex, 0);
+      const shardIndex = getUiShardIndex(testInfo);
+      const runtime = getRuntime(0, shardIndex);
       await use(runtime);
     },
     { scope: "worker" },
@@ -67,11 +74,9 @@ export const test = base.extend<UiFixtures, { runtime: Runtime }>({
 });
 
 test.beforeEach(async ({ runtime }) => {
-  // Keeps users/user_roles/roles, wipes everything else
   await wipeDatabase(runtime.dbName);
 });
 
-// Closing the context forces a clean session on every rerun.
 test.afterEach(async ({ context }) => {
   await context.close().catch(() => {});
 });
