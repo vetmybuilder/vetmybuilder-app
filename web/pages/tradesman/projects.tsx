@@ -26,7 +26,7 @@ const BUDGET_OPTIONS: { value: string; label: string }[] = [
   { value: "Under £5k", label: "Under £5k" },
   { value: "£5k–£15k", label: "£5k–£15k" },
   { value: "£15k–£30k", label: "£15k–£30k" },
-  { value: "£30k–£60k", label: "£30k–£60k" },
+  { value: "£30k-£60k", label: "£30k-£60k" },
   { value: "£60k+", label: "£60k+" },
 ];
 

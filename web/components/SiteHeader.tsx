@@ -481,11 +481,21 @@ export default function SiteHeader() {
             {user && !isTrades && router.pathname !== "/login" && (
               <Link
                 href="/projects/new"
-                className="hidden sm:inline-flex items-center justify-center rounded-xl px-4 h-9 text-sm font-semibold bg-amber-400 text-slate-900 shadow-sm hover:bg-amber-300"
+                aria-label="Post a Job"
+                aria-hidden="true"
+                tabIndex={-1}
+                className={[
+                  "hidden sm:inline-flex items-center justify-center rounded-xl px-4 h-9 text-sm font-semibold",
+                  "bg-amber-400 text-slate-900 shadow-sm hover:bg-amber-300",
+                  "sm:[aria-hidden=false] sm:tabIndex-0",
+                ].join(" ")}
                 data-testid="btn-post-job-header"
               >
-                Post a Job
-                <span className="ml-1.5 text-base leading-none" aria-hidden>
+                <span>Post a Job</span>
+                <span
+                  className="ml-1.5 text-base leading-none"
+                  aria-hidden="true"
+                >
                   ↗
                 </span>
               </Link>
@@ -738,6 +748,7 @@ export default function SiteHeader() {
                   onClick={() => setMobileOpen(false)}
                   className="inline-flex items-center justify-between rounded-lg px-3 py-2 bg-amber-400 text-slate-900 shadow-sm hover:bg-amber-300"
                   data-testid="mobile-post-job"
+                  aria-label="Post a Job"
                 >
                   <span>Post a Job</span>
                   <span aria-hidden>↗</span>

@@ -1,12 +1,12 @@
 import { test, expect } from "../../../src/fixtures";
-import Project from "../../../src/models/project";
+import Project from "../../../src/models/Project";
 import { authedApiForUid } from "../../../src/api/services/client";
 
 test.describe("POST /api/projects/:id/close/photos", () => {
   test("owner can upload closure photos", async ({ apiClient }) => {
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload(),
+      Project.aProject().withRandomDetails().toApiPayload(),
     );
     expect(projectRes.status()).toBe(201);
 
@@ -20,9 +20,7 @@ test.describe("POST /api/projects/:id/close/photos", () => {
     );
 
     expect(res.status()).toBe(201);
-
-    const body = await res.json();
-    expect(body).toEqual({ ok: true, count: 2 });
+    expect(await res.json()).toEqual({ ok: true, count: 2 });
   });
 
   test("400 Invalid id", async ({ apiClient }) => {
@@ -46,7 +44,7 @@ test.describe("POST /api/projects/:id/close/photos", () => {
   test("403 Forbidden (non-owner)", async ({ apiClient, request, runtime }) => {
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload(),
+      Project.aProject().withRandomDetails().toApiPayload(),
     );
     expect(projectRes.status()).toBe(201);
 
@@ -72,7 +70,7 @@ test.describe("POST /api/projects/:id/close/photos", () => {
   }) => {
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload(),
+      Project.aProject().withRandomDetails().toApiPayload(),
     );
     expect(projectRes.status()).toBe(201);
 
@@ -92,7 +90,7 @@ test.describe("POST /api/projects/:id/close/photos", () => {
   test("uploads are limited to 20 photos", async ({ apiClient }) => {
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload(),
+      Project.aProject().withRandomDetails().toApiPayload(),
     );
     expect(projectRes.status()).toBe(201);
 
@@ -107,7 +105,7 @@ test.describe("POST /api/projects/:id/close/photos", () => {
       "src/files/photo6.jpg",
     ];
 
-    const photoPaths = [...base, ...base, ...base, ...base];
+    const photoPaths = [...base, ...base, ...base, ...base]; // 24 -> should cap at 20
 
     const res = await apiClient.uploadProjectClosePhotos(
       project.id,
@@ -121,7 +119,7 @@ test.describe("POST /api/projects/:id/close/photos", () => {
   test("owner can upload a single closure photo", async ({ apiClient }) => {
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload(),
+      Project.aProject().withRandomDetails().toApiPayload(),
     );
     expect(projectRes.status()).toBe(201);
 
@@ -138,7 +136,7 @@ test.describe("POST /api/projects/:id/close/photos", () => {
   test("returns 401 when user is not authenticated", async ({ apiClient }) => {
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload(),
+      Project.aProject().withRandomDetails().toApiPayload(),
     );
     expect(projectRes.status()).toBe(201);
 
@@ -156,7 +154,7 @@ test.describe("POST /api/projects/:id/close/photos", () => {
   }) => {
     const projectRes = await apiClient.post(
       "/api/projects",
-      Project.aProject().withRandomDetails().toPayload(),
+      Project.aProject().withRandomDetails().toApiPayload(),
     );
     expect(projectRes.status()).toBe(201);
 

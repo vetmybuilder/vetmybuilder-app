@@ -1,0 +1,221 @@
+import { Page, Locator, expect } from "@playwright/test";
+import type { ProjectCreateInput as CreateProjectInput } from "../models/Project";
+import { escapeRegExp, ensureEndsWithPeriod } from "../utils/formatters";
+
+export class CreateProjectPage {
+  readonly page: Page;
+
+  private readonly mobileMenuButton: Locator;
+  private readonly desktopPostJob: Locator;
+  private readonly mobilePostJob: Locator;
+
+  private readonly categorySelect: Locator;
+  private readonly locationWrap: Locator;
+  private readonly locationInput: Locator;
+
+  private readonly nextBtn: Locator;
+  private readonly createBtn: Locator;
+
+  private readonly propertyTypeBtn: Locator;
+  private readonly bedroomsBtn: Locator;
+
+  private readonly timeframeBtn: Locator;
+  private readonly budgetBtn: Locator;
+  private readonly materialsBtn: Locator;
+
+  private readonly accessWrap: Locator;
+  private readonly notesInput: Locator;
+  private readonly preview: Locator;
+
+  constructor(page: Page) {
+    this.page = page;
+
+    this.mobileMenuButton = page.getByTestId("btn-mobile-menu");
+    this.desktopPostJob = page.getByTestId("btn-post-job-header");
+    this.mobilePostJob = page.getByTestId("mobile-post-job");
+
+    this.categorySelect = page.getByTestId("field-category");
+
+    this.locationWrap = page.getByTestId("field-location");
+    this.locationInput = this.locationWrap.locator("input").first();
+
+    this.nextBtn = page.getByRole("button", { name: /next/i }).first();
+    this.createBtn = page
+      .getByRole("button", { name: /create project/i })
+      .first();
+
+    this.propertyTypeBtn = page.locator("#np-property-button");
+    this.bedroomsBtn = page.locator("#np-beds-button");
+
+    this.timeframeBtn = page.locator("#db-timeframe-button");
+    this.budgetBtn = page.locator("#db-budget-button");
+    this.materialsBtn = page.locator("#db-materials-button");
+
+    this.accessWrap = page.getByTestId("db-access");
+    this.notesInput = page.getByTestId("db-notes");
+    this.preview = page.getByTestId("db-preview");
+  }
+
+  private postJobButton(isMobile: boolean) {
+    return isMobile ? this.mobilePostJob : this.desktopPostJob;
+  }
+
+  private stepRegion(title: string) {
+    return this.page
+      .getByRole("region", { name: new RegExp(title, "i") })
+      .first();
+  }
+
+  async createProject(input: CreateProjectInput, isMobile: boolean) {
+    await this.page.goto("/projects");
+
+    if (isMobile) {
+      await this.mobileMenuButton.click();
+    }
+
+    await this.postJobButton(isMobile).click();
+
+    await this.selectCategory(input.category);
+    await this.selectWorkTypes(input.workTypes);
+    await this.next();
+
+    await this.waitForStep("Location");
+    await this.setLocation(input.locationQuery, input.locationPick);
+    await this.next();
+
+    await this.waitForStep("Property type");
+    await this.selectPropertyType(input.propertyType);
+    await this.next();
+
+    await this.waitForStep("Bedrooms");
+    await this.selectBedrooms(input.bedrooms);
+    await this.next();
+
+    await this.waitForStep("Brief description");
+    await this.fillDescriptionStep(input);
+    await this.next();
+
+    await this.waitForStep("Review & create");
+    await this.assertReviewStep(input);
+
+    await this.createBtn.click();
+    await this.page.waitForURL(/\/projects\/[^/]+$/);
+  }
+
+  private async selectCategory(category: string) {
+    await expect(this.categorySelect).toBeVisible();
+    await this.categorySelect.selectOption({ label: category });
+    await this.waitForStep("Type of work");
+  }
+
+  private async selectWorkTypes(types: string[]) {
+    const step = this.stepRegion("Type of work");
+    await expect(step).toBeVisible();
+
+    for (const t of types) {
+      await step
+        .getByRole("checkbox", { name: new RegExp(escapeRegExp(t), "i") })
+        .check();
+    }
+  }
+
+  private async setLocation(query: string, pick: string) {
+    await expect(this.locationInput).toBeVisible();
+    await this.locationInput.fill(query);
+
+    await this.page
+      .getByRole("option", { name: new RegExp(escapeRegExp(pick), "i") })
+      .first()
+      .click();
+  }
+
+  private async selectPropertyType(propertyType: string) {
+    await this.propertyTypeBtn.click();
+    await this.page.getByRole("option", { name: propertyType }).click();
+  }
+
+  private async selectBedrooms(bedrooms: number) {
+    const target = bedrooms >= 6 ? "6+" : String(bedrooms);
+    await this.bedroomsBtn.click();
+    await this.page.getByRole("option", { name: target }).first().click();
+  }
+
+  private async fillDescriptionStep(input: CreateProjectInput) {
+    await this.timeframeBtn.click();
+    await this.page.getByRole("option", { name: input.timeframe }).click();
+
+    await this.budgetBtn.click();
+    await this.page.getByRole("option", { name: input.budget }).click();
+
+    await this.materialsBtn.click();
+    await this.page.getByRole("option", { name: input.materials }).click();
+
+    await this.accessWrap
+      .getByRole("button", {
+        name: new RegExp(escapeRegExp(input.access), "i"),
+      })
+      .click();
+
+    if (input.extraNotes) {
+      await this.notesInput.fill(input.extraNotes);
+    }
+
+    await expect(this.preview).toBeVisible();
+
+    await expect(this.preview).toContainText(
+      `Timeframe: ${ensureEndsWithPeriod(input.timeframe)}`,
+    );
+    await expect(this.preview).toContainText(
+      `Budget: ${ensureEndsWithPeriod(input.budget)}`,
+    );
+    await expect(this.preview).toContainText(
+      `Materials: ${ensureEndsWithPeriod(input.materials)}`,
+    );
+    await expect(this.preview).toContainText(
+      `Access: ${ensureEndsWithPeriod(input.access)}`,
+    );
+
+    if (input.extraNotes) {
+      await expect(this.preview).toContainText(input.extraNotes);
+    }
+  }
+
+  private async assertReviewStep(input: CreateProjectInput) {
+    const review = this.stepRegion("Review & create");
+    await expect(review).toBeVisible();
+
+    await expect(review).toContainText(input.category);
+    for (const wt of input.workTypes) {
+      await expect(review).toContainText(wt);
+    }
+
+    await expect(review).toContainText(input.locationPick);
+    await expect(review).toContainText(input.propertyType);
+    await expect(review).toContainText(String(input.bedrooms));
+
+    await expect(review).toContainText(
+      `Timeframe: ${ensureEndsWithPeriod(input.timeframe)}`,
+    );
+    await expect(review).toContainText(
+      `Budget: ${ensureEndsWithPeriod(input.budget)}`,
+    );
+    await expect(review).toContainText(
+      `Materials: ${ensureEndsWithPeriod(input.materials)}`,
+    );
+    await expect(review).toContainText(
+      `Access: ${ensureEndsWithPeriod(input.access)}`,
+    );
+
+    if (input.extraNotes) {
+      await expect(review).toContainText(input.extraNotes);
+    }
+  }
+
+  private async next() {
+    await this.nextBtn.click();
+  }
+
+  private async waitForStep(title: string) {
+    await expect(this.stepRegion(title)).toBeVisible();
+  }
+}

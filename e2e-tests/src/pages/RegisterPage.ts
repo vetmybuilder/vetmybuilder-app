@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
-import Account, { type RegisterInput } from "../models/account";
+import Account, { type RegisterInput } from "../models/Account";
 
 export class RegisterPage {
   readonly page: Page;

@@ -12,11 +12,11 @@ module.exports = (router, ctx) => {
 
   log.info?.(`${TAG} mounted`);
 
-  const BUDGETS = ["Under £5k", "£5k–£15k", "£15k–£30k", "£30k–£60k", "£60k+"];
+  const BUDGETS = ["Under £5k", "£5k–£15k", "£15k–£30k", "£30k-£60k", "£60k+"];
   const NORMALIZE_MAP = {
     "£5k-£15k": "£5k–£15k",
     "£15k-£30k": "£15k–£30k",
-    "£30k-£60k": "£30k–£60k",
+    "£30k-£60k": "£30k-£60k",
   };
 
   function extractBudget(desc) {

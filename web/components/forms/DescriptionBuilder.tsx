@@ -14,13 +14,13 @@ type Props = {
 type Chip = { label: string; value: string };
 
 const TIMEFRAMES = [
-  "Urgent (1–2 weeks)",
+  "Urgent (1-2 weeks)",
   "Soon (2–4 weeks)",
   "This quarter (1–3 months)",
   "Flexible (3+ months)",
 ];
 
-const BUDGETS = ["Under £5k", "£5k–£15k", "£15k–£30k", "£30k–£60k", "£60k+"];
+const BUDGETS = ["Under £5k", "£5k–£15k", "£15k–£30k", "£30k-£60k", "£60k+"];
 
 //
 // ACCESS CHIP GROUPS

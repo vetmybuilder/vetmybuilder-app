@@ -1,5 +1,5 @@
 import { test, expect } from "../../../src/ui.base.fixtures";
-import Account from "../../../src/models/account";
+import Account from "../../../src/models/Account";
 
 test.describe("Homeowner registration", () => {
   test("can register a new homeowner and lands on projects with correct initials badge, safety and verification card visible and filters are present", async ({

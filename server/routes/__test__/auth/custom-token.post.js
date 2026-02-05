@@ -1,4 +1,4 @@
-// server/v2/routes/__test__/auth/custom-token.post.js
+// server/routes/__test__/auth/custom-token.post.js
 
 /**
  * POST /api/__test__/auth/custom-token

@@ -19,10 +19,10 @@ export type RegisterInput = {
 };
 
 export default class Account {
-  firstName?: string;
-  lastName?: string;
-  username?: string;
-  location?: string;
+  firstName: string = "";
+  lastName: string = "";
+  username: string = "";
+  location: string = "";
 
   email?: string;
   password?: string;

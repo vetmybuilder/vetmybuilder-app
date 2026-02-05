@@ -32,7 +32,7 @@ function normalize(s: string) {
 function buildAutoNameSimple(
   primaryType: string,
   location: string,
-  propertyType?: string
+  propertyType?: string,
 ) {
   const loc = (location || "").trim();
   const prop = (propertyType || "").trim();
@@ -101,13 +101,13 @@ export default function NewProject() {
       [...PROJECT_TYPES]
         .map((c) => c.category)
         .sort((a, b) => a.localeCompare(b)),
-    []
+    [],
   );
 
   const SUBTYPE_OPTIONS = useMemo(() => {
     if (!form.category) return [];
     const bucket = PROJECT_TYPES.find(
-      (c: ProjectTypeCategory) => c.category === form.category
+      (c: ProjectTypeCategory) => c.category === form.category,
     );
     return bucket ? [...bucket.types].sort((a, b) => a.localeCompare(b)) : [];
   }, [form.category]);
@@ -118,7 +118,7 @@ export default function NewProject() {
   /* ===== Steps ===== */
 
   const STEPS = [
-    { key: "category", title: "Category" },
+    { key: "category", title: "Choose category" },
     { key: "subtypes", title: "Type of work" },
     { key: "location", title: "Location" },
     { key: "propertyType", title: "Property type" },
@@ -208,13 +208,13 @@ export default function NewProject() {
                 : ""
             }`
           : form.otherEnabled && form.otherText.trim()
-          ? `\n\nAdditional work types: ${normalize(form.otherText)}`
-          : "";
+            ? `\n\nAdditional work types: ${normalize(form.otherText)}`
+            : "";
 
       const autoName = buildAutoNameSimple(
         primaryType,
         form.location,
-        form.propertyType
+        form.propertyType,
       );
 
       const payload = {
@@ -240,11 +240,11 @@ export default function NewProject() {
   function toggleSubtype(label: string) {
     setForm((prev) => {
       const exists = prev.selectedTypes.some(
-        (t) => t.toLowerCase() === label.toLowerCase()
+        (t) => t.toLowerCase() === label.toLowerCase(),
       );
       const next = exists
         ? prev.selectedTypes.filter(
-            (t) => t.toLowerCase() !== label.toLowerCase()
+            (t) => t.toLowerCase() !== label.toLowerCase(),
           )
         : [...prev.selectedTypes, label];
 
@@ -269,7 +269,7 @@ export default function NewProject() {
   const reviewAutoName = buildAutoNameSimple(
     primaryPreview || "Project",
     form.location,
-    form.propertyType
+    form.propertyType,
   );
 
   /* ===== Render ===== */
@@ -331,20 +331,18 @@ export default function NewProject() {
                       <SearchableSelect
                         id={ids.category}
                         label="Category"
-                        placeholder="Search categories..."
+                        placeholder="Select category"
                         value={form.category}
                         onChange={(v) => {
                           set("category", v);
                           set("selectedTypes", []);
                           set("otherEnabled", false);
                           set("otherText", "");
-                          // Force auto-advance when a category is actually selected
-                          if (v && v.trim().length > 0) {
-                            autoNext(true);
-                          }
+                          if (v && v.trim().length > 0) autoNext(true);
                         }}
                         options={CATEGORY_OPTIONS}
                         dataTestId="field-category"
+                        mode="select"
                       />
                     )}
 
@@ -367,7 +365,7 @@ export default function NewProject() {
                             >
                               {SUBTYPE_OPTIONS.map((t) => {
                                 const checked = form.selectedTypes.some(
-                                  (x) => x.toLowerCase() === t.toLowerCase()
+                                  (x) => x.toLowerCase() === t.toLowerCase(),
                                 );
                                 return (
                                   <label
@@ -465,7 +463,7 @@ export default function NewProject() {
                     {s.key === "description" && (
                       <DescriptionBuilder
                         value={form.description}
-                        onChange={(next) => set("description", next)}
+                        onChange={(nextVal) => set("description", nextVal)}
                         category={form.category}
                       />
                     )}

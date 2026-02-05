@@ -1,5 +1,5 @@
 import { test, expect } from "../../../src/fixtures";
-import Project from "../../../src/models/project";
+import Project from "../../../src/models/Project";
 import Recommendation from "../../../src/models/Recommendation";
 
 test.describe("POST /api/recommendations/magic/:token", () => {

@@ -1,5 +1,5 @@
 import { test, expect } from "../../../src/fixtures";
-import Project from "../../../src/models/project";
+import Project from "../../../src/models/Project";
 import { authedApiForUid } from "../../../src/api/services/client";
 
 test.describe("PUT /api/projects/:id", () => {

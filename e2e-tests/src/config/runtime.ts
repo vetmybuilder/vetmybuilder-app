@@ -71,11 +71,15 @@ export function getRuntime(
   const shard = getShardLabel(shardIndex, totalShards);
   const dbName = `${dbPrefix}_${shard}`;
 
-  const basePort = Number(env("WEB_BASE_PORT", "3000"));
-  const port = basePort + shardIndex;
+  // UI app runs on 3000 always
+  const webPort = Number(env("WEB_PORT", "3000"));
 
-  const apiBaseUrl = `http://localhost:${port}`;
-  const webBaseUrl = apiBaseUrl; // API-only mode for e2e
+  // API servers run on 3100+ per shard (shard 0 => 3100)
+  const apiBasePort = Number(env("API_BASE_PORT", "3100"));
+  const apiPort = apiBasePort + shardIndex;
+
+  const webBaseUrl = `http://localhost:${webPort}`;
+  const apiBaseUrl = `http://localhost:${apiPort}`;
 
   return {
     env: env("TEST_ENV", "local"),
@@ -83,7 +87,10 @@ export function getRuntime(
     shardIndex,
     worker,
     dbName,
-    port,
+
+    // keep these for debugging/compat (port now represents API port)
+    port: apiPort,
+
     webBaseUrl,
     apiBaseUrl,
   };

@@ -85,7 +85,7 @@ export default defineConfig({
       },
       shard: { total: TOTAL_SHARDS, current: i + 1 },
 
-      // ✅ one worker per shard (prevents same shard DB/server being hit by >1 worker)
+      // one worker per shard (prevents same shard DB/server being hit by >1 worker)
       workers: 1,
     })),
   ],

@@ -5,12 +5,10 @@ import path from "path";
 dotenv.config({ path: path.resolve(__dirname, ".env") });
 
 const WEB_PORT = 3000;
-
 const DESKTOP_VIEWPORT = { width: 1440, height: 900 };
 
 function isHeadless() {
-  // Default: headed locally unless PW_HEADLESS=1
-  return process.env.PW_HEADLESS === "1";
+  return process.env.PW_HEADLESS === "0";
 }
 
 function windowSizeArg(width: number, height: number) {
@@ -19,18 +17,25 @@ function windowSizeArg(width: number, height: number) {
 
 export default defineConfig({
   testDir: "./tests",
-  fullyParallel: false,
+
+  fullyParallel: true,
   workers: 1,
+
   timeout: 60_000,
   reporter: [["list"], ["html", { open: "never" }]],
+
+  webServer: {
+    command: "npm --prefix .. run dev:manual",
+    url: `http://localhost:${WEB_PORT}`,
+    reuseExistingServer: false,
+    timeout: 120_000,
+  },
 
   use: {
     headless: isHeadless(),
     storageState: undefined,
     contextOptions: { serviceWorkers: "block" },
 
-    // These args only really apply to Chromium.
-    // (Firefox/WebKit don't reliably respect --window-size.)
     launchOptions: {
       slowMo: 150,
     },
@@ -48,7 +53,6 @@ export default defineConfig({
         browserName: "chromium",
         baseURL: `http://localhost:${WEB_PORT}`,
         viewport: null,
-
         launchOptions: {
           slowMo: 150,
           args: [
@@ -56,6 +60,7 @@ export default defineConfig({
           ],
         },
       },
+      workers: 1,
     },
     {
       name: "ui-desktop-firefox",
@@ -65,6 +70,7 @@ export default defineConfig({
         baseURL: `http://localhost:${WEB_PORT}`,
         viewport: DESKTOP_VIEWPORT,
       },
+      workers: 1,
     },
     {
       name: "ui-desktop-webkit",
@@ -74,9 +80,8 @@ export default defineConfig({
         baseURL: `http://localhost:${WEB_PORT}`,
         viewport: DESKTOP_VIEWPORT,
       },
+      workers: 1,
     },
-
-    // Mobile
     {
       name: "ui-mobile-chromium-android",
       testMatch: /tests\/ui\//,
@@ -93,6 +98,7 @@ export default defineConfig({
           ],
         },
       },
+      workers: 1,
     },
     {
       name: "ui-mobile-chromium-iphone",
@@ -110,6 +116,7 @@ export default defineConfig({
           ],
         },
       },
+      workers: 1,
     },
     {
       name: "ui-mobile-webkit-iphone",
@@ -119,6 +126,7 @@ export default defineConfig({
         browserName: "webkit",
         baseURL: `http://localhost:${WEB_PORT}`,
       },
+      workers: 1,
     },
   ],
 });
