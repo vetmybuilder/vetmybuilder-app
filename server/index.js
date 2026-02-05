@@ -46,12 +46,19 @@ app.use(
     origin: true,
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["x-db-name"],
     credentials: false,
   }),
 );
 
 app.options("*", cors());
 app.use(express.json());
+
+// ✅ Always set db name header early for debugging (doesn't affect behavior)
+app.use((req, res, next) => {
+  res.set("x-db-name", process.env.MYSQL_DATABASE || "vetmybuilder");
+  next();
+});
 
 /* -------------------- HTTP request logger -------------------- */
 app.use((req, res, next) => {
@@ -209,7 +216,12 @@ const auth = authMiddleware(admin);
 
 /* -------------------- Health -------------------- */
 app.get("/health", (_req, res) =>
-  res.json({ ok: true, now: new Date().toISOString() }),
+  res.json({
+    ok: true,
+    now: new Date().toISOString(),
+    mysqlDatabase: process.env.MYSQL_DATABASE || null,
+    testDbName: process.env.TEST_DB_NAME || null,
+  }),
 );
 
 /* -------------------- Public stats -------------------- */

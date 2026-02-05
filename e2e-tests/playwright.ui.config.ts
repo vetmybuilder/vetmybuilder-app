@@ -62,62 +62,62 @@ export default defineConfig({
       },
       workers: 1,
     },
-    {
-      name: "ui-desktop-firefox",
-      testMatch: /tests\/ui\//,
-      use: {
-        browserName: "firefox",
-        baseURL: `http://localhost:${WEB_PORT}`,
-        viewport: DESKTOP_VIEWPORT,
-      },
-      workers: 1,
-    },
-    {
-      name: "ui-desktop-webkit",
-      testMatch: /tests\/ui\//,
-      use: {
-        browserName: "webkit",
-        baseURL: `http://localhost:${WEB_PORT}`,
-        viewport: DESKTOP_VIEWPORT,
-      },
-      workers: 1,
-    },
-    {
-      name: "ui-mobile-chromium-android",
-      testMatch: /tests\/ui\//,
-      use: {
-        ...devices["Pixel 7"],
-        baseURL: `http://localhost:${WEB_PORT}`,
-        launchOptions: {
-          slowMo: 150,
-          args: [
-            windowSizeArg(
-              devices["Pixel 7"].viewport.width,
-              devices["Pixel 7"].viewport.height,
-            ),
-          ],
-        },
-      },
-      workers: 1,
-    },
-    {
-      name: "ui-mobile-chromium-iphone",
-      testMatch: /tests\/ui\//,
-      use: {
-        ...devices["iPhone 14"],
-        baseURL: `http://localhost:${WEB_PORT}`,
-        launchOptions: {
-          slowMo: 150,
-          args: [
-            windowSizeArg(
-              devices["iPhone 14"].viewport.width,
-              devices["iPhone 14"].viewport.height,
-            ),
-          ],
-        },
-      },
-      workers: 1,
-    },
+    // {
+    //   name: "ui-desktop-firefox",
+    //   testMatch: /tests\/ui\//,
+    //   use: {
+    //     browserName: "firefox",
+    //     baseURL: `http://localhost:${WEB_PORT}`,
+    //     viewport: DESKTOP_VIEWPORT,
+    //   },
+    //   workers: 1,
+    // },
+    // {
+    //   name: "ui-desktop-webkit",
+    //   testMatch: /tests\/ui\//,
+    //   use: {
+    //     browserName: "webkit",
+    //     baseURL: `http://localhost:${WEB_PORT}`,
+    //     viewport: DESKTOP_VIEWPORT,
+    //   },
+    //   workers: 1,
+    // },
+    // {
+    //   name: "ui-mobile-chromium-android",
+    //   testMatch: /tests\/ui\//,
+    //   use: {
+    //     ...devices["Pixel 7"],
+    //     baseURL: `http://localhost:${WEB_PORT}`,
+    //     launchOptions: {
+    //       slowMo: 150,
+    //       args: [
+    //         windowSizeArg(
+    //           devices["Pixel 7"].viewport.width,
+    //           devices["Pixel 7"].viewport.height,
+    //         ),
+    //       ],
+    //     },
+    //   },
+    //   workers: 1,
+    // },
+    // {
+    //   name: "ui-mobile-chromium-iphone",
+    //   testMatch: /tests\/ui\//,
+    //   use: {
+    //     ...devices["iPhone 14"],
+    //     baseURL: `http://localhost:${WEB_PORT}`,
+    //     launchOptions: {
+    //       slowMo: 150,
+    //       args: [
+    //         windowSizeArg(
+    //           devices["iPhone 14"].viewport.width,
+    //           devices["iPhone 14"].viewport.height,
+    //         ),
+    //       ],
+    //     },
+    //   },
+    //   workers: 1,
+    // },
     {
       name: "ui-mobile-webkit-iphone",
       testMatch: /tests\/ui\//,

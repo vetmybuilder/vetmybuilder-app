@@ -188,7 +188,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
           // --- Verification fetch ---
           try {
             const { data } = await api.get(
-              `/api/recommendations/${recId}/verification`
+              `/api/recommendations/${recId}/verification`,
             );
             if (!cancelled && data?.verification) {
               verMap[recId] = data.verification as Verification;
@@ -205,7 +205,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
           } catch {
             photosMap[recId] = false;
           }
-        })
+        }),
       );
 
       if (!cancelled) {
@@ -243,7 +243,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
 
         setShortlistItems(items);
         setShortlistTotal(
-          typeof data?.total === "number" ? data.total : items.length
+          typeof data?.total === "number" ? data.total : items.length,
         );
       } catch {
         if (cancelled) return;
@@ -267,7 +267,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
   // Build list of work types for the estimator (primary type + "Additional work types")
   const additionalTypes = extractAdditionalTypes(project.description);
   const allTypes = [project.type, ...additionalTypes].filter((x): x is string =>
-    Boolean(x && x.trim())
+    Boolean(x && x.trim()),
   );
 
   const estimate = React.useMemo(
@@ -286,7 +286,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
       project.propertyType,
       project.bedrooms,
       project.description,
-    ]
+    ],
   );
 
   // Map API items into FeaturedSimpleStrip items
@@ -302,7 +302,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
             : null),
         onClick: () => router.push(`/tradesman/${t.builderId}`),
       })),
-    [featured, router]
+    [featured, router],
   );
 
   const handleShare = async (channel: GetRecommendationsChannel) => {
@@ -325,7 +325,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
 
     try {
       const { data } = await api.post(
-        `/api/v2/projects/${project.id}/magic-link`
+        `/api/v2/projects/${project.id}/magic-link`,
       );
 
       inviteUrl =
@@ -535,12 +535,16 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
                   <div className="relative group">
                     <button
                       type="button"
+                      data-testid="job-estimate-info"
                       className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                       aria-label="How this estimate is calculated"
                     >
                       <InfoIcon size={14} />
                     </button>
-                    <div className="pointer-events-none absolute right-0 z-10 mt-2 w-72 rounded-lg bg-slate-900 px-3 py-2 text-left text-[11px] leading-snug text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                    <div
+                      data-testid="job-estimate-tooltip"
+                      className="pointer-events-none absolute right-0 z-10 mt-2 w-72 rounded-lg bg-slate-900 px-3 py-2 text-left text-[11px] leading-snug text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                    >
                       <p className="font-semibold">
                         Job estimate based on your project details.
                       </p>

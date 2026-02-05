@@ -23,7 +23,12 @@ export async function loginInAsHomeowner(args: {
 }) {
   const uid = args.uid || `ui-homeowner-${Date.now()}`;
 
-  const apiClient = await authedApiForUid(args.request, args.apiBaseUrl, uid);
+  const apiClient = await authedApiForUid(
+    args.page.request,
+    args.apiBaseUrl,
+    uid,
+    args.page,
+  );
 
   const res = await apiClient.post("/api/auth/signup", {
     firstName: reqString(args.firstName, "firstName"),

@@ -1,18 +1,13 @@
-import { test } from "../../../src/ui.base.fixtures";
-import Account from "../../../src/models/Account";
+import { test } from "../../../src/ui.fixtures";
 import Project from "../../../src/models/Project";
 
 test.describe("Homeowner projects", () => {
   test("can create a project and lands on the project page", async ({
     createProjectPage,
     projectDetailsPage,
-    authHelper,
+    homeownerProjectsPage,
   }, testInfo) => {
     const isMobile = testInfo.project.name.startsWith("ui-mobile-");
-
-    const account = Account.anAccount().withRandomRegistration({
-      location: "E4",
-    });
 
     const project = Project.aProject().withRandomDetails({
       category: "Appliances",
@@ -28,19 +23,15 @@ test.describe("Homeowner projects", () => {
       extraNotes: "Install new tumble dryer and ensure correct ventilation.",
     });
 
-    await authHelper.loginAsHomeowner({
-      firstName: account.firstName,
-      lastName: account.lastName,
-      location: account.location,
-    });
-
     await createProjectPage.createProject(project.toCreateInput(), isMobile);
 
-    await projectDetailsPage.assertLoaded();
-    await projectDetailsPage.assertStatusPending();
-    await projectDetailsPage.assertShareAndPublishVisible();
-    await projectDetailsPage.assertTopRecommendationsVisible();
+    await projectDetailsPage.hasProjectDetails(project, {
+      status: "Pending",
+    });
 
-    await projectDetailsPage.hasProjectDetails(project);
+    await projectDetailsPage.hasTopRecommendations(false);
+    await projectDetailsPage.hasSpotlight(false);
+    await projectDetailsPage.goBack();
+    await homeownerProjectsPage.hasProject([project]);
   });
 });

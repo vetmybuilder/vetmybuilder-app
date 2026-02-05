@@ -66,9 +66,15 @@ export const test = base.extend<UiFixtures, { runtime: Runtime }>({
   },
 });
 
-test.beforeEach(async ({ runtime }) => {
-  // Keeps users/user_roles/roles, wipes everything else
-  await wipeDatabase(runtime.dbName);
+test.beforeEach(async ({ runtime, page }) => {
+  // Ask the API server which DB it's using (it includes mysqlDatabase now)
+  const apiBase = runtime.apiBaseUrl || "http://localhost:3100";
+  const res = await page.request.get(`${apiBase}/health`);
+  const body = (await res.json()) as { mysqlDatabase?: string | null };
+
+  const dbNameToWipe = body?.mysqlDatabase || runtime.dbName;
+
+  await wipeDatabase(dbNameToWipe);
 });
 
 // Closing the context forces a clean session on every rerun.

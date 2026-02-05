@@ -1,8 +1,14 @@
-import { test as base, expect } from "@playwright/test";
+import {
+  test as base,
+  expect,
+  type APIRequestContext,
+  type Page,
+} from "@playwright/test";
 import { getRuntime } from "./config/runtime";
 import { ensureDatabase, applySchema, seedUsers } from "./db/manage-db";
 import { wipeDatabase } from "./db/wipe";
 import { api, authedApiForUid } from "./api/services/client";
+import { ProjectApi } from "./apiHelper/project/ProjectApi";
 
 type Runtime = ReturnType<typeof getRuntime>;
 type ApiClient = ReturnType<typeof api>;
@@ -13,7 +19,7 @@ function getShardIndex(testInfo: any): number {
 
   if (match) {
     const n = Number(match[1]);
-    if (Number.isFinite(n) && n >= 1) return n - 1; // shard-1 -> 0
+    if (Number.isFinite(n) && n >= 1) return n - 1;
   }
 
   const envShard = Number(process.env.TEST_SHARD);
@@ -27,8 +33,21 @@ function getProjectBaseURL(testInfo: any): string | undefined {
   return typeof baseURL === "string" && baseURL ? baseURL : undefined;
 }
 
+function getApiBaseURL(testInfo: any, runtime: Runtime): string {
+  const baseURL = getProjectBaseURL(testInfo);
+
+  // Some UI projects run on :3000. API must use the shard baseURL (3100+).
+  if (baseURL && !baseURL.includes(":3000")) return baseURL;
+
+  return runtime.apiBaseUrl;
+}
+
 export const test = base.extend<
-  { apiClient: ApiClient; adminApiClient: ApiClient },
+  {
+    apiClient: ApiClient;
+    adminApiClient: ApiClient;
+    projectApi: ProjectApi;
+  },
   { runtime: Runtime }
 >({
   runtime: [
@@ -36,10 +55,14 @@ export const test = base.extend<
       const shardIndex = getShardIndex(testInfo);
       const runtime = getRuntime(testInfo.workerIndex, shardIndex);
 
-      // Always prefer the Playwright project baseURL (per shard).
       const baseURL = getProjectBaseURL(testInfo);
-      if (baseURL) {
+
+      // Only override runtime apiBaseUrl when the project baseURL isn't UI-only (:3000)
+      if (baseURL && !baseURL.includes(":3000")) {
         runtime.apiBaseUrl = baseURL;
+        runtime.webBaseUrl = baseURL;
+      } else if (baseURL) {
+        // Keep webBaseUrl on :3000, but apiBaseUrl remains the shard baseURL (3100+)
         runtime.webBaseUrl = baseURL;
       }
 
@@ -52,24 +75,37 @@ export const test = base.extend<
     { scope: "worker" },
   ],
 
-  apiClient: async ({ request, runtime, page }, use, testInfo) => {
+  apiClient: async (
+    { request, runtime, page }: { request: APIRequestContext; runtime: Runtime; page: Page },
+    use,
+    testInfo,
+  ) => {
     const uid = process.env.TEST_USER_UID;
     if (!uid) throw new Error("Missing TEST_USER_UID");
 
-    const baseURL = getProjectBaseURL(testInfo) || runtime.apiBaseUrl;
+    const baseURL = getApiBaseURL(testInfo, runtime);
     const client = await authedApiForUid(request, baseURL, uid, page);
 
     await use(client);
   },
 
-  adminApiClient: async ({ request, runtime, page }, use, testInfo) => {
+  adminApiClient: async (
+    { request, runtime, page }: { request: APIRequestContext; runtime: Runtime; page: Page },
+    use,
+    testInfo,
+  ) => {
     const uid = process.env.TEST_ADMIN_USER_UID;
     if (!uid) throw new Error("Missing TEST_ADMIN_USER_UID");
 
-    const baseURL = getProjectBaseURL(testInfo) || runtime.apiBaseUrl;
+    const baseURL = getApiBaseURL(testInfo, runtime);
     const client = await authedApiForUid(request, baseURL, uid, page);
 
     await use(client);
+  },
+
+  projectApi: async ({ apiClient }: { apiClient: ApiClient }, use) => {
+    const projectApi = new ProjectApi(apiClient);
+    await use(projectApi);
   },
 });
 
