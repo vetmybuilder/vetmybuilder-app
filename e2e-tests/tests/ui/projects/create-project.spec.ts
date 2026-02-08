@@ -27,6 +27,7 @@ test.describe("Homeowner projects", () => {
 
     await projectDetailsPage.hasProjectDetails(project, {
       status: "Pending",
+      dates: { createdAt: new Date() },
     });
 
     await projectDetailsPage.hasTopRecommendations(false);

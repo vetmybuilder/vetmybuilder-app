@@ -363,6 +363,38 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
   const shortlistData = shortlistItems.length ? shortlistItems : recs || [];
   const shortlistCount = shortlistItems.length ? shortlistTotal : recTotal;
 
+  // ===== Created vs Updated meta (robust for MySQL DATETIME strings) =====
+  const createdAtRaw = (project as any)?.createdAt;
+  const updatedAtRaw = (project as any)?.updatedAt;
+
+  const createdAtDate = createdAtRaw ? new Date(createdAtRaw) : null;
+  const updatedAtDate = updatedAtRaw ? new Date(updatedAtRaw) : null;
+
+  const createdOk =
+    createdAtDate instanceof Date && !Number.isNaN(createdAtDate.getTime());
+  const updatedOk =
+    updatedAtDate instanceof Date && !Number.isNaN(updatedAtDate.getTime());
+
+  const rawDifferent =
+    createdAtRaw != null &&
+    updatedAtRaw != null &&
+    String(updatedAtRaw) !== String(createdAtRaw);
+
+  const timeDifferent =
+    createdOk &&
+    updatedOk &&
+    updatedAtDate!.getTime() !== createdAtDate!.getTime();
+
+  const showUpdated = rawDifferent || timeDifferent;
+
+  const metaLabel = showUpdated ? "Updated" : "Created";
+  const metaDate = showUpdated ? updatedAtDate : createdAtDate;
+
+  const metaText =
+    metaDate && !Number.isNaN(metaDate.getTime())
+      ? metaDate.toLocaleDateString("en-GB")
+      : "";
+
   return (
     <>
       <GetRecommendationsModal
@@ -399,7 +431,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
                 ← Back
               </a>
               <span className="text-xs text-slate-400">
-                Created {new Date(project.createdAt).toLocaleDateString()}
+                {metaLabel} {metaText}
               </span>
             </div>
             <h1 className="mt-1 flex items-center gap-2 text-2xl font-semibold tracking-tight">

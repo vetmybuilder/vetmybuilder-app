@@ -7,6 +7,11 @@ import {
 
 export type ProjectStatus = "Pending" | "Live" | "Completed" | "Archived";
 
+type DateChecks = {
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+};
+
 export class ProjectDetailsPage {
   readonly page: Page;
   readonly root: Locator;
@@ -19,6 +24,8 @@ export class ProjectDetailsPage {
   // lifecycle action
   readonly closeThisJobButton: Locator;
 
+  readonly editProjectButton: Locator;
+
   // estimate UI
   readonly estimateValue: Locator;
   readonly estimateInfoButton: Locator;
@@ -27,6 +34,9 @@ export class ProjectDetailsPage {
   // sections
   readonly topRecommendationsSection: Locator;
   readonly spotlightSection: Locator;
+
+  // header meta date text (e.g. "Created 07/02/2026" or "Updated 07/02/2026")
+  private readonly headerMetaDate: Locator;
 
   private readonly publishModal: PublishModalComponent;
   private readonly publishDialog: Locator;
@@ -37,14 +47,21 @@ export class ProjectDetailsPage {
     this.root = page.getByTestId("main-content");
     this.title = this.root.getByRole("heading").first();
 
-    // Header "← Back"
-    this.backLink = page.getByRole("link", { name: /←\s*back/i });
+    this.backLink = page
+      .getByTestId("btn-back")
+      .or(page.getByRole("link", { name: "Back to project" }))
+      .or(page.getByRole("link", { name: "Back" }))
+      .or(page.getByRole("link", { name: /←\s*back/i }));
+
+    // Single line under back link. We keep it flexible but scoped.
+    this.headerMetaDate = this.root.locator("span.text-slate-400");
 
     // Header CTA (draft projects)
     this.shareAndPublish = this.root.getByTestId("btn-get-recs-draft");
 
     // Header action
     this.closeThisJobButton = this.root.getByTestId("btn-close-project");
+    this.editProjectButton = this.root.getByTestId("btn-edit");
 
     // Estimate value (e.g. £1,000–£2,000)
     this.estimateValue = this.root.getByText(/^£[\d,]+–£[\d,]+$/);
@@ -53,7 +70,7 @@ export class ProjectDetailsPage {
     this.estimateInfoButton = this.root.getByTestId("job-estimate-info");
     this.estimateTooltip = this.root.getByTestId("job-estimate-tooltip");
 
-    // Sections (these already exist per your notes)
+    // Sections
     this.topRecommendationsSection = page.getByTestId("project-shortlist");
     this.spotlightSection = page.getByTestId("spotlight-strip");
 
@@ -62,10 +79,71 @@ export class ProjectDetailsPage {
     this.publishDialog = page.getByTestId("get-recs-modal");
   }
 
+  private toDate(v: Date | string) {
+    return v instanceof Date ? v : new Date(v);
+  }
+
+  // UI uses en-GB in OwnerProjectView: toLocaleDateString("en-GB")
+  private formatUiDate(d: Date) {
+    return d.toLocaleDateString("en-GB");
+  }
+
+  /**
+   * Strict check:
+   * - createdAt => expects exactly "Created dd/mm/yyyy"
+   * - updatedAt => expects exactly "Updated dd/mm/yyyy"
+   *
+   * If both are provided, updatedAt wins (because caller explicitly wants Updated).
+   */
+  async assertCreatedOrUpdatedDate(dates: DateChecks) {
+    if (!dates.createdAt && !dates.updatedAt) return;
+
+    await expect(this.headerMetaDate).toBeVisible();
+
+    if (dates.updatedAt) {
+      const d = this.toDate(dates.updatedAt);
+      const expected = `Updated ${this.formatUiDate(d)}`;
+      await expect(this.headerMetaDate).toHaveText(expected);
+      return;
+    }
+
+    if (dates.createdAt) {
+      const d = this.toDate(dates.createdAt);
+      const expected = `Created ${this.formatUiDate(d)}`;
+      await expect(this.headerMetaDate).toHaveText(expected);
+    }
+  }
+
+  /**
+   * Convenience for your edit flow:
+   * asserts exactly "Updated <today>" using the browser's locale formatting (en-GB).
+   */
+  async assertUpdatedToday() {
+    await expect(this.headerMetaDate).toBeVisible();
+
+    const today = await this.page.evaluate(() =>
+      new Date().toLocaleDateString("en-GB"),
+    );
+
+    await expect(this.headerMetaDate).toHaveText(`Updated ${today}`);
+  }
+
   async visit(projectId: string | number) {
     await this.page.goto(`/projects/${projectId}`);
     await expect(this.page).toHaveURL(new RegExp(`/projects/${projectId}$`));
     await expect(this.title).toBeVisible();
+  }
+
+  async editProject(projectId?: string | number) {
+    await expect(this.editProjectButton).toBeVisible();
+    await this.editProjectButton.click();
+    if (projectId !== undefined) {
+      await expect(this.page).toHaveURL(
+        new RegExp(`/projects/${projectId}/edit$`),
+      );
+    } else {
+      await expect(this.page).toHaveURL(/\/projects\/[^/]+\/edit$/);
+    }
   }
 
   async goBack() {
@@ -85,7 +163,10 @@ export class ProjectDetailsPage {
     await expect(this.root.getByRole("status")).toHaveText(map[status]);
   }
 
-  async hasProjectDetails(project: Project, opts?: { status?: ProjectStatus }) {
+  async hasProjectDetails(
+    project: Project,
+    opts?: { status?: ProjectStatus; dates?: DateChecks },
+  ) {
     const input = project.toCreateInput();
 
     await expect(this.page).toHaveURL(/\/projects\/[^/]+$/);
@@ -94,6 +175,11 @@ export class ProjectDetailsPage {
     // Header bits
     await expect(this.backLink).toBeVisible();
     await expect(this.closeThisJobButton).toBeVisible();
+
+    // Created/Updated date check (optional)
+    if (opts?.dates) {
+      await this.assertCreatedOrUpdatedDate(opts.dates);
+    }
 
     // Status (optional)
     if (opts?.status) {
@@ -132,7 +218,6 @@ export class ProjectDetailsPage {
         "Share this project with friends or neighbours to start seeing recommendations from vetted tradespeople.",
       );
 
-      // ✅ scope the share button to the shortlist block (fixes strict-mode clash)
       await expect(
         this.topRecommendationsSection.getByTestId(
           "btn-shortlist-share-publish",
@@ -142,7 +227,6 @@ export class ProjectDetailsPage {
       return;
     }
 
-    // For now: just assert the empty-state text is NOT shown.
     await expect(this.topRecommendationsSection).not.toContainText(
       "No builders have yet been recommended by a friend or neighbours.",
     );

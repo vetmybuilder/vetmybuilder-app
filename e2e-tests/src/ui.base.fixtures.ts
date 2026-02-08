@@ -7,6 +7,7 @@ import { getRuntime } from "../src/config/runtime";
 import { wipeDatabase } from "../src/db/wipe";
 import { HomeownerProjectsPage } from "../src/pages/HomeownerProjectsPage";
 import { CreateProjectPage } from "../src/pages/CreateProjectPage";
+import { EditProjectPage } from "../src/pages/EditProjectPage";
 import { ProjectDetailsPage } from "../src/pages/ProjectDetailsPage";
 import { AuthHelper } from "../src/helpers/AuthHelper";
 
@@ -19,6 +20,7 @@ type UiFixtures = {
   siteHeader: SiteHeader;
   homeownerProjectsPage: HomeownerProjectsPage;
   createProjectPage: CreateProjectPage;
+  editProjectPage: EditProjectPage;
   projectDetailsPage: ProjectDetailsPage;
   authHelper: AuthHelper;
 };
@@ -51,6 +53,10 @@ export const test = base.extend<UiFixtures, { runtime: Runtime }>({
 
   createProjectPage: async ({ page }, use) => {
     await use(new CreateProjectPage(page));
+  },
+
+  editProjectPage: async ({ page }, use) => {
+    await use(new EditProjectPage(page));
   },
 
   projectDetailsPage: async ({ page }, use) => {

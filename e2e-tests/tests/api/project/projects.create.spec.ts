@@ -14,17 +14,27 @@ test.describe("POST /api/projects", () => {
     expect(res.status()).toBe(201);
 
     const body = await res.json();
+    const created = body.project;
 
-    expect(body.project).toBeTruthy();
-    expect(body.project.id).toBeTruthy();
+    expect(created).toBeTruthy();
+    expect(created.id).toBeTruthy();
 
     // Server strips full postcodes inside name/type/location
-    expect(body.project.name).toBe(stripFullUkPostcodes(payload.name));
-    expect(body.project.type).toBe(stripFullUkPostcodes(payload.type));
+    expect(created.name).toBe(stripFullUkPostcodes(payload.name));
+    expect(created.type).toBe(stripFullUkPostcodes(payload.type));
 
-    // API stores outward code only (your model already has this)
-    expect(body.project.location).toBe(project.locationQuery);
+    // API stores outward code only
+    expect(created.location).toBe(project.locationQuery);
 
-    expect(body.project.status).toBe("pending");
+    expect(created.status).toBe("pending");
+
+    expect(created.createdAt).toBeTruthy();
+
+    // updatedAt should NOT indicate an update on creation
+    expect(
+      created.updatedAt === null ||
+        created.updatedAt === undefined ||
+        created.updatedAt === created.createdAt,
+    ).toBe(true);
   });
 });

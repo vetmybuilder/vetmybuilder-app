@@ -12,6 +12,8 @@ test.describe("PUT /api/projects/:id", () => {
 
     const { project: created } = await createdRes.json();
 
+    await new Promise((r) => setTimeout(r, 1100));
+
     const update = {
       name: "Updated Project Name",
       type: "Kitchen",
@@ -30,6 +32,14 @@ test.describe("PUT /api/projects/:id", () => {
     expect(project.description).toBe(update.description);
     expect(project.propertyType).toBe(update.propertyType);
     expect(project.bedrooms).toBe(update.bedrooms);
+
+    expect(project.createdAt).toBeTruthy();
+    expect(project.updatedAt).toBeTruthy();
+    expect(project.updatedAt).not.toBe(project.createdAt);
+
+    const createdAtMs = new Date(project.createdAt).getTime();
+    const updatedAtMs = new Date(project.updatedAt).getTime();
+    expect(updatedAtMs).toBeGreaterThanOrEqual(createdAtMs);
   });
 
   test("supports partial update (merges with current values)", async ({
@@ -42,6 +52,8 @@ test.describe("PUT /api/projects/:id", () => {
     expect(createdRes.status()).toBe(201);
 
     const { project: created } = await createdRes.json();
+
+    await new Promise((r) => setTimeout(r, 1100));
 
     const res = await apiClient.put(`/api/projects/${created.id}`, {
       description: "Only description changed",
@@ -56,6 +68,14 @@ test.describe("PUT /api/projects/:id", () => {
     expect(project.type).toBe(created.type);
     expect(project.propertyType).toBe(created.propertyType);
     expect(project.bedrooms).toBe(created.bedrooms);
+
+    expect(project.createdAt).toBeTruthy();
+    expect(project.updatedAt).toBeTruthy();
+    expect(project.updatedAt).not.toBe(project.createdAt);
+
+    const createdAtMs = new Date(project.createdAt).getTime();
+    const updatedAtMs = new Date(project.updatedAt).getTime();
+    expect(updatedAtMs).toBeGreaterThanOrEqual(createdAtMs);
   });
 
   test("strips full postcode from name/type (keeps outward only)", async ({
@@ -85,9 +105,7 @@ test.describe("PUT /api/projects/:id", () => {
   test("400 invalid_project_id if id is not a number", async ({
     apiClient,
   }) => {
-    const res = await apiClient.put("/api/projects/nope", {
-      name: "x",
-    });
+    const res = await apiClient.put("/api/projects/nope", { name: "x" });
     expect(res.status()).toBe(400);
     expect(await res.json()).toEqual({ error: "invalid_project_id" });
   });

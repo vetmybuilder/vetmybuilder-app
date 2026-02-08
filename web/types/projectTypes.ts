@@ -71,6 +71,42 @@ export const PROJECT_TYPES: ProjectTypeCategory[] = [
     ],
   },
 
+  /* ===================== Bedroom ===================== */
+  {
+    category: "Bedroom",
+    types: [
+      "Bedroom Design & Planning",
+      "Bedroom Refurbishment (Full)",
+      "Bedroom Refresh (Partial)",
+      "Bedroom Redecoration",
+      "Bedroom Flooring Installation",
+      "Bedroom Carpet Fitting",
+      "Bedroom Laminate/LVT Installation",
+      "Bedroom Wood Floor Sanding/Restoration",
+      "Bedroom Painting",
+      "Bedroom Wallpapering",
+      "Bedroom Plastering/Skimming",
+      "Bedroom Ceiling Repair",
+      "Bedroom Lighting Installation",
+      "Bedroom Additional Sockets",
+      "Bedroom Radiator Installation/Replacement",
+      "Bedroom Radiator Relocation",
+      "Bedroom Underfloor Heating",
+      "Bedroom Insulation Upgrade",
+      "Bedroom Soundproofing",
+      "Fitted Wardrobes (Bedroom)",
+      "Built-in Storage (Bedroom)",
+      "Bespoke Wardrobes (Bedroom)",
+      "Alcove Units (Bedroom)",
+      "Shelving Installation (Bedroom)",
+      "Bedroom Door Installation/Replacement",
+      "Bedroom Internal Door Hanging",
+      "Bedroom Window Replacement",
+      "Bedroom Triple Glazing Upgrade",
+      "Bedroom Blinds/Curtains Installation",
+    ],
+  },
+
   /* ===================== Building & General Construction ===================== */
   {
     category: "Building & Construction",
@@ -511,7 +547,7 @@ export const PROJECT_TYPES: ProjectTypeCategory[] = [
 
 /** Flat list */
 export const ALL_PROJECT_TYPES: string[] = PROJECT_TYPES.flatMap(
-  (c) => c.types
+  (c) => c.types,
 );
 
 /** Normalise */
@@ -567,6 +603,6 @@ export function toCanonicalType(input: string): string {
   if (inc) return inc;
   return String(input).replace(
     /\w\S*/g,
-    (w) => w[0].toUpperCase() + w.slice(1).toLowerCase()
+    (w) => w[0].toUpperCase() + w.slice(1).toLowerCase(),
   );
 }

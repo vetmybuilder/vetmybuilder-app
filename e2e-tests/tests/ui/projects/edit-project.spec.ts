@@ -1,0 +1,76 @@
+import Project from "../../../src/models/Project";
+import { test } from "../../../src/ui.fixtures";
+
+test.describe("Homeowner projects", () => {
+  test("can edit a project", async ({
+    projectApi,
+    projectDetailsPage,
+    editProjectPage,
+  }) => {
+    const project = Project.aProject().withRandomDetails({
+      category: "Appliances",
+      workTypes: ["Tumble Dryer Installation"],
+      locationQuery: "E4",
+      locationPick: "E4 0BQ",
+      propertyType: "Semi-Detached",
+      bedrooms: 4,
+      timeframe: "Urgent (1-2 weeks)",
+      budget: "£30k-£60k",
+      materials: "Supplied by homeowner",
+      access: "Parking available",
+      extraNotes: "Install new tumble dryer and ensure correct ventilation.",
+    });
+
+    const created = await projectApi.createProject(project.toApiPayload());
+    const projectId = created.project?.id ?? created.id;
+
+    // View (Created date should show)
+    await projectDetailsPage.visit(projectId);
+
+    await projectDetailsPage.hasProjectDetails(project, {
+      status: "Pending",
+      dates: { createdAt: created.project?.createdAt ?? created.createdAt },
+    });
+
+    // Edit
+    const updatedPropertyType = "Terraced";
+    const updatedBedrooms = 3;
+
+    // Must match UI option text exactly (en-dash)
+    const updatedTimeframe = "Soon (2–4 weeks)";
+    const updatedBudget = "£15k–£30k";
+    const updatedMaterials = "Mixed (some provided)";
+    const updatedAccess = "Permit required";
+    const updatedNotes =
+      "Updated notes: please confirm ventilation, remove old unit, and test before leaving.";
+
+    await projectDetailsPage.editProject(projectId);
+
+    await editProjectPage.editProjectDetails(project.toCreateInput(), {
+      propertyType: updatedPropertyType,
+      bedrooms: updatedBedrooms,
+      timeframe: updatedTimeframe,
+      budget: updatedBudget,
+      materials: updatedMaterials,
+      access: updatedAccess,
+      extraNotes: updatedNotes,
+    });
+
+    const edited = Project.aProject().withRandomDetails({
+      category: project.category,
+      workTypes: project.workTypes,
+      locationQuery: project.locationQuery,
+      locationPick: project.locationPick,
+      propertyType: updatedPropertyType,
+      bedrooms: updatedBedrooms,
+      timeframe: updatedTimeframe,
+      budget: updatedBudget,
+      materials: updatedMaterials,
+      access: updatedAccess,
+      extraNotes: updatedNotes,
+    });
+
+    await projectDetailsPage.hasProjectDetails(edited, { status: "Pending" });
+    await projectDetailsPage.assertUpdatedToday();
+  });
+});

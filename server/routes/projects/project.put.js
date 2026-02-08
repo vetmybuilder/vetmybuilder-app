@@ -87,12 +87,15 @@ module.exports = (router, ctx) => {
       return res.status(400).json({ error: "invalid_payload" });
     }
 
+    // MySQL-friendly timestamp
+    const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+
     // Apply update
     try {
       await mysqlQuery(
         `
         UPDATE projects SET
-          name = ?, type = ?, location = ?, description = ?, propertyType = ?, bedrooms = ?
+          name = ?, type = ?, location = ?, description = ?, propertyType = ?, bedrooms = ?, updatedAt = ?
         WHERE id = ?
       `,
         [
@@ -102,8 +105,9 @@ module.exports = (router, ctx) => {
           fields.description,
           fields.propertyType,
           fields.bedrooms,
+          now,
           id,
-        ]
+        ],
       );
 
       const rows = await mysqlQuery(`SELECT * FROM projects WHERE id = ?`, [
