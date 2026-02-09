@@ -16,7 +16,7 @@ export const test = uiBaseTest.extend<{
   projectApi: ProjectApi;
   basePage: BasePage;
 }>({
-  // ✅ AUTO: log UI in properly (Firebase session) as TEST_USER_UID
+  // AUTO: log UI in properly (Firebase session) as TEST_USER_UID
   login: [
     async (
       { authHelper, page }: { authHelper: AuthHelper; page: Page },

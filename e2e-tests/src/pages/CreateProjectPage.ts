@@ -67,9 +67,11 @@ export class CreateProjectPage {
   }
 
   async createProject(input: CreateProjectInput, isMobile: boolean) {
-    await this.page.goto("/projects");
+    await this.page.goto("/projects", { waitUntil: "domcontentloaded" });
+    await this.page.waitForURL(/\/projects(\?.*)?$/, { timeout: 15000 });
 
     if (isMobile) {
+      await this.mobileMenuButton.waitFor({ state: "visible" });
       await this.mobileMenuButton.click();
     }
 
