@@ -6,10 +6,8 @@ export type PublishOptions = {
   // keep your original naming
   askNeighbourhood?: boolean;
 
-  // either use explicit channel...
   channel?: PublishChannel;
 
-  // ...or convenience flags (override channel)
   whatsapp?: boolean;
   sms?: boolean;
   email?: boolean;
@@ -85,8 +83,6 @@ export class PublishModalComponent {
     if (channel === "email") await this.channelEmail.click();
   }
 
-  // ✅ publish() means "just publish"
-  // ✅ publish({ ... }) lets you optionally set neighbourhood/channel
   async publish(options?: PublishOptions) {
     await this.assertVisible();
 

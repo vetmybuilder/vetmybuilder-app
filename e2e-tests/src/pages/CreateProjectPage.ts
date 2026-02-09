@@ -32,7 +32,7 @@ export class CreateProjectPage {
 
     this.mobileMenuButton = page.getByTestId("btn-mobile-menu");
     this.desktopPostJob = page.getByTestId("btn-post-job-header");
-    this.mobilePostJob = page.getByTestId("mobile-post-job");
+    this.mobilePostJob = page.getByRole("button", { name: "Post a Job" });
 
     this.categorySelect = page.getByTestId("field-category");
 

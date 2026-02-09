@@ -4,6 +4,9 @@ import {
   PublishModalComponent,
   type PublishOptions,
 } from "./components/PublishModalComponent";
+import CloseProjectModalComponent, {
+  type CloseProjectOptions,
+} from "./components/CloseProjectModalComponent";
 
 export type ProjectStatus = "Pending" | "Live" | "Completed" | "Archived";
 
@@ -21,25 +24,23 @@ export class ProjectDetailsPage {
 
   readonly shareAndPublish: Locator;
 
-  // lifecycle action
   readonly closeThisJobButton: Locator;
 
   readonly editProjectButton: Locator;
 
-  // estimate UI
   readonly estimateValue: Locator;
   readonly estimateInfoButton: Locator;
   readonly estimateTooltip: Locator;
 
-  // sections
   readonly topRecommendationsSection: Locator;
   readonly spotlightSection: Locator;
 
-  // header meta date text (e.g. "Created 07/02/2026" or "Updated 07/02/2026")
   private readonly headerMetaDate: Locator;
 
   private readonly publishModal: PublishModalComponent;
   private readonly publishDialog: Locator;
+
+  private readonly closeProjectModal: CloseProjectModalComponent;
 
   constructor(page: Page) {
     this.page = page;
@@ -53,48 +54,35 @@ export class ProjectDetailsPage {
       .or(page.getByRole("link", { name: "Back" }))
       .or(page.getByRole("link", { name: /←\s*back/i }));
 
-    // Single line under back link. We keep it flexible but scoped.
     this.headerMetaDate = this.root.locator("span.text-slate-400");
 
-    // Header CTA (draft projects)
     this.shareAndPublish = this.root.getByTestId("btn-get-recs-draft");
 
-    // Header action
     this.closeThisJobButton = this.root.getByTestId("btn-close-project");
     this.editProjectButton = this.root.getByTestId("btn-edit");
 
-    // Estimate value (e.g. £1,000–£2,000)
     this.estimateValue = this.root.getByText(/^£[\d,]+–£[\d,]+$/);
 
-    // These should exist in UI (recommended QA attributes)
     this.estimateInfoButton = this.root.getByTestId("job-estimate-info");
     this.estimateTooltip = this.root.getByTestId("job-estimate-tooltip");
 
-    // Sections
     this.topRecommendationsSection = page.getByTestId("project-shortlist");
     this.spotlightSection = page.getByTestId("spotlight-strip");
 
-    // Publish modal
     this.publishModal = new PublishModalComponent(page);
     this.publishDialog = page.getByTestId("get-recs-modal");
+
+    this.closeProjectModal = new CloseProjectModalComponent(page);
   }
 
   private toDate(v: Date | string) {
     return v instanceof Date ? v : new Date(v);
   }
 
-  // UI uses en-GB in OwnerProjectView: toLocaleDateString("en-GB")
   private formatUiDate(d: Date) {
     return d.toLocaleDateString("en-GB");
   }
 
-  /**
-   * Strict check:
-   * - createdAt => expects exactly "Created dd/mm/yyyy"
-   * - updatedAt => expects exactly "Updated dd/mm/yyyy"
-   *
-   * If both are provided, updatedAt wins (because caller explicitly wants Updated).
-   */
   async assertCreatedOrUpdatedDate(dates: DateChecks) {
     if (!dates.createdAt && !dates.updatedAt) return;
 
@@ -114,10 +102,6 @@ export class ProjectDetailsPage {
     }
   }
 
-  /**
-   * Convenience for your edit flow:
-   * asserts exactly "Updated <today>" using the browser's locale formatting (en-GB).
-   */
   async assertUpdatedToday() {
     await expect(this.headerMetaDate).toBeVisible();
 
@@ -172,28 +156,23 @@ export class ProjectDetailsPage {
     await expect(this.page).toHaveURL(/\/projects\/[^/]+$/);
     await expect(this.title).toBeVisible();
 
-    // Header bits
     await expect(this.backLink).toBeVisible();
     await expect(this.closeThisJobButton).toBeVisible();
 
-    // Created/Updated date check (optional)
     if (opts?.dates) {
       await this.assertCreatedOrUpdatedDate(opts.dates);
     }
 
-    // Status (optional)
     if (opts?.status) {
       await this.hasStatus(opts.status);
     }
 
-    // Project attributes
     await expect(this.root).toContainText(input.workTypes[0]);
     await expect(this.root).toContainText(input.propertyType);
     await expect(this.root).toContainText(`${input.bedrooms} bed`);
     await expect(this.root).toContainText(input.locationPick.split(" ")[0]);
     await expect(this.root).toContainText(input.budget);
 
-    // Estimate + tooltip (QA attributes make this stable)
     await expect(this.estimateValue).toBeVisible();
     await expect(this.estimateInfoButton).toBeVisible();
     await this.estimateInfoButton.hover();
@@ -252,6 +231,12 @@ export class ProjectDetailsPage {
     await expect(this.publishDialog).toBeVisible();
     await this.publishModal.publish(options);
     await expect(this.publishDialog).toBeHidden();
+  }
+
+  async closeProject(options?: CloseProjectOptions) {
+    await expect(this.closeThisJobButton).toBeVisible();
+    await this.closeThisJobButton.click();
+    await this.closeProjectModal.closeProject(options);
   }
 }
 

@@ -111,7 +111,7 @@ export class EditProjectPage extends BasePage {
   async save() {
     const step = this.activeStep();
     const saveBtn = step.getByRole("button", { name: "Save changes" });
-    // await expect(saveBtn).toBeVisible();
+
     await expect(saveBtn).toBeEnabled();
     await saveBtn.click();
   }
