@@ -1,4 +1,4 @@
-import { test as base, expect } from "@playwright/test";
+import { test as base, expect, APIResponse } from "@playwright/test";
 import { LoginPage } from "../src/pages/LoginPage";
 import { RegisterPage } from "../src/pages/RegisterPage";
 import { SiteHeader } from "../src/pages/SiteHeader";
@@ -8,6 +8,7 @@ import { wipeDatabase } from "../src/db/wipe";
 import { HomeownerProjectsPage } from "../src/pages/HomeownerProjectsPage";
 import { CreateProjectPage } from "../src/pages/CreateProjectPage";
 import { EditProjectPage } from "../src/pages/EditProjectPage";
+import { AccountPage } from "../src/pages/AccountPage";
 import { ProjectDetailsPage } from "../src/pages/ProjectDetailsPage";
 import { AuthHelper } from "../src/helpers/AuthHelper";
 
@@ -16,6 +17,7 @@ type Runtime = ReturnType<typeof getRuntime>;
 type UiFixtures = {
   homePage: HomePage;
   loginPage: LoginPage;
+  accountPage: AccountPage;
   registerPage: RegisterPage;
   siteHeader: SiteHeader;
   homeownerProjectsPage: HomeownerProjectsPage;
@@ -25,11 +27,17 @@ type UiFixtures = {
   authHelper: AuthHelper;
 };
 
+function normalizeApiBase(url: string): string {
+  // Only normalize localhost -> 127.0.0.1 (fixes ::1 issues),
+  // but DO NOT touch docker hostnames like http://server-w0:3100
+  return url.replace(/^http:\/\/localhost\b/i, "http://127.0.0.1");
+}
+
 export const test = base.extend<UiFixtures, { runtime: Runtime }>({
   runtime: [
     async ({}, use, testInfo) => {
-      // UI always uses shard 0 (API server on :3100)
-      const runtime = getRuntime(testInfo.workerIndex, 0);
+      // Runtime must be per-worker so each worker can target its own API + DB.
+      const runtime = getRuntime(testInfo.workerIndex);
       await use(runtime);
     },
     { scope: "worker" },
@@ -41,6 +49,10 @@ export const test = base.extend<UiFixtures, { runtime: Runtime }>({
 
   loginPage: async ({ page }, use) => {
     await use(new LoginPage(page));
+  },
+
+  accountPage: async ({ page }, use) => {
+    await use(new AccountPage(page));
   },
 
   registerPage: async ({ page }, use) => {
@@ -73,11 +85,35 @@ export const test = base.extend<UiFixtures, { runtime: Runtime }>({
 });
 
 test.beforeEach(async ({ runtime, page }) => {
-  // Ask the API server which DB it's using (it includes mysqlDatabase now)
-  const apiBase = runtime.apiBaseUrl || "http://localhost:3100";
-  const res = await page.request.get(`${apiBase}/health`);
-  const body = (await res.json()) as { mysqlDatabase?: string | null };
+  const apiBase = normalizeApiBase(runtime.apiBaseUrl);
 
+  let lastResponse: APIResponse | null = null;
+
+  await expect
+    .poll(
+      async () => {
+        try {
+          const res = await page.request.get(`${apiBase}/health`);
+          lastResponse = res;
+          return res.ok();
+        } catch {
+          lastResponse = null;
+          return false;
+        }
+      },
+      {
+        timeout: 30_000,
+        intervals: [250, 250, 500, 1000],
+        message: `Waiting for API health at ${apiBase}/health`,
+      },
+    )
+    .toBe(true);
+
+  const body = (await lastResponse!.json()) as {
+    mysqlDatabase?: string | null;
+  };
+
+  // Prefer runtime.dbName (worker-specific). If server reports a db name, trust it only if present.
   const dbNameToWipe = body?.mysqlDatabase || runtime.dbName;
 
   await wipeDatabase(dbNameToWipe);

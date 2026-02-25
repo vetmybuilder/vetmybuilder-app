@@ -1,6 +1,6 @@
 import Project from "../../../src/models/Project";
-import { test } from "../../../src/ui.fixtures";
-
+import { expect, test } from "../../../src/ui.fixtures";
+// passing
 test.describe("Homeowner projects", () => {
   test("can edit a pending project", async ({
     projectApi,
@@ -26,7 +26,7 @@ test.describe("Homeowner projects", () => {
 
     await projectDetailsPage.visit(projectId);
 
-    await projectDetailsPage.hasProjectDetails(project, {
+    await projectDetailsPage.hasProjectDetails(projectId, project, {
       status: "Pending",
       dates: { createdAt: created.project?.createdAt ?? created.createdAt },
     });
@@ -34,8 +34,6 @@ test.describe("Homeowner projects", () => {
     // Edit (draft)
     const updatedPropertyType = "Terraced";
     const updatedBedrooms = 3;
-
-    // Must match UI option text exactly (en-dash)
     const updatedTimeframe = "Soon (2–4 weeks)";
     const updatedBudget = "£15k–£30k";
     const updatedMaterials = "Mixed (some provided)";
@@ -43,9 +41,10 @@ test.describe("Homeowner projects", () => {
     const updatedNotes =
       "Updated notes: please confirm ventilation, remove old unit, and test before leaving.";
 
-    await projectDetailsPage.editProject(projectId);
+    await projectDetailsPage.editProject(projectId); //why cant this be put inside the start of editProjectDetails just to click the edit button
 
     await editProjectPage.editProjectDetails(project.toCreateInput(), {
+      //stop doing toCreateInput in the spec. just call await editProjectPage.editProjectDetails(project) let the function automatically do the .toCreateInput().
       propertyType: updatedPropertyType,
       bedrooms: updatedBedrooms,
       timeframe: updatedTimeframe,
@@ -68,11 +67,14 @@ test.describe("Homeowner projects", () => {
       access: updatedAccess,
       extraNotes: updatedNotes,
     });
-
-    await projectDetailsPage.hasProjectDetails(edited, { status: "Pending" });
+    await expect(projectDetailsPage.page.getByTestId('project-view-page')).toBeVisible();
+    await projectDetailsPage.hasProjectDetails(projectId, edited, {
+      status: "Pending",
+    });
     await projectDetailsPage.assertUpdatedToday();
   });
 
+  // passing
   test("can edit a published project", async ({
     projectApi,
     projectDetailsPage,
@@ -97,14 +99,14 @@ test.describe("Homeowner projects", () => {
     });
     const projectId = created.id;
 
-    // View + confirm Live
     await projectDetailsPage.visit(projectId);
-    await projectDetailsPage.hasProjectDetails(project, { status: "Live" });
+    await projectDetailsPage.hasProjectDetails(projectId, project, {
+      status: "Live",
+    });
 
-    // Edit (published)
+    // set as object
     const updatedPropertyType = "Terraced";
     const updatedBedrooms = 3;
-
     const updatedTimeframe = "Soon (2–4 weeks)";
     const updatedBudget = "£15k–£30k";
     const updatedMaterials = "Mixed (some provided)";
@@ -138,8 +140,9 @@ test.describe("Homeowner projects", () => {
       extraNotes: updatedNotes,
     });
 
-    // Must remain Live after edit
-    await projectDetailsPage.hasProjectDetails(edited, { status: "Live" });
+    await projectDetailsPage.hasProjectDetails(projectId, edited, {
+      status: "Live",
+    });
     await projectDetailsPage.assertUpdatedToday();
   });
 });

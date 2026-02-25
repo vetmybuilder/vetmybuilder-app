@@ -19,56 +19,46 @@ module.exports = (router, ctx) => {
     const log = withRequest(req);
     const uid = req.user.uid;
 
-    const firstName = (req.body?.firstName ?? "").toString().trim() || null;
-    const lastName = (req.body?.lastName ?? "").toString().trim() || null;
-    const username = (req.body?.username ?? "").toString().trim() || null;
-    const location = (req.body?.location ?? "").toString().trim() || null;
+    const firstName = (req.body?.firstName ?? "").toString().trim();
+    const lastName = (req.body?.lastName ?? "").toString().trim();
+    const username = (req.body?.username ?? "").toString().trim();
+    const location = (req.body?.location ?? "").toString().trim();
+
+    // ✅ Mandatory fields (always)
+    const fieldErrors = {};
+    if (!firstName) fieldErrors.firstName = "First name is required.";
+    if (!lastName) fieldErrors.lastName = "Last name is required.";
+    if (!username) fieldErrors.username = "Username is required.";
+    if (!location) fieldErrors.location = "Postcode or city is required.";
+
+    if (Object.keys(fieldErrors).length > 0) {
+      log.warn({ uid, fieldErrors }, "missing required account fields");
+      return res.status(400).json({
+        error: "missing_required_fields",
+        message: "Please fill in all required fields.",
+        fieldErrors,
+      });
+    }
 
     try {
-      const existing = await mysqlQuery(
+      // Username uniqueness check (always, because username is now mandatory)
+      const takenRows = await mysqlQuery(
         `
-        SELECT firstName, lastName, username
+        SELECT 1
         FROM users
-        WHERE uid = ?
+        WHERE username = ?
+          AND uid <> ?
         LIMIT 1
         `,
-        [uid],
+        [username, uid],
       );
 
-      const row = existing[0] || null;
-      const hasProfile =
-        !!String(row?.firstName || "").trim() ||
-        !!String(row?.lastName || "").trim() ||
-        !!String(row?.username || "").trim();
-
-      if (!hasProfile) {
-        if (!firstName || !lastName) {
-          log.warn({ uid }, "missing name fields for new profile");
-          return res.status(400).json({
-            error: "missing_profile_fields",
-            message: "First name and last name are required.",
-          });
-        }
-      }
-
-      if (username) {
-        const takenRows = await mysqlQuery(
-          `
-          SELECT 1
-          FROM users
-          WHERE username = ?
-            AND uid <> ?
-          LIMIT 1
-          `,
-          [username, uid],
-        );
-
-        if (takenRows.length > 0) {
-          log.warn({ username }, "username already taken");
-          return res
-            .status(409)
-            .json({ error: "That username is already taken." });
-        }
+      if (takenRows.length > 0) {
+        log.warn({ username, uid }, "username already taken");
+        return res.status(409).json({
+          error: "username_taken",
+          message: "That username is already taken.",
+        });
       }
 
       const email = req.user.email ?? null;
@@ -89,20 +79,19 @@ module.exports = (router, ctx) => {
         )
         ON DUPLICATE KEY UPDATE
           email       = VALUES(email),
-          firstName   = COALESCE(VALUES(firstName), firstName),
-          lastName    = COALESCE(VALUES(lastName), lastName),
-          username    = COALESCE(VALUES(username), username),
-          locationRaw = COALESCE(VALUES(locationRaw), locationRaw)
+          firstName   = VALUES(firstName),
+          lastName    = VALUES(lastName),
+          username    = VALUES(username),
+          locationRaw = VALUES(locationRaw)
         `,
         [uid, email, firstName, lastName, username, location],
       );
 
       log.info({ uid }, "upserted user row in MySQL");
 
-      if (location) {
-        await updateUserLocationMysql(mysqlQuery, uid, location);
-        log.info({ uid }, "updated user location tokens");
-      }
+      // Location is mandatory now, so this will always run
+      await updateUserLocationMysql(mysqlQuery, uid, location);
+      log.info({ uid }, "updated user location tokens");
 
       return res.json({ ok: true });
     } catch (err) {

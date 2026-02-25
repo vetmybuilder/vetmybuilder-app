@@ -23,9 +23,7 @@ export class ProjectDetailsPage {
   readonly backLink: Locator;
 
   readonly shareAndPublish: Locator;
-
   readonly closeThisJobButton: Locator;
-
   readonly editProjectButton: Locator;
 
   readonly estimateValue: Locator;
@@ -57,7 +55,6 @@ export class ProjectDetailsPage {
     this.headerMetaDate = this.root.locator("span.text-slate-400");
 
     this.shareAndPublish = this.root.getByTestId("btn-get-recs-draft");
-
     this.closeThisJobButton = this.root.getByTestId("btn-close-project");
     this.editProjectButton = this.root.getByTestId("btn-edit");
 
@@ -81,6 +78,53 @@ export class ProjectDetailsPage {
 
   private formatUiDate(d: Date) {
     return d.toLocaleDateString("en-GB");
+  }
+
+  private async waitUntilReady() {
+    await expect
+      .poll(
+        async () => {
+          const url = this.page.url();
+
+          // If we got redirected somewhere else, fail fast with context.
+          if (/\/signin|\/signup/.test(url)) {
+            return { ok: false, reason: `redirected:${url}` };
+          }
+
+          const rootVisible = await this.root.isVisible().catch(() => false);
+          if (!rootVisible)
+            return { ok: false, reason: "main-content not visible" };
+
+          // Any of these indicates the page is “real” and hydrated:
+          const titleVisible = await this.title.isVisible().catch(() => false);
+          if (titleVisible) return { ok: true, reason: "ok" };
+
+          const editVisible = await this.editProjectButton
+            .isVisible()
+            .catch(() => false);
+          if (editVisible) return { ok: true, reason: "ok" };
+
+          const closeVisible = await this.closeThisJobButton
+            .isVisible()
+            .catch(() => false);
+          if (closeVisible) return { ok: true, reason: "ok" };
+
+          const statusVisible = await this.root
+            .getByRole("status")
+            .isVisible()
+            .catch(() => false);
+          if (statusVisible) return { ok: true, reason: "ok" };
+
+          return { ok: false, reason: "waiting for details controls" };
+        },
+        {
+          timeout: 45_000,
+          intervals: [200, 300, 500, 800, 1200],
+          message:
+            "Project details page did not become ready (main content present but details controls never appeared).",
+        },
+      )
+      .toEqual({ ok: true, reason: "ok" });
   }
 
   async assertCreatedOrUpdatedDate(dates: DateChecks) {
@@ -113,20 +157,26 @@ export class ProjectDetailsPage {
   }
 
   async visit(projectId: string | number) {
-    await this.page.goto(`/projects/${projectId}`);
-    await expect(this.page).toHaveURL(new RegExp(`/projects/${projectId}$`));
-    await expect(this.title).toBeVisible();
+    await this.page.goto(`/projects/${projectId}`, {
+      waitUntil: "domcontentloaded",
+    });
+    await expect(this.page).toHaveURL(
+      new RegExp(`/projects/${projectId}(\\?.*)?$`),
+    );
+
+    await this.waitUntilReady();
   }
 
   async editProject(projectId?: string | number) {
     await expect(this.editProjectButton).toBeVisible();
     await this.editProjectButton.click();
+
     if (projectId !== undefined) {
       await expect(this.page).toHaveURL(
-        new RegExp(`/projects/${projectId}/edit$`),
+        new RegExp(`/projects/${projectId}/edit(\\?.*)?$`), //stop using regex
       );
     } else {
-      await expect(this.page).toHaveURL(/\/projects\/[^/]+\/edit$/);
+      await expect(this.page).toHaveURL(/\/projects\/[^/]+\/edit(\?.*)?$/);  //stop using regex
     }
   }
 
@@ -148,13 +198,17 @@ export class ProjectDetailsPage {
   }
 
   async hasProjectDetails(
+    projectId: string | number,
     project: Project,
     opts?: { status?: ProjectStatus; dates?: DateChecks },
   ) {
+    // TODO: add check that project-view-page is visible
     const input = project.toCreateInput();
 
-    await expect(this.page).toHaveURL(/\/projects\/[^/]+$/);
-    await expect(this.title).toBeVisible();
+    await expect(this.page).toHaveURL(
+      (url) => url.pathname === `/projects/${projectId}`,
+    );
+    await this.waitUntilReady();
 
     await expect(this.backLink).toBeVisible();
     await expect(this.closeThisJobButton).toBeVisible();

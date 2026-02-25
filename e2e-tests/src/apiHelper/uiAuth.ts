@@ -1,46 +1,152 @@
 import type { APIRequestContext, Page } from "@playwright/test";
 
-export async function uiLoginAsUid(args: {
+function normalizeBaseUrl(url: string): string {
+  const trimmed = String(url || "").trim();
+  return trimmed.endsWith("/") ? trimmed.slice(0, -1) : trimmed;
+}
+
+function normalizeLocalhost(url: string): string {
+  return url.replace(/^http:\/\/localhost\b/i, "http://127.0.0.1");
+}
+
+function resolveApiBaseUrl(passedBaseUrl: string): string {
+  const override = String(process.env.API_BASE_URL || "").trim();
+  const chosen = override || String(passedBaseUrl || "").trim();
+  return normalizeLocalhost(normalizeBaseUrl(chosen));
+}
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function isRetryableNetworkError(err: unknown) {
+  const msg = String((err as any)?.message || err || "");
+  return (
+    msg.includes("ECONNREFUSED") ||
+    msg.includes("ECONNRESET") ||
+    msg.includes("ETIMEDOUT") ||
+    msg.includes("ENOTFOUND") ||
+    msg.includes("fetch failed") ||
+    msg.includes("socket hang up")
+  );
+}
+
+/**
+ * Mints a Firebase custom token from the test endpoint with retry/backoff.
+ */
+async function mintCustomTokenWithRetry(
+  request: APIRequestContext,
+  url: string,
+  secret: string,
+  uid: string,
+) {
+  const deadline = Date.now() + 25_000;
+  let attempt = 0;
+  let lastError: unknown;
+
+  while (Date.now() < deadline) {
+    attempt++;
+
+    try {
+      const res = await request.post(url, {
+        headers: { "X-Test-Secret": secret },
+        data: { uid },
+        timeout: 5_000,
+      });
+
+      if (res.ok()) {
+        const body = (await res.json()) as {
+          customToken?: string;
+          token?: string;
+        };
+
+        const token = body.customToken || body.token;
+        if (!token) throw new Error("Missing customToken in response");
+
+        return token;
+      }
+
+      if (res.status() >= 500 || res.status() === 429 || res.status() === 408) {
+        await sleep(Math.min(1500, 200 + attempt * 150));
+        continue;
+      }
+
+      const text = await res.text().catch(() => "");
+      throw new Error(`Custom token mint failed: ${res.status()} ${text}`);
+    } catch (err) {
+      lastError = err;
+
+      if (isRetryableNetworkError(err)) {
+        await sleep(Math.min(1500, 200 + attempt * 150));
+        continue;
+      }
+
+      throw err;
+    }
+  }
+
+  throw new Error(
+    `Failed to mint custom token after retries: ${String(lastError)}`,
+  );
+}
+
+type UiLoginAsUidArgs = {
   request: APIRequestContext;
   apiBaseUrl: string;
   uiBaseUrl: string;
   uid: string;
   page: Page;
-}) {
-  const { request, apiBaseUrl, uiBaseUrl, uid, page } = args;
+};
 
-  const secret = process.env.E2E_TEST_SECRET;
-  if (!secret) throw new Error("Missing E2E_TEST_SECRET");
+/**
+ * Logs into the UI using a Firebase custom token.
+ */
+export async function uiLoginAsUid({
+  request,
+  apiBaseUrl,
+  uiBaseUrl,
+  uid,
+  page,
+}: UiLoginAsUidArgs): Promise<void> {
+  const userId = String(uid || "").trim();
+  if (!userId) throw new Error("Missing uid");
 
-  // 1. Mint custom token
-  const res = await request.post(
-    `${apiBaseUrl}/api/__test__/auth/custom-token`,
-    {
-      headers: { "X-Test-Secret": secret },
-      data: { uid },
-    },
+  const testSecret = process.env.E2E_TEST_SECRET;
+  if (!testSecret) throw new Error("Missing E2E_TEST_SECRET");
+
+  const apiBase = resolveApiBaseUrl(apiBaseUrl);
+  const uiBase = normalizeBaseUrl(uiBaseUrl);
+
+  const tokenUrl = `${apiBase}/api/__test__/auth/custom-token`;
+
+  const customToken = await mintCustomTokenWithRetry(
+    request,
+    tokenUrl,
+    testSecret,
+    userId,
   );
 
-  if (!res.ok()) {
-    throw new Error(`Failed to mint custom token: ${res.status()}`);
-  }
+  await page.goto(uiBase, { waitUntil: "domcontentloaded" });
 
-  const body: any = await res.json();
-  const token = body?.customToken || body?.token;
-  if (!token) throw new Error("Missing customToken from server");
+  await page.waitForFunction(
+    () => {
+      const w = window as any;
+      const auth =
+        w?.firebaseAuth ||
+        w?.auth ||
+        (typeof w?.firebase?.auth === "function" ? w.firebase.auth() : null);
 
-  // 2. Load UI
-  await page.goto(uiBaseUrl, { waitUntil: "domcontentloaded" });
+      return Boolean(
+        auth &&
+        (typeof auth.signInWithCustomToken === "function" ||
+          typeof w.signInWithCustomToken === "function"),
+      );
+    },
+    { timeout: 30_000 },
+  );
 
-  // 3. Wait for Firebase to exist on window (mobile-safe)
-  await page.waitForFunction(() => {
-    const w = window as any;
-    return w?.firebaseAuth || w?.auth || w?.firebase?.auth;
-  });
-
-  // 4. Sign in via Firebase
   await page.evaluate(
-    async ({ token }) => {
+    async ({ token, expectedUid }) => {
       const w = window as any;
 
       const auth =
@@ -48,19 +154,30 @@ export async function uiLoginAsUid(args: {
         w.auth ||
         (typeof w.firebase?.auth === "function" ? w.firebase.auth() : null);
 
-      if (!auth) {
-        throw new Error("Firebase auth not available after wait");
-      }
+      if (!auth) throw new Error("Firebase auth not available");
 
-      const signIn =
-        w.signInWithCustomToken || w.firebase?.auth?.signInWithCustomToken;
-
-      if (!signIn) {
+      if (typeof auth.signInWithCustomToken === "function") {
+        await auth.signInWithCustomToken(token);
+      } else if (typeof w.signInWithCustomToken === "function") {
+        await w.signInWithCustomToken(auth, token);
+      } else {
         throw new Error("signInWithCustomToken not available");
       }
 
-      await signIn(auth, token);
+      const user = auth.currentUser;
+      if (!user) throw new Error("User missing after sign-in");
+
+      await user.getIdToken(true);
+      w.__e2eSignedInUid = expectedUid;
     },
-    { token },
+    { token: customToken, expectedUid: userId },
   );
+
+  await page.waitForFunction(
+    (expected) => (window as any).__e2eSignedInUid === expected,
+    userId,
+    { timeout: 10_000 },
+  );
+
+  await page.goto("about:blank");
 }

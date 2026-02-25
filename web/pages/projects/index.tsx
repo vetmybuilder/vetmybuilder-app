@@ -165,7 +165,7 @@ const TAB_META: Partial<
   },
   completed: {
     title: "Completed",
-    desc: "Projects you marked completed",
+    desc: "Projects you've marked as completed",
     activeColor: "#0ea5e9",
     icon: "completed",
   },

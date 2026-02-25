@@ -1,3 +1,4 @@
+// web/components/SiteHeader.tsx
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useMemo, useRef, useState, useEffect } from "react";
@@ -267,57 +268,119 @@ export default function SiteHeader() {
   /* ========= 1) SIMPLE HOMEPAGE HEADER ========= */
   if (isHome) {
     return (
-      <header
-        role="banner"
-        aria-label="Site header"
-        data-testid="site-header"
-        className="sticky top-0 z-50 border-b border-gray-200/70 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60"
-      >
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <nav
-            aria-label="Primary navigation"
-            className="h-14 flex items-center justify-between gap-4"
-          >
-            <div className="flex items-center gap-3">
-              <Link
-                href={homeHref}
-                className="inline-flex items-center gap-2"
-                aria-label="Go to homepage"
-                data-testid="nav-home"
-              >
-                <span
-                  aria-hidden
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-slate-900 text-white ring-1 ring-slate-900/10 shadow-sm"
+      <>
+        <header
+          role="banner"
+          aria-label="Site header"
+          data-testid="site-header"
+          className="sticky top-0 z-50 border-b border-gray-200/70 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60"
+        >
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <nav
+              aria-label="Primary navigation"
+              className="h-14 flex items-center justify-between gap-4"
+            >
+              <div className="flex items-center gap-3">
+                <Link
+                  href={homeHref}
+                  className="inline-flex items-center gap-2"
+                  aria-label="Go to homepage"
+                  data-testid="nav-home"
                 >
-                  <Home className="h-4 w-4" />
-                </span>
-                <span className="sr-only">VetMyBuilder</span>
-              </Link>
-            </div>
+                  <span
+                    aria-hidden
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-slate-900 text-white ring-1 ring-slate-900/10 shadow-sm"
+                  >
+                    <Home className="h-4 w-4" />
+                  </span>
+                  <span className="sr-only">VetMyBuilder</span>
+                </Link>
+              </div>
 
-            <div className="flex items-center gap-3">
-              <Link
-                href={tradesRegisterHref}
-                className="hidden sm:inline-flex items-center gap-1.5 justify-center rounded-xl px-3 h-9 text-sm font-medium bg-emerald-600 text-white shadow-sm hover:bg-emerald-500"
-                data-testid="btn-are-you-tradesperson"
-              >
-                <Wrench className="h-4 w-4" />
-                <span>Are you a tradesperson?</span>
-              </Link>
+              <div className="flex items-center gap-3">
+                {/* Logged-in (desktop): show Projects button */}
+                {user && !isTrades && (
+                  <Link
+                    href="/projects"
+                    className="hidden sm:inline-flex items-center gap-1.5 justify-center rounded-xl px-3 h-9 text-sm font-medium bg-amber-400 text-slate-900 shadow-sm hover:bg-amber-300"
+                    data-testid="btn-home-projects"
+                  >
+                    <span>Projects</span>
+                    <span
+                      className="ml-1.5 text-base leading-none"
+                      aria-hidden="true"
+                    >
+                      ↗
+                    </span>
+                  </Link>
+                )}
 
-              <Link
-                href="/login"
-                className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium bg-indigo-600 text-white shadow-sm hover:bg-indigo-500"
-                aria-label="Homeowner sign in"
-                data-testid="nav-sign-in"
-              >
-                <User className="h-4 w-4" />
-                <span>Homeowner sign in</span>
-              </Link>
-            </div>
-          </nav>
-        </div>
-      </header>
+                {/* Logged-out (desktop) */}
+                {!user && (
+                  <>
+                    <Link
+                      href={tradesRegisterHref}
+                      className="hidden sm:inline-flex items-center gap-1.5 justify-center rounded-xl px-3 h-9 text-sm font-medium bg-emerald-600 text-white shadow-sm hover:bg-emerald-500"
+                      data-testid="btn-are-you-tradesperson"
+                    >
+                      <Wrench className="h-4 w-4" />
+                      <span>Are you a tradesperson?</span>
+                    </Link>
+
+                    <Link
+                      href="/login"
+                      className="hidden sm:inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium bg-indigo-600 text-white shadow-sm hover:bg-indigo-500"
+                      aria-label="Homeowner sign in"
+                      data-testid="nav-sign-in"
+                    >
+                      <User className="h-4 w-4" />
+                      <span>Homeowner sign in</span>
+                    </Link>
+                  </>
+                )}
+
+                {/* Mobile menu */}
+                <button
+                  type="button"
+                  aria-label="Open navigation menu"
+                  className="inline-flex sm:hidden h-9 w-9 items-center justify-center rounded-full border border-gray-300 bg-white shadow-sm"
+                  onClick={() => setMobileOpen(true)}
+                  data-testid="btn-mobile-menu"
+                >
+                  <span className="sr-only">Toggle menu</span>
+                  <div className="space-y-1">
+                    <span className="block h-0.5 w-4 rounded-full bg-gray-800" />
+                    <span className="block h-0.5 w-4 rounded-full bg-gray-800" />
+                    <span className="block h-0.5 w-4 rounded-full bg-gray-800" />
+                  </div>
+                </button>
+              </div>
+            </nav>
+          </div>
+        </header>
+
+        <MobileMenu
+          open={mobileOpen}
+          onClose={() => setMobileOpen(false)}
+          isTrades={isTrades}
+          isAuthed={!!user}
+          firstName={user?.firstName ?? null}
+          tradeCta={tradeCta}
+          onLogout={onLogout}
+          onGoHome={() => router.push("/")}
+          onGoProjectsTab={(key) =>
+            router.push(
+              { pathname: "/projects", query: { tab: key } },
+              undefined,
+              {
+                shallow: true,
+              },
+            )
+          }
+          onGoAccount={() => router.push("/account")}
+          onPostJob={() => router.push("/projects/new")}
+        />
+      </>
     );
   }
 

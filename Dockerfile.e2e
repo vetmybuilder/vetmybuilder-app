@@ -1,0 +1,19 @@
+# Repo image used for: web + server containers (same codebase, different commands)
+FROM node:20-bookworm-slim
+
+WORKDIR /app
+
+# Install deps with cache-friendly layering
+COPY package.json package-lock.json* ./
+COPY web/package.json web/package-lock.json* ./web/
+COPY e2e-tests/package.json e2e-tests/package-lock.json* ./e2e-tests/
+RUN npm ci || (echo "npm ci failed - ensure package-lock.json exists" && exit 1)
+
+# Copy full repo
+COPY . .
+
+# Next dev needs 3000, server shards use 3100-3103
+EXPOSE 3000 3100 3101 3102 3103
+
+# Compose will override the command per service
+CMD ["npm", "run", "dev:manual"]

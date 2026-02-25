@@ -1,7 +1,18 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { Home, X } from "lucide-react";
+import {
+  Home,
+  User,
+  Wrench,
+  X,
+  FolderKanban,
+  CheckCircle2,
+  Users,
+  Heart,
+  LogOut,
+  PlusSquare,
+} from "lucide-react";
 
 type ProjectsTabKey =
   | "mine"
@@ -65,15 +76,28 @@ export default function MobileMenu({
   if (!open || !mounted) return null;
 
   const safeFirstName = (firstName || "").trim();
-  const greeting = safeFirstName ? `Hi ${safeFirstName},` : "Hi there,";
+  const greeting = safeFirstName
+    ? `Welcome back ${safeFirstName},`
+    : "Hi there,";
 
-  // Shared typography for big menu actions
   const bigItemClass =
     "block w-full text-left text-[44px] leading-[1.05] font-light tracking-wide";
 
+  const rowClass = "inline-flex items-center gap-3 w-full align-middle";
+
+  const iconClass = (muted?: boolean) =>
+    `h-6 w-6 ${muted ? "text-white/60" : "text-white"}`;
+
+  const safeAreaStyle: React.CSSProperties = {
+    paddingTop: "env(safe-area-inset-top)",
+    paddingRight: "env(safe-area-inset-right)",
+    paddingBottom: "env(safe-area-inset-bottom)",
+    paddingLeft: "env(safe-area-inset-left)",
+  };
+
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] md:hidden"
+      className="fixed inset-0 z-[9999] md:hidden w-screen h-[100dvh]"
       role="dialog"
       aria-modal="true"
       aria-label="Mobile navigation menu"
@@ -84,13 +108,16 @@ export default function MobileMenu({
         type="button"
         aria-label="Close menu"
         onClick={onClose}
-        className="absolute inset-0 bg-slate-900/40"
+        className="absolute inset-0 bg-slate-900/40 w-screen h-[100dvh]"
       />
 
       {/* Panel */}
-      <div className="absolute inset-0 bg-slate-700 text-white">
+      <div
+        className="absolute inset-0 bg-slate-700 text-white flex flex-col w-screen h-[100dvh]"
+        style={safeAreaStyle}
+      >
         {/* Top bar */}
-        <div className="h-14 px-4 flex items-center justify-between border-b border-white/10">
+        <div className="h-14 px-4 flex items-center justify-between border-b border-white/10 shrink-0">
           <button
             type="button"
             onClick={() => {
@@ -121,8 +148,7 @@ export default function MobileMenu({
         </div>
 
         {/* Content */}
-        <div className="px-6 pt-10 pb-40">
-          {/* Greeting */}
+        <div className="flex-1 overflow-y-auto px-6 pt-10 pb-6">
           {isAuthed && (
             <div
               className="mb-8 text-white/90 text-sm tracking-wide"
@@ -132,7 +158,6 @@ export default function MobileMenu({
             </div>
           )}
 
-          {/* Homeowner menu */}
           {isAuthed && !isTrades && (
             <>
               <nav aria-label="Projects navigation" className="space-y-5">
@@ -145,7 +170,10 @@ export default function MobileMenu({
                   className={`${bigItemClass} text-white`}
                   data-testid="mobile-menu-my-projects"
                 >
-                  My Projects
+                  <span className={rowClass}>
+                    <FolderKanban className={iconClass(false)} />
+                    <span>My Projects</span>
+                  </span>
                 </button>
 
                 <button
@@ -157,7 +185,10 @@ export default function MobileMenu({
                   className={`${bigItemClass} text-white/60 hover:text-white`}
                   data-testid="mobile-menu-completed"
                 >
-                  Completed
+                  <span className={rowClass}>
+                    <CheckCircle2 className={iconClass(true)} />
+                    <span>Completed</span>
+                  </span>
                 </button>
 
                 <button
@@ -169,7 +200,10 @@ export default function MobileMenu({
                   className={`${bigItemClass} text-white/60 hover:text-white`}
                   data-testid="mobile-menu-community"
                 >
-                  Community
+                  <span className={rowClass}>
+                    <Users className={iconClass(true)} />
+                    <span>Community</span>
+                  </span>
                 </button>
 
                 <button
@@ -181,7 +215,10 @@ export default function MobileMenu({
                   className={`${bigItemClass} text-white/60 hover:text-white`}
                   data-testid="mobile-menu-favourites"
                 >
-                  Favourites
+                  <span className={rowClass}>
+                    <Heart className={iconClass(true)} />
+                    <span>Favourites</span>
+                  </span>
                 </button>
               </nav>
 
@@ -196,35 +233,31 @@ export default function MobileMenu({
                 className={`${bigItemClass} text-white/60 hover:text-white`}
                 data-testid="mobile-menu-account"
               >
-                Account
+                <span className={rowClass}>
+                  <User className={iconClass(true)} />
+                  <span>Account</span>
+                </span>
               </button>
             </>
           )}
 
-          {/* Guest menu */}
+          {/* Guest welcome (branded hero section) */}
           {!isAuthed && (
-            <nav aria-label="Guest navigation" className="space-y-5">
-              <Link
-                href="/login"
-                onClick={onClose}
-                className={`${bigItemClass} text-white`}
-                data-testid="mobile-menu-sign-in"
-              >
-                Homeowner sign in
-              </Link>
+            <div className="flex flex-col items-center justify-center text-center mt-16 px-6">
+              <div className="mb-6">
+                <h2 className="text-4xl font-light tracking-wide bg-gradient-to-r from-indigo-400 via-sky-300 to-emerald-400 bg-clip-text text-transparent">
+                  VetMyBuilder
+                </h2>
+              </div>
 
-              <Link
-                href="/tradesman/login"
-                onClick={onClose}
-                className={`${bigItemClass} text-white/60 hover:text-white`}
-                data-testid="mobile-menu-trades-login"
-              >
-                Tradesperson
-              </Link>
-            </nav>
+              <p className="text-white/70 text-base leading-relaxed max-w-sm">
+                Connect homeowners and trusted trades.
+                <br />
+                Build better projects together.
+              </p>
+            </div>
           )}
 
-          {/* Trades menu */}
           {isAuthed && isTrades && (
             <nav aria-label="Trades navigation" className="space-y-5">
               {tradeCta?.href && (
@@ -234,7 +267,10 @@ export default function MobileMenu({
                   className={`${bigItemClass} text-white`}
                   data-testid={tradeCta.testid || "mobile-menu-trades-projects"}
                 >
-                  {tradeCta.label}
+                  <span className={rowClass}>
+                    <Wrench className={iconClass(false)} />
+                    <span>{tradeCta.label}</span>
+                  </span>
                 </Link>
               )}
 
@@ -244,50 +280,93 @@ export default function MobileMenu({
                 className={`${bigItemClass} text-white/60 hover:text-white`}
                 data-testid="mobile-menu-trades-profile"
               >
-                Manage profile
+                <span className={rowClass}>
+                  <User className={iconClass(true)} />
+                  <span>Manage profile</span>
+                </span>
               </Link>
             </nav>
           )}
         </div>
 
-        {/* Bottom actions: BIG like the menu items */}
-        <div className="absolute bottom-0 left-0 right-0 border-t border-white/10">
+        {/* Bottom actions */}
+        <div className="sticky bottom-0 left-0 right-0 border-t border-white/10 shrink-0">
           <div className="grid grid-cols-2">
-            <button
-              type="button"
-              onClick={async () => {
-                onClose();
-                await onLogout();
-              }}
-              className={[
-                "px-6 py-6 text-left",
-                "bg-rose-600 hover:bg-rose-500",
-                "text-white",
-              ].join(" ")}
-              data-testid="mobile-menu-logout"
-            >
-              <span className="block text-[28px] leading-tight font-light tracking-wide">
-                Logout
-              </span>
-            </button>
+            {isAuthed ? (
+              <>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    onClose();
+                    await onLogout();
+                  }}
+                  className={[
+                    "px-6 py-6 text-left flex items-center gap-3",
+                    "bg-rose-600 hover:bg-rose-500",
+                    "text-white",
+                  ].join(" ")}
+                  data-testid="mobile-menu-logout"
+                >
+                  <LogOut className="h-5 w-5" />
+                  <span className="block text-[22px] leading-tight font-medium">
+                    Logout
+                  </span>
+                </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                onPostJob();
-                onClose();
-              }}
-              className={[
-                "px-6 py-6 text-left",
-                "bg-amber-400 hover:bg-amber-300",
-                "text-slate-900",
-              ].join(" ")}
-              data-testid="mobile-menu-post-job"
-            >
-              <span className="block text-[28px] leading-tight font-light tracking-wide">
-                Post a Job
-              </span>
-            </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onPostJob();
+                    onClose();
+                  }}
+                  className={[
+                    "px-6 py-6 text-left flex items-center gap-3",
+                    "bg-amber-400 hover:bg-amber-300",
+                    "text-slate-900",
+                  ].join(" ")}
+                  data-testid="mobile-menu-post-job"
+                >
+                  <PlusSquare className="h-5 w-5" />
+                  <span className="block text-[22px] leading-tight font-medium">
+                    Post a Job
+                  </span>
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  onClick={onClose}
+                  className={[
+                    "px-6 py-6 text-left flex items-center gap-3",
+                    "bg-indigo-600 hover:bg-indigo-500",
+                    "text-white",
+                  ].join(" ")}
+                  data-testid="mobile-menu-sign-in-cta"
+                >
+                  <User className="h-5 w-5" />
+                  <span className="block text-[22px] leading-tight font-medium">
+                    Homeowner
+                  </span>
+                </Link>
+
+                <Link
+                  href="/tradesman/login"
+                  onClick={onClose}
+                  className={[
+                    "px-6 py-6 text-left flex items-center gap-3",
+                    "bg-emerald-600 hover:bg-emerald-500",
+                    "text-white",
+                  ].join(" ")}
+                  data-testid="mobile-menu-trades-cta"
+                >
+                  <Wrench className="h-5 w-5" />
+                  <span className="block text-[22px] leading-tight font-medium">
+                    Tradesperson
+                  </span>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>

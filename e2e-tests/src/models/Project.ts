@@ -120,10 +120,6 @@ export default class Project {
     };
   }
 
-  /**
-   * Exact text that should appear in DescriptionBuilder preview.
-   * (Matches DescriptionBuilder formatting: "Timeframe: X." etc)
-   */
   expectedDescriptionPreview(): string {
     const input = this.toCreateInput();
     return [

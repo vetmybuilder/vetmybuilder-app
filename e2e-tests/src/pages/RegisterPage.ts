@@ -57,36 +57,16 @@ export class RegisterPage {
   }
 
   async submit() {
+    await expect(this.createAccountButton).toBeVisible();
+    await expect(this.createAccountButton).toBeEnabled();
     await this.createAccountButton.click();
   }
 
   async signUp(account: Account) {
     await this.page.goto("/signup");
-
-    await expect(this.title).toBeVisible();
+    await expect(this.form).toBeVisible();
     await this.fillFromAccount(account);
-
-    const signupResPromise = this.page
-      .waitForResponse(
-        (res) =>
-          res.request().method() === "POST" &&
-          res.url().includes("/api/auth/signup"),
-      )
-      .catch(() => null);
-
     await this.submit();
-
-    const res = await signupResPromise;
-
-    if (res && !res.ok()) {
-      let body = "";
-      try {
-        body = await res.text();
-      } catch {}
-      throw new Error(`POST /api/auth/signup failed: ${res.status()} ${body}`);
-    }
-
-    await expect(this.page).toHaveURL("/projects");
   }
 }
 

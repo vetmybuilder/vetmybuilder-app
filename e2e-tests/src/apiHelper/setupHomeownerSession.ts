@@ -10,18 +10,33 @@ function reqString(v: MaybeString, fieldName: string) {
   return s;
 }
 
+function looksLikeAlreadySignedUp(bodyText: string): boolean {
+  const t = (bodyText || "").toLowerCase();
+  return (
+    t.includes("already") ||
+    t.includes("exists") ||
+    t.includes("signed up") ||
+    t.includes("user exists") ||
+    t.includes("duplicate")
+  );
+}
+
 export async function loginInAsHomeowner(args: {
   request: APIRequestContext;
   page: Page;
-  apiBaseUrl: string; // http://localhost:3100
-  uiBaseUrl: string; // http://localhost:3000
+  apiBaseUrl: string;
+  uiBaseUrl: string;
   uid?: string;
 
   firstName: MaybeString;
   lastName: MaybeString;
   location: MaybeString;
+  email?: MaybeString;
 }) {
-  const uid = args.uid || `ui-homeowner-${Date.now()}`;
+  const uid = String(args.uid || `ui-homeowner-${Date.now()}`).trim();
+  if (!uid) throw new Error("Missing uid");
+
+  const email = String(args.email || `e2e+${uid}@example.test`).trim();
 
   const apiClient = await authedApiForUid(
     args.page.request,
@@ -36,7 +51,19 @@ export async function loginInAsHomeowner(args: {
     location: reqString(args.location, "location"),
   });
 
-  if (!res.ok()) throw new Error(`Signup failed: ${res.status()}`);
+  const bodyText = await res.text().catch(() => "");
+
+  if (!res.ok()) {
+    if (res.status() === 409) {
+      // already exists
+    } else if (res.status() === 400 && looksLikeAlreadySignedUp(bodyText)) {
+      // ignore known already-signed-up case
+    } else {
+      throw new Error(
+        `Signup failed: ${res.status()} ${res.statusText()}\n${bodyText || "(no body)"}`,
+      );
+    }
+  }
 
   await uiLoginAsUid({
     request: args.request,

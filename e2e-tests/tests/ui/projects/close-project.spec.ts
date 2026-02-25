@@ -1,6 +1,6 @@
 import { test } from "../../../src/ui.fixtures";
 import Project from "../../../src/models/Project";
-
+// passing
 test.describe("Homeowner projects", () => {
   test("can close a project that didn't go ahead", async ({
     projectApi,

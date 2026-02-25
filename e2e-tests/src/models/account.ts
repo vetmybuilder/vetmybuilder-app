@@ -1,4 +1,5 @@
 import Chance from "chance";
+import { randomUUID } from "crypto";
 
 const chance = new Chance();
 
@@ -17,6 +18,12 @@ export type RegisterInput = {
   email: string;
   password: string;
 };
+
+function uniqueSuffix(): string {
+  // Stable uniqueness across parallel workers + repeated runs
+  // Example: "a1b2c3d4e5f6"
+  return randomUUID().replace(/-/g, "").slice(0, 12).toLowerCase();
+}
 
 export default class Account {
   firstName: string = "";
@@ -62,10 +69,16 @@ export default class Account {
   }
 
   withRandomDetails(): Account {
+    const u = uniqueSuffix();
+
     this.firstName = chance.first();
     this.lastName = chance.last();
-    this.username = chance.string({ length: 10, alpha: true, casing: "lower" });
-    this.location = `${chance.postcode()} ${chance.city()}`;
+
+    // Make username deterministic-unique to avoid 409s in parallel runs
+    // (keep it simple + lowercase + reasonable length)
+    this.username = `e2e_${u}`;
+
+    this.location = `${chance.postcode()}`;
     return this;
   }
 
@@ -78,11 +91,8 @@ export default class Account {
 
     this.withRandomDetails();
 
-    this.email = `e2e+${Date.now()}-${chance.string({
-      length: 5,
-      alpha: true,
-      casing: "lower",
-    })}@${domain}`;
+    const u = uniqueSuffix();
+    this.email = `e2e+${u}@${domain}`;
 
     this.password = opts?.password ?? "Passw0rd!";
     if (opts?.location) this.location = opts.location;
@@ -96,7 +106,7 @@ export default class Account {
     return (a + b).toUpperCase();
   }
 
-  toPayload(): AccountInput {
+  toApiPayload(): AccountInput {
     return {
       firstName: this.firstName,
       lastName: this.lastName,

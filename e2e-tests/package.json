@@ -4,24 +4,24 @@
   "version": "1.0.0",
   "description": "Playwright E2E/API test framework for VetMyBuilder",
   "scripts": {
-    "test": "PW_HEADLESS=0 npm run test:ui && npm run test:api",
+    "test": "npm run test:ui && npm run test:api",
 
     "test:api": "playwright test tests/api --project shard-1 --project shard-2 --project shard-3 --project shard-4",
     "test:api:headed": "playwright test tests/api --headed --project shard-1 --project shard-2 --project shard-3 --project shard-4",
 
-    "test:ui": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui",
+    "test:ui": "playwright test -c playwright.ui.config.ts tests/ui",
     "test:ui:headless": "PW_HEADLESS=1 playwright test -c playwright.ui.config.ts tests/ui",
-    "test:ui:headed": "playwright test -c playwright.ui.config.ts tests/ui --headed",
+    "test:ui:headed": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui",
 
-    "test:ui:desktop": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui --project ui-desktop-chromium --project ui-desktop-firefox --project ui-desktop-webkit",
-    "test:ui:mobile": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui --project ui-mobile-chromium-android --project ui-mobile-chromium-iphone --project ui-mobile-webkit-iphone",
+    "test:ui:desktop": "playwright test -c playwright.ui.config.ts tests/ui --project ui-desktop-chromium --project ui-desktop-firefox --project ui-desktop-webkit",
+    "test:ui:mobile": "playwright test -c playwright.ui.config.ts tests/ui --project ui-mobile-chromium-android --project ui-mobile-chromium-iphone --project ui-mobile-webkit-iphone",
 
-    "test:ui:chromium": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui --project ui-desktop-chromium",
-    "test:ui:firefox": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui --project ui-desktop-firefox",
-    "test:ui:webkit": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui --project ui-desktop-webkit",
+    "test:ui:chromium": "playwright test -c playwright.ui.config.ts tests/ui --project ui-desktop-chromium",
+    "test:ui:firefox": "playwright test -c playwright.ui.config.ts tests/ui --project ui-desktop-firefox",
+    "test:ui:webkit": "playwright test -c playwright.ui.config.ts tests/ui --project ui-desktop-webkit",
 
-    "test:ui:mobile:chromium": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui --project ui-mobile-chromium-android",
-    "test:ui:mobile:webkit": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui --project ui-mobile-webkit-iphone",
+    "test:ui:mobile:chromium": "playwright test -c playwright.ui.config.ts tests/ui --project ui-mobile-chromium-android",
+    "test:ui:mobile:webkit": "playwright test -c playwright.ui.config.ts tests/ui --project ui-mobile-webkit-iphone",
 
     "dev:manual": "npm --prefix .. run dev:manual",
 

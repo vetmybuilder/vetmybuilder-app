@@ -63,56 +63,121 @@ function getBaseUrl() {
   log.info(
     `${TAG} init env=${process.env.CH_ENV || "live"} base=${base} key=${
       hasKey ? "present" : "MISSING"
-    } auth=${hasKey ? `Basic ${sample}` : "(none)"}`
+    } auth=${hasKey ? `Basic ${sample}` : "(none)"}`,
   );
 })();
 
-/* =======================================================
-   HTTP WRAPPER
-   ======================================================= */
+// -------------------------------------------------------
+// Simple in-memory cache for GET requests (per Node process)
+// -------------------------------------------------------
+const _chCache = new Map(); // url -> { expiresAt, data }
+const _CACHE_TTL_MS = 60 * 1000; // 60s
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
 async function chFetch(pathname, { method = "GET", signal } = {}) {
   const base = getBaseUrl();
   const url = `${base}${pathname}`;
+
+  // cache only GETs
+  if (method === "GET") {
+    const cached = _chCache.get(url);
+    if (cached) {
+      if (cached.expiresAt > Date.now()) {
+        log.info(`${TAG} cache hit ${method} ${pathname}`);
+        return cached.data;
+      }
+      _chCache.delete(url); // cleanup expired
+    }
+  }
+
   const headers = {
     Accept: "application/json",
     Authorization: buildAuthHeader(resolveKey()),
     "User-Agent": "vetmybuilder/1.0",
   };
 
-  const t0 = Date.now();
-  let res;
+  const maxRetries = 6;
+  let attempt = 0;
 
-  try {
-    res = await fetch(url, { method, headers, signal });
-  } catch (e) {
+  while (true) {
+    attempt += 1;
+    const t0 = Date.now();
+
+    let res;
+    try {
+      res = await fetch(url, { method, headers, signal });
+    } catch (e) {
+      const ms = Date.now() - t0;
+      log.error(`${TAG} net error ${method} ${pathname} after ${ms}ms`, {
+        error: e?.message || e,
+      });
+      throw e;
+    }
+
+    let bodyText = "";
+    try {
+      bodyText = await res.text();
+    } catch {}
+
     const ms = Date.now() - t0;
-    log.error(`${TAG} net error ${method} ${pathname} after ${ms}ms`, {
-      error: e?.message || e,
-    });
-    throw e;
+
+    // Retry on rate limit + transient server errors
+    const shouldRetry =
+      res.status === 429 || (res.status >= 500 && res.status <= 599);
+
+    if (!res.ok && shouldRetry && attempt < maxRetries) {
+      const retryAfter = res.headers.get("retry-after");
+      const retryAfterMs =
+        retryAfter && /^\d+$/.test(String(retryAfter).trim())
+          ? Math.max(0, Number(retryAfter) * 1000)
+          : 0;
+
+      const backoffMs = Math.min(5000, 200 * Math.pow(2, attempt - 1)); // 200,400,800...
+      const waitMs = Math.max(retryAfterMs, backoffMs);
+
+      log.warn(
+        `${TAG} ${method} ${pathname} -> ${res.status} in ${ms}ms (retry ${attempt}/${maxRetries - 1} after ${waitMs}ms)`,
+        { body: bodyText?.slice(0, 200) || "(empty)" },
+      );
+
+      await sleep(waitMs);
+      continue;
+    }
+
+    if (!res.ok) {
+      log.error(`${TAG} ${method} ${pathname} -> ${res.status} in ${ms}ms`, {
+        body: bodyText?.slice(0, 500) || "(empty)",
+      });
+      const err = new Error(`CH ${pathname} failed: ${res.status}`);
+      err.status = res.status;
+      err.body = bodyText;
+      throw err;
+    }
+
+    log.info(`${TAG} ${method} ${pathname} -> ${res.status} in ${ms}ms`);
+
+    // Parse JSON safely
+    let data = null;
+    if (bodyText) {
+      try {
+        data = JSON.parse(bodyText);
+      } catch (e) {
+        const err = new Error(`CH ${pathname} returned non-JSON body`);
+        err.status = res.status;
+        err.body = bodyText.slice(0, 500);
+        throw err;
+      }
+    }
+
+    if (method === "GET") {
+      _chCache.set(url, { data, expiresAt: Date.now() + _CACHE_TTL_MS });
+    }
+
+    return data;
   }
-
-  let bodyText = "";
-  try {
-    bodyText = await res.text();
-  } catch {}
-
-  const ms = Date.now() - t0;
-
-  if (!res.ok) {
-    log.error(`${TAG} ${method} ${pathname} -> ${res.status} in ${ms}ms`, {
-      body: bodyText?.slice(0, 500) || "(empty)",
-    });
-    const err = new Error(`CH ${pathname} failed: ${res.status}`);
-    err.status = res.status;
-    err.body = bodyText;
-    throw err;
-  }
-
-  log.info(`${TAG} ${method} ${pathname} -> ${res.status} in ${ms}ms`);
-
-  return bodyText ? JSON.parse(bodyText) : null;
 }
 
 /* =======================================================
@@ -314,7 +379,7 @@ function normalizeForFuse(s = "") {
       .replace(/[^\p{L}\p{N}]+/gu, " ")
       .replace(SUFFIX_RE, " ")
       .replace(/\s+/g, " ")
-      .trim()
+      .trim(),
   ).toLowerCase();
 }
 
@@ -369,10 +434,10 @@ function pickBestCompany(userInput, chItems) {
   const verdict = !best
     ? "no_match"
     : best.score >= 85
-    ? "verified"
-    : best.score >= 70
-    ? "ambiguous"
-    : "ambiguous";
+      ? "verified"
+      : best.score >= 70
+        ? "ambiguous"
+        : "ambiguous";
 
   return { verdict, best, ranked: ranked.slice(0, 5) };
 }
@@ -442,7 +507,7 @@ async function matchByName({ name, locationHint }) {
         });
         return null;
       }
-    })
+    }),
   );
 
   const scored = topItems
@@ -471,8 +536,8 @@ async function matchByName({ name, locationHint }) {
     best.score >= 85
       ? "verified"
       : best.score >= 70
-      ? "ambiguous"
-      : "ambiguous";
+        ? "ambiguous"
+        : "ambiguous";
 
   const out = {
     verdict,

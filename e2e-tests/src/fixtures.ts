@@ -22,7 +22,9 @@ function getShardIndex(testInfo: any): number {
     if (Number.isFinite(n) && n >= 1) return n - 1;
   }
 
-  const envShard = Number(process.env.TEST_SHARD);
+  const envShardRaw =
+    process.env.TEST_SHARD || process.env.PW_TEST_SHARD || process.env.SHARD;
+  const envShard = Number(envShardRaw);
   if (Number.isFinite(envShard) && envShard >= 0) return envShard;
 
   return 0;
@@ -42,6 +44,16 @@ function getApiBaseURL(testInfo: any, runtime: Runtime): string {
   return runtime.apiBaseUrl;
 }
 
+function buildDbName(shardIndex: number): string {
+  const totalShards = Number(process.env.TEST_TOTAL_SHARDS || "4");
+  const prefix = process.env.TEST_DB_NAME_PREFIX || "vetmybuilder_test";
+
+  // shardIndex 0 => s1_4
+  const shardLabel = `s${shardIndex + 1}_${totalShards}`;
+
+  return `${prefix}_${shardLabel}`;
+}
+
 export const test = base.extend<
   {
     apiClient: ApiClient;
@@ -53,7 +65,12 @@ export const test = base.extend<
   runtime: [
     async ({}, use, testInfo) => {
       const shardIndex = getShardIndex(testInfo);
+
+      // Keep your existing runtime (ports/base urls/etc)…
       const runtime = getRuntime(testInfo.workerIndex, shardIndex);
+
+      // …but force DB name to be SHARD-SPECIFIC so projects don’t collide.
+      runtime.dbName = buildDbName(shardIndex);
 
       const baseURL = getProjectBaseURL(testInfo);
 
@@ -76,7 +93,11 @@ export const test = base.extend<
   ],
 
   apiClient: async (
-    { request, runtime, page }: { request: APIRequestContext; runtime: Runtime; page: Page },
+    {
+      request,
+      runtime,
+      page,
+    }: { request: APIRequestContext; runtime: Runtime; page: Page },
     use,
     testInfo,
   ) => {
@@ -90,7 +111,11 @@ export const test = base.extend<
   },
 
   adminApiClient: async (
-    { request, runtime, page }: { request: APIRequestContext; runtime: Runtime; page: Page },
+    {
+      request,
+      runtime,
+      page,
+    }: { request: APIRequestContext; runtime: Runtime; page: Page },
     use,
     testInfo,
   ) => {
@@ -111,6 +136,7 @@ export const test = base.extend<
 
 test.beforeEach(async ({ runtime }) => {
   await wipeDatabase(runtime.dbName);
+  await seedUsers(runtime.dbName);
 });
 
 export { expect };

@@ -1,38 +1,51 @@
-import { type Page } from "@playwright/test";
 import { test as uiBaseTest, expect } from "./ui.base.fixtures";
 import { api, authedApiForUid } from "./api/services/client";
+import { AccountApi } from "./apiHelper/account/AccountApi";
 import { ProjectApi } from "./apiHelper/project/ProjectApi";
-import { getRuntime } from "./config/runtime";
-import { AuthHelper } from "./helpers/AuthHelper";
 import { BasePage } from "./pages/BasePage";
 
-type Runtime = ReturnType<typeof getRuntime>;
 type ApiClient = ReturnType<typeof api>;
+
+const RUN_ID =
+  process.env.PW_RUN_ID ||
+  process.env.CI_RUN_ID ||
+  `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const normalizeLocalhost = (url: string) =>
+  url.replace("http://localhost", "http://127.0.0.1");
+
+const getWorkerUid = (workerIndex: number): string =>
+  process.env[`TEST_USER_UID_${workerIndex}`] ||
+  `${process.env.TEST_USER_UID || "e2e-user"}-w${workerIndex}-${RUN_ID}`;
+
+const getWorkerAdminUid = (workerIndex: number): string =>
+  process.env[`TEST_ADMIN_USER_UID_${workerIndex}`] ||
+  `${process.env.TEST_ADMIN_USER_UID || "e2e-admin"}-w${workerIndex}-${RUN_ID}`;
 
 export const test = uiBaseTest.extend<{
   login: void;
   apiClient: ApiClient;
   adminApiClient: ApiClient;
   projectApi: ProjectApi;
+  accountApi: AccountApi;
   basePage: BasePage;
 }>({
-  // AUTO: log UI in properly (Firebase session) as TEST_USER_UID
   login: [
-    async (
-      { authHelper, page }: { authHelper: AuthHelper; page: Page },
-      use,
-    ) => {
-      const uid = process.env.TEST_USER_UID;
-      if (!uid) throw new Error("Missing TEST_USER_UID");
+    async ({ authHelper, page, runtime }, use, testInfo) => {
+      const uid = getWorkerUid(testInfo.workerIndex);
 
+      // Keep helper call simple (TS safe)
       await authHelper.loginAsUid(uid);
 
-      // Force a clean UI boot after auth + DB wipe
-      await page.goto("/");
-
-      // Optional debug: keep if you still want it
       const apiBase =
-        process.env.NEXT_PUBLIC_API_BASE || "http://localhost:3100";
+        (process.env.DOCKER === "1"
+          ? runtime.apiBaseUrl
+          : normalizeLocalhost(runtime.apiBaseUrl)) ||
+        (process.env.DOCKER === "1"
+          ? process.env.API_BASE_URL
+          : normalizeLocalhost(process.env.API_BASE_URL || "")) ||
+        "http://127.0.0.1:3100";
+
       await page.request.get(`${apiBase}/health`);
 
       await use(undefined);
@@ -44,12 +57,8 @@ export const test = uiBaseTest.extend<{
     await use(new BasePage(page));
   },
 
-  apiClient: async (
-    { page, runtime }: { page: Page; runtime: Runtime },
-    use,
-  ) => {
-    const uid = process.env.TEST_USER_UID;
-    if (!uid) throw new Error("Missing TEST_USER_UID");
+  apiClient: async ({ page, runtime }, use, testInfo) => {
+    const uid = getWorkerUid(testInfo.workerIndex);
 
     const client = await authedApiForUid(
       page.request,
@@ -57,15 +66,12 @@ export const test = uiBaseTest.extend<{
       uid,
       page,
     );
+
     await use(client);
   },
 
-  adminApiClient: async (
-    { page, runtime }: { page: Page; runtime: Runtime },
-    use,
-  ) => {
-    const uid = process.env.TEST_ADMIN_USER_UID;
-    if (!uid) throw new Error("Missing TEST_ADMIN_USER_UID");
+  adminApiClient: async ({ page, runtime }, use, testInfo) => {
+    const uid = getWorkerAdminUid(testInfo.workerIndex);
 
     const client = await authedApiForUid(
       page.request,
@@ -73,11 +79,16 @@ export const test = uiBaseTest.extend<{
       uid,
       page,
     );
+
     await use(client);
   },
 
-  projectApi: async ({ apiClient }: { apiClient: ApiClient }, use) => {
+  projectApi: async ({ apiClient }, use) => {
     await use(new ProjectApi(apiClient));
+  },
+
+  accountApi: async ({ apiClient }, use) => {
+    await use(new AccountApi(apiClient));
   },
 });
 

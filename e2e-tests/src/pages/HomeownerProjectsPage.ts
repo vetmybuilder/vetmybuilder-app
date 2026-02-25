@@ -52,7 +52,18 @@ export class HomeownerProjectsPage {
   }
 
   async goto() {
-    await this.page.goto("/projects");
+    try {
+      await this.page.goto("/projects", { waitUntil: "domcontentloaded" });
+    } catch (error) {
+      const message = String(error);
+      if (!message.includes("interrupted by another navigation")) {
+        throw error;
+      }
+      await this.page.waitForURL(/\/projects$/, {
+        waitUntil: "domcontentloaded",
+      });
+    }
+
     await expect(this.page).toHaveURL(/\/projects$/);
   }
 
@@ -66,10 +77,50 @@ export class HomeownerProjectsPage {
     return this.page.getByTestId(`project-image-card-${id}`);
   }
 
+  private normalizeExpected(expected: string | RegExp): RegExp {
+    return expected instanceof RegExp ? expected : new RegExp(expected, "i");
+  }
+
   async hasStatus(projectId: string | number, expected: string | RegExp) {
     const card = this.findProjectById(projectId);
-    await expect(card).toBeVisible();
-    await expect(card).toContainText(expected);
+    const expectedRe = this.normalizeExpected(expected);
+
+    // The projects list/card rendering can lag slightly behind API writes.
+    // Poll until:
+    //  - the card exists
+    //  - it's visible
+    //  - it contains the expected status text
+    await expect
+      .poll(
+        async () => {
+          const count = await card.count();
+          if (count === 0) return { ok: false, why: "card not in DOM yet" };
+
+          const visible = await card
+            .first()
+            .isVisible()
+            .catch(() => false);
+          if (!visible) return { ok: false, why: "card not visible yet" };
+
+          const text = (
+            await card
+              .first()
+              .innerText()
+              .catch(() => "")
+          ).trim();
+          const matches = expectedRe.test(text);
+
+          return { ok: matches, why: matches ? "ok" : `text="${text}"` };
+        },
+        {
+          timeout: 20_000,
+          intervals: [200, 300, 500, 800, 1200],
+          message: `Expected project card ${projectId} to appear on /projects and contain status matching: ${String(
+            expected,
+          )}`,
+        },
+      )
+      .toEqual({ ok: true, why: "ok" });
   }
 
   async hasProject(projects: Project[]) {
@@ -122,6 +173,7 @@ export class HomeownerProjectsPage {
     await expect(this.companiesHouseRow).toBeVisible();
     await expect(this.vmbScoreRow).toBeVisible();
     await expect(this.tipRow).toBeVisible();
+    await expect(this.page).toHaveURL("/projects");
   }
 
   async assertFiltersVisible() {

@@ -66,9 +66,11 @@ export class CreateProjectPage {
       .first();
   }
 
-  async createProject(input: CreateProjectInput, isMobile: boolean) {
+  async createProject(
+    input: CreateProjectInput,
+    isMobile: boolean,
+  ): Promise<string> {
     await this.page.goto("/projects", { waitUntil: "domcontentloaded" });
-    await this.page.waitForURL(/\/projects(\?.*)?$/, { timeout: 15000 });
 
     if (isMobile) {
       await this.mobileMenuButton.waitFor({ state: "visible" });
@@ -101,7 +103,14 @@ export class CreateProjectPage {
     await this.assertReviewStep(input);
 
     await this.createBtn.click();
-    await this.page.waitForURL(/\/projects\/[^/]+$/);
+    await this.page.waitForURL((url) => {
+      const path = url.pathname;
+      return path.startsWith("/projects/") && path.split("/").length === 3;
+    });
+
+    const projectId = this.page.url().split("/").pop() as string;
+
+    return projectId;
   }
 
   private async selectCategory(category: string) {

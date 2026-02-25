@@ -1,4 +1,4 @@
-import { Page, Locator } from "@playwright/test";
+import { Page, Locator, expect } from "@playwright/test";
 
 export class SiteHeader {
   readonly page: Page;
@@ -31,14 +31,13 @@ export class SiteHeader {
   readonly accountMenuButton: Locator;
   readonly accountMenu: Locator;
 
+  readonly menuEditAccount: Locator;
+
   readonly btnMobileMenu: Locator;
-  readonly mobileMenuPanel: Locator;
-  readonly mobilePostJob: Locator;
-  readonly mobileAreYouTradesperson: Locator;
-  readonly mobileTradesProjects: Locator;
+  readonly mobileMenu: Locator;
   readonly mobileAccount: Locator;
   readonly mobileLogout: Locator;
-  readonly mobileSignIn: Locator;
+  readonly mobilePostJob: Locator;
 
   readonly accountInitialsBadgeMobile: Locator;
 
@@ -71,22 +70,19 @@ export class SiteHeader {
     this.tradesMenuButton = page.getByTestId("trades-menu-button");
     this.tradesMenu = page.getByTestId("trades-menu");
     this.menuManageProfile = page.getByTestId("menu-manage-profile");
-    this.menuLogout = page.getByTestId("menu-logout");
+    this.menuLogout = page.getByLabel("Logout");
 
     this.accountMenuWrapper = page.getByTestId("account-menu-wrapper");
     this.accountMenuButton = page.getByTestId("account-menu-button");
     this.accountMenu = page.getByTestId("account-menu");
 
+    this.menuEditAccount = page.getByRole("menuitem", { name: "Edit account" });
+
     this.btnMobileMenu = page.getByTestId("btn-mobile-menu");
-    this.mobileMenuPanel = page.getByTestId("mobile-menu-panel");
-    this.mobilePostJob = page.getByTestId("mobile-post-job");
-    this.mobileAreYouTradesperson = page.getByTestId(
-      "mobile-are-you-tradesperson",
-    );
-    this.mobileTradesProjects = page.getByTestId("mobile-trades-projects");
-    this.mobileAccount = page.getByTestId("mobile-account");
-    this.mobileLogout = page.getByTestId("mobile-logout");
-    this.mobileSignIn = page.getByTestId("mobile-sign-in");
+    this.mobileMenu = page.getByTestId("mobile-menu");
+    this.mobileAccount = page.getByTestId("mobile-menu-account");
+    this.mobileLogout = page.getByTestId("mobile-menu-logout");
+    this.mobilePostJob = page.getByTestId("mobile-menu-post-job");
 
     this.accountInitialsBadgeMobile = page.getByTestId(
       "account-initials-badge-mobile",
@@ -104,4 +100,56 @@ export class SiteHeader {
       .filter({ hasText: initials })
       .first();
   }
+
+  private async isMobileNav(): Promise<boolean> {
+    return await this.btnMobileMenu.isVisible();
+  }
+
+  async openMobileMenu() {
+    await expect(this.btnMobileMenu).toBeVisible();
+    await this.btnMobileMenu.click();
+    await expect(this.mobileMenu).toBeVisible();
+  }
+
+  async openAccountMenu() {
+    // Desktop only
+    await expect(this.accountMenuButton).toBeVisible();
+    await this.accountMenuButton.click();
+    await expect(this.accountMenu).toBeVisible();
+  }
+
+  async goToEditAccount() {
+    if (await this.isMobileNav()) {
+      await this.openMobileMenu();
+      await expect(this.mobileAccount).toBeVisible();
+      await this.mobileAccount.click();
+      await expect(this.page).toHaveURL("/account");
+      return;
+    }
+
+    await this.openAccountMenu();
+    await expect(this.menuEditAccount).toBeVisible();
+    await this.menuEditAccount.click();
+    await expect(this.page).toHaveURL("/account");
+  }
+
+  async assertInitials(initials: string) {
+    await expect(this.initialsBadge(initials)).toBeVisible();
+  }
+
+  async signOut() {
+    if (await this.isMobileNav()) {
+      await this.openMobileMenu();
+      await expect(this.mobileLogout).toBeVisible();
+      await this.mobileLogout.click();
+      await this.page.waitForURL("/");
+      return;
+    }
+
+    await this.openAccountMenu();
+    await this.menuLogout.click();
+    await this.page.waitForURL("/");
+  }
 }
+
+export default SiteHeader;

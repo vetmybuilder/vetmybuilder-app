@@ -43,6 +43,8 @@ test.describe("Admin flags on tradesmen accounts", () => {
   test("Returns 'not found' when the tradesman does not exist", async ({
     adminApiClient,
   }) => {
+    await adminApiClient.get("/api/account");
+
     const missingUid = `missing-${Date.now()}`;
 
     const res = await adminApiClient.post(
@@ -53,8 +55,10 @@ test.describe("Admin flags on tradesmen accounts", () => {
       },
     );
 
+    const body = await res.json();
+
     expect(res.status()).toBe(404);
-    expect(await res.json()).toEqual({ error: "tradesman not found" });
+    expect(body).toEqual({ error: "tradesman not found" });
   });
 
   test("Rejects the request when no reason is provided", async ({
