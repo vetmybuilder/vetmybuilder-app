@@ -67,6 +67,15 @@ services:
       MYSQL_DATABASE: "vetmybuilder_test_s1_4_w0"
     ports:
       - "3100:3100"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"const http=require('http');const port=3100;const req=http.request({host:'127.0.0.1',port,path:'/health',method:'GET'},res=>{process.exit(res.statusCode===200?0:1)});req.on('error',()=>process.exit(1));req.setTimeout(2000,()=>process.exit(1));req.end();\"",
+        ]
+      interval: 2s
+      timeout: 2s
+      retries: 60
     networks: [e2e]
 
   server-w1:
@@ -94,6 +103,15 @@ services:
       MYSQL_DATABASE: "vetmybuilder_test_s1_4_w1"
     ports:
       - "3101:3101"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"const http=require('http');const port=3101;const req=http.request({host:'127.0.0.1',port,path:'/health',method:'GET'},res=>{process.exit(res.statusCode===200?0:1)});req.on('error',()=>process.exit(1));req.setTimeout(2000,()=>process.exit(1));req.end();\"",
+        ]
+      interval: 2s
+      timeout: 2s
+      retries: 60
     networks: [e2e]
 
   server-w2:
@@ -121,6 +139,15 @@ services:
       MYSQL_DATABASE: "vetmybuilder_test_s1_4_w2"
     ports:
       - "3102:3102"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"const http=require('http');const port=3102;const req=http.request({host:'127.0.0.1',port,path:'/health',method:'GET'},res=>{process.exit(res.statusCode===200?0:1)});req.on('error',()=>process.exit(1));req.setTimeout(2000,()=>process.exit(1));req.end();\"",
+        ]
+      interval: 2s
+      timeout: 2s
+      retries: 60
     networks: [e2e]
 
   server-w3:
@@ -148,14 +175,25 @@ services:
       MYSQL_DATABASE: "vetmybuilder_test_s1_4_w3"
     ports:
       - "3103:3103"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"const http=require('http');const port=3103;const req=http.request({host:'127.0.0.1',port,path:'/health',method:'GET'},res=>{process.exit(res.statusCode===200?0:1)});req.on('error',()=>process.exit(1));req.setTimeout(2000,()=>process.exit(1));req.end();\"",
+        ]
+      interval: 2s
+      timeout: 2s
+      retries: 60
     networks: [e2e]
 
+  # ✅ Web: restart to avoid “exited (0)” edge cases, and healthcheck is now stable (only checks /)
   web-w0:
     build:
       context: .
       dockerfile: Dockerfile.e2e
     working_dir: /app
     command: sh -lc "cd web && npx next dev -H 0.0.0.0 -p 3000"
+    restart: unless-stopped
     depends_on:
       firebase:
         condition: service_healthy
@@ -165,9 +203,17 @@ services:
       NEXT_PUBLIC_API_BASE: "http://server-w0:3100"
       NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: "firebase:9099"
       NODE_ENV: development
-      NEXT_PRIVATE_OUTPUT_DIR: ".next-w0"
     ports:
       - "3000:3000"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"const http=require('http');const req=http.request({host:'127.0.0.1',port:3000,path:'/',method:'GET'},res=>{process.exit(res.statusCode>=200&&res.statusCode<500?0:1)});req.on('error',()=>process.exit(1));req.setTimeout(2000,()=>process.exit(1));req.end();\"",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 60
     networks: [e2e]
 
   web-w1:
@@ -176,6 +222,7 @@ services:
       dockerfile: Dockerfile.e2e
     working_dir: /app
     command: sh -lc "cd web && npx next dev -H 0.0.0.0 -p 3000"
+    restart: unless-stopped
     depends_on:
       firebase:
         condition: service_healthy
@@ -185,9 +232,17 @@ services:
       NEXT_PUBLIC_API_BASE: "http://server-w1:3101"
       NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: "firebase:9099"
       NODE_ENV: development
-      NEXT_PRIVATE_OUTPUT_DIR: ".next-w1"
     ports:
       - "3001:3000"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"const http=require('http');const req=http.request({host:'127.0.0.1',port:3000,path:'/',method:'GET'},res=>{process.exit(res.statusCode>=200&&res.statusCode<500?0:1)});req.on('error',()=>process.exit(1));req.setTimeout(2000,()=>process.exit(1));req.end();\"",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 60
     networks: [e2e]
 
   web-w2:
@@ -196,6 +251,7 @@ services:
       dockerfile: Dockerfile.e2e
     working_dir: /app
     command: sh -lc "cd web && npx next dev -H 0.0.0.0 -p 3000"
+    restart: unless-stopped
     depends_on:
       firebase:
         condition: service_healthy
@@ -205,9 +261,17 @@ services:
       NEXT_PUBLIC_API_BASE: "http://server-w2:3102"
       NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: "firebase:9099"
       NODE_ENV: development
-      NEXT_PRIVATE_OUTPUT_DIR: ".next-w2"
     ports:
       - "3002:3000"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"const http=require('http');const req=http.request({host:'127.0.0.1',port:3000,path:'/',method:'GET'},res=>{process.exit(res.statusCode>=200&&res.statusCode<500?0:1)});req.on('error',()=>process.exit(1));req.setTimeout(2000,()=>process.exit(1));req.end();\"",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 60
     networks: [e2e]
 
   web-w3:
@@ -216,6 +280,7 @@ services:
       dockerfile: Dockerfile.e2e
     working_dir: /app
     command: sh -lc "cd web && npx next dev -H 0.0.0.0 -p 3000"
+    restart: unless-stopped
     depends_on:
       firebase:
         condition: service_healthy
@@ -225,9 +290,167 @@ services:
       NEXT_PUBLIC_API_BASE: "http://server-w3:3103"
       NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: "firebase:9099"
       NODE_ENV: development
-      NEXT_PRIVATE_OUTPUT_DIR: ".next-w3"
     ports:
       - "3003:3000"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"const http=require('http');const req=http.request({host:'127.0.0.1',port:3000,path:'/',method:'GET'},res=>{process.exit(res.statusCode>=200&&res.statusCode<500?0:1)});req.on('error',()=>process.exit(1));req.setTimeout(2000,()=>process.exit(1));req.end();\"",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+    networks: [e2e]
+
+  # ✅ IMPORTANT: Playwright should NOT depend on web being “healthy” (too brittle).
+  # It should depend on web having started, and server being healthy.
+  pw-ui-1:
+    build:
+      context: .
+      dockerfile: e2e-tests/Dockerfile
+    env_file: [./.env]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      server-w0:
+        condition: service_healthy
+      web-w0:
+        condition: service_started
+    environment:
+      DOCKER: "1"
+      START_WEB_SERVER: "0"
+      PW_HEADLESS: "1"
+      PW_WORKERS: "1"
+      SQLITE_ENABLED: "0"
+      DATABASE_URL: ""
+      MYSQL_HOST: "mysql"
+      MYSQL_PORT: "3306"
+      MYSQL_USER: "root"
+      MYSQL_PASSWORD: "root"
+      MYSQL_DATABASE: "vetmybuilder_test_s1_4_w0"
+      TEST_DB_HOST: "mysql"
+      TEST_DB_PORT: "3306"
+      TEST_DB_USER: "root"
+      TEST_DB_PASSWORD: "root"
+      TEST_DB_NAME: "vetmybuilder_test_s1_4_w0"
+      BASE_URL: "http://web-w0:3000"
+      WEB_BASE_URL: "http://web-w0:3000"
+      API_BASE_URL: "http://server-w0:3100"
+    command: >
+      sh -lc
+      "npx playwright test -c playwright.ui.config.ts tests/ui --shard=1/4"
+    networks: [e2e]
+
+  pw-ui-2:
+    build:
+      context: .
+      dockerfile: e2e-tests/Dockerfile
+    env_file: [./.env]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      server-w1:
+        condition: service_healthy
+      web-w1:
+        condition: service_started
+    environment:
+      DOCKER: "1"
+      START_WEB_SERVER: "0"
+      PW_HEADLESS: "1"
+      PW_WORKERS: "1"
+      SQLITE_ENABLED: "0"
+      DATABASE_URL: ""
+      MYSQL_HOST: "mysql"
+      MYSQL_PORT: "3306"
+      MYSQL_USER: "root"
+      MYSQL_PASSWORD: "root"
+      MYSQL_DATABASE: "vetmybuilder_test_s1_4_w1"
+      TEST_DB_HOST: "mysql"
+      TEST_DB_PORT: "3306"
+      TEST_DB_USER: "root"
+      TEST_DB_PASSWORD: "root"
+      TEST_DB_NAME: "vetmybuilder_test_s1_4_w1"
+      BASE_URL: "http://web-w1:3000"
+      WEB_BASE_URL: "http://web-w1:3000"
+      API_BASE_URL: "http://server-w1:3101"
+    command: >
+      sh -lc
+      "npx playwright test -c playwright.ui.config.ts tests/ui --shard=2/4"
+    networks: [e2e]
+
+  pw-ui-3:
+    build:
+      context: .
+      dockerfile: e2e-tests/Dockerfile
+    env_file: [./.env]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      server-w2:
+        condition: service_healthy
+      web-w2:
+        condition: service_started
+    environment:
+      DOCKER: "1"
+      START_WEB_SERVER: "0"
+      PW_HEADLESS: "1"
+      PW_WORKERS: "1"
+      SQLITE_ENABLED: "0"
+      DATABASE_URL: ""
+      MYSQL_HOST: "mysql"
+      MYSQL_PORT: "3306"
+      MYSQL_USER: "root"
+      MYSQL_PASSWORD: "root"
+      MYSQL_DATABASE: "vetmybuilder_test_s1_4_w2"
+      TEST_DB_HOST: "mysql"
+      TEST_DB_PORT: "3306"
+      TEST_DB_USER: "root"
+      TEST_DB_PASSWORD: "root"
+      TEST_DB_NAME: "vetmybuilder_test_s1_4_w2"
+      BASE_URL: "http://web-w2:3000"
+      WEB_BASE_URL: "http://web-w2:3000"
+      API_BASE_URL: "http://server-w2:3102"
+    command: >
+      sh -lc
+      "npx playwright test -c playwright.ui.config.ts tests/ui --shard=3/4"
+    networks: [e2e]
+
+  pw-ui-4:
+    build:
+      context: .
+      dockerfile: e2e-tests/Dockerfile
+    env_file: [./.env]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      server-w3:
+        condition: service_healthy
+      web-w3:
+        condition: service_started
+    environment:
+      DOCKER: "1"
+      START_WEB_SERVER: "0"
+      PW_HEADLESS: "1"
+      PW_WORKERS: "1"
+      SQLITE_ENABLED: "0"
+      DATABASE_URL: ""
+      MYSQL_HOST: "mysql"
+      MYSQL_PORT: "3306"
+      MYSQL_USER: "root"
+      MYSQL_PASSWORD: "root"
+      MYSQL_DATABASE: "vetmybuilder_test_s1_4_w3"
+      TEST_DB_HOST: "mysql"
+      TEST_DB_PORT: "3306"
+      TEST_DB_USER: "root"
+      TEST_DB_PASSWORD: "root"
+      TEST_DB_NAME: "vetmybuilder_test_s1_4_w3"
+      BASE_URL: "http://web-w3:3000"
+      WEB_BASE_URL: "http://web-w3:3000"
+      API_BASE_URL: "http://server-w3:3103"
+    command: >
+      sh -lc
+      "npx playwright test -c playwright.ui.config.ts tests/ui --shard=4/4"
     networks: [e2e]
 
 networks:
