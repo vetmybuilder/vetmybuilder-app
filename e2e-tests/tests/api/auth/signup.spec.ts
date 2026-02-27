@@ -1,6 +1,6 @@
 import { test, expect } from "../../../src/fixtures";
 import { authedApiForUid } from "../../../src/api/services/client";
-import Account from "../../../src/models/Account";
+import Account from "../../src/models/Account";
 
 test.describe("POST /api/auth/signup", () => {
   test("creates/ensures user profile and /api/me returns initials", async ({
