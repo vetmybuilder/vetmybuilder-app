@@ -20,8 +20,6 @@ export type RegisterInput = {
 };
 
 function uniqueSuffix(): string {
-  // Stable uniqueness across parallel workers + repeated runs
-  // Example: "a1b2c3d4e5f6"
   return randomUUID().replace(/-/g, "").slice(0, 12).toLowerCase();
 }
 
@@ -73,12 +71,9 @@ export default class Account {
 
     this.firstName = chance.first();
     this.lastName = chance.last();
-
-    // Make username deterministic-unique to avoid 409s in parallel runs
-    // (keep it simple + lowercase + reasonable length)
     this.username = `e2e_${u}`;
-
     this.location = `${chance.postcode()}`;
+
     return this;
   }
 
@@ -86,18 +81,31 @@ export default class Account {
     domain?: string;
     password?: string;
     location?: string;
+    username?: string;
+    email?: string;
   }): Account {
     const domain = opts?.domain ?? "example.test";
 
     this.withRandomDetails();
 
-    const u = uniqueSuffix();
-    this.email = `e2e+${u}@${domain}`;
-
-    this.password = opts?.password ?? "Passw0rd!";
+    if (opts?.username) this.username = opts.username;
     if (opts?.location) this.location = opts.location;
 
+    const u = uniqueSuffix();
+    this.email = opts?.email ?? `e2e+${u}@${domain}`;
+    this.password = opts?.password ?? "Passw0rd!";
+
     return this;
+  }
+
+  get requiredEmail(): string {
+    if (!this.email) throw new Error("Account.email is required");
+    return this.email;
+  }
+
+  get requiredPassword(): string {
+    if (!this.password) throw new Error("Account.password is required");
+    return this.password;
   }
 
   get initials(): string {
@@ -116,18 +124,13 @@ export default class Account {
   }
 
   toRegisterInput(): RegisterInput {
-    if (!this.email)
-      throw new Error("Account.email is required for registration");
-    if (!this.password)
-      throw new Error("Account.password is required for registration");
-
     return {
       firstName: this.firstName || "",
       lastName: this.lastName || "",
       username: this.username || "",
       location: this.location || "",
-      email: this.email,
-      password: this.password,
+      email: this.requiredEmail,
+      password: this.requiredPassword,
     };
   }
 }

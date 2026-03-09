@@ -1,6 +1,5 @@
 import Project from "../../../src/models/Project";
 import { expect, test } from "../../../src/ui.fixtures";
-// passing
 test.describe("Homeowner projects", () => {
   test("can edit a pending project", async ({
     projectApi,
@@ -41,10 +40,8 @@ test.describe("Homeowner projects", () => {
     const updatedNotes =
       "Updated notes: please confirm ventilation, remove old unit, and test before leaving.";
 
-    await projectDetailsPage.editProject(projectId); //why cant this be put inside the start of editProjectDetails just to click the edit button
-
-    await editProjectPage.editProjectDetails(project.toCreateInput(), {
-      //stop doing toCreateInput in the spec. just call await editProjectPage.editProjectDetails(project) let the function automatically do the .toCreateInput().
+    await projectDetailsPage.editProject();
+    await editProjectPage.editProjectDetails(project, {
       propertyType: updatedPropertyType,
       bedrooms: updatedBedrooms,
       timeframe: updatedTimeframe,
@@ -67,7 +64,9 @@ test.describe("Homeowner projects", () => {
       access: updatedAccess,
       extraNotes: updatedNotes,
     });
-    await expect(projectDetailsPage.page.getByTestId('project-view-page')).toBeVisible();
+    await expect(
+      projectDetailsPage.page.getByTestId("project-view-page"),
+    ).toBeVisible();
     await projectDetailsPage.hasProjectDetails(projectId, edited, {
       status: "Pending",
     });
@@ -116,7 +115,7 @@ test.describe("Homeowner projects", () => {
 
     await projectDetailsPage.editProject(projectId);
 
-    await editProjectPage.editProjectDetails(project.toCreateInput(), {
+    await editProjectPage.editProjectDetails(project, {
       propertyType: updatedPropertyType,
       bedrooms: updatedBedrooms,
       timeframe: updatedTimeframe,

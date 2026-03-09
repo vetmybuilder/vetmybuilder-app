@@ -67,6 +67,14 @@ export class HomeownerProjectsPage {
     await expect(this.page).toHaveURL(/\/projects$/);
   }
 
+  async waitUntilReady() {
+    await expect(this.page).toHaveURL("/projects");
+
+    await expect(this.page.getByTestId("projects-page")).toBeVisible({
+      timeout: 15000,
+    });
+  }
+
   async visit(projectId: string | number) {
     await this.page.goto(`/projects/${projectId}`);
     await expect(this.page).toHaveURL(new RegExp(`/projects/${projectId}$`));

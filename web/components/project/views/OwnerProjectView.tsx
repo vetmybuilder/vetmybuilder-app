@@ -116,12 +116,14 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
 
   // Load neighbourhood-shared flag from localStorage per project
   React.useEffect(() => {
-    if (!project?.id) return;
+    if (!project?.id || !project?.createdAt) return;
     if (typeof window === "undefined") return;
-    const key = `vmb_neighbourhood_shared_${project.id}`;
+
+    const key = `vmb_neighbourhood_shared_${project.id}_${project.createdAt}`;
     const val = window.localStorage.getItem(key);
+
     setHasSharedNeighbourhood(val === "1");
-  }, [project?.id]);
+  }, [project?.id, project?.createdAt]);
 
   // Load featured tradesmen for this project
   React.useEffect(() => {

@@ -38,7 +38,6 @@ function getProjectBaseURL(testInfo: any): string | undefined {
 function getApiBaseURL(testInfo: any, runtime: Runtime): string {
   const baseURL = getProjectBaseURL(testInfo);
 
-  // Some UI projects run on :3000. API must use the shard baseURL (3100+).
   if (baseURL && !baseURL.includes(":3000")) return baseURL;
 
   return runtime.apiBaseUrl;
@@ -47,10 +46,7 @@ function getApiBaseURL(testInfo: any, runtime: Runtime): string {
 function buildDbName(shardIndex: number): string {
   const totalShards = Number(process.env.TEST_TOTAL_SHARDS || "4");
   const prefix = process.env.TEST_DB_NAME_PREFIX || "vetmybuilder_test";
-
-  // shardIndex 0 => s1_4
   const shardLabel = `s${shardIndex + 1}_${totalShards}`;
-
   return `${prefix}_${shardLabel}`;
 }
 
@@ -65,21 +61,16 @@ export const test = base.extend<
   runtime: [
     async ({}, use, testInfo) => {
       const shardIndex = getShardIndex(testInfo);
-
-      // Keep your existing runtime (ports/base urls/etc)…
       const runtime = getRuntime(testInfo.workerIndex, shardIndex);
 
-      // …but force DB name to be SHARD-SPECIFIC so projects don’t collide.
       runtime.dbName = buildDbName(shardIndex);
 
       const baseURL = getProjectBaseURL(testInfo);
 
-      // Only override runtime apiBaseUrl when the project baseURL isn't UI-only (:3000)
       if (baseURL && !baseURL.includes(":3000")) {
         runtime.apiBaseUrl = baseURL;
         runtime.webBaseUrl = baseURL;
       } else if (baseURL) {
-        // Keep webBaseUrl on :3000, but apiBaseUrl remains the shard baseURL (3100+)
         runtime.webBaseUrl = baseURL;
       }
 

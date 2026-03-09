@@ -10,6 +10,7 @@ import { CreateProjectPage } from "../src/pages/CreateProjectPage";
 import { EditProjectPage } from "../src/pages/EditProjectPage";
 import { AccountPage } from "../src/pages/AccountPage";
 import { ProjectDetailsPage } from "../src/pages/ProjectDetailsPage";
+import { ProjectRecommendPage } from "../src/pages/ProjectRecommendPage";
 import { AuthHelper } from "../src/helpers/AuthHelper";
 
 type Runtime = ReturnType<typeof getRuntime>;
@@ -24,6 +25,7 @@ type UiFixtures = {
   createProjectPage: CreateProjectPage;
   editProjectPage: EditProjectPage;
   projectDetailsPage: ProjectDetailsPage;
+  projectRecommendPage: ProjectRecommendPage;
   authHelper: AuthHelper;
 };
 
@@ -73,6 +75,10 @@ export const test = base.extend<UiFixtures, { runtime: Runtime }>({
 
   projectDetailsPage: async ({ page }, use) => {
     await use(new ProjectDetailsPage(page));
+  },
+
+  projectRecommendPage: async ({ page }, use) => {
+    await use(new ProjectRecommendPage(page));
   },
 
   siteHeader: async ({ page }, use) => {

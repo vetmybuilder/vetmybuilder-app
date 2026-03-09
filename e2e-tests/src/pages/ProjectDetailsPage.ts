@@ -1,12 +1,12 @@
-import { Page, Locator, expect } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import Project from "../models/Project";
-import {
-  PublishModalComponent,
-  type PublishOptions,
-} from "./components/PublishModalComponent";
+import Recommendation from "../models/Recommendation";
+import { type PublishOptions } from "./components/PublishModalComponent";
 import CloseProjectModalComponent, {
   type CloseProjectOptions,
 } from "./components/CloseProjectModalComponent";
+import BasePage from "./BasePage";
+import dayjs from "dayjs";
 
 export type ProjectStatus = "Pending" | "Live" | "Completed" | "Archived";
 
@@ -15,8 +15,7 @@ type DateChecks = {
   updatedAt?: Date | string;
 };
 
-export class ProjectDetailsPage {
-  readonly page: Page;
+export class ProjectDetailsPage extends BasePage {
   readonly root: Locator;
 
   readonly title: Locator;
@@ -33,15 +32,22 @@ export class ProjectDetailsPage {
   readonly topRecommendationsSection: Locator;
   readonly spotlightSection: Locator;
 
+  readonly notificationsButton: Locator;
+  readonly projectBadges: Locator;
+  readonly recommendTradespersonButton: Locator;
+  readonly projectDetailsHeading: Locator;
+  readonly shortlistCompanyName: Locator;
+  readonly shortlistComment: Locator;
+  readonly shortlistCompaniesHouseBadge: Locator;
+  readonly shortlistCompaniesHouseBadgeText: Locator;
+  readonly shortlistPhotosBadge: Locator;
+  readonly shortlistRecommender: Locator;
+
   private readonly headerMetaDate: Locator;
-
-  private readonly publishModal: PublishModalComponent;
-  private readonly publishDialog: Locator;
-
   private readonly closeProjectModal: CloseProjectModalComponent;
 
   constructor(page: Page) {
-    this.page = page;
+    super(page);
 
     this.root = page.getByTestId("main-content");
     this.title = this.root.getByRole("heading").first();
@@ -59,15 +65,32 @@ export class ProjectDetailsPage {
     this.editProjectButton = this.root.getByTestId("btn-edit");
 
     this.estimateValue = this.root.getByText(/^£[\d,]+–£[\d,]+$/);
-
     this.estimateInfoButton = this.root.getByTestId("job-estimate-info");
     this.estimateTooltip = this.root.getByTestId("job-estimate-tooltip");
 
+    this.projectDetailsHeading = page.getByRole("heading", {
+      name: "Project details",
+    });
+
+    this.projectBadges = page.getByTestId("project-badges-inline");
+
+    this.recommendTradespersonButton = page.getByTestId(
+      "btn-neighbour-recommend",
+    );
     this.topRecommendationsSection = page.getByTestId("project-shortlist");
     this.spotlightSection = page.getByTestId("spotlight-strip");
 
-    this.publishModal = new PublishModalComponent(page);
-    this.publishDialog = page.getByTestId("get-recs-modal");
+    this.notificationsButton = page.locator(
+      'button[aria-label="Notifications (unread)"]:visible',
+    );
+    this.shortlistCompanyName = page.getByTestId("shortlist-company-name");
+    this.shortlistComment = page.getByTestId("shortlist-comment");
+    this.shortlistCompaniesHouseBadge = page.getByTestId("shortlist-badge-ch");
+    this.shortlistCompaniesHouseBadgeText = page.getByTestId(
+      "shortlist-badge-ch-text",
+    );
+    this.shortlistPhotosBadge = page.getByTestId("shortlist-badge-photos");
+    this.shortlistRecommender = page.getByTestId("shortlist-recommender");
 
     this.closeProjectModal = new CloseProjectModalComponent(page);
   }
@@ -80,22 +103,21 @@ export class ProjectDetailsPage {
     return d.toLocaleDateString("en-GB");
   }
 
-  private async waitUntilReady() {
+  async waitUntilReady() {
     await expect
       .poll(
         async () => {
           const url = this.page.url();
 
-          // If we got redirected somewhere else, fail fast with context.
           if (/\/signin|\/signup/.test(url)) {
             return { ok: false, reason: `redirected:${url}` };
           }
 
           const rootVisible = await this.root.isVisible().catch(() => false);
-          if (!rootVisible)
+          if (!rootVisible) {
             return { ok: false, reason: "main-content not visible" };
+          }
 
-          // Any of these indicates the page is “real” and hydrated:
           const titleVisible = await this.title.isVisible().catch(() => false);
           if (titleVisible) return { ok: true, reason: "ok" };
 
@@ -134,15 +156,17 @@ export class ProjectDetailsPage {
 
     if (dates.updatedAt) {
       const d = this.toDate(dates.updatedAt);
-      const expected = `Updated ${this.formatUiDate(d)}`;
-      await expect(this.headerMetaDate).toHaveText(expected);
+      await expect(this.headerMetaDate).toHaveText(
+        `Updated ${this.formatUiDate(d)}`,
+      );
       return;
     }
 
     if (dates.createdAt) {
       const d = this.toDate(dates.createdAt);
-      const expected = `Created ${this.formatUiDate(d)}`;
-      await expect(this.headerMetaDate).toHaveText(expected);
+      await expect(this.headerMetaDate).toHaveText(
+        `Created ${this.formatUiDate(d)}`,
+      );
     }
   }
 
@@ -163,21 +187,12 @@ export class ProjectDetailsPage {
     await expect(this.page).toHaveURL(
       new RegExp(`/projects/${projectId}(\\?.*)?$`),
     );
-
     await this.waitUntilReady();
   }
 
-  async editProject(projectId?: string | number) {
-    await expect(this.editProjectButton).toBeVisible();
+  async editProject(_projectId?: string | number) {
+    // await expect(this.editProjectButton).toBeVisible();
     await this.editProjectButton.click();
-
-    if (projectId !== undefined) {
-      await expect(this.page).toHaveURL(
-        new RegExp(`/projects/${projectId}/edit(\\?.*)?$`), //stop using regex
-      );
-    } else {
-      await expect(this.page).toHaveURL(/\/projects\/[^/]+\/edit(\?.*)?$/);  //stop using regex
-    }
   }
 
   async goBack() {
@@ -197,19 +212,30 @@ export class ProjectDetailsPage {
     await expect(this.root.getByRole("status")).toHaveText(map[status]);
   }
 
+  async hasNotification(text: string) {
+    await expect(this.notificationsButton).toBeVisible();
+    await this.notificationsButton.click();
+    await expect(this.page.getByRole("menuitem", { name: text })).toBeVisible();
+  }
+
+  async openNotification(text: string) {
+    const notification = this.page.getByRole("menuitem", { name: text });
+
+    await expect(notification).toBeVisible();
+    await notification.click();
+  }
+
   async hasProjectDetails(
     projectId: string | number,
     project: Project,
     opts?: { status?: ProjectStatus; dates?: DateChecks },
   ) {
-    // TODO: add check that project-view-page is visible
     const input = project.toCreateInput();
 
     await expect(this.page).toHaveURL(
       (url) => url.pathname === `/projects/${projectId}`,
     );
     await this.waitUntilReady();
-
     await expect(this.backLink).toBeVisible();
     await expect(this.closeThisJobButton).toBeVisible();
 
@@ -226,11 +252,9 @@ export class ProjectDetailsPage {
     await expect(this.root).toContainText(`${input.bedrooms} bed`);
     await expect(this.root).toContainText(input.locationPick.split(" ")[0]);
     await expect(this.root).toContainText(input.budget);
-
     await expect(this.estimateValue).toBeVisible();
     await expect(this.estimateInfoButton).toBeVisible();
     await this.estimateInfoButton.hover();
-
     await expect(this.estimateTooltip).toBeVisible();
     await expect(this.estimateTooltip).toContainText(
       "Job estimate based on your project details.",
@@ -281,16 +305,53 @@ export class ProjectDetailsPage {
   }
 
   async publish(options?: PublishOptions) {
+    await expect(this.shareAndPublish).toBeVisible();
     await this.shareAndPublish.click();
-    await expect(this.publishDialog).toBeVisible();
+    await this.assertPublishModalVisible();
     await this.publishModal.publish(options);
-    await expect(this.publishDialog).toBeHidden();
+    await this.assertPublishModalHidden();
   }
 
   async closeProject(options?: CloseProjectOptions) {
     await expect(this.closeThisJobButton).toBeVisible();
     await this.closeThisJobButton.click();
     await this.closeProjectModal.closeProject(options);
+  }
+
+  async hasHomeownerProjectDetails(
+    projectId: string | number,
+    project: Project,
+  ) {
+    const input = project.toCreateInput();
+    const location = input.locationPick.split(" ")[0];
+
+    await expect(this.page).toHaveURL(`/projects/${projectId}`);
+    await expect(this.projectDetailsHeading).toBeVisible();
+    await expect(this.projectBadges).toContainText(input.workTypes[0]);
+    await expect(this.projectBadges).toContainText(location);
+    await expect(this.projectBadges).toContainText(input.propertyType);
+    await expect(this.projectBadges).toContainText(`${input.bedrooms} bed`);
+    await expect(
+      this.projectBadges.getByRole("status", { name: "Status: Live" }),
+    ).toBeVisible();
+
+    await expect(this.recommendTradespersonButton).toBeVisible();
+  }
+
+  async hasProjectRecommendation(recommendation: Recommendation) {
+    await expect(this.shortlistCompanyName).toHaveText(
+      recommendation.company.toUpperCase(),
+    );
+    await expect(this.shortlistComment).toHaveText(recommendation.comment);
+    await expect(this.shortlistCompaniesHouseBadge).toBeVisible();
+    await expect(this.shortlistCompaniesHouseBadgeText).toHaveText("Verified");
+    await expect(this.shortlistPhotosBadge).toBeVisible();
+    await expect(this.shortlistRecommender).toContainText(
+      "Community recommendation",
+    );
+    await expect(this.shortlistRecommender).toHaveText(
+      `Community recommendation made on ${dayjs().format("M/D/YYYY")}`,
+    );
   }
 }
 

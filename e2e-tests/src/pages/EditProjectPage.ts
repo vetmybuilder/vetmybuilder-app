@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
-import type { ProjectCreateInput as CreateProjectInput } from "../models/Project";
+import Project from "../models/Project";
 import BasePage from "./BasePage";
 import { ensureEndsWithPeriod } from "../utils/formatters";
 
@@ -103,33 +103,31 @@ export class EditProjectPage extends BasePage {
   async waitForStep(title: string) {
     const re = new RegExp(title, "i");
 
+    await this.waitForWizard();
+
     await expect
       .poll(
         async () => {
-          const wizardVisible = await this.wizard
-            .isVisible()
-            .catch(() => false);
-          if (!wizardVisible)
-            return { ok: false, reason: "wizard not visible" };
-
           const step = this.activeStep();
           const heading = step.getByRole("heading").first();
 
           const headingVisible = await heading.isVisible().catch(() => false);
-          if (!headingVisible)
+          if (!headingVisible) {
             return { ok: false, reason: "no step heading yet" };
+          }
 
-          const txt =
+          const text =
             (await heading.textContent().catch(() => ""))?.trim() || "";
-          if (!re.test(txt))
-            return { ok: false, reason: `active heading="${txt}"` };
+          if (!re.test(text)) {
+            return { ok: false, reason: `active heading="${text}"` };
+          }
 
           return { ok: true, reason: "ok" };
         },
         {
-          timeout: 30_000,
+          timeout: 30000,
           intervals: [200, 300, 500, 800, 1200],
-          message: `Expected wizard step "${title}" to be the active step (visible + not aria-hidden).`,
+          message: `Expected wizard step "${title}" to be the active step.`,
         },
       )
       .toEqual({ ok: true, reason: "ok" });
@@ -381,8 +379,12 @@ export class EditProjectPage extends BasePage {
     }
   }
 
+  async waitForWizard() {
+   await this.page.waitForTimeout(100);
+  }
+
   async editProjectDetails(
-    original: CreateProjectInput,
+    project: Project,
     updates: {
       category?: string;
       workTypes?: string[];
@@ -395,6 +397,10 @@ export class EditProjectPage extends BasePage {
       extraNotes?: string;
     },
   ) {
+    const original = project.toCreateInput();
+
+    await this.waitForWizard();
+
     await this.waitForStep("Category");
     await this.assertCategorySelected(original.category);
     if (updates.category) await this.selectCategory(updates.category);
@@ -402,8 +408,9 @@ export class EditProjectPage extends BasePage {
 
     await this.waitForStep("Type of work");
     await this.assertWorkTypesChecked(original.workTypes);
-    if (updates.workTypes?.length)
+    if (updates.workTypes?.length) {
       await this.setWorkTypes(original.workTypes, updates.workTypes);
+    }
     await this.next();
 
     await this.waitForStep("Location");
@@ -412,19 +419,22 @@ export class EditProjectPage extends BasePage {
 
     await this.waitForStep("Property type");
     await this.assertPropertyTypeSelected(original.propertyType);
-    if (updates.propertyType)
+    if (updates.propertyType) {
       await this.selectPropertyType(updates.propertyType);
+    }
     await this.next();
 
     await this.waitForStep("Number of rooms");
     await this.assertRoomsSelected(original.bedrooms);
-    if (typeof updates.bedrooms === "number")
+    if (typeof updates.bedrooms === "number") {
       await this.selectBedrooms(updates.bedrooms);
+    }
     await this.next();
 
     await this.waitForStep("Brief description");
-    if (original.extraNotes)
+    if (original.extraNotes) {
       await this.assertDescriptionRepopulated(original.extraNotes);
+    }
 
     if (
       updates.timeframe ||

@@ -118,7 +118,7 @@ export default function NotificationsBell() {
 
         // Include limit on SSE bootstrap too
         const url = `${apiBase}/api/notifications/stream?limit=${NOTIF_LIMIT}&token=${encodeURIComponent(
-          token
+          token,
         )}`;
         const es = new EventSource(url);
         esRef.current = es;
@@ -130,7 +130,7 @@ export default function NotificationsBell() {
             setUnread(payload.unread ?? 0);
             // Merge latest with what we already have (in case fetch already ran)
             setItems((prev) =>
-              dedupeAndSort([...(payload.latest ?? []), ...prev])
+              dedupeAndSort([...(payload.latest ?? []), ...prev]),
             );
           } catch {
             /* ignore */
@@ -184,8 +184,8 @@ export default function NotificationsBell() {
       setUnread((u) => Math.max(0, u - 1));
       setItems((prev) =>
         prev.map((i) =>
-          i.id === n.id ? { ...i, readAt: new Date().toISOString() } : i
-        )
+          i.id === n.id ? { ...i, readAt: new Date().toISOString() } : i,
+        ),
       );
       if (n.id > 0) {
         try {
@@ -204,8 +204,8 @@ export default function NotificationsBell() {
       n.linkPath && n.linkPath.startsWith("/")
         ? n.linkPath
         : n.projectId
-        ? `/projects/${n.projectId}`
-        : "/projects";
+          ? `/projects/${n.projectId}`
+          : "/projects";
 
     try {
       await router.push(href);
@@ -252,66 +252,86 @@ export default function NotificationsBell() {
       </button>
 
       {open && (
-        <div
-          ref={menuRef}
-          role="menu"
-          aria-label="Notifications"
-          className="absolute right-0 mt-2 w-96 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg ring-1 ring-black/5"
-        >
-          <div className="flex items-center justify-between px-3 py-2">
-            {/* Top-left: show count of loaded items */}
-            <div className="text-sm font-semibold text-gray-900">
-              {items.length} Notifications
+        <>
+          <button
+            type="button"
+            aria-label="Close notifications"
+            className="fixed inset-0 z-40 bg-black/20 sm:hidden"
+            onClick={() => setOpen(false)}
+          />
+
+          <div
+            ref={menuRef}
+            role="menu"
+            aria-label="Notifications"
+            className="
+        fixed inset-x-3 top-20 z-50 max-h-[70vh] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl
+        sm:absolute sm:right-0 sm:top-full sm:mt-2 sm:z-50 sm:w-96 sm:max-h-96 sm:rounded-xl sm:ring-1 sm:ring-black/5
+      "
+          >
+            <div className="flex items-center justify-between px-3 py-3 border-b border-gray-100">
+              <div className="text-sm font-semibold text-gray-900">
+                {items.length} Notifications
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  className="text-xs rounded-md px-2 py-1 ring-1 ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
+                  onClick={clearAll}
+                  disabled={busy || items.length === 0}
+                >
+                  Clear all
+                </button>
+
+                <button
+                  type="button"
+                  className="sm:hidden text-sm rounded-md px-2 py-1 text-gray-600 hover:bg-gray-50"
+                  onClick={() => setOpen(false)}
+                >
+                  Close
+                </button>
+              </div>
             </div>
 
-            <button
-              className="text-xs rounded-md px-2 py-1 ring-1 ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
-              onClick={clearAll}
-              disabled={busy || items.length === 0}
-            >
-              Clear all
-            </button>
-          </div>
+            <div className="overflow-auto max-h-[calc(70vh-56px)] sm:max-h-96 divide-y divide-gray-100">
+              {items.length === 0 ? (
+                <div className="px-4 py-8 text-sm text-gray-500 text-center">
+                  You’re all caught up.
+                </div>
+              ) : (
+                items.map((n) => {
+                  const isUnread = !n.readAt;
 
-          <div className="max-h-96 overflow-auto divide-y divide-gray-100">
-            {items.length === 0 ? (
-              <div className="px-3 py-6 text-sm text-gray-500 text-center">
-                You’re all caught up.
-              </div>
-            ) : (
-              items.map((n) => {
-                const isUnread = !n.readAt;
-                return (
-                  <button
-                    key={`${n.id}-${n.createdAt}`}
-                    role="menuitem"
-                    className={`w-full text-left px-3 py-3 hover:bg-gray-50 transition
-                      ${
+                  return (
+                    <button
+                      key={`${n.id}-${n.createdAt}`}
+                      role="menuitem"
+                      className={`w-full text-left px-4 py-4 hover:bg-gray-50 transition ${
                         isUnread
                           ? "bg-amber-50/80 border-l-4 border-amber-500"
                           : ""
-                      }
-                    `}
-                    onClick={() => onClickItem(n)}
-                  >
-                    <div
-                      className={`text-sm ${
-                        isUnread
-                          ? "text-gray-900 font-semibold"
-                          : "text-gray-900"
                       }`}
+                      onClick={() => onClickItem(n)}
                     >
-                      {n.message}
-                    </div>
-                    <div className="mt-1 text-xs text-gray-500">
-                      {new Date(n.createdAt).toLocaleString()}
-                    </div>
-                  </button>
-                );
-              })
-            )}
+                      <div
+                        className={`text-sm leading-6 ${
+                          isUnread
+                            ? "text-gray-900 font-semibold"
+                            : "text-gray-900"
+                        }`}
+                      >
+                        {n.message}
+                      </div>
+                      <div className="mt-1 text-xs text-gray-500">
+                        {new Date(n.createdAt).toLocaleString()}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

@@ -1,3 +1,5 @@
+name: vetmybuilder-app
+
 services:
   mysql:
     image: mysql:8.0
@@ -186,7 +188,6 @@ services:
       retries: 60
     networks: [e2e]
 
-  # ✅ Web: restart to avoid “exited (0)” edge cases, and healthcheck is now stable (only checks /)
   web-w0:
     build:
       context: .
@@ -303,8 +304,6 @@ services:
       retries: 60
     networks: [e2e]
 
-  # ✅ IMPORTANT: Playwright should NOT depend on web being “healthy” (too brittle).
-  # It should depend on web having started, and server being healthy.
   pw-ui-1:
     build:
       context: .

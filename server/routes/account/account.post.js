@@ -24,7 +24,6 @@ module.exports = (router, ctx) => {
     const username = (req.body?.username ?? "").toString().trim();
     const location = (req.body?.location ?? "").toString().trim();
 
-    // ✅ Mandatory fields (always)
     const fieldErrors = {};
     if (!firstName) fieldErrors.firstName = "First name is required.";
     if (!lastName) fieldErrors.lastName = "Last name is required.";

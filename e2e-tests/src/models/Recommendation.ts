@@ -1,7 +1,4 @@
-import Chance from "chance";
 import path from "path";
-
-const chance = new Chance();
 
 export type RecommendationInput = {
   name: string;
@@ -20,9 +17,9 @@ type MultipartPhoto = {
 };
 
 export default class Recommendation {
-  name!: string;
-  company!: string;
-  comment!: string;
+  name: string;
+  company: string;
+  comment: string;
   rating?: number;
   email?: string;
   phone?: string;
@@ -30,50 +27,32 @@ export default class Recommendation {
 
   private photos: MultipartPhoto[] = [];
 
+  constructor() {
+    const fixturesDir = path.resolve(__dirname, "../../tests/fixtures/files");
+
+    this.name = "Chris Morris";
+    this.company = "Elegant Building Services Limited";
+    this.comment =
+      "Elegant Building Services were reliable, tidy, and did a very good job. I would happily recommend them.";
+    this.rating = 5;
+    this.phone = "07900111222";
+
+    this.photos = [
+      {
+        name: "photo1.jpg",
+        mimeType: "image/jpeg",
+        filePath: path.join(fixturesDir, "rec-image-1.jpg"),
+      },
+      {
+        name: "photo2.jpg",
+        mimeType: "image/jpeg",
+        filePath: path.join(fixturesDir, "rec-image-2.jpg"),
+      },
+    ];
+  }
+
   static aRecommendation(): Recommendation {
     return new Recommendation();
-  }
-
-  withRandomDetails(): Recommendation {
-    this.name = chance.name();
-    this.company = chance.company();
-    this.comment = chance.sentence();
-    this.rating = 5;
-    return this;
-  }
-
-  withCompany(company: string): Recommendation {
-    this.company = company;
-    return this;
-  }
-
-  withEmail(email: string): Recommendation {
-    this.email = email;
-    return this;
-  }
-
-  withPhone(phone: string): Recommendation {
-    this.phone = phone;
-    return this;
-  }
-  withSource(source: "platform" | "magic"): Recommendation {
-    this.source = source;
-    return this;
-  }
-
-  withPhotos(count: number): Recommendation {
-    const fixturesDir = path.resolve(__dirname, "../files");
-
-    for (let i = 0; i < count; i++) {
-      const n = i + 1;
-      this.photos.push({
-        name: `photo${n}.jpg`,
-        mimeType: "image/jpeg",
-        filePath: path.join(fixturesDir, `photo${n}.jpg`),
-      });
-    }
-
-    return this;
   }
 
   toPayload(): RecommendationInput {

@@ -104,6 +104,29 @@ export default class Project {
     return this;
   }
 
+  withLocation(location: { query: string; pick: string } | string): Project {
+    if (typeof location === "string") {
+      const v = normalize(location);
+      this.locationQuery = v;
+      this.locationPick = v;
+      return this;
+    }
+
+    this.locationQuery = normalize(location.query);
+    this.locationPick = normalize(location.pick);
+    return this;
+  }
+
+  withLocationQuery(query: string): Project {
+    this.locationQuery = normalize(query);
+    return this;
+  }
+
+  withLocationPick(pick: string): Project {
+    this.locationPick = normalize(pick);
+    return this;
+  }
+
   toCreateInput(): ProjectCreateInput {
     return {
       category: this.category,

@@ -1,5 +1,6 @@
 import { test, expect } from "../../../src/fixtures";
 import { authedApiForUid } from "../../../src/api/services/client";
+import { createAuthUser } from "../../../src/helpers/FirebaseSeed";
 
 test.describe("Account APIs", () => {
   test("POST /api/auth/signup creates/ensures a profile", async ({
@@ -119,6 +120,27 @@ test.describe("Account APIs", () => {
     expect(await bSet.json()).toEqual({
       error: "username_taken",
       message: "That username is already taken.",
+    });
+  });
+
+  test("email availability check rejects an existing email", async ({
+    request,
+    runtime,
+  }) => {
+    const baseUrl = runtime.apiBaseUrl;
+    const email = `existing+${Date.now()}@test.com`;
+    const password = "Passw0rd!";
+
+    await createAuthUser(email, password);
+
+    const res = await request.post(`${baseUrl}/api/auth/check-email`, {
+      data: { email },
+    });
+
+    expect(res.status()).toBe(200);
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      exists: true,
     });
   });
 });

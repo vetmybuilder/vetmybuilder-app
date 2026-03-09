@@ -206,7 +206,7 @@ test.describe("POST /api/tradesmen/join", () => {
     expect(res.status()).toBe(404);
   });
 
-  test("GET is not allowed (expect 401 depending on server)", async ({
+  test("GET is not allowed (expect 401)", async ({
     request,
     runtime,
   }) => {

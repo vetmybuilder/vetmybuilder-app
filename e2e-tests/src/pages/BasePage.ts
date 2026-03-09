@@ -4,17 +4,13 @@ import { PublishModalComponent } from "./components/PublishModalComponent";
 export class BasePage {
   readonly page: Page;
 
-  // Shared / global UI
   readonly publishModal: PublishModalComponent;
   readonly publishDialog: Locator;
 
   constructor(page: Page) {
     this.page = page;
 
-    // Modal root (present across pages when opened)
     this.publishDialog = page.getByTestId("get-recs-modal");
-
-    // Components
     this.publishModal = new PublishModalComponent(page);
   }
 
@@ -24,6 +20,11 @@ export class BasePage {
 
   async assertPublishModalHidden() {
     await expect(this.publishDialog).toBeHidden();
+  }
+
+  async logout() {
+    await this.page.goto("/logout", { waitUntil: "domcontentloaded" });
+    await expect(this.page).toHaveURL(/signedOut=1/);
   }
 }
 
