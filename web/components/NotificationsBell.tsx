@@ -265,9 +265,9 @@ export default function NotificationsBell() {
             role="menu"
             aria-label="Notifications"
             className="
-        fixed inset-x-3 top-20 z-50 max-h-[70vh] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl
-        sm:absolute sm:right-0 sm:top-full sm:mt-2 sm:z-50 sm:w-96 sm:max-h-96 sm:rounded-xl sm:ring-1 sm:ring-black/5
-      "
+    fixed inset-x-3 top-20 z-50 max-h-[70vh] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl
+    sm:absolute sm:left-auto sm:right-0 sm:inset-x-auto sm:top-full sm:mt-2 sm:z-50 sm:w-96 sm:max-h-96 sm:rounded-xl sm:ring-1 sm:ring-black/5
+  "
           >
             <div className="flex items-center justify-between px-3 py-3 border-b border-gray-100">
               <div className="text-sm font-semibold text-gray-900">
