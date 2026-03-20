@@ -353,6 +353,17 @@ export class ProjectDetailsPage extends BasePage {
       `Community recommendation made on ${dayjs().format("M/D/YYYY")}`,
     );
   }
+
+  async openProjectRecommendation(recommendation: Recommendation) {
+    const recommendationCard = this.shortlistCompanyName
+      .filter({
+        hasText: recommendation.company.toUpperCase(),
+      })
+      .first();
+
+    await expect(recommendationCard).toBeVisible();
+    await recommendationCard.click();
+  }
 }
 
 export default ProjectDetailsPage;

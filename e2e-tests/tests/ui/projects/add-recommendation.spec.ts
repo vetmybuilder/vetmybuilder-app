@@ -14,6 +14,7 @@ test.describe("Add recommendation", () => {
     loginPage,
     projectDetailsPage,
     projectRecommendPage,
+    builderProfilePage,
   }) => {
     const location = "E4";
     const password = "Passw0rd!";
@@ -89,5 +90,7 @@ test.describe("Add recommendation", () => {
     await projectDetailsPage.hasNotification(newNotificationText);
     await expect(projectDetailsPage.page).toHaveURL(`/projects/${created.id}`);
     await projectDetailsPage.hasProjectRecommendation(recommendation);
+    await projectDetailsPage.openProjectRecommendation(recommendation);
+    await builderProfilePage.hasBuilderRecommendationDetails(recommendation);
   });
 });
