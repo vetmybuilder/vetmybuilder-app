@@ -3,18 +3,34 @@ import {
   expect,
   type APIRequestContext,
   type Page,
+  type TestInfo,
+  type WorkerInfo,
 } from "@playwright/test";
 import { getRuntime } from "./config/runtime";
 import { ensureDatabase, applySchema, seedUsers } from "./db/manage-db";
 import { wipeDatabase } from "./db/wipe";
 import { api, authedApiForUid } from "./api/services/client";
-import { ProjectApi } from "./apiHelper/project/ProjectApi";
+import ProjectApi from "./apiHelper/project/ProjectApi";
+import ProjectRecommendationApi from "./apiHelper/project/ProjectRecommendationApi";
 
 type Runtime = ReturnType<typeof getRuntime>;
 type ApiClient = ReturnType<typeof api>;
 
-function getShardIndex(testInfo: any): number {
-  const name = String(testInfo?.project?.name || "");
+type TestFixtures = {
+  apiClient: ApiClient;
+  adminApiClient: ApiClient;
+  projectApi: ProjectApi;
+  projectRecommendationApi: ProjectRecommendationApi;
+};
+
+type WorkerFixtures = {
+  runtime: Runtime;
+};
+
+type TestMeta = Pick<TestInfo, "project"> | Pick<WorkerInfo, "project">;
+
+function getShardIndex(testInfo: TestMeta): number {
+  const name = String(testInfo.project.name || "");
   const match = name.match(/shard-(\d+)/i);
 
   if (match) {
@@ -25,20 +41,25 @@ function getShardIndex(testInfo: any): number {
   const envShardRaw =
     process.env.TEST_SHARD || process.env.PW_TEST_SHARD || process.env.SHARD;
   const envShard = Number(envShardRaw);
+
   if (Number.isFinite(envShard) && envShard >= 0) return envShard;
 
   return 0;
 }
 
-function getProjectBaseURL(testInfo: any): string | undefined {
-  const baseURL = testInfo?.project?.use?.baseURL;
-  return typeof baseURL === "string" && baseURL ? baseURL : undefined;
+function getProjectBaseURL(testInfo: TestMeta): string | undefined {
+  const baseURL = testInfo.project.use?.baseURL;
+  return typeof baseURL === "string" && baseURL.length > 0
+    ? baseURL
+    : undefined;
 }
 
-function getApiBaseURL(testInfo: any, runtime: Runtime): string {
+function getApiBaseURL(testInfo: TestInfo, runtime: Runtime): string {
   const baseURL = getProjectBaseURL(testInfo);
 
-  if (baseURL && !baseURL.includes(":3000")) return baseURL;
+  if (baseURL && !baseURL.includes(":3000")) {
+    return baseURL;
+  }
 
   return runtime.apiBaseUrl;
 }
@@ -50,14 +71,7 @@ function buildDbName(shardIndex: number): string {
   return `${prefix}_${shardLabel}`;
 }
 
-export const test = base.extend<
-  {
-    apiClient: ApiClient;
-    adminApiClient: ApiClient;
-    projectApi: ProjectApi;
-  },
-  { runtime: Runtime }
->({
+export const test = base.extend<TestFixtures, WorkerFixtures>({
   runtime: [
     async ({}, use, testInfo) => {
       const shardIndex = getShardIndex(testInfo);
@@ -83,45 +97,46 @@ export const test = base.extend<
     { scope: "worker" },
   ],
 
-  apiClient: async (
-    {
-      request,
-      runtime,
-      page,
-    }: { request: APIRequestContext; runtime: Runtime; page: Page },
-    use,
-    testInfo,
-  ) => {
+  apiClient: async ({ request, runtime, page }, use, testInfo) => {
     const uid = process.env.TEST_USER_UID;
-    if (!uid) throw new Error("Missing TEST_USER_UID");
+    if (!uid) {
+      throw new Error("Missing TEST_USER_UID");
+    }
 
     const baseURL = getApiBaseURL(testInfo, runtime);
-    const client = await authedApiForUid(request, baseURL, uid, page);
+    const client = await authedApiForUid(
+      request as APIRequestContext,
+      baseURL,
+      uid,
+      page as Page,
+    );
 
     await use(client);
   },
 
-  adminApiClient: async (
-    {
-      request,
-      runtime,
-      page,
-    }: { request: APIRequestContext; runtime: Runtime; page: Page },
-    use,
-    testInfo,
-  ) => {
+  adminApiClient: async ({ request, runtime, page }, use, testInfo) => {
     const uid = process.env.TEST_ADMIN_USER_UID;
-    if (!uid) throw new Error("Missing TEST_ADMIN_USER_UID");
+    if (!uid) {
+      throw new Error("Missing TEST_ADMIN_USER_UID");
+    }
 
     const baseURL = getApiBaseURL(testInfo, runtime);
-    const client = await authedApiForUid(request, baseURL, uid, page);
+    const client = await authedApiForUid(
+      request as APIRequestContext,
+      baseURL,
+      uid,
+      page as Page,
+    );
 
     await use(client);
   },
 
-  projectApi: async ({ apiClient }: { apiClient: ApiClient }, use) => {
-    const projectApi = new ProjectApi(apiClient);
-    await use(projectApi);
+  projectApi: async ({ apiClient }, use) => {
+    await use(new ProjectApi(apiClient));
+  },
+
+  projectRecommendationApi: async ({ apiClient }, use) => {
+    await use(new ProjectRecommendationApi(apiClient));
   },
 });
 

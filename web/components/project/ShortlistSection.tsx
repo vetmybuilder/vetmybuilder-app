@@ -98,7 +98,7 @@ export default function ShortlistSection({
           limit = 250,
         }) => {
           const { data } = await api.get(
-            `/api/recommendations/ratings?projectId=${projectId}&offset=${offset}&limit=${limit}`
+            `/api/recommendations/ratings?projectId=${projectId}&offset=${offset}&limit=${limit}`,
           );
 
           const list =
@@ -119,8 +119,8 @@ export default function ShortlistSection({
           new Set(
             items
               .map((r) => (r.company || "").trim())
-              .filter((s) => s.length > 0)
-          )
+              .filter((s) => s.length > 0),
+          ),
         );
 
         const scores: Record<string, number> = {};
@@ -135,7 +135,7 @@ export default function ShortlistSection({
             ratingsFetcher,
             projectId,
             name,
-            undefined
+            undefined,
           );
 
           if (typeof agg === "number" && !Number.isNaN(agg)) {
@@ -284,15 +284,15 @@ export default function ShortlistSection({
                 // 2) fallback to local group aggScore
                 // 3) fallback to top recommendation's raw score
                 const key = normalizedCompanyKey(
-                  displayCompanyName || g.company
+                  displayCompanyName || g.company,
                 );
                 const overrideScore = aggScores[key];
                 const baseScore =
                   typeof g.aggScore === "number"
                     ? g.aggScore
                     : typeof r.score === "number"
-                    ? r.score
-                    : undefined;
+                      ? r.score
+                      : undefined;
                 const scoreToShow =
                   typeof overrideScore === "number" &&
                   !Number.isNaN(overrideScore)
@@ -314,12 +314,15 @@ export default function ShortlistSection({
 
                 // Recommender relation: generic text only
                 let recommenderText = "";
+
                 if (r.fromFriend) {
                   recommenderText = "Recommended via your friend.";
-                } else if (r.fromCommunity) {
-                  recommenderText = `Community recommendation made on ${new Date(
-                    r.createdAt
-                  ).toLocaleDateString()}`;
+                } else {
+                  const createdDate = r.createdAt
+                    ? new Date(r.createdAt).toLocaleDateString()
+                    : new Date().toLocaleDateString();
+
+                  recommenderText = `Community recommendation made on ${createdDate}`;
                 }
 
                 return (
@@ -393,12 +396,12 @@ export default function ShortlistSection({
                             <div className="flex items-center gap-2">
                               <span
                                 className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${chBadgeClass(
-                                  vStatus as any
+                                  vStatus as any,
                                 )}`}
                                 title={`Companies House status${
                                   checkedAt
                                     ? ` · checked ${new Date(
-                                        checkedAt
+                                        checkedAt,
                                       ).toLocaleString()}`
                                     : ""
                                 }${
@@ -477,15 +480,15 @@ export default function ShortlistSection({
                                 !canVote
                                   ? "Sign in to vote"
                                   : hasVoted
-                                  ? "You’ve voted"
-                                  : "Vote up"
+                                    ? "You’ve voted"
+                                    : "Vote up"
                               }
                               aria-label={
                                 !canVote
                                   ? "Sign in to vote"
                                   : hasVoted
-                                  ? "You have voted"
-                                  : "Vote up"
+                                    ? "You have voted"
+                                    : "Vote up"
                               }
                               data-testid="shortlist-vote-button"
                             >

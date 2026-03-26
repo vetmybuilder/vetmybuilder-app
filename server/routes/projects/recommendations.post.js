@@ -401,7 +401,6 @@ module.exports = (router, ctx) => {
             const message = `Someone has recommended a tradesperson to your project “${ownerRow.name}”`;
             const linkPath = `/projects/${projectId}`;
 
-            // ✅ Write notification into MySQL for the bell
             try {
               await mysqlQuery(
                 `INSERT INTO notifications

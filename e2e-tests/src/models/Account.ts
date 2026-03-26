@@ -36,6 +36,12 @@ export default class Account {
     return new Account();
   }
 
+  static aGuestAccount(): Account {
+    return new Account()
+      .withRandomDetails()
+      .withEmail(`guest+${uniqueSuffix()}@example.test`);
+  }
+
   withFirstName(firstName: string): Account {
     this.firstName = firstName;
     return this;

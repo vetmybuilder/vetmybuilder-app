@@ -1,5 +1,4 @@
 // web/pages/projects/[id]/recommend.tsx
-import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
@@ -40,6 +39,18 @@ function Banner({
     </div>
   );
 }
+
+type AnonymousRecommendationTracking = {
+  recommendationId: number;
+  projectId: number;
+  projectName: string;
+  submittedAt: string;
+  name: string;
+  email?: string;
+  company: string;
+};
+
+const ANON_RECOMMENDATIONS_KEY = "vmb:anonRecommendations";
 
 export default function RecommendOnPlatform() {
   const api = useApi();
@@ -147,6 +158,37 @@ export default function RecommendOnPlatform() {
     return null;
   };
 
+  const trackAnonymousRecommendation = (recommendationId: number) => {
+    if (user || !project) return;
+
+    const entry: AnonymousRecommendationTracking = {
+      recommendationId,
+      projectId: project.id,
+      projectName: project.name,
+      submittedAt: new Date().toISOString(),
+      name: form.name.trim(),
+      email: form.email.trim() || undefined,
+      company: form.company.trim(),
+    };
+
+    try {
+      const raw = localStorage.getItem(ANON_RECOMMENDATIONS_KEY);
+      const existing: AnonymousRecommendationTracking[] = raw
+        ? JSON.parse(raw)
+        : [];
+
+      const next = [
+        entry,
+        ...existing.filter(
+          (item) => item.recommendationId !== entry.recommendationId,
+        ),
+      ].slice(0, 20);
+
+      localStorage.setItem(ANON_RECOMMENDATIONS_KEY, JSON.stringify(next));
+      sessionStorage.setItem("vmb:returnTo", `/projects/${project.id}`);
+    } catch {}
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
@@ -197,6 +239,8 @@ export default function RecommendOnPlatform() {
         throw new Error("Could not save recommendation");
       }
 
+      trackAnonymousRecommendation(recommendationId);
+
       setNotice("Thanks! Your recommendation has been submitted.");
       setTimeout(() => successRef.current?.focus(), 0);
 
@@ -206,7 +250,6 @@ export default function RecommendOnPlatform() {
         } catch {}
       }
 
-      // allow banner to be visible before navigating
       setTimeout(() => {
         if (!user) {
           router.replace("/");
@@ -227,167 +270,174 @@ export default function RecommendOnPlatform() {
   };
 
   return (
-    <AuthedOnly>
-      <div className="mx-auto max-w-2xl px-4 sm:px-6 lg:px-8">
-        <div className="mb-6 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {loading ? "Recommend" : `Recommend for “${project?.name ?? ""}”`}
-          </h1>
-          {!loading && project && (
-            <p className="mt-1 text-sm text-slate-500">
-              Project location: {project.location}
-            </p>
-          )}
-        </div>
-
-        {pageError && (
-          <div className="mb-4">
-            <Banner kind="error" focusRef={errorRef}>
-              {pageError}
-            </Banner>
-          </div>
-        )}
-
+    <div className="mx-auto max-w-2xl px-4 sm:px-6 lg:px-8">
+      <div className="mb-6 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {loading ? "Recommend" : `Recommend for “${project?.name ?? ""}”`}
+        </h1>
         {!loading && project && (
-          <div className="rounded-2xl border border-slate-200 bg-white px-6 py-6 shadow-sm">
-            {formError && (
-              <div className="mb-4">
-                <Banner kind="error" focusRef={errorRef}>
-                  {formError}
-                </Banner>
-              </div>
-            )}
-
-            {notice && (
-              <div className="mb-4">
-                <Banner kind="success" focusRef={successRef}>
-                  {notice}
-                </Banner>
-              </div>
-            )}
-
-            <form onSubmit={submit} className="space-y-5">
-              <div>
-                <label htmlFor="recommend-name" className="mb-1 block text-sm">
-                  Your name
-                </label>
-                <input
-                  id="recommend-name"
-                  data-testid="recommend-name"
-                  className={`input w-full ${
-                    lockIdentity ? "opacity-60 cursor-not-allowed" : ""
-                  }`}
-                  value={form.name}
-                  onChange={(e) => set("name", e.target.value)}
-                  disabled={lockIdentity}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="recommend-email" className="mb-1 block text-sm">
-                  Your email (optional)
-                </label>
-                <input
-                  id="recommend-email"
-                  data-testid="recommend-email"
-                  className={`input w-full ${
-                    lockIdentity ? "opacity-60 cursor-not-allowed" : ""
-                  }`}
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => set("email", e.target.value)}
-                  disabled={lockIdentity}
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="recommend-company"
-                  className="mb-1 block text-sm"
-                >
-                  Company name
-                </label>
-                <input
-                  id="recommend-company"
-                  data-testid="recommend-company"
-                  className="input w-full"
-                  value={form.company}
-                  onChange={(e) => set("company", e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="recommend-phone" className="mb-1 block text-sm">
-                  Company phone number (optional)
-                </label>
-                <input
-                  id="recommend-phone"
-                  data-testid="recommend-phone"
-                  className="input w-full"
-                  value={form.phone}
-                  onChange={(e) => set("phone", e.target.value)}
-                  inputMode="tel"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="recommend-hire-again"
-                  className="mt-1 flex items-center gap-2"
-                >
-                  <input
-                    id="recommend-hire-again"
-                    data-testid="recommend-hire-again"
-                    type="checkbox"
-                    checked={form.hireAgain === "yes"}
-                    onChange={(e) =>
-                      set("hireAgain", e.target.checked ? "yes" : "no")
-                    }
-                    className="h-5 w-5 accent-indigo-500"
-                  />
-                  <span className="text-sm text-slate-700">
-                    Yes, I would hire them again
-                  </span>
-                </label>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm">Photos (optional)</label>
-                <FileGridUploader
-                  files={photos}
-                  onChange={setPhotos}
-                  maxFiles={8}
-                  maxSizeMB={10}
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="recommend-comment"
-                  className="mb-1 block text-sm"
-                >
-                  Comment (min 10 characters)
-                </label>
-                <textarea
-                  id="recommend-comment"
-                  data-testid="recommend-comment"
-                  className="input min-h-32 w-full"
-                  value={form.comment}
-                  onChange={(e) => set("comment", e.target.value)}
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={submitting}
-                className="btn w-full disabled:opacity-50"
-              >
-                {submitting ? "Sending…" : "Submit recommendation"}
-              </button>
-            </form>
-          </div>
+          <p className="mt-1 text-sm text-slate-500">
+            Project location: {project.location}
+          </p>
         )}
       </div>
-    </AuthedOnly>
+
+      {pageError && (
+        <div className="mb-4">
+          <Banner kind="error" focusRef={errorRef}>
+            {pageError}
+          </Banner>
+        </div>
+      )}
+
+      {!loading && project && (
+        <div className="rounded-2xl border border-slate-200 bg-white px-6 py-6 shadow-sm">
+          {formError && (
+            <div className="mb-4">
+              <Banner kind="error" focusRef={errorRef}>
+                {formError}
+              </Banner>
+            </div>
+          )}
+
+          {notice && (
+            <div className="mb-4">
+              <Banner kind="success" focusRef={successRef}>
+                {notice}
+              </Banner>
+            </div>
+          )}
+
+          {!user && (
+            <div className="mb-4">
+              <Banner kind="info">
+                You can submit without an account — or{" "}
+                <a
+                  href="/signup"
+                  className="font-medium underline hover:text-slate-900"
+                >
+                  sign up
+                </a>{" "}
+                later to track your recommendations.
+              </Banner>
+            </div>
+          )}
+
+          <form onSubmit={submit} className="space-y-5">
+            <div>
+              <label htmlFor="recommend-name" className="mb-1 block text-sm">
+                Your name
+              </label>
+              <input
+                id="recommend-name"
+                data-testid="recommend-name"
+                className={`input w-full ${
+                  lockIdentity ? "opacity-60 cursor-not-allowed" : ""
+                }`}
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+                disabled={lockIdentity}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="recommend-email" className="mb-1 block text-sm">
+                Your email (optional)
+              </label>
+              <input
+                id="recommend-email"
+                data-testid="recommend-email"
+                className={`input w-full ${
+                  lockIdentity ? "opacity-60 cursor-not-allowed" : ""
+                }`}
+                type="email"
+                value={form.email}
+                onChange={(e) => set("email", e.target.value)}
+                disabled={lockIdentity}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="recommend-company" className="mb-1 block text-sm">
+                Company name
+              </label>
+              <input
+                id="recommend-company"
+                data-testid="recommend-company"
+                className="input w-full"
+                value={form.company}
+                onChange={(e) => set("company", e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="recommend-phone" className="mb-1 block text-sm">
+                Company phone number (optional)
+              </label>
+              <input
+                id="recommend-phone"
+                data-testid="recommend-phone"
+                className="input w-full"
+                value={form.phone}
+                onChange={(e) => set("phone", e.target.value)}
+                inputMode="tel"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="recommend-hire-again"
+                className="mt-1 flex items-center gap-2"
+              >
+                <input
+                  id="recommend-hire-again"
+                  data-testid="recommend-hire-again"
+                  type="checkbox"
+                  checked={form.hireAgain === "yes"}
+                  onChange={(e) =>
+                    set("hireAgain", e.target.checked ? "yes" : "no")
+                  }
+                  className="h-5 w-5 accent-indigo-500"
+                />
+                <span className="text-sm text-slate-700">
+                  Yes, I would hire them again
+                </span>
+              </label>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm">Photos (optional)</label>
+              <FileGridUploader
+                files={photos}
+                onChange={setPhotos}
+                maxFiles={8}
+                maxSizeMB={10}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="recommend-comment" className="mb-1 block text-sm">
+                Comment (min 10 characters)
+              </label>
+              <textarea
+                id="recommend-comment"
+                data-testid="recommend-comment"
+                className="input min-h-32 w-full"
+                value={form.comment}
+                onChange={(e) => set("comment", e.target.value)}
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="btn w-full disabled:opacity-50"
+            >
+              {submitting ? "Sending…" : "Submit recommendation"}
+            </button>
+          </form>
+        </div>
+      )}
+    </div>
   );
 }

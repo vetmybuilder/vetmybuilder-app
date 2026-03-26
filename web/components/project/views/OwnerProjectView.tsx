@@ -630,7 +630,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
             canVote={false}
             votingId={null}
             onVoteUp={async () => {}}
-            recHasPhotos={recHasPhotos} // ⭐ OPTION A now works properly
+            recHasPhotos={recHasPhotos}
             recVerification={recVerification}
             showOwnerShareCta={
               !isLive &&

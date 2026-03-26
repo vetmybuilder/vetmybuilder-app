@@ -77,6 +77,44 @@ export class ProjectRecommendPage extends BasePage {
       timeout: 15000,
     });
   }
+
+  async submitRecommendationForGuestUser(
+    guest: Account,
+    recommendation: Recommendation,
+    projectId: string | number,
+  ) {
+    await expect(
+      this.page.getByText("You can submit without an account"),
+    ).toBeVisible();
+    await expect(
+      this.page.getByRole("link", { name: "sign up" }),
+    ).toHaveAttribute("href", "/signup");
+
+    const payload = recommendation.toMultipartPayload();
+    const { fields, photos } = payload;
+
+    await this.nameInput.fill(`${guest.firstName} ${guest.lastName}`.trim());
+    await this.emailInput.fill(guest.requiredEmail);
+
+    await this.companyInput.fill(fields.company);
+
+    if (fields.phone) {
+      await this.phoneInput.fill(fields.phone);
+    }
+
+    await this.commentInput.fill(fields.comment);
+
+    if (photos?.length) {
+      await this.fileInput.setInputFiles(photos);
+    }
+
+    await this.submitButton.click();
+    await expect(this.successMessage).toBeVisible();
+
+    await expect(this.page).toHaveURL('/', {
+      timeout: 15000,
+    });
+  }
 }
 
 export default ProjectRecommendPage;

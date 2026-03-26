@@ -132,30 +132,15 @@ export function useBuilderAggregates({
         (rec: any) => rec.fromFriend === 1,
       ).length;
 
-      const photoLists = full.map((rec: any) => {
-        const photos = normalizePhotos(rec);
-        const by = recommenderLabel(rec);
-
-        return photos.map((photo: any) => ({
+      const sharedOnly: Photo[] = normalizePhotos(builder).map(
+        (photo: any) => ({
           ...photo,
           alt:
             photo.alt && photo.alt.trim()
               ? photo.alt
-              : `${rec.company} — photo from ${by}`,
-        }));
-      });
-
-      const seen = new Set<string>();
-      const merged: Photo[] = [];
-
-      for (const arr of photoLists) {
-        for (const photo of arr) {
-          const photoKey = photo.url || photo.thumb || "";
-          if (!photoKey || seen.has(photoKey)) continue;
-          seen.add(photoKey);
-          merged.push(photo);
-        }
-      }
+              : `${builder.company} — shared photo`,
+        }),
+      );
 
       const reviews: Review[] = full
         .filter(
@@ -177,7 +162,7 @@ export function useBuilderAggregates({
       setAggPhones(phones);
       setAggEmails(emails);
       setAggNames(names);
-      setAggPhotos(merged.length ? merged : normalizePhotos(builder));
+      setAggPhotos(sharedOnly);
       setAggUpdatedAt(latestIso || builder.createdAt || null);
       setFriendCount(friendCountVal);
       setAggReviews(reviews);

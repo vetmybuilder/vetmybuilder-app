@@ -65,7 +65,7 @@ function Inner() {
   const [err, setErr] = useState<string | null>(null);
   const [favBusy, setFavBusy] = useState(false);
 
-  // NEW: shared photos from trade_shares
+  const [showPortfolio, setShowPortfolio] = useState(false);
   const [sharedImages, setSharedImages] = useState<GalleryImage[]>([]);
   const [sharedLoading, setSharedLoading] = useState(false);
 
@@ -142,7 +142,7 @@ function Inner() {
 
         const shares = Array.isArray(data?.shares) ? data.shares : [];
         const withPhotos = shares.filter(
-          (s: any) => Array.isArray(s.photos) && s.photos.length > 0
+          (s: any) => Array.isArray(s.photos) && s.photos.length > 0,
         );
 
         if (!withPhotos.length) {
@@ -163,7 +163,7 @@ function Inner() {
               alt:
                 p.name || `Shared project photo ${idx + 1} from this tradesman`,
             };
-          }
+          },
         );
 
         setSharedImages(imgs);
@@ -192,13 +192,13 @@ function Inner() {
       if (!currentlyFav) {
         // add to favourites
         await api.post(
-          `/api/tradesmen/${encodeURIComponent(builderId)}/favourite`
+          `/api/tradesmen/${encodeURIComponent(builderId)}/favourite`,
         );
         setItem({ ...item, isFavourite: true });
       } else {
         // remove from favourites
         await api.delete(
-          `/api/tradesmen/${encodeURIComponent(builderId)}/favourite`
+          `/api/tradesmen/${encodeURIComponent(builderId)}/favourite`,
         );
         setItem({ ...item, isFavourite: false });
       }
@@ -407,37 +407,50 @@ function Inner() {
             </section>
           ) : (
             sharedImages.length > 0 && (
-              <SharedProfilePhotosSection images={sharedImages} />
+              <>
+                <SharedProfilePhotosSection images={sharedImages} />
+
+                {item.gallery && item.gallery.length > 0 && !showPortfolio && (
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowPortfolio(true)}
+                      className="text-sm font-medium text-indigo-600 hover:underline"
+                      data-testid="btn-view-builder-work"
+                    >
+                      View builder’s work
+                    </button>
+                  </div>
+                )}
+              </>
             )
           )}
+          {/* 👉 portfolio (NEW - correctly placed) */}
+          {showPortfolio && galleryImages.length > 0 && (
+            <section
+              className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"
+              data-testid="tradesman-portfolio-card"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm sm:text-base font-semibold text-slate-900">
+                  Builder portfolio
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setShowPortfolio(false)}
+                  className="text-xs text-slate-500 hover:underline"
+                >
+                  Hide
+                </button>
+              </div>
 
-          {/* gallery */}
-          <section
-            className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"
-            data-testid="tradesman-gallery-card"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm sm:text-base font-semibold text-slate-900">
-                Project photos
-              </h2>
-              <span className="text-xs text-slate-500">
-                {item.gallery?.length || 0} photo
-                {(item.gallery?.length || 0) === 1 ? "" : "s"}
-              </span>
-            </div>
-
-            {galleryImages.length > 0 ? (
               <LightboxGallery
                 images={galleryImages}
                 cols={3}
                 rounded="rounded-xl"
               />
-            ) : (
-              <p className="text-sm text-slate-500">
-                No photos have been uploaded yet.
-              </p>
-            )}
-          </section>
+            </section>
+          )}
         </div>
 
         {/* right: contact + discounts + areas */}

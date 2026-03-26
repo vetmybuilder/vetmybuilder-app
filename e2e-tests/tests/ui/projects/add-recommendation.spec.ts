@@ -8,7 +8,7 @@ import { authedApiForUid } from "../../../src/api/services/client";
 import { test, expect } from "../../../src/ui.fixtures";
 
 test.describe("Add recommendation", () => {
-  test("Can add a recommendation", async ({
+  test("Logged in user can add a recommendation", async ({
     request,
     runtime,
     loginPage,
@@ -80,7 +80,6 @@ test.describe("Add recommendation", () => {
       created.id,
     );
     await projectDetailsPage.waitUntilReady();
-    // await projectDetailsPage.page.waitForTimeout(1500);
     await projectDetailsPage.logout();
     await loginPage.login(owner.email!, owner.password!);
     await projectDetailsPage.visit(created.id);
@@ -88,6 +87,69 @@ test.describe("Add recommendation", () => {
     const newNotificationText = `Someone has recommended a tradesperson to your project “${project.workTypes[0]} in ${location} (${project.propertyType})”`;
 
     await projectDetailsPage.hasNotification(newNotificationText);
+    await expect(projectDetailsPage.page).toHaveURL(`/projects/${created.id}`);
+    await projectDetailsPage.hasProjectRecommendation(recommendation);
+    await projectDetailsPage.openProjectRecommendation(recommendation);
+    await builderProfilePage.hasBuilderRecommendationDetails(recommendation);
+  });
+
+  test("Guests can add a recommendation", async ({
+    request,
+    runtime,
+    loginPage,
+    projectDetailsPage,
+    projectRecommendPage,
+    builderProfilePage,
+  }) => {
+    const location = "E4";
+    const password = "Passw0rd!";
+
+    const owner = Account.anAccount()
+      .withRandomDetails()
+      .withLocation(location)
+      .withEmail(`owner+${Date.now()}@test.com`)
+      .withPassword(password);
+
+    const ownerAuthUser = await createAuthUser(owner.email!, owner.password!);
+
+    const ownerClient = await authedApiForUid(
+      request,
+      runtime.apiBaseUrl,
+      ownerAuthUser.uid,
+    );
+
+    await AuthApi.signup(ownerClient, owner);
+
+    const ownerProjectApi = new ProjectApi(ownerClient);
+
+    const project = Project.aProject().withRandomDetails({
+      locationQuery: location,
+      locationPick: location,
+    });
+
+    const created = await ownerProjectApi.createProject(project.toApiPayload());
+
+    await ownerProjectApi.publishProject(created.id);
+
+    const guestRecommender = Account.aGuestAccount();
+    const recommendation = Recommendation.aRecommendation();
+
+    await projectDetailsPage.logout();
+    await projectDetailsPage.visit(created.id);
+    await projectDetailsPage.hasHomeownerProjectDetails(created.id, project);
+
+    await projectDetailsPage.recommendTradespersonButton.click();
+    await projectRecommendPage.submitRecommendationForGuestUser(
+      guestRecommender,
+      recommendation,
+      created.id,
+    );
+
+    await projectDetailsPage.waitUntilReady();
+
+    await loginPage.login(owner.email!, owner.password!);
+    await projectDetailsPage.visit(created.id);
+    await projectDetailsPage.hasNotification(`Someone has recommended a tradesperson to your project “${project.workTypes[0]} in ${location} (${project.propertyType})”`);
     await expect(projectDetailsPage.page).toHaveURL(`/projects/${created.id}`);
     await projectDetailsPage.hasProjectRecommendation(recommendation);
     await projectDetailsPage.openProjectRecommendation(recommendation);
