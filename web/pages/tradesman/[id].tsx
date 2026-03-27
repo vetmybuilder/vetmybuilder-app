@@ -407,25 +407,23 @@ function Inner() {
             </section>
           ) : (
             sharedImages.length > 0 && (
-              <>
-                <SharedProfilePhotosSection images={sharedImages} />
-
-                {item.gallery && item.gallery.length > 0 && !showPortfolio && (
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setShowPortfolio(true)}
-                      className="text-sm font-medium text-indigo-600 hover:underline"
-                      data-testid="btn-view-builder-work"
-                    >
-                      View builder’s work
-                    </button>
-                  </div>
-                )}
-              </>
+              <SharedProfilePhotosSection images={sharedImages} />
             )
           )}
-          {/* 👉 portfolio (NEW - correctly placed) */}
+
+          {!sharedLoading && galleryImages.length > 0 && !showPortfolio && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowPortfolio(true)}
+                className="text-sm font-medium text-indigo-600 hover:underline"
+                data-testid="btn-view-builder-work"
+              >
+                View builder’s work
+              </button>
+            </div>
+          )}
+
           {showPortfolio && galleryImages.length > 0 && (
             <section
               className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"

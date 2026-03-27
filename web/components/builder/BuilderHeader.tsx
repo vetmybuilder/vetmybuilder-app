@@ -149,7 +149,7 @@ export default function BuilderHeader({
 
           {/* Right (vote) */}
           <div className="flex sm:flex-col items-start sm:items-end">
-            {!isOwner && user && (
+            {canVote && (
               <button
                 className={[
                   "inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs sm:text-sm font-medium shadow-sm border",

@@ -49,7 +49,7 @@ export function useBuilderProfile(id: string | string[] | undefined) {
     [user, projectOwnerId],
   );
 
-  const canVote = !!user && !isOwner;
+  const canVote = !!user;
 
   useEffect(() => {
     if (authLoading || !id || redirecting) return;
