@@ -110,6 +110,16 @@ export class RegisterPage {
     await expect(this.errorAlert).toContainText(text);
   }
 
+  async hasWeakPasswordError(): Promise<void> {
+    await this.hasAlert("Your password is too weak. Try a longer password.");
+  }
+
+  async navigateToLogin(): Promise<void> {
+    await expect(this.signInLink).toBeVisible();
+    await this.signInLink.click();
+    await expect(this.page).toHaveURL("/login?next=%2Fprojects");
+  }
+
   async hasFieldErrors(errors: FieldErrors): Promise<void> {
     await expect(this.formError).toHaveText(
       "Please fill in all required fields.",

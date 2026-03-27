@@ -3,6 +3,7 @@ import Account from "../../../src/models/Account";
 import { test, expect } from "../../../src/ui.fixtures";
 import { createAuthUser } from "../../../src/helpers/FirebaseSeed";
 import { authedApiForUid } from "../../../src/api/services/client";
+import { AuthApi } from "../../../src/apiHelper/auth/AuthApi";
 
 test.describe("Project publish journey", () => {
   test("can publish a project", async ({
@@ -23,13 +24,12 @@ test.describe("Project publish journey", () => {
     await homeownerProjectsPage.hasStatus(created.id, "LIVE");
   });
 
-  test.skip("neighbour can view project if in same location", async ({
+  test("neighbour can view a published project in their area", async ({
     request,
     runtime,
     projectApi,
     loginPage,
     projectDetailsPage,
-    homeownerProjectsPage,
   }) => {
     const location = "E4";
     const password = "Passw0rd!";
@@ -39,7 +39,6 @@ test.describe("Project publish journey", () => {
       .withLocation(location);
 
     const created = await projectApi.createProject(project.toApiPayload());
-    await projectApi.publishProject(created.id);
 
     const neighbour = Account.anAccount()
       .withRandomDetails()
@@ -47,31 +46,23 @@ test.describe("Project publish journey", () => {
       .withEmail(`neighbour+${Date.now()}@test.com`)
       .withPassword(password);
 
-    const neighbourUid = `neighbour-${Date.now()}`;
-
-    await createAuthUser(neighbour.email!, neighbour.password!);
+    const neighbourAuthUser = await createAuthUser(
+      neighbour.email!,
+      neighbour.password!,
+    );
 
     const neighbourClient = await authedApiForUid(
       request,
       runtime.apiBaseUrl,
-      neighbourUid,
+      neighbourAuthUser.uid,
     );
 
-    await neighbourClient.post("/api/auth/signup", {
-      firstName: neighbour.firstName,
-      lastName: neighbour.lastName,
-      username: neighbour.username,
-      location: neighbour.location,
-    });
+    await AuthApi.signup(neighbourClient, neighbour);
 
-    await loginPage.goto();
     await loginPage.login(neighbour.email!, neighbour.password!);
-
-    await homeownerProjectsPage.goto();
-    await homeownerProjectsPage.page.pause();
-    // await homeownerProjectsPage.openProject(created.id);
-
-    // await projectDetailsPage.hasStatus("Live");
+    await projectApi.publishProject(created.id);
+    await projectDetailsPage.visit(created.id);
+    await projectDetailsPage.hasHomeownerProjectDetails(created.id, project);
   });
 
   // test("neighbour cannot view project if in different location", async ({

@@ -43,6 +43,8 @@ export class ProjectDetailsPage extends BasePage {
   readonly shortlistPhotosBadge: Locator;
   readonly shortlistRecommender: Locator;
 
+  readonly unarchiveButton: Locator;
+
   private readonly headerMetaDate: Locator;
   private readonly closeProjectModal: CloseProjectModalComponent;
 
@@ -91,6 +93,8 @@ export class ProjectDetailsPage extends BasePage {
     );
     this.shortlistPhotosBadge = page.getByTestId("shortlist-badge-photos");
     this.shortlistRecommender = page.getByTestId("shortlist-recommender");
+
+    this.unarchiveButton = this.root.getByTestId("btn-unarchive");
 
     this.closeProjectModal = new CloseProjectModalComponent(page);
   }
@@ -316,6 +320,12 @@ export class ProjectDetailsPage extends BasePage {
     await expect(this.closeThisJobButton).toBeVisible();
     await this.closeThisJobButton.click();
     await this.closeProjectModal.closeProject(options);
+  }
+
+  async unarchive() {
+    await expect(this.unarchiveButton).toBeVisible();
+    await this.unarchiveButton.click();
+    await this.hasStatus("Pending");
   }
 
   async hasHomeownerProjectDetails(

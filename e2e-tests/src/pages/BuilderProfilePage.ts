@@ -32,6 +32,14 @@ export class BuilderProfilePage extends BasePage {
     });
   }
 
+  async visit(recommendationId: string | number) {
+    await this.page.goto(`/builders/${recommendationId}`, {
+      waitUntil: "domcontentloaded",
+    });
+    await expect(this.page).toHaveURL(`/builders/${recommendationId}`);
+    await this.waitUntilReady();
+  }
+
   async waitUntilReady() {
     await expect
       .poll(
@@ -92,6 +100,19 @@ export class BuilderProfilePage extends BasePage {
     await expect(this.backToProjectLink).toBeVisible();
     await this.backToProjectLink.click();
     await expect(this.page).toHaveURL(/\/projects\/\d+$/);
+  }
+
+  async voteUp() {
+    await expect(this.voteUpButton).toBeVisible();
+    await expect(this.voteUpButton).toBeEnabled();
+    await this.voteUpButton.click();
+  }
+
+  async hasVotedUp() {
+    // Source uses curly apostrophe U+2019 — match with \u2019 to be explicit
+    await expect(this.voteUpButton).toHaveText(/you\u2019ve voted/i, {
+      timeout: 10_000,
+    });
   }
 }
 

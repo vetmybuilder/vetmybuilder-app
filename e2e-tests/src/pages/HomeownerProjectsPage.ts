@@ -85,6 +85,16 @@ export class HomeownerProjectsPage {
     return this.page.getByTestId(`project-image-card-${id}`);
   }
 
+  findCompletedCardById(projectId: string | number): Locator {
+    return this.page.getByTestId(`completed-card-${String(projectId)}`);
+  }
+
+  async hasCompletedCard(projectId: string | number) {
+    await expect(this.findCompletedCardById(projectId)).toBeVisible({
+      timeout: 15_000,
+    });
+  }
+
   private normalizeExpected(expected: string | RegExp): RegExp {
     return expected instanceof RegExp ? expected : new RegExp(expected, "i");
   }
@@ -202,6 +212,24 @@ export class HomeownerProjectsPage {
 
   async resetFilters() {
     await this.resetFiltersLink.click();
+  }
+
+  async selectTypeFilter(type: string) {
+    await this.typeFilterButton.click();
+    await this.page.getByRole("menuitem", { name: type }).click();
+  }
+
+  async selectStatusFilter(status: string) {
+    await this.statusFilterButton.click();
+    await this.page.getByRole("menuitem", { name: status }).click();
+  }
+
+  findProjectCardById(projectId: string | number): Locator {
+    return this.page.getByTestId(`project-image-card-${String(projectId)}`);
+  }
+
+  async hasNoProject(projectId: string | number) {
+    await expect(this.findProjectCardById(projectId)).not.toBeVisible();
   }
 }
 

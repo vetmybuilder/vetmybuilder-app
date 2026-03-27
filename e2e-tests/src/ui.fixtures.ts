@@ -46,7 +46,17 @@ export const test = uiBaseTest.extend<{
           : normalizeLocalhost(process.env.API_BASE_URL || "")) ||
         "http://127.0.0.1:3100";
 
-      await page.request.get(`${apiBase}/health`);
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          await page.request.get(`${apiBase}/health`);
+          break;
+        } catch (err: unknown) {
+          const isConnReset =
+            err instanceof Error && err.message.includes("ECONNRESET");
+          if (!isConnReset || attempt === 2) throw err;
+          await new Promise((r) => setTimeout(r, 300));
+        }
+      }
 
       await use(undefined);
     },

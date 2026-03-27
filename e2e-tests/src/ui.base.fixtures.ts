@@ -13,6 +13,8 @@ import { ProjectDetailsPage } from "../src/pages/ProjectDetailsPage";
 import { ProjectRecommendPage } from "../src/pages/ProjectRecommendPage";
 import { AuthHelper } from "../src/helpers/AuthHelper";
 import BuilderProfilePage from "./pages/BuilderProfilePage";
+import MagicLinkPage from "./pages/MagicLinkPage";
+import ShortlistPage from "./pages/ShortlistPage";
 
 type Runtime = ReturnType<typeof getRuntime>;
 
@@ -26,6 +28,8 @@ type UiFixtures = {
   createProjectPage: CreateProjectPage;
   editProjectPage: EditProjectPage;
   builderProfilePage: BuilderProfilePage;
+  magicLinkPage: MagicLinkPage;
+  shortlistPage: ShortlistPage;
   projectDetailsPage: ProjectDetailsPage;
   projectRecommendPage: ProjectRecommendPage;
   authHelper: AuthHelper;
@@ -81,6 +85,14 @@ export const test = base.extend<UiFixtures, { runtime: Runtime }>({
 
   builderProfilePage: async ({ page }, use) => {
     await use(new BuilderProfilePage(page));
+  },
+
+  magicLinkPage: async ({ page }, use) => {
+    await use(new MagicLinkPage(page));
+  },
+
+  shortlistPage: async ({ page }, use) => {
+    await use(new ShortlistPage(page));
   },
 
   projectRecommendPage: async ({ page }, use) => {

@@ -55,4 +55,21 @@ export class LoginPage {
     await this.passwordInput.fill(password);
     await this.submitButton.click();
   }
+
+  async hasError() {
+    await expect(this.errorMessage).toBeVisible({ timeout: 10_000 });
+  }
+
+  async navigateToSignup(): Promise<void> {
+    await expect(this.createOneLink).toBeVisible();
+    await this.createOneLink.click();
+    await expect(this.page).toHaveURL("/signup");
+  }
+
+  async hasVendorSignupLink(): Promise<void> {
+    await expect(this.createOneLink).toHaveAttribute(
+      "href",
+      "/tradesman/register-tradesmen",
+    );
+  }
 }

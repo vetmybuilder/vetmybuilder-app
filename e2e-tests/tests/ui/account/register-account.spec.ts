@@ -90,6 +90,25 @@ test.describe("Homeowner registration", () => {
     );
   });
 
+  test("shows an error when password is too weak", async ({ registerPage }) => {
+    const account = Account.anAccount().withRandomRegistration({
+      location: "E4",
+      password: "123",
+    });
+
+    await registerPage.goto();
+    await registerPage.fillFromAccount(account);
+    await registerPage.submit();
+    await registerPage.hasWeakPasswordError();
+  });
+
+  test("'sign in' link on the registration form navigates to the login page", async ({
+    registerPage,
+  }) => {
+    await registerPage.goto();
+    await registerPage.navigateToLogin();
+  });
+
   test("shows an error when email is already taken", async ({
     registerPage,
   }) => {
