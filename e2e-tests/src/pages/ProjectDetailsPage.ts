@@ -381,7 +381,8 @@ export class ProjectDetailsPage extends BasePage {
     const location = input.locationPick.split(" ")[0];
 
     await expect(this.page).toHaveURL(`/projects/${projectId}`);
-    await expect(this.projectDetailsHeading).toBeVisible();
+    await this.waitUntilReady();
+    await expect(this.projectDetailsHeading).toBeVisible({ timeout: 15_000 });
     await expect(this.projectBadges).toContainText(input.workTypes[0]);
     await expect(this.projectBadges).toContainText(location);
     await expect(this.projectBadges).toContainText(input.propertyType);

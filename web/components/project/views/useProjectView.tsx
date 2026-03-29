@@ -171,7 +171,7 @@ export function useProjectView() {
     return () => {
       alive = false;
     };
-  }, [api, projectId, router.isReady, authLoading]);
+  }, [api, projectId, router.isReady, authLoading, user?.uid]);
 
   const isOwner = !!(user && project && user.uid === project?.ownerUserId);
   const statusLower = (project?.status || "").toLowerCase();
@@ -350,7 +350,13 @@ export function useProjectView() {
     }
   };
 
-  const onUpgradeClick = () => setPlansOpen(true);
+  const onUpgradeClick = () => {
+    if (!paymentsEnabled) {
+      setFlash({ kind: "success", text: "Contact access is free during our launch period." });
+      return;
+    }
+    setPlansOpen(true);
+  };
 
   const startOneOffCheckout = async () => {
     if (!project?.id) return;
@@ -464,14 +470,18 @@ export function useProjectView() {
 
   const unlockQuery = String((router.query.unlock || "") as string);
 
-  const entitledToContact =
-    !!project &&
-    isTrades &&
-    !isOwner &&
-    !isClosed &&
-    isLive &&
-    subStatus === "active" &&
-    currentPlanId !== "free";
+  const paymentsEnabled =
+    process.env.NEXT_PUBLIC_ENABLE_PAYMENTS === "true";
+
+  const entitledToContact = paymentsEnabled
+    ? !!project &&
+      isTrades &&
+      !isOwner &&
+      !isClosed &&
+      isLive &&
+      subStatus === "active" &&
+      currentPlanId !== "free"
+    : !!project && isTrades && !isOwner && !isClosed && isLive;
 
   const canAttemptContact =
     !!project &&
@@ -647,7 +657,7 @@ export function useProjectView() {
     doCloseSubmit,
     copyInvite,
     copyingInvite,
-    onUpgradeClick: () => setPlansOpen(true),
+    onUpgradeClick,
     startOneOffCheckout,
     startSubscriptionCheckout,
     handlePlanSelect,

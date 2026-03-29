@@ -143,9 +143,13 @@ function Inner() {
                 src={item.avatarUrl}
                 alt={title}
                 className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl object-cover ring-1 ring-neutral-200"
+                data-testid="profile-avatar-img"
               />
             ) : (
-              <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl bg-slate-200 grid place-items-center font-semibold text-slate-700">
+              <div
+                className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl bg-slate-200 grid place-items-center font-semibold text-slate-700"
+                data-testid="profile-avatar-initials"
+              >
                 {initials(title)}
               </div>
             )}

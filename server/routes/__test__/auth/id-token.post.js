@@ -158,7 +158,18 @@ module.exports = (router, ctx) => {
     const adminUid = String(process.env.TEST_ADMIN_USER_UID || "").trim();
     const isAdmin = adminUid && uid === adminUid;
 
-    const email = emailForUid(uid);
+    let email = emailForUid(uid);
+
+    // For unknown UIDs (e.g. dynamically created builder users), try Firebase Admin
+    // so email is populated in users table — required for email-based lookups (e.g. assignTo).
+    if (!email && admin?.apps?.length) {
+      try {
+        const userRecord = await admin.auth().getUser(uid);
+        email = userRecord.email ?? null;
+      } catch {
+        // best-effort: user may not exist in Firebase Auth yet
+      }
+    }
 
     try {
       // Ensure users row exists (email best-effort)

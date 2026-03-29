@@ -69,6 +69,7 @@ export default function TradesmanRegisterV2Page() {
     },
     tradeTypes: [] as string[],
     workPhotos: [] as File[], // File objects from uploader
+    profilePictureKey: null as string | null, // "new-N" or null; not persisted across reload
     discountMin: 0,
     discountMax: 5,
     warranty: "none" as "none" | "3m" | "6m" | "12m" | "24m+",
@@ -109,7 +110,12 @@ export default function TradesmanRegisterV2Page() {
 
       setForm((p) => {
         // Avoid clobbering our File[] with old saved shapes
-        const { workPhotos: _draftWorkPhotos, ...restDraft } = draft;
+        // profilePictureKey "new-N" references files that are gone after reload — clear it
+        const {
+          workPhotos: _draftWorkPhotos,
+          profilePictureKey: _draftPpKey,
+          ...restDraft
+        } = draft;
 
         return {
           ...p,
@@ -395,6 +401,13 @@ export default function TradesmanRegisterV2Page() {
       }
 
       // 5) Build payload matching /api/tradesmen/me expectations
+      // Resolve profile picture key → URL
+      let profilePictureUrl: string | null = null;
+      if (form.profilePictureKey?.startsWith("new-")) {
+        const idx = parseInt(form.profilePictureKey.slice(4), 10);
+        profilePictureUrl = photoUrls[idx] ?? null;
+      }
+
       const payload = {
         companyName: form.companyName,
         contactName: form.contactName,
@@ -413,6 +426,7 @@ export default function TradesmanRegisterV2Page() {
         offersDiscount: Math.max(form.discountMin || 0, form.discountMax || 0),
         companyNumber: form.companyNumber || null,
         chStatus: form.chStatus || null,
+        profilePictureUrl,
       };
 
       // 6) Upsert vendor profile
@@ -531,6 +545,9 @@ export default function TradesmanRegisterV2Page() {
             onBack={() => setStep(1)}
             onNext={onNextFromStep2}
             err={err}
+            existingPhotoUrls={[]}
+            profilePictureKey={form.profilePictureKey}
+            onProfilePictureKeyChange={(key) => set("profilePictureKey", key)}
           />
         )}
 

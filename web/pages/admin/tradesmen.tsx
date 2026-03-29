@@ -155,7 +155,7 @@ export default function AdminTradesmen() {
         )}
 
         {user && !loading && (
-          <div className="overflow-x-auto rounded-xl border border-gray-200">
+          <div data-testid="admin-tradesmen-table" className="overflow-x-auto rounded-xl border border-gray-200">
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50 text-left">
                 <tr>

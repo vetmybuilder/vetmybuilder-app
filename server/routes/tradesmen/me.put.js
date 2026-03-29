@@ -239,6 +239,11 @@ module.exports = (router, ctx) => {
 
       const warrantyMonths = int(body.warrantyMonths, 0);
 
+      const rawProfilePictureUrl =
+        typeof body.profilePictureUrl === "string"
+          ? body.profilePictureUrl.trim() || null
+          : null;
+
       let companyNumber = (body.companyNumber || "").trim() || null;
       let chStatus = body.chStatus || null;
       let chName = null;
@@ -453,6 +458,18 @@ module.exports = (router, ctx) => {
         } else {
           log.info(`${TAG} no photos provided`, { uid });
         }
+
+        // PROFILE PICTURE — only keep if still present in the saved photo set
+        const photoUrlSet = new Set(photoUrls);
+        const effectiveProfilePicUrl =
+          rawProfilePictureUrl && photoUrlSet.has(rawProfilePictureUrl)
+            ? rawProfilePictureUrl
+            : null;
+
+        await run(
+          `UPDATE tradesmen SET profile_picture_url = ? WHERE user_id = ?`,
+          [effectiveProfilePicUrl, uid]
+        );
 
         // RECOMPUTE SCORE
         const row = await queryOne(

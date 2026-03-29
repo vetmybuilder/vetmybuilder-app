@@ -27,6 +27,14 @@ export class AdminTradesmenPage extends BasePage {
       this.page.getByTestId("admin-tradesmen-page"),
     ).toBeVisible({ timeout: 30_000 });
     await expect(this.heading).toBeVisible({ timeout: 15_000 });
+    // Wait for Firebase auth to resolve so canQuery=true and load() runs.
+    // The table wrapper only renders when user && !loading, so this confirms
+    // auth is established before any data assertions.
+    await expect(
+      this.page.getByTestId("admin-tradesmen-table"),
+    ).toBeVisible({ timeout: 30_000 });
+    // Wait for initial data load to complete (button returns to "Apply" when !busy)
+    await expect(this.applyButton).toHaveText("Apply", { timeout: 15_000 });
   }
 
   async visit() {

@@ -1,5 +1,5 @@
 // web/components/vendor-register/Step2Trades.tsx
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { TRADE_TYPES, type TradeType } from "@/types/tradeTypes";
 import FileGridUploader from "@/components/fileUpload/FileGridUploader";
 
@@ -14,6 +14,11 @@ type Props = {
   onBack: () => void;
   onNext: (e: React.FormEvent) => void;
   err?: string | null;
+
+  // Profile picture selection (optional)
+  existingPhotoUrls?: string[];
+  profilePictureKey?: string | null;
+  onProfilePictureKeyChange?: (key: string | null) => void;
 };
 
 const toggle = (arr: string[], item: string) => {
@@ -31,16 +36,54 @@ export default function Step2Trades({
   onBack,
   onNext,
   err,
+  existingPhotoUrls = [],
+  profilePictureKey,
+  onProfilePictureKeyChange,
 }: Props) {
   const [query, setQuery] = useState("");
   const [bucket, setBucket] = useState<string>("");
+
+  // Auto-select the first available photo when no profile picture is chosen yet
+  useEffect(() => {
+    if (!onProfilePictureKeyChange) return;
+    if (profilePictureKey != null) return;
+    if (existingPhotoUrls.length > 0) {
+      onProfilePictureKeyChange(existingPhotoUrls[0]);
+    } else if (workPhotos.length > 0) {
+      onProfilePictureKeyChange("new-0");
+    }
+  }, [existingPhotoUrls, workPhotos, profilePictureKey, onProfilePictureKeyChange]);
+
+  // Wrap setWorkPhotos to keep profilePictureKey consistent when files are removed/reordered
+  const handleWorkPhotosChange = (newFiles: File[]) => {
+    if (profilePictureKey?.startsWith("new-") && onProfilePictureKeyChange) {
+      const prevIdx = parseInt(profilePictureKey.slice(4), 10);
+      const selectedFile = workPhotos[prevIdx];
+      if (selectedFile) {
+        const newIdx = newFiles.indexOf(selectedFile);
+        if (newIdx === -1) {
+          // Selected file was removed — fall back to first existing photo or next new file
+          const fallback =
+            existingPhotoUrls[0] != null
+              ? existingPhotoUrls[0]
+              : newFiles.length > 0
+              ? "new-0"
+              : null;
+          onProfilePictureKeyChange(fallback);
+        } else if (newIdx !== prevIdx) {
+          onProfilePictureKeyChange(`new-${newIdx}`);
+        }
+      }
+    }
+    setWorkPhotos(newFiles);
+  };
 
   const activeTypes = useMemo(
     () => TRADE_TYPES.filter((t) => t.active !== false),
     []
   );
 
-  // Buckets: promote “Insulation” first if present
+  // Buckets: promote "Insulation" first if present
   const buckets = useMemo(() => {
     const list = uniq(activeTypes.map((t) => t.buckets || "").filter(Boolean));
     const idx = list.indexOf("Insulation");
@@ -170,7 +213,7 @@ export default function Step2Trades({
         <div className="max-h-80 overflow-auto p-3" data-testid="trades-list">
           {filtered.length === 0 ? (
             <p className="px-1 py-2 text-sm text-slate-500">
-              No matches{query ? ` for “${query}”` : ""}.
+              No matches{query ? ` for "${query}"` : ""}.
             </p>
           ) : (
             <ul className="grid md:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-2">
@@ -200,20 +243,66 @@ export default function Step2Trades({
         </div>
       </div>
 
-      {/* Work photos — now using FileGridUploader */}
+      {/* Work photos */}
       <div data-testid="work-photos">
         <label className="text-sm font-medium block mb-1">
           Pictures of your work
         </label>
         <p className="text-xs text-slate-500 mb-2">
-          Adding recent photos helps you rank better and increases your chances
-          of being hired.
+          Upload photos of your completed projects, then choose one as your
+          profile picture. Homeowners are far more likely to reach out when they
+          can see who they&rsquo;d be hiring.
         </p>
+
+        {/* Existing photos (edit flow) — selectable as profile picture */}
+        {onProfilePictureKeyChange && existingPhotoUrls.length > 0 && (
+          <ul className="mb-3 grid grid-cols-3 gap-3 sm:grid-cols-4">
+            {existingPhotoUrls.map((url) => {
+              const isSelected = profilePictureKey === url;
+              return (
+                <li key={url} className="relative">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onProfilePictureKeyChange(isSelected ? null : url)
+                    }
+                    className={`w-full rounded-xl overflow-hidden ring-2 transition-all ${
+                      isSelected
+                        ? "ring-indigo-500 ring-offset-1"
+                        : "ring-transparent hover:ring-slate-300"
+                    }`}
+                    aria-label={
+                      isSelected
+                        ? "Deselect as profile picture"
+                        : "Set as profile picture"
+                    }
+                    aria-pressed={isSelected}
+                  >
+                    <img src={url} alt="" className="h-28 w-full object-cover" />
+                  </button>
+                  {isSelected && (
+                    <span className="pointer-events-none absolute top-1 left-1 rounded-full bg-indigo-500 px-2 py-0.5 text-xs font-medium text-white shadow">
+                      Profile
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
 
         <FileGridUploader
           files={workPhotos}
-          onChange={setWorkPhotos}
+          onChange={handleWorkPhotosChange}
           maxFiles={12}
+          profilePictureKey={
+            onProfilePictureKeyChange
+              ? profilePictureKey?.startsWith("new-")
+                ? profilePictureKey
+                : null
+              : undefined
+          }
+          onProfilePictureKeyChange={onProfilePictureKeyChange}
         />
       </div>
 

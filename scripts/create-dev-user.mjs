@@ -2,12 +2,13 @@
 /**
  * scripts/create-dev-user.mjs
  *
- * Creates a local dev user in both the Firebase Auth emulator and MySQL.
+ * Creates local dev users in both the Firebase Auth emulator and MySQL,
+ * and seeds a draft tradesman profile for builder@test.com.
  * Safe to run multiple times — idempotent.
  *
  * Prerequisites:
  *   - Firebase Auth emulator running (port 9099)
- *   - MySQL running with the dev database created and migrated
+ *   - MySQL running with the dev databases created and migrated
  *
  * Usage:
  *   node scripts/create-dev-user.mjs
@@ -22,16 +23,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 
 // Load only .env.e2e.local — this is what dev-manual-server.js loads.
-// Deliberately NOT loading .env so MYSQL_DATABASE from a production config
-// cannot shadow the local dev database name.
 require("dotenv").config({ path: path.join(ROOT, ".env.e2e.local") });
 
 const mysql = require("mysql2/promise");
 
 // ---- Config ----
 const USERS = [
-  { email: "test@test.com",  password: "password", firstName: "Test",  lastName: "User",  role: "user"  },
-  { email: "admin@test.com", password: "password", firstName: "Admin", lastName: "User",  role: "admin" },
+  { email: "test@test.com",    password: "password", firstName: "Test",    lastName: "User",    role: "user"      },
+  { email: "admin@test.com",   password: "password", firstName: "Admin",   lastName: "User",    role: "admin"     },
+  { email: "builder@test.com", password: "password", firstName: "Test",    lastName: "Builder", role: "tradesman" },
 ];
 
 const EMULATOR_HOST =
@@ -45,9 +45,7 @@ const MYSQL_USER = process.env.MYSQL_USER || "root";
 const MYSQL_PASSWORD =
   process.env.MYSQL_PASSWORD || process.env.MYSQL_ROOT_PASSWORD || "";
 
-// Derive database name the same way dev-manual-server.js does so they always
-// target the same database.  Explicit MYSQL_DATABASE in .env.e2e.local wins;
-// otherwise fall back to the default shard-0 name.
+// Target shard 0 (w0) — the database the dev web app connects to by default
 const MYSQL_DATABASE =
   process.env.MYSQL_DATABASE || "vetmybuilder_test_s1_4_w0";
 
@@ -80,7 +78,7 @@ async function getOrCreateFirebaseUser({ email, password }) {
 }
 
 // ---- Step 1: Firebase Auth emulator ----
-console.log(`\n[1/2] Firebase Auth emulator  http://${EMULATOR_HOST}`);
+console.log(`\n[1/3] Firebase Auth emulator  http://${EMULATOR_HOST}`);
 
 const resolved = [];
 for (const u of USERS) {
@@ -97,9 +95,9 @@ for (const u of USERS) {
   }
 }
 
-// ---- Step 2: MySQL ----
+// ---- Step 2: MySQL users + roles ----
 console.log(
-  `\n[2/2] MySQL  ${MYSQL_USER}@${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}`
+  `\n[2/3] MySQL users  ${MYSQL_USER}@${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}`
 );
 
 let conn;
@@ -177,14 +175,77 @@ try {
   await conn?.end();
 }
 
+// ---- Step 3: Seed draft tradesman for builder@test.com ----
+console.log(`\n[3/3] Seeding draft tradesman  (builder@test.com)`);
+
+const builder = resolved.find((u) => u.email === "builder@test.com");
+if (!builder) {
+  console.error("  ✗ builder@test.com not resolved — skipping tradesman seed");
+  process.exit(1);
+}
+
+let conn2;
+try {
+  conn2 = await mysql.createConnection({
+    host: MYSQL_HOST,
+    port: MYSQL_PORT,
+    user: MYSQL_USER,
+    password: MYSQL_PASSWORD,
+    database: MYSQL_DATABASE,
+  });
+
+  await conn2.execute(
+    `INSERT INTO tradesmen (
+       user_id, company_name, contact_name, phone, email,
+       trade_types, service_areas,
+       vmb_score, vmb_badge,
+       status, created_at, updated_at
+     ) VALUES (
+       ?, ?, ?, ?, ?,
+       ?, ?,
+       25, 'bronze',
+       'draft', NOW(), NOW()
+     )
+     ON DUPLICATE KEY UPDATE
+       company_name = VALUES(company_name),
+       contact_name = VALUES(contact_name),
+       trade_types  = VALUES(trade_types),
+       service_areas = VALUES(service_areas),
+       updated_at   = NOW()`,
+    [
+      builder.uid,
+      "Test Builder Ltd",
+      "Test Builder",
+      "07700900000",
+      "builder@test.com",
+      "Bricklayer,Painter & Decorator,Tiling",
+      "SW1,SE1,W1",
+    ]
+  );
+
+  const [rows] = await conn2.execute(
+    `SELECT user_id, company_name, status FROM tradesmen WHERE user_id = ? LIMIT 1`,
+    [builder.uid]
+  );
+  const row = rows[0];
+  console.log(
+    `      ✓ ${row.company_name}  status=${row.status}  uid=${row.user_id}`
+  );
+} catch (e) {
+  console.error(`\n  ✗ Tradesman seed error: ${e.message}`);
+  process.exit(1);
+} finally {
+  await conn2?.end();
+}
+
 console.log(`
 Done.  Database: ${MYSQL_DATABASE}
 
-  test@test.com   / password   (role: user)
-  admin@test.com  / password   (role: admin)
+  test@test.com    / password   (role: user)
+  admin@test.com   / password   (role: admin)
+  builder@test.com / password   (role: tradesman — draft profile)
 
 Next steps:
   1. If you were already logged in → log out, then log back in.
-     The app only fetches your profile on login; a stale session won't pick up changes.
   2. Log in at http://localhost:3000
 `);

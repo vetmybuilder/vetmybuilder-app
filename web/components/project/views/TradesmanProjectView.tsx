@@ -81,7 +81,13 @@ export default function TradesmanProjectView({ vm }: { vm: VM }) {
             loading={contactLoading}
             contact={ownerContact || undefined}
             status={
-              contactError === "pending_admin_review"
+              contactError === "verification_required"
+                ? "verification_required"
+                : contactError === "verification_pending"
+                ? "verification_pending"
+                : contactError === "verification_rejected"
+                ? "verification_rejected"
+                : contactError === "pending_admin_review"
                 ? "pending_admin_review"
                 : contactError === "not_unlocked"
                 ? "not_unlocked"
