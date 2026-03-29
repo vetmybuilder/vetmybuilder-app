@@ -279,7 +279,13 @@ export default function AdminTradesmenLeaderboardPage() {
 
   /* ========= Render helpers ========= */
 
-  const StatusChip = ({ value }: { value: Item["status"] }) => {
+  const StatusChip = ({
+    value,
+    userId,
+  }: {
+    value: Item["status"];
+    userId: string;
+  }) => {
     const cls =
       value === "active"
         ? "bg-green-50 text-green-700 ring-green-200"
@@ -288,6 +294,7 @@ export default function AdminTradesmenLeaderboardPage() {
         : "bg-slate-50 text-slate-700 ring-slate-200";
     return (
       <span
+        data-testid={`tradesman-status-${userId}`}
         className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ring-1 ${cls}`}
       >
         {value}
@@ -403,7 +410,7 @@ export default function AdminTradesmenLeaderboardPage() {
       </Head>
 
       <AuthedOnly>
-        <div className="mx-auto px-4 py-6 w-full max-w-none">
+        <div data-testid="admin-leaderboard-page" className="mx-auto px-4 py-6 w-full max-w-none">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h1 className="text-2xl font-semibold">
               Tradesmen Leaderboard (Admin)
@@ -432,6 +439,7 @@ export default function AdminTradesmenLeaderboardPage() {
                     Search (name or company number)
                   </span>
                   <input
+                    data-testid="admin-search-input"
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
                     placeholder="e.g. Elegant or 12758227"
@@ -802,7 +810,7 @@ export default function AdminTradesmenLeaderboardPage() {
                           </td>
 
                           <td className="px-3 py-2">
-                            <StatusChip value={it.status} />
+                            <StatusChip value={it.status} userId={it.userId} />
                           </td>
                           <td className="px-3 py-2 text-xs">
                             <div className="capitalize">{effectivePlan}</div>

@@ -23,7 +23,23 @@ export class BasePage {
   }
 
   async logout() {
-    await this.page.goto("/logout", { waitUntil: "domcontentloaded" });
+    await this.page.waitForLoadState("load", { timeout: 10_000 }).catch(() => {});
+    try {
+      await this.page.goto("/logout", { waitUntil: "domcontentloaded" });
+    } catch (err: unknown) {
+      // On WebKit, a form-redirect navigation can still be in-flight after
+      // toHaveURL() passes. The goto is interrupted; wait for it to settle
+      // and retry once.
+      if (
+        err instanceof Error &&
+        err.message.includes("interrupted by another navigation")
+      ) {
+        await this.page.waitForLoadState("load", { timeout: 10_000 }).catch(() => {});
+        await this.page.goto("/logout", { waitUntil: "domcontentloaded" });
+      } else {
+        throw err;
+      }
+    }
     await expect(this.page).toHaveURL(/signedOut=1/);
   }
 }

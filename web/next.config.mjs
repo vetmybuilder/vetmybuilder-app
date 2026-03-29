@@ -39,18 +39,21 @@ const nextConfig = {
   ],
 
   async rewrites() {
-    const base = (
-      process.env.NEXT_PUBLIC_API_BASE || "http://localhost:3100"
-    ).replace(/\/+$/, "");
+    // API_BASE is always shard-0's server (http://localhost:3100 by default).
+    // Workers 1+ are handled by per-shard HTTP proxies (scripts/dev-manual-proxy.js)
+    // that intercept requests BEFORE they reach Next.js, so no cookie-based
+    // shard routing is needed here.
+    const apiServerBase = "http://localhost:3100";
 
-    const apiBase = base.endsWith("/api") ? base : `${base}/api`;
-    const originBase = apiBase.replace(/\/api$/, "");
-    const uploadsBase = `${originBase}/uploads`;
-
-    return [
-      { source: "/api/:path*", destination: `${apiBase}/:path*` },
-      { source: "/uploads/:path*", destination: `${uploadsBase}/:path*` },
-    ];
+    return {
+      afterFiles: [
+        { source: "/api/:path*", destination: `${apiServerBase}/api/:path*` },
+        {
+          source: "/uploads/:path*",
+          destination: `${apiServerBase}/uploads/:path*`,
+        },
+      ],
+    };
   },
 };
 

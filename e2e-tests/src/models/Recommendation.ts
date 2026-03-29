@@ -1,4 +1,7 @@
+import Chance from "chance";
 import path from "path";
+
+const chance = new Chance();
 
 export type RecommendationInput = {
   name: string;
@@ -55,6 +58,15 @@ export default class Recommendation {
     return new Recommendation();
   }
 
+  withRandomDetails(): Recommendation {
+    this.name = chance.name();
+    this.company = `${chance.company()} Ltd`;
+    this.comment = chance.sentence({ words: 12 });
+    this.rating = 5;
+    this.phone = "07900111222";
+    return this;
+  }
+
   toPayload(): RecommendationInput {
     const out: RecommendationInput = {
       name: this.name,
@@ -77,6 +89,40 @@ export default class Recommendation {
         ? this.photos.map((p) => p.filePath)
         : undefined,
     };
+  }
+
+  withSource(source: "platform" | "magic"): Recommendation {
+    this.source = source;
+    return this;
+  }
+
+  withCompany(company: string): Recommendation {
+    this.company = company;
+    return this;
+  }
+
+  withEmail(email: string): Recommendation {
+    this.email = email;
+    return this;
+  }
+
+  withPhone(phone: string): Recommendation {
+    this.phone = phone;
+    return this;
+  }
+
+  withPhotos(count: number): Recommendation {
+    const fixturesDir = path.resolve(__dirname, "../../tests/fixtures/files");
+    this.photos = [];
+    for (let i = 0; i < count; i++) {
+      const n = i + 1;
+      this.photos.push({
+        name: `photo${n}.jpg`,
+        mimeType: "image/jpeg",
+        filePath: path.join(fixturesDir, `rec-image-${n}.jpg`),
+      });
+    }
+    return this;
   }
 
   asMagicRecommendation(): Recommendation {

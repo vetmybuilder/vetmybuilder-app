@@ -34,7 +34,6 @@ export const test = uiBaseTest.extend<{
     async ({ authHelper, page, runtime }, use, testInfo) => {
       const uid = getWorkerUid(testInfo.workerIndex);
 
-      // Keep helper call simple (TS safe)
       await authHelper.loginAsUid(uid);
 
       const apiBase =

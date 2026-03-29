@@ -44,6 +44,28 @@ export async function createAuthUser(email: string, password: string) {
   }
 }
 
+export async function createAuthUserWithUid(
+  uid: string,
+  email: string,
+  password: string,
+) {
+  initAdmin();
+
+  const auth = admin.auth();
+
+  try {
+    return await auth.createUser({ uid, email, password });
+  } catch (err: any) {
+    if (
+      err?.code === "auth/uid-already-exists" ||
+      err?.code === "auth/email-already-exists"
+    ) {
+      return await auth.getUser(uid).catch(() => auth.getUserByEmail(email));
+    }
+    throw err;
+  }
+}
+
 export async function deleteAuthUserByEmail(email: string) {
   initAdmin();
 

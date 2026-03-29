@@ -63,7 +63,8 @@ test.describe("Add recommendation", () => {
 
     await AuthApi.signup(neighbourClient, neighbour);
     await ownerProjectApi.publishProject(created.id);
-    await loginPage.login(neighbour.email!, neighbour.password!);
+    await projectDetailsPage.logout();
+    await loginPage.loginExpectSuccess(neighbour.email!, neighbour.password!);
 
     const notificationText = `A new project “${project.workTypes[0]} in ${location} (${project.propertyType})” in your area is now live`;
 
@@ -81,7 +82,7 @@ test.describe("Add recommendation", () => {
     );
     await projectDetailsPage.waitUntilReady();
     await projectDetailsPage.logout();
-    await loginPage.login(owner.email!, owner.password!);
+    await loginPage.loginExpectSuccess(owner.email!, owner.password!);
     await projectDetailsPage.visit(created.id);
 
     const newNotificationText = `Someone has recommended a tradesperson to your project “${project.workTypes[0]} in ${location} (${project.propertyType})”`;
@@ -145,9 +146,8 @@ test.describe("Add recommendation", () => {
       created.id,
     );
 
-    await projectDetailsPage.waitUntilReady();
-
-    await loginPage.login(owner.email!, owner.password!);
+    // After guest submission the page redirects to '/'. No waitUntilReady here.
+    await loginPage.loginExpectSuccess(owner.email!, owner.password!);
     await projectDetailsPage.visit(created.id);
     await projectDetailsPage.hasNotification(`Someone has recommended a tradesperson to your project “${project.workTypes[0]} in ${location} (${project.propertyType})”`);
     await expect(projectDetailsPage.page).toHaveURL(`/projects/${created.id}`);

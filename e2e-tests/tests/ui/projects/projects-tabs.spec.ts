@@ -116,10 +116,7 @@ test.describe("Projects list tabs", () => {
 
     // Log in as neighbour via the UI and wait for the post-login redirect
     // before navigating to the community tab.
-    await loginPage.login(neighbour.email!, neighbour.password!);
-    await homeownerProjectsPage.page.waitForURL(/\/projects/, {
-      timeout: 20_000,
-    });
+    await loginPage.loginExpectSuccess(neighbour.email!, neighbour.password!);
 
     await homeownerProjectsPage.page.goto("/projects?tab=completedCommunity");
     await homeownerProjectsPage.hasCompletedCard(project.id);

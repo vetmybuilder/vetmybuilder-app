@@ -195,6 +195,7 @@ export default function AdminTradesmen() {
                         </td>
                         <td className="px-4 py-2">
                           <span
+                            data-testid={`tradesman-status-${r.user_id}`}
                             className={
                               "inline-flex items-center rounded-full px-2 py-0.5 text-xs ring-1 " +
                               (r.status === "active"

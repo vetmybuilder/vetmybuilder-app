@@ -15,6 +15,9 @@ import { AuthHelper } from "../src/helpers/AuthHelper";
 import BuilderProfilePage from "./pages/BuilderProfilePage";
 import MagicLinkPage from "./pages/MagicLinkPage";
 import ShortlistPage from "./pages/ShortlistPage";
+import AdminLeaderboardPage from "./pages/AdminLeaderboardPage";
+import AdminLoginPage from "./pages/AdminLoginPage";
+import AdminTradesmenPage from "./pages/AdminTradesmenPage";
 
 type Runtime = ReturnType<typeof getRuntime>;
 
@@ -33,6 +36,9 @@ type UiFixtures = {
   projectDetailsPage: ProjectDetailsPage;
   projectRecommendPage: ProjectRecommendPage;
   authHelper: AuthHelper;
+  adminLeaderboardPage: AdminLeaderboardPage;
+  adminLoginPage: AdminLoginPage;
+  adminTradesmenPage: AdminTradesmenPage;
 };
 
 function normalizeApiBase(url: string): string {
@@ -50,6 +56,20 @@ export const test = base.extend<UiFixtures, { runtime: Runtime }>({
     },
     { scope: "worker" },
   ],
+
+  // Override the built-in context fixture so every page in this worker uses
+  // runtime.webBaseUrl as its baseURL. For worker 0 this is Next.js on :3000;
+  // for workers 1+ it is the per-shard HTTP proxy on :3001/:3002/:3003 that
+  // routes /api|uploads/* to the correct API shard, keeping all browser Axios
+  // calls on the same origin and avoiding Authorization-header stripping.
+  context: async ({ browser, contextOptions, runtime }, use) => {
+    const ctx = await browser.newContext({
+      ...contextOptions,
+      baseURL: runtime.webBaseUrl,
+    });
+    await use(ctx);
+    await ctx.close().catch(() => {});
+  },
 
   homePage: async ({ page }, use) => {
     await use(new HomePage(page));
@@ -106,6 +126,18 @@ export const test = base.extend<UiFixtures, { runtime: Runtime }>({
   authHelper: async ({ request, page, runtime }, use) => {
     await use(new AuthHelper(request, page, runtime));
   },
+
+  adminLeaderboardPage: async ({ page }, use) => {
+    await use(new AdminLeaderboardPage(page));
+  },
+
+  adminLoginPage: async ({ page }, use) => {
+    await use(new AdminLoginPage(page));
+  },
+
+  adminTradesmenPage: async ({ page }, use) => {
+    await use(new AdminTradesmenPage(page));
+  },
 });
 
 test.beforeEach(async ({ runtime, page }) => {
@@ -139,6 +171,9 @@ test.beforeEach(async ({ runtime, page }) => {
 
   // Prefer runtime.dbName (worker-specific). If server reports a db name, trust it only if present.
   const dbNameToWipe = body?.mysqlDatabase || runtime.dbName;
+
+  // Update runtime so test-specific beforeEach hooks can use the correct DB name.
+  runtime.dbName = dbNameToWipe;
 
   await wipeDatabase(dbNameToWipe);
 });

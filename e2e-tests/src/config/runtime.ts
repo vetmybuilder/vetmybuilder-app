@@ -92,10 +92,16 @@ export function getRuntime(
   const apiBasePort = Number(requireEnv("API_BASE_PORT", "3100"));
   const apiPort = apiBasePort + shardIndex;
 
+  // Worker 0 → Next.js directly (port 3000).
+  // Workers 1+ → per-shard proxy (port 3000+shardIndex) that routes /api|uploads
+  // to the correct API shard. This lets browser Axios use relative /api paths
+  // without hardcoding a specific shard port in the Next.js JS bundle.
   const webBaseUrl =
     process.env.WEB_BASE_URL ||
     process.env.UI_BASE_URL ||
-    (dockerLike ? `http://web:${webPort}` : `http://127.0.0.1:${webPort}`);
+    (dockerLike
+      ? `http://web:${webPort}`
+      : `http://127.0.0.1:${webPort + shardIndex}`);
 
   // IMPORTANT:
   // - Host runs: shard uses 3100+shardIndex

@@ -50,6 +50,14 @@ export class LoginPage {
     await this.submitButton.click();
   }
 
+  // Use this variant when a successful login is expected. It waits for the
+  // post-login redirect so Firebase auth state is persisted before any
+  // subsequent navigation or API calls in the test.
+  async loginExpectSuccess(email: string, password: string) {
+    await this.login(email, password);
+    await expect(this.page).not.toHaveURL(/\/login/, { timeout: 15_000 });
+  }
+
   async loginWith(email: string, password: string) {
     await this.emailInput.fill(email);
     await this.passwordInput.fill(password);

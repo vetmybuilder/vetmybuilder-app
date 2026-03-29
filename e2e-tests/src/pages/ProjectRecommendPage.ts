@@ -71,7 +71,7 @@ export class ProjectRecommendPage extends BasePage {
     }
 
     await this.submitButton.click();
-    await expect(this.successMessage).toBeVisible();
+    await expect(this.successMessage).toBeVisible({ timeout: 15_000 });
 
     await expect(this.page).toHaveURL(`/projects/${projectId}`, {
       timeout: 15000,
@@ -109,7 +109,7 @@ export class ProjectRecommendPage extends BasePage {
     }
 
     await this.submitButton.click();
-    await expect(this.successMessage).toBeVisible();
+    await expect(this.successMessage).toBeVisible({ timeout: 15_000 });
 
     await expect(this.page).toHaveURL('/', {
       timeout: 15000,

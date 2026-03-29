@@ -64,9 +64,7 @@ test.describe("Homeowner projects", () => {
       access: updatedAccess,
       extraNotes: updatedNotes,
     });
-    await expect(
-      projectDetailsPage.page.getByTestId("project-view-page"),
-    ).toBeVisible();
+    await projectDetailsPage.waitUntilReady();
     await projectDetailsPage.hasProjectDetails(projectId, edited, {
       status: "Pending",
     });

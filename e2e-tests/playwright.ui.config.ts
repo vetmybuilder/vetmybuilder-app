@@ -44,9 +44,14 @@ const SHOULD_START_WEB_SERVER = process.env.START_WEB_SERVER
 export default defineConfig({
   testDir: "./tests",
   fullyParallel: true,
-  workers: process.env.PW_WORKERS ? Number(process.env.PW_WORKERS) : 4,
-  timeout: 60_000,
-  retries: process.env.DOCKER === "1" || process.env.CI ? 1 : 0,
+  // Parallel shard isolation: worker N's browser hits a transparent HTTP proxy
+  // on port 3000+N (scripts/dev-manual-proxy.js). The proxy routes /api|uploads
+  // to shard N's API server (port 3100+N) and everything else to Next.js (:3000).
+  // Browser Axios uses relative /api paths, so requests always go to the same
+  // origin (the proxy), keeping the Authorization header intact.
+  workers: process.env.PW_WORKERS ? Number(process.env.PW_WORKERS) : 2,
+  timeout: 90_000,
+  retries: 0,
   reporter: [["list"], ["html", { open: "never" }]],
 
   ...(SHOULD_START_WEB_SERVER

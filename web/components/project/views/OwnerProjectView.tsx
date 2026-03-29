@@ -13,6 +13,7 @@ import { useApi } from "@/utils/api";
 import { FeaturedSimpleStrip } from "@/components/tradesmen/FeaturedSimpleCard";
 import { FeaturedTradesman } from "@/components/tradesmen/GoldTradesmanCard";
 import SpotlightStrip from "@/components/tradesmen/SpotlightStrip";
+import NextLink from "next/link";
 import { useRouter } from "next/router";
 import GetRecommendationsModal, {
   GetRecommendationsChannel,
@@ -440,7 +441,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
               {headerTitle}
               <StatusBadge value={project.status} />
               {!isClosed && (
-                <a
+                <NextLink
                   className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-slate-600 shadow-sm hover:bg-slate-50"
                   href={`/projects/${project.id}/edit`}
                   aria-label="Edit project"
@@ -448,7 +449,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
                   data-testid="btn-edit"
                 >
                   <SquarePen size={16} />
-                </a>
+                </NextLink>
               )}
             </h1>
             <div

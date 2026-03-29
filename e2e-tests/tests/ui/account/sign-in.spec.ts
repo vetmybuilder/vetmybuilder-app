@@ -30,7 +30,7 @@ test.describe("Sign in", () => {
     await AuthApi.signup(client, user);
 
     await basePage.logout();
-    await loginPage.login(user.email!, user.password!);
+    await loginPage.loginExpectSuccess(user.email!, user.password!);
     await homeownerProjectsPage.waitUntilReady();
   });
 

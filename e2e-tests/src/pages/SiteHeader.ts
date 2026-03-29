@@ -134,7 +134,7 @@ export class SiteHeader {
   }
 
   async assertInitials(initials: string) {
-    await expect(this.initialsBadge(initials)).toBeVisible();
+    await expect(this.initialsBadge(initials)).toBeVisible({ timeout: 15_000 });
   }
 
   async signOut() {

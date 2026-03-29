@@ -566,6 +566,7 @@ function ShortlistInner() {
                       <button
                         onClick={() => voteUpOnce(r)}
                         disabled={!canVote || hasVoted || votingId === r.id}
+                        data-testid="rec-vote-button"
                         className={`h-9 w-9 rounded-full grid place-items-center border transition ${
                           hasVoted
                             ? "bg-indigo-50 border-indigo-200 text-indigo-700 cursor-default"
@@ -574,7 +575,10 @@ function ShortlistInner() {
                       >
                         <ThumbsUpIcon className="h-4 w-4" />
                       </button>
-                      <div className="mt-1 text-xs tabular-nums text-slate-600">
+                      <div
+                        data-testid="rec-vote-count"
+                        className="mt-1 text-xs tabular-nums text-slate-600"
+                      >
                         {votes}
                       </div>
                     </div>

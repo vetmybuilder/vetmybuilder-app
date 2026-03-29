@@ -22,6 +22,9 @@ export class ProjectDetailsPage extends BasePage {
   readonly backLink: Locator;
 
   readonly shareAndPublish: Locator;
+  readonly shareButton: Locator;
+  readonly viewMoreButton: Locator;
+  readonly shortlistEmptyCta: Locator;
   readonly closeThisJobButton: Locator;
   readonly editProjectButton: Locator;
 
@@ -63,6 +66,9 @@ export class ProjectDetailsPage extends BasePage {
     this.headerMetaDate = this.root.locator("span.text-slate-400");
 
     this.shareAndPublish = this.root.getByTestId("btn-get-recs-draft");
+    this.shareButton = this.root.getByTestId("btn-get-recs");
+    this.viewMoreButton = this.root.getByTestId("btn-shortlist-view-more");
+    this.shortlistEmptyCta = this.root.getByTestId("btn-shortlist-share-publish");
     this.closeThisJobButton = this.root.getByTestId("btn-close-project");
     this.editProjectButton = this.root.getByTestId("btn-edit");
 
@@ -108,6 +114,11 @@ export class ProjectDetailsPage extends BasePage {
   }
 
   async waitUntilReady() {
+    // project-view-page only renders once the project data + auth role are
+    // resolved (ready = true in [id].tsx). Gate on it first so we are not
+    // polling for inner controls while React is still loading.
+    const projectViewPage = this.page.getByTestId("project-view-page");
+
     await expect
       .poll(
         async () => {
@@ -117,9 +128,11 @@ export class ProjectDetailsPage extends BasePage {
             return { ok: false, reason: `redirected:${url}` };
           }
 
-          const rootVisible = await this.root.isVisible().catch(() => false);
-          if (!rootVisible) {
-            return { ok: false, reason: "main-content not visible" };
+          const pageReady = await projectViewPage
+            .isVisible()
+            .catch(() => false);
+          if (!pageReady) {
+            return { ok: false, reason: "project-view-page not ready" };
           }
 
           const titleVisible = await this.title.isVisible().catch(() => false);
@@ -135,11 +148,23 @@ export class ProjectDetailsPage extends BasePage {
             .catch(() => false);
           if (closeVisible) return { ok: true, reason: "ok" };
 
-          const statusVisible = await this.root
+          const shareVisible =
+            (await this.shareAndPublish.isVisible().catch(() => false)) ||
+            (await this.shareButton.isVisible().catch(() => false));
+          if (shareVisible) return { ok: true, reason: "ok" };
+
+          const statusVisible = await this.page
             .getByRole("status")
+            .first()
             .isVisible()
             .catch(() => false);
           if (statusVisible) return { ok: true, reason: "ok" };
+
+          // Neighbour view: recommend button is the visible control
+          const recommendVisible = await this.recommendTradespersonButton
+            .isVisible()
+            .catch(() => false);
+          if (recommendVisible) return { ok: true, reason: "ok" };
 
           return { ok: false, reason: "waiting for details controls" };
         },
@@ -147,7 +172,7 @@ export class ProjectDetailsPage extends BasePage {
           timeout: 45_000,
           intervals: [200, 300, 500, 800, 1200],
           message:
-            "Project details page did not become ready (main content present but details controls never appeared).",
+            "Project details page did not become ready (project-view-page rendered but details controls never appeared).",
         },
       )
       .toEqual({ ok: true, reason: "ok" });
@@ -213,17 +238,23 @@ export class ProjectDetailsPage extends BasePage {
       Archived: /archived/i,
     };
 
-    await expect(this.root.getByRole("status")).toHaveText(map[status]);
+    await expect(this.root.getByRole("status")).toHaveText(map[status], {
+      timeout: 15_000,
+    });
   }
 
   async hasNotification(text: string) {
-    await expect(this.notificationsButton).toBeVisible();
+    await expect(this.notificationsButton).toBeVisible({ timeout: 15_000 });
     await this.notificationsButton.click();
-    await expect(this.page.getByRole("menuitem", { name: text })).toBeVisible();
+    await expect(
+      this.page.getByRole("menuitem", { name: text }).first(),
+    ).toBeVisible({ timeout: 15_000 });
   }
 
   async openNotification(text: string) {
-    const notification = this.page.getByRole("menuitem", { name: text });
+    const notification = this.page
+      .getByRole("menuitem", { name: text })
+      .first();
 
     await expect(notification).toBeVisible();
     await notification.click();
@@ -319,7 +350,21 @@ export class ProjectDetailsPage extends BasePage {
   async closeProject(options?: CloseProjectOptions) {
     await expect(this.closeThisJobButton).toBeVisible();
     await this.closeThisJobButton.click();
-    await this.closeProjectModal.closeProject(options);
+    const [response] = await Promise.all([
+      this.page.waitForResponse(
+        (res) =>
+          res.url().includes("/api/projects/") &&
+          res.url().endsWith("/close"),
+        { timeout: 20_000 },
+      ),
+      this.closeProjectModal.closeProject(options),
+    ]);
+    if (!response.ok()) {
+      const body = await response.text().catch(() => "");
+      throw new Error(
+        `Close project API returned ${response.status()}: ${body}`,
+      );
+    }
   }
 
   async unarchive() {
@@ -373,6 +418,28 @@ export class ProjectDetailsPage extends BasePage {
 
     await expect(recommendationCard).toBeVisible();
     await recommendationCard.click();
+  }
+
+  async openShareModal(): Promise<void> {
+    await expect(this.shareButton).toBeVisible();
+    await this.shareButton.click();
+    await this.assertPublishModalVisible();
+  }
+
+  async clickShortlistShareCta(): Promise<void> {
+    await expect(this.shortlistEmptyCta).toBeVisible();
+    await this.shortlistEmptyCta.click();
+    await this.assertPublishModalVisible();
+  }
+
+  async goToShortlist(projectId: string | number): Promise<void> {
+    // Recommendations load asynchronously after the page is ready, so give
+    // the "View more" button extra time to appear on slower mobile browsers.
+    await expect(this.viewMoreButton).toBeVisible({ timeout: 45_000 });
+    await this.viewMoreButton.click();
+    await expect(this.page).toHaveURL(`/projects/${projectId}/shortlist`, {
+      timeout: 15_000,
+    });
   }
 }
 

@@ -380,7 +380,7 @@ export class EditProjectPage extends BasePage {
   }
 
   async waitForWizard() {
-   await this.page.waitForTimeout(100);
+    await expect(this.wizard).toBeVisible({ timeout: 45_000 });
   }
 
   async editProjectDetails(

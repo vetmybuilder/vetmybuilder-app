@@ -59,7 +59,7 @@ test.describe("Project publish journey", () => {
 
     await AuthApi.signup(neighbourClient, neighbour);
 
-    await loginPage.login(neighbour.email!, neighbour.password!);
+    await loginPage.loginExpectSuccess(neighbour.email!, neighbour.password!);
     await projectApi.publishProject(created.id);
     await projectDetailsPage.visit(created.id);
     await projectDetailsPage.hasHomeownerProjectDetails(created.id, project);

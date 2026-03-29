@@ -104,6 +104,29 @@ export class PublishModalComponent {
     await expect(this.dialog).toBeHidden();
   }
 
+  async hasNeighbourhoodLocked(): Promise<void> {
+    await expect(this.neighbourhoodLockedMessage).toBeVisible();
+    await expect(this.neighbourhoodToggle).toBeDisabled();
+  }
+
+  async hasChannelSelected(channel: PublishChannel): Promise<void> {
+    if (!channel) return;
+
+    const selectedClasses: Record<NonNullable<PublishChannel>, RegExp> = {
+      whatsapp: /border-emerald-500/,
+      sms: /border-sky-500/,
+      email: /border-indigo-500/,
+    };
+
+    const buttonMap: Record<NonNullable<PublishChannel>, Locator> = {
+      whatsapp: this.channelWhatsapp,
+      sms: this.channelSms,
+      email: this.channelEmail,
+    };
+
+    await expect(buttonMap[channel]).toHaveClass(selectedClasses[channel]);
+  }
+
   async close() {
     await this.closeButton.click();
     await expect(this.dialog).toBeHidden();
