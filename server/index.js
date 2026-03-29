@@ -36,7 +36,7 @@ const {
 const app = express();
 app.set("trust proxy", true);
 app.set("etag", false);
-const PORT = process.env.PORT || 8787;
+const PORT = Number(process.env.PORT || 8787);
 
 const PUBLIC_API_BASE_LOCAL =
   process.env.NEXT_PUBLIC_API_BASE || `http://localhost:${PORT}`;
@@ -46,12 +46,19 @@ app.use(
     origin: true,
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["x-db-name"],
     credentials: false,
-  })
+  }),
 );
 
 app.options("*", cors());
 app.use(express.json());
+
+// ✅ Always set db name header early for debugging (doesn't affect behavior)
+app.use((req, res, next) => {
+  res.set("x-db-name", process.env.MYSQL_DATABASE || "vetmybuilder");
+  next();
+});
 
 /* -------------------- HTTP request logger -------------------- */
 app.use((req, res, next) => {
@@ -64,7 +71,7 @@ app.use((req, res, next) => {
         status: res.statusCode,
         duration: Date.now() - start,
       },
-      "http request"
+      "http request",
     );
   });
 
@@ -73,7 +80,9 @@ app.use((req, res, next) => {
 
 /* -------------------- TEST-ONLY helpers -------------------- */
 const TEST_ROUTES_ENABLED =
-  process.env.NODE_ENV === "test" || process.env.ENABLE_TEST_ROUTES === "1";
+  process.env.NODE_ENV === "test" ||
+  process.env.ENABLE_TEST_ROUTES === "1" ||
+  String(process.env.TEST_ENV || "").toLowerCase() === "e2e";
 const TEST_SECRET = process.env.E2E_TEST_SECRET || "";
 
 function assertTestAccess(req, res) {
@@ -173,7 +182,7 @@ if (!notifyUsers) {
       } catch (err) {
         logger.warn(
           { error: err?.message, uid },
-          "notifyUsers fallback insert error"
+          "notifyUsers fallback insert error",
         );
       }
 
@@ -194,7 +203,7 @@ if (!notifyUsers) {
           } catch (e) {
             logger.warn(
               { error: e?.message, uid },
-              "notifyUsers fallback SSE send error"
+              "notifyUsers fallback SSE send error",
             );
           }
         }
@@ -207,7 +216,12 @@ const auth = authMiddleware(admin);
 
 /* -------------------- Health -------------------- */
 app.get("/health", (_req, res) =>
-  res.json({ ok: true, now: new Date().toISOString() })
+  res.json({
+    ok: true,
+    now: new Date().toISOString(),
+    mysqlDatabase: process.env.MYSQL_DATABASE || null,
+    testDbName: process.env.TEST_DB_NAME || null,
+  }),
 );
 
 /* -------------------- Public stats -------------------- */
@@ -247,13 +261,61 @@ app.use(
     withRequest(req).info("uploads request");
     next();
   },
-  express.static(UPLOAD_DIR, { maxAge: "7d", index: false })
+  express.static(UPLOAD_DIR, { maxAge: "7d", index: false }),
 );
 
 /* -------------------- Build router -------------------- */
 const { buildRouter } = require("./buildRouter");
 
-const touchUserMw = (_req, _res, next) => next();
+/**
+ * touchUserMw
+ * Ensures the authenticated user exists in the MySQL `users` table.
+ * Also (best-effort) seeds first/last name from the Firebase token's `name`
+ * so /api/me can show initials even if /api/account hasn't run yet.
+ */
+const touchUserMw = async (req, _res, next) => {
+  const uid = req.user?.uid;
+  if (!uid) return next();
+
+  const email = req.user?.email ?? null;
+
+  // Best-effort parse of Firebase token "name" claim
+  const fullName = String(req.user?.name || "").trim();
+  let firstName = null;
+  let lastName = null;
+
+  if (fullName) {
+    const parts = fullName.split(/\s+/).filter(Boolean);
+    if (parts.length === 1) {
+      firstName = parts[0];
+    } else if (parts.length >= 2) {
+      firstName = parts[0];
+      lastName = parts.slice(1).join(" ");
+    }
+  }
+
+  try {
+    await mysqlQuery(
+      `
+      INSERT INTO users (uid, email, createdAt, firstName, lastName)
+      VALUES (?, ?, NOW(), ?, ?)
+      ON DUPLICATE KEY UPDATE
+        email     = COALESCE(VALUES(email), email),
+        firstName = COALESCE(firstName, VALUES(firstName)),
+        lastName  = COALESCE(lastName, VALUES(lastName))
+      `,
+      [uid, email, firstName, lastName],
+    );
+  } catch (err) {
+    // Don't block requests if touch fails; log for diagnosis
+    logger.error(
+      { err: err?.message, uid, email },
+      "touchUserMw failed to upsert users row",
+    );
+  }
+
+  return next();
+};
 
 const router = buildRouter({
   db,
@@ -285,7 +347,20 @@ const router = buildRouter({
 
 app.use("/api", router);
 
+logger.info(
+  {
+    port: PORT,
+    db: process.env.MYSQL_DATABASE,
+    testShard: process.env.TEST_SHARD,
+  },
+  "boot env",
+);
+
+console.log(
+  `\n[VMB] API running on port ${PORT} using database: ${process.env.MYSQL_DATABASE}\n`,
+);
+
 /* -------------------- Start server -------------------- */
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   logger.info({ port: PORT }, "server started");
 });

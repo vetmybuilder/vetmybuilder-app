@@ -19,7 +19,7 @@ export async function wipeDatabase(dbName: string) {
     WHERE table_schema = ?
       AND table_type = 'BASE TABLE'
     `,
-    [dbName]
+    [dbName],
   );
 
   await conn.query("SET FOREIGN_KEY_CHECKS = 0");

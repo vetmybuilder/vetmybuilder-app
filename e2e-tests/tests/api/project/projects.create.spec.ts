@@ -1,5 +1,6 @@
-import Project from "../../../src/models/project";
+import Project from "../../../src/models/Project";
 import { test, expect } from "../../../src/fixtures";
+import { stripFullUkPostcodes } from "../../../src/utils/formatters";
 
 test.describe("POST /api/projects", () => {
   test("creates a project for the authenticated user", async ({
@@ -7,14 +8,33 @@ test.describe("POST /api/projects", () => {
   }) => {
     const project = Project.aProject().withRandomDetails();
 
-    const res = await apiClient.post("/api/projects", project.toPayload());
+    const payload = project.toApiPayload();
+    const res = await apiClient.post("/api/projects", payload);
+
     expect(res.status()).toBe(201);
 
     const body = await res.json();
+    const created = body.project;
 
-    expect(body.project).toBeTruthy();
-    expect(body.project.id).toBeTruthy();
-    expect(body.project.name).toBe(project.name);
-    expect(body.project.status).toBe("pending");
+    expect(created).toBeTruthy();
+    expect(created.id).toBeTruthy();
+
+    // Server strips full postcodes inside name/type/location
+    expect(created.name).toBe(stripFullUkPostcodes(payload.name));
+    expect(created.type).toBe(stripFullUkPostcodes(payload.type));
+
+    // API stores outward code only
+    expect(created.location).toBe(project.locationQuery);
+
+    expect(created.status).toBe("pending");
+
+    expect(created.createdAt).toBeTruthy();
+
+    // updatedAt should NOT indicate an update on creation
+    expect(
+      created.updatedAt === null ||
+        created.updatedAt === undefined ||
+        created.updatedAt === created.createdAt,
+    ).toBe(true);
   });
 });

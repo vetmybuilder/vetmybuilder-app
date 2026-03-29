@@ -9,6 +9,9 @@ module.exports = (router, ctx) => {
 
   log.info?.(`${TAG} mounted`);
 
+  // In e2e, keep stdout clean (don’t spam warnings)
+  const IS_E2E = String(process.env.TEST_ENV || "").toLowerCase() === "e2e";
+
   // --- helpers ------------------------------------------------------------
 
   const tableExists = async (name) => {
@@ -22,6 +25,15 @@ module.exports = (router, ctx) => {
   };
 
   const ensureGoogleCols = async () => {
+    // cache per process
+    if (ctx.__googleColsChecked) return ctx.__googleColsChecked;
+    ctx.__googleColsChecked = {
+      hasGooglePlaceId: false,
+      hasGoogleRating: false,
+      hasGoogleReviewsCount: false,
+      hasCompanyNumber: false,
+    };
+
     try {
       const rows = await mysqlQuery(
         `
@@ -32,20 +44,49 @@ module.exports = (router, ctx) => {
         `
       );
 
-      const cols = new Set(rows.map((r) => r.COLUMN_NAME));
-      if (!cols.has("google_place_id"))
-        log.warn?.(`${TAG} google_place_id missing (migration 027?)`);
-      if (!cols.has("google_rating"))
-        log.warn?.(`${TAG} google_rating missing (migration 027?)`);
-      if (!cols.has("google_reviews_count"))
-        log.warn?.(`${TAG} google_reviews_count missing (migration 027?)`);
-      if (!cols.has("company_number"))
-        log.warn?.(`${TAG} company_number missing (CH fallback may break)`);
+      const cols = new Set((rows || []).map((r) => r.COLUMN_NAME));
+
+      ctx.__googleColsChecked.hasGooglePlaceId = cols.has("google_place_id");
+      ctx.__googleColsChecked.hasGoogleRating = cols.has("google_rating");
+      ctx.__googleColsChecked.hasGoogleReviewsCount = cols.has(
+        "google_reviews_count"
+      );
+      ctx.__googleColsChecked.hasCompanyNumber = cols.has("company_number");
+
+      // log once (and don’t warn in e2e)
+      if (!ctx.__googleColsLogged) {
+        ctx.__googleColsLogged = true;
+
+        const out = [];
+        if (!ctx.__googleColsChecked.hasGooglePlaceId)
+          out.push("google_place_id");
+        if (!ctx.__googleColsChecked.hasGoogleRating) out.push("google_rating");
+        if (!ctx.__googleColsChecked.hasGoogleReviewsCount)
+          out.push("google_reviews_count");
+        if (!ctx.__googleColsChecked.hasCompanyNumber)
+          out.push("company_number");
+
+        if (out.length) {
+          const msg = `${TAG} missing columns on tradesmen: ${out.join(
+            ", "
+          )} (migration 027?)`;
+
+          if (IS_E2E) log.info?.(msg);
+          else log.warn?.(msg);
+        }
+      }
     } catch (e) {
-      log.warn?.(`${TAG} ensureGoogleCols failed`, { error: e?.message });
+      if (IS_E2E) {
+        log.info?.(`${TAG} ensureGoogleCols failed`, { error: e?.message });
+      } else {
+        log.warn?.(`${TAG} ensureGoogleCols failed`, { error: e?.message });
+      }
     }
+
+    return ctx.__googleColsChecked;
   };
 
+  // kick off in background (safe)
   ensureGoogleCols();
 
   router.get("/tradesmen/:id/google-reviews", async (req, res) => {
@@ -57,7 +98,23 @@ module.exports = (router, ctx) => {
         return res.status(400).json({ error: "id_required" });
       }
 
-      let numericId = /^\d+$/.test(String(id)) ? Number(id) : null;
+      const cols = await ensureGoogleCols();
+
+      const numericId = /^\d+$/.test(String(id)) ? Number(id) : null;
+
+      // If columns don't exist, select NULL/0 aliases so the query still works.
+      const selectGooglePlaceId = cols.hasGooglePlaceId
+        ? "google_place_id"
+        : "NULL AS google_place_id";
+      const selectGoogleRating = cols.hasGoogleRating
+        ? "google_rating"
+        : "NULL AS google_rating";
+      const selectGoogleReviewsCount = cols.hasGoogleReviewsCount
+        ? "google_reviews_count"
+        : "0 AS google_reviews_count";
+      const selectCompanyNumber = cols.hasCompanyNumber
+        ? "company_number"
+        : "NULL AS company_number";
 
       let rows;
       try {
@@ -67,10 +124,10 @@ module.exports = (router, ctx) => {
             id,
             user_id,
             company_name,
-            company_number,
-            google_place_id,
-            google_rating,
-            google_reviews_count
+            ${selectCompanyNumber},
+            ${selectGooglePlaceId},
+            ${selectGoogleRating},
+            ${selectGoogleReviewsCount}
           FROM tradesmen
           WHERE user_id = ?
              OR (? IS NOT NULL AND id = ?)

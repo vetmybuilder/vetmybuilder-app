@@ -66,69 +66,94 @@ module.exports = (router, ctx) => {
     const createdAt = srcRow.created_at || null;
     const updatedAt = srcRow.updated_at || null;
 
+    const cols = [
+      "user_id",
+      "company_name",
+      "contact_name",
+      "phone",
+      "email",
+      "trade_types",
+      "service_areas",
+      "created_at",
+      "updated_at",
+      "subscription_status",
+      "verification_status",
+      "contact_credits",
+      "plan",
+      "plan_update_at",
+      "purchased_plan",
+      "company_number",
+      "ch_status",
+      "ch_name",
+      "ch_checked_at",
+      "ch_match_score",
+      "photo_count",
+      "supporting_doc_count",
+      "offers_discount",
+      "warranty_months",
+      "web_verified",
+      "web_url",
+      "vmb_score",
+      "vmb_badge",
+      "discount_min_percent",
+      "discount_max_percent",
+      "social_links_json",
+      "likes_count",
+      "wins_count",
+      "status",
+      "plan_updated_at",
+      "google_place_id",
+      "google_rating",
+      "google_reviews_count",
+    ];
+
+    const vals = [
+      targetUid,
+      srcRow.company_name,
+      srcRow.contact_name,
+      srcRow.phone,
+      srcRow.email,
+      srcRow.trade_types,
+      srcRow.service_areas,
+      createdAt,
+      updatedAt,
+      srcRow.subscription_status || "inactive",
+      "approved",
+      srcRow.contact_credits ?? 0,
+      srcRow.plan || null,
+      srcRow.plan_update_at || null,
+      srcRow.purchased_plan || null,
+      srcRow.company_number || null,
+      srcRow.ch_status || null,
+      srcRow.ch_name || null,
+      srcRow.ch_checked_at || null,
+      srcRow.ch_match_score ?? 0,
+      srcRow.photo_count ?? 0,
+      srcRow.supporting_doc_count ?? 0,
+      srcRow.offers_discount ?? 0,
+      srcRow.warranty_months ?? 0,
+      srcRow.web_verified ?? 0,
+      srcRow.web_url || null,
+      srcRow.vmb_score ?? 0,
+      srcRow.vmb_badge || "bronze",
+      srcRow.discount_min_percent ?? 0,
+      srcRow.discount_max_percent ?? 0,
+      srcRow.social_links_json || null,
+      srcRow.likes_count ?? 0,
+      srcRow.wins_count ?? 0,
+      "active",
+      srcRow.plan_updated_at || null,
+      srcRow.google_place_id || null,
+      srcRow.google_rating ?? null,
+      srcRow.google_reviews_count ?? 0,
+    ];
+
+    const placeholders = cols.map(() => "?").join(",");
+
     try {
       await mysqlQuery(
-        `INSERT INTO tradesmen (
-          user_id, company_name, contact_name, phone, email,
-          trade_types, service_areas, created_at, updated_at,
-          subscription_status, verification_status, contact_credits, plan, plan_update_at,
-          purchased_plan, company_number, ch_status, ch_name,
-          ch_checked_at, ch_match_score, photo_count,
-          supporting_doc_count, offers_discount, warranty_months,
-          web_verified, web_url, vmb_score, vmb_badge,
-          discount_min_percent, discount_max_percent,
-          social_links_json, likes_count, wins_count,
-          status, plan_updated_at, google_place_id,
-          google_rating, google_reviews_count
-        ) VALUES (
-          ?,?,?,?,?,?,
-          ?,?,?,?,?,?,?,
-          ?,?,?,?,?,?,
-          ?,?,?,?,?,?,
-          ?,?,?,?,?,?,
-          ?,?,?
-        )`,
-        [
-          targetUid,
-          srcRow.company_name,
-          srcRow.contact_name,
-          srcRow.phone,
-          srcRow.email,
-          srcRow.trade_types,
-          srcRow.service_areas,
-          createdAt,
-          updatedAt,
-          srcRow.subscription_status || "inactive",
-          // New tradesman promoted & activated by admin → treated as verified
-          "approved",
-          srcRow.contact_credits ?? 0,
-          srcRow.plan || null,
-          srcRow.plan_update_at || null,
-          srcRow.purchased_plan || null,
-          srcRow.company_number || null,
-          srcRow.ch_status || null,
-          srcRow.ch_name || null,
-          srcRow.ch_checked_at || null,
-          srcRow.ch_match_score ?? 0,
-          srcRow.photo_count ?? 0,
-          srcRow.supporting_doc_count ?? 0,
-          srcRow.offers_discount ?? 0,
-          srcRow.warranty_months ?? 0,
-          srcRow.web_verified ?? 0,
-          srcRow.web_url || null,
-          srcRow.vmb_score ?? 0,
-          srcRow.vmb_badge || "bronze",
-          srcRow.discount_min_percent ?? 0,
-          srcRow.discount_max_percent ?? 0,
-          srcRow.social_links_json || null,
-          srcRow.likes_count ?? 0,
-          srcRow.wins_count ?? 0,
-          "active",
-          srcRow.plan_updated_at || null,
-          srcRow.google_place_id || null,
-          srcRow.google_rating ?? null,
-          srcRow.google_reviews_count ?? 0,
-        ]
+        `INSERT INTO tradesmen (${cols.join(",")}) VALUES (${placeholders})`,
+        vals
       );
     } catch (e) {
       log.error({ err: e?.message }, "Failed cloning lead row");
@@ -427,12 +452,21 @@ module.exports = (router, ctx) => {
 
           await mysqlQuery("COMMIT");
         } catch (e) {
-          log.error({ err: e?.message }, "Promotion failed, rolling back");
+          log.error(
+            { err: e?.message, stack: e?.stack },
+            "Promotion failed, rolling back"
+          );
           try {
             await mysqlQuery("ROLLBACK");
           } catch {}
 
-          return res.status(500).json({ error: "server_error" });
+          return res.status(500).json({
+            error: "server_error",
+            details:
+              process.env.NODE_ENV !== "production"
+                ? e?.message || String(e)
+                : undefined,
+          });
         }
 
         const [newRow] = await mysqlQuery(

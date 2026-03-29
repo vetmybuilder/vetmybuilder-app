@@ -3,7 +3,7 @@ import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/utils/auth";
 import Select from "@/components/forms/Select";
 import { PROJECT_TYPES, type ProjectTypeCategory } from "@/types/projectTypes";
@@ -25,14 +25,13 @@ function EditGate() {
   const router = useRouter();
   const { loading: authLoading } = useAuth();
   const [status, setStatus] = useState<"checking" | "ok" | "redirect">(
-    "checking"
+    "checking",
   );
 
   useEffect(() => {
     let alive = true;
     if (!router.isReady || authLoading) return;
 
-    // Fast cached path
     try {
       if (sessionStorage.getItem("vmb:isTradesman") === "1") {
         setStatus("redirect");
@@ -41,7 +40,6 @@ function EditGate() {
       }
     } catch {}
 
-    // Authoritative path
     (async () => {
       try {
         const { data } = await api.get("/api/tradesmen/me");
@@ -57,9 +55,7 @@ function EditGate() {
           router.replace("/tradesman/projects");
           return;
         }
-      } catch {
-        // Not a tradesman; continue
-      }
+      } catch {}
       if (alive) setStatus("ok");
     })();
 
@@ -87,8 +83,6 @@ function EditGate() {
   return <EditProjectInner />;
 }
 
-/* ===== Shared helpers (match Create page) ===== */
-
 const PROPERTY_TYPES = [
   "Detached",
   "Semi-Detached",
@@ -109,7 +103,7 @@ function normalize(s: string) {
 function buildAutoNameSimple(
   primaryType: string,
   location: string,
-  propertyType?: string
+  propertyType?: string,
 ) {
   const loc = (location || "").trim();
   const prop = (propertyType || "").trim();
@@ -118,20 +112,18 @@ function buildAutoNameSimple(
   return primaryType;
 }
 
-/* ===== Types ===== */
 type FormShape = {
   category: string | null;
   selectedTypes: string[];
   otherEnabled: boolean;
   otherText: string;
 
-  location: string; // read-only in this edit flow
+  location: string;
   description: string;
   propertyType: string;
   bedrooms: number;
 };
 
-/* ===== Actual edit UI (wizard) ===== */
 function EditProjectInner() {
   const api = useApi();
   const router = useRouter();
@@ -145,7 +137,18 @@ function EditProjectInner() {
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [formErr, setFormErr] = useState<string | null>(null);
 
-  // Load project once ready
+  const wizardRef = useRef<HTMLDivElement | null>(null);
+
+  function moveFocusOffStep() {
+    try {
+      const el = document.activeElement as HTMLElement | null;
+      el?.blur?.();
+    } catch {}
+    try {
+      wizardRef.current?.focus();
+    } catch {}
+  }
+
   useEffect(() => {
     if (!router.isReady || authLoading || !user || !id) return;
 
@@ -164,8 +167,8 @@ function EditProjectInner() {
         if (primaryType) {
           const bucket = PROJECT_TYPES.find((c: ProjectTypeCategory) =>
             c.types.some(
-              (t) => t.toLowerCase() === String(primaryType).toLowerCase()
-            )
+              (t) => t.toLowerCase() === String(primaryType).toLowerCase(),
+            ),
           );
           inferredCategory = bucket?.category ?? null;
         }
@@ -207,13 +210,13 @@ function EditProjectInner() {
       [...PROJECT_TYPES]
         .map((c) => c.category)
         .sort((a, b) => a.localeCompare(b)),
-    []
+    [],
   );
 
   const SUBTYPE_OPTIONS = useMemo(() => {
     if (!form?.category) return [] as string[];
     const bucket = PROJECT_TYPES.find(
-      (c: ProjectTypeCategory) => c.category === form.category
+      (c: ProjectTypeCategory) => c.category === form.category,
     );
     if (!bucket) return [] as string[];
     return [...bucket.types].sort((a, b) => a.localeCompare(b));
@@ -230,7 +233,7 @@ function EditProjectInner() {
         { key: "description", title: "Brief description" as const },
         { key: "review", title: "Review & save" as const },
       ] as const,
-    []
+    [],
   );
   type StepKey = (typeof STEPS)[number]["key"];
   const maxStep = STEPS.length - 1;
@@ -252,7 +255,7 @@ function EditProjectInner() {
       return (
         !!form.category &&
         hasAnySubtype() &&
-        !!form.location.trim() && // location is read-only but must be present
+        !!form.location.trim() &&
         !!form.propertyType.trim() &&
         Number(form.bedrooms) >= 0 &&
         String(form.description).trim().length >= 2
@@ -281,21 +284,19 @@ function EditProjectInner() {
     setBusy(true);
     setFormErr(null);
     try {
-      // Primary type = first selected, else "Other" text, else fallback
       const primaryType =
-        form.selectedTypes[0] ||
-        normalize(form.otherText || "General work");
+        form.selectedTypes[0] || normalize(form.otherText || "General work");
 
       const autoName = buildAutoNameSimple(
         primaryType,
         form.location,
-        form.propertyType
+        form.propertyType,
       );
 
       const payload = {
         name: autoName,
         type: primaryType,
-        location: form.location, // unchanged here
+        location: form.location,
         description: normalize(form.description || ""),
         propertyType: form.propertyType,
         bedrooms: Number(form.bedrooms) || 0,
@@ -308,7 +309,7 @@ function EditProjectInner() {
         e?.response?.data?.error ||
           e?.data?.error ||
           e?.message ||
-          "Failed to update"
+          "Failed to update",
       );
     } finally {
       setBusy(false);
@@ -317,11 +318,13 @@ function EditProjectInner() {
 
   const next = () => {
     if (step < maxStep && isStepValid(step)) {
+      moveFocusOffStep();
       setFormErr(null);
       setStep((s) => s + 1);
     }
   };
   const back = () => {
+    moveFocusOffStep();
     setFormErr(null);
     setStep((s) => Math.max(0, s - 1));
   };
@@ -342,7 +345,7 @@ function EditProjectInner() {
       bedrooms: "ep-beds",
       description: "ep-desc",
     }),
-    []
+    [],
   );
 
   const primaryPreview =
@@ -352,19 +355,18 @@ function EditProjectInner() {
   const reviewAutoName = buildAutoNameSimple(
     primaryPreview || "Project",
     form?.location || "",
-    form?.propertyType || ""
+    form?.propertyType || "",
   );
 
-  // Toggle a sub-type in the checklist (case-insensitive)
   function toggleSubtype(label: string) {
     setForm((prev) => {
       if (!prev) return prev;
       const exists = prev.selectedTypes.some(
-        (t) => t.toLowerCase() === label.toLowerCase()
+        (t) => t.toLowerCase() === label.toLowerCase(),
       );
       const next = exists
         ? prev.selectedTypes.filter(
-            (t) => t.toLowerCase() !== label.toLowerCase()
+            (t) => t.toLowerCase() !== label.toLowerCase(),
           )
         : [...prev.selectedTypes, label];
       return { ...prev, selectedTypes: next };
@@ -418,7 +420,6 @@ function EditProjectInner() {
       data-testid="project-edit-page"
       aria-label="Edit Project Page"
     >
-      {/* Header – aligned with Create page */}
       <div
         className="mb-6 flex items-center justify-between"
         data-testid="project-edit-header"
@@ -462,7 +463,6 @@ function EditProjectInner() {
         </Link>
       </div>
 
-      {/* Progress – same as Create */}
       <div
         className="mb-6 flex items-center gap-2"
         aria-label="Progress"
@@ -479,8 +479,9 @@ function EditProjectInner() {
         ))}
       </div>
 
-      {/* Wizard */}
       <div
+        ref={wizardRef}
+        tabIndex={-1}
         className="relative w-full overflow-hidden rounded-2xl bg-white border border-gray-200"
         data-testid="wizard-edit"
         data-current-step={STEPS[step].key}
@@ -498,6 +499,7 @@ function EditProjectInner() {
                 role="region"
                 aria-labelledby={titleId}
                 aria-hidden={active ? undefined : true}
+                {...(!active ? ({ inert: "" } as any) : {})}
                 className="w-full shrink-0 px-6 py-6 sm:px-10 sm:py-10"
               >
                 <h2 id={titleId} className="text-lg font-semibold">
@@ -505,7 +507,6 @@ function EditProjectInner() {
                 </h2>
 
                 <div className="mt-5 grid max-w-3xl gap-4">
-                  {/* Category (editable) */}
                   {s.key === "category" && (
                     <Select
                       id={ids.category}
@@ -514,7 +515,6 @@ function EditProjectInner() {
                       value={form.category}
                       onChange={(v) => {
                         set("category", v);
-                        // Reset subtypes when category changes
                         set("selectedTypes", []);
                         set("otherEnabled", false);
                         set("otherText", "");
@@ -524,7 +524,6 @@ function EditProjectInner() {
                     />
                   )}
 
-                  {/* Subtypes checklist (editable type of work) */}
                   {s.key === "subtypes" && (
                     <div>
                       {!form.category ? (
@@ -547,8 +546,7 @@ function EditProjectInner() {
                           >
                             {SUBTYPE_OPTIONS.map((t) => {
                               const checked = form.selectedTypes.some(
-                                (x) =>
-                                  x.toLowerCase() === t.toLowerCase()
+                                (x) => x.toLowerCase() === t.toLowerCase(),
                               );
                               return (
                                 <label
@@ -571,7 +569,6 @@ function EditProjectInner() {
                             })}
                           </div>
 
-                          {/* Other… */}
                           <div className="mt-3 rounded-xl border border-slate-200 p-3">
                             <label className="flex items-center gap-2 cursor-pointer">
                               <input
@@ -603,7 +600,6 @@ function EditProjectInner() {
                     </div>
                   )}
 
-                  {/* Location – read-only */}
                   {s.key === "location" && (
                     <div>
                       <label
@@ -626,7 +622,6 @@ function EditProjectInner() {
                     </div>
                   )}
 
-                  {/* Property type (editable) */}
                   {s.key === "propertyType" && (
                     <Select
                       id={ids.propertyType}
@@ -639,7 +634,6 @@ function EditProjectInner() {
                     />
                   )}
 
-                  {/* Bedrooms / number of rooms (editable) */}
                   {s.key === "bedrooms" && (
                     <BedroomsSelect
                       id={ids.bedrooms}
@@ -650,7 +644,6 @@ function EditProjectInner() {
                     />
                   )}
 
-                  {/* Description — using DescriptionBuilder (editable: timeframe, budget, materials, access, extra notes) */}
                   {s.key === "description" && (
                     <DescriptionBuilder
                       value={form.description}
@@ -659,7 +652,6 @@ function EditProjectInner() {
                     />
                   )}
 
-                  {/* Review */}
                   {s.key === "review" && (
                     <div
                       className="space-y-3 text-sm"

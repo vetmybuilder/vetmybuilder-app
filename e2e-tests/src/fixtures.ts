@@ -1,58 +1,148 @@
-// e2e-tests/src/fixtures.ts
-import { test as base, expect } from "@playwright/test";
+import {
+  test as base,
+  expect,
+  type APIRequestContext,
+  type Page,
+  type TestInfo,
+  type WorkerInfo,
+} from "@playwright/test";
 import { getRuntime } from "./config/runtime";
 import { ensureDatabase, applySchema, seedUsers } from "./db/manage-db";
 import { wipeDatabase } from "./db/wipe";
-import { api } from "./api/client";
+import { api, authedApiForUid } from "./api/services/client";
+import ProjectApi from "./apiHelper/project/ProjectApi";
+import ProjectRecommendationApi from "./apiHelper/project/ProjectRecommendationApi";
 
 type Runtime = ReturnType<typeof getRuntime>;
 type ApiClient = ReturnType<typeof api>;
 
-// extend<TestFixtures, WorkerFixtures>
-export const test = base.extend<{ apiClient: ApiClient }, { runtime: Runtime }>(
-  {
-    runtime: [
-      async ({}, use, testInfo) => {
-        const runtime = getRuntime(testInfo.workerIndex);
+type TestFixtures = {
+  apiClient: ApiClient;
+  adminApiClient: ApiClient;
+  projectApi: ProjectApi;
+  projectRecommendationApi: ProjectRecommendationApi;
+};
 
-        await ensureDatabase(runtime.dbName);
-        await applySchema(runtime.dbName);
-        await seedUsers(runtime.dbName);
+type WorkerFixtures = {
+  runtime: Runtime;
+};
 
-        await use(runtime);
-      },
-      { scope: "worker" },
-    ],
+type TestMeta = Pick<TestInfo, "project"> | Pick<WorkerInfo, "project">;
 
-    apiClient: async ({ request, runtime }, use) => {
-      const secret = process.env.E2E_TEST_SECRET;
-      const uid = process.env.TEST_USER_UID;
+function getShardIndex(testInfo: TestMeta): number {
+  const name = String(testInfo.project.name || "");
+  const match = name.match(/shard-(\d+)/i);
 
-      if (!secret || !uid) {
-        throw new Error("Missing E2E_TEST_SECRET or TEST_USER_UID");
-      }
-
-      const tokenRes = await request.post(
-        `${runtime.apiBaseUrl}/api/__test__/auth/id-token`,
-        {
-          headers: { "X-Test-Secret": secret },
-          data: { uid },
-        }
-      );
-
-      if (!tokenRes.ok()) {
-        throw new Error(`Failed to mint id token: ${tokenRes.status()}`);
-      }
-
-      const { idToken } = await tokenRes.json();
-
-      await use(api(request, runtime.apiBaseUrl, idToken));
-    },
+  if (match) {
+    const n = Number(match[1]);
+    if (Number.isFinite(n) && n >= 1) return n - 1;
   }
-);
+
+  const envShardRaw =
+    process.env.TEST_SHARD || process.env.PW_TEST_SHARD || process.env.SHARD;
+  const envShard = Number(envShardRaw);
+
+  if (Number.isFinite(envShard) && envShard >= 0) return envShard;
+
+  return 0;
+}
+
+function getProjectBaseURL(testInfo: TestMeta): string | undefined {
+  const baseURL = testInfo.project.use?.baseURL;
+  return typeof baseURL === "string" && baseURL.length > 0
+    ? baseURL
+    : undefined;
+}
+
+function getApiBaseURL(testInfo: TestInfo, runtime: Runtime): string {
+  const baseURL = getProjectBaseURL(testInfo);
+
+  if (baseURL && !baseURL.includes(":3000")) {
+    return baseURL;
+  }
+
+  return runtime.apiBaseUrl;
+}
+
+function buildDbName(shardIndex: number): string {
+  const totalShards = Number(process.env.TEST_TOTAL_SHARDS || "4");
+  const prefix = process.env.TEST_DB_NAME_PREFIX || "vetmybuilder_test";
+  const shardLabel = `s${shardIndex + 1}_${totalShards}`;
+  return `${prefix}_${shardLabel}`;
+}
+
+export const test = base.extend<TestFixtures, WorkerFixtures>({
+  runtime: [
+    async ({}, use, testInfo) => {
+      const shardIndex = getShardIndex(testInfo);
+      const runtime = getRuntime(testInfo.workerIndex, shardIndex);
+
+      runtime.dbName = buildDbName(shardIndex);
+
+      const baseURL = getProjectBaseURL(testInfo);
+
+      if (baseURL && !baseURL.includes(":3000")) {
+        runtime.apiBaseUrl = baseURL;
+        runtime.webBaseUrl = baseURL;
+      } else if (baseURL) {
+        runtime.webBaseUrl = baseURL;
+      }
+
+      await ensureDatabase(runtime.dbName);
+      await applySchema(runtime.dbName);
+      await seedUsers(runtime.dbName);
+
+      await use(runtime);
+    },
+    { scope: "worker" },
+  ],
+
+  apiClient: async ({ request, runtime, page }, use, testInfo) => {
+    const uid = process.env.TEST_USER_UID;
+    if (!uid) {
+      throw new Error("Missing TEST_USER_UID");
+    }
+
+    const baseURL = getApiBaseURL(testInfo, runtime);
+    const client = await authedApiForUid(
+      request as APIRequestContext,
+      baseURL,
+      uid,
+      page as Page,
+    );
+
+    await use(client);
+  },
+
+  adminApiClient: async ({ request, runtime, page }, use, testInfo) => {
+    const uid = process.env.TEST_ADMIN_USER_UID;
+    if (!uid) {
+      throw new Error("Missing TEST_ADMIN_USER_UID");
+    }
+
+    const baseURL = getApiBaseURL(testInfo, runtime);
+    const client = await authedApiForUid(
+      request as APIRequestContext,
+      baseURL,
+      uid,
+      page as Page,
+    );
+
+    await use(client);
+  },
+
+  projectApi: async ({ apiClient }, use) => {
+    await use(new ProjectApi(apiClient));
+  },
+
+  projectRecommendationApi: async ({ apiClient }, use) => {
+    await use(new ProjectRecommendationApi(apiClient));
+  },
+});
 
 test.beforeEach(async ({ runtime }) => {
   await wipeDatabase(runtime.dbName);
+  await seedUsers(runtime.dbName);
 });
 
 export { expect };

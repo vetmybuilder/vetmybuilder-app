@@ -7,10 +7,17 @@ import * as React from "react";
 import { useRouter } from "next/router";
 import AdminLayout from "@/components/AdminLayout";
 
+// ✅ IMPORTANT: adjust this import path to where your initFirebase() file actually is.
+// Example candidates:
+// - "@/utils/firebase"
+// - "@/lib/firebase"
+// - "@/firebase/initFirebase"
+import { initFirebase } from "@/utils/firebase";
+
 // NEW: minimal auth-path helper (local to _app only)
 const AUTH_PATHS = new Set([
   "/login",
-  "/register",
+  "/signup",
   "/auth/complete",
   "/tradesman/login",
   "/tradesman/register",
@@ -20,6 +27,25 @@ function isAuthPath(pathname: string) {
   // strip any query/hash
   const p = pathname.split("?")[0].split("#")[0];
   return AUTH_PATHS.has(p);
+}
+
+/**
+ * Ensure Firebase is initialised ONCE on the client,
+ * before AuthProvider/components try to use auth.
+ */
+let __firebaseInitialised = false;
+function ensureFirebaseClientInit(): void {
+  if (__firebaseInitialised) return;
+  if (typeof window === "undefined") return;
+
+  __firebaseInitialised = true;
+
+  try {
+    initFirebase();
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn("[_app] initFirebase failed:", e);
+  }
 }
 
 /**
@@ -110,7 +136,7 @@ function dispatchPageView(path: string, gsid: string) {
     window.dispatchEvent(
       new CustomEvent("vmb:page:view", {
         detail: { path, gsid, ts: Date.now() },
-      })
+      }),
     );
   } catch {
     /* noop */
@@ -123,6 +149,9 @@ function dispatchPageView(path: string, gsid: string) {
 }
 
 export default function MyApp({ Component, pageProps }: AppProps) {
+  // ✅ ensure Firebase is ready on the client before anything uses auth
+  ensureFirebaseClientInit();
+
   const router = useRouter();
 
   // Any /admin... route should use the admin header/layout

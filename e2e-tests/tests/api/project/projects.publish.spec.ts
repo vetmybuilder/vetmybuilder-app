@@ -1,16 +1,14 @@
 import { test, expect } from "../../../src/fixtures";
-import Project from "../../../src/models/project";
-import { authedApiForUid } from "../../../src/api/client";
+import Project from "../../../src/models/Project";
+import { authedApiForUid } from "../../../src/api/services/client";
 
 test.describe("POST /api/projects/:id/publish", () => {
   test("owner can publish a pending project and publishing is idempotent", async ({
     apiClient,
   }) => {
-    const project = Project.aProject().withRandomDetails();
-
     const createRes = await apiClient.post(
       "/api/projects",
-      project.toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(createRes.status()).toBe(201);
 
@@ -19,7 +17,7 @@ test.describe("POST /api/projects/:id/publish", () => {
 
     const publishRes = await apiClient.post(
       `/api/projects/${projectId}/publish`,
-      {}
+      {},
     );
     expect(publishRes.status()).toBe(200);
 
@@ -29,7 +27,7 @@ test.describe("POST /api/projects/:id/publish", () => {
 
     const publishAgainRes = await apiClient.post(
       `/api/projects/${projectId}/publish`,
-      {}
+      {},
     );
     expect(publishAgainRes.status()).toBe(200);
 
@@ -51,11 +49,9 @@ test.describe("POST /api/projects/:id/publish", () => {
   });
 
   test("403 if not owner", async ({ apiClient, request, runtime }) => {
-    const project = Project.aProject().withRandomDetails();
-
     const createRes = await apiClient.post(
       "/api/projects",
-      project.toPayload()
+      Project.aProject().withRandomDetails().toPayload(),
     );
     expect(createRes.status()).toBe(201);
 
@@ -65,12 +61,12 @@ test.describe("POST /api/projects/:id/publish", () => {
     const otherClient = await authedApiForUid(
       request,
       runtime.apiBaseUrl,
-      "other_owner_" + Date.now()
+      `other-owner-${Date.now()}`,
     );
 
     const res = await otherClient.post(
       `/api/projects/${projectId}/publish`,
-      {}
+      {},
     );
     expect(res.status()).toBe(403);
     expect(await res.json()).toEqual({ error: "Forbidden" });

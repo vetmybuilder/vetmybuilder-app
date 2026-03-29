@@ -68,7 +68,7 @@ async function main() {
       location: "E4",
 
       description:
-        "Timeframe: Urgent (1–2 weeks). Budget: Under £5k. Materials: Supplied by tradesman. Access: Parking permit needed, Keys can be provided, Limited access.",
+        "Timeframe: Urgent (1-2 weeks). Budget: Under £5k. Materials: Supplied by tradesman. Access: Parking permit needed, Keys can be provided, Limited access.",
       propertyType: "Detached",
       bedrooms: 1,
       ownerUserId: "BpSvMxVYpnQeG211hiY8cNPbDCW2",

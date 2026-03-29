@@ -1,0 +1,41 @@
+# Git
+.git
+.gitignore
+
+# Node
+node_modules
+**/node_modules
+npm-debug.log
+yarn-error.log
+pnpm-lock.yaml
+
+# Playwright output
+e2e-tests/test-results
+e2e-tests/playwright-report
+playwright-report
+test-results
+
+# Next.js
+web/.next
+web/out
+
+# Local env files (never bake secrets)
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+
+# Editor
+.vscode
+.idea
+
+# Logs
+logs
+*.log
+
+# Coverage
+coverage
+
+# Uploads (runtime only)
+uploads

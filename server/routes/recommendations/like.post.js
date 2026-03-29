@@ -41,29 +41,6 @@ module.exports = (router, ctx) => {
         return res.status(404).json({ error: "Recommendation not found" });
       }
 
-      // Load project + owner to prevent owners from liking their own recommendations
-      const projRows = await mysqlQuery(
-        `SELECT ownerUserId
-           FROM projects
-          WHERE id = ?
-          LIMIT 1`,
-        [rec.projectId]
-      );
-      const proj = projRows[0];
-
-      if (!proj) {
-        log.warn?.(`${TAG} project missing`, { projectId: rec.projectId });
-        return res.status(404).json({ error: "Project not found" });
-      }
-
-      if (String(proj.ownerUserId) === String(userId)) {
-        log.warn?.(`${TAG} owner tried to like`, {
-          userId,
-          projectId: rec.projectId,
-        });
-        return res.status(403).json({ error: "Owner cannot like" });
-      }
-
       // INSERT IGNORE → one like per user
       await mysqlQuery(
         `INSERT IGNORE INTO recommendation_votes (recommendationId, userId, value)

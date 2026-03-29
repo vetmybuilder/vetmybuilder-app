@@ -1,15 +1,26 @@
 import { test, expect } from "../../../src/fixtures";
-import { authedApiForUid } from "../../../src/api/client";
+import { authedApiForUid } from "../../../src/api/services/client";
 
-test.describe("GET /api/account", () => {
-  test("returns the current user", async ({ apiClient }) => {
-    const res = await apiClient.get("/api/account");
-    expect(res.status()).toBe(200);
+test("returns the current user", async ({ request, runtime }) => {
+  const uid = process.env.TEST_USER_UID!;
 
-    const { user } = await res.json();
+  const client = await authedApiForUid(request, runtime.apiBaseUrl, uid);
 
-    expect(user).toBeTruthy();
-    expect(user.uid).toBeTruthy();
-    expect(user.email).toBeTruthy();
+  const signup = await client.post("/api/auth/signup", {
+    firstName: "Test",
+    lastName: "User",
+    username: `acct_${Date.now()}`,
+    location: "London",
   });
+
+  expect(signup.status()).toBe(200);
+
+  const res = await client.get("/api/account");
+  expect(res.status()).toBe(200);
+
+  const body: any = await res.json();
+  const user = body?.user;
+
+  expect(user).toBeTruthy();
+  expect(user.uid).toBe(uid);
 });

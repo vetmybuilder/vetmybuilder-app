@@ -64,6 +64,9 @@ web/firebase-admin.json
 
 # DB dumps
 *.sql
+!docker/mysql/init/*.sql
 
 # Local migration scripts
 scripts/sqlite_to_mysql_schema.js
+
+.claude/

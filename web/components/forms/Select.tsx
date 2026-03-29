@@ -11,14 +11,25 @@ type Props = {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
-  "data-testid"?: string;
+  "data-testid"?: string; // wrapper test id
   ariaLabel?: string; // if no visible label
+
+  // NEW: when set, adds stable test ids for button/list/options
+  testIdBase?: string; // e.g. "db-budget"
 };
 
 function normalizeOptions(options: Opt[]) {
   return options.map((o) =>
-    typeof o === "string" ? { label: o, value: o } : o
+    typeof o === "string" ? { label: o, value: o } : o,
   );
+}
+
+function slug(s: string) {
+  return String(s)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^\w\-£+–—]/g, ""); // keep £, +, dashes (incl en-dash)
 }
 
 export default function Select({
@@ -32,12 +43,13 @@ export default function Select({
   className = "",
   "data-testid": testId,
   ariaLabel,
+  testIdBase,
 }: Props) {
   const opts = React.useMemo(() => normalizeOptions(options), [options]);
 
   const selectedIndex = React.useMemo(
     () => opts.findIndex((o) => String(o.value) === String(value ?? "")),
-    [opts, value]
+    [opts, value],
   );
 
   const buttonRef = React.useRef<HTMLButtonElement | null>(null);
@@ -45,7 +57,7 @@ export default function Select({
 
   const [open, setOpen] = React.useState(false);
   const [highlight, setHighlight] = React.useState(
-    selectedIndex >= 0 ? selectedIndex : 0
+    selectedIndex >= 0 ? selectedIndex : 0,
   );
 
   React.useEffect(() => {
@@ -55,19 +67,20 @@ export default function Select({
   // Close on outside click
   React.useEffect(() => {
     if (!open) return;
+
     function onDocClick(e: MouseEvent) {
       const t = e.target as Node;
-      if (buttonRef.current?.contains(t) || listRef.current?.contains(t)) {
-        return;
-      }
+      if (buttonRef.current?.contains(t) || listRef.current?.contains(t)) return;
       setOpen(false);
     }
+
     function onDocKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         setOpen(false);
         buttonRef.current?.focus();
       }
     }
+
     document.addEventListener("mousedown", onDocClick);
     document.addEventListener("keydown", onDocKey);
     return () => {
@@ -86,6 +99,7 @@ export default function Select({
 
   function onButtonKeyDown(e: React.KeyboardEvent) {
     if (disabled) return;
+
     if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === " ") {
       e.preventDefault();
       setOpen(true);
@@ -128,6 +142,12 @@ export default function Select({
   const btnId = id ? `${id}-button` : undefined;
   const listId = id ? `${id}-listbox` : undefined;
 
+  // Stable test ids
+  const tidButton = testIdBase ? `${testIdBase}-button` : undefined;
+  const tidList = testIdBase ? `${testIdBase}-listbox` : undefined;
+  const tidOption = (o: { label: string; value: string }) =>
+    testIdBase ? `${testIdBase}-option-${slug(o.value)}` : undefined;
+
   return (
     <div className={className} data-testid={testId}>
       {label && (
@@ -148,17 +168,18 @@ export default function Select({
           aria-label={!label ? ariaLabel || "Select" : undefined}
           onClick={() => !disabled && setOpen((v) => !v)}
           onKeyDown={onButtonKeyDown}
+          data-testid={tidButton}
           className={`input w-full text-left flex items-center justify-between ${
             disabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
           }`}
         >
-          <span
-            className={`truncate ${!selectedLabel ? "text-slate-400" : ""}`}
-          >
+          <span className={`truncate ${!selectedLabel ? "text-slate-400" : ""}`}>
             {selectedLabel || placeholder}
           </span>
           <svg
-            className="ml-2 h-4 w-4 shrink-0"
+            className={`ml-2 h-4 w-4 shrink-0 transition-transform ${
+              open ? "rotate-180" : ""
+            }`}
             viewBox="0 0 20 20"
             fill="currentColor"
             aria-hidden="true"
@@ -175,23 +196,25 @@ export default function Select({
             tabIndex={-1}
             aria-labelledby={btnId}
             onKeyDown={onListKeyDown}
+            data-testid={tidList}
             className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg focus:outline-none"
           >
             {opts.map((o, i) => {
               const isSelected = i === selectedIndex;
               const isActive = i === highlight;
+
               return (
                 <li
                   key={`${o.value}-${i}`}
                   role="option"
                   aria-selected={isSelected}
+                  data-testid={tidOption(o)}
                   className={`px-3 py-2 text-sm cursor-pointer ${
                     isActive ? "bg-indigo-50" : ""
                   } ${isSelected ? "font-medium" : ""}`}
                   onMouseEnter={() => setHighlight(i)}
                   onMouseDown={(e) => {
-                    // prevent blur before click
-                    e.preventDefault();
+                    e.preventDefault(); // prevent blur before click
                   }}
                   onClick={() => commit(i)}
                 >
@@ -215,6 +238,7 @@ export default function Select({
                 </li>
               );
             })}
+
             {opts.length === 0 && (
               <li className="px-3 py-2 text-sm text-slate-500">No options</li>
             )}

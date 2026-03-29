@@ -7,7 +7,7 @@
 ## Pages
 - `/` – Landing (redirects to `/projects` if logged in)
 - `/login` – Email/password sign in
-- `/register` – Email/password sign up
+- `/signup` – Email/password sign up
 - `/projects` – Table view with tabs (**My Projects** and **Recommended**)
 - `/projects/new` – Create a project form
 - `/projects/[id]` – Project view/details

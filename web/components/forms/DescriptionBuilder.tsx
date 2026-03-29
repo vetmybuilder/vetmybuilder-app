@@ -14,13 +14,13 @@ type Props = {
 type Chip = { label: string; value: string };
 
 const TIMEFRAMES = [
-  "Urgent (1–2 weeks)",
+  "Urgent (1-2 weeks)",
   "Soon (2–4 weeks)",
   "This quarter (1–3 months)",
   "Flexible (3+ months)",
 ];
 
-const BUDGETS = ["Under £5k", "£5k–£15k", "£15k–£30k", "£30k–£60k", "£60k+"];
+const BUDGETS = ["Under £5k", "£5k–£15k", "£15k–£30k", "£30k-£60k", "£60k+"];
 
 //
 // ACCESS CHIP GROUPS
@@ -95,6 +95,10 @@ function normalize(s: string) {
   return s.trim().replace(/\s+/g, " ");
 }
 
+function stripTrailingPeriod(s: string) {
+  return s.replace(/\.\s*$/, "").trim();
+}
+
 function ChipToggle({
   checked,
   onChange,
@@ -134,14 +138,103 @@ export default function DescriptionBuilder({
 
   const ACCESS_CHIPS = React.useMemo(
     () => getAccessChips(category),
-    [category]
+    [category],
   );
 
   function toggleAccess(v: string) {
     setAccess((prev) =>
-      prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]
+      prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v],
     );
   }
+
+  // ✅ Hydrate from existing `value` (edit flow) so controls are pre-populated.
+  React.useEffect(() => {
+    const v = String(value || "").trim();
+    if (!v) return;
+
+    // Only hydrate if user hasn't interacted yet
+    if (
+      timeframe ||
+      budget ||
+      materials ||
+      access.length > 0 ||
+      notes.trim().length > 0
+    ) {
+      return;
+    }
+
+    const lines = v
+      .split("\n")
+      .map((x) => x.trim())
+      .filter(Boolean);
+
+    let nextTimeframe = "";
+    let nextBudget = "";
+    let nextMaterials = "";
+    let nextAccessValues: string[] = [];
+    const noteLines: string[] = [];
+
+    const labelToValue = ACCESS_CHIPS.reduce<Record<string, string>>(
+      (acc, chip) => {
+        acc[chip.label.toLowerCase()] = chip.value;
+        return acc;
+      },
+      {},
+    );
+
+    for (const line of lines) {
+      const tf = line.match(/^Timeframe:\s*(.+)$/i);
+      if (tf) {
+        nextTimeframe = stripTrailingPeriod(tf[1]);
+        continue;
+      }
+
+      const bd = line.match(/^Budget:\s*(.+)$/i);
+      if (bd) {
+        nextBudget = stripTrailingPeriod(bd[1]);
+        continue;
+      }
+
+      const mt = line.match(/^Materials:\s*(.+)$/i);
+      if (mt) {
+        nextMaterials = stripTrailingPeriod(mt[1]);
+        continue;
+      }
+
+      const ac = line.match(/^Access:\s*(.+)$/i);
+      if (ac) {
+        const raw = stripTrailingPeriod(ac[1]);
+        const labels = raw
+          .split(",")
+          .map((x) => x.trim())
+          .filter(Boolean);
+
+        nextAccessValues = labels
+          .map((lbl) => labelToValue[lbl.toLowerCase()])
+          .filter(Boolean);
+
+        continue;
+      }
+
+      noteLines.push(line);
+    }
+
+    if (nextTimeframe && TIMEFRAMES.includes(nextTimeframe)) {
+      setTimeframe(nextTimeframe);
+    }
+    if (nextBudget && BUDGETS.includes(nextBudget)) {
+      setBudget(nextBudget);
+    }
+    if (nextMaterials && MATERIALS_OPTIONS.includes(nextMaterials)) {
+      setMaterials(nextMaterials);
+    }
+    if (nextAccessValues.length > 0) {
+      setAccess(nextAccessValues);
+    }
+    if (noteLines.length > 0) {
+      setNotes(noteLines.join("\n"));
+    }
+  }, [value, ACCESS_CHIPS, timeframe, budget, materials, access.length, notes]);
 
   const composed = React.useMemo(() => {
     const lines: string[] = [];
@@ -150,14 +243,13 @@ export default function DescriptionBuilder({
     if (budget) lines.push(`Budget: ${budget}.`);
     if (materials) lines.push(`Materials: ${materials}.`);
 
-    // Convert selected access values → labels
     if (access.length > 0) {
       const labelMap = ACCESS_CHIPS.reduce<Record<string, string>>(
         (acc, chip) => {
           acc[chip.value] = chip.label;
           return acc;
         },
-        {}
+        {},
       );
 
       const labels = access.map((v) => labelMap[v] || v);
@@ -170,9 +262,20 @@ export default function DescriptionBuilder({
     return lines.join("\n");
   }, [timeframe, budget, materials, access, notes, ACCESS_CHIPS]);
 
+  // ✅ CRITICAL FIX:
+  // Don’t overwrite an existing value with an empty composed string on initial mount.
   React.useEffect(() => {
+    const current = String(value || "").trim();
+    const next = String(composed || "").trim();
+
+    // If the user hasn’t selected anything yet, keep the existing description.
+    if (!next && current) return;
+
+    // Avoid noisy parent updates
+    if (next === current) return;
+
     onChange(composed);
-  }, [composed]);
+  }, [composed, value, onChange]);
 
   return (
     <div className={className} data-testid={testId || "description-builder"}>

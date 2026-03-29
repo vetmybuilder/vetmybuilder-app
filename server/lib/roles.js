@@ -33,7 +33,7 @@ async function tryAutoLinkLeadByEmail(ctx, uid, email) {
          ORDER BY COALESCE(updated_at, created_at) DESC
          LIMIT 1
         `,
-        [em]
+        [em],
       );
       const lead = rows[0] || null;
       if (!lead) return false;
@@ -44,7 +44,7 @@ async function tryAutoLinkLeadByEmail(ctx, uid, email) {
            SET user_id = ?, updated_at = NOW()
          WHERE user_id = ?
         `,
-        [uid, lead.user_id]
+        [uid, lead.user_id],
       );
 
       await mysqlQuery(
@@ -53,7 +53,7 @@ async function tryAutoLinkLeadByEmail(ctx, uid, email) {
         VALUES (?, 'tradesman')
         ON DUPLICATE KEY UPDATE role = VALUES(role)
         `,
-        [uid]
+        [uid],
       );
 
       log.info(`${TAG} auto-linked tradesman (MySQL)`, {
@@ -83,7 +83,7 @@ async function tryAutoLinkLeadByEmail(ctx, uid, email) {
                AND LOWER(COALESCE(email,'')) = ?
              ORDER BY datetime(COALESCE(updated_at, created_at)) DESC
              LIMIT 1
-          `
+          `,
           )
           .get(em) || null;
 
@@ -93,13 +93,13 @@ async function tryAutoLinkLeadByEmail(ctx, uid, email) {
         db.prepare(
           `UPDATE tradesmen
              SET user_id = ?, updated_at = datetime('now')
-           WHERE user_id = ?`
+           WHERE user_id = ?`,
         ).run(uid, lead.user_id);
 
         db.prepare(
           `INSERT INTO user_roles (uid, role)
              VALUES (?, 'tradesman')
-           ON CONFLICT(uid) DO UPDATE SET role='tradesman'`
+           ON CONFLICT(uid) DO UPDATE SET role='tradesman'`,
         ).run(uid);
       });
       tx();
@@ -137,8 +137,14 @@ async function loadRoleAndTradesman(ctx, uid, emailOpt) {
 
     try {
       const rows = await mysqlQuery(
-        `SELECT role FROM user_roles WHERE uid = ? LIMIT 1`,
-        [uid]
+        `
+        SELECT role
+          FROM user_roles
+        WHERE uid = ?
+        ORDER BY (LOWER(role) = 'admin') DESC
+        LIMIT 1
+        `,
+        [uid],
       );
       roleRow = rows[0] || null;
     } catch {
@@ -155,7 +161,7 @@ async function loadRoleAndTradesman(ctx, uid, emailOpt) {
          WHERE user_id = ?
          LIMIT 1
         `,
-        [uid]
+        [uid],
       );
       tRow = tRows[0] || null;
     } catch {
@@ -176,7 +182,7 @@ async function loadRoleAndTradesman(ctx, uid, emailOpt) {
              WHERE user_id = ?
              LIMIT 1
             `,
-            [uid]
+            [uid],
           );
           tRow = tRows2[0] || null;
         } catch {
@@ -201,7 +207,7 @@ async function loadRoleAndTradesman(ctx, uid, emailOpt) {
                   contact_credits, trade_types, service_areas, email,
                   created_at, updated_at
              FROM tradesmen
-            WHERE user_id = ?`
+            WHERE user_id = ?`,
         )
         .get(uid) || null;
 
@@ -215,7 +221,7 @@ async function loadRoleAndTradesman(ctx, uid, emailOpt) {
                       contact_credits, trade_types, service_areas, email,
                       created_at, updated_at
                  FROM tradesmen
-                WHERE user_id = ?`
+                WHERE user_id = ?`,
             )
             .get(uid) || null;
       }
@@ -325,10 +331,22 @@ function requireAdmin(ctx) {
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
 
+  const testAdminUid = String(process.env.TEST_ADMIN_USER_UID || "").trim();
+  const isTestEnv =
+    process.env.NODE_ENV === "test" ||
+    process.env.ENABLE_TEST_ROUTES === "1" ||
+    String(process.env.TEST_ENV || "").toLowerCase() === "e2e";
+
   return async (req, res, next) => {
     try {
-      const uid = req.user?.uid;
+      const uid = String(req.user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Unauthorized" });
+
+      // ✅ Test-only escape hatch: if we're in test env and UID matches TEST_ADMIN_USER_UID, allow.
+      if (isTestEnv && testAdminUid && uid === testAdminUid) {
+        log.info(`${TAG} requireAdmin (test uid bypass)`, { uid });
+        return next();
+      }
 
       const email = String(req.user?.email || "").toLowerCase();
       const { role } = await loadRoleAndTradesman(ctx, uid, email);

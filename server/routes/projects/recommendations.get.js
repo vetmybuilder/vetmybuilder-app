@@ -118,26 +118,37 @@ module.exports = (router, ctx) => {
           r.rating,
 
           COALESCE(v.likes, 0) AS likes,
-
           CASE WHEN mv.userId IS NULL THEN 0 ELSE 1 END AS myLike,
 
           u.postcode        AS u_postcode,
           u.postcodeSector  AS u_sector,
           u.postcodeOutward AS u_outward,
-          u.city            AS u_city
+          u.city            AS u_city,
+
+          COALESCE(ph.photoCount, 0) AS photoCount
 
         FROM recommendations r
+
         LEFT JOIN (
           SELECT recommendationId, COUNT(*) AS likes
             FROM recommendation_votes
            WHERE value = 1
            GROUP BY recommendationId
         ) v ON v.recommendationId = r.id
+
         LEFT JOIN recommendation_votes mv
                ON mv.recommendationId = r.id
               AND mv.userId = ?
+
         LEFT JOIN users u
                ON u.uid = r.recommenderUserId
+
+        LEFT JOIN (
+          SELECT recommendationId, COUNT(*) AS photoCount
+            FROM recommendation_photos
+           GROUP BY recommendationId
+        ) ph ON ph.recommendationId = r.id
+
         WHERE r.projectId = ?
         ORDER BY r.createdAt DESC
         LIMIT ${safeLimit} OFFSET ${safeOffset}
@@ -184,6 +195,7 @@ module.exports = (router, ctx) => {
           myLike: r.myLike ? 1 : 0,
           fromFriend,
           fromCommunity,
+          photoCount: Number(r.photoCount || 0),
           score: 0,
         };
       });

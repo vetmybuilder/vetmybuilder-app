@@ -12,14 +12,6 @@ const rubik = Rubik({
   weight: ["500", "700", "800", "900"],
 });
 
-function getApiBase() {
-  if (typeof window !== "undefined") {
-    const h = window.location.hostname;
-    if (h === "localhost" || h === "127.0.0.1") return ""; // same-origin in dev
-  }
-  return process.env.NEXT_PUBLIC_API_BASE || "";
-}
-
 function IconProject(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" {...props} aria-hidden>
@@ -99,7 +91,7 @@ function CountUp({
     if (!el) return;
     const io = new IntersectionObserver(
       (entries) => entries.forEach((e) => setVisible(e.isIntersecting)),
-      { threshold: 0.3 }
+      { threshold: 0.3 },
     );
     io.observe(el);
     return () => io.disconnect();
@@ -143,7 +135,7 @@ export default function Home() {
     shortlists: 0,
   });
 
-  // NEW: remember return target when user clicks CTA (only sets if empty)
+  // remember return target when user clicks CTA (only sets if empty)
   function rememberReturnTo() {
     try {
       if (!sessionStorage.getItem("vmb:returnTo")) {
@@ -158,7 +150,8 @@ export default function Home() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`${getApiBase()}/api/stats`, {
+        // Same-origin: Next rewrites proxy /api/* to the Express API server.
+        const res = await fetch(`/api/stats`, {
           cache: "no-store",
           headers: { "Cache-Control": "no-store" },
         });
@@ -196,7 +189,7 @@ export default function Home() {
           {/* Desktop background */}
           <div className="absolute inset-0 hidden lg:block">
             <Image
-              src="/hero-desktop.webp" /* wide crop for desktop */
+              src="/hero-desktop.webp"
               alt=""
               priority
               fill
@@ -208,7 +201,7 @@ export default function Home() {
           {/* Mobile & tablet background */}
           <div className="absolute inset-0 lg:hidden">
             <Image
-              src="/hero-mobile.webp" /* tall crop for mobile/tablet */
+              src="/hero-mobile.webp"
               alt=""
               priority
               fill
@@ -218,9 +211,6 @@ export default function Home() {
           </div>
 
           <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            {/* NOTE: page-level header removed; global header from Layout is now used */}
-
-            {/* Mobile: copy in a white card; Desktop: overlay text */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center py-10 sm:py-16 lg:py-20 min-h-[60vh]">
               <div className="max-w-2xl">
                 <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6 lg:bg-transparent lg:p-0 lg:shadow-none">
@@ -240,7 +230,7 @@ export default function Home() {
 
                   {/* <div className="mt-6 sm:mt-8">
                     <Link
-                      href={user ? "/projects/new" : "/register"}
+                      href={user ? "/projects/new" : "/signup"}
                       className="inline-flex items-center justify-center rounded-xl px-5 py-3
                                  bg-indigo-600 text-white hover:bg-indigo-500 transition
                                  focus:outline-none focus:ring-2 focus:ring-indigo-400"
@@ -330,9 +320,7 @@ export default function Home() {
                     Step 1
                   </div>
                 </div>
-                <h3 className="mt-4 text-lg font-semibold">
-                  Post a Job
-                </h3>
+                <h3 className="mt-4 text-lg font-semibold">Post a Job</h3>
                 <p className="mt-2 text-sm text-zinc-600">
                   Add a quick brief (e.g. “bathroom refit in E4”). You’ll get a
                   unique invite link.

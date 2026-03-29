@@ -52,8 +52,8 @@ module.exports = (router, ctx) => {
       const result = await mysqlQuery(
         `
         INSERT INTO projects
-          (name, type, location, description, propertyType, bedrooms, status, createdAt, ownerUserId)
-        VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)
+          (name, type, location, description, propertyType, bedrooms, status, createdAt, updatedAt, ownerUserId)
+        VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
       `,
         [
           body.name,
@@ -63,8 +63,9 @@ module.exports = (router, ctx) => {
           body.propertyType,
           body.bedrooms,
           now,
+          now,
           uid,
-        ]
+        ],
       );
 
       const insertedId = result.insertId;

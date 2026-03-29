@@ -4,11 +4,29 @@
   "version": "1.0.0",
   "description": "Playwright E2E/API test framework for VetMyBuilder",
   "scripts": {
-    "test": "playwright test",
-    "test:headed": "playwright test --headed",
-    "test:ui": "playwright test --ui",
+    "test": "npm run test:ui && npm run test:api",
+
+    "test:api": "playwright test tests/api --project shard-1 --project shard-2 --project shard-3 --project shard-4",
+    "test:api:headed": "playwright test tests/api --headed --project shard-1 --project shard-2 --project shard-3 --project shard-4",
+
+    "test:ui": "playwright test -c playwright.ui.config.ts tests/ui",
+    "test:ui:headless": "PW_HEADLESS=1 playwright test -c playwright.ui.config.ts tests/ui",
+    "test:ui:headed": "PW_HEADLESS=0 playwright test -c playwright.ui.config.ts tests/ui",
+
+    "test:ui:desktop": "playwright test -c playwright.ui.config.ts tests/ui --project ui-desktop-chromium --project ui-desktop-firefox --project ui-desktop-webkit",
+    "test:ui:mobile": "playwright test -c playwright.ui.config.ts tests/ui --project ui-mobile-chromium-android --project ui-mobile-chromium-iphone --project ui-mobile-webkit-iphone",
+
+    "test:ui:chromium": "playwright test -c playwright.ui.config.ts tests/ui --project ui-desktop-chromium",
+    "test:ui:firefox": "playwright test -c playwright.ui.config.ts tests/ui --project ui-desktop-firefox",
+    "test:ui:webkit": "playwright test -c playwright.ui.config.ts tests/ui --project ui-desktop-webkit",
+
+    "test:ui:mobile:chromium": "playwright test -c playwright.ui.config.ts tests/ui --project ui-mobile-chromium-android",
+    "test:ui:mobile:webkit": "playwright test -c playwright.ui.config.ts tests/ui --project ui-mobile-webkit-iphone",
+
+    "dev:manual": "npm --prefix .. run dev:manual",
+
     "report": "playwright show-report",
-    "codegen": "playwright codegen"
+    "codegen": "playwright codegen http://localhost:3000"
   },
   "devDependencies": {
     "@playwright/test": "^1.47.2",

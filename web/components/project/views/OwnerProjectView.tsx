@@ -13,6 +13,7 @@ import { useApi } from "@/utils/api";
 import { FeaturedSimpleStrip } from "@/components/tradesmen/FeaturedSimpleCard";
 import { FeaturedTradesman } from "@/components/tradesmen/GoldTradesmanCard";
 import SpotlightStrip from "@/components/tradesmen/SpotlightStrip";
+import NextLink from "next/link";
 import { useRouter } from "next/router";
 import GetRecommendationsModal, {
   GetRecommendationsChannel,
@@ -116,12 +117,14 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
 
   // Load neighbourhood-shared flag from localStorage per project
   React.useEffect(() => {
-    if (!project?.id) return;
+    if (!project?.id || !project?.createdAt) return;
     if (typeof window === "undefined") return;
-    const key = `vmb_neighbourhood_shared_${project.id}`;
+
+    const key = `vmb_neighbourhood_shared_${project.id}_${project.createdAt}`;
     const val = window.localStorage.getItem(key);
+
     setHasSharedNeighbourhood(val === "1");
-  }, [project?.id]);
+  }, [project?.id, project?.createdAt]);
 
   // Load featured tradesmen for this project
   React.useEffect(() => {
@@ -188,7 +191,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
           // --- Verification fetch ---
           try {
             const { data } = await api.get(
-              `/api/recommendations/${recId}/verification`
+              `/api/recommendations/${recId}/verification`,
             );
             if (!cancelled && data?.verification) {
               verMap[recId] = data.verification as Verification;
@@ -205,7 +208,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
           } catch {
             photosMap[recId] = false;
           }
-        })
+        }),
       );
 
       if (!cancelled) {
@@ -243,7 +246,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
 
         setShortlistItems(items);
         setShortlistTotal(
-          typeof data?.total === "number" ? data.total : items.length
+          typeof data?.total === "number" ? data.total : items.length,
         );
       } catch {
         if (cancelled) return;
@@ -267,7 +270,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
   // Build list of work types for the estimator (primary type + "Additional work types")
   const additionalTypes = extractAdditionalTypes(project.description);
   const allTypes = [project.type, ...additionalTypes].filter((x): x is string =>
-    Boolean(x && x.trim())
+    Boolean(x && x.trim()),
   );
 
   const estimate = React.useMemo(
@@ -286,7 +289,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
       project.propertyType,
       project.bedrooms,
       project.description,
-    ]
+    ],
   );
 
   // Map API items into FeaturedSimpleStrip items
@@ -302,7 +305,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
             : null),
         onClick: () => router.push(`/tradesman/${t.builderId}`),
       })),
-    [featured, router]
+    [featured, router],
   );
 
   const handleShare = async (channel: GetRecommendationsChannel) => {
@@ -325,7 +328,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
 
     try {
       const { data } = await api.post(
-        `/api/v2/projects/${project.id}/magic-link`
+        `/api/v2/projects/${project.id}/magic-link`,
       );
 
       inviteUrl =
@@ -363,6 +366,38 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
   const shortlistData = shortlistItems.length ? shortlistItems : recs || [];
   const shortlistCount = shortlistItems.length ? shortlistTotal : recTotal;
 
+  // ===== Created vs Updated meta (robust for MySQL DATETIME strings) =====
+  const createdAtRaw = (project as any)?.createdAt;
+  const updatedAtRaw = (project as any)?.updatedAt;
+
+  const createdAtDate = createdAtRaw ? new Date(createdAtRaw) : null;
+  const updatedAtDate = updatedAtRaw ? new Date(updatedAtRaw) : null;
+
+  const createdOk =
+    createdAtDate instanceof Date && !Number.isNaN(createdAtDate.getTime());
+  const updatedOk =
+    updatedAtDate instanceof Date && !Number.isNaN(updatedAtDate.getTime());
+
+  const rawDifferent =
+    createdAtRaw != null &&
+    updatedAtRaw != null &&
+    String(updatedAtRaw) !== String(createdAtRaw);
+
+  const timeDifferent =
+    createdOk &&
+    updatedOk &&
+    updatedAtDate!.getTime() !== createdAtDate!.getTime();
+
+  const showUpdated = rawDifferent || timeDifferent;
+
+  const metaLabel = showUpdated ? "Updated" : "Created";
+  const metaDate = showUpdated ? updatedAtDate : createdAtDate;
+
+  const metaText =
+    metaDate && !Number.isNaN(metaDate.getTime())
+      ? metaDate.toLocaleDateString("en-GB")
+      : "";
+
   return (
     <>
       <GetRecommendationsModal
@@ -399,14 +434,14 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
                 ← Back
               </a>
               <span className="text-xs text-slate-400">
-                Created {new Date(project.createdAt).toLocaleDateString()}
+                {metaLabel} {metaText}
               </span>
             </div>
             <h1 className="mt-1 flex items-center gap-2 text-2xl font-semibold tracking-tight">
               {headerTitle}
               <StatusBadge value={project.status} />
               {!isClosed && (
-                <a
+                <NextLink
                   className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-slate-600 shadow-sm hover:bg-slate-50"
                   href={`/projects/${project.id}/edit`}
                   aria-label="Edit project"
@@ -414,7 +449,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
                   data-testid="btn-edit"
                 >
                   <SquarePen size={16} />
-                </a>
+                </NextLink>
               )}
             </h1>
             <div
@@ -535,12 +570,16 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
                   <div className="relative group">
                     <button
                       type="button"
+                      data-testid="job-estimate-info"
                       className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                       aria-label="How this estimate is calculated"
                     >
                       <InfoIcon size={14} />
                     </button>
-                    <div className="pointer-events-none absolute right-0 z-10 mt-2 w-72 rounded-lg bg-slate-900 px-3 py-2 text-left text-[11px] leading-snug text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                    <div
+                      data-testid="job-estimate-tooltip"
+                      className="pointer-events-none absolute right-0 z-10 mt-2 w-72 rounded-lg bg-slate-900 px-3 py-2 text-left text-[11px] leading-snug text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                    >
                       <p className="font-semibold">
                         Job estimate based on your project details.
                       </p>
@@ -592,7 +631,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
             canVote={false}
             votingId={null}
             onVoteUp={async () => {}}
-            recHasPhotos={recHasPhotos} // ⭐ OPTION A now works properly
+            recHasPhotos={recHasPhotos}
             recVerification={recVerification}
             showOwnerShareCta={
               !isLive &&

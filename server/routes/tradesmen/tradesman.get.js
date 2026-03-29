@@ -271,7 +271,7 @@ module.exports = (router, ctx) => {
           stars:
             googleRating !== null && Number.isFinite(googleRating)
               ? googleRating
-              : 4.8,
+              : null,
         },
 
         score: Number(row.vmb_score ?? 0),

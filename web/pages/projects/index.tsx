@@ -14,6 +14,7 @@ import ProjectFilters, {
 } from "@/components/filters/ProjectFilters";
 import FavouriteTradesmenSection from "@/components/tradesmen/FavouriteTradesmenSection";
 import SafetyVerificationCard from "@/components/SafetyVerificationCard";
+import { Home, Heart } from "lucide-react";
 
 type Status = "pending" | "live" | "completed" | "archived";
 
@@ -61,7 +62,7 @@ function ProjectsGate() {
   const router = useRouter();
   const { loading: authLoading } = useAuth();
   const [status, setStatus] = useState<"checking" | "ok" | "redirect">(
-    "checking"
+    "checking",
   );
 
   useEffect(() => {
@@ -142,6 +143,104 @@ const hasGallery = (p: Project) => {
     0;
   return typeof v === "boolean" ? v : Number(v) > 0;
 };
+
+/* ===== Tab helper (shown above Safety card) ===== */
+
+const TAB_META: Partial<
+  Record<
+    OwnerTab,
+    {
+      title: string;
+      desc: string;
+      activeColor: string;
+      icon: "mine" | "completed" | "community" | "favourites";
+    }
+  >
+> = {
+  mine: {
+    title: "My Projects",
+    desc: "Live and draft jobs you're currently running.",
+    activeColor: "#22c55e",
+    icon: "mine",
+  },
+  completed: {
+    title: "Completed",
+    desc: "Projects you've marked as completed",
+    activeColor: "#0ea5e9",
+    icon: "completed",
+  },
+  completedCommunity: {
+    title: "Community",
+    desc: "Completed projects shared by others in your area.",
+    activeColor: "#f97316",
+    icon: "community",
+  },
+  favourites: {
+    title: "Favourites",
+    desc: "Tradespeople you've saved.",
+    activeColor: "#6366f1",
+    icon: "favourites",
+  },
+};
+
+function ProjectsTabHelperBanner({ tab }: { tab: OwnerTab }) {
+  const meta = TAB_META[tab];
+  if (!meta) return null;
+
+  const badgeClass =
+    "mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/95 ring-1 ring-black/10";
+
+  return (
+    <section
+      aria-label="Projects tab helper"
+      data-testid="projects-tab-helper-inline"
+      className="mb-4"
+    >
+      <div
+        className="w-full rounded-2xl px-4 py-3 text-white shadow-sm"
+        style={{ backgroundColor: meta.activeColor }}
+      >
+        <div className="flex items-start gap-3">
+          <span className={badgeClass}>
+            {meta.icon === "mine" && (
+              <Home className="h-5 w-5" style={{ color: meta.activeColor }} />
+            )}
+
+            {meta.icon === "completed" && (
+              <span
+                className="text-base leading-none"
+                style={{ color: meta.activeColor }}
+              >
+                ✓
+              </span>
+            )}
+
+            {meta.icon === "community" && (
+              <span
+                className="text-base leading-none"
+                style={{ color: meta.activeColor }}
+              >
+                ★
+              </span>
+            )}
+
+            {meta.icon === "favourites" && (
+              // ✅ match the old helper look: white badge + red heart
+              <Heart className="h-5 w-5 text-rose-600" />
+            )}
+          </span>
+
+          <div className="min-w-0">
+            <div className="text-base sm:text-lg font-semibold leading-tight">
+              {meta.title} <span className="opacity-95">—</span>{" "}
+              <span className="font-medium opacity-95">{meta.desc}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 /* ===== Actual owner projects UI ===== */
 
@@ -303,7 +402,7 @@ function OwnerProjects() {
           fetchPage(page + 1);
         }
       },
-      { rootMargin: "200px" }
+      { rootMargin: "200px" },
     );
 
     io.observe(sentinelRef.current);
@@ -317,7 +416,7 @@ function OwnerProjects() {
   const { labels: trades } = useTradesmanLabels(
     isCompletedLikeView,
     isCompletedLikeView ? (items as any[]) || [] : [],
-    api
+    api,
   );
 
   const { typeOptions, statusOptions } = useMemo(() => {
@@ -328,7 +427,7 @@ function OwnerProjects() {
       if (p?.status) statuses.add(p.status);
     }
     const typeOptions = Array.from(types).sort((a, b) =>
-      a.localeCompare(b, undefined, { sensitivity: "base" })
+      a.localeCompare(b, undefined, { sensitivity: "base" }),
     );
     const orderMap: Record<Status, number> = {
       live: 0,
@@ -337,18 +436,10 @@ function OwnerProjects() {
       archived: 3,
     };
     const statusOptions = Array.from(statuses).sort(
-      (a, b) => orderMap[a] - orderMap[b]
+      (a, b) => orderMap[a] - orderMap[b],
     );
     return { typeOptions, statusOptions };
   }, [items]);
-
-  const toggleSort = (col: "name" | "createdAt") => {
-    if (sort === col) setOrder((o) => (o === "asc" ? "desc" : "asc"));
-    else {
-      setSort(col);
-      setOrder(col === "createdAt" ? "desc" : "asc");
-    }
-  };
 
   const SkeletonCard = () => (
     <div className="rounded-2xl border border-slate-200 p-3 animate-pulse">
@@ -369,6 +460,9 @@ function OwnerProjects() {
     >
       {/* top padding so content doesn’t crash into header */}
       <div className="pt-4" />
+
+      {/* helper banner sits ABOVE safety card */}
+      <ProjectsTabHelperBanner tab={tab} />
 
       {/* Safety & verification card at the top */}
       <section
@@ -412,13 +506,13 @@ function OwnerProjects() {
                   (p as any)._winnerId;
 
                 const fromServer = normalizeHookLabel(
-                  (p as any)._winnerTradesmanName
+                  (p as any)._winnerTradesmanName,
                 );
 
                 const fromHook = normalizeHookLabel(
                   (trades as any)?.[recId] ??
                     (trades as any)?.[String(recId)] ??
-                    (trades as any)?.[Number(recId)]
+                    (trades as any)?.[Number(recId)],
                 );
 
                 const tradesmanUid =

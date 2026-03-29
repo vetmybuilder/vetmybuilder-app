@@ -1,64 +1,146 @@
 import { test, expect } from "../../../src/fixtures";
-import Account from "../../../src/models/account";
-import { authedApiForUid } from "../../../src/api/client";
+import { authedApiForUid } from "../../../src/api/services/client";
+import { createAuthUser } from "../../../src/helpers/FirebaseSeed";
 
-test.describe("POST /api/account", () => {
-  test("user can update their own account", async ({ apiClient }) => {
-    const payload = Account.anAccount()
-      .withRandomDetails()
-      .withUsername("user_" + Date.now())
-      .toPayload();
-
-    const postRes = await apiClient.post("/api/account", payload);
-    expect(postRes.status()).toBe(200);
-    expect(await postRes.json()).toEqual({ ok: true });
-
-    const getRes = await apiClient.get("/api/account");
-    expect(getRes.status()).toBe(200);
-
-    const { user } = await getRes.json();
-
-    expect(user.firstName).toBe(payload.firstName);
-    expect(user.lastName).toBe(payload.lastName);
-    expect(user.username).toBe(payload.username);
-  });
-
-  test("cannot use a username that is already taken", async ({
-    apiClient,
+test.describe("Account APIs", () => {
+  test("POST /api/auth/signup creates/ensures a profile", async ({
     request,
     runtime,
   }) => {
-    const takenUsername = "taken_" + Date.now();
+    const baseUrl = runtime.apiBaseUrl;
+    const uid = `user-${Date.now()}`;
 
-    // User A claims the username
-    const aRes = await apiClient.post("/api/account", {
-      username: takenUsername,
+    const client = await authedApiForUid(request, baseUrl, uid);
+
+    const res = await client.post("/api/auth/signup", {
+      firstName: "Test",
+      lastName: "User",
+      username: `test_${Date.now()}`,
+      location: "London",
     });
-    expect(aRes.status()).toBe(200);
 
-    // User B: create a separate authed client
-    const otherUid = "test-user-b-" + Date.now();
-    const otherClient = await authedApiForUid(
+    expect(res.status()).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+  });
+
+  test("POST /api/account rejects empty values (required fields)", async ({
+    request,
+    runtime,
+  }) => {
+    const baseUrl = runtime.apiBaseUrl;
+    const uid = `user-required-${Date.now()}`;
+
+    const client = await authedApiForUid(request, baseUrl, uid);
+
+    // Ensure the user exists in the system first
+    const signup = await client.post("/api/auth/signup", {
+      firstName: "Test",
+      lastName: "User",
+      username: `req_${Date.now()}`,
+      location: "London",
+    });
+    expect(signup.status()).toBe(200);
+
+    const res = await client.post("/api/account", {
+      firstName: null,
+      lastName: null,
+      username: null,
+      location: "",
+    });
+
+    expect(res.status()).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "missing_required_fields",
+      message: "Please fill in all required fields.",
+      fieldErrors: {
+        firstName: "First name is required.",
+        lastName: "Last name is required.",
+        username: "Username is required.",
+        location: "Postcode or city is required.",
+      },
+    });
+  });
+
+  test("POST /api/account enforces username uniqueness", async ({
+    request,
+    runtime,
+  }) => {
+    const baseUrl = runtime.apiBaseUrl;
+    const takenUsername = `taken_${Date.now()}`;
+
+    const clientA = await authedApiForUid(
       request,
-      runtime.apiBaseUrl,
-      otherUid
+      baseUrl,
+      `user-a-${Date.now()}`,
+    );
+    const clientB = await authedApiForUid(
+      request,
+      baseUrl,
+      `user-b-${Date.now()}`,
     );
 
-    // Ensure User B exists by creating/updating their account first
-    const bUniqueUsername = "userb_" + Date.now();
-    const bSetupRes = await otherClient.post("/api/account", {
-      username: bUniqueUsername,
+    // Ensure both users exist
+    const aSignup = await clientA.post("/api/auth/signup", {
+      firstName: "Test",
+      lastName: "User",
+      username: `a_${Date.now()}`,
+      location: "London",
     });
-    expect(bSetupRes.status()).toBe(200);
+    expect(aSignup.status()).toBe(200);
 
-    // Now User B tries to claim User A's username
-    const res = await otherClient.post("/api/account", {
+    const bSignup = await clientB.post("/api/auth/signup", {
+      firstName: "Test",
+      lastName: "User",
+      username: `b_${Date.now()}`,
+      location: "London",
+    });
+    expect(bSignup.status()).toBe(200);
+
+    // A sets the username to the "taken" one (requires full payload now)
+    const aSet = await clientA.post("/api/account", {
+      firstName: "Test",
+      lastName: "User",
       username: takenUsername,
+      location: "London",
+    });
+    expect(aSet.status()).toBe(200);
+    expect(await aSet.json()).toEqual({ ok: true });
+
+    await clientA.waitForAccount({ username: takenUsername });
+
+    // B tries to use the same username
+    const bSet = await clientB.post("/api/account", {
+      firstName: "Test",
+      lastName: "User",
+      username: takenUsername,
+      location: "London",
     });
 
-    expect(res.status()).toBe(409);
-    expect(await res.json()).toEqual({
-      error: "That username is already taken.",
+    expect(bSet.status()).toBe(409);
+    expect(await bSet.json()).toEqual({
+      error: "username_taken",
+      message: "That username is already taken.",
+    });
+  });
+
+  test("email availability check rejects an existing email", async ({
+    request,
+    runtime,
+  }) => {
+    const baseUrl = runtime.apiBaseUrl;
+    const email = `existing+${Date.now()}@test.com`;
+    const password = "Passw0rd!";
+
+    await createAuthUser(email, password);
+
+    const res = await request.post(`${baseUrl}/api/auth/check-email`, {
+      data: { email },
+    });
+
+    expect(res.status()).toBe(200);
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      exists: true,
     });
   });
 });

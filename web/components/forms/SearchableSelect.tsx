@@ -9,6 +9,9 @@ type SearchableSelectProps = {
   options: string[];
   placeholder?: string;
   dataTestId?: string;
+
+  // NEW: renders native <select> when set
+  mode?: "search" | "select";
 };
 
 export default function SearchableSelect({
@@ -19,7 +22,51 @@ export default function SearchableSelect({
   options,
   placeholder = "Select...",
   dataTestId,
+  mode = "search",
 }: SearchableSelectProps) {
+  // -------------------------
+  // NATIVE SELECT MODE
+  // -------------------------
+  if (mode === "select") {
+    return (
+      <div className="flex flex-col gap-1 relative">
+        <label htmlFor={id} className="text-sm font-medium text-slate-700">
+          {label}
+        </label>
+
+        <div className="relative">
+          <select
+            id={id}
+            className="input w-full pr-10 appearance-none"
+            value={value ?? ""}
+            onChange={(e) => {
+              const next = e.target.value;
+              onChange(next ? next : null);
+            }}
+            data-testid={dataTestId}
+          >
+            <option value="" disabled>
+              {placeholder}
+            </option>
+
+            {options.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+
+          <span className="pointer-events-none absolute right-0 top-0 h-full px-3 flex items-center justify-center">
+            <ChevronDown className="h-4 w-4 text-slate-600" />
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // -------------------------
+  // SEARCH DROPDOWN MODE (existing)
+  // -------------------------
   const [query, setQuery] = React.useState<string>("");
   const [open, setOpen] = React.useState<boolean>(false);
 
