@@ -55,6 +55,7 @@ services:
         condition: service_healthy
     environment:
       NEXT_PUBLIC_API_BASE: "http://server-w0:3100"
+      NEXT_INTERNAL_API_BASE: "http://server-w0:3100"
       NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: "firebase:9099"
       NODE_ENV: development
     ports:
@@ -202,8 +203,95 @@ services:
        npx playwright test -c playwright.ui.config.ts tests/ui --shard=1/4"
     networks: [e2e]
 
-  # pw-ui-2, 3, 4 remain identical except server and shard number
-  # (your existing definitions are correct)
+  pw-ui-2:
+    build:
+      context: .
+      dockerfile: e2e-tests/Dockerfile
+    env_file: [./.env]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      web:
+        condition: service_started
+      server-w1:
+        condition: service_started
+    environment:
+      DOCKER: "1"
+      START_WEB_SERVER: "0"
+      PW_HEADLESS: "1"
+      PW_WORKERS: "1"
+      BASE_URL: "http://web:3000"
+      WEB_BASE_URL: "http://web:3000"
+      API_BASE_URL: "http://server-w1:3101"
+      TEST_DB_HOST: "mysql"
+      TEST_DB_PORT: "3306"
+      TEST_DB_USER: "root"
+      TEST_DB_PASSWORD: "root"
+    command: >
+      sh -lc
+      "node -e \"const net=require('net');const wait=(h,p)=>new Promise(r=>{const t=setInterval(()=>{const s=net.connect(p,h,()=>{clearInterval(t);s.end();r();});s.on('error',()=>{});},250)});(async()=>{await wait('web',3000);await wait('server-w1',3101);process.exit(0)})()\" &&
+       npx playwright test -c playwright.ui.config.ts tests/ui --shard=2/4"
+    networks: [e2e]
+
+  pw-ui-3:
+    build:
+      context: .
+      dockerfile: e2e-tests/Dockerfile
+    env_file: [./.env]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      web:
+        condition: service_started
+      server-w2:
+        condition: service_started
+    environment:
+      DOCKER: "1"
+      START_WEB_SERVER: "0"
+      PW_HEADLESS: "1"
+      PW_WORKERS: "1"
+      BASE_URL: "http://web:3000"
+      WEB_BASE_URL: "http://web:3000"
+      API_BASE_URL: "http://server-w2:3102"
+      TEST_DB_HOST: "mysql"
+      TEST_DB_PORT: "3306"
+      TEST_DB_USER: "root"
+      TEST_DB_PASSWORD: "root"
+    command: >
+      sh -lc
+      "node -e \"const net=require('net');const wait=(h,p)=>new Promise(r=>{const t=setInterval(()=>{const s=net.connect(p,h,()=>{clearInterval(t);s.end();r();});s.on('error',()=>{});},250)});(async()=>{await wait('web',3000);await wait('server-w2',3102);process.exit(0)})()\" &&
+       npx playwright test -c playwright.ui.config.ts tests/ui --shard=3/4"
+    networks: [e2e]
+
+  pw-ui-4:
+    build:
+      context: .
+      dockerfile: e2e-tests/Dockerfile
+    env_file: [./.env]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      web:
+        condition: service_started
+      server-w3:
+        condition: service_started
+    environment:
+      DOCKER: "1"
+      START_WEB_SERVER: "0"
+      PW_HEADLESS: "1"
+      PW_WORKERS: "1"
+      BASE_URL: "http://web:3000"
+      WEB_BASE_URL: "http://web:3000"
+      API_BASE_URL: "http://server-w3:3103"
+      TEST_DB_HOST: "mysql"
+      TEST_DB_PORT: "3306"
+      TEST_DB_USER: "root"
+      TEST_DB_PASSWORD: "root"
+    command: >
+      sh -lc
+      "node -e \"const net=require('net');const wait=(h,p)=>new Promise(r=>{const t=setInterval(()=>{const s=net.connect(p,h,()=>{clearInterval(t);s.end();r();});s.on('error',()=>{});},250)});(async()=>{await wait('web',3000);await wait('server-w3',3103);process.exit(0)})()\" &&
+       npx playwright test -c playwright.ui.config.ts tests/ui --shard=4/4"
+    networks: [e2e]
 
 networks:
   e2e:

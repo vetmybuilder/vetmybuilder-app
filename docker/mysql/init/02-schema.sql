@@ -299,7 +299,10 @@ CREATE TABLE tradesmen (
   -- NEW: Google Places enrichment (admin activate flow)
   google_place_id VARCHAR(255) DEFAULT NULL,
   google_rating DECIMAL(3,2) DEFAULT NULL,
-  google_reviews_count INT NOT NULL DEFAULT 0
+  google_reviews_count INT NOT NULL DEFAULT 0,
+
+  -- migration 028
+  profile_picture_url TEXT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX idx_tradesmen_service_areas ON tradesmen(service_areas);
@@ -947,7 +950,10 @@ CREATE TABLE tradesmen (
   -- NEW: Google Places enrichment (admin activate flow)
   google_place_id VARCHAR(255) DEFAULT NULL,
   google_rating DECIMAL(3,2) DEFAULT NULL,
-  google_reviews_count INT NOT NULL DEFAULT 0
+  google_reviews_count INT NOT NULL DEFAULT 0,
+
+  -- migration 028
+  profile_picture_url TEXT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX idx_tradesmen_service_areas ON tradesmen(service_areas);
@@ -1595,7 +1601,10 @@ CREATE TABLE tradesmen (
   -- NEW: Google Places enrichment (admin activate flow)
   google_place_id VARCHAR(255) DEFAULT NULL,
   google_rating DECIMAL(3,2) DEFAULT NULL,
-  google_reviews_count INT NOT NULL DEFAULT 0
+  google_reviews_count INT NOT NULL DEFAULT 0,
+
+  -- migration 028
+  profile_picture_url TEXT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX idx_tradesmen_service_areas ON tradesmen(service_areas);
@@ -2243,7 +2252,10 @@ CREATE TABLE tradesmen (
   -- NEW: Google Places enrichment (admin activate flow)
   google_place_id VARCHAR(255) DEFAULT NULL,
   google_rating DECIMAL(3,2) DEFAULT NULL,
-  google_reviews_count INT NOT NULL DEFAULT 0
+  google_reviews_count INT NOT NULL DEFAULT 0,
+
+  -- migration 028
+  profile_picture_url TEXT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX idx_tradesmen_service_areas ON tradesmen(service_areas);
