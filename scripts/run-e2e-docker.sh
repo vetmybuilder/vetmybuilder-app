@@ -13,7 +13,9 @@ docker compose -f "$COMPOSE_FILE" build "$@"
 
 echo "=== Starting infrastructure ==="
 docker compose -f "$COMPOSE_FILE" up -d \
-  mysql firebase web server-w0 server-w1 server-w2 server-w3
+  mysql firebase \
+  server-w0 server-w1 server-w2 server-w3 \
+  web-w0 web-w1 web-w2 web-w3
 
 echo "=== Starting test shards ==="
 docker compose -f "$COMPOSE_FILE" up -d "${SHARDS[@]}"
