@@ -322,12 +322,13 @@ services:
       server-w0:
         condition: service_healthy
       web-w0:
-        condition: service_started
+        condition: service_healthy
     environment:
       DOCKER: "1"
       START_WEB_SERVER: "0"
       PW_HEADLESS: "1"
       PW_WORKERS: "1"
+      PW_TIMEOUT: "120000"
       BASE_URL: "http://web-w0:3000"
       WEB_BASE_URL: "http://web-w0:3000"
       API_BASE_URL: "http://server-w0:3100"
@@ -353,12 +354,13 @@ services:
       server-w1:
         condition: service_healthy
       web-w1:
-        condition: service_started
+        condition: service_healthy
     environment:
       DOCKER: "1"
       START_WEB_SERVER: "0"
       PW_HEADLESS: "1"
       PW_WORKERS: "1"
+      PW_TIMEOUT: "120000"
       BASE_URL: "http://web-w1:3000"
       WEB_BASE_URL: "http://web-w1:3000"
       API_BASE_URL: "http://server-w1:3101"
@@ -384,12 +386,13 @@ services:
       server-w2:
         condition: service_healthy
       web-w2:
-        condition: service_started
+        condition: service_healthy
     environment:
       DOCKER: "1"
       START_WEB_SERVER: "0"
       PW_HEADLESS: "1"
       PW_WORKERS: "1"
+      PW_TIMEOUT: "120000"
       BASE_URL: "http://web-w2:3000"
       WEB_BASE_URL: "http://web-w2:3000"
       API_BASE_URL: "http://server-w2:3102"
@@ -415,12 +418,13 @@ services:
       server-w3:
         condition: service_healthy
       web-w3:
-        condition: service_started
+        condition: service_healthy
     environment:
       DOCKER: "1"
       START_WEB_SERVER: "0"
       PW_HEADLESS: "1"
       PW_WORKERS: "1"
+      PW_TIMEOUT: "120000"
       BASE_URL: "http://web-w3:3000"
       WEB_BASE_URL: "http://web-w3:3000"
       API_BASE_URL: "http://server-w3:3103"
