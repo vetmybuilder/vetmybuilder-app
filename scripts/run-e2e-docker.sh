@@ -12,13 +12,13 @@ echo "=== Building images ==="
 docker compose -f "$COMPOSE_FILE" build "$@"
 
 echo "=== Starting infrastructure ==="
-docker compose -f "$COMPOSE_FILE" up -d \
+docker compose -f "$COMPOSE_FILE" up -d --remove-orphans \
   mysql firebase \
   server-w0 server-w1 server-w2 server-w3 \
   web-w0 web-w1 web-w2 web-w3
 
 echo "=== Starting test shards ==="
-docker compose -f "$COMPOSE_FILE" up -d "${SHARDS[@]}"
+docker compose -f "$COMPOSE_FILE" up -d --remove-orphans "${SHARDS[@]}"
 
 echo "=== Waiting for all shards to complete ==="
 FAIL=0
