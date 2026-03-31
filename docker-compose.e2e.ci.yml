@@ -1,0 +1,151 @@
+# CI compose — one shard per GitHub Actions job.
+# PW_ARGS and PW_TIMEOUT are injected by the workflow (matrix strategy).
+name: vetmybuilder-e2e-ci
+
+services:
+  mysql:
+    image: mysql:8.0
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --sql-mode=""
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+    networks: [e2e]
+
+  firebase:
+    build:
+      context: .
+      dockerfile: Dockerfile.e2e
+    working_dir: /app
+    command: sh -lc "node scripts/dev-manual-firebase.js"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DOCKER: "1"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"const net=require('net');const s=net.connect(9099,'127.0.0.1');s.on('connect',()=>{s.end();process.exit(0)});s.on('error',()=>process.exit(1));setTimeout(()=>process.exit(1),2000);\"",
+        ]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+    networks: [e2e]
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.e2e
+    working_dir: /app
+    env_file:
+      - ./.env
+      - path: ./web/.env.local
+        required: false
+    command: sh -lc "TEST_TOTAL_SHARDS=1 TEST_SHARD=0 PORT=3100 TEST_ENV=e2e node scripts/dev-manual-server.js"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      firebase:
+        condition: service_healthy
+    environment:
+      DOCKER: "1"
+      TEST_ENV: "e2e"
+      SQLITE_ENABLED: "0"
+      FIREBASE_AUTH_EMULATOR_HOST: "firebase:9099"
+      NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: "firebase:9099"
+      MYSQL_HOST: "mysql"
+      MYSQL_PORT: "3306"
+      MYSQL_USER: "root"
+      MYSQL_PASSWORD: "root"
+      MYSQL_DATABASE: "vetmybuilder_test_s1_4_w0"
+    ports:
+      - "3100:3100"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"const http=require('http');const req=http.request({host:'127.0.0.1',port:3100,path:'/health',method:'GET'},res=>{process.exit(res.statusCode===200?0:1)});req.on('error',()=>process.exit(1));req.setTimeout(2000,()=>process.exit(1));req.end();\"",
+        ]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+    networks: [e2e]
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.e2e
+    working_dir: /app
+    env_file:
+      - path: ./web/.env.local
+        required: false
+    command: sh -lc "cd web && npx next dev -H 0.0.0.0 -p 3000"
+    restart: unless-stopped
+    depends_on:
+      firebase:
+        condition: service_healthy
+      server:
+        condition: service_healthy
+    environment:
+      NEXT_PUBLIC_API_BASE: "http://server:3100"
+      NEXT_INTERNAL_API_BASE: "http://server:3100"
+      NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: "firebase:9099"
+      NODE_ENV: development
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"const http=require('http');const req=http.request({host:'127.0.0.1',port:3000,path:'/',method:'GET'},res=>{process.exit(res.statusCode>=200&&res.statusCode<500?0:1)});req.on('error',()=>process.exit(1));req.setTimeout(5000,()=>process.exit(1));req.end();\"",
+        ]
+      interval: 5s
+      timeout: 6s
+      retries: 60
+    networks: [e2e]
+
+  pw-ui:
+    build:
+      context: .
+      dockerfile: e2e-tests/Dockerfile
+    env_file: [./.env]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      server:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    environment:
+      DOCKER: "1"
+      START_WEB_SERVER: "0"
+      PW_HEADLESS: "1"
+      PW_WORKERS: "1"
+      PW_TIMEOUT: "${PW_TIMEOUT:-120000}"
+      TEST_TOTAL_SHARDS: "1"
+      BASE_URL: "http://web:3000"
+      WEB_BASE_URL: "http://web:3000"
+      API_BASE_URL: "http://server:3100"
+      TEST_DB_HOST: "mysql"
+      TEST_DB_PORT: "3306"
+      TEST_DB_USER: "root"
+      TEST_DB_PASSWORD: "root"
+      TEST_DB_NAME: "vetmybuilder_test_s1_4_w0"
+      FIREBASE_AUTH_EMULATOR_HOST: "firebase:9099"
+    command: >
+      sh -lc
+      "npx playwright test -c playwright.ui.config.ts ${PW_ARGS}"
+    networks: [e2e]
+
+networks:
+  e2e:
+    driver: bridge
