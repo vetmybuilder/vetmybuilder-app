@@ -12,15 +12,13 @@ const { logger, withRequest } = require("./lib/logger");
 const express = require("express");
 const cors = require("cors");
 const admin = require("firebase-admin");
-const { initDb } = require("./lib/db");
 const { query: mysqlQuery } = require("./lib/mysql");
-const { runMigrations } = require("./lib/migrate");
 const { authMiddleware } = require("./lib/middleware");
 
 // Shared libs used by routes
 const { clientsByUser, sseSend } = require("./lib/sse");
 const { upload, UPLOAD_DIR } = require("./lib/uploads");
-const { extractLocationTokens, updateUserLocation } = require("./lib/location");
+const { extractLocationTokens } = require("./lib/location");
 const { RecSchema } = require("./lib/validation");
 const { cleanPhone } = require("./lib/phone");
 const { resolveFirebaseApiKey, PUBLIC_API_BASE } = require("./lib/config");
@@ -137,19 +135,7 @@ function optionalAuth(adminInstance) {
   };
 }
 
-/* -------------------- DB & health -------------------- */
-const db = initDb(process.env.DATABASE_URL || "./data/app.db");
-
-// Disable SQLite migrations unless explicitly enabled
-const ENABLE_MIGRATIONS = process.env.ENABLE_SQLITE_MIGRATIONS === "1";
-
-if (ENABLE_MIGRATIONS) {
-  logger.warn("⚠️ ENABLE_SQLITE_MIGRATIONS=1 → running legacy migrations");
-  if (runMigrations) runMigrations(db);
-} else {
-  logger.info("SQLite migrations disabled (MySQL mode)");
-}
-
+/* -------------------- Notify -------------------- */
 let notifyUsers = null;
 try {
   const mod = require("./lib/notify");
@@ -318,7 +304,6 @@ const touchUserMw = async (req, _res, next) => {
 };
 
 const router = buildRouter({
-  db,
   mysqlQuery,
   admin,
   auth,
@@ -333,7 +318,6 @@ const router = buildRouter({
   upload,
   UPLOAD_DIR,
   extractLocationTokens,
-  updateUserLocation,
   RecSchema,
   cleanPhone,
   resolveFirebaseApiKey,

@@ -8,7 +8,7 @@
 module.exports = (router, ctx) => {
   const {
     assertTestAccess,
-    db,
+    mysqlQuery,
     admin,
     extractLocationTokens,
     crypto = require("crypto"),
@@ -62,36 +62,35 @@ module.exports = (router, ctx) => {
       const now = new Date().toISOString();
       const t = extractLocationTokens(location);
 
-      db.prepare(
+      await mysqlQuery(
         `INSERT INTO users
            (uid, email, createdAt, firstName, lastName, username,
             locationRaw, postcode, postcodeSector, postcodeOutward, city)
-         VALUES
-           (@uid, @email, @createdAt, @firstName, @lastName, @username,
-            @raw, @full, @sector, @outward, @city)
-         ON CONFLICT(uid) DO UPDATE SET
-           email=excluded.email,
-           firstName=excluded.firstName,
-           lastName=excluded.lastName,
-           username=excluded.username,
-           locationRaw=excluded.locationRaw,
-           postcode=excluded.postcode,
-           postcodeSector=excluded.postcodeSector,
-           postcodeOutward=excluded.postcodeOutward,
-           city=excluded.city`
-      ).run({
-        uid,
-        email,
-        createdAt: now,
-        firstName: firstName ?? null,
-        lastName: lastName ?? null,
-        username: username ?? null,
-        raw: t.raw,
-        full: t.full,
-        sector: t.sector,
-        outward: t.outward,
-        city: t.city,
-      });
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           email=VALUES(email),
+           firstName=VALUES(firstName),
+           lastName=VALUES(lastName),
+           username=VALUES(username),
+           locationRaw=VALUES(locationRaw),
+           postcode=VALUES(postcode),
+           postcodeSector=VALUES(postcodeSector),
+           postcodeOutward=VALUES(postcodeOutward),
+           city=VALUES(city)`,
+        [
+          uid,
+          email,
+          now,
+          firstName ?? null,
+          lastName ?? null,
+          username ?? null,
+          t.raw,
+          t.full,
+          t.sector,
+          t.outward,
+          t.city,
+        ]
+      );
 
       res.status(201).json({
         ok: true,

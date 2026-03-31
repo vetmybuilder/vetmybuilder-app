@@ -9,7 +9,7 @@ module.exports = { requireTradesman, requireActiveTradesman, requireAdmin };
 const TAG = "[roles]";
 
 /* ============================================================
-   AUTO-LINK HELPERS (MySQL + SQLite)
+   AUTO-LINK HELPERS (MySQL)
    ============================================================ */
 
 async function tryAutoLinkLeadByEmail(ctx, uid, email) {
@@ -19,9 +19,8 @@ async function tryAutoLinkLeadByEmail(ctx, uid, email) {
     .toLowerCase();
   if (!uid || !em) return false;
 
-  const { mysqlQuery, db } = ctx;
+  const { mysqlQuery } = ctx;
 
-  /* ---------- MySQL path ---------- */
   if (mysqlQuery) {
     try {
       const rows = await mysqlQuery(
@@ -70,55 +69,6 @@ async function tryAutoLinkLeadByEmail(ctx, uid, email) {
     }
   }
 
-  /* ---------- SQLite fallback ---------- */
-  if (db && db.prepare) {
-    try {
-      const lead =
-        db
-          .prepare(
-            `
-            SELECT user_id
-              FROM tradesmen
-             WHERE user_id LIKE 'lead_%'
-               AND LOWER(COALESCE(email,'')) = ?
-             ORDER BY datetime(COALESCE(updated_at, created_at)) DESC
-             LIMIT 1
-          `,
-          )
-          .get(em) || null;
-
-      if (!lead) return false;
-
-      const tx = db.transaction(() => {
-        db.prepare(
-          `UPDATE tradesmen
-             SET user_id = ?, updated_at = datetime('now')
-           WHERE user_id = ?`,
-        ).run(uid, lead.user_id);
-
-        db.prepare(
-          `INSERT INTO user_roles (uid, role)
-             VALUES (?, 'tradesman')
-           ON CONFLICT(uid) DO UPDATE SET role='tradesman'`,
-        ).run(uid);
-      });
-      tx();
-
-      log.info(`${TAG} auto-linked tradesman (SQLite)`, {
-        from: lead.user_id,
-        to: uid,
-        email: em,
-      });
-
-      return true;
-    } catch (e) {
-      log.warn(`${TAG} tryAutoLinkLeadByEmail SQLite error`, {
-        error: e?.message || e,
-      });
-      return false;
-    }
-  }
-
   return false;
 }
 
@@ -128,9 +78,8 @@ async function tryAutoLinkLeadByEmail(ctx, uid, email) {
 
 async function loadRoleAndTradesman(ctx, uid, emailOpt) {
   const log = ctx.log || console;
-  const { mysqlQuery, db } = ctx;
+  const { mysqlQuery } = ctx;
 
-  /* ---------- MySQL path ---------- */
   if (mysqlQuery) {
     let roleRow = null;
     let tRow = null;
@@ -188,42 +137,6 @@ async function loadRoleAndTradesman(ctx, uid, emailOpt) {
         } catch {
           tRow = null;
         }
-      }
-    }
-
-    const role = String(roleRow?.role || "user").toLowerCase();
-    return { role, tradesman: tRow };
-  }
-
-  /* ---------- SQLite fallback ---------- */
-  if (db && db.prepare) {
-    const roleRow =
-      db.prepare(`SELECT role FROM user_roles WHERE uid=?`).get(uid) || null;
-
-    let tRow =
-      db
-        .prepare(
-          `SELECT user_id, company_name, status, subscription_status,
-                  contact_credits, trade_types, service_areas, email,
-                  created_at, updated_at
-             FROM tradesmen
-            WHERE user_id = ?`,
-        )
-        .get(uid) || null;
-
-    if (!tRow && emailOpt) {
-      const linked = await tryAutoLinkLeadByEmail(ctx, uid, emailOpt);
-      if (linked) {
-        tRow =
-          db
-            .prepare(
-              `SELECT user_id, company_name, status, subscription_status,
-                      contact_credits, trade_types, service_areas, email,
-                      created_at, updated_at
-                 FROM tradesmen
-                WHERE user_id = ?`,
-            )
-            .get(uid) || null;
       }
     }
 

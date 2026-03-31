@@ -70,4 +70,11 @@ web/firebase-admin.json
 # Local migration scripts
 scripts/sqlite_to_mysql_schema.js
 
+# Simulation state
+.sim-state.json
+
+# Simulation photo fixtures (binary files — keep locally only)
+scripts/sim/fixtures/photos/
+scripts/sim/fixtures/builder-photos/
+
 .claude/

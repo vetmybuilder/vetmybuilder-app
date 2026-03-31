@@ -1,0 +1,98 @@
+[
+  {
+    "companyName": "Apex Build & Renovate Ltd",
+    "contactName": "David Kane",
+    "email": "sim-builder-001@sim.local",
+    "phone": "07700 900001",
+    "tradeTypes": ["Plumbing", "Electrical", "General Building", "Carpentry"],
+    "serviceAreas": ["E4", "E3", "E5", "N1"],
+    "companyNumber": "12345678",
+    "photoUrls": [
+      "https://picsum.photos/seed/apexbuild1/800/600",
+      "https://picsum.photos/seed/apexbuild2/800/600",
+      "https://picsum.photos/seed/apexbuild3/800/600",
+      "https://picsum.photos/seed/apexbuild4/800/600"
+    ],
+    "profilePictureUrl": "https://picsum.photos/seed/apexbuild1/800/600",
+    "supportingDocCount": 2,
+    "discountMin": 5,
+    "discountMax": 15,
+    "warrantyMonths": 24,
+    "website": "https://apexbuild.example.com"
+  },
+  {
+    "companyName": "Greenfield Property Services Ltd",
+    "contactName": "Mark Ellison",
+    "email": "sim-builder-002@sim.local",
+    "phone": "07700 900002",
+    "tradeTypes": ["Plumbing", "Electrical", "General Building"],
+    "serviceAreas": ["E4", "E3", "N1"],
+    "companyNumber": "87654321",
+    "photoUrls": [
+      "https://picsum.photos/seed/green1/800/600",
+      "https://picsum.photos/seed/green2/800/600",
+      "https://picsum.photos/seed/green3/800/600"
+    ],
+    "profilePictureUrl": "https://picsum.photos/seed/green1/800/600",
+    "discountMin": 5,
+    "discountMax": 10
+  },
+  {
+    "companyName": "Hartwell Contractors",
+    "contactName": "Tom Hartwell",
+    "email": "sim-builder-003@sim.local",
+    "phone": "07700 900003",
+    "tradeTypes": ["General Building", "Carpentry", "Painting & Decorating"],
+    "serviceAreas": ["E4", "E5", "N1"],
+    "photoUrls": [
+      "https://picsum.photos/seed/hart1/800/600",
+      "https://picsum.photos/seed/hart2/800/600",
+      "https://picsum.photos/seed/hart3/800/600"
+    ],
+    "profilePictureUrl": "https://picsum.photos/seed/hart1/800/600",
+    "discountMin": 10,
+    "discountMax": 20
+  },
+  {
+    "companyName": "Swift Fix Solutions",
+    "contactName": "Lee Watts",
+    "email": "sim-builder-004@sim.local",
+    "phone": "07700 900004",
+    "tradeTypes": ["Plumbing", "General Building", "Carpentry"],
+    "serviceAreas": ["E4", "E3"],
+    "photoUrls": [
+      "https://picsum.photos/seed/swift1/800/600",
+      "https://picsum.photos/seed/swift2/800/600",
+      "https://picsum.photos/seed/swift3/800/600"
+    ],
+    "profilePictureUrl": "https://picsum.photos/seed/swift1/800/600"
+  },
+  {
+    "companyName": "Budget Build Co",
+    "contactName": "Ryan Price",
+    "email": "sim-builder-005@sim.local",
+    "phone": "07700 900005",
+    "tradeTypes": ["General Building"],
+    "serviceAreas": ["E4"],
+    "photoUrls": [
+      "https://picsum.photos/seed/budget1/800/600"
+    ],
+    "profilePictureUrl": "https://picsum.photos/seed/budget1/800/600"
+  },
+  {
+    "companyName": "Elegant Building Services",
+    "contactName": "Marcin Rawski",
+    "email": "info@elegantbilding.co.uk",
+    "phone": "07700 900006",
+    "tradeTypes": ["General Building", "Plumbing", "Electrical", "Carpentry", "External Wall Insulation", "Kitchen Renovation", "Bathroom Renovation", "Home Renovation"],
+    "serviceAreas": ["E4", "E3", "E5", "N1"],
+    "companyNumber": "11223344",
+    "photoFiles": ["elegant1.jpeg", "elegant2.jpeg", "elegant3.jpeg", "elegant4.jpeg", "elegant5.jpeg"],
+    "profilePictureFile": "elegant1.jpeg",
+    "supportingDocCount": 2,
+    "discountMin": 10,
+    "discountMax": 20,
+    "warrantyMonths": 24,
+    "website": "https://elegantbuilding.example.com"
+  }
+]
