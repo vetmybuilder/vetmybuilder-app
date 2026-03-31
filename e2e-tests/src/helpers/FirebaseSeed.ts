@@ -20,9 +20,13 @@ function initAdmin(): void {
   }
 
   const projectId = getProjectId();
+  const credJson = process.env.FIREBASE_ADMIN_CREDENTIALS_JSON;
+  const credential = credJson
+    ? admin.credential.cert(JSON.parse(credJson))
+    : admin.credential.applicationDefault();
 
   admin.initializeApp({
-    credential: admin.credential.applicationDefault(),
+    credential,
     ...(projectId ? { projectId } : {}),
   });
 
