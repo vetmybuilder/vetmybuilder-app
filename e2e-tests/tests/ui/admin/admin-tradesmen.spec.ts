@@ -1,5 +1,6 @@
 import { test, expect } from "../../../src/ui.fixtures";
 import { seedUsers } from "../../../src/db/manage-db";
+import { wipeDatabase } from "../../../src/db/wipe";
 import { authedApiForUid } from "../../../src/api/services/client";
 import TradesmanApi from "../../../src/apiHelper/tradesman/TradesmanApi";
 import AdminApi from "../../../src/apiHelper/admin/AdminApi";
@@ -9,6 +10,10 @@ const ADMIN_UID = process.env.TEST_ADMIN_USER_UID!;
 
 test.describe("Admin tradesmen page", () => {
   test.beforeEach(async ({ runtime }) => {
+    // Playwright's fullyParallel scheduling can run these tests in a recycled
+    // worker context where the base fixture's beforeEach (which calls wipeDatabase)
+    // does not fire. Explicitly wipe here to guarantee a clean state.
+    await wipeDatabase(runtime.dbName);
     await seedUsers(runtime.dbName);
   });
 
@@ -41,7 +46,7 @@ test.describe("Admin tradesmen page", () => {
     await authHelper.loginAsUid(ADMIN_UID);
 
     await adminTradesmenPage.visit();
-    await expect(adminTradesmenPage.emptyMessage).toBeVisible();
+    await expect(adminTradesmenPage.emptyMessage).toBeVisible({ timeout: 15_000 });
   });
 
   test("Admin can see a newly registered (draft) tradesman in the list", async ({

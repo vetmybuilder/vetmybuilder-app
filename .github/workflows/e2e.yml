@@ -1,0 +1,77 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+# Cancel in-progress runs on the same branch when a new commit is pushed.
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: "E2E / shard-${{ matrix.shard.id }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false   # let all shards run even if one fails
+      matrix:
+        shard:
+          - id: 1
+            args: "tests/ui/account tests/ui/projects tests/ui/tradesman --project=ui-desktop-chromium --shard=1/2"
+            timeout: "120000"
+          - id: 2
+            args: "tests/ui/account tests/ui/projects tests/ui/tradesman --project=ui-desktop-chromium --shard=2/2"
+            timeout: "120000"
+          - id: 3
+            args: "tests/ui/account tests/ui/projects tests/ui/tradesman --project=ui-mobile-webkit-iphone --shard=1/2"
+            timeout: "180000"
+          - id: 4
+            args: "tests/ui/account tests/ui/projects tests/ui/tradesman --project=ui-mobile-webkit-iphone --shard=2/2"
+            timeout: "180000"
+          - id: 5
+            args: "tests/ui/admin --project=ui-desktop-chromium"
+            timeout: "120000"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Write secrets to the files the Docker images expect.
+      # E2E_ENV  = full contents of the root .env file
+      # E2E_WEB_ENV = full contents of web/.env.local
+      - name: Write .env
+        run: printf '%s' "$E2E_ENV" > .env
+        env:
+          E2E_ENV: ${{ secrets.E2E_ENV }}
+
+      - name: Write web/.env.local
+        run: printf '%s' "$E2E_WEB_ENV" > web/.env.local
+        env:
+          E2E_WEB_ENV: ${{ secrets.E2E_WEB_ENV }}
+
+      - name: Build Docker images
+        run: docker compose -f docker-compose.e2e.ci.yml build
+
+      - name: Run E2E shard ${{ matrix.shard.id }}
+        run: |
+          docker compose -f docker-compose.e2e.ci.yml up \
+            --exit-code-from pw-ui \
+            --abort-on-container-exit
+        env:
+          PW_ARGS: ${{ matrix.shard.args }}
+          PW_TIMEOUT: ${{ matrix.shard.timeout }}
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker-compose.e2e.ci.yml down --volumes --remove-orphans
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-shard-${{ matrix.shard.id }}
+          path: e2e-tests/test-results/
+          retention-days: 7

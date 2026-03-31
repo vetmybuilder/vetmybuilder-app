@@ -222,7 +222,11 @@ module.exports = (router, ctx) => {
       /* 2) Photos */
       const photoUrls = await loadPhotoUrlsFor(uid);
       const gallery = photoUrls.length ? photoUrls : makePlaceholders(uid);
-      const avatarUrl = photoUrls[0] || null;
+      const savedPicUrl = row.profile_picture_url || null;
+      const avatarUrl =
+        savedPicUrl && photoUrls.includes(savedPicUrl)
+          ? savedPicUrl
+          : photoUrls[0] || null;
 
       /* 3) Service areas */
       const serviceAreas = parseServiceAreas(row.service_areas);
@@ -288,6 +292,7 @@ module.exports = (router, ctx) => {
         tradeTypes: row.trade_types || null,
         createdAt: row.created_at || null,
         isFavourite,
+        profilePictureUrl: row.profile_picture_url || null,
 
         googlePlaceId,
         googleRating,

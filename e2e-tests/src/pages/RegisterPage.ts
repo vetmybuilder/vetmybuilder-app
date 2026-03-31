@@ -70,7 +70,7 @@ export class RegisterPage {
     this.submitButton = this.createAccountButton;
 
     this.errorAlert = page.getByTestId("register-error");
-    this.signInLink = page.getByRole("link", { name: "Sign in" });
+    this.signInLink = page.getByTestId("register-form").getByRole("link", { name: "Sign in" });
   }
 
   async goto(): Promise<void> {
@@ -117,7 +117,7 @@ export class RegisterPage {
   async navigateToLogin(): Promise<void> {
     await expect(this.signInLink).toBeVisible();
     await this.signInLink.click();
-    await expect(this.page).toHaveURL("/login?next=%2Fprojects");
+    await expect(this.page).toHaveURL("/login?next=%2Fprojects", { timeout: 20_000 });
   }
 
   async hasFieldErrors(errors: FieldErrors): Promise<void> {

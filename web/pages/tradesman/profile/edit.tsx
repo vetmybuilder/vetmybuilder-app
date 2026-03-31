@@ -48,6 +48,7 @@ type RawProfile = {
   ch_status?: string | null;
 
   photo_urls?: string[] | null;
+  profile_picture_url?: string | null;
 };
 
 type MeResponse = {
@@ -79,6 +80,7 @@ type FormState = {
   companyNumber: string | null;
   chStatus: string | null;
   existingPhotoUrls: string[];
+  profilePictureKey: string | null;
 };
 
 export default function TradesmanProfileEditPage() {
@@ -157,6 +159,13 @@ function Inner() {
           ? p.photo_urls
           : [];
 
+        const savedPic =
+          typeof p.profile_picture_url === "string"
+            ? p.profile_picture_url
+            : null;
+        const profilePictureKey =
+          savedPic && existingPhotoUrls.includes(savedPic) ? savedPic : null;
+
         const next: FormState = {
           companyName: p.company_name || "",
           contactName: p.contact_name || "",
@@ -174,6 +183,7 @@ function Inner() {
           companyNumber: p.company_number || null,
           chStatus: p.ch_status || null,
           existingPhotoUrls,
+          profilePictureKey,
         };
 
         setForm(next);
@@ -344,6 +354,7 @@ function Inner() {
 
       // upload new photos, merge with existing URLs
       let photoUrls: string[] = [...form.existingPhotoUrls];
+      const existingCount = form.existingPhotoUrls.length;
       try {
         if (form.workPhotos && form.workPhotos.length > 0) {
           const fd = new FormData();
@@ -370,6 +381,18 @@ function Inner() {
         // soft-fail: keep existing photos
       }
 
+      // Resolve profile picture key → URL
+      let profilePictureUrl: string | null = null;
+      if (form.profilePictureKey) {
+        if (form.profilePictureKey.startsWith("new-")) {
+          const idx = parseInt(form.profilePictureKey.slice(4), 10);
+          profilePictureUrl = photoUrls[existingCount + idx] ?? null;
+        } else {
+          // key is the URL itself (existing photo)
+          profilePictureUrl = form.profilePictureKey;
+        }
+      }
+
       const payload = {
         companyName: form.companyName,
         contactName: form.contactName,
@@ -388,6 +411,7 @@ function Inner() {
         offersDiscount: Math.max(form.discountMin || 0, form.discountMax || 0),
         companyNumber: form.companyNumber || null,
         chStatus: form.chStatus || null,
+        profilePictureUrl,
       };
 
       console.log("[profile/edit] PUT /api/tradesmen/me", {
@@ -562,6 +586,9 @@ function Inner() {
             onBack={() => setStep(1)}
             onNext={onNextFromStep2}
             err={err || undefined}
+            existingPhotoUrls={form.existingPhotoUrls}
+            profilePictureKey={form.profilePictureKey}
+            onProfilePictureKeyChange={(key) => set("profilePictureKey", key)}
           />
         )}
 

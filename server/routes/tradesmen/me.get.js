@@ -73,6 +73,7 @@ module.exports = (router, ctx) => {
           warranty_months,
           likes_count,
           wins_count,
+          profile_picture_url,
           created_at,
           updated_at
         FROM tradesmen
@@ -109,6 +110,13 @@ module.exports = (router, ctx) => {
           .map(String);
 
         profile.photo_urls = photo_urls;
+
+        // Compute avatar_url (respects profile_picture_url if still in photo set)
+        const savedPic = profile.profile_picture_url || null;
+        profile.avatar_url =
+          savedPic && photo_urls.includes(savedPic)
+            ? savedPic
+            : photo_urls[0] || null;
 
         // Keep photo_count consistent even if older data exists
         if (typeof profile.photo_count === "number") {

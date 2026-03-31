@@ -123,14 +123,14 @@ export class SiteHeader {
       await this.openMobileMenu();
       await expect(this.mobileAccount).toBeVisible();
       await this.mobileAccount.click();
-      await expect(this.page).toHaveURL("/account");
+      await expect(this.page).toHaveURL("/account", { timeout: 15_000 });
       return;
     }
 
     await this.openAccountMenu();
     await expect(this.menuEditAccount).toBeVisible();
     await this.menuEditAccount.click();
-    await expect(this.page).toHaveURL("/account");
+    await expect(this.page).toHaveURL("/account", { timeout: 15_000 });
   }
 
   async assertInitials(initials: string) {

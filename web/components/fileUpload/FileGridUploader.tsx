@@ -5,6 +5,9 @@ type Props = {
   onChange: (files: File[]) => void;
   maxFiles?: number;
   maxSizeMB?: number;
+  // Profile picture selection (optional)
+  profilePictureKey?: string | null;
+  onProfilePictureKeyChange?: (key: string | null) => void;
 };
 
 export default function FileGridUploader({
@@ -12,6 +15,8 @@ export default function FileGridUploader({
   onChange,
   maxFiles = 8,
   maxSizeMB = 10,
+  profilePictureKey,
+  onProfilePictureKeyChange,
 }: Props) {
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -112,29 +117,72 @@ export default function FileGridUploader({
 
       {previews.length > 0 && (
         <ul className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4">
-          {previews.map((p, i) => (
-            <li key={`${p.url}-${i}`} className="relative group">
-              <img
-                src={p.url}
-                alt={p.name}
-                className="h-28 w-full rounded-xl object-cover ring-1 ring-slate-200"
-              />
-              <button
-                type="button"
-                className="absolute right-1 top-1 rounded-full bg-white/90 px-2 py-1 text-xs shadow hover:bg-white"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeAt(i);
-                }}
-                aria-label={`Remove ${p.name}`}
-              >
-                ✕
-              </button>
-              <div className="mt-1 truncate text-xs text-slate-600" title={p.name}>
-                {p.name}
-              </div>
-            </li>
-          ))}
+          {previews.map((p, i) => {
+            const key = `new-${i}`;
+            const isSelected = onProfilePictureKeyChange
+              ? profilePictureKey === key
+              : false;
+            return (
+              <li key={`${p.url}-${i}`} className="relative group">
+                <div className="relative">
+                  {onProfilePictureKeyChange ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onProfilePictureKeyChange(isSelected ? null : key);
+                      }}
+                      className={`w-full rounded-xl overflow-hidden ring-2 transition-all ${
+                        isSelected
+                          ? "ring-indigo-500 ring-offset-1"
+                          : "ring-transparent hover:ring-slate-300"
+                      }`}
+                      aria-label={
+                        isSelected
+                          ? "Deselect as profile picture"
+                          : "Set as profile picture"
+                      }
+                      aria-pressed={isSelected}
+                    >
+                      <img
+                        src={p.url}
+                        alt={p.name}
+                        className="h-28 w-full object-cover"
+                      />
+                    </button>
+                  ) : (
+                    <img
+                      src={p.url}
+                      alt={p.name}
+                      className="h-28 w-full rounded-xl object-cover ring-1 ring-slate-200"
+                    />
+                  )}
+                  {isSelected && (
+                    <span className="pointer-events-none absolute top-1 left-1 rounded-full bg-indigo-500 px-2 py-0.5 text-xs font-medium text-white shadow">
+                      Profile
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    className="absolute right-1 top-1 rounded-full bg-white/90 px-2 py-1 text-xs shadow hover:bg-white"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeAt(i);
+                    }}
+                    aria-label={`Remove ${p.name}`}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div
+                  className="mt-1 truncate text-xs text-slate-600"
+                  title={p.name}
+                >
+                  {p.name}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

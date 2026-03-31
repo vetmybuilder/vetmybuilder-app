@@ -14,6 +14,7 @@ export type TradesmanInput = {
 
   // supported by PUT /api/tradesmen/me via body.photoUrls
   photoUrls?: string[];
+  profilePictureUrl?: string | null;
 };
 
 // POST /api/tradesmen/join (no auth)
@@ -55,6 +56,7 @@ export default class Tradesman {
   website?: string;
 
   photoUrls?: string[];
+  profilePictureUrl?: string | null;
 
   // join route fields
   websites: string[] = [];
@@ -87,6 +89,11 @@ export default class Tradesman {
 
   withCompanyName(companyName: string): Tradesman {
     this.companyName = companyName;
+    return this;
+  }
+
+  withProfilePictureUrl(url: string | null): Tradesman {
+    this.profilePictureUrl = url;
     return this;
   }
 
@@ -173,6 +180,8 @@ export default class Tradesman {
     if (this.website) out.website = this.website;
 
     if (this.photoUrls?.length) out.photoUrls = this.photoUrls;
+    if (this.profilePictureUrl !== undefined)
+      out.profilePictureUrl = this.profilePictureUrl;
 
     return out;
   }

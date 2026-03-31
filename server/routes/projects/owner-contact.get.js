@@ -142,8 +142,11 @@ module.exports = (router, ctx) => {
       const { planId, subscriptionStatus, verificationStatus } =
         await getPlanAndVerification(viewerUid);
 
+      const paymentsEnabled = process.env.ENABLE_PAYMENTS === "true";
+
       // --------------------------------------
       // 6. One-off unlock status (per project)
+      // Skip when payments are disabled — no unlock records needed.
       // --------------------------------------
       async function getUnlockStatus(projectId, uid) {
         try {
@@ -165,7 +168,9 @@ module.exports = (router, ctx) => {
         }
       }
 
-      const unlockStatus = await getUnlockStatus(projectId, viewerUid);
+      const unlockStatus = paymentsEnabled
+        ? await getUnlockStatus(projectId, viewerUid)
+        : null;
 
       // --------------------------------------
       // 7. Entitlement + state evaluation
@@ -225,38 +230,46 @@ module.exports = (router, ctx) => {
 
       // ---- 7b. Verification APPROVED: now check entitlements ----
 
-      // 🔑 GOLD (active) + verification → global unlock
-      if (planId === "gold" && subscriptionStatus === "active") {
+      if (!paymentsEnabled) {
+        // Payments disabled: any verified tradesman gets free access.
         unlocked = true;
         hasGlobalContact = true;
         state = "unlocked_global";
         errorCode = null;
-      }
-
-      // If not globally unlocked, fall back to one-off entitlement
-      if (!hasGlobalContact) {
-        if (unlockStatus === "approved" || unlockStatus === "active") {
+      } else {
+        // 🔑 GOLD (active) + verification → global unlock
+        if (planId === "gold" && subscriptionStatus === "active") {
           unlocked = true;
-          oneOffUnlock = true;
-          state = "unlocked_one_off";
+          hasGlobalContact = true;
+          state = "unlocked_global";
           errorCode = null;
-        } else if (unlockStatus === "pending_payment") {
-          state = "payment_required";
-          errorCode = "payment_required";
-          canRequestUnlock = false; // already in payment flow
-        } else if (unlockStatus === "pending_admin") {
-          state = "pending_admin_review";
-          errorCode = "pending_admin_review";
-          canRequestUnlock = false;
-        } else if (unlockStatus === "rejected") {
-          state = "unlock_rejected";
-          errorCode = "unlock_rejected";
-          canRequestUnlock = true; // let them request again
-        } else {
-          // No row or unknown status: allowed to start unlock flow
-          state = "no_entitlement";
-          errorCode = "not_unlocked";
-          canRequestUnlock = true;
+        }
+
+        // If not globally unlocked, fall back to one-off entitlement
+        if (!hasGlobalContact) {
+          if (unlockStatus === "approved" || unlockStatus === "active") {
+            unlocked = true;
+            oneOffUnlock = true;
+            state = "unlocked_one_off";
+            errorCode = null;
+          } else if (unlockStatus === "pending_payment") {
+            state = "payment_required";
+            errorCode = "payment_required";
+            canRequestUnlock = false; // already in payment flow
+          } else if (unlockStatus === "pending_admin") {
+            state = "pending_admin_review";
+            errorCode = "pending_admin_review";
+            canRequestUnlock = false;
+          } else if (unlockStatus === "rejected") {
+            state = "unlock_rejected";
+            errorCode = "unlock_rejected";
+            canRequestUnlock = true; // let them request again
+          } else {
+            // No row or unknown status: allowed to start unlock flow
+            state = "no_entitlement";
+            errorCode = "not_unlocked";
+            canRequestUnlock = true;
+          }
         }
       }
 

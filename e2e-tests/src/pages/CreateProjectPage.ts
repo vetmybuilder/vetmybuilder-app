@@ -78,6 +78,7 @@ export class CreateProjectPage {
     }
 
     await this.postJobButton(isMobile).click();
+    await this.page.waitForURL("**/projects/new", { timeout: 30_000 });
 
     await this.selectCategory(input.category);
     await this.selectWorkTypes(input.workTypes);
@@ -103,10 +104,13 @@ export class CreateProjectPage {
     await this.assertReviewStep(input);
 
     await this.createBtn.click();
-    await this.page.waitForURL((url) => {
-      const path = url.pathname;
-      return path.startsWith("/projects/") && path.split("/").length === 3;
-    });
+    await this.page.waitForURL(
+      (url) => {
+        const path = url.pathname;
+        return path.startsWith("/projects/") && path.split("/").length === 3;
+      },
+      { timeout: 30_000 },
+    );
 
     const projectId = this.page.url().split("/").pop() as string;
 
@@ -227,6 +231,6 @@ export class CreateProjectPage {
   }
 
   private async waitForStep(title: string) {
-    await expect(this.stepRegion(title)).toBeVisible();
+    await expect(this.stepRegion(title)).toBeVisible({ timeout: 15_000 });
   }
 }

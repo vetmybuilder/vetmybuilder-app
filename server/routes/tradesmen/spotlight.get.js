@@ -168,6 +168,11 @@ module.exports = (router, ctx) => {
       });
     }
 
+    // Payments disabled — spotlight is a paid feature, return empty immediately.
+    if (process.env.ENABLE_PAYMENTS !== "true") {
+      return res.json({ items: [], total: 0, page: 1, limit: 0 });
+    }
+
     try {
       const hasTradesmen = await tableExists("tradesmen");
       const hasOneoff = await tableExists("payments_oneoff");

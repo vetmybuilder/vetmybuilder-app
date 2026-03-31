@@ -39,7 +39,19 @@ export class LoginPage {
 
   async goto(next?: string) {
     const url = next ? `/login?next=${encodeURIComponent(next)}` : "/login";
-    await this.page.goto(url);
+    try {
+      await this.page.goto(url);
+    } catch (error) {
+      const message = String(error);
+      if (message.includes("interrupted by another navigation")) {
+        await this.page.waitForURL(/\/login/, { waitUntil: "domcontentloaded" });
+      } else if (message.includes("WebKit encountered an internal error")) {
+        // WebKit can crash on first navigation under resource pressure; retry once.
+        await this.page.goto(url);
+      } else {
+        throw error;
+      }
+    }
     await expect(this.loginPage).toBeVisible();
   }
 

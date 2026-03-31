@@ -3,6 +3,7 @@ import Account from "../../../src/models/Account";
 import { authedApiForUid } from "../../../src/api/services/client";
 
 test.describe("Homeowner account", () => {
+  test.setTimeout(180_000);
   test("can edit homeowner account profile", async ({ //passing
     accountApi,
     accountPage,

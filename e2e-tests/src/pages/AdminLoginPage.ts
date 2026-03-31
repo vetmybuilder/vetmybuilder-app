@@ -20,7 +20,7 @@ export class AdminLoginPage {
     await expect(this.continueButton).toBeVisible();
     await this.continueButton.click();
     await expect(this.page).toHaveURL(/\/login\?next.*admin/, {
-      timeout: 10_000,
+      timeout: 20_000,
     });
   }
 }

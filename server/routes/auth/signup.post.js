@@ -20,7 +20,7 @@ const { updateUserLocationMysql } = require("../../lib/location");
 const { logger, withRequest } = require("../../lib/logger");
 
 module.exports = (router, ctx) => {
-  const { auth, mysqlQuery } = ctx;
+  const { auth, mysqlQuery, admin } = ctx;
 
   router.post("/auth/signup", auth, async (req, res) => {
     const log = withRequest(req, logger).child({
@@ -28,7 +28,18 @@ module.exports = (router, ctx) => {
     });
 
     const uid = req.user.uid;
-    const email = req.user.email ?? null;
+    let email = req.user.email ?? null;
+
+    // Custom-token sign-in doesn't always carry email in the ID token.
+    // Fall back to Firebase Auth to fetch it so email-based lookups work.
+    if (!email && admin) {
+      try {
+        const userRecord = await admin.auth().getUser(uid);
+        email = userRecord.email ?? null;
+      } catch (_) {
+        // best-effort only
+      }
+    }
 
     const firstName = (req.body?.firstName || "").trim();
     const lastName = (req.body?.lastName || "").trim();
@@ -56,7 +67,7 @@ module.exports = (router, ctx) => {
         )
         VALUES (?, ?, ?, ?, ?, ?, NOW())
         ON DUPLICATE KEY UPDATE
-          email       = VALUES(email),
+          email       = COALESCE(VALUES(email), email),
           firstName   = VALUES(firstName),
           lastName    = VALUES(lastName),
           username    = COALESCE(VALUES(username), username),

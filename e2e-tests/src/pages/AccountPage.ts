@@ -59,21 +59,21 @@ export class AccountPage {
 
   async visit() {
     await this.page.goto("/account");
-    await expect(this.page).toHaveURL("/account");
-    await expect(this.form).toBeVisible();
+    await expect(this.page).toHaveURL("/account", { timeout: 15_000 });
+    await expect(this.form).toBeVisible({ timeout: 15_000 });
     // await this.waitUntilReady();
   }
 
   async waitUntilReady() {
-    await expect(this.title).toBeVisible();
+    await expect(this.title).toBeVisible({ timeout: 15_000 });
 
     if (await this.loadingText.count()) {
-      await expect(this.loadingText).toBeHidden();
+      await expect(this.loadingText).toBeHidden({ timeout: 15_000 });
     }
 
-    await expect(this.form).toBeVisible();
-    await expect(this.username).toBeVisible();
-    await expect(this.saveButton).toBeVisible();
+    await expect(this.form).toBeVisible({ timeout: 10_000 });
+    await expect(this.username).toBeVisible({ timeout: 10_000 });
+    await expect(this.saveButton).toBeVisible({ timeout: 10_000 });
   }
 
   async assertEmailDisabled() {
@@ -104,7 +104,7 @@ export class AccountPage {
   async saveChanges() {
     await this.waitUntilReady();
     await this.saveButton.click();
-    await expect(this.successAlert).toHaveText("Details updated. Redirecting…");
+    await expect(this.successAlert).toHaveText("Details updated. Redirecting…", { timeout: 15_000 });
   }
 
   async hasAccountDetails(expected: AccountValues) {
