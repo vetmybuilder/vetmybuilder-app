@@ -17,7 +17,7 @@ function buildRouter(ctx) {
   // Trades role guard
   ctx.requireTradesman = ctx.requireTradesman || requireTradesman(ctx);
 
-  ensureAdminTables(ctx.db);
+  ensureAdminTables();
 
   // SSE
   if (!ctx.clientsByUser || !ctx.sseSend) {
@@ -66,7 +66,7 @@ function buildRouter(ctx) {
   ctx.notifyUsers = ctx.notifyUsers || (() => {});
 
   const ensureCompanyVerificationTable = require("./boot/ensureCompanyVerificationTable");
-  ensureCompanyVerificationTable(ctx.db);
+  ensureCompanyVerificationTable();
 
   const {
     makeQueueCompanyVerification,

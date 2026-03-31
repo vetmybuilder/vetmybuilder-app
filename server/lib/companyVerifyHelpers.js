@@ -20,16 +20,15 @@ function _roughNameScore(aTitle, qName) {
 }
 
 /**
- * Factory that returns a queue function bound to the ctx (db/mysqlQuery + matchByName).
+ * Factory that returns a queue function bound to the ctx (mysqlQuery + matchByName).
  *
- * Usage (MySQL):
+ * Usage:
  *   const queueCompanyVerification = makeQueueCompanyVerification({ mysqlQuery, matchByName });
- *
- * Usage (legacy SQLite):
- *   const queueCompanyVerification = makeQueueCompanyVerification({ db, matchByName });
  */
-function makeQueueCompanyVerification({ db, mysqlQuery, matchByName }) {
-  const hasMysql = typeof mysqlQuery === "function";
+function makeQueueCompanyVerification({ mysqlQuery, matchByName }) {
+  if (typeof mysqlQuery !== "function") {
+    throw new Error("makeQueueCompanyVerification: mysqlQuery is required");
+  }
 
   return function queueCompanyVerification({ recId, name, locationHint }) {
     if (!recId || !name) return;
@@ -37,41 +36,19 @@ function makeQueueCompanyVerification({ db, mysqlQuery, matchByName }) {
     const nowIso = new Date().toISOString();
 
     // --- Initial "queued" insert ---
-    if (hasMysql) {
-      // MySQL: assume UNIQUE(recommendationId); ON DUPLICATE KEY => no-op
-      mysqlQuery(
-        `
-        INSERT INTO company_verifications (recommendationId, status, checkedAt)
-        VALUES (?, 'queued', ?)
-        ON DUPLICATE KEY UPDATE recommendationId = recommendationId
-        `,
-        [recId, nowIso]
-      ).catch((e) => {
-        console.warn(
-          "[companyVerifyHelpers] initial queue insert failed (mysql):",
-          e?.message || e
-        );
-      });
-    } else if (db && db.prepare) {
-      // SQLite / better-sqlite3
-      try {
-        db.prepare(
-          `INSERT INTO company_verifications (recommendationId, status, checkedAt)
-           VALUES (?, 'queued', ?)
-           ON CONFLICT(recommendationId) DO NOTHING`
-        ).run(recId, nowIso);
-      } catch (e) {
-        console.warn(
-          "[companyVerifyHelpers] initial queue insert failed (sqlite):",
-          e?.message || e
-        );
-      }
-    } else {
+    mysqlQuery(
+      `
+      INSERT INTO company_verifications (recommendationId, status, checkedAt)
+      VALUES (?, 'queued', ?)
+      ON DUPLICATE KEY UPDATE recommendationId = recommendationId
+      `,
+      [recId, nowIso]
+    ).catch((e) => {
       console.warn(
-        "[companyVerifyHelpers] no db/mysqlQuery provided; cannot queue verification"
+        "[companyVerifyHelpers] initial queue insert failed (mysql):",
+        e?.message || e
       );
-      return;
-    }
+    });
 
     // --- Async worker: run CH match + update row ---
     setImmediate(async () => {
@@ -79,23 +56,15 @@ function makeQueueCompanyVerification({ db, mysqlQuery, matchByName }) {
         // mark as running
         const nowRun = new Date().toISOString();
 
-        if (hasMysql) {
-          await mysqlQuery(
-            `
-            UPDATE company_verifications
-               SET status = 'running',
-                   checkedAt = ?
-             WHERE recommendationId = ?
-            `,
-            [nowRun, recId]
-          );
-        } else {
-          db.prepare(
-            `UPDATE company_verifications
-                SET status='running', checkedAt=?
-              WHERE recommendationId=?`
-          ).run(nowRun, recId);
-        }
+        await mysqlQuery(
+          `
+          UPDATE company_verifications
+             SET status = 'running',
+                 checkedAt = ?
+           WHERE recommendationId = ?
+          `,
+          [nowRun, recId]
+        );
 
         // call Companies House matcher
         const result = await matchByName({ name, locationHint });
@@ -112,71 +81,46 @@ function makeQueueCompanyVerification({ db, mysqlQuery, matchByName }) {
           recommendationId: recId,
         };
 
-        if (hasMysql) {
-          await mysqlQuery(
-            `
-            UPDATE company_verifications
-               SET status        = ?,
-                   companyNumber = ?,
-                   companyName   = ?,
-                   score         = ?,
-                   sicCodes      = ?,
-                   raw           = ?,
-                   errorMessage  = ?,
-                   checkedAt     = ?
-             WHERE recommendationId = ?
-            `,
-            [
-              payload.status,
-              payload.companyNumber,
-              payload.companyName,
-              payload.score,
-              payload.sicCodes,
-              payload.raw,
-              payload.errorMessage,
-              payload.checkedAt,
-              payload.recommendationId,
-            ]
-          );
-        } else {
-          db.prepare(
-            `UPDATE company_verifications
-                SET status=@status,
-                    companyNumber=@companyNumber,
-                    companyName=@companyName,
-                    score=@score,
-                    sicCodes=@sicCodes,
-                    raw=@raw,
-                    errorMessage=@errorMessage,
-                    checkedAt=@checkedAt
-              WHERE recommendationId=@recommendationId`
-          ).run(payload);
-        }
+        await mysqlQuery(
+          `
+          UPDATE company_verifications
+             SET status        = ?,
+                 companyNumber = ?,
+                 companyName   = ?,
+                 score         = ?,
+                 sicCodes      = ?,
+                 raw           = ?,
+                 errorMessage  = ?,
+                 checkedAt     = ?
+           WHERE recommendationId = ?
+          `,
+          [
+            payload.status,
+            payload.companyNumber,
+            payload.companyName,
+            payload.score,
+            payload.sicCodes,
+            payload.raw,
+            payload.errorMessage,
+            payload.checkedAt,
+            payload.recommendationId,
+          ]
+        );
       } catch (e) {
         const errMsg = String(e?.message || e);
         const errTime = new Date().toISOString();
 
         try {
-          if (hasMysql) {
-            await mysqlQuery(
-              `
-              UPDATE company_verifications
-                 SET status      = 'error',
-                     errorMessage = ?,
-                     checkedAt    = ?
-               WHERE recommendationId = ?
-              `,
-              [errMsg, errTime, recId]
-            );
-          } else {
-            db.prepare(
-              `UPDATE company_verifications
-                  SET status='error',
-                      errorMessage=?,
-                      checkedAt=?
-                WHERE recommendationId=?`
-            ).run(errMsg, errTime, recId);
-          }
+          await mysqlQuery(
+            `
+            UPDATE company_verifications
+               SET status      = 'error',
+                   errorMessage = ?,
+                   checkedAt    = ?
+             WHERE recommendationId = ?
+            `,
+            [errMsg, errTime, recId]
+          );
         } catch (inner) {
           console.error(
             "[companyVerifyHelpers] failed to mark error state:",
@@ -189,4 +133,3 @@ function makeQueueCompanyVerification({ db, mysqlQuery, matchByName }) {
 }
 
 module.exports = { _normName, _roughNameScore, makeQueueCompanyVerification };
-

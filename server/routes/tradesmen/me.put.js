@@ -1,57 +1,28 @@
 // server/routes/tradesmen/me.put.js
 
 module.exports = (router, ctx) => {
-  const { db, auth, mysqlQuery } = ctx;
+  const { auth, mysqlQuery } = ctx;
   const log = ctx.log || console;
   const TAG = "[tradesmen/me.put]";
 
-  if (!db && !mysqlQuery) {
-    throw new Error("db or mysqlQuery must be attached to ctx");
+  if (!mysqlQuery) {
+    throw new Error("mysqlQuery must be attached to ctx");
   }
 
-  const hasMysql = typeof mysqlQuery === "function";
-  const isBetter = !!db?.prepare;
-
   // ---------- helpers ----------
-  const queryAll = async (sql, params = []) => {
-    if (hasMysql) return mysqlQuery(sql, params);
-    if (isBetter) return db.prepare(sql).all(...[].concat(params));
-    const [rows] = await db.execute(sql, params);
-    return rows;
-  };
+  const queryAll = async (sql, params = []) => mysqlQuery(sql, params);
 
   const queryOne = async (sql, params = []) => {
     const rows = await queryAll(sql, params);
     return rows?.[0] || null;
   };
 
-  const run = async (sql, params = []) => {
-    if (hasMysql) return mysqlQuery(sql, params);
-    if (isBetter) return db.prepare(sql).run(...[].concat(params));
-    const [result] = await db.execute(sql, params);
-    return result;
-  };
+  const run = async (sql, params = []) => mysqlQuery(sql, params);
 
   function mysqlNow() {
     const d = new Date();
     return d.toISOString().slice(0, 19).replace("T", " ");
   }
-
-  const beginTx = () => {
-    if (!hasMysql && db?.exec) db.exec("BEGIN");
-  };
-
-  const commitTx = () => {
-    if (!hasMysql && db?.exec) db.exec("COMMIT");
-  };
-
-  const rollbackTx = () => {
-    if (!hasMysql && db?.exec) {
-      try {
-        db.exec("ROLLBACK");
-      } catch (_) {}
-    }
-  };
 
   // ---- CH + location helpers ----
   let matchByName = ctx.matchByName;
@@ -72,47 +43,23 @@ module.exports = (router, ctx) => {
     } catch {}
   }
 
-  // ---- ensure tradesmen_photos (MySQL/SQLite safe) ----
+  // ---- ensure tradesmen_photos ----
   let photosEnsured = false;
   async function ensurePhotosTable() {
     if (photosEnsured) return;
     photosEnsured = true;
     log.info(`${TAG} ensuring tradesmen_photos table...`);
 
-    if (hasMysql) {
-      await run(`
-        CREATE TABLE IF NOT EXISTS tradesmen_photos (
-          id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-          tradesman_user_id VARCHAR(255) NOT NULL,
-          url TEXT NOT NULL,
-          sort_order INT NOT NULL DEFAULT 0,
-          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          KEY idx_tradesmen_photos_user (tradesman_user_id, sort_order)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-      `);
-      return;
-    }
-
-    if (isBetter) {
-      db.prepare(
-        `
-        CREATE TABLE IF NOT EXISTS tradesmen_photos (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          tradesman_user_id TEXT NOT NULL,
-          url TEXT NOT NULL,
-          sort_order INTEGER NOT NULL DEFAULT 0,
-          created_at TEXT NOT NULL DEFAULT (datetime('now'))
-        )
-      `
-      ).run();
-
-      db.prepare(
-        `
-        CREATE INDEX IF NOT EXISTS idx_tradesmen_photos_user
-          ON tradesmen_photos(tradesman_user_id, sort_order)
-      `
-      ).run();
-    }
+    await run(`
+      CREATE TABLE IF NOT EXISTS tradesmen_photos (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        tradesman_user_id VARCHAR(255) NOT NULL,
+        url TEXT NOT NULL,
+        sort_order INT NOT NULL DEFAULT 0,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        KEY idx_tradesmen_photos_user (tradesman_user_id, sort_order)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
   }
 
   // ---- small utilities ----
@@ -265,7 +212,7 @@ module.exports = (router, ctx) => {
             locationHint: hint,
           });
 
-          chCheckedAt = hasMysql ? mysqlNow() : new Date().toISOString();
+          chCheckedAt = mysqlNow();
           const verdict = String(result?.verdict || "").toLowerCase();
 
           chStatus =
@@ -296,141 +243,72 @@ module.exports = (router, ctx) => {
       }
 
       // ---------- DB transaction ----------
-      beginTx();
       try {
-        // UPSERT main row…
-        if (hasMysql) {
-          await run(
-            `
-            INSERT INTO tradesmen (
-              user_id, company_name, contact_name, phone, email,
-              trade_types, service_areas,
-              web_verified, web_url, social_links_json,
-              offers_discount, warranty_months, photo_count, supporting_doc_count,
-              discount_min_percent, discount_max_percent,
-              company_number, ch_status, ch_name, ch_checked_at, ch_match_score,
-              vmb_score, vmb_badge, created_at, updated_at
-            ) VALUES (
-              ?, ?, ?, ?, ?,
-              ?, ?,
-              0, ?, ?,
-              ?, ?, ?, ?,
-              ?, ?,
-              ?, ?, ?, ?, ?,
-              0, 'bronze', NOW(), NOW()
-            )
-            ON DUPLICATE KEY UPDATE
-              company_name        = VALUES(company_name),
-              contact_name        = VALUES(contact_name),
-              phone               = VALUES(phone),
-              email               = VALUES(email),
-              trade_types         = VALUES(trade_types),
-              service_areas       = VALUES(service_areas),
-              web_url             = VALUES(web_url),
-              social_links_json   = VALUES(social_links_json),
-              offers_discount     = VALUES(offers_discount),
-              warranty_months     = VALUES(warranty_months),
-              photo_count         = VALUES(photo_count),
-              supporting_doc_count= VALUES(supporting_doc_count),
-              discount_min_percent= VALUES(discount_min_percent),
-              discount_max_percent= VALUES(discount_max_percent),
-              company_number      = COALESCE(VALUES(company_number), company_number),
-              ch_status           = COALESCE(VALUES(ch_status), ch_status),
-              ch_name             = COALESCE(VALUES(ch_name), ch_name),
-              ch_checked_at       = COALESCE(VALUES(ch_checked_at), ch_checked_at),
-              ch_match_score      = COALESCE(VALUES(ch_match_score), ch_match_score),
-              updated_at          = NOW()
-          `,
-            [
-              uid,
-              companyName,
-              contactName,
-              phone,
-              email,
-              tradeTypes,
-              serviceAreas,
-              website,
-              socialLinks,
-              offersDiscount,
-              warrantyMonths,
-              photoCount,
-              supportingDocCount,
-              discountMinPercent,
-              discountMaxPercent,
-              companyNumber,
-              chStatus,
-              chName,
-              chCheckedAt,
-              chMatchScore,
-            ]
-          );
-        } else {
-          // SQLite path
-          await run(
-            `
-            INSERT INTO tradesmen (
-              user_id, company_name, contact_name, phone, email,
-              trade_types, service_areas,
-              web_verified, web_url, social_links_json,
-              offers_discount, warranty_months, photo_count, supporting_doc_count,
-              discount_min_percent, discount_max_percent,
-              company_number, ch_status, ch_name, ch_checked_at, ch_match_score,
-              vmb_score, vmb_badge, created_at, updated_at
-            ) VALUES (
-              ?, ?, ?, ?, ?,
-              ?, ?,
-              0, ?, ?,
-              ?, ?, ?, ?,
-              ?, ?,
-              ?, ?, ?, ?, ?,
-              0, 'bronze', datetime('now'), datetime('now')
-            )
-            ON CONFLICT(user_id) DO UPDATE SET
-              company_name        = excluded.company_name,
-              contact_name        = excluded.contact_name,
-              phone               = excluded.phone,
-              email               = excluded.email,
-              trade_types         = excluded.trade_types,
-              service_areas       = excluded.service_areas,
-              web_url             = excluded.web_url,
-              social_links_json   = excluded.social_links_json,
-              offers_discount     = excluded.offers_discount,
-              warranty_months     = excluded.warranty_months,
-              photo_count         = excluded.photo_count,
-              supporting_doc_count= excluded.supporting_doc_count,
-              discount_min_percent= excluded.discount_min_percent,
-              discount_max_percent= excluded.discount_max_percent,
-              company_number      = COALESCE(excluded.company_number, company_number),
-              ch_status           = COALESCE(excluded.ch_status, ch_status),
-              ch_name             = COALESCE(excluded.ch_name, ch_name),
-              ch_checked_at       = COALESCE(excluded.ch_checked_at, ch_checked_at),
-              ch_match_score      = COALESCE(excluded.ch_match_score, ch_match_score),
-              updated_at          = datetime('now')
-          `,
-            [
-              uid,
-              companyName,
-              contactName,
-              phone,
-              email,
-              tradeTypes,
-              serviceAreas,
-              website,
-              socialLinks,
-              offersDiscount,
-              warrantyMonths,
-              photoCount,
-              supportingDocCount,
-              discountMinPercent,
-              discountMaxPercent,
-              companyNumber,
-              chStatus,
-              chName,
-              chCheckedAt,
-              chMatchScore,
-            ]
-          );
-        }
+        // UPSERT main row
+        await run(
+          `
+          INSERT INTO tradesmen (
+            user_id, company_name, contact_name, phone, email,
+            trade_types, service_areas,
+            web_verified, web_url, social_links_json,
+            offers_discount, warranty_months, photo_count, supporting_doc_count,
+            discount_min_percent, discount_max_percent,
+            company_number, ch_status, ch_name, ch_checked_at, ch_match_score,
+            vmb_score, vmb_badge, created_at, updated_at
+          ) VALUES (
+            ?, ?, ?, ?, ?,
+            ?, ?,
+            0, ?, ?,
+            ?, ?, ?, ?,
+            ?, ?,
+            ?, ?, ?, ?, ?,
+            0, 'bronze', NOW(), NOW()
+          )
+          ON DUPLICATE KEY UPDATE
+            company_name        = VALUES(company_name),
+            contact_name        = VALUES(contact_name),
+            phone               = VALUES(phone),
+            email               = VALUES(email),
+            trade_types         = VALUES(trade_types),
+            service_areas       = VALUES(service_areas),
+            web_url             = VALUES(web_url),
+            social_links_json   = VALUES(social_links_json),
+            offers_discount     = VALUES(offers_discount),
+            warranty_months     = VALUES(warranty_months),
+            photo_count         = VALUES(photo_count),
+            supporting_doc_count= VALUES(supporting_doc_count),
+            discount_min_percent= VALUES(discount_min_percent),
+            discount_max_percent= VALUES(discount_max_percent),
+            company_number      = COALESCE(VALUES(company_number), company_number),
+            ch_status           = COALESCE(VALUES(ch_status), ch_status),
+            ch_name             = COALESCE(VALUES(ch_name), ch_name),
+            ch_checked_at       = COALESCE(VALUES(ch_checked_at), ch_checked_at),
+            ch_match_score      = COALESCE(VALUES(ch_match_score), ch_match_score),
+            updated_at          = NOW()
+        `,
+          [
+            uid,
+            companyName,
+            contactName,
+            phone,
+            email,
+            tradeTypes,
+            serviceAreas,
+            website,
+            socialLinks,
+            offersDiscount,
+            warrantyMonths,
+            photoCount,
+            supportingDocCount,
+            discountMinPercent,
+            discountMaxPercent,
+            companyNumber,
+            chStatus,
+            chName,
+            chCheckedAt,
+            chMatchScore,
+          ]
+        );
 
         log.info(`${TAG} upserted tradesmen row`, { uid });
 
@@ -478,27 +356,14 @@ module.exports = (router, ctx) => {
         );
         const { score, badge } = computeScore(row);
 
-        if (hasMysql) {
-          await run(
-            `
-            UPDATE tradesmen
-               SET vmb_score = ?, vmb_badge = ?, updated_at = NOW()
-             WHERE user_id = ?
-          `,
-            [score, badge, uid]
-          );
-        } else {
-          await run(
-            `
-            UPDATE tradesmen
-               SET vmb_score = ?, vmb_badge = ?, updated_at = datetime('now')
-             WHERE user_id = ?
-          `,
-            [score, badge, uid]
-          );
-        }
-
-        commitTx();
+        await run(
+          `
+          UPDATE tradesmen
+             SET vmb_score = ?, vmb_badge = ?, updated_at = NOW()
+           WHERE user_id = ?
+        `,
+          [score, badge, uid]
+        );
 
         log.info(`${TAG} saved successfully`, {
           uid,
@@ -515,7 +380,6 @@ module.exports = (router, ctx) => {
 
         return res.json({ ok: true, profile: finalRow });
       } catch (e) {
-        rollbackTx();
         log.error(`${TAG} db error`, {
           uid,
           error: e?.message || e,

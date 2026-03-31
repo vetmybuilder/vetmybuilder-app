@@ -8,33 +8,24 @@
 const { logger, withRequest } = require("../../lib/logger");
 
 module.exports = (router, ctx) => {
-  const { auth } = ctx;
-  const db = ctx.db;
-  const mysqlQuery = ctx.mysqlQuery;
-  if (!db && !mysqlQuery) {
-    throw new Error("db or mysqlQuery not attached to ctx");
+  const { auth, mysqlQuery } = ctx;
+  if (!mysqlQuery) {
+    throw new Error("mysqlQuery not attached to ctx");
   }
 
   const TAG = "admin.subscriptions.sweep";
 
-  const hasMy = typeof mysqlQuery === "function";
-
-  const all = async (sql, params = []) => {
-    if (hasMy) return (await mysqlQuery(sql, params)) || [];
-    return db.prepare(sql).all(...[].concat(params));
-  };
+  const all = async (sql, params = []) =>
+    (await mysqlQuery(sql, params)) || [];
 
   const get = async (sql, params = []) => {
     const rows = await all(sql, params);
     return rows?.[0] || null;
   };
 
-  const run = async (sql, params = []) => {
-    if (hasMy) return mysqlQuery(sql, params);
-    return db.prepare(sql).run(...[].concat(params));
-  };
+  const run = async (sql, params = []) => mysqlQuery(sql, params);
 
-  // ---- admin guard (DB agnostic) ----
+  // ---- admin guard ----
   const requireAdmin =
     ctx.requireAdmin ||
     (async (req, res, next) => {
@@ -92,39 +83,22 @@ module.exports = (router, ctx) => {
   async function ensureSchema() {
     if (schemaEnsured) return;
 
-    const sql = hasMy
-      ? `
-        CREATE TABLE IF NOT EXISTS subscriptions_history (
-          id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-          user_id VARCHAR(191) NOT NULL,
-          event VARCHAR(64) NOT NULL,
-          from_status VARCHAR(64),
-          to_status   VARCHAR(64),
-          from_plan   VARCHAR(64),
-          to_plan     VARCHAR(64),
-          purchased_plan VARCHAR(64),
-          actor VARCHAR(191),
-          reason TEXT,
-          at DATETIME NOT NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-      `
-      : `
-        CREATE TABLE IF NOT EXISTS subscriptions_history (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id TEXT NOT NULL,
-          event TEXT NOT NULL,
-          from_status TEXT,
-          to_status TEXT,
-          from_plan TEXT,
-          to_plan TEXT,
-          purchased_plan TEXT,
-          actor TEXT,
-          reason TEXT,
-          at TEXT NOT NULL
-        )
-      `;
+    await run(`
+      CREATE TABLE IF NOT EXISTS subscriptions_history (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        user_id VARCHAR(191) NOT NULL,
+        event VARCHAR(64) NOT NULL,
+        from_status VARCHAR(64),
+        to_status   VARCHAR(64),
+        from_plan   VARCHAR(64),
+        to_plan     VARCHAR(64),
+        purchased_plan VARCHAR(64),
+        actor VARCHAR(191),
+        reason TEXT,
+        at DATETIME NOT NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
 
-    await run(sql);
     schemaEnsured = true;
   }
 
