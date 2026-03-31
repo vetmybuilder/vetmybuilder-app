@@ -15,6 +15,7 @@ const PHOTOS = [
 const FILES_DIR = path.resolve(__dirname, "../../../src/files");
 
 // Mock the postcodes.io external API so LocationField works without network dependency
+// TODO: this doesnt not follow test design. i dont put functions in the spec
 async function mockPostcodesIo(page: any) {
   await page.route(/api\.postcodes\.io/, async (route: any) => {
     const url: string = route.request().url();
