@@ -70,4 +70,7 @@ web/firebase-admin.json
 # Local migration scripts
 scripts/sqlite_to_mysql_schema.js
 
+# Simulation state
+.sim-state.json
+
 .claude/
