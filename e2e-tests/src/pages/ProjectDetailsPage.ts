@@ -402,7 +402,9 @@ export class ProjectDetailsPage extends BasePage {
   }
 
   async hasProjectRecommendation(recommendation: Recommendation) {
-    await expect(this.shortlistCompanyName).toHaveText(recommendation.company);
+    await expect(this.shortlistCompanyName).toHaveText(
+      recommendation.company.toUpperCase(),
+    );
     await expect(this.shortlistComment).toHaveText(recommendation.comment);
     await expect(this.shortlistCompaniesHouseBadge).toBeVisible();
     await expect(this.shortlistCompaniesHouseBadgeText).toHaveText("Verified");
@@ -418,7 +420,7 @@ export class ProjectDetailsPage extends BasePage {
   async openProjectRecommendation(recommendation: Recommendation) {
     const recommendationCard = this.shortlistCompanyName
       .filter({
-        hasText: recommendation.company,
+        hasText: new RegExp(recommendation.company, "i"),
       })
       .first();
 
