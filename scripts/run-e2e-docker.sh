@@ -4,7 +4,7 @@
 set -euo pipefail
 
 COMPOSE_FILE="docker-compose.e2e.yml"
-SHARDS=(pw-ui-1 pw-ui-2 pw-ui-3 pw-ui-4)
+SHARDS=(pw-ui-1 pw-ui-2 pw-ui-3 pw-ui-4 pw-ui-5)
 
 cd "$(dirname "$0")/.."
 
@@ -17,8 +17,8 @@ echo "=== Starting infrastructure ==="
 # may be stale (e.g. missing columns added after the container was first created).
 docker compose -f "$COMPOSE_FILE" up -d --remove-orphans --force-recreate \
   mysql firebase \
-  server-w0 server-w1 server-w2 server-w3 \
-  web-w0 web-w1 web-w2 web-w3
+  server-w0 server-w1 server-w2 server-w3 server-w4 \
+  web-w0 web-w1 web-w2 web-w3 web-w4
 
 echo "=== Starting test shards ==="
 docker compose -f "$COMPOSE_FILE" up -d --remove-orphans "${SHARDS[@]}"
