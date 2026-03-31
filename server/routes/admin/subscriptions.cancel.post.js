@@ -10,41 +10,17 @@
 const { logger, withRequest } = require("../../lib/logger");
 
 module.exports = (router, ctx) => {
-  const { db, auth, mysqlQuery } = ctx;
-  if (!db && !mysqlQuery)
-    throw new Error("db or mysqlQuery not attached to ctx");
+  const { auth, mysqlQuery } = ctx;
+  if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
-  const hasMysql = typeof mysqlQuery === "function";
-  const isBetter = !!db?.prepare;
-
-  const queryAll = async (sql, params = []) => {
-    if (hasMysql) return mysqlQuery(sql, params);
-    if (isBetter) return db.prepare(sql).all(...[].concat(params));
-    const [rows] = await db.execute(sql, params);
-    return rows;
-  };
+  const queryAll = async (sql, params = []) => mysqlQuery(sql, params);
 
   const queryOne = async (sql, params = []) => {
     const rows = await queryAll(sql, params);
     return rows?.[0] || null;
   };
 
-  const run = async (sql, params = []) => {
-    if (hasMysql) return mysqlQuery(sql, params);
-    if (isBetter) return db.prepare(sql).run(...[].concat(params));
-    const [res] = await db.execute(sql, params);
-    return res;
-  };
-
-  const beginTx = () => {
-    if (!hasMysql && db?.exec) db.exec("BEGIN");
-  };
-  const commitTx = () => {
-    if (!hasMysql && db?.exec) db.exec("COMMIT");
-  };
-  const rollbackTx = () => {
-    if (!hasMysql && db?.exec) db.exec("ROLLBACK");
-  };
+  const run = async (sql, params = []) => mysqlQuery(sql, params);
 
   const requireAdmin =
     ctx.requireAdmin ||
@@ -90,39 +66,21 @@ module.exports = (router, ctx) => {
 
   async function ensureSchema(reqLog) {
     try {
-      if (hasMysql) {
-        await run(`
-          CREATE TABLE IF NOT EXISTS subscriptions_history (
-            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-            user_id VARCHAR(255) NOT NULL,
-            event VARCHAR(64) NOT NULL,
-            from_status VARCHAR(64),
-            to_status VARCHAR(64),
-            from_plan VARCHAR(64),
-            to_plan VARCHAR(64),
-            purchased_plan VARCHAR(64),
-            actor VARCHAR(255),
-            reason TEXT,
-            at DATETIME NOT NULL
-          )
-        `);
-      } else {
-        await run(`
-          CREATE TABLE IF NOT EXISTS subscriptions_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id TEXT NOT NULL,
-            event TEXT NOT NULL,
-            from_status TEXT,
-            to_status TEXT,
-            from_plan TEXT,
-            to_plan TEXT,
-            purchased_plan TEXT,
-            actor TEXT,
-            reason TEXT,
-            at TEXT NOT NULL
-          )
-        `);
-      }
+      await run(`
+        CREATE TABLE IF NOT EXISTS subscriptions_history (
+          id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+          user_id VARCHAR(255) NOT NULL,
+          event VARCHAR(64) NOT NULL,
+          from_status VARCHAR(64),
+          to_status VARCHAR(64),
+          from_plan VARCHAR(64),
+          to_plan VARCHAR(64),
+          purchased_plan VARCHAR(64),
+          actor VARCHAR(255),
+          reason TEXT,
+          at DATETIME NOT NULL
+        )
+      `);
     } catch (e) {
       reqLog.error({ err: e?.message }, "Failed ensureSchema");
     }
@@ -249,8 +207,6 @@ module.exports = (router, ctx) => {
     const now = mysqlNow();
 
     try {
-      beginTx();
-
       let payload = null;
 
       if (immediate) {
@@ -343,8 +299,6 @@ module.exports = (router, ctx) => {
         log.info({ payload }, "Period-end cancel processed");
       }
 
-      commitTx();
-
       try {
         ctx.sseSend?.(userId, {
           type: "plan.updated",
@@ -356,7 +310,6 @@ module.exports = (router, ctx) => {
 
       return res.json(payload);
     } catch (e) {
-      rollbackTx();
       log.error({ err: e?.message, stack: e?.stack }, "Cancel failed");
       return res.status(500).json({
         error: "internal_error",

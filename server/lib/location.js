@@ -74,27 +74,6 @@ function formatPostcode(input = "") {
   return str;
 }
 
-function updateUserLocation(db, uid, location) {
-  const t = extractLocationTokens(String(location ?? "").trim());
-  db.prepare(
-    `UPDATE users SET
-      locationRaw=@raw,
-      postcode=@full,
-      postcodeSector=@sector,
-      postcodeOutward=@outward,
-      city=@city
-     WHERE uid=@uid`
-  ).run({
-    uid,
-    raw: t.raw,
-    full: t.full,
-    sector: t.sector,
-    outward: t.outward,
-    city: t.city,
-  });
-}
-
-/** MySQL version */
 async function updateUserLocationMysql(mysqlQuery, uid, location) {
   const t = extractLocationTokens(String(location ?? "").trim());
 
@@ -112,7 +91,6 @@ async function updateUserLocationMysql(mysqlQuery, uid, location) {
 
 module.exports = {
   extractLocationTokens,
-  updateUserLocation,
   updateUserLocationMysql,
-  formatPostcode, // 👈 NEW EXPORT
+  formatPostcode,
 };

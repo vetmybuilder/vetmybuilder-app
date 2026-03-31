@@ -329,7 +329,7 @@ module.exports = (router, ctx) => {
             const ownerRow = ownerRows[0] || null;
 
             if (!ownerRow || String(ownerRow.ownerUserId) !== String(uid)) {
-              // Expect a UNIQUE(recommendationId,userId) index so IGNORE behaves like sqlite's INSERT OR IGNORE.
+              // Expect a UNIQUE(recommendationId,userId) index so INSERT IGNORE is idempotent.
               await mysqlQuery(
                 `INSERT IGNORE INTO recommendation_votes
                    (recommendationId, userId, value)
