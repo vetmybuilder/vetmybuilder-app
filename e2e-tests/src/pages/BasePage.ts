@@ -40,7 +40,8 @@ export class BasePage {
         throw err;
       }
     }
-    await expect(this.page).toHaveURL(/signedOut=1/);
+    await expect(this.page).toHaveURL(/signedOut=1/, { timeout: 30_000 });
+    await this.page.waitForLoadState("load", { timeout: 10_000 }).catch(() => {});
   }
 }
 

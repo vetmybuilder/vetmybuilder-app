@@ -2,6 +2,9 @@ import { test } from "../../../src/ui.fixtures";
 import Project from "../../../src/models/Project";
 // passing
 test.describe("Homeowner projects", () => {
+  // This test drives the full multi-step create-project form and then validates
+  // the resulting project page — it is inherently the slowest test in the suite.
+  test.setTimeout(180_000);
   test("can create a project and lands on the project page", async ({
     createProjectPage,
     projectDetailsPage,

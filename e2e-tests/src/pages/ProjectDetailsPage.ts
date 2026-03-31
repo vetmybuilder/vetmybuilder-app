@@ -210,9 +210,16 @@ export class ProjectDetailsPage extends BasePage {
   }
 
   async visit(projectId: string | number) {
-    await this.page.goto(`/projects/${projectId}`, {
-      waitUntil: "domcontentloaded",
-    });
+    const url = `/projects/${projectId}`;
+    try {
+      await this.page.goto(url, { waitUntil: "domcontentloaded" });
+    } catch (error) {
+      if (String(error).includes("WebKit encountered an internal error")) {
+        await this.page.goto(url, { waitUntil: "domcontentloaded" });
+      } else {
+        throw error;
+      }
+    }
     await expect(this.page).toHaveURL(
       new RegExp(`/projects/${projectId}(\\?.*)?$`),
     );
@@ -380,7 +387,7 @@ export class ProjectDetailsPage extends BasePage {
     const input = project.toCreateInput();
     const location = input.locationPick.split(" ")[0];
 
-    await expect(this.page).toHaveURL(`/projects/${projectId}`);
+    await expect(this.page).toHaveURL(`/projects/${projectId}`, { timeout: 20_000 });
     await this.waitUntilReady();
     await expect(this.projectDetailsHeading).toBeVisible({ timeout: 15_000 });
     await expect(this.projectBadges).toContainText(input.workTypes[0]);

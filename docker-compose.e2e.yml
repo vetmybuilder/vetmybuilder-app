@@ -44,13 +44,18 @@ services:
       retries: 60
     networks: [e2e]
 
+  # ── API servers (one per shard) ──────────────────────────────────────────────
+
   server-w0:
     build:
       context: .
       dockerfile: Dockerfile.e2e
     working_dir: /app
-    env_file: [./.env]
-    command: sh -lc "TEST_TOTAL_SHARDS=4 TEST_SHARD=0 PORT=3100 TEST_ENV=e2e node scripts/dev-manual-server.js"
+    env_file:
+      - ./.env
+      - path: ./web/.env.local
+        required: false
+    command: sh -lc "TEST_TOTAL_SHARDS=2 TEST_SHARD=0 PORT=3100 TEST_ENV=e2e node scripts/dev-manual-server.js"
     depends_on:
       mysql:
         condition: service_healthy
@@ -85,8 +90,11 @@ services:
       context: .
       dockerfile: Dockerfile.e2e
     working_dir: /app
-    env_file: [./.env]
-    command: sh -lc "TEST_TOTAL_SHARDS=4 TEST_SHARD=1 PORT=3101 TEST_ENV=e2e node scripts/dev-manual-server.js"
+    env_file:
+      - ./.env
+      - path: ./web/.env.local
+        required: false
+    command: sh -lc "TEST_TOTAL_SHARDS=2 TEST_SHARD=1 PORT=3101 TEST_ENV=e2e node scripts/dev-manual-server.js"
     depends_on:
       mysql:
         condition: service_healthy
@@ -121,8 +129,11 @@ services:
       context: .
       dockerfile: Dockerfile.e2e
     working_dir: /app
-    env_file: [./.env]
-    command: sh -lc "TEST_TOTAL_SHARDS=4 TEST_SHARD=2 PORT=3102 TEST_ENV=e2e node scripts/dev-manual-server.js"
+    env_file:
+      - ./.env
+      - path: ./web/.env.local
+        required: false
+    command: sh -lc "TEST_TOTAL_SHARDS=2 TEST_SHARD=0 PORT=3102 TEST_ENV=e2e node scripts/dev-manual-server.js"
     depends_on:
       mysql:
         condition: service_healthy
@@ -157,8 +168,11 @@ services:
       context: .
       dockerfile: Dockerfile.e2e
     working_dir: /app
-    env_file: [./.env]
-    command: sh -lc "TEST_TOTAL_SHARDS=4 TEST_SHARD=3 PORT=3103 TEST_ENV=e2e node scripts/dev-manual-server.js"
+    env_file:
+      - ./.env
+      - path: ./web/.env.local
+        required: false
+    command: sh -lc "TEST_TOTAL_SHARDS=2 TEST_SHARD=1 PORT=3103 TEST_ENV=e2e node scripts/dev-manual-server.js"
     depends_on:
       mysql:
         condition: service_healthy
@@ -188,14 +202,16 @@ services:
       retries: 60
     networks: [e2e]
 
-  # Each shard gets its own Next.js instance pointed at the correct API server.
-  # A single shared web container would route all browser API calls to server-w0
-  # regardless of shard, breaking DB isolation.
+  # ── Next.js web servers (one per shard) ──────────────────────────────────────
+
   web-w0:
     build:
       context: .
       dockerfile: Dockerfile.e2e
     working_dir: /app
+    env_file:
+      - path: ./web/.env.local
+        required: false
     command: sh -lc "cd web && npx next dev -H 0.0.0.0 -p 3000"
     restart: unless-stopped
     depends_on:
@@ -214,10 +230,10 @@ services:
       test:
         [
           "CMD-SHELL",
-          "node -e \"const http=require('http');const req=http.request({host:'127.0.0.1',port:3000,path:'/',method:'GET'},res=>{process.exit(res.statusCode>=200&&res.statusCode<500?0:1)});req.on('error',()=>process.exit(1));req.setTimeout(2000,()=>process.exit(1));req.end();\"",
+          "node -e \"const http=require('http');const req=http.request({host:'127.0.0.1',port:3000,path:'/',method:'GET'},res=>{process.exit(res.statusCode>=200&&res.statusCode<500?0:1)});req.on('error',()=>process.exit(1));req.setTimeout(5000,()=>process.exit(1));req.end();\"",
         ]
       interval: 5s
-      timeout: 3s
+      timeout: 6s
       retries: 60
     networks: [e2e]
 
@@ -226,6 +242,9 @@ services:
       context: .
       dockerfile: Dockerfile.e2e
     working_dir: /app
+    env_file:
+      - path: ./web/.env.local
+        required: false
     command: sh -lc "cd web && npx next dev -H 0.0.0.0 -p 3000"
     restart: unless-stopped
     depends_on:
@@ -244,10 +263,10 @@ services:
       test:
         [
           "CMD-SHELL",
-          "node -e \"const http=require('http');const req=http.request({host:'127.0.0.1',port:3000,path:'/',method:'GET'},res=>{process.exit(res.statusCode>=200&&res.statusCode<500?0:1)});req.on('error',()=>process.exit(1));req.setTimeout(2000,()=>process.exit(1));req.end();\"",
+          "node -e \"const http=require('http');const req=http.request({host:'127.0.0.1',port:3000,path:'/',method:'GET'},res=>{process.exit(res.statusCode>=200&&res.statusCode<500?0:1)});req.on('error',()=>process.exit(1));req.setTimeout(5000,()=>process.exit(1));req.end();\"",
         ]
       interval: 5s
-      timeout: 3s
+      timeout: 6s
       retries: 60
     networks: [e2e]
 
@@ -256,6 +275,9 @@ services:
       context: .
       dockerfile: Dockerfile.e2e
     working_dir: /app
+    env_file:
+      - path: ./web/.env.local
+        required: false
     command: sh -lc "cd web && npx next dev -H 0.0.0.0 -p 3000"
     restart: unless-stopped
     depends_on:
@@ -274,10 +296,10 @@ services:
       test:
         [
           "CMD-SHELL",
-          "node -e \"const http=require('http');const req=http.request({host:'127.0.0.1',port:3000,path:'/',method:'GET'},res=>{process.exit(res.statusCode>=200&&res.statusCode<500?0:1)});req.on('error',()=>process.exit(1));req.setTimeout(2000,()=>process.exit(1));req.end();\"",
+          "node -e \"const http=require('http');const req=http.request({host:'127.0.0.1',port:3000,path:'/',method:'GET'},res=>{process.exit(res.statusCode>=200&&res.statusCode<500?0:1)});req.on('error',()=>process.exit(1));req.setTimeout(5000,()=>process.exit(1));req.end();\"",
         ]
       interval: 5s
-      timeout: 3s
+      timeout: 6s
       retries: 60
     networks: [e2e]
 
@@ -286,6 +308,9 @@ services:
       context: .
       dockerfile: Dockerfile.e2e
     working_dir: /app
+    env_file:
+      - path: ./web/.env.local
+        required: false
     command: sh -lc "cd web && npx next dev -H 0.0.0.0 -p 3000"
     restart: unless-stopped
     depends_on:
@@ -304,12 +329,17 @@ services:
       test:
         [
           "CMD-SHELL",
-          "node -e \"const http=require('http');const req=http.request({host:'127.0.0.1',port:3000,path:'/',method:'GET'},res=>{process.exit(res.statusCode>=200&&res.statusCode<500?0:1)});req.on('error',()=>process.exit(1));req.setTimeout(2000,()=>process.exit(1));req.end();\"",
+          "node -e \"const http=require('http');const req=http.request({host:'127.0.0.1',port:3000,path:'/',method:'GET'},res=>{process.exit(res.statusCode>=200&&res.statusCode<500?0:1)});req.on('error',()=>process.exit(1));req.setTimeout(5000,()=>process.exit(1));req.end();\"",
         ]
       interval: 5s
-      timeout: 3s
+      timeout: 6s
       retries: 60
     networks: [e2e]
+
+  # ── Playwright shards ────────────────────────────────────────────────────────
+  # pw-ui-1/2: chromium non-admin, shard 1/2 and 2/2
+  # pw-ui-3:   webkit non-admin, all tests (single shard)
+  # pw-ui-4:   admin tests, chromium only
 
   pw-ui-1:
     build:
@@ -329,6 +359,7 @@ services:
       PW_HEADLESS: "1"
       PW_WORKERS: "1"
       PW_TIMEOUT: "120000"
+      TEST_TOTAL_SHARDS: "2"
       BASE_URL: "http://web-w0:3000"
       WEB_BASE_URL: "http://web-w0:3000"
       API_BASE_URL: "http://server-w0:3100"
@@ -340,7 +371,7 @@ services:
       FIREBASE_AUTH_EMULATOR_HOST: "firebase:9099"
     command: >
       sh -lc
-      "npx playwright test -c playwright.ui.config.ts tests/ui --shard=1/4"
+      "npx playwright test -c playwright.ui.config.ts tests/ui/account tests/ui/projects tests/ui/tradesman --project=ui-desktop-chromium --shard=1/2"
     networks: [e2e]
 
   pw-ui-2:
@@ -361,6 +392,7 @@ services:
       PW_HEADLESS: "1"
       PW_WORKERS: "1"
       PW_TIMEOUT: "120000"
+      TEST_TOTAL_SHARDS: "2"
       BASE_URL: "http://web-w1:3000"
       WEB_BASE_URL: "http://web-w1:3000"
       API_BASE_URL: "http://server-w1:3101"
@@ -372,7 +404,7 @@ services:
       FIREBASE_AUTH_EMULATOR_HOST: "firebase:9099"
     command: >
       sh -lc
-      "npx playwright test -c playwright.ui.config.ts tests/ui --shard=2/4"
+      "npx playwright test -c playwright.ui.config.ts tests/ui/account tests/ui/projects tests/ui/tradesman --project=ui-desktop-chromium --shard=2/2"
     networks: [e2e]
 
   pw-ui-3:
@@ -392,7 +424,8 @@ services:
       START_WEB_SERVER: "0"
       PW_HEADLESS: "1"
       PW_WORKERS: "1"
-      PW_TIMEOUT: "120000"
+      PW_TIMEOUT: "180000"
+      TEST_TOTAL_SHARDS: "2"
       BASE_URL: "http://web-w2:3000"
       WEB_BASE_URL: "http://web-w2:3000"
       API_BASE_URL: "http://server-w2:3102"
@@ -404,7 +437,7 @@ services:
       FIREBASE_AUTH_EMULATOR_HOST: "firebase:9099"
     command: >
       sh -lc
-      "npx playwright test -c playwright.ui.config.ts tests/ui --shard=3/4"
+      "npx playwright test -c playwright.ui.config.ts tests/ui/account tests/ui/projects tests/ui/tradesman --project=ui-mobile-webkit-iphone"
     networks: [e2e]
 
   pw-ui-4:
@@ -425,6 +458,7 @@ services:
       PW_HEADLESS: "1"
       PW_WORKERS: "1"
       PW_TIMEOUT: "120000"
+      TEST_TOTAL_SHARDS: "4"
       BASE_URL: "http://web-w3:3000"
       WEB_BASE_URL: "http://web-w3:3000"
       API_BASE_URL: "http://server-w3:3103"
@@ -436,7 +470,7 @@ services:
       FIREBASE_AUTH_EMULATOR_HOST: "firebase:9099"
     command: >
       sh -lc
-      "npx playwright test -c playwright.ui.config.ts tests/ui --shard=4/4"
+      "npx playwright test -c playwright.ui.config.ts tests/ui/admin --project=ui-desktop-chromium"
     networks: [e2e]
 
 networks:

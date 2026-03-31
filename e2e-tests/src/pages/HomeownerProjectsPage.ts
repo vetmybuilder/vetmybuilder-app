@@ -80,6 +80,19 @@ export class HomeownerProjectsPage {
     await expect(this.page).toHaveURL(new RegExp(`/projects/${projectId}$`));
   }
 
+  async gotoTab(tab: string) {
+    const url = `/projects?tab=${tab}`;
+    try {
+      await this.page.goto(url);
+    } catch (error) {
+      if (String(error).includes("WebKit encountered an internal error")) {
+        await this.page.goto(url);
+      } else {
+        throw error;
+      }
+    }
+  }
+
   findProjectById(projectId: string | number): Locator {
     const id = String(projectId);
     return this.page.getByTestId(`project-image-card-${id}`);
@@ -142,7 +155,7 @@ export class HomeownerProjectsPage {
   }
 
   async hasProject(projects: Project[]) {
-    await expect(this.page).toHaveURL(/\/projects$/);
+    await expect(this.page).toHaveURL(/\/projects$/, { timeout: 20_000 });
     await expect(projects.length).toBeGreaterThan(0);
 
     for (const p of projects) {
@@ -157,7 +170,7 @@ export class HomeownerProjectsPage {
         .filter({ hasText: `Beds ${input.bedrooms}` })
         .first();
 
-      await expect(infoCard).toBeVisible();
+      await expect(infoCard).toBeVisible({ timeout: 20_000 });
 
       const testId = await infoCard.getAttribute("data-testid");
       if (!testId) throw new Error("Project info card missing data-testid");

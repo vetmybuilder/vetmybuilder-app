@@ -118,7 +118,7 @@ test.describe("Projects list tabs", () => {
     // before navigating to the community tab.
     await loginPage.loginExpectSuccess(neighbour.email!, neighbour.password!);
 
-    await homeownerProjectsPage.page.goto("/projects?tab=completedCommunity");
+    await homeownerProjectsPage.gotoTab("completedCommunity");
     await homeownerProjectsPage.hasCompletedCard(project.id);
   });
 });

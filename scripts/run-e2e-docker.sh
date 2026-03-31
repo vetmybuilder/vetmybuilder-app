@@ -12,7 +12,10 @@ echo "=== Building images ==="
 docker compose -f "$COMPOSE_FILE" build "$@"
 
 echo "=== Starting infrastructure ==="
-docker compose -f "$COMPOSE_FILE" up -d --remove-orphans \
+# --force-recreate on mysql ensures init scripts re-run with the latest schema.
+# Without this, Docker reuses an existing mysql container whose data/schema
+# may be stale (e.g. missing columns added after the container was first created).
+docker compose -f "$COMPOSE_FILE" up -d --remove-orphans --force-recreate \
   mysql firebase \
   server-w0 server-w1 server-w2 server-w3 \
   web-w0 web-w1 web-w2 web-w3
@@ -23,7 +26,8 @@ docker compose -f "$COMPOSE_FILE" up -d --remove-orphans "${SHARDS[@]}"
 echo "=== Waiting for all shards to complete ==="
 FAIL=0
 for shard in "${SHARDS[@]}"; do
-  container_id=$(docker compose -f "$COMPOSE_FILE" ps -q "$shard")
+  # Use --all so we find the container even if it has already exited.
+  container_id=$(docker compose -f "$COMPOSE_FILE" ps --all -q "$shard")
   if [ -z "$container_id" ]; then
     echo "ERROR: could not find container for $shard"
     FAIL=1
