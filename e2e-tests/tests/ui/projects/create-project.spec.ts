@@ -4,13 +4,14 @@ import Project from "../../../src/models/Project";
 test.describe("Homeowner projects", () => {
   // This test drives the full multi-step create-project form and then validates
   // the resulting project page — it is inherently the slowest test in the suite.
-  test.setTimeout(180_000);
   test("can create a project and lands on the project page", async ({
     createProjectPage,
     projectDetailsPage,
     homeownerProjectsPage,
   }, testInfo) => {
     const isMobile = testInfo.project.name.startsWith("ui-mobile-");
+    // webkit is ~50% slower than chromium under Docker resource pressure
+    test.setTimeout(isMobile ? 240_000 : 180_000);
 
     const project = Project.aProject().withRandomDetails({
       category: "Appliances",
