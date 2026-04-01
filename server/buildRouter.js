@@ -95,6 +95,7 @@ function buildRouter(ctx) {
   require("./routes/__test__/auth/custom-token.post")(router, ctx);
   require("./routes/__test__/auth/id-token.post")(router, ctx);
   require("./routes/__test__/auth/session.post")(router, ctx);
+  require("./routes/__test__/sim/live-projects.get")(router, ctx);
 
   // ---------------- auth ----------------
   require("./routes/auth/check-email.post")(router, ctx);

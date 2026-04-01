@@ -7,8 +7,50 @@ const { mintToken, apiGet, apiPost, apiPut } = require("./api-client");
 const { readState, writeState } = require("./state");
 const builders = require("./fixtures/builders.json");
 const neighbours = require("./fixtures/neighbours.json");
+const completedProjectFixtures = require("./fixtures/completed-projects.json");
+const comments = require("./fixtures/comments.json");
 
 const BUILDER_PHOTOS_DIR = path.resolve(__dirname, "fixtures/builder-photos");
+
+function randomComment() {
+  return comments[Math.floor(Math.random() * comments.length)];
+}
+
+/** Pick up to `max` photos from BUILDER_PHOTOS_DIR, skipping any that don't exist. */
+function pickClosurePhotos(max) {
+  if (!fs.existsSync(BUILDER_PHOTOS_DIR)) return [];
+  return fs
+    .readdirSync(BUILDER_PHOTOS_DIR)
+    .filter((f) => /\.(jpe?g|png|webp)$/i.test(f))
+    .slice(0, max)
+    .map((f) => path.join(BUILDER_PHOTOS_DIR, f));
+}
+
+async function uploadClosurePhotos(projectId, ownerUid, count) {
+  const files = pickClosurePhotos(count);
+  if (!files.length) return;
+
+  const form = new FormData();
+  for (const filePath of files) {
+    const filename = path.basename(filePath);
+    const ext = path.extname(filename).toLowerCase();
+    const mime =
+      ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg";
+    form.append("photos", new Blob([fs.readFileSync(filePath)], { type: mime }), filename);
+  }
+
+  const token = await mintToken(ownerUid);
+  const res = await fetch(`${getApiBase()}/api/projects/${projectId}/close/photos`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Closure photo upload failed for project ${projectId}: ${res.status} ${body}`);
+  }
+}
 
 /**
  * Upload local photo files for a builder via POST /api/tradesmen/upload-photos.
@@ -16,6 +58,7 @@ const BUILDER_PHOTOS_DIR = path.resolve(__dirname, "fixtures/builder-photos");
  */
 async function uploadBuilderPhotos(uid, filenames) {
   const form = new FormData();
+  let fileCount = 0;
   for (const filename of filenames) {
     const filePath = path.join(BUILDER_PHOTOS_DIR, filename);
     if (!fs.existsSync(filePath)) {
@@ -26,7 +69,11 @@ async function uploadBuilderPhotos(uid, filenames) {
     const mime = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg";
     const blob = new Blob([fs.readFileSync(filePath)], { type: mime });
     form.append("photos", blob, filename);
+    fileCount++;
   }
+
+  // No local files found — caller should fall back to photoUrls
+  if (fileCount === 0) return [];
 
   const token = await mintToken(uid);
   const res = await fetch(`${getApiBase()}/api/tradesmen/upload-photos`, {
@@ -55,98 +102,147 @@ function assertGuards() {
     throw new Error("TEST_ADMIN_USER_UID must be set");
 }
 
+function dbConfig() {
+  return {
+    host: process.env.MYSQL_HOST || process.env.TEST_DB_HOST || "localhost",
+    port: Number(process.env.MYSQL_PORT || process.env.TEST_DB_PORT || 3306),
+    user: process.env.MYSQL_USER || process.env.TEST_DB_USER || "root",
+    password: process.env.MYSQL_PASSWORD || process.env.TEST_DB_PASSWORD || "",
+    database:
+      process.env.MYSQL_DATABASE ||
+      process.env.TEST_DB_NAME ||
+      "vetmybuilder_test_s1_4_w0",
+  };
+}
+
 async function seedBuilders(adminUid) {
   console.log("\n[seed] Seeding builders...");
+  const mysql2 = require("mysql2/promise");
 
   for (let i = 0; i < BOT_UIDS.builders.length; i++) {
     const uid = BOT_UIDS.builders[i];
     const profile = builders[i];
 
-    // Idempotency check — skip only if this UID already has an active tradesman profile
+    // Idempotency check — only skip join+activate if already an active tradesman.
+    // Always re-run the profile patch (step 4) so fixtures stay in sync.
     const check = await apiGet("/api/tradesmen/me", uid);
-    if (check.ok) {
-      const checkData = await check.json().catch(() => ({}));
-      if (checkData.role === "tradesman" && checkData.profile) {
-        console.log(`  ✓ ${uid} already exists — skipping`);
-        continue;
+    const checkData = check.ok ? await check.json().catch(() => ({})) : {};
+    const alreadyActive = checkData.role === "tradesman" && !!checkData.profile;
+
+    if (!alreadyActive) {
+      // Step 1: Mint token to ensure the Firebase auth user exists in the emulator
+      await mintToken(uid);
+
+      // Step 2: Join as a lead (no auth required). This creates a lead_* row
+      // in the tradesmen table which the admin can then promote.
+      const joinRes = await apiPost("/api/tradesmen/join", profile);
+      if (!joinRes.ok && joinRes.status !== 201) {
+        const body = await joinRes.text().catch(() => "");
+        throw new Error(`join failed for ${uid}: ${joinRes.status} ${body}`);
       }
-    }
+      const joinData = await joinRes.json();
+      const leadId = joinData.id;
+      if (!leadId) throw new Error(`join returned no id for ${uid}`);
+      console.log(`  + ${uid} joined as lead ${leadId} (${profile.companyName})`);
 
-    // Step 1: Mint token to ensure the Firebase auth user exists in the emulator
-    await mintToken(uid);
-
-    // Step 2: Join as a lead (no auth required). This creates a lead_* row
-    // in the tradesmen table which the admin can then promote.
-    const joinRes = await apiPost("/api/tradesmen/join", profile);
-    if (!joinRes.ok && joinRes.status !== 201) {
-      const body = await joinRes.text().catch(() => "");
-      throw new Error(`join failed for ${uid}: ${joinRes.status} ${body}`);
-    }
-    const joinData = await joinRes.json();
-    const leadId = joinData.id;
-    if (!leadId) throw new Error(`join returned no id for ${uid}`);
-    console.log(`  + ${uid} joined as lead ${leadId} (${profile.companyName})`);
-
-    // Step 3: Activate and assign to the bot UID. This promotes the lead_*
-    // row to the real UID and inserts a 'tradesman' role into user_roles —
-    // which is what the interest endpoint's middleware requires.
-    const activateRes = await apiPost(
-      `/api/admin/tradesmen/${leadId}/status`,
-      { status: "active", assignTo: uid },
-      adminUid
-    );
-    if (!activateRes.ok) {
-      const body = await activateRes.text().catch(() => "");
-      throw new Error(
-        `activate failed for ${uid}: ${activateRes.status} ${body}`
+      // Step 3: Activate and assign to the bot UID.
+      const activateRes = await apiPost(
+        `/api/admin/tradesmen/${leadId}/status`,
+        { status: "active", assignTo: uid },
+        adminUid
       );
+      if (!activateRes.ok) {
+        const body = await activateRes.text().catch(() => "");
+        throw new Error(`activate failed for ${uid}: ${activateRes.status} ${body}`);
+      }
+      console.log(`  ✓ ${uid} activated and assigned`);
+    } else {
+      console.log(`  ~ ${uid} already active — re-patching profile`);
     }
-    console.log(`  ✓ ${uid} activated and assigned`);
 
-    // Step 4: Resolve photos — upload local files if specified, else use URLs
+    // Step 4: Resolve photos — prefer local files, fall back to photoUrls from fixture
     let photoUrls = profile.photoUrls || [];
-    let profilePictureUrl = profile.profilePictureUrl || null;
+    let profilePictureUrl = profile.profilePictureUrl || photoUrls[0] || null;
 
     if (profile.photoFiles && profile.photoFiles.length > 0) {
-      console.log(`  ↑ ${uid} uploading ${profile.photoFiles.length} local photos...`);
-      photoUrls = await uploadBuilderPhotos(uid, profile.photoFiles);
-      console.log(`  ✓ ${uid} photos uploaded (${photoUrls.length} URLs)`);
-
-      // Profile picture is the uploaded URL corresponding to profilePictureFile
-      if (profile.profilePictureFile) {
-        const picIdx = profile.photoFiles.indexOf(profile.profilePictureFile);
-        profilePictureUrl = picIdx >= 0 && photoUrls[picIdx] ? photoUrls[picIdx] : photoUrls[0] || null;
-      } else {
-        profilePictureUrl = photoUrls[0] || null;
+      const uploaded = await uploadBuilderPhotos(uid, profile.photoFiles);
+      if (uploaded.length > 0) {
+        photoUrls = uploaded;
+        const picIdx = profile.profilePictureFile
+          ? profile.photoFiles.indexOf(profile.profilePictureFile)
+          : -1;
+        profilePictureUrl =
+          picIdx >= 0 && uploaded[picIdx] ? uploaded[picIdx] : uploaded[0] || null;
+        console.log(`  ✓ ${uid} local photos uploaded (${photoUrls.length})`);
       }
+      // else: silently use photoUrls fallback already set above
     }
 
-    // Step 5: Update full profile (photos, profile picture, discount, warranty, docs)
-    const profileRes = await apiPut(
-      "/api/tradesmen/me",
-      {
-        companyName: profile.companyName,
-        contactName: profile.contactName,
-        email: profile.email,
-        phone: profile.phone,
-        tradeTypes: profile.tradeTypes,
-        serviceAreas: profile.serviceAreas,
-        photoUrls,
-        profilePictureUrl,
-        discountMin: profile.discountMin || 0,
-        discountMax: profile.discountMax || 0,
-        warrantyMonths: profile.warrantyMonths || 0,
-        supportingDocCount: profile.supportingDocCount || 0,
-      },
-      uid
-    );
-    if (!profileRes.ok) {
-      const body = await profileRes.text().catch(() => "");
-      throw new Error(
-        `profile update failed for ${uid}: ${profileRes.status} ${body}`
+    // Step 5: Write phone, photos, and profile picture directly to the DB.
+    // This is simpler and more reliable than going through PUT /api/tradesmen/me
+    // which has token/auth machinery that can fail silently.
+    const conn = await mysql2.createConnection(dbConfig());
+    try {
+      const tradeTypes = Array.isArray(profile.tradeTypes)
+        ? profile.tradeTypes.join(",")
+        : profile.tradeTypes || "";
+      const serviceAreas = Array.isArray(profile.serviceAreas)
+        ? profile.serviceAreas.join(",")
+        : profile.serviceAreas || "";
+
+      await conn.query(
+        `UPDATE tradesmen SET
+           phone                = ?,
+           email                = ?,
+           contact_name         = ?,
+           trade_types          = ?,
+           service_areas        = ?,
+           web_url              = ?,
+           discount_min_percent = ?,
+           discount_max_percent = ?,
+           offers_discount      = ?,
+           warranty_months      = ?,
+           photo_count          = ?,
+           supporting_doc_count = ?,
+           profile_picture_url  = ?,
+           updated_at           = NOW()
+         WHERE user_id = ?`,
+        [
+          profile.phone || null,
+          profile.email || null,
+          profile.contactName || null,
+          tradeTypes,
+          serviceAreas,
+          profile.website || null,
+          profile.discountMin || 0,
+          profile.discountMax || 0,
+          profile.discountMin || profile.discountMax ? 1 : 0,
+          profile.warrantyMonths || 0,
+          photoUrls.length,
+          profile.supportingDocCount || 0,
+          profilePictureUrl,
+          uid,
+        ]
       );
+
+      // Replace photos
+      await conn.query(
+        `DELETE FROM tradesmen_photos WHERE tradesman_user_id = ?`,
+        [uid]
+      );
+      for (let idx = 0; idx < photoUrls.length; idx++) {
+        await conn.query(
+          `INSERT INTO tradesmen_photos (tradesman_user_id, url, sort_order) VALUES (?, ?, ?)`,
+          [uid, photoUrls[idx], idx]
+        );
+      }
+
+      console.log(
+        `  ✓ ${uid} profile patched — phone: ${profile.phone || "none"}, photos: ${photoUrls.length}`
+      );
+    } finally {
+      await conn.end();
     }
-    console.log(`  ✓ ${uid} profile updated (${photoUrls.length} photos)`);
   }
 }
 
@@ -226,6 +322,101 @@ async function seedElegantSpotlight() {
   }
 }
 
+/**
+ * Seed a single completed project fixture by index.
+ * Updates state.completedProjectsSeedCount and writes state.
+ */
+async function seedOneCompletedProject(fixtureIndex, state) {
+  const mysql2 = require("mysql2/promise");
+  const fixture = completedProjectFixtures[fixtureIndex];
+  if (!fixture) throw new Error(`No completed project fixture at index ${fixtureIndex}`);
+
+  const ownerUid = BOT_UIDS.neighbours[fixture.ownerIdx];
+  const recommenderUid = BOT_UIDS.neighbours[fixture.recommenderIdx];
+  const ownerName = `${neighbours[fixture.ownerIdx].firstName} ${neighbours[fixture.ownerIdx].lastName}`;
+  const recommenderName = `${neighbours[fixture.recommenderIdx].firstName} ${neighbours[fixture.recommenderIdx].lastName}`;
+  const builderCompany = builders[fixture.builderIdx].companyName;
+
+  console.log(`\n[seed] Seeding completed project ${fixtureIndex + 1}/${completedProjectFixtures.length}...`);
+
+  // 1. Create project as the sim neighbour / homeowner
+  const createRes = await apiPost("/api/projects", fixture.project, ownerUid);
+  if (!createRes.ok) {
+    const body = await createRes.text().catch(() => "");
+    throw new Error(`Project creation failed for ${ownerUid}: ${createRes.status} ${body}`);
+  }
+  const createData = await createRes.json();
+  const projectId = createData.project?.id;
+  if (!projectId) throw new Error(`Project creation returned no id for ${ownerUid}`);
+  console.log(`  + Project ${projectId} created (${fixture.project.type}) owned by ${ownerName}`);
+
+  // 2. Set project live directly in DB — skips the publish API so no
+  //    "new project in your area" notification is sent to real users.
+  {
+    const conn2 = await mysql2.createConnection(dbConfig());
+    try {
+      await conn2.query(
+        `UPDATE projects SET status = 'live', updatedAt = NOW() WHERE id = ?`,
+        [projectId]
+      );
+    } finally {
+      await conn2.end();
+    }
+  }
+  console.log(`  ✓ Project ${projectId} set live (silent)`);
+
+  // 3. Add recommendation from another neighbour
+  const recRes = await apiPost(
+    `/api/projects/${projectId}/recommendations`,
+    {
+      name: recommenderName,
+      email: `${recommenderUid}@sim.local`,
+      company: builderCompany,
+      comment: randomComment(),
+      rating: 5,
+      source: "platform",
+    },
+    recommenderUid
+  );
+  if (!recRes.ok) {
+    const body = await recRes.text().catch(() => "");
+    throw new Error(`Recommendation failed for project ${projectId}: ${recRes.status} ${body}`);
+  }
+  const recData = await recRes.json();
+  const recId = recData.recommendationId;
+  console.log(`  + Recommendation ${recId} added by ${recommenderName} (${builderCompany})`);
+
+  // 4. Close the project with the winner
+  const builderUid = BOT_UIDS.builders[fixture.builderIdx];
+  const closeRes = await apiPost(
+    `/api/projects/${projectId}/close`,
+    {
+      didGoAhead: true,
+      winnerRecommendationId: recId,
+      winnerTradesmanUid: builderUid,
+      wouldUseAgain: true,
+    },
+    ownerUid
+  );
+  if (!closeRes.ok) {
+    const body = await closeRes.text().catch(() => "");
+    throw new Error(`Close failed for project ${projectId}: ${closeRes.status} ${body}`);
+  }
+  console.log(`  ✓ Project ${projectId} closed as completed (winner: ${builderCompany})`);
+
+  // 5. Upload closure photos (best-effort — skipped if no photos available)
+  try {
+    await uploadClosurePhotos(projectId, ownerUid, fixture.photoCount || 3);
+    console.log(`  ✓ Closure photos uploaded for project ${projectId}`);
+  } catch (e) {
+    console.warn(`  ! Closure photo upload skipped for project ${projectId}: ${e.message}`);
+  }
+
+  // Advance the seed count in state
+  state.completedProjectsSeedCount = fixtureIndex + 1;
+  writeState(state);
+}
+
 async function seed() {
   assertGuards();
   console.log("\n[seed] Starting bot pool seeding...");
@@ -245,4 +436,4 @@ async function seed() {
   console.log("\n[seed] Done. Run `node scripts/simulate.js run --project-id=<id>` to start simulation.\n");
 }
 
-module.exports = { seed };
+module.exports = { seed, seedOneCompletedProject, completedProjectFixtureCount: completedProjectFixtures.length };

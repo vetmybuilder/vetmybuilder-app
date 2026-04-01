@@ -89,6 +89,14 @@
     "companyNumber": "11223344",
     "photoFiles": ["elegant1.jpeg", "elegant2.jpeg", "elegant3.jpeg", "elegant4.jpeg", "elegant5.jpeg"],
     "profilePictureFile": "elegant1.jpeg",
+    "photoUrls": [
+      "https://picsum.photos/seed/elegant1/800/600",
+      "https://picsum.photos/seed/elegant2/800/600",
+      "https://picsum.photos/seed/elegant3/800/600",
+      "https://picsum.photos/seed/elegant4/800/600",
+      "https://picsum.photos/seed/elegant5/800/600"
+    ],
+    "profilePictureUrl": "https://picsum.photos/seed/elegant1/800/600",
     "supportingDocCount": 2,
     "discountMin": 10,
     "discountMax": 20,

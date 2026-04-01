@@ -534,6 +534,10 @@ function OwnerProjects() {
                     tradesmanLabel={tradesmanLabel}
                     tradesmanUid={tradesmanUid}
                     onOpenBuilder={() => {
+                      if (tradesmanUid) {
+                        router.push(`/tradesman/${encodeURIComponent(tradesmanUid)}`);
+                        return;
+                      }
                       if (!recId) return;
                       const n = Number(recId);
                       const slug = Number.isFinite(n)
