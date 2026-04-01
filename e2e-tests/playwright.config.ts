@@ -109,7 +109,9 @@ export default defineConfig({
       name: `shard-${i + 1}`,
       testMatch: /tests\/(api|graphql)\//,
       use: {
-        baseURL: `http://127.0.0.1:${API_BASE_PORT + i}`,
+        baseURL: SHOULD_MANAGE_SERVERS
+          ? `http://127.0.0.1:${API_BASE_PORT + i}`
+          : `http://server-w${i}:3100`,
       },
       shard: { total: TOTAL_SHARDS, current: i + 1 },
       workers: 1,
