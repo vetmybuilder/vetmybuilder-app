@@ -114,23 +114,23 @@ async function expressInterest(projectId, builderIdx) {
   const uid = BOT_UIDS.builders[builderIdx];
 
   const res = await apiPost(
-    "/api/tradesmen/interest",
+    "/api/tradesmen/shares",
     { projectId: Number(projectId) },
     uid
   );
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`Interest failed (${uid}): ${res.status} ${body}`);
+    throw new Error(`Share failed (${uid}): ${res.status} ${body}`);
   }
 
   const data = await res.json();
-  if (data.alreadyShared) {
-    log(`${uid} already expressed interest — skipped`);
+  if (data.already) {
+    log(`${uid} already shared profile — skipped`);
   } else {
-    log(`${uid} expressed interest (rec id: ${data.recommendationId})`);
+    log(`${uid} shared profile (share id: ${data.share?.id})`);
   }
-  return data.recommendationId;
+  return data.share?.id || null;
 }
 
 async function like(recId, neighbourIdx) {

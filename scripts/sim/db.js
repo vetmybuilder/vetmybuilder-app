@@ -26,9 +26,12 @@ async function deleteSimData(recIds) {
       );
     }
 
-    // Delete builder interest rows (fromUid) and any remaining sim rec IDs
+    // Delete builder interest rows and profile shares
     await conn.query(
       "DELETE FROM tradesman_interests WHERE fromUid LIKE 'sim-%'"
+    );
+    await conn.query(
+      "DELETE FROM trade_shares WHERE tradesman_uid LIKE 'sim-%'"
     );
     // Delete neighbour-submitted recommendations (recommenderUserId = sim-neighbour-*)
     await conn.query(
@@ -37,6 +40,11 @@ async function deleteSimData(recIds) {
     if (recIds.length > 0) {
       await conn.query("DELETE FROM recommendations WHERE id IN (?)", [recIds]);
     }
+
+    // Delete spotlight placement for sim tradesmen
+    await conn.query(
+      "DELETE FROM payments_oneoff WHERE user_id LIKE 'sim-%' AND type = 'spotlight'"
+    );
 
     // Delete tradesman profiles (PK is user_id)
     await conn.query("DELETE FROM tradesmen WHERE user_id LIKE 'sim-%'");

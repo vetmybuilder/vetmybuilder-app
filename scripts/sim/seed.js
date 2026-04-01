@@ -175,6 +175,57 @@ async function seedNeighbours() {
   }
 }
 
+async function seedElegantSpotlight() {
+  const mysql2 = require("mysql2/promise");
+  const elegantUid = BOT_UIDS.builders[5]; // sim-builder-006 = Elegant Building Services
+
+  const conn = await mysql2.createConnection({
+    host: process.env.MYSQL_HOST || process.env.TEST_DB_HOST || "localhost",
+    port: Number(process.env.MYSQL_PORT || process.env.TEST_DB_PORT || 3306),
+    user: process.env.MYSQL_USER || process.env.TEST_DB_USER || "root",
+    password: process.env.MYSQL_PASSWORD || process.env.TEST_DB_PASSWORD || "",
+    database:
+      process.env.MYSQL_DATABASE ||
+      process.env.TEST_DB_NAME ||
+      "vetmybuilder_test_s1_4_w0",
+  });
+
+  try {
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS payments_oneoff (
+        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        user_id VARCHAR(255) NOT NULL,
+        type VARCHAR(100) NOT NULL,
+        entity_id BIGINT UNSIGNED NULL,
+        amount DECIMAL(10,2) NULL,
+        currency VARCHAR(10) NOT NULL DEFAULT 'GBP',
+        status VARCHAR(50) NOT NULL DEFAULT 'pending_admin',
+        provider_session_id VARCHAR(255) NULL,
+        provider_payment_intent VARCHAR(255) NULL,
+        expires_at DATETIME NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
+    // Idempotent — delete any existing spotlight row for Elegant first
+    await conn.query(
+      `DELETE FROM payments_oneoff WHERE user_id = ? AND type = 'spotlight'`,
+      [elegantUid]
+    );
+
+    // Insert active spotlight row that never expires
+    await conn.query(
+      `INSERT INTO payments_oneoff (user_id, type, entity_id, amount, currency, status, expires_at, created_at)
+       VALUES (?, 'spotlight', NULL, 0, 'GBP', 'active', '2099-12-31 23:59:59', NOW())`,
+      [elegantUid]
+    );
+
+    console.log(`  ✓ ${elegantUid} given active spotlight placement`);
+  } finally {
+    await conn.end();
+  }
+}
+
 async function seed() {
   assertGuards();
   console.log("\n[seed] Starting bot pool seeding...");
@@ -183,6 +234,7 @@ async function seed() {
 
   await seedBuilders(adminUid);
   await seedNeighbours();
+  await seedElegantSpotlight();
 
   const state = readState();
   state.seeded = true;

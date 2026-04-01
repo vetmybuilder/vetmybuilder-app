@@ -151,6 +151,7 @@ module.exports = (router, ctx) => {
 
       if (hasTradesmenTable) {
         selectCols.push("t.company_name AS tradesman_company_name");
+        selectCols.push("t.profile_picture_url AS tradesman_profile_picture_url");
       }
 
       const sql = `
@@ -173,6 +174,7 @@ module.exports = (router, ctx) => {
         projectName: r.project_name || null,
         tradesmanUid: r.tradesman_uid,
         companyName: r.tradesman_company_name || null,
+        primaryPhotoUrl: r.tradesman_profile_picture_url || null,
         photos: normalisePhotos(r.photos_json),
         message: r.message || "",
         createdAt: r.created_at,
