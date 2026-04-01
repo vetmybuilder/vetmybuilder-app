@@ -45,7 +45,10 @@ services:
       context: .
       dockerfile: Dockerfile.e2e
     working_dir: /app
-    env_file: [./.env]
+    env_file:
+      - ./.env
+      - path: ./web/.env.local
+        required: false
     command: sh -lc "TEST_TOTAL_SHARDS=4 TEST_SHARD=0 PORT=3100 TEST_ENV=e2e node scripts/dev-manual-server.js"
     depends_on:
       mysql:
@@ -79,7 +82,10 @@ services:
       context: .
       dockerfile: Dockerfile.e2e
     working_dir: /app
-    env_file: [./.env]
+    env_file:
+      - ./.env
+      - path: ./web/.env.local
+        required: false
     command: sh -lc "TEST_TOTAL_SHARDS=4 TEST_SHARD=1 PORT=3100 TEST_ENV=e2e node scripts/dev-manual-server.js"
     depends_on:
       mysql:
@@ -113,7 +119,10 @@ services:
       context: .
       dockerfile: Dockerfile.e2e
     working_dir: /app
-    env_file: [./.env]
+    env_file:
+      - ./.env
+      - path: ./web/.env.local
+        required: false
     command: sh -lc "TEST_TOTAL_SHARDS=4 TEST_SHARD=2 PORT=3100 TEST_ENV=e2e node scripts/dev-manual-server.js"
     depends_on:
       mysql:
@@ -147,7 +156,10 @@ services:
       context: .
       dockerfile: Dockerfile.e2e
     working_dir: /app
-    env_file: [./.env]
+    env_file:
+      - ./.env
+      - path: ./web/.env.local
+        required: false
     command: sh -lc "TEST_TOTAL_SHARDS=4 TEST_SHARD=3 PORT=3100 TEST_ENV=e2e node scripts/dev-manual-server.js"
     depends_on:
       mysql:

@@ -89,6 +89,11 @@ jobs:
         env:
           E2E_ENV: ${{ secrets.E2E_ENV }}
 
+      - name: Write web/.env.local
+        run: printf '%s' "$E2E_WEB_ENV" > web/.env.local
+        env:
+          E2E_WEB_ENV: ${{ secrets.E2E_WEB_ENV }}
+
       - name: Build Docker images
         run: docker compose -f docker-compose.e2e.api.ci.yml build
 
