@@ -419,7 +419,7 @@ export class ProjectDetailsPage extends BasePage {
 
   async hasProjectRecommendation(recommendation: Recommendation) {
     await expect(this.shortlistCompanyName).toHaveText(
-      recommendation.company.toUpperCase(),
+      new RegExp(recommendation.company.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"),
     );
     await expect(this.shortlistComment).toHaveText(recommendation.comment);
     await expect(this.shortlistCompaniesHouseBadge).toBeVisible();
