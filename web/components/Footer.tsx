@@ -1,9 +1,34 @@
 // web/components/Footer.tsx
 import Link from "next/link";
 import { Home } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/utils/auth";
 
 export default function Footer() {
   const year = new Date().getFullYear();
+  const { user } = useAuth();
+
+  // Read isTradesman flag set by SiteHeader (avoids a second API call)
+  const [isTrades, setIsTrades] = useState(false);
+  useEffect(() => {
+    if (!user) { setIsTrades(false); return; }
+    setIsTrades(sessionStorage.getItem("vmb:isTradesman") === "1");
+  }, [user]);
+
+  // Tradespeople links depend on auth state:
+  // - Not logged in → Register + Login
+  // - Homeowner logged in → Register (invite a trades) + Login
+  // - Tradesman logged in → Profile + Dashboard (no Register/Login)
+  const tradesLinks = user && isTrades
+    ? [
+        { label: "Your Profile", href: "/tradesman/profile" },
+        { label: "My Jobs", href: "/tradesman/projects" },
+      ]
+    : [
+        { label: "Register", href: "/tradesman/register-tradesmen" },
+        { label: "Login", href: "/tradesman/login" },
+      ];
+
   return (
     <footer className="bg-zinc-900">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16">
@@ -31,7 +56,7 @@ export default function Footer() {
               {[
                 { label: "How it Works", href: "/how-it-works" },
                 { label: "Post a Job", href: "/projects/new" },
-                { label: "Sign Up", href: "/signup" },
+                ...(!user ? [{ label: "Sign Up", href: "/signup" }] : []),
               ].map((item) => (
                 <li key={item.label}>
                   <Link
@@ -49,11 +74,7 @@ export default function Footer() {
           <div>
             <h4 className="font-bold text-white mb-4">Tradespeople</h4>
             <ul className="space-y-3">
-              {[
-                { label: "Register", href: "/tradesman/register" },
-                { label: "Login", href: "/tradesman/login" },
-                { label: "Your Profile", href: "/tradesman/profile" },
-              ].map((item) => (
+              {tradesLinks.map((item) => (
                 <li key={item.label}>
                   <Link
                     href={item.href}
