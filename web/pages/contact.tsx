@@ -131,7 +131,7 @@ export default function Contact() {
                           required
                           value={form.name}
                           onChange={(e) => setForm({ ...form, name: e.target.value })}
-                          placeholder="Chris Morris"
+                          placeholder="Jane Smith"
                           className="w-full rounded-2xl border-2 border-zinc-200 px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:border-red-400 focus:outline-none transition-colors"
                         />
                       </div>
@@ -145,7 +145,7 @@ export default function Contact() {
                           required
                           value={form.email}
                           onChange={(e) => setForm({ ...form, email: e.target.value })}
-                          placeholder="chris@example.com"
+                          placeholder="you@example.com"
                           className="w-full rounded-2xl border-2 border-zinc-200 px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:border-red-400 focus:outline-none transition-colors"
                         />
                       </div>
