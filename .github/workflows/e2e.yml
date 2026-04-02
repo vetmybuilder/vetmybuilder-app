@@ -82,7 +82,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3, 4]
 
     steps:
       - name: Checkout
@@ -101,13 +101,13 @@ jobs:
       - name: Build Docker images
         run: docker compose -f docker-compose.e2e.api.ci.yml build
 
-      - name: Run Playwright API tests (shard ${{ matrix.shard }}/2)
+      - name: Run Playwright API tests (shard ${{ matrix.shard }}/4)
         run: |
           docker compose -f docker-compose.e2e.api.ci.yml up \
             --exit-code-from pw-api \
             --abort-on-container-exit
         env:
-          PW_API_SHARD: "${{ matrix.shard }}/2"
+          PW_API_SHARD: "${{ matrix.shard }}/4"
 
       - name: Tear down
         if: always()
