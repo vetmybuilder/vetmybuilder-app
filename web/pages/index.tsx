@@ -208,7 +208,7 @@ export default function Home() {
                   <span>The smarter way to hire a tradesperson</span>
                 </div>
 
-                <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-[0.95] text-zinc-900">
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[0.95] text-zinc-900">
                   Find a tradesperson you{" "}
                   <span className="relative inline-block">
                     <span className="relative z-10 text-red-500">actually</span>
