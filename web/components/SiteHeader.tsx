@@ -300,21 +300,81 @@ export default function SiteHeader() {
               </div>
 
               <div className="flex items-center gap-3">
-                {/* Logged-in (desktop): show Projects button */}
+                {/* Logged-in homeowner: Projects button + account menu */}
                 {user && !isTrades && (
-                  <Link
-                    href="/projects"
-                    className="hidden sm:inline-flex items-center gap-1.5 justify-center rounded-xl px-3 h-9 text-sm font-medium bg-amber-400 text-slate-900 shadow-sm hover:bg-amber-300"
-                    data-testid="btn-home-projects"
-                  >
-                    <span>Projects</span>
-                    <span
-                      className="ml-1.5 text-base leading-none"
-                      aria-hidden="true"
+                  <>
+                    <Link
+                      href="/projects"
+                      className="hidden sm:inline-flex items-center gap-1.5 justify-center rounded-xl px-3 h-9 text-sm font-medium bg-amber-400 text-slate-900 shadow-sm hover:bg-amber-300"
+                      data-testid="btn-home-projects"
                     >
-                      ↗
-                    </span>
-                  </Link>
+                      <span>Projects</span>
+                      <span className="ml-1.5 text-base leading-none" aria-hidden="true">↗</span>
+                    </Link>
+                    <div className="relative" data-testid="account-menu-wrapper">
+                      <button
+                        ref={btnAccountRef}
+                        type="button"
+                        aria-label="Account menu"
+                        aria-haspopup="menu"
+                        aria-expanded={openMenu === "account"}
+                        aria-controls="account-menu"
+                        onClick={() => setOpenMenu((m) => (m === "account" ? null : "account"))}
+                        className="inline-flex items-center gap-2 rounded-full px-2 py-1 ring-1 ring-gray-300/80 bg-white hover:bg-gray-50 shadow-sm"
+                        data-testid="account-menu-button"
+                      >
+                        <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white text-xs font-semibold">
+                          {initials || "U"}
+                        </span>
+                        <svg className={`h-4 w-4 text-gray-500 transition-transform ${openMenu === "account" ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                          <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 011.08 1.04l-4.25 4.25a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                      {openMenu === "account" && (
+                        <div ref={menuRef} id="account-menu" role="menu" aria-label="Account" data-testid="account-menu" className="absolute right-0 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg ring-1 ring-black/5">
+                          <Link role="menuitem" href="/account" className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => setOpenMenu(null)}>
+                            Edit account
+                          </Link>
+                          <button role="menuitem" onClick={onLogout} className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50/60">
+                            Logout
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {/* Logged-in tradesperson: trades menu */}
+                {user && isTrades && (
+                  <div className="relative" data-testid="trades-menu-wrapper">
+                    <button
+                      ref={btnTradesRef}
+                      type="button"
+                      aria-label="Trades menu"
+                      aria-haspopup="menu"
+                      aria-expanded={openMenu === "trades"}
+                      onClick={() => setOpenMenu((m) => (m === "trades" ? null : "trades"))}
+                      className="inline-flex items-center gap-2 rounded-full px-2 py-1 ring-1 ring-gray-300/80 bg-white hover:bg-gray-50 shadow-sm"
+                      data-testid="trades-menu-button"
+                    >
+                      <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white text-xs font-semibold">
+                        {(company?.[0] || "T").toUpperCase()}
+                      </span>
+                      <svg className={`h-4 w-4 text-gray-500 transition-transform ${openMenu === "trades" ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 011.08 1.04l-4.25 4.25a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                    {openMenu === "trades" && (
+                      <div ref={menuRef} id="trades-menu" role="menu" className="absolute right-0 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg ring-1 ring-black/5">
+                        <Link role="menuitem" href="/tradesman/profile/edit" className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => setOpenMenu(null)}>
+                          Manage profile
+                        </Link>
+                        <button role="menuitem" onClick={onLogout} className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50/60">
+                          Logout
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {/* Logged-out (desktop) */}
