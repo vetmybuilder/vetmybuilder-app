@@ -159,7 +159,7 @@ export default function Home() {
       title: "Post your job",
       tagline: "Takes 2 minutes",
       description: 'Add a quick brief (e.g. "bathroom refit in E4"). You\'ll get a unique invite link to share.',
-      color: "indigo",
+      color: "red",
     },
     {
       number: 2,
@@ -191,7 +191,7 @@ export default function Home() {
         <section className="relative pb-16 sm:pb-20 overflow-hidden" aria-label="Hero">
           {/* Diagonal colour band */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-indigo-600/8 rotate-[-12deg] rounded-[60px]" />
+            <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-500/8 rotate-[-12deg] rounded-[60px]" />
             <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-500/6 rotate-[8deg] rounded-[80px]" />
           </div>
 
@@ -207,9 +207,9 @@ export default function Home() {
                 <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-[0.95] text-zinc-900">
                   Find a builder you{" "}
                   <span className="relative inline-block">
-                    <span className="relative z-10 text-indigo-600">actually</span>
+                    <span className="relative z-10 text-red-500">actually</span>
                     <svg
-                      className="absolute -bottom-1 left-0 w-full h-3 text-indigo-300"
+                      className="absolute -bottom-1 left-0 w-full h-3 text-red-300"
                       viewBox="0 0 100 12"
                       preserveAspectRatio="none"
                     >
@@ -233,7 +233,7 @@ export default function Home() {
                   <Link
                     href={user ? "/projects/new" : "/signup"}
                     onClick={!user ? rememberReturnTo : undefined}
-                    className="inline-flex items-center justify-center gap-2 rounded-full bg-indigo-600 px-8 py-4 text-lg font-bold text-white shadow-lg shadow-indigo-600/25 hover:shadow-xl hover:shadow-indigo-600/30 hover:scale-[1.02] transition-all"
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-red-500 px-8 py-4 text-lg font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/30 hover:scale-[1.02] transition-all"
                     data-testid="hero-cta"
                   >
                     Start your project
@@ -251,7 +251,7 @@ export default function Home() {
                 <div className="mt-12 flex items-center gap-4">
                   <div className="flex -space-x-3">
                     {[
-                      { bg: "bg-indigo-600", letter: "S" },
+                      { bg: "bg-red-500", letter: "S" },
                       { bg: "bg-emerald-500", letter: "J" },
                       { bg: "bg-amber-500", letter: "M" },
                       { bg: "bg-zinc-300", letter: "K" },
@@ -327,8 +327,8 @@ export default function Home() {
                   stat: stats.communityMembers,
                   label: "Community members",
                   tagline: "And growing every day!",
-                  bg: "bg-indigo-50",
-                  accent: "text-indigo-600",
+                  bg: "bg-red-50",
+                  accent: "text-red-500",
                 },
                 {
                   stat: stats.recommendations,
@@ -380,15 +380,15 @@ export default function Home() {
 
             <div className="relative">
               {/* Connecting line - desktop */}
-              <div className="hidden md:block absolute top-24 left-[16.67%] right-[16.67%] h-1 bg-gradient-to-r from-indigo-400 via-emerald-400 to-amber-400 rounded-full opacity-30" />
+              <div className="hidden md:block absolute top-24 left-[16.67%] right-[16.67%] h-1 bg-gradient-to-r from-red-400 via-emerald-400 to-amber-400 rounded-full opacity-30" />
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {steps.map((step, index) => {
                   const colors = {
-                    indigo: {
-                      circle: "bg-indigo-600",
-                      icon: "bg-indigo-50 text-indigo-600",
-                      label: "text-indigo-600",
+                    red: {
+                      circle: "bg-red-500",
+                      icon: "bg-red-50 text-red-500",
+                      label: "text-red-500",
                     },
                     emerald: {
                       circle: "bg-emerald-500",
@@ -400,11 +400,11 @@ export default function Home() {
                       icon: "bg-amber-50 text-amber-600",
                       label: "text-amber-600",
                     },
-                  }[step.color as "indigo" | "emerald" | "amber"];
+                  }[step.color as "red" | "emerald" | "amber"];
 
                   return (
                     <div key={step.number} className="relative">
-                      <div className="relative bg-white border-2 border-zinc-100 rounded-3xl p-8 hover:border-indigo-200 hover:shadow-xl transition-all group">
+                      <div className="relative bg-white border-2 border-zinc-100 rounded-3xl p-8 hover:border-red-200 hover:shadow-xl transition-all group">
                         {/* Number circle */}
                         <div className={`absolute -top-6 left-1/2 -translate-x-1/2 h-12 w-12 rounded-full flex items-center justify-center text-xl font-black text-white shadow-lg ${colors.circle}`}>
                           {step.number}
@@ -461,13 +461,13 @@ export default function Home() {
         </section>
 
         {/* TRUST SECTION */}
-        <section className="bg-indigo-50 py-20 sm:py-24" id="about">
+        <section className="bg-red-50 py-20 sm:py-24" id="about">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
               <div>
                 <h2 className="text-4xl sm:text-5xl font-black tracking-tight text-zinc-900 leading-tight">
                   Why homeowners{" "}
-                  <span className="text-indigo-600">love us</span>
+                  <span className="text-red-500">love us</span>
                 </h2>
                 <p className="mt-6 text-xl text-zinc-600 leading-relaxed">
                   We&apos;re not a directory of every builder in the UK. We&apos;re a
@@ -495,7 +495,7 @@ export default function Home() {
               <div className="relative">
                 <div className="bg-white rounded-3xl p-10 shadow-xl border-2 border-zinc-50">
                   <div className="text-center">
-                    <div className="text-8xl sm:text-9xl font-black text-indigo-600 leading-none">
+                    <div className="text-8xl sm:text-9xl font-black text-red-500 leading-none">
                       4.9
                     </div>
                     <div className="flex items-center justify-center gap-1.5 mt-4">
@@ -510,7 +510,7 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
-                <div className="absolute -top-3 -right-3 h-16 w-16 bg-indigo-600 rounded-xl rotate-12 -z-10" />
+                <div className="absolute -top-3 -right-3 h-16 w-16 bg-red-500 rounded-xl rotate-12 -z-10" />
                 <div className="absolute -bottom-3 -left-3 h-12 w-12 bg-amber-400 rounded-full -z-10" />
               </div>
             </div>

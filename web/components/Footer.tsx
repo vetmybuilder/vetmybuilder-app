@@ -11,11 +11,11 @@ export default function Footer() {
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-500">
                 <Home className="h-5 w-5 text-white" />
               </div>
               <span className="text-xl font-black text-white">
-                Vet<span className="text-indigo-400">My</span>Builder
+                Vet<span className="text-red-400">My</span>Builder
               </span>
             </Link>
             <p className="mt-4 text-sm text-zinc-400 max-w-xs leading-relaxed">

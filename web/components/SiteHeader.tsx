@@ -63,7 +63,7 @@ function InitialsBadge({
     >
       <span
         aria-hidden
-        className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-semibold"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white text-xs font-semibold"
       >
         {initials || "U"}
       </span>
@@ -219,7 +219,7 @@ export default function SiteHeader() {
       href: "/tradesman/projects",
       label: company || "Trades",
       className:
-        "inline-flex items-center justify-center rounded-xl px-3.5 h-9 text-sm font-medium bg-indigo-600 text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2",
+        "inline-flex items-center justify-center rounded-xl px-3.5 h-9 text-sm font-medium bg-red-500 text-white shadow-sm hover:bg-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2",
       testid: "btn-trades-projects",
     };
   }, [isTrades, company]);
@@ -289,12 +289,12 @@ export default function SiteHeader() {
                 >
                   <span
                     aria-hidden
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm transition-transform group-hover:rotate-3"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-red-500 text-white shadow-sm transition-transform group-hover:rotate-3"
                   >
                     <Home className="h-4 w-4" />
                   </span>
                   <span className="text-lg font-black tracking-tight text-zinc-900">
-                    Vet<span className="text-indigo-600">My</span>Builder
+                    Vet<span className="text-red-500">My</span>Builder
                   </span>
                 </Link>
               </div>
@@ -331,7 +331,7 @@ export default function SiteHeader() {
 
                     <Link
                       href="/login"
-                      className="hidden sm:inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium bg-indigo-600 text-white shadow-sm hover:bg-indigo-500"
+                      className="hidden sm:inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium bg-red-500 text-white shadow-sm hover:bg-red-600"
                       aria-label="Homeowner sign in"
                       data-testid="nav-sign-in"
                     >
@@ -534,7 +534,7 @@ export default function SiteHeader() {
                   >
                     <span
                       aria-hidden
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-semibold"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white text-xs font-semibold"
                     >
                       {(company?.[0] || "T").toUpperCase()}
                     </span>
@@ -607,7 +607,7 @@ export default function SiteHeader() {
                   >
                     <span
                       aria-hidden
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-semibold"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white text-xs font-semibold"
                     >
                       {initials || "U"}
                     </span>
@@ -659,7 +659,7 @@ export default function SiteHeader() {
               {!user && (
                 <Link
                   href="/login"
-                  className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium bg-indigo-600 text-white shadow-sm hover:bg-indigo-500"
+                  className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium bg-red-500 text-white shadow-sm hover:bg-red-600"
                   aria-label="Homeowner sign in"
                   data-testid="nav-sign-in"
                 >
