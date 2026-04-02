@@ -200,9 +200,9 @@ export default function Home() {
           </div>
 
           <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-              {/* Left: Text */}
-              <div className="max-w-xl">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 lg:gap-16 items-center">
+              {/* Left: Text — 3/5 width so 'tradesperson' fits on one line */}
+              <div className="lg:col-span-3">
                 <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-4 py-1.5 text-sm font-bold text-zinc-800 mb-6">
                   <span className="text-lg">👋</span>
                   <span>The smarter way to hire a tradesperson</span>
@@ -286,8 +286,8 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Right: Image with fun frame */}
-              <div className="relative hidden lg:block">
+              {/* Right: Image with fun frame — 2/5 width */}
+              <div className="relative hidden lg:block lg:col-span-2">
                 <div className="relative rounded-3xl overflow-hidden shadow-2xl rotate-2 hover:rotate-0 transition-transform duration-500">
                   <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/40 via-transparent to-transparent z-10" />
                   <Image
