@@ -213,7 +213,7 @@ services:
       TEST_DB_PORT: "3306"
       TEST_DB_USER: "root"
       TEST_DB_PASSWORD: "root"
-      # TEST_DB_NAME is intentionally omitted — each shard derives its own name
+      # TEST_DB_NAME intentionally omitted — each shard derives its own name
       # from TEST_DB_NAME_PREFIX + shard label (e.g. vetmybuilder_test_s1_4)
     command: >
       sh -lc
