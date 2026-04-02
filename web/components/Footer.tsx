@@ -46,7 +46,7 @@ export default function Footer() {
               </span>
             </Link>
             <p className="mt-4 text-sm text-zinc-400 max-w-xs leading-relaxed">
-              The community-powered platform helping UK homeowners find builders
+              The community-powered platform helping UK homeowners find tradespeople
               they can actually trust.
             </p>
           </div>
