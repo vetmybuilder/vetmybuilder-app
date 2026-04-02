@@ -19,8 +19,8 @@ jobs:
           PROD_HOST: ${{ secrets.PROD_HOST }}
         run: |
           install -m 700 -d ~/.ssh
-          printf "%s" "$PROD_SSH_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
+          printf "%s" "$PROD_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "$PROD_HOST" >> ~/.ssh/known_hosts
 
       - name: Deploy
@@ -28,7 +28,7 @@ jobs:
           PROD_HOST: ${{ secrets.PROD_HOST }}
         run: |
           set -e
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=yes "root@$PROD_HOST" "vmb-deploy"
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes "root@$PROD_HOST" "vmb-deploy"
           for i in {1..18}; do
             if curl -fsS https://vetmybuilder.com/api/health >/dev/null; then
               echo 'Health: OK'; exit 0
