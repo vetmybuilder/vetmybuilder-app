@@ -182,8 +182,8 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>VetMyBuilder — Find a builder you actually trust</title>
-        <meta name="description" content="Community-powered builder vetting for UK homeowners. Post a job, gather recommendations, hire with confidence." />
+        <title>VetMyBuilder — Find a tradesperson you actually trust</title>
+        <meta name="description" content="Community-powered tradesperson vetting for UK homeowners. Post a job, gather recommendations, hire with confidence." />
         {/* Override body background to cream so the header gap area blends in */}
         <style>{`body { background: #fafaf9 !important; }`}</style>
       </Head>
@@ -205,11 +205,11 @@ export default function Home() {
               <div className="max-w-xl">
                 <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-4 py-1.5 text-sm font-bold text-zinc-800 mb-6">
                   <span className="text-lg">👋</span>
-                  <span>The smarter way to hire a builder</span>
+                  <span>The smarter way to hire a tradesperson</span>
                 </div>
 
                 <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-[0.95] text-zinc-900">
-                  Find a builder you{" "}
+                  Find a tradesperson you{" "}
                   <span className="relative inline-block">
                     <span className="relative z-10 text-red-500">actually</span>
                     <svg
@@ -289,7 +289,7 @@ export default function Home() {
                   <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/40 via-transparent to-transparent z-10" />
                   <Image
                     src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80"
-                    alt="Happy builder at work"
+                    alt="Happy tradesperson at work"
                     width={600}
                     height={500}
                     priority
@@ -378,7 +378,7 @@ export default function Home() {
                 Dead simple
               </div>
               <h2 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-zinc-900">
-                Three steps to your perfect builder
+                Three steps to your perfect tradesperson
               </h2>
             </div>
 
@@ -474,8 +474,8 @@ export default function Home() {
                   <span className="text-red-500">love us</span>
                 </h2>
                 <p className="mt-6 text-xl text-zinc-600 leading-relaxed">
-                  We&apos;re not a directory of every builder in the UK. We&apos;re a
-                  community of real homeowners sharing real experiences with real builders.
+                  We&apos;re not a directory of every tradesperson in the UK. We&apos;re a
+                  community of real homeowners sharing real experiences with real tradespeople.
                 </p>
 
                 <ul className="mt-10 space-y-5">
