@@ -194,9 +194,9 @@ export default function Home() {
           {/* Diagonal colour bands */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             {/* Pink/rose band — right side */}
-            <div className="absolute -top-[20%] -right-[10%] w-[65%] h-[160%] bg-red-100 rotate-[-12deg] rounded-[80px]" />
+            <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
             {/* Sage green blob — bottom left */}
-            <div className="absolute -bottom-[30%] -left-[20%] w-[55%] h-[100%] bg-emerald-100/70 rotate-[8deg] rounded-[80px]" />
+            <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
           </div>
 
           <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
