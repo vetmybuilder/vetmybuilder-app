@@ -1,7 +1,9 @@
 name: Deploy to Production
 
 on:
-  push:
+  workflow_run:
+    workflows: ["E2E Tests"]
+    types: [completed]
     branches: [master]
   workflow_dispatch:
 
@@ -12,6 +14,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Prepare SSH
         env:
