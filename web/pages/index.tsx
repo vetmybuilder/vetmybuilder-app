@@ -204,8 +204,7 @@ export default function Home() {
               {/* Left: Text — 3/5 width so 'tradesperson' fits on one line */}
               <div className="lg:col-span-3">
                 <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-4 py-1.5 text-sm font-bold text-zinc-800 mb-6">
-                  <span className="text-lg">👋</span>
-                  <span>The smarter way to hire a tradesperson</span>
+                  The smarter way to hire a tradesperson
                 </div>
 
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.05] text-zinc-900">
