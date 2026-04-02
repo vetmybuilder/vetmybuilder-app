@@ -186,7 +186,7 @@ export default function Home() {
         <meta name="description" content="Community-powered builder vetting for UK homeowners. Post a job, gather recommendations, hire with confidence." />
       </Head>
 
-      <div className="bg-stone-50 overflow-x-hidden">
+      <div className="bg-stone-50 overflow-x-hidden -mt-14 pt-14">
         {/* HERO */}
         <section className="relative pb-16 sm:pb-20 overflow-hidden bg-stone-50" aria-label="Hero">
           {/* Diagonal colour bands */}
