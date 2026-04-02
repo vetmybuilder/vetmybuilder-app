@@ -10,9 +10,8 @@ import {
   Info as InfoIcon,
 } from "lucide-react";
 import { useApi } from "@/utils/api";
-import { FeaturedSimpleStrip } from "@/components/tradesmen/FeaturedSimpleCard";
-import { FeaturedTradesman } from "@/components/tradesmen/GoldTradesmanCard";
 import SpotlightStrip from "@/components/tradesmen/SpotlightStrip";
+import PartnerFinanceBanner from "@/components/project/PartnerFinanceBanner";
 import NextLink from "next/link";
 import { useRouter } from "next/router";
 import GetRecommendationsModal, {
@@ -88,9 +87,6 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
   const api = useApi();
   const router = useRouter();
 
-  const [featured, setFeatured] = React.useState<FeaturedTradesman[]>([]);
-  const [featuredErr, setFeaturedErr] = React.useState<string | null>(null);
-  const [featuredLoading, setFeaturedLoading] = React.useState(false);
   const [recHasPhotos, setRecHasPhotos] = React.useState<
     Record<number, boolean>
   >({});
@@ -125,46 +121,6 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
 
     setHasSharedNeighbourhood(val === "1");
   }, [project?.id, project?.createdAt]);
-
-  // Load featured tradesmen for this project
-  React.useEffect(() => {
-    if (!project?.id) return;
-    let cancelled = false;
-
-    (async () => {
-      try {
-        setFeaturedLoading(true);
-        setFeaturedErr(null);
-
-        const res = await api.get("/api/tradesmen/featured", {
-          params: {
-            onlyGold: true,
-            limit: 30,
-            projectId: String(project.id),
-          },
-        } as any);
-
-        const data: any = (res as any)?.data ?? res;
-        const items: FeaturedTradesman[] = Array.isArray(data?.items)
-          ? data.items
-          : [];
-
-        if (!cancelled) {
-          setFeatured(items);
-        }
-      } catch (e: any) {
-        if (!cancelled) {
-          setFeaturedErr(e?.message || "Failed to load featured tradesmen");
-        }
-      } finally {
-        if (!cancelled) setFeaturedLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [project?.id, api]);
 
   // 🔥🔥 FULL BLOCK REPLACED WITH OPTION A (PHOTO CHECK FIX) 🔥🔥
   // 🔑 Fetch Companies House + Google verification + photos for each recommendation (Option A)
@@ -290,22 +246,6 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
       project.bedrooms,
       project.description,
     ],
-  );
-
-  // Map API items into FeaturedSimpleStrip items
-  const featuredItems = React.useMemo(
-    () =>
-      featured.map((t) => ({
-        id: String(t.builderId),
-        name: t.companyName || t.displayName || "Tradesman",
-        img:
-          t.avatarUrl ||
-          (Array.isArray(t.gallery) && t.gallery.length > 0
-            ? t.gallery[0]
-            : null),
-        onClick: () => router.push(`/tradesman/${t.builderId}`),
-      })),
-    [featured, router],
   );
 
   const handleShare = async (channel: GetRecommendationsChannel) => {
@@ -596,25 +536,11 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
         </div>
       </header>
 
-      {/* === Featured Gold Tradesmen === */}
-      <section
-        aria-label="Featured Gold Tradesmen"
-        data-testid="featured-gold"
-        className="mb-6"
-      >
-        {featuredLoading && (
-          <p className="text-sm text-slate-500">Loading featured…</p>
-        )}
-        {featuredErr && <p className="text-sm text-rose-600">{featuredErr}</p>}
-
-        {!featuredLoading && !featuredErr && featuredItems.length === 0 && (
-          <p className="text-sm text-slate-500">No Gold tradesmen yet.</p>
-        )}
-
-        {featuredItems.length > 0 && (
-          <FeaturedSimpleStrip items={featuredItems} pageSize={4} />
-        )}
-      </section>
+      {/* === Partner Finance Banner === */}
+      <PartnerFinanceBanner
+        estimateLow={estimate?.low ?? null}
+        estimateHigh={estimate?.high ?? null}
+      />
 
       {/* === Shared tradesmen strip (profiles shared directly to this project) === */}
       <SharedTradesmen projectId={project.id} />

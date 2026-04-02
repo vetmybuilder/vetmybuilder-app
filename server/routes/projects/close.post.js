@@ -18,7 +18,7 @@
  */
 
 module.exports = (router, ctx) => {
-  const { auth, mysqlQuery } = ctx;
+  const { auth, mysqlQuery, extractLocationTokens } = ctx;
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
   const { logger, withRequest } = require("../../lib/logger");
@@ -147,10 +147,34 @@ module.exports = (router, ctx) => {
           ? candidateWinnerId
           : null;
 
-      // Always accept tradesman uid if provided (even when winnerRecommendationId exists)
-      const winnerTradesmanUid = winnerTradesmanUidRaw
+      // Always accept tradesman uid if provided (even when winnerRecommendationId exists).
+      // If not provided but a winner recommendation exists, try to resolve the UID by
+      // matching the recommendation's company name against the tradesmen table — this
+      // ensures the community tab can link to the full tradesman profile.
+      let winnerTradesmanUid = winnerTradesmanUidRaw
         ? String(winnerTradesmanUidRaw).trim() || null
         : null;
+
+      if (!winnerTradesmanUid && winnerRecommendationId) {
+        try {
+          const recRows = await mysqlQuery(
+            `SELECT company FROM recommendations WHERE id = ? LIMIT 1`,
+            [winnerRecommendationId]
+          );
+          const company = recRows?.[0]?.company;
+          if (company) {
+            const tRows = await mysqlQuery(
+              `SELECT user_id FROM tradesmen WHERE company_name = ? LIMIT 1`,
+              [company]
+            );
+            if (tRows?.[0]?.user_id) {
+              winnerTradesmanUid = tRows[0].user_id;
+            }
+          }
+        } catch (e) {
+          log.warn({ error: e?.message }, "Could not resolve winnerTradesmanUid from recommendation");
+        }
+      }
 
       const winnerFromCommunityNum =
         winnerFromCommunity === 1 ||
@@ -355,7 +379,44 @@ module.exports = (router, ctx) => {
         "Project closed successfully"
       );
 
-      return res.json({ ok: true, project });
+      res.json({ ok: true, project });
+
+      // ---- BACKGROUND: notify local users that a neighbour completed a project ----
+      if (project && project.status === "completed" && typeof extractLocationTokens === "function") {
+        (async () => {
+          try {
+            const locTokens = extractLocationTokens(project.location);
+            const whereParts = [];
+            const areaParams = [];
+            if (locTokens.full)    { whereParts.push("u.postcode = ?");        areaParams.push(locTokens.full); }
+            if (locTokens.sector)  { whereParts.push("u.postcodeSector = ?");  areaParams.push(locTokens.sector); }
+            if (locTokens.outward) { whereParts.push("u.postcodeOutward = ?"); areaParams.push(locTokens.outward); }
+            if (locTokens.city)    { whereParts.push("LOWER(u.city) = ?");     areaParams.push(String(locTokens.city).toLowerCase()); }
+            if (!whereParts.length) return;
+
+            const areaWhere = whereParts.join(" OR ");
+            const areaUserRows = await mysqlQuery(
+              `SELECT u.uid FROM users u WHERE (${areaWhere}) AND u.uid <> ?`,
+              [...areaParams, project.ownerUserId]
+            );
+
+            const message = `A neighbour completed a project in your area — "${project.name}"`;
+            const linkPath = `/projects/${projectId}/completed`;
+            for (const row of areaUserRows) {
+              await mysqlQuery(
+                `INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
+                 VALUES (?, 'project_closed_local', ?, ?, ?, NOW())`,
+                [row.uid, message, projectId, linkPath]
+              );
+            }
+            log.info({ projectId, count: areaUserRows.length }, "project_closed_local notifications sent");
+          } catch (e) {
+            log.warn({ error: e?.message }, "project_closed_local notification error");
+          }
+        })();
+      }
+
+      return;
     } catch (err) {
       log.error(
         { error: err?.message, stack: err?.stack },

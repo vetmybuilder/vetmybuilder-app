@@ -1,6 +1,7 @@
 import { test, expect } from "../../../src/ui.fixtures";
 import Project from "../../../src/models/Project";
 import Recommendation from "../../../src/models/Recommendation";
+import Tradesman from "../../../src/models/tradesman";
 import Account from "../../../src/models/Account";
 import { createAuthUser } from "../../../src/helpers/FirebaseSeed";
 import { authedApiForUid } from "../../../src/api/services/client";
@@ -120,5 +121,76 @@ test.describe("Projects list tabs", () => {
 
     await homeownerProjectsPage.gotoTab("completedCommunity");
     await homeownerProjectsPage.hasCompletedCard(project.id);
+  });
+
+  test("clicking the builder name on a community completed card navigates to /tradesman/[uid]", async ({
+    request,
+    runtime,
+    apiClient,
+    loginPage,
+    homeownerProjectsPage,
+  }) => {
+    // Register a tradesman so their company name resolves to a UID
+    const companyName = `Community Builder ${Date.now()}`;
+    const tradesmanUid = `e2e-tm-${Date.now()}`;
+    const tradesmanClient = await authedApiForUid(
+      request,
+      runtime.apiBaseUrl,
+      tradesmanUid,
+    );
+    await tradesmanClient.put(
+      "/api/tradesmen/me",
+      Tradesman.aTradesman().withRandomDetails().withCompanyName(companyName).toPayload(),
+    );
+
+    // Create and complete a project as the homeowner with that tradesman as winner
+    const projectRes = await apiClient.post(
+      "/api/projects",
+      Project.aProject().withRandomDetails().toApiPayload(),
+    );
+    expect(projectRes.status()).toBe(201);
+    const { project } = await projectRes.json();
+
+    const recRes = await apiClient.post(
+      `/api/projects/${project.id}/recommendations`,
+      Recommendation.aRecommendation().withRandomDetails().withCompany(companyName).toPayload(),
+    );
+    expect(recRes.status()).toBe(201);
+    const { recommendationId } = await recRes.json();
+
+    const closeRes = await apiClient.post(`/api/projects/${project.id}/close`, {
+      didGoAhead: true,
+      winnerRecommendationId: recommendationId,
+      winnerTradesmanUid: tradesmanUid,
+      wouldUseAgain: true,
+    });
+    expect(closeRes.status()).toBe(200);
+
+    // Log in as a neighbour in the same area to see the community tab
+    const neighbour = Account.anAccount()
+      .withRandomDetails()
+      .withLocation("E4")
+      .withEmail(`builder-link-neighbour+${Date.now()}@test.com`)
+      .withPassword("Passw0rd!");
+
+    const neighbourAuthUser = await createAuthUser(
+      neighbour.email!,
+      neighbour.password!,
+    );
+
+    const neighbourClient = await authedApiForUid(
+      request,
+      runtime.apiBaseUrl,
+      neighbourAuthUser.uid,
+    );
+    await AuthApi.signup(neighbourClient, neighbour);
+
+    await loginPage.loginExpectSuccess(neighbour.email!, neighbour.password!);
+
+    await homeownerProjectsPage.gotoTab("completedCommunity");
+    await homeownerProjectsPage.hasCompletedCard(project.id);
+
+    await homeownerProjectsPage.clickBuilderLink(project.id);
+    await homeownerProjectsPage.hasNavigatedToTradesmanProfile(tradesmanUid);
   });
 });

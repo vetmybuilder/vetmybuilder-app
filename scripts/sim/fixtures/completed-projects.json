@@ -1,0 +1,44 @@
+[
+  {
+    "ownerIdx": 0,
+    "recommenderIdx": 1,
+    "builderIdx": 5,
+    "photoCount": 4,
+    "project": {
+      "name": "Bathroom Remodel in E4 (Semi-Detached)",
+      "type": "Bathroom Remodel (Full)",
+      "location": "E4 8QJ",
+      "description": "Timeframe: Flexible.\nBudget: £8k–£15k.\nMaterials: Mixed.\nAccess: Parking available.\nFull bathroom refurbishment including new shower enclosure, tiles, vanity unit and heated towel rail.",
+      "propertyType": "Semi-Detached",
+      "bedrooms": 3
+    }
+  },
+  {
+    "ownerIdx": 1,
+    "recommenderIdx": 2,
+    "builderIdx": 0,
+    "photoCount": 3,
+    "project": {
+      "name": "Kitchen Fitting in E4 (Terraced)",
+      "type": "Kitchen Fitting (Carpentry)",
+      "location": "E4 9AB",
+      "description": "Timeframe: 1–3 months.\nBudget: £12k–£20k.\nMaterials: Supplied by tradesman.\nAccess: Parking available.\nFull kitchen replacement including units, worktops, splashback tiling and integrated appliances.",
+      "propertyType": "Terraced",
+      "bedrooms": 4
+    }
+  },
+  {
+    "ownerIdx": 2,
+    "recommenderIdx": 0,
+    "builderIdx": 2,
+    "photoCount": 4,
+    "project": {
+      "name": "Loft Conversion in E4 (Detached)",
+      "type": "Loft Conversion",
+      "location": "E4 7RS",
+      "description": "Timeframe: 3–6 months.\nBudget: £35k–£55k.\nMaterials: Supplied by tradesman.\nAccess: Parking available.\nDormer loft conversion with ensuite bathroom, Velux windows and full insulation.",
+      "propertyType": "Detached",
+      "bedrooms": 4
+    }
+  }
+]

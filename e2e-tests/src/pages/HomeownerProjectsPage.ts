@@ -108,6 +108,19 @@ export class HomeownerProjectsPage {
     });
   }
 
+  async clickBuilderLink(projectId: string | number) {
+    const link = this.page.getByTestId(`link-${String(projectId)}-tradesman`);
+    await expect(link).toBeVisible({ timeout: 10_000 });
+    await link.click();
+  }
+
+  async hasNavigatedToTradesmanProfile(tradesmanUid: string) {
+    await expect(this.page).toHaveURL(
+      `/tradesman/${encodeURIComponent(tradesmanUid)}`,
+      { timeout: 10_000 },
+    );
+  }
+
   private normalizeExpected(expected: string | RegExp): RegExp {
     return expected instanceof RegExp ? expected : new RegExp(expected, "i");
   }

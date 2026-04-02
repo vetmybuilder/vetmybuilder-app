@@ -75,3 +75,42 @@ jobs:
           name: test-results-shard-${{ matrix.shard.id }}
           path: e2e-tests/test-results/
           retention-days: 7
+
+  api-tests:
+    name: Playwright API Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write .env
+        run: printf '%s' "$E2E_ENV" > .env
+        env:
+          E2E_ENV: ${{ secrets.E2E_ENV }}
+
+      - name: Write web/.env.local
+        run: printf '%s' "$E2E_WEB_ENV" > web/.env.local
+        env:
+          E2E_WEB_ENV: ${{ secrets.E2E_WEB_ENV }}
+
+      - name: Build Docker images
+        run: docker compose -f docker-compose.e2e.api.ci.yml build
+
+      - name: Run Playwright API tests
+        run: |
+          docker compose -f docker-compose.e2e.api.ci.yml up \
+            --exit-code-from pw-api \
+            --abort-on-container-exit
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker-compose.e2e.api.ci.yml down --volumes --remove-orphans
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-test-results
+          path: e2e-tests/test-results/
+          retention-days: 7

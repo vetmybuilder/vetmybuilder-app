@@ -24,6 +24,18 @@ const runtimes = Array.from({ length: TOTAL_SHARDS }, (_, i) =>
 
 const debugServerLogs = process.env.PW_SERVER_LOGS === "1";
 
+// In Docker / CI the servers are started as separate containers.
+// Skip webServer so Playwright doesn't try to launch them itself.
+const SHOULD_MANAGE_SERVERS =
+  process.env.DOCKER !== "1" && process.env.START_SERVERS !== "0";
+
+// DB name that matches what buildDbName() in fixtures.ts derives for shard i.
+// Passing this explicitly ensures server DB = test runtime DB.
+function shardDbName(i: number): string {
+  const prefix = process.env.TEST_DB_NAME_PREFIX || "vetmybuilder_test";
+  return `${prefix}_s${i + 1}_${TOTAL_SHARDS}`;
+}
+
 export default defineConfig({
   testDir: "./tests",
   fullyParallel: true,
@@ -31,52 +43,59 @@ export default defineConfig({
   timeout: 60_000,
   reporter: [["list"], ["html", { open: "never" }]],
 
-  webServer: [
-    // 1) Firebase auth emulator
-    {
-      command: debugServerLogs
-        ? "node ../scripts/dev-manual-firebase.js"
-        : "node ../scripts/dev-manual-firebase.js > /dev/null 2>&1",
-      url: FIREBASE_EMULATOR_HUB_URL,
-      reuseExistingServer: true,
-      timeout: 120_000,
-      env: {
-        ...process.env,
-        FIREBASE_AUTH_EMULATOR_HOST,
-        NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: FIREBASE_AUTH_EMULATOR_HOST,
-      },
-    },
+  ...(SHOULD_MANAGE_SERVERS
+    ? {
+        webServer: [
+          // 1) Firebase auth emulator
+          {
+            command: debugServerLogs
+              ? "node ../scripts/dev-manual-firebase.js"
+              : "node ../scripts/dev-manual-firebase.js > /dev/null 2>&1",
+            url: FIREBASE_EMULATOR_HUB_URL,
+            reuseExistingServer: true,
+            timeout: 120_000,
+            env: {
+              ...process.env,
+              FIREBASE_AUTH_EMULATOR_HOST,
+              NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: FIREBASE_AUTH_EMULATOR_HOST,
+            },
+          },
 
-    // 2) Sharded API servers
-    ...runtimes.map((_, i) => {
-      const port = String(API_BASE_PORT + i);
-      const baseURL = `http://127.0.0.1:${port}`;
+          // 2) Sharded API servers
+          ...runtimes.map((_, i) => {
+            const port = String(API_BASE_PORT + i);
+            const baseURL = `http://127.0.0.1:${port}`;
 
-      const baseCommand = `PORT=${port} TEST_TOTAL_SHARDS=${TOTAL_SHARDS} TEST_SHARD=${i} node ../scripts/dev-manual-server.js`;
+            const baseCommand = `PORT=${port} TEST_TOTAL_SHARDS=${TOTAL_SHARDS} TEST_SHARD=${i} node ../scripts/dev-manual-server.js`;
 
-      return {
-        command: debugServerLogs
-          ? baseCommand
-          : `${baseCommand} > /dev/null 2>&1`,
-        url: `${baseURL}/health`,
-        reuseExistingServer: false,
-        timeout: 120_000,
-        env: {
-          ...process.env,
+            return {
+              command: debugServerLogs
+                ? baseCommand
+                : `${baseCommand} > /dev/null 2>&1`,
+              url: `${baseURL}/health`,
+              reuseExistingServer: false,
+              timeout: 120_000,
+              env: {
+                ...process.env,
 
-          PORT: port,
-          TEST_ENV: "e2e",
-          TEST_TOTAL_SHARDS: String(TOTAL_SHARDS),
-          TEST_SHARD: String(i),
+                PORT: port,
+                TEST_ENV: "e2e",
+                TEST_TOTAL_SHARDS: String(TOTAL_SHARDS),
+                TEST_SHARD: String(i),
 
-          FIREBASE_AUTH_EMULATOR_HOST,
-          NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: FIREBASE_AUTH_EMULATOR_HOST,
+                // Explicit DB name so server and test runtime use the same database.
+                MYSQL_DATABASE: shardDbName(i),
 
-          ...(debugServerLogs ? { DEBUG: "vmb:*" } : {}),
-        },
-      };
-    }),
-  ],
+                FIREBASE_AUTH_EMULATOR_HOST,
+                NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: FIREBASE_AUTH_EMULATOR_HOST,
+
+                ...(debugServerLogs ? { DEBUG: "vmb:*" } : {}),
+              },
+            };
+          }),
+        ],
+      }
+    : {}),
 
   use: {
     headless: true,
@@ -90,7 +109,9 @@ export default defineConfig({
       name: `shard-${i + 1}`,
       testMatch: /tests\/(api|graphql)\//,
       use: {
-        baseURL: `http://127.0.0.1:${API_BASE_PORT + i}`,
+        baseURL: SHOULD_MANAGE_SERVERS
+          ? `http://127.0.0.1:${API_BASE_PORT + i}`
+          : `http://server-w${i}:3100`,
       },
       shard: { total: TOTAL_SHARDS, current: i + 1 },
       workers: 1,

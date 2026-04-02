@@ -65,6 +65,7 @@ function SharedCard({ share, onClick }: SharedCardProps) {
     <button
       type="button"
       onClick={onClick}
+      data-testid="shared-tradesman-card"
       className={[
         "w-full",
         "rounded-full border border-sky-100 bg-sky-50 px-4 py-2",
@@ -75,9 +76,9 @@ function SharedCard({ share, onClick }: SharedCardProps) {
     >
       <span className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-full bg-slate-200 overflow-hidden">
         {imgSrc ? (
-          <img src={imgSrc} alt={name} className="h-full w-full object-cover" />
+          <img src={imgSrc} alt={name} className="h-full w-full object-cover" data-testid="shared-tradesman-avatar-photo" />
         ) : (
-          <span className="text-xs font-semibold text-slate-700">
+          <span className="text-xs font-semibold text-slate-700" data-testid="shared-tradesman-avatar-initials">
             {initials}
           </span>
         )}

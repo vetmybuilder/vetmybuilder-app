@@ -35,7 +35,10 @@
     "dev:manual:proxy:w3": "SHARD_INDEX=3 node scripts/dev-manual-proxy.js",
     "dev:manual:proxy:all": "npm-run-all -p dev:manual:proxy:w1 dev:manual:proxy:w2 dev:manual:proxy:w3",
     "dev:manual:clean": "node scripts/dev-manual-clean.js",
-    "dev:manual:stop": "node scripts/dev-manual-stop.js"
+    "dev:manual:stop": "node scripts/dev-manual-stop.js",
+    "sim:seed": "node scripts/simulate.js seed",
+    "sim:daemon": "SIM_MODE=auto node scripts/simulate.js daemon",
+    "sim:reset": "node scripts/simulate.js reset"
   },
   "dependencies": {
     "axios": "^1.7.7",

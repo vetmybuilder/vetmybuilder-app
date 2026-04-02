@@ -48,6 +48,12 @@ export class ProjectDetailsPage extends BasePage {
 
   readonly unarchiveButton: Locator;
 
+  readonly sharedTradesmenStrip: Locator;
+
+  readonly partnerFinanceBanner: Locator;
+  readonly personalLoanButton: Locator;
+  readonly remortgageButton: Locator;
+
   private readonly headerMetaDate: Locator;
   private readonly closeProjectModal: CloseProjectModalComponent;
 
@@ -101,6 +107,16 @@ export class ProjectDetailsPage extends BasePage {
     this.shortlistRecommender = page.getByTestId("shortlist-recommender");
 
     this.unarchiveButton = this.root.getByTestId("btn-unarchive");
+
+    this.sharedTradesmenStrip = page.getByTestId("shared-tradesmen-strip");
+
+    this.partnerFinanceBanner = page.getByTestId("partner-finance-banner");
+    this.personalLoanButton = this.partnerFinanceBanner.getByRole("button", {
+      name: "Personal loan",
+    });
+    this.remortgageButton = this.partnerFinanceBanner.getByRole("button", {
+      name: "Remortgage",
+    });
 
     this.closeProjectModal = new CloseProjectModalComponent(page);
   }
@@ -448,6 +464,73 @@ export class ProjectDetailsPage extends BasePage {
     await expect(this.page).toHaveURL(`/projects/${projectId}/shortlist`, {
       timeout: 15_000,
     });
+  }
+
+  async hasSharedTradesmenStrip(): Promise<void> {
+    await expect(this.sharedTradesmenStrip).toBeVisible({ timeout: 20_000 });
+  }
+
+  async sharedTradesmanHasPhoto(): Promise<void> {
+    await expect(
+      this.sharedTradesmenStrip.getByTestId("shared-tradesman-avatar-photo"),
+    ).toBeVisible({ timeout: 15_000 });
+  }
+
+  async sharedTradesmanHasInitials(initials: string): Promise<void> {
+    const badge = this.sharedTradesmenStrip.getByTestId(
+      "shared-tradesman-avatar-initials",
+    );
+    await expect(badge).toBeVisible({ timeout: 15_000 });
+    await expect(badge).toHaveText(initials);
+  }
+
+  async clickSharedTradesmanCard(): Promise<void> {
+    await expect(
+      this.sharedTradesmenStrip.getByTestId("shared-tradesman-card").first(),
+    ).toBeVisible({ timeout: 15_000 });
+    await this.sharedTradesmenStrip
+      .getByTestId("shared-tradesman-card")
+      .first()
+      .click();
+  }
+
+  async hasEstimateVisible(): Promise<void> {
+    await expect(this.estimateValue).toBeVisible({ timeout: 15_000 });
+  }
+
+  async hasEstimateTooltip(): Promise<void> {
+    await expect(this.estimateInfoButton).toBeVisible({ timeout: 15_000 });
+    await this.estimateInfoButton.hover();
+    await expect(this.estimateTooltip).toBeVisible();
+    await expect(this.estimateTooltip).toContainText(
+      "Job estimate based on your project details.",
+    );
+    await expect(this.estimateTooltip).toContainText(
+      "This is a guide price and actual quotes may vary depending on site visit, materials and final scope.",
+    );
+  }
+
+  async hasFinanceBanner(): Promise<void> {
+    await expect(this.partnerFinanceBanner).toBeVisible({ timeout: 15_000 });
+  }
+
+  async hasFinanceBannerWithEstimateText(): Promise<void> {
+    await expect(this.partnerFinanceBanner).toContainText(
+      /Your project is estimated at £[\d,]+–£[\d,]+ — how would you like to fund it\?/,
+      { timeout: 15_000 },
+    );
+  }
+
+  async hasFinanceBannerWithGenericText(): Promise<void> {
+    await expect(this.partnerFinanceBanner).toContainText(
+      "Home improvements can be a big investment — how would you like to fund it?",
+      { timeout: 15_000 },
+    );
+  }
+
+  async hasFinanceBannerButtons(): Promise<void> {
+    await expect(this.personalLoanButton).toBeVisible({ timeout: 15_000 });
+    await expect(this.remortgageButton).toBeVisible();
   }
 }
 

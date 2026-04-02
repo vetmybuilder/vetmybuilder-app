@@ -23,7 +23,7 @@ function getPool() {
     password: MYSQL_PASSWORD,
     database: MYSQL_DATABASE,
     waitForConnections: true,
-    connectionLimit: 10,
+    connectionLimit: 25,
     queueLimit: 0,
     multipleStatements: false,
   });

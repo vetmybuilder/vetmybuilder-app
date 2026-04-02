@@ -66,6 +66,7 @@ web/firebase-admin.json
 *.sql
 !docker/mysql/init/*.sql
 !e2e-tests/sql/*.sql
+!mysql_schema.sql
 
 # Local migration scripts
 scripts/sqlite_to_mysql_schema.js
