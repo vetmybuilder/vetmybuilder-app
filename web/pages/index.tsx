@@ -208,25 +208,28 @@ export default function Home() {
                   <span>The smarter way to hire a tradesperson</span>
                 </div>
 
-                <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-[1.0] text-zinc-900">
-                  Find a tradesperson{" "}
-                  <span className="relative inline-block">
-                    <span className="relative z-10 text-red-500">you actually</span>
-                    <svg
-                      className="absolute -bottom-1 left-0 w-full h-3 text-red-300"
-                      viewBox="0 0 100 12"
-                      preserveAspectRatio="none"
-                    >
-                      <path
-                        d="M0 6 Q25 0, 50 6 T100 6"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="8"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </span>{" "}
-                  trust
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.05] text-zinc-900">
+                  <span className="block">Find a tradesperson</span>
+                  <span className="block">
+                    you{" "}
+                    <span className="relative inline-block">
+                      <span className="relative z-10 text-red-500">actually</span>
+                      <svg
+                        className="absolute -bottom-1 left-0 w-full h-3 text-red-300"
+                        viewBox="0 0 100 12"
+                        preserveAspectRatio="none"
+                      >
+                        <path
+                          d="M0 6 Q25 0, 50 6 T100 6"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="8"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </span>{" "}
+                    trust
+                  </span>
                 </h1>
 
                 <p className="mt-6 text-xl sm:text-2xl leading-relaxed text-zinc-600 font-medium">
