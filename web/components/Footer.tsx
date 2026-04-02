@@ -15,19 +15,21 @@ export default function Footer() {
     setIsTrades(sessionStorage.getItem("vmb:isTradesman") === "1");
   }, [user]);
 
-  // Tradespeople links depend on auth state:
+  // Tradespeople links:
   // - Not logged in → Register + Login
-  // - Homeowner logged in → Register (invite a trades) + Login
-  // - Tradesman logged in → Profile + Dashboard (no Register/Login)
+  // - Homeowner logged in → hide section entirely
+  // - Tradesman logged in → Profile + My Jobs
   const tradesLinks = user && isTrades
     ? [
         { label: "Your Profile", href: "/tradesman/profile" },
         { label: "My Jobs", href: "/tradesman/projects" },
       ]
-    : [
+    : !user
+    ? [
         { label: "Register", href: "/tradesman/register-tradesmen" },
         { label: "Login", href: "/tradesman/login" },
-      ];
+      ]
+    : null; // homeowner logged in — hide tradespeople section
 
   return (
     <footer className="bg-zinc-900">
@@ -70,22 +72,24 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Tradespeople */}
-          <div>
-            <h4 className="font-bold text-white mb-4">Tradespeople</h4>
-            <ul className="space-y-3">
-              {tradesLinks.map((item) => (
-                <li key={item.label}>
-                  <Link
-                    href={item.href}
-                    className="text-sm text-zinc-400 hover:text-white transition-colors"
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {/* Tradespeople — hidden for logged-in homeowners */}
+          {tradesLinks && (
+            <div>
+              <h4 className="font-bold text-white mb-4">Tradespeople</h4>
+              <ul className="space-y-3">
+                {tradesLinks.map((item) => (
+                  <li key={item.label}>
+                    <Link
+                      href={item.href}
+                      className="text-sm text-zinc-400 hover:text-white transition-colors"
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Legal */}
           <div>
