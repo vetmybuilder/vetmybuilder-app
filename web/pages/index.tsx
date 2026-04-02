@@ -186,13 +186,15 @@ export default function Home() {
         <meta name="description" content="Community-powered builder vetting for UK homeowners. Post a job, gather recommendations, hire with confidence." />
       </Head>
 
-      <div className="bg-white overflow-x-hidden">
+      <div className="bg-stone-50 overflow-x-hidden">
         {/* HERO */}
-        <section className="relative pb-16 sm:pb-20 overflow-hidden" aria-label="Hero">
-          {/* Diagonal colour band */}
+        <section className="relative pb-16 sm:pb-20 overflow-hidden bg-stone-50" aria-label="Hero">
+          {/* Diagonal colour bands */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-500/8 rotate-[-12deg] rounded-[60px]" />
-            <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-500/6 rotate-[8deg] rounded-[80px]" />
+            {/* Pink/rose band — right side */}
+            <div className="absolute -top-[20%] -right-[10%] w-[65%] h-[160%] bg-red-100 rotate-[-12deg] rounded-[80px]" />
+            {/* Sage green blob — bottom left */}
+            <div className="absolute -bottom-[30%] -left-[20%] w-[55%] h-[100%] bg-emerald-100/70 rotate-[8deg] rounded-[80px]" />
           </div>
 
           <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12">
@@ -313,7 +315,7 @@ export default function Home() {
         </section>
 
         {/* STATS */}
-        <section className="bg-zinc-50 py-16 sm:py-20" id="community">
+        <section className="bg-stone-100 py-16 sm:py-20" id="community">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <h2 className="text-3xl sm:text-4xl font-black text-zinc-900">
