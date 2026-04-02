@@ -215,9 +215,10 @@ services:
       TEST_DB_PASSWORD: "root"
       # TEST_DB_NAME intentionally omitted — each shard derives its own name
       # from TEST_DB_NAME_PREFIX + shard label (e.g. vetmybuilder_test_s1_4)
+      PW_API_SHARD: ${PW_API_SHARD:-}
     command: >
       sh -lc
-      "npx playwright test tests/api --project shard-1 --project shard-2 --project shard-3 --project shard-4"
+      "npx playwright test tests/api --project shard-1 --project shard-2 --project shard-3 --project shard-4 ${PW_API_SHARD:+--shard=$PW_API_SHARD}"
     networks: [e2e-api]
 
 networks:

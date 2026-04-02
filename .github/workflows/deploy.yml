@@ -16,7 +16,26 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Check for app code changes
+        id: changed
+        run: |
+          changed=$(git diff --name-only HEAD~1 HEAD)
+          echo "$changed"
+          if echo "$changed" | grep -qvE '^e2e-tests/|^\.github/'; then
+            echo "app=true" >> $GITHUB_OUTPUT
+          else
+            echo "app=false" >> $GITHUB_OUTPUT
+            echo "Only e2e/workflow files changed — skipping deploy"
+          fi
+
       - name: Prepare SSH
+        if: steps.changed.outputs.app == 'true' || github.event_name == 'workflow_dispatch'
         env:
           PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
           PROD_HOST: ${{ secrets.PROD_HOST }}
@@ -27,6 +46,7 @@ jobs:
           ssh-keyscan -H "$PROD_HOST" >> ~/.ssh/known_hosts
 
       - name: Deploy
+        if: steps.changed.outputs.app == 'true' || github.event_name == 'workflow_dispatch'
         env:
           PROD_HOST: ${{ secrets.PROD_HOST }}
         run: |
