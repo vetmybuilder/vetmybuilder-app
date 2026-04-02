@@ -184,9 +184,11 @@ export default function Home() {
       <Head>
         <title>VetMyBuilder — Find a builder you actually trust</title>
         <meta name="description" content="Community-powered builder vetting for UK homeowners. Post a job, gather recommendations, hire with confidence." />
+        {/* Override body background to cream so the header gap area blends in */}
+        <style>{`body { background: #fafaf9 !important; }`}</style>
       </Head>
 
-      <div className="bg-stone-50 overflow-x-hidden -mt-14 pt-14">
+      <div className="bg-stone-50 overflow-x-hidden">
         {/* HERO */}
         <section className="relative pb-16 sm:pb-20 overflow-hidden bg-stone-50" aria-label="Hero">
           {/* Diagonal colour bands */}
