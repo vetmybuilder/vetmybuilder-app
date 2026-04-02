@@ -311,7 +311,7 @@ export default function SiteHeader() {
                       <span>Projects</span>
                       <span className="ml-1.5 text-base leading-none" aria-hidden="true">↗</span>
                     </Link>
-                    <div className="relative" data-testid="account-menu-wrapper">
+                    <div className="relative hidden sm:block" data-testid="account-menu-wrapper">
                       <button
                         ref={btnAccountRef}
                         type="button"
@@ -346,7 +346,7 @@ export default function SiteHeader() {
 
                 {/* Logged-in tradesperson: trades menu */}
                 {user && isTrades && (
-                  <div className="relative" data-testid="trades-menu-wrapper">
+                  <div className="relative hidden sm:block" data-testid="trades-menu-wrapper">
                     <button
                       ref={btnTradesRef}
                       type="button"
