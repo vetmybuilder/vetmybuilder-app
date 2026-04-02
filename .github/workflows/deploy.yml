@@ -30,9 +30,9 @@ jobs:
           set -e
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes "root@$PROD_HOST" "vmb-deploy"
           for i in {1..18}; do
-            if curl -fsS https://vetmybuilder.com/api/health >/dev/null; then
+            if curl -fsS https://vetmybuilder.com/health >/dev/null; then
               echo 'Health: OK'; exit 0
             fi
             sleep 5
           done
-          echo 'Health: FAIL'; curl -i https://vetmybuilder.com/api/health; exit 1
+          echo 'Health: FAIL'; curl -i https://vetmybuilder.com/health; exit 1
