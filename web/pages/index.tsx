@@ -317,7 +317,7 @@ export default function Home() {
         </section>
 
         {/* STATS */}
-        <section className="bg-stone-100 py-16 sm:py-20" id="community">
+        <section className="bg-[#faf0e6] py-16 sm:py-20" id="community">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <h2 className="text-3xl sm:text-4xl font-black text-zinc-900">
@@ -331,22 +331,22 @@ export default function Home() {
                   stat: stats.communityMembers,
                   label: "Community members",
                   tagline: "And growing every day!",
-                  bg: "bg-red-50",
+                  bg: "bg-red-100",
                   accent: "text-red-500",
                 },
                 {
                   stat: stats.recommendations,
                   label: "Recommendations shared",
                   tagline: "Real experiences, real people",
-                  bg: "bg-emerald-50",
-                  accent: "text-emerald-600",
+                  bg: "bg-emerald-100",
+                  accent: "text-emerald-700",
                 },
                 {
                   stat: stats.shortlists,
                   label: "Shortlists created",
                   tagline: "Projects moving forward",
-                  bg: "bg-amber-50",
-                  accent: "text-amber-600",
+                  bg: "bg-yellow-100",
+                  accent: "text-yellow-600",
                 },
               ].map((item) => (
                 <div
