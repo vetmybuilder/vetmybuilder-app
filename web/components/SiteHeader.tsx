@@ -283,17 +283,19 @@ export default function SiteHeader() {
               <div className="flex items-center gap-3">
                 <Link
                   href={homeHref}
-                  className="inline-flex items-center gap-2"
+                  className="inline-flex items-center gap-2 group"
                   aria-label="Go to homepage"
                   data-testid="nav-home"
                 >
                   <span
                     aria-hidden
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-slate-900 text-white ring-1 ring-slate-900/10 shadow-sm"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm transition-transform group-hover:rotate-3"
                   >
                     <Home className="h-4 w-4" />
                   </span>
-                  <span className="sr-only">VetMyBuilder</span>
+                  <span className="text-lg font-black tracking-tight text-zinc-900">
+                    Vet<span className="text-indigo-600">My</span>Builder
+                  </span>
                 </Link>
               </div>
 
