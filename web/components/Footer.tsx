@@ -29,7 +29,7 @@ export default function Footer() {
             <h4 className="font-bold text-white mb-4">Platform</h4>
             <ul className="space-y-3">
               {[
-                { label: "How it Works", href: "/#how-it-works" },
+                { label: "How it Works", href: "/how-it-works" },
                 { label: "Post a Job", href: "/projects/new" },
                 { label: "Sign Up", href: "/signup" },
               ].map((item) => (
