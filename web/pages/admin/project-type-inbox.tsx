@@ -23,7 +23,7 @@ export default function ProjectTypeInbox() {
   const [notice, setNotice] = useState<string | null>(null);
 
   const typeLabels = useMemo(
-    () => PROJECT_TYPES.map((t) => t.label).sort(),
+    () => PROJECT_TYPES.map((t) => t.category).sort(),
     []
   );
 
