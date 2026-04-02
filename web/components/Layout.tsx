@@ -15,7 +15,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       <SiteHeader />
 
-      <main id="main" data-testid="main-content">
+      <main id="main" className="pt-14" data-testid="main-content">
         {children}
       </main>
     </>

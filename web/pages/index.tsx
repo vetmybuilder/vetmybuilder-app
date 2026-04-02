@@ -188,9 +188,9 @@ export default function Home() {
         <style>{`body { background: #fafaf9 !important; }`}</style>
       </Head>
 
-      <div className="bg-stone-50 overflow-x-hidden">
+      <div className="overflow-x-hidden -mt-14">
         {/* HERO */}
-        <section className="relative pb-16 sm:pb-20 overflow-hidden bg-stone-50" aria-label="Hero">
+        <section className="relative pt-20 sm:pt-24 pb-16 sm:pb-20 overflow-hidden bg-stone-50" aria-label="Hero">
           {/* Diagonal colour bands */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             {/* Pink/rose band — right side */}
@@ -199,7 +199,7 @@ export default function Home() {
             <div className="absolute -bottom-[30%] -left-[20%] w-[55%] h-[100%] bg-emerald-100/70 rotate-[8deg] rounded-[80px]" />
           </div>
 
-          <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12">
+          <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
               {/* Left: Text */}
               <div className="max-w-xl">
