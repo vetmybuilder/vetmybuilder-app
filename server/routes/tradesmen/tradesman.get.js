@@ -194,12 +194,12 @@ module.exports = (router, ctx) => {
         return res.status(400).json({ error: "MISSING_ID" });
       }
 
-      /* 1) Load tradesman row */
+      /* 1) Load tradesman row — try public_id first, fall back to user_id */
       let rows;
       try {
         rows = await mysqlQuery(
-          `SELECT * FROM tradesmen WHERE public_id = ? LIMIT 1`,
-          [publicId]
+          `SELECT * FROM tradesmen WHERE public_id = ? OR user_id = ? LIMIT 1`,
+          [publicId, publicId]
         );
       } catch (e) {
         log.error(`${TAG} SELECT error`, {
