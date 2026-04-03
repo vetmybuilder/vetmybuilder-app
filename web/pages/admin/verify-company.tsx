@@ -327,15 +327,17 @@ function VerifyCompanyContent() {
 
                   {result.best ? (
                     <div className="mt-3 grid grid-cols-2 gap-1 text-sm">
-                      {[
-                        ["Best score", result.best.score],
-                        ["Best name", result.best.name || "—"],
-                        ["Best number", result.best.number || "—"],
-                        ["Status", result.best.status || "—"],
-                        result.best.sicCodes?.length
-                          ? ["SIC", result.best.sicCodes.join(", ")]
-                          : null,
-                      ]
+                      {(
+                        [
+                          ["Best score", result.best.score],
+                          ["Best name", result.best.name || "—"],
+                          ["Best number", result.best.number || "—"],
+                          ["Status", result.best.status || "—"],
+                          result.best.sicCodes?.length
+                            ? ["SIC", result.best.sicCodes.join(", ")]
+                            : null,
+                        ] as Array<[string, string | number] | null>
+                      )
                         .filter((x): x is [string, string | number] => x !== null)
                         .map(([k, v]) => (
                           <div key={String(k)}>
@@ -400,15 +402,17 @@ function VerifyCompanyContent() {
                   className="rounded-lg border border-slate-500/50 bg-slate-700/50 p-4 grid grid-cols-2 gap-1 text-sm"
                   data-testid="verify-summary"
                 >
-                  {[
-                    ["Name", result.company.name],
-                    ["Number", result.company.number],
-                    ["Status", result.company.status ?? "—"],
-                    ["Incorporated", result.company.dateOfCreation ?? "—"],
-                    Array.isArray(result.company.sicCodes) && result.company.sicCodes.length > 0
-                      ? ["SIC", result.company.sicCodes.join(", ")]
-                      : null,
-                  ]
+                  {(
+                    [
+                      ["Name", result.company.name],
+                      ["Number", result.company.number],
+                      ["Status", result.company.status ?? "—"],
+                      ["Incorporated", result.company.dateOfCreation ?? "—"],
+                      Array.isArray(result.company.sicCodes) && result.company.sicCodes.length > 0
+                        ? ["SIC", result.company.sicCodes.join(", ")]
+                        : null,
+                    ] as Array<[string, string | number] | null>
+                  )
                     .filter((x): x is [string, string | number] => x !== null)
                     .map(([k, v]) => (
                       <div key={String(k)}>
