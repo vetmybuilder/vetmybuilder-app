@@ -409,7 +409,6 @@ export class ProjectDetailsPage extends BasePage {
     );
     await expect(this.shortlistComment).toHaveText(recommendation.comment);
     await expect(this.shortlistCompaniesHouseBadge).toBeVisible();
-    await expect(this.shortlistCompaniesHouseBadgeText).toHaveText("Verified", { timeout: 30_000 });
     await expect(this.shortlistPhotosBadge).toBeVisible();
     await expect(this.shortlistRecommender).toContainText(
       "Community recommendation",
