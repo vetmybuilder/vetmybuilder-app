@@ -72,7 +72,7 @@ export default defineConfig({
     headless: isHeadless(),
     storageState: undefined,
     contextOptions: { serviceWorkers: "block" },
-    launchOptions: { slowMo: 150 },
+    launchOptions: { slowMo: process.env.CI ? 0 : 150 },
     trace: "retain-on-failure",
     video: "retain-on-failure",
     screenshot: "only-on-failure",
@@ -87,7 +87,7 @@ export default defineConfig({
         baseURL: BASE_URL,
         viewport: null,
         launchOptions: {
-          slowMo: 150,
+          slowMo: process.env.CI ? 0 : 150,
           args: [
             windowSizeArg(DESKTOP_VIEWPORT.width, DESKTOP_VIEWPORT.height),
           ],
