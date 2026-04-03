@@ -77,9 +77,7 @@ test.describe("Sign in", () => {
 
     await basePage.logout();
 
-    // Login with ?next=/account — /account requires a full profile so the app
-    // falls back to the default post-login destination (/projects)
-    await loginPage.goto("/account");
+    await loginPage.goto("/projects");
     await loginPage.loginWith(user.email!, user.password!);
 
     await loginPage.page.waitForURL("/projects", { timeout: 15_000 });

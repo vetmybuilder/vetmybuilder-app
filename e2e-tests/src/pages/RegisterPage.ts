@@ -92,6 +92,8 @@ export class RegisterPage {
     await this.email.fill(input.email);
     await this.password.fill(input.password);
     await this.location.fill(input.location);
+    // Dismiss the postcode autocomplete dropdown so it doesn't block submit
+    await this.location.press("Escape");
   }
 
   async fillFromAccount(account: Account): Promise<void> {

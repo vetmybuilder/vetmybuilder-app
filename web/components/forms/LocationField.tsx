@@ -384,6 +384,10 @@ export default function LocationField({
               e.preventDefault();
               commitRawOrPlace(query);
             }
+            if (e.key === "Escape") {
+              setOpen(false);
+              setSug([]);
+            }
           }}
           aria-invalid={error ? "true" : undefined}
           aria-autocomplete="list"

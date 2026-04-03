@@ -20,9 +20,18 @@ export class ShortlistPage {
   }
 
   async visit(projectId: string | number): Promise<void> {
-    await this.page.goto(`/projects/${projectId}/shortlist`, {
-      waitUntil: "domcontentloaded",
-    });
+    const url = `/projects/${projectId}/shortlist`;
+    try {
+      await this.page.goto(url, { waitUntil: "domcontentloaded" });
+    } catch (error) {
+      const message = String(error);
+      if (message.includes("WebKit encountered an internal error")) {
+        // WebKit can crash on first navigation under resource pressure; retry once.
+        await this.page.goto(url, { waitUntil: "domcontentloaded" });
+      } else {
+        throw error;
+      }
+    }
     await expect(this.container).toBeVisible({ timeout: 15_000 });
   }
 

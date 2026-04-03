@@ -74,6 +74,7 @@ test.describe("Admin leaderboard", () => {
     await authHelper.loginAsUid(ADMIN_UID);
 
     await adminLeaderboardPage.visit();
+    await adminLeaderboardPage.waitUntilReady();
     await adminLeaderboardPage.searchFor(tradesman.companyName);
 
     await adminLeaderboardPage.assertRowVisible(leadId);
@@ -117,6 +118,7 @@ test.describe("Admin leaderboard", () => {
     await basePage.logout();
     await authHelper.loginAsUid(ADMIN_UID);
     await adminLeaderboardPage.visit();
+    await adminLeaderboardPage.waitUntilReady();
     await adminLeaderboardPage.searchFor(tradesman.companyName);
 
     await adminLeaderboardPage.assertRowVisible(leadId);
@@ -172,6 +174,7 @@ test.describe("Admin leaderboard", () => {
     await basePage.logout();
     await authHelper.loginAsUid(ADMIN_UID);
     await adminLeaderboardPage.visit();
+    await adminLeaderboardPage.waitUntilReady();
     await adminLeaderboardPage.searchFor(tradesman.companyName);
 
     await adminLeaderboardPage.assertRowVisible(builderAuthUser.uid);
