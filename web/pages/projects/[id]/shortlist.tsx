@@ -356,7 +356,7 @@ function ShortlistInner() {
         <style>{`body { background: #fafaf9 !important; }`}</style>
       </Head>
 
-      <div className="relative min-h-screen overflow-x-hidden bg-stone-50 -mt-14">
+      <div className="relative min-h-screen overflow-x-hidden bg-stone-50 -mt-14" data-testid="recommendations-page">
         {/* Background bands */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />

@@ -6,6 +6,8 @@ import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
 import AccountField from "@/components/forms/AccountField";
+import LocationField from "@/components/forms/LocationField";
+import Link from "next/link";
 
 type AccountUser = {
   uid: string;
@@ -216,7 +218,7 @@ export default function ManageAccount() {
             <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-8 sm:p-10">
               <div className="mb-8">
                 <h1 className="text-3xl font-black tracking-tight text-zinc-900">
-                  Your account
+                  Manage account
                 </h1>
                 <p className="mt-2 text-zinc-500 text-sm">
                   Update your profile details below.
@@ -304,43 +306,45 @@ export default function ManageAccount() {
                     />
                   </AccountField>
 
-                  <AccountField
-                    id={ids.username}
-                    label="Username"
-                    required
-                    error={fieldErrors.username}
-                    errorId="acc-username-error"
-                  >
+                  <AccountField id={ids.username} label="Username">
                     <input
                       id={ids.username}
-                      className={inputClass(!!fieldErrors.username)}
+                      className="w-full rounded-2xl border-2 border-zinc-200 px-4 py-3 text-zinc-400 bg-zinc-50 cursor-not-allowed"
                       placeholder="Username"
                       value={form.username}
-                      onChange={(e) => set("username", e.target.value)}
-                      aria-invalid={!!fieldErrors.username}
-                      aria-describedby={
-                        fieldErrors.username ? "acc-username-error" : undefined
-                      }
+                      disabled
+                      readOnly
                     />
+                    <p className="mt-1.5 text-xs text-zinc-400">
+                      Username and email cannot be changed.{" "}
+                      <Link href="/contact" className="underline hover:text-zinc-600 transition-colors">
+                        Contact support
+                      </Link>{" "}
+                      if you need help.
+                    </p>
                   </AccountField>
 
                   <AccountField
                     id={ids.location}
-                    label="Location (postcode or city)"
+                    label="Postcode or City/Borough"
                     required
                     error={fieldErrors.location}
                     errorId="acc-location-error"
                   >
-                    <input
+                    <LocationField
                       id={ids.location}
-                      className={inputClass(!!fieldErrors.location)}
-                      placeholder="E4 6JH, SW1, London…"
+                      label=""
+                      placeholder="e.g., E4, N17, Chingford"
                       value={form.location}
-                      onChange={(e) => set("location", e.target.value)}
-                      aria-invalid={!!fieldErrors.location}
-                      aria-describedby={
-                        fieldErrors.location ? "acc-location-error" : undefined
-                      }
+                      onChange={(v, meta) => {
+                        if (meta) {
+                          const token = meta.outward || meta.sector || meta.postcode || v;
+                          set("location", token);
+                        } else {
+                          set("location", v);
+                        }
+                      }}
+                      reasonText=""
                     />
                   </AccountField>
 

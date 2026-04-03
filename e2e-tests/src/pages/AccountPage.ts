@@ -51,8 +51,8 @@ export class AccountPage {
 
     this.saveButton = page.getByRole("button", { name: "Save changes" });
 
-    this.successAlert = this.card.locator('[role="status"]');
-    this.errorAlert = this.card.locator('[role="alert"]');
+    this.successAlert = page.locator('[role="status"]');
+    this.errorAlert = page.locator('[role="alert"]');
 
     this.loadingText = page.getByText("Loading…");
   }

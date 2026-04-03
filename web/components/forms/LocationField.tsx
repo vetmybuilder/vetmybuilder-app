@@ -85,8 +85,12 @@ export default function LocationField({
   const [sug, setSug] = React.useState<Suggestion[]>([]);
   const debounced = useDebounced(query, 180);
   const boxRef = React.useRef<HTMLDivElement | null>(null);
+  const hasInteracted = React.useRef(false);
 
-  React.useEffect(() => setQuery(value), [value]);
+  React.useEffect(() => {
+    // Sync external value changes without triggering the dropdown
+    setQuery(value);
+  }, [value]);
 
   // Close popover on outside click
   React.useEffect(() => {
@@ -134,7 +138,7 @@ export default function LocationField({
             outward: outwardFromPostcode(pc),
           }));
           setSug(list);
-          setOpen(list.length > 0);
+          if (hasInteracted.current) setOpen(list.length > 0);
         } else {
           // Places search — ONLY include rows whose text contains the query
           const resp = await fetch(
@@ -227,7 +231,7 @@ export default function LocationField({
             .slice(0, 12);
 
           setSug(ranked);
-          setOpen(ranked.length > 0);
+          if (hasInteracted.current) setOpen(ranked.length > 0);
         }
       } catch {
         setSug([]);
@@ -343,6 +347,7 @@ export default function LocationField({
 
   function onInput(e: React.ChangeEvent<HTMLInputElement>) {
     const v = e.target.value;
+    hasInteracted.current = true;
     setQuery(v);
     onChange(v || "", null); // bubble raw value as they type
     setOpen(true);
@@ -369,7 +374,7 @@ export default function LocationField({
           placeholder={placeholder}
           value={query}
           onChange={onInput}
-          onFocus={() => setOpen(true)}
+          onFocus={() => { hasInteracted.current = true; setOpen(true); }}
           onBlur={() => setTimeout(() => setOpen(false), 120)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
