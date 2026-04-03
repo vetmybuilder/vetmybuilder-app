@@ -12,7 +12,7 @@ import LocationField from "@/components/forms/LocationField";
 
 type FieldErrors = Partial<
   Record<
-    "firstName" | "lastName" | "username" | "email" | "password" | "location",
+    "firstName" | "lastName" | "username" | "email" | "password" | "location" | "betaCode",
     string
   >
 >;
@@ -24,6 +24,7 @@ type FormState = {
   email: string;
   password: string;
   location: string;
+  betaCode: string;
 };
 
 export default function SignupForm() {
@@ -53,11 +54,20 @@ export default function SignupForm() {
     email: "",
     password: "",
     location: "",
+    betaCode: "",
   });
 
+  const [betaRequired, setBetaRequired] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    api.get("/api/auth/beta-status").then(({ data }) => {
+      if (data?.required) setBetaRequired(true);
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const set = (k: keyof FormState, v: string) =>
     setForm((p) => ({ ...p, [k]: v }));
@@ -153,7 +163,7 @@ export default function SignupForm() {
     try {
       const email = form.email.trim();
 
-      await ensureEmailAvailable(api, email);
+      await ensureEmailAvailable(api, email, betaRequired ? form.betaCode.trim() : undefined);
 
       // Check username availability before creating the Firebase user.
       // If we created the Firebase user first and the username were taken,
@@ -211,7 +221,10 @@ export default function SignupForm() {
     } catch (e: any) {
       const raw = e?.message || "";
 
-      if (
+      if (raw === "invalid_beta_code") {
+        setFieldErrors({ betaCode: "Incorrect access code." });
+        setErr("Invalid beta access code.");
+      } else if (
         raw.includes("already exists (including aliases)") ||
         raw.includes("already exists. Try signing in")
       ) {
@@ -332,6 +345,18 @@ export default function SignupForm() {
           </p>
         )}
       </div>
+
+      {betaRequired && (
+        <RegisterField
+          id="reg-beta"
+          label="Beta access code"
+          value={form.betaCode}
+          required
+          error={fieldErrors.betaCode}
+          testIdPrefix="reg"
+          onChange={(v) => set("betaCode", v)}
+        />
+      )}
 
       {err && (
         <p className="text-red-500 text-sm font-medium" role="alert" data-testid="register-error">

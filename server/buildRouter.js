@@ -98,6 +98,7 @@ function buildRouter(ctx) {
   require("./routes/__test__/sim/live-projects.get")(router, ctx);
 
   // ---------------- auth ----------------
+  require("./routes/auth/beta-status.get")(router, ctx);
   require("./routes/auth/check-email.post")(router, ctx);
   require("./routes/auth/check-username.get")(router, ctx);
   require("./routes/auth/signup.post")(router, ctx);

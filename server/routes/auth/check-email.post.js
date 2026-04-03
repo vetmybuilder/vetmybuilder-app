@@ -51,6 +51,15 @@ module.exports = (router, ctx) => {
   router.post("/auth/check-email", async (req, res) => {
     const log = withRequest(req).child({ route: "auth.check-email" });
 
+    // Beta access code check — only enforced when BETA_CODE is set in env
+    const requiredCode = process.env.BETA_CODE;
+    if (requiredCode) {
+      const provided = String(req.body?.betaCode || "").trim();
+      if (provided !== requiredCode) {
+        return res.status(403).json({ ok: false, error: "invalid_beta_code" });
+      }
+    }
+
     try {
       const raw = String(req.body?.email || "").trim();
       if (!raw) {

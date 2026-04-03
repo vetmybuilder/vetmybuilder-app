@@ -10,16 +10,23 @@ import type { AxiosInstance } from "axios";
  */
 export async function ensureEmailAvailable(
   api: AxiosInstance,
-  email: string
+  email: string,
+  betaCode?: string
 ): Promise<void> {
   const clean = (email || "").trim();
   if (!clean) {
     throw new Error("Email is required.");
   }
 
-  const { data } = await api.post("/api/auth/check-email", { email: clean });
+  const { data } = await api.post("/api/auth/check-email", {
+    email: clean,
+    ...(betaCode ? { betaCode } : {}),
+  });
 
   if (data?.ok !== true) {
+    if (data?.error === "invalid_beta_code") {
+      throw new Error("invalid_beta_code");
+    }
     throw new Error(
       data?.error || "Could not verify this email. Please try again."
     );
