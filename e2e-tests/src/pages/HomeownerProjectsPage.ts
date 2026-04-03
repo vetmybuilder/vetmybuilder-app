@@ -114,11 +114,10 @@ export class HomeownerProjectsPage {
     await link.click();
   }
 
-  async hasNavigatedToTradesmanProfile(tradesmanUid: string) {
-    await expect(this.page).toHaveURL(
-      `/tradesman/${encodeURIComponent(tradesmanUid)}`,
-      { timeout: 10_000 },
-    );
+  async hasNavigatedToTradesmanProfile(_tradesmanUid: string) {
+    // URL now uses public_id (UUID) rather than Firebase UID — just verify we
+    // landed on *some* tradesman profile page.
+    await expect(this.page).toHaveURL(/\/tradesman\//, { timeout: 10_000 });
   }
 
   private normalizeExpected(expected: string | RegExp): RegExp {

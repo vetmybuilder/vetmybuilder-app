@@ -13,6 +13,21 @@ module.exports = (router, ctx) => {
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
   // ---- Helpers ----
+  async function columnExists(table, column) {
+    if (ctx[`__col_${table}_${column}`] !== undefined) return ctx[`__col_${table}_${column}`];
+    try {
+      const rows = await mysqlQuery(
+        `SELECT 1 FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1`,
+        [table, column]
+      );
+      ctx[`__col_${table}_${column}`] = rows.length > 0;
+    } catch {
+      ctx[`__col_${table}_${column}`] = false;
+    }
+    return ctx[`__col_${table}_${column}`];
+  }
+
   async function tableExists(name) {
     try {
       const pattern = String(name)
@@ -152,7 +167,8 @@ module.exports = (router, ctx) => {
       if (hasTradesmenTable) {
         selectCols.push("t.company_name AS tradesman_company_name");
         selectCols.push("t.profile_picture_url AS tradesman_profile_picture_url");
-        selectCols.push("t.public_id AS tradesman_public_id");
+        const hasPublicId = await columnExists("tradesmen", "public_id");
+        if (hasPublicId) selectCols.push("t.public_id AS tradesman_public_id");
       }
 
       const sql = `

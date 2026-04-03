@@ -16,7 +16,8 @@ module.exports = (router, ctx) => {
 
   const tableExists = async (name) => {
     try {
-      const rows = await mysqlQuery(`SHOW TABLES LIKE ?`, [name]);
+      const safe = String(name).replace(/\\/g, "\\\\").replace(/_/g, "\\_").replace(/%/g, "\\%").replace(/'/g, "\\'");
+      const rows = await mysqlQuery(`SHOW TABLES LIKE '${safe}'`);
       return rows.length > 0;
     } catch (e) {
       log.warn?.(`${TAG} tableExists(${name}) failed`, { error: e?.message });

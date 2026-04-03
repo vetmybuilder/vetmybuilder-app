@@ -302,11 +302,15 @@ CREATE TABLE tradesmen (
   google_reviews_count INT NOT NULL DEFAULT 0,
 
   -- migration 028
-  profile_picture_url TEXT NULL
+  profile_picture_url TEXT NULL,
+
+  -- migration 029
+  public_id VARCHAR(36) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX idx_tradesmen_service_areas ON tradesmen(service_areas);
 CREATE INDEX idx_tradesmen_trade_types   ON tradesmen(trade_types);
+CREATE UNIQUE INDEX idx_tradesmen_public_id ON tradesmen(public_id);
 CREATE TABLE tradesmen_offers (
   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   user_id VARCHAR(255) NOT NULL,
@@ -953,11 +957,15 @@ CREATE TABLE tradesmen (
   google_reviews_count INT NOT NULL DEFAULT 0,
 
   -- migration 028
-  profile_picture_url TEXT NULL
+  profile_picture_url TEXT NULL,
+
+  -- migration 029
+  public_id VARCHAR(36) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX idx_tradesmen_service_areas ON tradesmen(service_areas);
 CREATE INDEX idx_tradesmen_trade_types   ON tradesmen(trade_types);
+CREATE UNIQUE INDEX idx_tradesmen_public_id ON tradesmen(public_id);
 CREATE TABLE tradesmen_offers (
   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   user_id VARCHAR(255) NOT NULL,
@@ -1604,11 +1612,15 @@ CREATE TABLE tradesmen (
   google_reviews_count INT NOT NULL DEFAULT 0,
 
   -- migration 028
-  profile_picture_url TEXT NULL
+  profile_picture_url TEXT NULL,
+
+  -- migration 029
+  public_id VARCHAR(36) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX idx_tradesmen_service_areas ON tradesmen(service_areas);
 CREATE INDEX idx_tradesmen_trade_types   ON tradesmen(trade_types);
+CREATE UNIQUE INDEX idx_tradesmen_public_id ON tradesmen(public_id);
 CREATE TABLE tradesmen_offers (
   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   user_id VARCHAR(255) NOT NULL,
@@ -2255,11 +2267,15 @@ CREATE TABLE tradesmen (
   google_reviews_count INT NOT NULL DEFAULT 0,
 
   -- migration 028
-  profile_picture_url TEXT NULL
+  profile_picture_url TEXT NULL,
+
+  -- migration 029
+  public_id VARCHAR(36) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX idx_tradesmen_service_areas ON tradesmen(service_areas);
 CREATE INDEX idx_tradesmen_trade_types   ON tradesmen(trade_types);
+CREATE UNIQUE INDEX idx_tradesmen_public_id ON tradesmen(public_id);
 CREATE TABLE tradesmen_offers (
   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   user_id VARCHAR(255) NOT NULL,
@@ -2906,11 +2922,15 @@ CREATE TABLE tradesmen (
   google_reviews_count INT NOT NULL DEFAULT 0,
 
   -- migration 028
-  profile_picture_url TEXT NULL
+  profile_picture_url TEXT NULL,
+
+  -- migration 029
+  public_id VARCHAR(36) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX idx_tradesmen_service_areas ON tradesmen(service_areas);
 CREATE INDEX idx_tradesmen_trade_types   ON tradesmen(trade_types);
+CREATE UNIQUE INDEX idx_tradesmen_public_id ON tradesmen(public_id);
 CREATE TABLE tradesmen_offers (
   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   user_id VARCHAR(255) NOT NULL,

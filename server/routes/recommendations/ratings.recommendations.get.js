@@ -38,7 +38,8 @@ module.exports = (router, ctx) => {
       return tableCache[name];
     }
     try {
-      const rows = await mysqlQuery(`SHOW TABLES LIKE ?`, [name]);
+      const safe = String(name).replace(/\\/g, "\\\\").replace(/_/g, "\\_").replace(/%/g, "\\%").replace(/'/g, "\\'");
+      const rows = await mysqlQuery(`SHOW TABLES LIKE '${safe}'`);
       const ok = Array.isArray(rows) && rows.length > 0;
       tableCache[name] = ok;
       log.debug?.(`${TAG} hasTable`, { name, ok });

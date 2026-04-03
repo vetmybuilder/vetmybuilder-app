@@ -26,6 +26,7 @@ function getPool() {
     connectionLimit: 25,
     queueLimit: 0,
     multipleStatements: false,
+    timezone: "+00:00", // treat all DATETIME columns as UTC
   });
 
   return pool;

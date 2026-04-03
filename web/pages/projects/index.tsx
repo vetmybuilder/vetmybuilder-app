@@ -528,8 +528,12 @@ function OwnerProjects() {
                     (trades as any)?.[Number(recId)],
                 );
 
+                // Prefer UUID public_id; fall back to Firebase UID so the
+                // tradesman link always works (tradesman.get.js accepts both).
                 const tradesmanPublicId =
-                  (p as any)._winnerTradesmanPublicId ?? null;
+                  (p as any)._winnerTradesmanPublicId ||
+                  (p as any)._winnerTradesmanUid ||
+                  null;
 
                 const tradesmanLabel = fromServer || fromHook || "—";
 
