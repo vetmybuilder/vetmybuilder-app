@@ -25,6 +25,8 @@ export type LocationFieldProps = {
   className?: string;
   /** Optional helper text under the field explaining why you ask for a postcode */
   reasonText?: string;
+  /** Validation error message; sets aria-invalid on the input */
+  error?: string;
 };
 
 function useDebounced<T>(value: T, delay = 200) {
@@ -77,6 +79,7 @@ export default function LocationField({
   dataTestId,
   className = "",
   reasonText = "We use your postcode to match you with nearby tradespeople and improve local recommendations. We never share your full address.",
+  error,
 }: LocationFieldProps) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState(value);
@@ -85,8 +88,12 @@ export default function LocationField({
   const [sug, setSug] = React.useState<Suggestion[]>([]);
   const debounced = useDebounced(query, 180);
   const boxRef = React.useRef<HTMLDivElement | null>(null);
+  const hasInteracted = React.useRef(false);
 
-  React.useEffect(() => setQuery(value), [value]);
+  React.useEffect(() => {
+    // Sync external value changes without triggering the dropdown
+    setQuery(value);
+  }, [value]);
 
   // Close popover on outside click
   React.useEffect(() => {
@@ -134,7 +141,7 @@ export default function LocationField({
             outward: outwardFromPostcode(pc),
           }));
           setSug(list);
-          setOpen(list.length > 0);
+          if (hasInteracted.current) setOpen(list.length > 0);
         } else {
           // Places search — ONLY include rows whose text contains the query
           const resp = await fetch(
@@ -227,7 +234,7 @@ export default function LocationField({
             .slice(0, 12);
 
           setSug(ranked);
-          setOpen(ranked.length > 0);
+          if (hasInteracted.current) setOpen(ranked.length > 0);
         }
       } catch {
         setSug([]);
@@ -343,6 +350,7 @@ export default function LocationField({
 
   function onInput(e: React.ChangeEvent<HTMLInputElement>) {
     const v = e.target.value;
+    hasInteracted.current = true;
     setQuery(v);
     onChange(v || "", null); // bubble raw value as they type
     setOpen(true);
@@ -365,18 +373,25 @@ export default function LocationField({
       <div className="relative">
         <input
           id={id}
-          className="input pr-9"
+          className={`input pr-9${error ? " border-red-600" : ""}`}
           placeholder={placeholder}
           value={query}
           onChange={onInput}
-          onFocus={() => setOpen(true)}
+          onFocus={() => { hasInteracted.current = true; setOpen(true); }}
           onBlur={() => setTimeout(() => setOpen(false), 120)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
               commitRawOrPlace(query);
             }
+            if (e.key === "Escape") {
+              // Reset hasInteracted so the in-flight async fetch doesn't re-open
+              hasInteracted.current = false;
+              setOpen(false);
+              setSug([]);
+            }
           }}
+          aria-invalid={error ? "true" : undefined}
           aria-autocomplete="list"
           aria-expanded={open}
           aria-controls={`${id}-listbox`}

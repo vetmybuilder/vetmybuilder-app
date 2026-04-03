@@ -7,7 +7,6 @@ import {
 
 test.describe("Homeowner registration", () => {
   test("can register a new homeowner and lands on projects with correct initials badge, safety and verification card visible and filters are present", async ({
-    homePage,
     registerPage,
     siteHeader,
     homeownerProjectsPage,
@@ -50,7 +49,6 @@ test.describe("Homeowner registration", () => {
   });
 
   test("shows an error when username is already taken", async ({
-    homePage,
     registerPage,
     accountApi,
   }) => {
@@ -61,7 +59,7 @@ test.describe("Homeowner registration", () => {
     await accountApi.createAccount(existing.toApiPayload());
 
     const account = Account.anAccount().withRandomRegistration({
-      location: "E4",
+      location: "E4 7DT",
       username: takenUsername,
       email: `homeowner+${Date.now()}@test.com`,
       password: "password",

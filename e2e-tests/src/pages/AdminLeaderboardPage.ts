@@ -13,13 +13,14 @@ export class AdminLeaderboardPage extends BasePage {
     super(page);
 
     this.heading = page.getByRole("heading", {
-      name: "Tradesmen Leaderboard (Admin)",
+      name: "Tradesmen Leaderboard",
     });
     this.searchInput = page.getByTestId("admin-search-input");
     this.searchButton = page.getByRole("button", { name: "Search" });
     this.forbiddenMessage = page.getByText("Access restricted");
   }
 
+  /** Waits for the admin-authenticated view (heading visible). Call after visit() for admin tests. */
   async waitUntilReady() {
     await expect(
       this.page.getByTestId("admin-leaderboard-page"),
@@ -27,11 +28,15 @@ export class AdminLeaderboardPage extends BasePage {
     await expect(this.heading).toBeVisible({ timeout: 15_000 });
   }
 
+  /** Navigates to the leaderboard and waits for the page container only.
+   *  Works for both admin and non-admin users. */
   async visit() {
     await this.page.goto("/admin/tradesmen-leaderboard", {
       waitUntil: "domcontentloaded",
     });
-    await this.waitUntilReady();
+    await expect(
+      this.page.getByTestId("admin-leaderboard-page"),
+    ).toBeVisible({ timeout: 30_000 });
   }
 
   async searchFor(query: string) {

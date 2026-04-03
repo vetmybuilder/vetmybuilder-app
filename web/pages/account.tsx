@@ -6,6 +6,8 @@ import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
 import AccountField from "@/components/forms/AccountField";
+import LocationField from "@/components/forms/LocationField";
+import Link from "next/link";
 
 type AccountUser = {
   uid: string;
@@ -193,151 +195,170 @@ export default function ManageAccount() {
   };
 
   const inputClass = (hasError: boolean) =>
-    ["input", hasError ? "border-red-400 ring-1 ring-red-200" : ""].join(" ");
+    `w-full rounded-2xl border-2 px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:outline-none transition-colors ${
+      hasError ? "border-red-400 focus:border-red-500" : "border-zinc-200 focus:border-red-400"
+    }`;
 
   return (
     <AuthedOnly>
       <Head>
-        <title>Manage account</title>
+        <title>Manage account — VetMyBuilder</title>
+        <style>{`body { background: #fafaf9 !important; }`}</style>
       </Head>
 
-      <div className="mx-auto max-w-2xl px-4 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-semibold tracking-tight mb-2">
-          Manage account
-        </h1>
-        <p className="text-slate-500 mb-2">Update your profile info.</p>
-        <p className="text-xs text-slate-500 mb-6">
-          Fields marked <span className="text-red-600">*</span> are required.
-        </p>
+      <div className="overflow-x-hidden -mt-14 min-h-screen">
+        <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-stone-50 py-24">
+          {/* Background bands matching homepage hero */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
+            <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
+          </div>
 
-        <div className="card">
-          {saved && (
-            <div
-              role="status"
-              aria-live="polite"
-              className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-800 text-sm"
-            >
-              Details updated. Redirecting…
-            </div>
-          )}
+          <div className="relative z-10 w-full max-w-lg px-4 sm:px-0">
+            <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-8 sm:p-10">
+              <div className="mb-8">
+                <h1 className="text-3xl font-black tracking-tight text-zinc-900">
+                  Manage account
+                </h1>
+                <p className="mt-2 text-zinc-500 text-sm">
+                  Update your profile details below.
+                </p>
+              </div>
 
-          {err && (
-            <div
-              role="alert"
-              className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm"
-            >
-              <div>{err}</div>
+              {saved && (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800 text-sm font-medium"
+                >
+                  Details updated. Redirecting…
+                </div>
+              )}
 
-              {Object.keys(fieldErrors).length > 0 && (
-                <ul className="mt-2 list-disc pl-5 space-y-1">
-                  {Object.entries(fieldErrors).map(([k, v]) =>
-                    v ? <li key={k}>{v}</li> : null,
+              {err && (
+                <div
+                  role="alert"
+                  className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-600 text-sm font-medium"
+                >
+                  <div>{err}</div>
+                  {Object.keys(fieldErrors).length > 0 && (
+                    <ul className="mt-2 list-disc pl-5 space-y-1">
+                      {Object.entries(fieldErrors).map(([k, v]) =>
+                        v ? <li key={k}>{v}</li> : null,
+                      )}
+                    </ul>
                   )}
-                </ul>
+                </div>
+              )}
+
+              {loading ? (
+                <p className="text-zinc-400 text-sm">Loading…</p>
+              ) : (
+                <form onSubmit={onSubmit} className="grid grid-cols-1 gap-5">
+                  <AccountField
+                    id={ids.first}
+                    label="First name"
+                    required
+                    error={fieldErrors.firstName}
+                    errorId="acc-first-error"
+                  >
+                    <input
+                      id={ids.first}
+                      className={inputClass(!!fieldErrors.firstName)}
+                      placeholder="First name"
+                      value={form.firstName}
+                      onChange={(e) => set("firstName", e.target.value)}
+                      aria-invalid={!!fieldErrors.firstName}
+                      aria-describedby={
+                        fieldErrors.firstName ? "acc-first-error" : undefined
+                      }
+                    />
+                  </AccountField>
+
+                  <AccountField
+                    id={ids.last}
+                    label="Last name"
+                    required
+                    error={fieldErrors.lastName}
+                    errorId="acc-last-error"
+                  >
+                    <input
+                      id={ids.last}
+                      className={inputClass(!!fieldErrors.lastName)}
+                      placeholder="Last name"
+                      value={form.lastName}
+                      onChange={(e) => set("lastName", e.target.value)}
+                      aria-invalid={!!fieldErrors.lastName}
+                      aria-describedby={
+                        fieldErrors.lastName ? "acc-last-error" : undefined
+                      }
+                    />
+                  </AccountField>
+
+                  <AccountField id={ids.email} label="Email">
+                    <input
+                      id={ids.email}
+                      className="w-full rounded-2xl border-2 border-zinc-200 px-4 py-3 text-zinc-400 bg-zinc-50 cursor-not-allowed"
+                      placeholder="Email"
+                      value={form.email}
+                      disabled
+                      readOnly
+                    />
+                  </AccountField>
+
+                  <AccountField id={ids.username} label="Username">
+                    <input
+                      id={ids.username}
+                      className="w-full rounded-2xl border-2 border-zinc-200 px-4 py-3 text-zinc-400 bg-zinc-50 cursor-not-allowed"
+                      placeholder="Username"
+                      value={form.username}
+                      disabled
+                      readOnly
+                    />
+                    <p className="mt-1.5 text-xs text-zinc-400">
+                      Username and email cannot be changed.{" "}
+                      <Link href="/contact" className="underline hover:text-zinc-600 transition-colors">
+                        Contact support
+                      </Link>{" "}
+                      if you need help.
+                    </p>
+                  </AccountField>
+
+                  <AccountField
+                    id={ids.location}
+                    label="Postcode or City/Borough"
+                    required
+                    error={fieldErrors.location}
+                    errorId="acc-location-error"
+                  >
+                    <LocationField
+                      id={ids.location}
+                      label=""
+                      placeholder="e.g., E4, N17, Chingford"
+                      value={form.location}
+                      onChange={(v, meta) => {
+                        if (meta) {
+                          const token = meta.outward || meta.sector || meta.postcode || v;
+                          set("location", token);
+                        } else {
+                          set("location", v);
+                        }
+                      }}
+                      reasonText=""
+                      error={fieldErrors.location}
+                    />
+                  </AccountField>
+
+                  <button
+                    className="w-full inline-flex items-center justify-center rounded-full bg-red-500 px-8 py-4 text-base font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] transition-all disabled:opacity-60 disabled:cursor-not-allowed mt-2"
+                    disabled={busy}
+                  >
+                    {busy ? "Saving…" : "Save changes"}
+                  </button>
+                </form>
               )}
             </div>
-          )}
-
-          {loading ? (
-            <p>Loading…</p>
-          ) : (
-            <form onSubmit={onSubmit} className="grid grid-cols-1 gap-3">
-              <AccountField
-                id={ids.first}
-                label="First name"
-                required
-                error={fieldErrors.firstName}
-                errorId="acc-first-error"
-              >
-                <input
-                  id={ids.first}
-                  className={inputClass(!!fieldErrors.firstName)}
-                  placeholder="First name"
-                  value={form.firstName}
-                  onChange={(e) => set("firstName", e.target.value)}
-                  aria-invalid={!!fieldErrors.firstName}
-                  aria-describedby={
-                    fieldErrors.firstName ? "acc-first-error" : undefined
-                  }
-                />
-              </AccountField>
-
-              <AccountField
-                id={ids.last}
-                label="Last name"
-                required
-                error={fieldErrors.lastName}
-                errorId="acc-last-error"
-              >
-                <input
-                  id={ids.last}
-                  className={inputClass(!!fieldErrors.lastName)}
-                  placeholder="Last name"
-                  value={form.lastName}
-                  onChange={(e) => set("lastName", e.target.value)}
-                  aria-invalid={!!fieldErrors.lastName}
-                  aria-describedby={
-                    fieldErrors.lastName ? "acc-last-error" : undefined
-                  }
-                />
-              </AccountField>
-
-              <AccountField id={ids.email} label="Email">
-                <input
-                  id={ids.email}
-                  className="input opacity-70 cursor-not-allowed"
-                  placeholder="Email"
-                  value={form.email}
-                  disabled
-                  readOnly
-                />
-              </AccountField>
-
-              <AccountField
-                id={ids.username}
-                label="Username"
-                required
-                error={fieldErrors.username}
-                errorId="acc-username-error"
-              >
-                <input
-                  id={ids.username}
-                  className={inputClass(!!fieldErrors.username)}
-                  placeholder="Username"
-                  value={form.username}
-                  onChange={(e) => set("username", e.target.value)}
-                  aria-invalid={!!fieldErrors.username}
-                  aria-describedby={
-                    fieldErrors.username ? "acc-username-error" : undefined
-                  }
-                />
-              </AccountField>
-
-              <AccountField
-                id={ids.location}
-                label="Location (postcode or city)"
-                required
-                error={fieldErrors.location}
-                errorId="acc-location-error"
-              >
-                <input
-                  id={ids.location}
-                  className={inputClass(!!fieldErrors.location)}
-                  placeholder="E4 6JH, SW1, London…"
-                  value={form.location}
-                  onChange={(e) => set("location", e.target.value)}
-                  aria-invalid={!!fieldErrors.location}
-                  aria-describedby={
-                    fieldErrors.location ? "acc-location-error" : undefined
-                  }
-                />
-              </AccountField>
-
-              <button className="btn mt-2 disabled:opacity-50" disabled={busy}>
-                {busy ? "Saving…" : "Save changes"}
-              </button>
-            </form>
-          )}
+          </div>
         </div>
       </div>
     </AuthedOnly>

@@ -51,8 +51,8 @@ export class AccountPage {
 
     this.saveButton = page.getByRole("button", { name: "Save changes" });
 
-    this.successAlert = this.card.locator('[role="status"]');
-    this.errorAlert = this.card.locator('[role="alert"]');
+    this.successAlert = page.locator('[role="status"]');
+    this.errorAlert = page.locator('div[role="alert"]');
 
     this.loadingText = page.getByText("Loading…");
   }
@@ -90,15 +90,16 @@ export class AccountPage {
     await this.assertEmailDisabled();
 
     const emailBefore = await this.email.inputValue();
+    const usernameBefore = await this.username.inputValue();
 
     await this.firstName.fill(updated.firstName);
     await this.lastName.fill(updated.lastName);
-    await this.username.fill(updated.username);
+    // username is read-only — cannot be changed
     await this.location.fill(updated.location);
 
     await this.saveChanges();
 
-    return { emailBefore };
+    return { emailBefore, usernameBefore };
   }
 
   async saveChanges() {
@@ -139,9 +140,9 @@ export class AccountPage {
     }
   }
 
-  async changeUsername(username: string) {
+  async changeUsername(_username: string) {
+    // username field is read-only — this method is intentionally a no-op
     await this.waitUntilReady();
-    await this.username.fill(username);
     await this.saveButton.click();
   }
 }

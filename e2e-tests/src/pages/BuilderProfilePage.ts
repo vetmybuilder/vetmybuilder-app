@@ -85,7 +85,7 @@ export class BuilderProfilePage extends BasePage {
 
     await expect(this.page).toHaveURL(/\/builders\/\d+$/);
     await expect(this.companyName).toHaveText(
-      recommendation.company.toUpperCase(),
+      new RegExp(recommendation.company.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"),
     );
     await expect(this.contactDetailsCard).toBeVisible();
     await expect(this.phoneSection).toContainText(recommendation.phone!);

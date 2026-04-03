@@ -129,32 +129,28 @@ export class CloseProjectModalComponent {
   private async chooseTradespersonByLabel(label: string) {
     await expect(this.whoDidWorkSelect).toBeVisible();
 
-    try {
-      await this.whoDidWorkSelect.selectOption({ label });
-      return;
-    } catch {}
-
-    const options = this.whoDidWorkSelect.locator("option");
-    const count = await options.count();
-
+    // Poll until a matching option appears — recommendations load asynchronously.
     let matchedValue: string | null = null;
 
-    for (let i = 0; i < count; i++) {
-      const opt = options.nth(i);
-      const text = (await opt.textContent())?.trim() || "";
-      if (text.toLowerCase().includes(label.toLowerCase())) {
-        matchedValue = await opt.getAttribute("value");
-        if (matchedValue) break;
-      }
-    }
+    await expect
+      .poll(
+        async () => {
+          const options = this.whoDidWorkSelect.locator("option");
+          const count = await options.count();
+          for (let i = 0; i < count; i++) {
+            const text = ((await options.nth(i).textContent()) || "").trim();
+            if (text.toLowerCase().includes(label.toLowerCase())) {
+              matchedValue = await options.nth(i).getAttribute("value");
+              return true;
+            }
+          }
+          return false;
+        },
+        { timeout: 15_000, message: `Waiting for tradesperson option matching "${label}"` },
+      )
+      .toBe(true);
 
-    if (!matchedValue) {
-      throw new Error(
-        `CloseProjectModal: tradesperson not found for "${label}"`,
-      );
-    }
-
-    await this.whoDidWorkSelect.selectOption(matchedValue);
+    await this.whoDidWorkSelect.selectOption(matchedValue!);
   }
 
   private async uploadPhotos(photoPaths: string[]) {

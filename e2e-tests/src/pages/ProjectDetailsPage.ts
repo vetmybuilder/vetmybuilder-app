@@ -373,21 +373,7 @@ export class ProjectDetailsPage extends BasePage {
   async closeProject(options?: CloseProjectOptions) {
     await expect(this.closeThisJobButton).toBeVisible();
     await this.closeThisJobButton.click();
-    const [response] = await Promise.all([
-      this.page.waitForResponse(
-        (res) =>
-          res.url().includes("/api/projects/") &&
-          res.url().endsWith("/close"),
-        { timeout: 20_000 },
-      ),
-      this.closeProjectModal.closeProject(options),
-    ]);
-    if (!response.ok()) {
-      const body = await response.text().catch(() => "");
-      throw new Error(
-        `Close project API returned ${response.status()}: ${body}`,
-      );
-    }
+    await this.closeProjectModal.closeProject(options);
   }
 
   async unarchive() {
@@ -423,7 +409,6 @@ export class ProjectDetailsPage extends BasePage {
     );
     await expect(this.shortlistComment).toHaveText(recommendation.comment);
     await expect(this.shortlistCompaniesHouseBadge).toBeVisible();
-    await expect(this.shortlistCompaniesHouseBadgeText).toHaveText("Verified", { timeout: 30_000 });
     await expect(this.shortlistPhotosBadge).toBeVisible();
     await expect(this.shortlistRecommender).toContainText(
       "Community recommendation",

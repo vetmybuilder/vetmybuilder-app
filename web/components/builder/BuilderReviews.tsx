@@ -2,6 +2,13 @@
 
 import { Review } from "@/types/builderTypes";
 
+function pickAvatarColor(name: string): string {
+  const palettes = ["bg-red-500","bg-emerald-500","bg-amber-500","bg-sky-500","bg-violet-500","bg-pink-500","bg-teal-500"];
+  let h = 0;
+  for (let i = 0; i < (name || "").length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return palettes[h % palettes.length];
+}
+
 type Props = {
   reviews: Review[];
 };
@@ -11,52 +18,31 @@ export default function BuilderReviews({ reviews }: Props) {
 
   return (
     <section
-      className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm"
+      className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-6 sm:p-7"
       data-testid="builder-reviews-card"
     >
-      <h2 className="text-sm sm:text-base font-semibold text-slate-900">
-        Reviews from neighbours
-      </h2>
-      <p className="mt-1 text-xs text-slate-500">
+      <h2 className="text-lg font-black text-zinc-900">Reviews from neighbours</h2>
+      <p className="mt-1 text-sm text-zinc-500">
         What your neighbours said when they recommended this builder.
       </p>
 
-      <div className="mt-4 space-y-4">
+      <div className="mt-5 space-y-3">
         {reviews.map((rev) => (
-          <article
-            key={rev.id}
-            className="rounded-xl border border-slate-100 bg-slate-50/70 p-3 sm:p-4"
-          >
+          <article key={rev.id} className="rounded-2xl bg-zinc-50 px-4 py-3">
             <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-full bg-indigo-100 text-indigo-700 grid place-items-center text-xs font-semibold">
-                  {rev.name
-                    .split(" ")
-                    .filter(Boolean)
-                    .slice(0, 2)
-                    .map((p) => p[0])
-                    .join("")
-                    .toUpperCase()}
+              <div className="flex items-center gap-3">
+                <div className={`h-8 w-8 rounded-full text-white grid place-items-center text-xs font-black flex-shrink-0 ${pickAvatarColor(rev.name)}`}>
+                  {rev.name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase()}
                 </div>
-                <div className="text-sm font-medium text-slate-900">
-                  {rev.name}
-                </div>
+                <span className="text-sm font-black text-zinc-900">{rev.name}</span>
               </div>
-
               {rev.createdAt && (
-                <time className="text-xs text-slate-500">
-                  {new Date(rev.createdAt).toLocaleDateString("en-GB", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  })}
+                <time className="text-xs text-zinc-400">
+                  {new Date(rev.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
                 </time>
               )}
             </div>
-
-            <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap">
-              {rev.comment}
-            </p>
+            <p className="mt-2 text-sm text-zinc-500 whitespace-pre-wrap">{rev.comment}</p>
           </article>
         ))}
       </div>

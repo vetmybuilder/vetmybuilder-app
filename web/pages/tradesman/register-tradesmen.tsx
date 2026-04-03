@@ -4,6 +4,7 @@ import Head from "next/head";
 import { useEffect, useState, useCallback } from "react";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
+import GuestOnly from "@/components/GuestOnly";
 import { initFirebase } from "@/utils/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 
@@ -39,13 +40,11 @@ export default function TradesmanRegisterV2Page() {
   useEffect(() => {
     try {
       sessionStorage.setItem("vmb:returnTo", REG_SENTINEL);
-      console.log("[register-tradesmen] set sentinel returnTo");
     } catch {}
     return () => {
       try {
         const v = sessionStorage.getItem("vmb:returnTo");
         if (v === REG_SENTINEL) sessionStorage.removeItem("vmb:returnTo");
-        console.log("[register-tradesmen] cleared sentinel on unmount");
       } catch {}
     };
   }, []);
@@ -142,7 +141,6 @@ export default function TradesmanRegisterV2Page() {
             ? draft.websites[0] || ""
             : "")
       );
-      console.log("[register-tradesmen] draft loaded");
     } catch {}
   }, []);
 
@@ -261,7 +259,6 @@ export default function TradesmanRegisterV2Page() {
       const name = form.companyName?.trim();
       if (!name) return;
       const postcode = form.serviceAreas?.[0] || "";
-      console.log("[register-tradesmen] precheckCH", { name, postcode });
       const { data } = await api.post("/api/tradesmen/precheck", {
         name,
         postcode,
@@ -271,12 +268,6 @@ export default function TradesmanRegisterV2Page() {
         set("companyNumber", best?.number || null);
         set("chStatus", (data.verdict || best?.status || null) as any);
         if (best?.number) setOkMsg("Company verified with Companies House.");
-        console.log("[register-tradesmen] precheckCH ok", {
-          number: best?.number,
-          verdict: data.verdict || best?.status,
-        });
-      } else {
-        console.log("[register-tradesmen] precheckCH not ok", data);
       }
     } catch (e: any) {
       console.warn("[register-tradesmen] precheckCH failed:", e?.message || e);
@@ -309,7 +300,6 @@ export default function TradesmanRegisterV2Page() {
       await precheckCH();
       sessionStorage.setItem(DRAFT_KEY, JSON.stringify(snapshot));
       setOkMsg("Saved.");
-      console.log("[register-tradesmen] step3 saved snapshot");
     } catch {}
     setStep(4);
   };
@@ -331,13 +321,11 @@ export default function TradesmanRegisterV2Page() {
 
       // 1) Create Firebase user (this also logs them in)
       const auth = initFirebase();
-      console.log("[register-tradesmen] step4 starting create account");
       const cred = await createUserWithEmailAndPassword(
         auth,
         form.email.trim(),
         form.password
       );
-      console.log("[register-tradesmen] firebase user created", cred.user?.uid);
 
       // 2) Force fresh ID token and send it explicitly
       const idToken = await auth.currentUser?.getIdToken(true);
@@ -385,12 +373,6 @@ export default function TradesmanRegisterV2Page() {
             photoUrls = uploadRes.data.urls;
           }
 
-          console.log(
-            "[register-tradesmen] uploaded work photos",
-            form.workPhotos.length,
-            "-> urls:",
-            photoUrls.length
-          );
         }
       } catch (uploadErr: any) {
         console.error(
@@ -430,18 +412,10 @@ export default function TradesmanRegisterV2Page() {
       };
 
       // 6) Upsert vendor profile
-      console.log("[register-tradesmen] calling PUT /api/tradesmen/me", {
-        ...payload,
-        photoUrlsCount: payload.photoUrls.length,
-      });
-
       const { data } = await api.put("/api/tradesmen/me", payload, {
         headers: { Authorization: `Bearer ${idToken}` },
       });
       if (!data?.ok) throw new Error(data?.error || "Failed to save profile");
-      console.log(
-        "[register-tradesmen] PUT /api/tradesmen/me ok; saved profile"
-      );
 
       // 7) Cleanup + redirect
       try {
@@ -477,37 +451,48 @@ export default function TradesmanRegisterV2Page() {
       : "Create account";
 
   return (
-    <>
+    <GuestOnly>
+      <>
       <Head>
-        <title>Join as a Tradesman • Vetmybuilder</title>
+        <title>Register as a Tradesperson — VetMyBuilder</title>
+        <style>{`body { background: #fafaf9 !important; }`}</style>
       </Head>
 
+      <div className="relative min-h-screen overflow-hidden bg-stone-50">
+        {/* Background bands */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
+          <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
+        </div>
+
       <div
-        className="mx-auto max-w-4xl px-6 py-6"
+        className="relative z-10 mx-auto max-w-4xl px-6 py-8"
         data-testid="trades-register-page"
       >
-        <h1 className="text-2xl font-semibold mb-1">Join as a Tradesman</h1>
-        <p className="text-sm text-slate-600 mb-4">
-          Fill in your details. The more compelling your profile, the more
-          likely homeowners will choose you.
-        </p>
+        <div className="mb-8">
+          <h1 className="text-3xl font-black tracking-tight text-zinc-900">Register as a tradesperson</h1>
+          <p className="mt-1 text-sm text-zinc-500">
+            Fill in your details. The more compelling your profile, the more
+            likely homeowners will choose you.
+          </p>
+        </div>
 
         {/* Progress bar stepper */}
         <div className="mb-6">
-          <div className="flex items-center justify-between mb-1 text-xs text-slate-600">
+          <div className="flex items-center justify-between mb-2 text-xs text-zinc-500">
             <span>Step {step} of 4</span>
-            <span>{stepLabel}</span>
+            <span className="font-medium text-zinc-700">{stepLabel}</span>
           </div>
-          <div className="h-1.5 rounded-full bg-slate-200 overflow-hidden">
+          <div className="h-2 rounded-full bg-zinc-200 overflow-hidden">
             <div
-              className="h-full rounded-full bg-indigo-600 transition-all duration-300"
+              className="h-full rounded-full bg-red-500 transition-all duration-300"
               style={{ width: `${progress}%` }}
             />
           </div>
         </div>
 
         {err && (
-          <p className="mb-3 text-sm text-red-600" role="alert">
+          <p className="mb-3 text-sm text-red-500 font-medium" role="alert">
             {err}
           </p>
         )}
@@ -590,6 +575,8 @@ export default function TradesmanRegisterV2Page() {
           />
         )}
       </div>
-    </>
+      </div>
+      </>
+    </GuestOnly>
   );
 }

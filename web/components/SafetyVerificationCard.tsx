@@ -43,7 +43,7 @@ export default function SafetyVerificationCard() {
 
         <div className="flex gap-2">
           <dt className="mt-0.5">
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-red-50 text-red-500">
               <CheckCircle2 size={14} />
             </span>
           </dt>

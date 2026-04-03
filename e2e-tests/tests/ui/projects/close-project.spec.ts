@@ -95,7 +95,7 @@ test.describe("Homeowner projects", () => {
 
     await projectDetailsPage.visit(created.id);
 
-    await projectDetailsPage.closeProject({
+    await projectDetailsPage.closeProject({ //failing on this line
       didGoAhead: true,
       tradespersonLabel: recommendation.company,
     });

@@ -71,52 +71,55 @@ export default function BuilderProfilePage() {
   const avatarUrl = galleryImages[0]?.thumbUrl ?? galleryImages[0]?.fullUrl;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-      {loading ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          Loading…
+    <>
+      <style>{`body { background: #fafaf9 !important; }`}</style>
+      <div className="relative min-h-screen overflow-x-hidden bg-stone-50 -mt-14">
+        {/* Background bands */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
+          <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
         </div>
-      ) : err ? (
-        <div
-          className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-700 shadow-sm"
-          data-testid="builder-error"
-        >
-          {err}
-        </div>
-      ) : builder ? (
-        <div className="space-y-6">
-          <BuilderHeader
-            builder={builder}
-            verification={verification}
-            user={user}
-            score={score}
-            scoreErr={scoreErr}
-            friendCount={friendCount}
-            isOwner={isOwner}
-            canVote={canVote}
-            voting={voting}
-            onVote={voteUpOnce}
-            avatarUrl={avatarUrl}
-            avatarInitials={avatarInitials}
-            updatedDisplay={updatedDisplay}
-          />
 
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,2.1fr)_minmax(280px,1fr)]">
+        <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-24 pb-16">
+          {loading ? (
+            <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-8 text-sm text-zinc-500">
+              Loading…
+            </div>
+          ) : err ? (
+            <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-8 text-sm text-red-600" data-testid="builder-error">
+              {err}
+            </div>
+          ) : builder ? (
             <div className="space-y-6">
-              <BuilderReviews reviews={aggReviews} />
-              <BuilderPhotos
+              <BuilderHeader
+                builder={builder}
+                verification={verification}
                 user={user}
-                galleryImages={galleryImages}
-                photos={aggPhotos}
+                score={score}
+                scoreErr={scoreErr}
+                friendCount={friendCount}
+                isOwner={isOwner}
+                canVote={canVote}
+                voting={voting}
+                onVote={voteUpOnce}
+                avatarUrl={avatarUrl}
+                avatarInitials={avatarInitials}
+                updatedDisplay={updatedDisplay}
               />
-            </div>
 
-            <div className="space-y-6">
-              <BuilderContactDetails user={user} phones={aggPhones} />
+              <div className="grid gap-6 lg:grid-cols-[minmax(0,2.1fr)_minmax(280px,1fr)]">
+                <div className="space-y-6">
+                  <BuilderReviews reviews={aggReviews} />
+                  <BuilderPhotos user={user} galleryImages={galleryImages} photos={aggPhotos} />
+                </div>
+                <div className="space-y-6">
+                  <BuilderContactDetails user={user} phones={aggPhones} />
+                </div>
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
-      ) : null}
-    </div>
+      </div>
+    </>
   );
 }

@@ -219,8 +219,8 @@ export default function GetRecommendationsModal({
               onClick={() => setSelectedChannel("email")}
               className={`flex flex-col items-center justify-center rounded-xl border px-3 py-3 text-xs font-medium transition ${
                 selectedChannel === "email"
-                  ? "border-indigo-500 bg-indigo-50 text-indigo-800"
-                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  ? "border-red-400 bg-red-50 text-red-800"
+                  : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
               }`}
               data-testid="channel-email"
             >
@@ -242,7 +242,7 @@ export default function GetRecommendationsModal({
           </button>
           <button
             type="button"
-            className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500 disabled:opacity-60"
+            className="rounded-full bg-red-500 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-red-600 disabled:opacity-60"
             disabled={false}
             data-testid="btn-confirm-get-recs"
             onClick={handleConfirm}

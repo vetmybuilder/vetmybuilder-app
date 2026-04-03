@@ -12,7 +12,6 @@ export class ProjectRecommendPage extends BasePage {
   readonly commentInput: Locator;
   readonly fileInput: Locator;
   readonly submitButton: Locator;
-  readonly successMessage: Locator;
 
   constructor(page: Page) {
     super(page);
@@ -27,9 +26,6 @@ export class ProjectRecommendPage extends BasePage {
     this.submitButton = page.getByRole("button", {
       name: "Submit recommendation",
     });
-    this.successMessage = page.getByText(
-      "Thanks! Your recommendation has been submitted.",
-    );
   }
 
   async visit(projectId: string | number) {
@@ -68,19 +64,18 @@ export class ProjectRecommendPage extends BasePage {
 
     if (photos?.length) {
       await this.fileInput.setInputFiles(photos);
+      // Wait for photo previews to render so the layout is stable before clicking submit
+      await this.page
+        .getByRole("button", { name: /Remove/i })
+        .first()
+        .waitFor({ state: "visible", timeout: 5_000 })
+        .catch(() => {});
     }
 
+    await this.submitButton.scrollIntoViewIfNeeded();
     await this.submitButton.click();
-    // The success banner appears briefly (~500 ms) before the page navigates to
-    // the project. Race both assertions so the test passes whether Playwright
-    // polls during the banner window or after navigation has already occurred.
-    await Promise.race([
-      expect(this.successMessage).toBeVisible({ timeout: 15_000 }),
-      expect(this.page).toHaveURL(`/projects/${projectId}`, { timeout: 15_000 }),
-    ]);
-
     await expect(this.page).toHaveURL(`/projects/${projectId}`, {
-      timeout: 15000,
+      timeout: 15_000,
     });
   }
 
@@ -112,19 +107,17 @@ export class ProjectRecommendPage extends BasePage {
 
     if (photos?.length) {
       await this.fileInput.setInputFiles(photos);
+      // Wait for photo previews to render so the layout is stable before clicking submit
+      await this.page
+        .getByRole("button", { name: /Remove/i })
+        .first()
+        .waitFor({ state: "visible", timeout: 5_000 })
+        .catch(() => {});
     }
 
+    await this.submitButton.scrollIntoViewIfNeeded();
     await this.submitButton.click();
-    // Same race as the logged-in variant: banner is transient (~500 ms) before
-    // router.replace('/') fires. Accept either the banner or the final URL.
-    await Promise.race([
-      expect(this.successMessage).toBeVisible({ timeout: 15_000 }),
-      expect(this.page).toHaveURL('/', { timeout: 15_000 }),
-    ]);
-
-    await expect(this.page).toHaveURL('/', {
-      timeout: 15000,
-    });
+    await expect(this.page).toHaveURL('/', { timeout: 15_000 });
   }
 }
 

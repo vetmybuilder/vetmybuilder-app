@@ -25,24 +25,22 @@ export default function RegisterField({
   const errId = `${id}-err`;
   const errorTestId = testIdPrefix ? `${testIdPrefix}-${id}-error` : undefined;
 
-  const inputClassName = `input ${
-    error ? "!border-red-600 !ring-red-600 ring-1" : ""
-  }`;
-
   return (
-    <>
-      <label className="text-sm" htmlFor={id}>
+    <div>
+      <label className="block text-sm font-bold text-zinc-900 mb-2" htmlFor={id}>
         {label}
       </label>
 
       <input
         id={id}
         type={type}
-        className={inputClassName}
+        className={`w-full rounded-2xl border-2 px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:outline-none transition-colors ${
+          error
+            ? "border-red-600 focus:border-red-600"
+            : "border-zinc-200 focus:border-red-400"
+        }`}
         value={value}
-        onChange={(e: ChangeEvent<HTMLInputElement>) =>
-          onChange(e.target.value)
-        }
+        onChange={(e: ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
         required={required}
         aria-invalid={error ? "true" : "false"}
         aria-describedby={error ? errId : undefined}
@@ -51,12 +49,12 @@ export default function RegisterField({
       {error && (
         <p
           id={errId}
-          className="text-sm text-red-600"
+          className="mt-1 text-sm text-red-500 font-medium"
           data-testid={errorTestId}
         >
           {error}
         </p>
       )}
-    </>
+    </div>
   );
 }

@@ -414,11 +414,6 @@ function Inner() {
         profilePictureUrl,
       };
 
-      console.log("[profile/edit] PUT /api/tradesmen/me", {
-        ...payload,
-        photoUrlsCount: payload.photoUrls.length,
-      });
-
       const { data } = await api.put("/api/tradesmen/me", payload);
       if (!data?.ok) throw new Error(data?.error || "Failed to save profile");
 

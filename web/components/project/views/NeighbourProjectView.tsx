@@ -57,7 +57,7 @@ export default function NeighbourProjectView({ vm }: { vm: VM }) {
               <div className="mt-3">
                 <Link
                   href={`/projects/${project.id}/recommend`}
-                  className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+                  className="inline-flex items-center gap-2 rounded-full bg-red-500 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-red-600"
                   data-testid="btn-neighbour-recommend"
                 >
                   Recommend a tradesperson

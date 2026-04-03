@@ -55,7 +55,7 @@ export default function BuilderHeader({
         <button
           type="button"
           onClick={() => router.push(`/projects/${builder.project!.id}`)}
-          className="inline-flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-slate-700"
+          className="inline-flex items-center gap-2 text-sm font-medium text-zinc-500 hover:text-zinc-800 transition-colors mb-3"
         >
           <span aria-hidden>←</span>
           <span>Back to this project</span>
@@ -63,17 +63,13 @@ export default function BuilderHeader({
       )}
 
       {/* Header */}
-      <header className="rounded-2xl border border-slate-200 bg-white/80 backdrop-blur px-4 py-4 sm:px-6 sm:py-5 shadow-sm">
+      <header className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 px-6 py-6 sm:px-8 sm:py-7">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           {/* Left */}
-          <div className="flex items-start gap-3 sm:gap-4">
-            <div className="h-16 w-16 sm:h-20 sm:w-20 overflow-hidden rounded-2xl bg-slate-200 grid place-items-center text-lg font-semibold text-white">
+          <div className="flex items-start gap-4 sm:gap-5">
+            <div className="h-20 w-20 sm:h-24 sm:w-24 flex-shrink-0 overflow-hidden rounded-2xl bg-zinc-200 grid place-items-center text-xl font-black text-white">
               {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={companyName}
-                  className="h-full w-full object-cover"
-                />
+                <img src={avatarUrl} alt={companyName} className="h-full w-full object-cover" />
               ) : (
                 <span>{avatarInitials}</span>
               )}
@@ -81,7 +77,7 @@ export default function BuilderHeader({
 
             <div className="min-w-0">
               <h2
-                className="truncate text-2xl sm:text-3xl font-semibold tracking-tight text-slate-900"
+                className="text-2xl sm:text-3xl font-black tracking-tight text-zinc-900"
                 title={companyName}
                 data-testid="builder-company"
               >
@@ -89,57 +85,44 @@ export default function BuilderHeader({
               </h2>
 
               {/* badges */}
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 {verification?.status === "verified" && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5">
-                    <span aria-hidden>✅</span>
-                    Companies House verified
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-700 px-3 py-0.5 text-xs font-bold">
+                    ✅ Companies House verified
                   </span>
                 )}
-
                 {friendCount > 0 && (
-                  <Badge color="indigo">
-                    {friendCount === 1
-                      ? "Shared by a friend"
-                      : "Shared by friends"}
-                  </Badge>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 text-sky-700 px-3 py-0.5 text-xs font-bold">
+                    {friendCount === 1 ? "Shared by a friend" : "Shared by friends"}
+                  </span>
                 )}
-
                 {builder.fromCommunity ? (
-                  <Badge color="green">Community recommendation</Badge>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 text-zinc-700 px-3 py-0.5 text-xs font-bold">
+                    Community recommendation
+                  </span>
                 ) : null}
-
                 {updatedDisplay && (
-                  <span className="text-xs text-slate-500">
-                    Updated{" "}
-                    {new Date(updatedDisplay).toLocaleDateString("en-GB", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    })}
+                  <span className="text-xs text-zinc-400">
+                    Updated {new Date(updatedDisplay).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
                   </span>
                 )}
               </div>
 
               {/* stats */}
-              <div className="mt-2 flex flex-wrap items-center gap-4 text-xs sm:text-sm text-neutral-700">
+              <div className="mt-2 flex flex-wrap items-center gap-3">
                 {user ? (
                   <>
-                    <span>
-                      <ScoreChip value={score ?? builder?.score} />
-                    </span>
-
-                    {verification?.googleRating != null &&
-                      !Number.isNaN(Number(verification.googleRating)) && (
-                        <GoogleRatingChip
-                          rating={verification.googleRating}
-                          count={verification.googleReviewsCount ?? null}
-                          placeId={verification.googlePlaceId ?? null}
-                        />
-                      )}
+                    <ScoreChip value={score ?? builder?.score} />
+                    {verification?.googleRating != null && !Number.isNaN(Number(verification.googleRating)) && (
+                      <GoogleRatingChip
+                        rating={verification.googleRating}
+                        count={verification.googleReviewsCount ?? null}
+                        placeId={verification.googlePlaceId ?? null}
+                      />
+                    )}
                   </>
                 ) : (
-                  <span className="rounded-full px-2 py-0.5 text-xs font-medium border border-slate-200 text-slate-500">
+                  <span className="rounded-full px-2 py-0.5 text-xs font-medium border border-zinc-200 text-zinc-400">
                     VMB —
                   </span>
                 )}
@@ -148,14 +131,14 @@ export default function BuilderHeader({
           </div>
 
           {/* Right (vote) */}
-          <div className="flex sm:flex-col items-start sm:items-end">
+          <div className="flex sm:flex-col items-start sm:items-end gap-2">
             {canVote && (
               <button
                 className={[
-                  "inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs sm:text-sm font-medium shadow-sm border",
+                  "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold shadow-sm transition",
                   builder.myLike === 1
-                    ? "bg-indigo-50 border-indigo-200 text-indigo-600 cursor-default"
-                    : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50",
+                    ? "bg-red-50 border border-red-200 text-red-500 cursor-default"
+                    : "bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-50",
                   voting ? "opacity-70 cursor-wait" : "",
                 ].join(" ")}
                 disabled={!user || builder.myLike === 1 || voting || !canVote}
@@ -167,10 +150,7 @@ export default function BuilderHeader({
                 <span>{builder.myLike === 1 ? "You’ve voted" : "Vote up"}</span>
               </button>
             )}
-
-            {scoreErr && (
-              <div className="mt-2 text-xs text-rose-600">{scoreErr}</div>
-            )}
+            {scoreErr && <div className="text-xs text-red-500">{scoreErr}</div>}
           </div>
         </div>
       </header>

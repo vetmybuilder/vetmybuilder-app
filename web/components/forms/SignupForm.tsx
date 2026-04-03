@@ -8,6 +8,7 @@ import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { useAuth } from "@/utils/auth";
 import { ensureEmailAvailable } from "@/utils/email";
 import RegisterField from "./RegisterField";
+import LocationField from "@/components/forms/LocationField";
 
 type FieldErrors = Partial<
   Record<
@@ -154,6 +155,19 @@ export default function SignupForm() {
 
       await ensureEmailAvailable(api, email);
 
+      // Check username availability before creating the Firebase user.
+      // If we created the Firebase user first and the username were taken,
+      // GuestOnly would redirect the now-signed-in user before the error renders.
+      const { data: usernameCheck } = await api.get(
+        "/api/auth/check-username",
+        { params: { username: form.username.trim() } },
+      );
+      if (!usernameCheck.available) {
+        setFieldErrors({ username: "That username is already taken." });
+        setErr("That username is already taken.");
+        return;
+      }
+
       const auth = initFirebase();
       const cred = await createUserWithEmailAndPassword(
         auth,
@@ -230,7 +244,7 @@ export default function SignupForm() {
 
   return (
     <form
-      className="grid gap-3"
+      className="grid gap-4"
       onSubmit={onSubmit}
       noValidate
       aria-label="Create account form"
@@ -294,29 +308,51 @@ export default function SignupForm() {
         onChange={(v) => set("password", v)}
       />
 
-      <RegisterField
-        id="reg-loc"
-        label="Postcode or City/Borough"
-        value={form.location}
-        required
-        error={fieldErrors.location}
-        testIdPrefix="reg"
-        onChange={(v) => set("location", v)}
-      />
+      <div>
+        <LocationField
+          id="reg-loc"
+          label="Postcode or City/Borough"
+          placeholder="e.g., E4, N17, Chingford"
+          value={form.location}
+          onChange={(v, meta) => {
+            if (meta) {
+              const token = meta.outward || meta.sector || meta.postcode || v;
+              set("location", token);
+            } else {
+              set("location", v);
+            }
+          }}
+          dataTestId="reg-reg-loc"
+          reasonText=""
+          error={fieldErrors.location}
+        />
+        {fieldErrors.location && (
+          <p className="mt-1 text-sm text-red-500 font-medium" role="alert" data-testid="reg-reg-loc-error">
+            {fieldErrors.location}
+          </p>
+        )}
+      </div>
 
       {err && (
-        <p className="text-red-600" role="alert" data-testid="register-error">
+        <p className="text-red-500 text-sm font-medium" role="alert" data-testid="register-error">
           {err}
         </p>
       )}
 
-      <button className="btn" type="submit" disabled={loading}>
+      <button
+        className="w-full inline-flex items-center justify-center rounded-full bg-red-500 px-8 py-4 text-base font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+        type="submit"
+        disabled={loading}
+      >
         {loading ? "Creating…" : "Create account"}
       </button>
 
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-zinc-500 text-center">
         Already have an account?{" "}
-        <Link href={{ pathname: "/login", query: { next: nextPath } }}>
+        <Link
+          href={{ pathname: "/login", query: { next: nextPath } }}
+          className="font-bold text-red-500 hover:text-red-600"
+        >
           Sign in
         </Link>
       </p>

@@ -116,11 +116,11 @@ export default function Step2Trades({
   const clearAll = () => setTradeTypes([]);
 
   return (
-    <form className="card grid gap-6" onSubmit={onNext} data-testid="step-2">
+    <form className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-8 grid gap-6" onSubmit={onNext} data-testid="step-2">
       <div className="flex items-end justify-between gap-3">
         <div>
-          <h2 className="text-lg font-medium mb-1">Choose your trades</h2>
-          <p className="text-sm text-slate-600">
+          <h2 className="text-xl font-black text-zinc-900 mb-1">Choose your trades</h2>
+          <p className="text-sm text-zinc-500">
             Pick everything you genuinely offer—this helps us match you to the
             right projects.
           </p>
@@ -128,7 +128,7 @@ export default function Step2Trades({
         {tradeTypes.length > 0 && (
           <button
             type="button"
-            className="text-sm text-slate-600 hover:text-slate-900"
+            className="text-sm text-zinc-500 hover:text-zinc-900"
             onClick={clearAll}
             data-testid="btn-clear-trades"
             aria-label="Clear all selected trades"
@@ -142,7 +142,7 @@ export default function Step2Trades({
       <div className="grid gap-3">
         <input
           type="search"
-          className="h-11 w-full rounded-2xl border border-slate-300 bg-white px-4 text-[15px] leading-6 shadow-sm placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="h-11 w-full rounded-2xl border-2 border-zinc-200 bg-white px-4 text-[15px] leading-6 placeholder:text-zinc-400 focus:border-red-400 focus:outline-none transition-colors"
           placeholder="Search trades… e.g., electrician, tiler, loft (synonyms supported)"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -157,8 +157,8 @@ export default function Step2Trades({
             onClick={() => setBucket("")}
             className={`px-3 py-1.5 rounded-2xl text-sm ring-1 ${
               bucket === ""
-                ? "bg-slate-900 text-white ring-slate-900"
-                : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
+                ? "bg-zinc-900 text-white ring-zinc-900"
+                : "bg-white text-zinc-700 ring-zinc-200 hover:bg-zinc-50"
             }`}
             data-testid="bucket-all"
           >
@@ -190,13 +190,13 @@ export default function Step2Trades({
             {tradeTypes.map((t) => (
               <span
                 key={t}
-                className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700"
+                className="inline-flex items-center gap-2 rounded-full bg-zinc-100 px-3 py-1 text-sm text-zinc-700"
               >
                 {t}
                 <button
                   type="button"
                   onClick={() => clearOne(t)}
-                  className="rounded-full p-0.5 text-slate-400 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                  className="rounded-full p-0.5 text-zinc-400 hover:text-zinc-700 focus:outline-none"
                   aria-label={`Remove ${t}`}
                   title="Remove"
                 >
@@ -209,10 +209,10 @@ export default function Step2Trades({
       </div>
 
       {/* Results list */}
-      <div className="rounded-2xl border border-slate-200">
+      <div className="rounded-2xl border-2 border-zinc-200">
         <div className="max-h-80 overflow-auto p-3" data-testid="trades-list">
           {filtered.length === 0 ? (
-            <p className="px-1 py-2 text-sm text-slate-500">
+            <p className="px-1 py-2 text-sm text-zinc-400">
               No matches{query ? ` for "${query}"` : ""}.
             </p>
           ) : (
@@ -222,10 +222,10 @@ export default function Step2Trades({
                 const checked = tradeTypes.includes(label);
                 return (
                   <li key={label}>
-                    <label className="inline-flex select-none items-center gap-3 text-[15px] leading-6 text-slate-800">
+                    <label className="inline-flex select-none items-center gap-3 text-[15px] leading-6 text-zinc-800">
                       <input
                         type="checkbox"
-                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        className="h-4 w-4 rounded border-zinc-300 accent-red-500"
                         checked={checked}
                         onChange={() =>
                           setTradeTypes(toggle(tradeTypes, label))
@@ -248,7 +248,7 @@ export default function Step2Trades({
         <label className="text-sm font-medium block mb-1">
           Pictures of your work
         </label>
-        <p className="text-xs text-slate-500 mb-2">
+        <p className="text-xs text-zinc-400 mb-2">
           Upload photos of your completed projects, then choose one as your
           profile picture. Homeowners are far more likely to reach out when they
           can see who they&rsquo;d be hiring.
@@ -268,8 +268,8 @@ export default function Step2Trades({
                     }
                     className={`w-full rounded-xl overflow-hidden ring-2 transition-all ${
                       isSelected
-                        ? "ring-indigo-500 ring-offset-1"
-                        : "ring-transparent hover:ring-slate-300"
+                        ? "ring-red-500 ring-offset-1"
+                        : "ring-transparent hover:ring-zinc-300"
                     }`}
                     aria-label={
                       isSelected
@@ -281,7 +281,7 @@ export default function Step2Trades({
                     <img src={url} alt="" className="h-28 w-full object-cover" />
                   </button>
                   {isSelected && (
-                    <span className="pointer-events-none absolute top-1 left-1 rounded-full bg-indigo-500 px-2 py-0.5 text-xs font-medium text-white shadow">
+                    <span className="pointer-events-none absolute top-1 left-1 rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white shadow">
                       Profile
                     </span>
                   )}
@@ -315,14 +315,14 @@ export default function Step2Trades({
       <div className="flex items-center justify-between gap-2">
         <button
           type="button"
-          className="rounded-2xl px-4 py-2 text-sm bg-white ring-1 ring-slate-200 hover:bg-slate-50"
+          className="inline-flex items-center justify-center rounded-full border-2 border-zinc-200 bg-white px-6 py-3 text-sm font-bold text-zinc-700 hover:bg-zinc-50 transition-all"
           onClick={onBack}
           data-testid="btn-back"
         >
           Back
         </button>
         <button
-          className="rounded-2xl px-4 py-2 text-sm bg-slate-900 text-white hover:bg-slate-800"
+          className="inline-flex items-center justify-center rounded-full bg-red-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:bg-red-600 transition-all"
           data-testid="btn-continue"
         >
           Next

@@ -1,4 +1,5 @@
 // web/pages/admin/verify-company.tsx
+import Head from "next/head";
 import { useEffect, useMemo, useState } from "react";
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
@@ -95,7 +96,7 @@ function VerifyAdminGate({ children }: { children: React.ReactNode }) {
 
   if (allowed === null) {
     return (
-      <div className="px-4 py-8 text-sm text-slate-600">
+      <div className="px-4 py-8 text-sm text-slate-300">
         Checking admin permissions…
       </div>
     );
@@ -112,7 +113,6 @@ function VerifyAdminGate({ children }: { children: React.ReactNode }) {
 function VerifyCompanyContent() {
   const api = useApi();
 
-  // Prefill with your example
   const [name, setName] = useState("Elegant Building Services Limited");
   const [postcode, setPostcode] = useState("E4");
   const [companyNumber, setCompanyNumber] = useState("");
@@ -168,256 +168,277 @@ function VerifyCompanyContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const inputCls =
+    "w-full rounded-lg border border-slate-400/40 bg-slate-500/50 px-3 py-2 text-sm text-white placeholder:text-slate-300 focus:border-slate-300 focus:outline-none disabled:opacity-50";
+
   return (
-    <div
-      className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-8"
-      data-testid="verify-company-page"
-    >
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Verify company
-        </h1>
-      </div>
+    <>
+      <Head>
+        <title>Admin · Verify Company</title>
+        <style>{`body { background: #475569 !important; }`}</style>
+      </Head>
 
-      <form
-        onSubmit={runLookup}
-        className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-        data-testid="verify-form"
+      <div
+        className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-8"
+        data-testid="verify-company-page"
       >
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div>
-            <label className="block text-xs text-slate-500 mb-1">
-              Company Number (optional)
-            </label>
-            <input
-              value={companyNumber}
-              onChange={(e) => setCompanyNumber(e.target.value)}
-              placeholder="e.g. 12758227"
-              className="input w-full"
-              data-testid="field-company-number"
-            />
-            <p className="mt-1 text-[11px] text-slate-500">
-              If provided, this is used directly. Otherwise we search by name.
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-xs text-slate-500 mb-1">Name</label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Elegant Building Services Limited"
-              className="input w-full"
-              data-testid="field-name"
-              disabled={!!companyNumber.trim()}
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs text-slate-500 mb-1">
-              Postcode (optional)
-            </label>
-            <input
-              value={postcode}
-              onChange={(e) => setPostcode(e.target.value)}
-              placeholder="E4"
-              className="input w-full"
-              data-testid="field-postcode"
-              disabled={!!companyNumber.trim()}
-            />
-          </div>
-        </div>
-
-        <div className="mt-3 flex items-center justify-between">
-          <label className="inline-flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={useScoring}
-              onChange={(e) => setUseScoring(e.target.checked)}
-              disabled={!!companyNumber.trim()}
-            />
-            Use scoring (show top matches)
-          </label>
-
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              className="btn"
-              disabled={!canSubmit || loading}
-              data-testid="btn-lookup"
-            >
-              {loading ? "Checking…" : "Check Companies House"}
-            </button>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => {
-                setCompanyNumber("");
-                setName("Elegant Building Services Limited");
-                setPostcode("E4");
-                setUseScoring(true);
-              }}
-            >
-              Reset defaults
-            </button>
-          </div>
-        </div>
-      </form>
-
-      {/* Results */}
-      <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-semibold mb-3">Result</h2>
-
-        {error ? (
-          <p className="text-sm text-rose-600" data-testid="verify-error">
-            {error}
+        <div className="mb-6">
+          <h1 className="text-xl font-bold text-white">Verify company</h1>
+          <p className="mt-1 text-sm text-slate-300">
+            Look up a company against Companies House
           </p>
-        ) : null}
+        </div>
 
-        {result ? (
-          <div className="grid gap-3">
-            {/* Non-scored summary */}
-            {result.method ? (
-              <div className="text-sm">
-                <span className="font-medium">OK:</span> {String(!!result.ok)} |{" "}
-                <span className="font-medium">Method:</span> {result.method}
-                {typeof result.matchScore === "number" ? (
-                  <>
-                    {" "}
-                    | <span className="font-medium">Match score:</span>{" "}
-                    {result.matchScore}
-                  </>
-                ) : null}
-              </div>
-            ) : null}
-
-            {/* Scored summary */}
-            {typeof result.verdict === "string" ? (
-              <div className="rounded-lg bg-slate-50 p-3 border border-slate-200">
-                <div className="text-sm">
-                  <span className="font-medium">Verdict:</span> {result.verdict}
-                </div>
-
-                {result.best ? (
-                  <div className="mt-2 text-sm">
-                    <div>
-                      <span className="font-medium">Best score:</span>{" "}
-                      {result.best.score}
-                    </div>
-                    <div>
-                      <span className="font-medium">Best name:</span>{" "}
-                      {result.best.name || "—"}
-                    </div>
-                    <div>
-                      <span className="font-medium">Best number:</span>{" "}
-                      {result.best.number || "—"}
-                    </div>
-                    <div>
-                      <span className="font-medium">Status:</span>{" "}
-                      {result.best.status || "—"}
-                    </div>
-                    {result.best.sicCodes?.length ? (
-                      <div>
-                        <span className="font-medium">SIC:</span>{" "}
-                        {result.best.sicCodes.join(", ")}
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {Array.isArray(result.candidates) &&
-                result.candidates.length ? (
-                  <div className="mt-3">
-                    <div className="font-medium text-sm mb-1">
-                      Top candidates
-                    </div>
-                    <div className="overflow-auto">
-                      <table className="min-w-full text-sm border">
-                        <thead>
-                          <tr className="bg-slate-100">
-                            <th className="p-2 text-left">Score</th>
-                            <th className="p-2 text-left">Name</th>
-                            <th className="p-2 text-left">Number</th>
-                            <th className="p-2 text-left">Status</th>
-                            <th className="p-2 text-left">Postcode</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {result.candidates.map((c, i) => (
-                            <tr
-                              key={i}
-                              className={i === 0 ? "bg-emerald-50" : ""}
-                            >
-                              <td className="p-2">{c?.score ?? "—"}</td>
-                              <td className="p-2">{c?.name || "—"}</td>
-                              <td className="p-2">{c?.number || "—"}</td>
-                              <td className="p-2">{c?.status || "—"}</td>
-                              <td className="p-2">
-                                {c?.address?.postal_code ||
-                                  (c?.address as any)?.post_code ||
-                                  "—"}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            {/* Non-scored single company summary */}
-            {result.company ? (
-              <div
-                className="rounded-lg bg-slate-50 p-3 border border-slate-200"
-                data-testid="verify-summary"
-              >
-                <div className="text-sm">
-                  <span className="font-medium">Name:</span>{" "}
-                  {result.company.name}
-                </div>
-                <div className="text-sm">
-                  <span className="font-medium">Number:</span>{" "}
-                  {result.company.number}
-                </div>
-                <div className="text-sm">
-                  <span className="font-medium">Status:</span>{" "}
-                  {result.company.status ?? "—"}
-                </div>
-                <div className="text-sm">
-                  <span className="font-medium">Incorporated:</span>{" "}
-                  {result.company.dateOfCreation ?? "—"}
-                </div>
-                {Array.isArray(result.company.sicCodes) &&
-                result.company.sicCodes.length > 0 ? (
-                  <div className="text-sm">
-                    <span className="font-medium">SIC:</span>{" "}
-                    {result.company.sicCodes.join(", ")}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
+        {/* Search form */}
+        <form
+          onSubmit={runLookup}
+          className="rounded-xl border border-slate-400/30 bg-slate-600/40 p-5 mb-5"
+          data-testid="verify-form"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1">
+                Company Number <span className="text-slate-400 font-normal">(optional)</span>
+              </label>
+              <input
+                value={companyNumber}
+                onChange={(e) => setCompanyNumber(e.target.value)}
+                placeholder="e.g. 12758227"
+                className={inputCls}
+                data-testid="field-company-number"
+              />
+              <p className="mt-1 text-[11px] text-slate-400">
+                If provided, this is used directly. Otherwise we search by name.
+              </p>
+            </div>
 
             <div>
-              <label className="block text-xs text-slate-500 mb-1">
-                Raw JSON
+              <label className="block text-xs font-medium text-slate-300 mb-1">
+                Name
               </label>
-              <pre
-                className="overflow-auto rounded-lg border border-slate-200 bg-slate-900 text-slate-100 text-xs p-3"
-                data-testid="verify-json"
-              >
-                {JSON.stringify(result, null, 2)}
-              </pre>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Elegant Building Services Limited"
+                className={inputCls}
+                data-testid="field-name"
+                disabled={!!companyNumber.trim()}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1">
+                Postcode <span className="text-slate-400 font-normal">(optional)</span>
+              </label>
+              <input
+                value={postcode}
+                onChange={(e) => setPostcode(e.target.value)}
+                placeholder="E4"
+                className={inputCls}
+                data-testid="field-postcode"
+                disabled={!!companyNumber.trim()}
+              />
             </div>
           </div>
-        ) : !error && loading ? (
-          <p className="text-sm text-slate-500">Loading…</p>
-        ) : (
-          <p className="text-sm text-slate-500">Run a lookup to see results.</p>
-        )}
+
+          <div className="mt-4 flex items-center justify-between">
+            <label className="inline-flex items-center gap-2 text-sm text-slate-200 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useScoring}
+                onChange={(e) => setUseScoring(e.target.checked)}
+                disabled={!!companyNumber.trim()}
+                className="accent-slate-300"
+              />
+              Use scoring (show top matches)
+            </label>
+
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-100 disabled:opacity-50 transition-colors"
+                disabled={!canSubmit || loading}
+                data-testid="btn-lookup"
+              >
+                {loading ? "Checking…" : "Check Companies House"}
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-slate-400/40 px-4 py-2 text-sm text-slate-200 hover:bg-slate-500/50 transition-colors"
+                onClick={() => {
+                  setCompanyNumber("");
+                  setName("Elegant Building Services Limited");
+                  setPostcode("E4");
+                  setUseScoring(true);
+                }}
+              >
+                Reset defaults
+              </button>
+            </div>
+          </div>
+        </form>
+
+        {/* Results */}
+        <div className="rounded-xl border border-slate-400/30 bg-slate-600/40 p-5">
+          <h2 className="text-base font-semibold text-white mb-4">Result</h2>
+
+          {error ? (
+            <p className="text-sm text-rose-300" data-testid="verify-error">
+              {error}
+            </p>
+          ) : null}
+
+          {result ? (
+            <div className="grid gap-4">
+              {/* Non-scored summary */}
+              {result.method ? (
+                <div className="text-sm text-slate-200">
+                  <span className="font-medium text-white">OK:</span>{" "}
+                  {String(!!result.ok)} |{" "}
+                  <span className="font-medium text-white">Method:</span>{" "}
+                  {result.method}
+                  {typeof result.matchScore === "number" ? (
+                    <>
+                      {" "}
+                      | <span className="font-medium text-white">Match score:</span>{" "}
+                      {result.matchScore}
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {/* Scored summary */}
+              {typeof result.verdict === "string" ? (
+                <div className="rounded-lg border border-slate-500/50 bg-slate-700/50 p-4">
+                  <div className="text-sm text-slate-200">
+                    <span className="font-semibold text-white">Verdict:</span>{" "}
+                    <span
+                      className={
+                        result.verdict === "verified"
+                          ? "text-emerald-400"
+                          : result.verdict === "ambiguous"
+                          ? "text-amber-400"
+                          : "text-rose-400"
+                      }
+                    >
+                      {result.verdict}
+                    </span>
+                  </div>
+
+                  {result.best ? (
+                    <div className="mt-3 grid grid-cols-2 gap-1 text-sm">
+                      {[
+                        ["Best score", result.best.score],
+                        ["Best name", result.best.name || "—"],
+                        ["Best number", result.best.number || "—"],
+                        ["Status", result.best.status || "—"],
+                        result.best.sicCodes?.length
+                          ? ["SIC", result.best.sicCodes.join(", ")]
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .map(([k, v]) => (
+                          <div key={String(k)}>
+                            <span className="font-medium text-slate-300">{k}:</span>{" "}
+                            <span className="text-slate-100">{String(v)}</span>
+                          </div>
+                        ))}
+                    </div>
+                  ) : null}
+
+                  {Array.isArray(result.candidates) && result.candidates.length ? (
+                    <div className="mt-4">
+                      <div className="text-sm font-semibold text-white mb-2">
+                        Top candidates
+                      </div>
+                      <div className="overflow-x-auto rounded-lg border border-slate-500/50">
+                        <table className="min-w-full text-sm">
+                          <thead className="bg-slate-600/80">
+                            <tr>
+                              {["Score", "Name", "Number", "Status", "Postcode"].map((h) => (
+                                <th
+                                  key={h}
+                                  className="px-3 py-2 text-left text-xs font-semibold text-slate-300 uppercase tracking-wide border-b border-slate-500/60"
+                                >
+                                  {h}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-500/30">
+                            {result.candidates.map((c, i) => (
+                              <tr
+                                key={i}
+                                className={
+                                  i === 0
+                                    ? "bg-emerald-900/30"
+                                    : "bg-slate-700/40"
+                                }
+                              >
+                                <td className="px-3 py-2 text-slate-200">{c?.score ?? "—"}</td>
+                                <td className="px-3 py-2 text-slate-200">{c?.name || "—"}</td>
+                                <td className="px-3 py-2 text-slate-200">{c?.number || "—"}</td>
+                                <td className="px-3 py-2 text-slate-200">{c?.status || "—"}</td>
+                                <td className="px-3 py-2 text-slate-200">
+                                  {c?.address?.postal_code ||
+                                    (c?.address as any)?.post_code ||
+                                    "—"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {/* Non-scored single company summary */}
+              {result.company ? (
+                <div
+                  className="rounded-lg border border-slate-500/50 bg-slate-700/50 p-4 grid grid-cols-2 gap-1 text-sm"
+                  data-testid="verify-summary"
+                >
+                  {[
+                    ["Name", result.company.name],
+                    ["Number", result.company.number],
+                    ["Status", result.company.status ?? "—"],
+                    ["Incorporated", result.company.dateOfCreation ?? "—"],
+                    Array.isArray(result.company.sicCodes) && result.company.sicCodes.length > 0
+                      ? ["SIC", result.company.sicCodes.join(", ")]
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .map(([k, v]) => (
+                      <div key={String(k)}>
+                        <span className="font-medium text-slate-300">{k}:</span>{" "}
+                        <span className="text-slate-100">{String(v)}</span>
+                      </div>
+                    ))}
+                </div>
+              ) : null}
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Raw JSON
+                </label>
+                <pre
+                  className="overflow-auto rounded-lg border border-slate-500/50 bg-slate-900/60 text-slate-100 text-xs p-3"
+                  data-testid="verify-json"
+                >
+                  {JSON.stringify(result, null, 2)}
+                </pre>
+              </div>
+            </div>
+          ) : !error && loading ? (
+            <p className="text-sm text-slate-400">Loading…</p>
+          ) : (
+            <p className="text-sm text-slate-400">Run a lookup to see results.</p>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

@@ -19,30 +19,23 @@ export default function BuilderPhotos({ user, galleryImages, photos }: Props) {
 
     return (
       <section
-        className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 sm:p-5"
+        className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-6 sm:p-7"
         data-testid="builder-shared-photos-empty"
       >
-        <h2 className="text-sm sm:text-base font-semibold text-emerald-900 mb-1">
-          Shared photos
-        </h2>
-        <p className="text-sm text-emerald-800">
-          No photos have been shared for this builder yet.
-        </p>
+        <h2 className="text-lg font-black text-zinc-900 mb-1">Shared photos</h2>
+        <p className="text-sm text-zinc-500">No photos have been shared for this builder yet.</p>
       </section>
     );
   }
 
   return (
     <section
-      className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 sm:p-5"
+      className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-6 sm:p-7"
       data-testid="builder-shared-photos-locked"
     >
-      <h2 className="text-sm sm:text-base font-semibold text-emerald-900 mb-1">
-        Shared photos
-      </h2>
-      <p className="text-sm text-emerald-800 mb-3">
-        Create a free account to see photos your neighbours shared with this
-        recommendation.
+      <h2 className="text-lg font-black text-zinc-900 mb-1">Shared photos</h2>
+      <p className="text-sm text-zinc-500 mb-4">
+        Create a free account to see photos your neighbours shared with this recommendation.
       </p>
 
       <BlurUnlock

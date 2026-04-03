@@ -13,10 +13,12 @@ export default function AdminHeader() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [checking, setChecking] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [loginMenuOpen, setLoginMenuOpen] = useState(false);
 
-  // Close menu on route change
+  // Close menus on route change
   useEffect(() => {
     setMenuOpen(false);
+    setLoginMenuOpen(false);
   }, [router.pathname]);
 
   // Determine if current user is admin (mirror AdminGate logic)
@@ -96,24 +98,65 @@ export default function AdminHeader() {
   const atVerify = router.pathname === "/admin/verify-company";
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/70 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-slate-500/60 bg-slate-700/90 backdrop-blur">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
-        {/* Left: simple label */}
-        <div className="text-sm font-semibold tracking-wide text-slate-800">
-          VetMyBuilder Admin
-        </div>
+        {/* Left: brand logo */}
+        <Link href="/admin/tradesmen-leaderboard" className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500">
+            <svg className="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </div>
+          <div className="leading-tight">
+            <span className="text-sm font-black text-white">Vet<span className="text-red-400">My</span>Builder</span>
+            <span className="ml-1.5 text-xs font-semibold text-slate-400">Admin</span>
+          </div>
+        </Link>
 
         {/* Right: actions */}
         <div className="flex items-center gap-2 text-sm">
           {!user || !isAdmin ? (
-            // Logged out OR non-admin → single login button
-            <Link
-              href="/login?next=/admin/tradesmen-leaderboard"
-              className="inline-flex items-center rounded-full bg-slate-900 px-4 h-9 text-sm font-medium text-white shadow-sm hover:bg-slate-800"
-              data-testid="btn-admin-login"
-            >
-              Admin login
-            </Link>
+            // Logged out OR non-admin → dropdown to pick which section to log into
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setLoginMenuOpen((v) => !v)}
+                className="inline-flex items-center rounded-full bg-slate-900 px-4 h-9 text-sm font-medium text-white shadow-sm hover:bg-slate-800"
+                data-testid="btn-admin-login"
+              >
+                Admin login
+                <span
+                  aria-hidden
+                  className={`ml-2 inline-block transition-transform ${
+                    loginMenuOpen ? "rotate-180" : ""
+                  }`}
+                >
+                  ▾
+                </span>
+              </button>
+
+              {loginMenuOpen && (
+                <div
+                  className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-200 bg-white shadow-lg ring-1 ring-black/5 overflow-hidden"
+                  data-testid="admin-login-menu"
+                >
+                  <Link
+                    href="/login?next=/admin/tradesmen-leaderboard"
+                    className="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    onClick={() => setLoginMenuOpen(false)}
+                    data-testid="login-menu-tradesmen"
+                  >
+                    Tradesmen leaderboard
+                  </Link>
+                  <Link
+                    href="/login?next=/admin/recommendation-leaderboard"
+                    className="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    onClick={() => setLoginMenuOpen(false)}
+                    data-testid="login-menu-recs"
+                  >
+                    Recommendation leaderboard
+                  </Link>
+                </div>
+              )}
+            </div>
           ) : (
             // Logged in as admin → dropdown menu
             <div className="relative">

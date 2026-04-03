@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
 import TradesmanProjectAccordionRow from "@/components/tradesmen/TradesmanProjectAccordionRow";
+import TradesmanOnly from "@/components/TradesmanOnly";
 
 type Project = {
   id: number;
@@ -138,7 +139,8 @@ export default function TradesmanProjects() {
   }, [items, budget]);
 
   return (
-    <>
+    <TradesmanOnly>
+      <>
       <Head>
         <title>Jobs list • Vetmybuilder</title>
       </Head>
@@ -297,6 +299,7 @@ export default function TradesmanProjects() {
           </div>
         )}
       </div>
-    </>
+      </>
+    </TradesmanOnly>
   );
 }

@@ -38,6 +38,12 @@ export class LoginPage {
   }
 
   async goto(next?: string) {
+    // /login is a guest-only page; ensure we're logged out before navigating
+    await this.page.goto("/logout", { waitUntil: "domcontentloaded" });
+    await this.page
+      .waitForURL(/signedOut=1/, { timeout: 15_000 })
+      .catch(() => {});
+
     const url = next ? `/login?next=${encodeURIComponent(next)}` : "/login";
     try {
       await this.page.goto(url);
@@ -52,7 +58,7 @@ export class LoginPage {
         throw error;
       }
     }
-    await expect(this.loginPage).toBeVisible();
+    await expect(this.loginPage).toBeVisible({ timeout: 15_000 });
   }
 
   async login(email: string, password: string) {
@@ -80,10 +86,9 @@ export class LoginPage {
     await expect(this.errorMessage).toBeVisible({ timeout: 10_000 });
   }
 
-  async navigateToSignup(): Promise<void> {
+  async clickCreateOneLink(): Promise<void> {
     await expect(this.createOneLink).toBeVisible();
     await this.createOneLink.click();
-    await expect(this.page).toHaveURL("/signup");
   }
 
   async hasVendorSignupLink(): Promise<void> {

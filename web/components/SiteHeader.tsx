@@ -63,7 +63,7 @@ function InitialsBadge({
     >
       <span
         aria-hidden
-        className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-semibold"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white text-xs font-semibold"
       >
         {initials || "U"}
       </span>
@@ -219,7 +219,7 @@ export default function SiteHeader() {
       href: "/tradesman/projects",
       label: company || "Trades",
       className:
-        "inline-flex items-center justify-center rounded-xl px-3.5 h-9 text-sm font-medium bg-indigo-600 text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2",
+        "inline-flex items-center justify-center rounded-xl px-3.5 h-9 text-sm font-medium bg-red-500 text-white shadow-sm hover:bg-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2",
       testid: "btn-trades-projects",
     };
   }, [isTrades, company]);
@@ -273,7 +273,7 @@ export default function SiteHeader() {
           role="banner"
           aria-label="Site header"
           data-testid="site-header"
-          className="sticky top-0 z-50 border-b border-gray-200/70 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60"
+          className="sticky top-0 z-50 border-b border-stone-200/70 bg-stone-50/80 backdrop-blur supports-[backdrop-filter]:bg-stone-50/70"
         >
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <nav
@@ -283,36 +283,98 @@ export default function SiteHeader() {
               <div className="flex items-center gap-3">
                 <Link
                   href={homeHref}
-                  className="inline-flex items-center gap-2"
+                  className="inline-flex items-center gap-2 group"
                   aria-label="Go to homepage"
                   data-testid="nav-home"
                 >
                   <span
                     aria-hidden
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-slate-900 text-white ring-1 ring-slate-900/10 shadow-sm"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-red-500 text-white shadow-sm transition-transform group-hover:rotate-3"
                   >
                     <Home className="h-4 w-4" />
                   </span>
-                  <span className="sr-only">VetMyBuilder</span>
+                  <span className="text-2xl font-black tracking-tight text-zinc-900">
+                    Vet<span className="text-red-500">My</span>Builder
+                  </span>
                 </Link>
               </div>
 
               <div className="flex items-center gap-3">
-                {/* Logged-in (desktop): show Projects button */}
+                {/* Logged-in homeowner: Projects button + account menu */}
                 {user && !isTrades && (
-                  <Link
-                    href="/projects"
-                    className="hidden sm:inline-flex items-center gap-1.5 justify-center rounded-xl px-3 h-9 text-sm font-medium bg-amber-400 text-slate-900 shadow-sm hover:bg-amber-300"
-                    data-testid="btn-home-projects"
-                  >
-                    <span>Projects</span>
-                    <span
-                      className="ml-1.5 text-base leading-none"
-                      aria-hidden="true"
+                  <>
+                    <Link
+                      href="/projects"
+                      className="hidden sm:inline-flex items-center gap-1.5 justify-center rounded-xl px-3 h-9 text-sm font-medium bg-amber-400 text-slate-900 shadow-sm hover:bg-amber-300"
+                      data-testid="btn-home-projects"
                     >
-                      ↗
-                    </span>
-                  </Link>
+                      <span>Projects</span>
+                      <span className="ml-1.5 text-base leading-none" aria-hidden="true">↗</span>
+                    </Link>
+                    <div className="relative hidden sm:block" data-testid="account-menu-wrapper">
+                      <button
+                        ref={btnAccountRef}
+                        type="button"
+                        aria-label="Account menu"
+                        aria-haspopup="menu"
+                        aria-expanded={openMenu === "account"}
+                        aria-controls="account-menu"
+                        onClick={() => setOpenMenu((m) => (m === "account" ? null : "account"))}
+                        className="inline-flex items-center gap-2 rounded-full px-2 py-1 ring-1 ring-gray-300/80 bg-white hover:bg-gray-50 shadow-sm"
+                        data-testid="account-menu-button"
+                      >
+                        <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white text-xs font-semibold">
+                          {initials || "U"}
+                        </span>
+                        <svg className={`h-4 w-4 text-gray-500 transition-transform ${openMenu === "account" ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                          <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 011.08 1.04l-4.25 4.25a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                      {openMenu === "account" && (
+                        <div ref={menuRef} id="account-menu" role="menu" aria-label="Account" data-testid="account-menu" className="absolute right-0 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg ring-1 ring-black/5">
+                          <Link role="menuitem" href="/account" className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => setOpenMenu(null)}>
+                            Edit account
+                          </Link>
+                          <button role="menuitem" onClick={onLogout} className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50/60">
+                            Logout
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {/* Logged-in tradesperson: trades menu */}
+                {user && isTrades && (
+                  <div className="relative hidden sm:block" data-testid="trades-menu-wrapper">
+                    <button
+                      ref={btnTradesRef}
+                      type="button"
+                      aria-label="Trades menu"
+                      aria-haspopup="menu"
+                      aria-expanded={openMenu === "trades"}
+                      onClick={() => setOpenMenu((m) => (m === "trades" ? null : "trades"))}
+                      className="inline-flex items-center gap-2 rounded-full px-2 py-1 ring-1 ring-gray-300/80 bg-white hover:bg-gray-50 shadow-sm"
+                      data-testid="trades-menu-button"
+                    >
+                      <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white text-xs font-semibold">
+                        {(company?.[0] || "T").toUpperCase()}
+                      </span>
+                      <svg className={`h-4 w-4 text-gray-500 transition-transform ${openMenu === "trades" ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 011.08 1.04l-4.25 4.25a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                    {openMenu === "trades" && (
+                      <div ref={menuRef} id="trades-menu" role="menu" className="absolute right-0 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg ring-1 ring-black/5">
+                        <Link role="menuitem" href="/tradesman/profile/edit" className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => setOpenMenu(null)}>
+                          Manage profile
+                        </Link>
+                        <button role="menuitem" onClick={onLogout} className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50/60">
+                          Logout
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {/* Logged-out (desktop) */}
@@ -329,7 +391,7 @@ export default function SiteHeader() {
 
                     <Link
                       href="/login"
-                      className="hidden sm:inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium bg-indigo-600 text-white shadow-sm hover:bg-indigo-500"
+                      className="hidden sm:inline-flex items-center gap-1.5 justify-center rounded-xl px-3 h-9 text-sm font-medium bg-red-500 text-white shadow-sm hover:bg-red-600"
                       aria-label="Homeowner sign in"
                       data-testid="nav-sign-in"
                     >
@@ -410,11 +472,13 @@ export default function SiteHeader() {
               >
                 <span
                   aria-hidden
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-slate-900 text-white ring-1 ring-slate-900/10 shadow-sm"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-red-500 text-white shadow-sm"
                 >
                   <Home className="h-4 w-4" />
                 </span>
-                <span className="sr-only">VetMyBuilder</span>
+                <span className="text-2xl font-black tracking-tight text-zinc-900">
+                  Vet<span className="text-red-500">My</span>Builder
+                </span>
               </Link>
             </div>
 
@@ -532,7 +596,7 @@ export default function SiteHeader() {
                   >
                     <span
                       aria-hidden
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-semibold"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white text-xs font-semibold"
                     >
                       {(company?.[0] || "T").toUpperCase()}
                     </span>
@@ -605,7 +669,7 @@ export default function SiteHeader() {
                   >
                     <span
                       aria-hidden
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-semibold"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white text-xs font-semibold"
                     >
                       {initials || "U"}
                     </span>
@@ -657,7 +721,7 @@ export default function SiteHeader() {
               {!user && (
                 <Link
                   href="/login"
-                  className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium bg-indigo-600 text-white shadow-sm hover:bg-indigo-500"
+                  className="inline-flex items-center gap-1.5 justify-center rounded-xl px-3 h-9 text-sm font-medium bg-red-500 text-white shadow-sm hover:bg-red-600"
                   aria-label="Homeowner sign in"
                   data-testid="nav-sign-in"
                 >

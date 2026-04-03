@@ -36,7 +36,7 @@ export default function Step3Offers({
 }: Props) {
   return (
     <form
-      className="card grid gap-4"
+      className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-8 grid gap-5"
       onSubmit={onSaveDraft}
       data-testid="step-3"
     >
@@ -45,16 +45,16 @@ export default function Step3Offers({
           <label className="text-sm font-medium">
             Discount you can offer if hired
           </label>
-          <span className="text-sm text-slate-600">
+          <span className="text-sm text-zinc-500">
             {discountMin}% – {discountMax}%
           </span>
         </div>
-        <p className="text-xs text-slate-500 mb-2">
+        <p className="text-xs text-zinc-400 mb-2">
           Bigger discounts tend to win more work. Choose a realistic range.
         </p>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-slate-500" htmlFor="discMin">
+            <label className="text-xs text-zinc-400" htmlFor="discMin">
               Min %
             </label>
             <input
@@ -67,10 +67,10 @@ export default function Step3Offers({
               className="w-full"
               data-testid="input-discount-min"
             />
-            <div className="text-xs text-slate-600 mt-1">{discountMin}%</div>
+            <div className="text-xs text-zinc-500 mt-1">{discountMin}%</div>
           </div>
           <div>
-            <label className="text-xs text-slate-500" htmlFor="discMax">
+            <label className="text-xs text-zinc-400" htmlFor="discMax">
               Max %
             </label>
             <input
@@ -83,7 +83,7 @@ export default function Step3Offers({
               className="w-full"
               data-testid="input-discount-max"
             />
-            <div className="text-xs text-slate-600 mt-1">{discountMax}%</div>
+            <div className="text-xs text-zinc-500 mt-1">{discountMax}%</div>
           </div>
         </div>
       </div>
@@ -104,8 +104,8 @@ export default function Step3Offers({
               onClick={() => setWarranty(opt)}
               className={`px-3 py-1.5 rounded-xl text-sm ring-1 ${
                 warranty === opt
-                  ? "bg-indigo-600 text-white ring-indigo-500"
-                  : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
+                  ? "bg-red-500 text-white ring-red-400"
+                  : "bg-white text-zinc-700 ring-zinc-200 hover:bg-zinc-50"
               }`}
               aria-pressed={warranty === opt}
               data-testid={`warranty-${opt}`}
@@ -126,7 +126,7 @@ export default function Step3Offers({
         <label className="text-sm font-medium block mb-1">
           Supporting documents
         </label>
-        <p className="text-xs text-slate-500 mb-2">
+        <p className="text-xs text-zinc-400 mb-2">
           Upload insurance, memberships or certifications (optional). You can
           return to your profile later to add more.
         </p>
@@ -134,7 +134,7 @@ export default function Step3Offers({
           type="file"
           multiple
           onChange={onDocs}
-          className="block w-full text-sm file:mr-3 file:rounded file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-indigo-700 file:hover:bg-indigo-100"
+          className="block w-full text-sm file:mr-3 file:rounded-full file:border-0 file:bg-red-50 file:px-3 file:py-1.5 file:text-red-600 file:hover:bg-red-100 file:font-bold"
           data-testid="input-docs"
         />
       </div>
@@ -157,14 +157,14 @@ export default function Step3Offers({
       <div className="flex items-center justify-between gap-2">
         <button
           type="button"
-          className="rounded-xl px-4 py-2 text-sm bg-white ring-1 ring-slate-200 hover:bg-slate-50"
+          className="inline-flex items-center justify-center rounded-full border-2 border-zinc-200 bg-white px-6 py-3 text-sm font-bold text-zinc-700 hover:bg-zinc-50 transition-all"
           onClick={onBack}
           data-testid="btn-back"
         >
           Back
         </button>
         <button
-          className="rounded-xl px-4 py-2 text-sm bg-slate-900 text-white hover:bg-slate-800"
+          className="inline-flex items-center justify-center rounded-full bg-red-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:bg-red-600 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
           disabled={busy}
           data-testid="btn-continue"
         >

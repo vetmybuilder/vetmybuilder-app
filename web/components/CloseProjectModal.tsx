@@ -128,11 +128,30 @@ export default function CloseProjectModal({
 
             const items: any[] = Array.isArray(data?.items) ? data.items : [];
 
+            // Deduplicate by chCompanyNumber first, then normalized company name.
+            // Keep the highest-scored rec per company.
+            const companyBest = new Map<string, any>();
             for (const r of items) {
+              const companyKey = r.chCompanyNumber
+                ? `ch:${r.chCompanyNumber}`
+                : `name:${(r.chCompanyName || r.company || "").trim().toLowerCase()}`;
+              const existing = companyBest.get(companyKey);
+              if (!existing || (r.score ?? 0) > (existing.score ?? 0)) {
+                companyBest.set(companyKey, r);
+              }
+            }
+
+            for (const r of companyBest.values()) {
+              // Use the CH-verified name if available, otherwise fall back to submitted name
+              const displayName =
+                (r.chCompanyName && (r.chStatus === "verified" || r.chStatus === "ambiguous"))
+                  ? r.chCompanyName
+                  : r.company ?? null;
+
               merged.push({
                 id: r.id,
-                name: r.name ?? null,
-                company: r.company ?? null,
+                name: displayName,
+                company: displayName,
                 fromCommunity:
                   r?.fromCommunity === 1 ||
                   r?.fromCommunity === true ||
@@ -322,12 +341,12 @@ export default function CloseProjectModal({
       />
       <form
         onSubmit={handleSubmit}
-        className="relative z-10 w-[92vw] max-w-2xl rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xl"
+        className="relative z-10 w-[92vw] max-w-2xl rounded-3xl bg-white p-6 sm:p-8 shadow-2xl shadow-zinc-200/80"
       >
-        <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="mb-6 flex items-start justify-between gap-3">
           <h2
             id="close-project-title"
-            className="text-lg sm:text-xl font-semibold"
+            className="text-xl font-black tracking-tight text-zinc-900"
             data-testid="close-project-title"
           >
             Close project{projectName ? `: ${projectName}` : ""}
@@ -336,7 +355,7 @@ export default function CloseProjectModal({
             type="button"
             onClick={onClose}
             aria-label="Close modal"
-            className="text-slate-500 hover:text-slate-900"
+            className="text-zinc-400 hover:text-zinc-900 text-xl leading-none transition-colors"
             data-testid="close-project-x"
           >
             ×
@@ -365,10 +384,10 @@ export default function CloseProjectModal({
           {/* Reasons if it did NOT go ahead */}
           {!didGoAhead && (
             <fieldset
-              className="rounded-2xl border border-slate-200 p-3 sm:p-4"
+              className="rounded-2xl border-2 border-zinc-200 p-3 sm:p-4"
               data-testid="fieldset-reasons"
             >
-              <legend className="px-1 text-sm font-medium text-slate-600">
+              <legend className="px-1 text-sm font-bold text-zinc-700">
                 Why didn't it go ahead?
               </legend>
 
@@ -435,13 +454,13 @@ export default function CloseProjectModal({
                   <div className="col-span-full">
                     <label
                       htmlFor="reason-other-text"
-                      className="block text-sm text-slate-600"
+                      className="block text-sm font-bold text-zinc-700"
                     >
                       Please specify
                     </label>
                     <textarea
                       id="reason-other-text"
-                      className="mt-1 w-full rounded-lg border border-slate-300 p-2"
+                      className="mt-1 w-full rounded-2xl border-2 border-zinc-200 px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:border-red-400 focus:outline-none transition-colors resize-none"
                       rows={3}
                       value={otherText}
                       onChange={(e) => setOtherText(e.target.value)}
@@ -450,7 +469,7 @@ export default function CloseProjectModal({
                   </div>
                 )}
               </div>
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-zinc-400">
                 You can update this later if needed.
               </p>
             </fieldset>
@@ -463,11 +482,11 @@ export default function CloseProjectModal({
               <div>
                 <label
                   htmlFor="who-did-work"
-                  className="block text-sm font-medium text-slate-800"
+                  className="block text-sm font-bold text-zinc-900"
                 >
                   Who did the work?
                 </label>
-                <p className="mt-1 text-xs text-slate-500 max-w-prose">
+                <p className="mt-1 text-xs text-zinc-400 max-w-prose">
                   Once you have recommendations or shared profiles for this
                   project, you can select who carried out the work here.
                   <br />
@@ -477,7 +496,7 @@ export default function CloseProjectModal({
 
                 <select
                   id="who-did-work"
-                  className="mt-2 w-full rounded-lg border border-slate-300 p-2 text-sm"
+                  className="mt-2 w-full rounded-2xl border-2 border-zinc-200 px-4 py-3 text-sm text-zinc-900 focus:border-red-400 focus:outline-none transition-colors bg-white"
                   value={selectedWinnerKey}
                   onChange={(e) => setSelectedWinnerKey(e.target.value)}
                   data-testid="select-who-did-work"
@@ -506,7 +525,7 @@ export default function CloseProjectModal({
 
               {/* Photos uploader */}
               <div>
-                <p className="block text-sm font-medium text-slate-800">
+                <p className="block text-sm font-bold text-zinc-900">
                   Upload photos of the completed work (up to {MAX_FILES})
                 </p>
                 <FileGridUploader
@@ -523,7 +542,7 @@ export default function CloseProjectModal({
         <div className="mt-6 flex justify-end gap-3">
           <button
             type="button"
-            className="btn"
+            className="inline-flex items-center justify-center rounded-full border-2 border-zinc-200 bg-white px-6 py-3 text-sm font-bold text-zinc-700 hover:bg-zinc-50 transition-all"
             onClick={onClose}
             data-testid="btn-cancel-close"
           >
@@ -531,7 +550,7 @@ export default function CloseProjectModal({
           </button>
           <button
             type="submit"
-            className="btn-danger"
+            className="inline-flex items-center justify-center rounded-full bg-red-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:bg-red-600 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
             disabled={busy}
             aria-busy={busy}
             data-testid="btn-confirm-close"

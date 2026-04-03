@@ -226,7 +226,7 @@ export default function ShortlistSection({
                 <button
                   type="button"
                   onClick={onOwnerShareClick}
-                  className="inline-flex items-center gap-2 whitespace-nowrap rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+                  className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-red-500 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-red-600"
                   data-testid="btn-shortlist-share-publish"
                 >
                   <LinkIcon size={18} />
@@ -242,7 +242,7 @@ export default function ShortlistSection({
         ) : (
           <>
             <ul
-              className="space-y-6"
+              className="space-y-3"
               aria-label="Top recommendations"
               data-testid="shortlist-list"
             >
@@ -335,7 +335,7 @@ export default function ShortlistSection({
 
                     {g.extraCount > 0 && (
                       <span
-                        className="absolute -top-2 -right-2 z-20 rounded-full bg-indigo-600 text-white text-[11px] leading-none px-2 py-1 shadow-md"
+                        className="absolute -top-2 -right-2 z-20 rounded-full bg-red-500 text-white text-[11px] leading-none px-2 py-1 shadow-md"
                         title={`${g.extraCount} more recommendation${
                           g.extraCount === 1 ? "" : "s"
                         } in this stack`}
@@ -345,18 +345,26 @@ export default function ShortlistSection({
                       </span>
                     )}
 
-                    <div className="rounded-xl border border-slate-200 bg-white/90 hover:bg-white shadow-sm hover:shadow-md transition p-3 relative z-10">
+                    <div className="rounded-2xl bg-zinc-50 hover:bg-zinc-100/80 transition p-4 relative z-10">
                       <div className="flex items-start gap-3">
+                        {/* Avatar */}
+                        <div
+                          className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-sm font-black text-white select-none ${pickAvatarColor(displayCompanyName)}`}
+                          aria-hidden="true"
+                        >
+                          {(displayCompanyName?.[0] ?? "T").toUpperCase()}
+                        </div>
+
                         <div className="min-w-0 flex-1">
-                          {/* top row: name + VMB + votes */}
+                          {/* top row: name + votes */}
                           <div className="flex items-center gap-3">
                             <div
-                              className="font-medium truncate flex-1 min-w-0"
+                              className="font-black text-zinc-900 truncate flex-1 min-w-0"
                               data-testid="shortlist-company"
                             >
                               <Link
                                 href={`/builders/${r.id}`}
-                                className="hover:underline decoration-indigo-400/60"
+                                className="hover:underline decoration-zinc-400/60"
                                 title="Open builder profile"
                               >
                                 <span
@@ -384,7 +392,7 @@ export default function ShortlistSection({
 
                           {r.comment && (
                             <p
-                              className="text-sm text-slate-700 mt-1 line-clamp-3"
+                              className="text-sm text-zinc-500 mt-0.5 line-clamp-3"
                               data-testid="shortlist-comment"
                             >
                               {r.comment}
@@ -427,7 +435,7 @@ export default function ShortlistSection({
                               ) : null}
                               {hasPhotos && (
                                 <span
-                                  className="inline-flex items-center gap-1 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-0.5 text-xs"
+                                  className="inline-flex items-center gap-1 rounded-full bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 text-xs"
                                   title="Includes photos"
                                   data-testid="shortlist-badge-photos"
                                 >
@@ -472,7 +480,7 @@ export default function ShortlistSection({
                               className={`h-9 w-9 rounded-full grid place-items-center border transition
                                 ${
                                   hasVoted
-                                    ? "bg-indigo-50 border-indigo-200 text-indigo-600 cursor-default"
+                                    ? "bg-red-50 border-red-200 text-red-500 cursor-default"
                                     : "border-slate-200 hover:bg-slate-50"
                                 }
                                 ${!canVote ? "opacity-60" : ""}`}
@@ -514,9 +522,9 @@ export default function ShortlistSection({
             </ul>
 
             {shouldShowViewMore && (
-              <div className="mt-3">
+              <div className="mt-4">
                 <Link
-                  className="btn"
+                  className="inline-flex items-center justify-center rounded-full bg-red-500 px-6 py-2.5 text-sm font-bold text-white shadow-sm shadow-red-500/25 hover:bg-red-600 transition-colors"
                   href={viewMoreHref as string}
                   aria-label="View more recommendations"
                   data-testid="btn-shortlist-view-more"
@@ -530,4 +538,22 @@ export default function ShortlistSection({
       </div>
     </aside>
   );
+}
+
+/* ---- helpers ---- */
+
+function pickAvatarColor(name: string): string {
+  const palettes = [
+    "bg-red-500",
+    "bg-emerald-500",
+    "bg-amber-500",
+    "bg-sky-500",
+    "bg-violet-500",
+    "bg-pink-500",
+    "bg-teal-500",
+  ];
+  let h = 0;
+  for (let i = 0; i < (name || "").length; i++)
+    h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return palettes[h % palettes.length];
 }

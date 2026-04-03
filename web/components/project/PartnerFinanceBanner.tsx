@@ -25,10 +25,10 @@ export default function PartnerFinanceBanner({
     <section
       aria-label="Finance your project"
       data-testid="partner-finance-banner"
-      className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-indigo-100 bg-gradient-to-r from-indigo-50 to-sky-50 px-5 py-4 shadow-sm"
+      className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-amber-100 bg-amber-50 px-5 py-4 shadow-sm"
     >
       <div className="flex items-center gap-4">
-        <span className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+        <span className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-amber-100 text-amber-600">
           <Home size={20} />
         </span>
         <div>
@@ -41,13 +41,13 @@ export default function PartnerFinanceBanner({
       <div className="flex flex-none gap-2 sm:ml-4">
         <button
           type="button"
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors whitespace-nowrap"
+          className="rounded-full bg-zinc-900 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-zinc-700 transition-colors whitespace-nowrap"
         >
           Personal loan
         </button>
         <button
           type="button"
-          className="rounded-lg border border-indigo-200 bg-white px-4 py-2 text-sm font-semibold text-indigo-600 shadow-sm hover:bg-indigo-50 transition-colors whitespace-nowrap"
+          className="rounded-full border-2 border-zinc-200 bg-white px-4 py-2 text-sm font-bold text-zinc-700 shadow-sm hover:bg-zinc-50 transition-colors whitespace-nowrap"
         >
           Remortgage
         </button>
