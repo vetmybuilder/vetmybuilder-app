@@ -3,7 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 const { BOT_UIDS, getAdminUid, getApiBase } = require("./config");
-const { mintToken, apiGet, apiPost, apiPut } = require("./api-client");
+const { getAuthHeaders, apiGet, apiPost, apiPut } = require("./api-client");
 const { readState, writeState } = require("./state");
 const builders = require("./fixtures/builders.json");
 const neighbours = require("./fixtures/neighbours.json");
@@ -39,10 +39,10 @@ async function uploadClosurePhotos(projectId, ownerUid, count) {
     form.append("photos", new Blob([fs.readFileSync(filePath)], { type: mime }), filename);
   }
 
-  const token = await mintToken(ownerUid);
+  const authHeaders = await getAuthHeaders(ownerUid);
   const res = await fetch(`${getApiBase()}/api/projects/${projectId}/close/photos`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
+    headers: authHeaders,
     body: form,
   });
 
@@ -75,10 +75,10 @@ async function uploadBuilderPhotos(uid, filenames) {
   // No local files found — caller should fall back to photoUrls
   if (fileCount === 0) return [];
 
-  const token = await mintToken(uid);
+  const authHeaders = await getAuthHeaders(uid);
   const res = await fetch(`${getApiBase()}/api/tradesmen/upload-photos`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
+    headers: authHeaders,
     body: form,
   });
 

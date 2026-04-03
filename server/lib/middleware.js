@@ -19,6 +19,17 @@ function authMiddleware(admin) {
   return async function authMw(req, res, next) {
     const log = withRequest(req);
 
+    // Sim-bot shortcut: X-Sim-Uid + X-Test-Secret bypasses Firebase token exchange.
+    // Only active when ENABLE_TEST_ROUTES=1 (same guard as the test routes).
+    if (process.env.ENABLE_TEST_ROUTES === "1") {
+      const secret = process.env.E2E_TEST_SECRET;
+      const simUid = req.headers["x-sim-uid"];
+      if (secret && simUid && req.headers["x-test-secret"] === secret) {
+        req.user = { uid: simUid };
+        return next();
+      }
+    }
+
     const header = req.headers.authorization || "";
     const token = header.startsWith("Bearer ") ? header.slice(7) : null;
 

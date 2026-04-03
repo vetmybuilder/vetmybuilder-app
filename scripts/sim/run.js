@@ -3,7 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 const { BOT_UIDS, TIMING, FAST_TIMING, getApiBase } = require("./config");
-const { mintToken, apiPost } = require("./api-client");
+const { getAuthHeaders, apiPost } = require("./api-client");
 const { readState, writeState } = require("./state");
 const builders = require("./fixtures/builders.json");
 const neighbours = require("./fixtures/neighbours.json");
@@ -82,10 +82,10 @@ async function recommend(projectId, neighbourIdx, builderIdx, neighbourName) {
       form.append("photos", blob, path.basename(filePath));
     }
 
-    const token = await mintToken(uid);
+    const authHeaders = await getAuthHeaders(uid);
     res = await fetch(`${getApiBase()}/api/projects/${projectId}/recommendations`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
       body: form,
     });
   } else {

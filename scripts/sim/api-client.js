@@ -2,6 +2,8 @@
 
 const { getApiBase } = require("./config");
 
+const SIM_PROD = process.env.SIM_PROD === "1";
+
 // Cache minted tokens by UID to avoid re-minting on every call
 const tokenCache = new Map();
 
@@ -38,13 +40,27 @@ function clearTokenCache() {
   tokenCache.clear();
 }
 
+/**
+ * Returns auth headers for the given UID.
+ * In SIM_PROD=1 mode: X-Sim-Uid + X-Test-Secret (no Firebase token exchange needed).
+ * In local dev mode: Firebase Bearer token via the emulator test route.
+ */
+async function getAuthHeaders(uid) {
+  if (SIM_PROD) {
+    const secret = process.env.E2E_TEST_SECRET;
+    if (!secret) throw new Error("Missing E2E_TEST_SECRET in environment");
+    return { "X-Sim-Uid": uid, "X-Test-Secret": secret };
+  }
+  const token = await mintToken(uid);
+  return { Authorization: `Bearer ${token}` };
+}
+
 async function apiCall(method, path, body, uid) {
   const apiBase = getApiBase();
   const headers = { "Content-Type": "application/json" };
 
   if (uid) {
-    const token = await mintToken(uid);
-    headers["Authorization"] = `Bearer ${token}`;
+    Object.assign(headers, await getAuthHeaders(uid));
   }
 
   const res = await fetch(`${apiBase}${path}`, {
@@ -68,4 +84,4 @@ async function apiPut(path, body, uid) {
   return apiCall("PUT", path, body, uid);
 }
 
-module.exports = { mintToken, clearTokenCache, apiGet, apiPost, apiPut };
+module.exports = { mintToken, clearTokenCache, getAuthHeaders, apiGet, apiPost, apiPut };
