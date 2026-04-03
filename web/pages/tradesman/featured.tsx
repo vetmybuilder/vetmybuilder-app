@@ -1,7 +1,7 @@
 // web/pages/tradesman/featured.tsx
 import * as React from "react";
 import { useRouter } from "next/router";
-import AuthedOnly from "@/components/AuthedOnly";
+import TradesmanOnly from "@/components/TradesmanOnly";
 import { useApi } from "@/utils/api";
 
 type FeaturedTradesman = {
@@ -297,8 +297,8 @@ function getInitials(name: string) {
 
 export default function FeaturedTradesmenPage() {
   return (
-    <AuthedOnly>
+    <TradesmanOnly>
       <FeaturedListInner />
-    </AuthedOnly>
+    </TradesmanOnly>
   );
 }

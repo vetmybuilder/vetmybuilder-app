@@ -407,10 +407,19 @@ export default function AdminTradesmenLeaderboardPage() {
     <>
       <Head>
         <title>Admin · Tradesmen Leaderboard</title>
+        <style>{`body { background: #fafaf9 !important; }`}</style>
       </Head>
 
       <AuthedOnly>
-        <div data-testid="admin-leaderboard-page" className="mx-auto px-4 py-6 w-full max-w-none">
+        <div data-testid="admin-leaderboard-page" className="relative min-h-screen overflow-x-hidden bg-stone-50 -mt-14">
+          {/* Background bands */}
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
+            <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
+          </div>
+
+          <div className="relative z-10 mx-auto px-4 pt-8 pb-10 w-full max-w-none">
+        <div className="mx-auto px-0 py-0 w-full max-w-none">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h1 className="text-2xl font-semibold">
               Tradesmen Leaderboard (Admin)
@@ -420,7 +429,6 @@ export default function AdminTradesmenLeaderboardPage() {
           {forbidden && (
             <div className="mt-8 rounded-xl border border-red-300 bg-red-50 p-6">
               <h2 className="text-lg font-semibold mb-2">Access restricted</h2>
-              <p className="text-sm">Admin role is required.</p>
             </div>
           )}
 
@@ -1088,6 +1096,8 @@ export default function AdminTradesmenLeaderboardPage() {
               </div>
             </>
           )}
+        </div>
+          </div>
         </div>
       </AuthedOnly>
 

@@ -98,10 +98,16 @@ export default function AdminHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/70 backdrop-blur">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
-        {/* Left: simple label */}
-        <div className="text-sm font-semibold tracking-wide text-slate-800">
-          VetMyBuilder Admin
-        </div>
+        {/* Left: brand logo */}
+        <Link href="/admin/tradesmen-leaderboard" className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500">
+            <svg className="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </div>
+          <div className="leading-tight">
+            <span className="text-sm font-black text-zinc-900">Vet<span className="text-red-500">My</span>Builder</span>
+            <span className="ml-1.5 text-xs font-semibold text-zinc-400">Admin</span>
+          </div>
+        </Link>
 
         {/* Right: actions */}
         <div className="flex items-center gap-2 text-sm">

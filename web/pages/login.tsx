@@ -5,6 +5,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { useState, useMemo } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
+import GuestOnly from "@/components/GuestOnly";
 
 export default function Login() {
   const auth = initFirebase();
@@ -62,7 +63,8 @@ export default function Login() {
   };
 
   return (
-    <>
+    <GuestOnly>
+      <>
       <Head>
         <title>Sign in — VetMyBuilder</title>
         <meta name="description" content="Sign in to your VetMyBuilder account." />
@@ -182,6 +184,7 @@ export default function Login() {
           </div>
         </div>
       </div>
-    </>
+      </>
+    </GuestOnly>
   );
 }

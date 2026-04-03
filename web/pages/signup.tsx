@@ -1,10 +1,12 @@
 // web/pages/signup.tsx
 import Head from "next/head";
 import SignupForm from "@/components/forms/SignupForm";
+import GuestOnly from "@/components/GuestOnly";
 
 export default function Signup() {
   return (
-    <>
+    <GuestOnly>
+      <>
       <Head>
         <title>Create account — VetMyBuilder</title>
         <meta name="description" content="Create your free VetMyBuilder homeowner account." />
@@ -39,6 +41,7 @@ export default function Signup() {
           </div>
         </div>
       </div>
-    </>
+      </>
+    </GuestOnly>
   );
 }

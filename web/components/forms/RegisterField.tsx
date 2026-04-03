@@ -36,7 +36,7 @@ export default function RegisterField({
         type={type}
         className={`w-full rounded-2xl border-2 px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:outline-none transition-colors ${
           error
-            ? "border-red-400 focus:border-red-500"
+            ? "border-red-600 focus:border-red-600"
             : "border-zinc-200 focus:border-red-400"
         }`}
         value={value}

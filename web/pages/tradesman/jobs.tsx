@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
+import TradesmanOnly from "@/components/TradesmanOnly";
 
 /** Simple helper to load role/profile */
 async function getTradesMe(api: any) {
@@ -101,7 +102,8 @@ export default function TradesJobsPage() {
   }
 
   return (
-    <>
+    <TradesmanOnly>
+      <>
       <Head>
         <title>Jobs for Trades • Vetmybuilder</title>
       </Head>
@@ -323,6 +325,7 @@ export default function TradesJobsPage() {
           </div>
         )}
       </div>
-    </>
+      </>
+    </TradesmanOnly>
   );
 }

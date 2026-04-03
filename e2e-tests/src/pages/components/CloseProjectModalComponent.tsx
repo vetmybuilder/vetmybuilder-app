@@ -129,6 +129,13 @@ export class CloseProjectModalComponent {
   private async chooseTradespersonByLabel(label: string) {
     await expect(this.whoDidWorkSelect).toBeVisible();
 
+    // Wait for at least one real option (non-placeholder) to be present.
+    // The modal fetches recommendations asynchronously after opening; without
+    // this wait, selectOption fires before any rec options exist and fails.
+    await expect(
+      this.whoDidWorkSelect.locator('option:not([value=""])')
+    ).toBeAttached({ timeout: 15_000 });
+
     try {
       await this.whoDidWorkSelect.selectOption({ label });
       return;

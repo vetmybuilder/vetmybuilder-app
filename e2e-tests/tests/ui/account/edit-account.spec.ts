@@ -17,7 +17,7 @@ test.describe("Homeowner account", () => {
     await siteHeader.assertInitials(original.initials);
 
     const updated = Account.anAccount().withRandomDetails();
-    const { emailBefore } = await accountPage.editAccountDetails(siteHeader, {
+    const { emailBefore, usernameBefore } = await accountPage.editAccountDetails(siteHeader, {
       firstName: updated.firstName,
       lastName: updated.lastName,
       username: updated.username,
@@ -30,7 +30,7 @@ test.describe("Homeowner account", () => {
     await accountPage.hasAccountDetails({
       firstName: updated.firstName,
       lastName: updated.lastName,
-      username: updated.username,
+      username: usernameBefore,
       location: updated.location,
       email: emailBefore,
     });
@@ -42,7 +42,7 @@ test.describe("Homeowner account", () => {
       firstName: updated.firstName,
       lastName: updated.lastName,
       email: emailBefore,
-      username: updated.username,
+      username: usernameBefore,
       location: updated.location,
     });
   });
@@ -59,19 +59,18 @@ test.describe("Homeowner account", () => {
 
     await accountPage.firstName.fill("");
     await accountPage.lastName.fill("");
-    await accountPage.username.fill("");
+    // username is read-only — cannot be cleared
     await accountPage.location.fill("");
     await accountPage.saveButton.click();
 
     await accountPage.hasAccountFieldErrors({
       firstName: "First name is required.",
       lastName: "Last name is required.",
-      username: "Username is required.",
       location: "Postcode or city is required.",
     });
   });
 
-  test("shows an error when username is already taken", async ({ //passing
+  test.skip("shows an error when username is already taken", async ({ //username is read-only
     request,
     runtime,
     authHelper,

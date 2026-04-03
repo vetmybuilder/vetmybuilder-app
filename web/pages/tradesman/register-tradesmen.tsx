@@ -4,6 +4,7 @@ import Head from "next/head";
 import { useEffect, useState, useCallback } from "react";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
+import GuestOnly from "@/components/GuestOnly";
 import { initFirebase } from "@/utils/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 
@@ -39,13 +40,11 @@ export default function TradesmanRegisterV2Page() {
   useEffect(() => {
     try {
       sessionStorage.setItem("vmb:returnTo", REG_SENTINEL);
-      console.log("[register-tradesmen] set sentinel returnTo");
     } catch {}
     return () => {
       try {
         const v = sessionStorage.getItem("vmb:returnTo");
         if (v === REG_SENTINEL) sessionStorage.removeItem("vmb:returnTo");
-        console.log("[register-tradesmen] cleared sentinel on unmount");
       } catch {}
     };
   }, []);
@@ -142,7 +141,6 @@ export default function TradesmanRegisterV2Page() {
             ? draft.websites[0] || ""
             : "")
       );
-      console.log("[register-tradesmen] draft loaded");
     } catch {}
   }, []);
 
@@ -261,7 +259,6 @@ export default function TradesmanRegisterV2Page() {
       const name = form.companyName?.trim();
       if (!name) return;
       const postcode = form.serviceAreas?.[0] || "";
-      console.log("[register-tradesmen] precheckCH", { name, postcode });
       const { data } = await api.post("/api/tradesmen/precheck", {
         name,
         postcode,
@@ -271,12 +268,6 @@ export default function TradesmanRegisterV2Page() {
         set("companyNumber", best?.number || null);
         set("chStatus", (data.verdict || best?.status || null) as any);
         if (best?.number) setOkMsg("Company verified with Companies House.");
-        console.log("[register-tradesmen] precheckCH ok", {
-          number: best?.number,
-          verdict: data.verdict || best?.status,
-        });
-      } else {
-        console.log("[register-tradesmen] precheckCH not ok", data);
       }
     } catch (e: any) {
       console.warn("[register-tradesmen] precheckCH failed:", e?.message || e);
@@ -309,7 +300,6 @@ export default function TradesmanRegisterV2Page() {
       await precheckCH();
       sessionStorage.setItem(DRAFT_KEY, JSON.stringify(snapshot));
       setOkMsg("Saved.");
-      console.log("[register-tradesmen] step3 saved snapshot");
     } catch {}
     setStep(4);
   };
@@ -331,13 +321,11 @@ export default function TradesmanRegisterV2Page() {
 
       // 1) Create Firebase user (this also logs them in)
       const auth = initFirebase();
-      console.log("[register-tradesmen] step4 starting create account");
       const cred = await createUserWithEmailAndPassword(
         auth,
         form.email.trim(),
         form.password
       );
-      console.log("[register-tradesmen] firebase user created", cred.user?.uid);
 
       // 2) Force fresh ID token and send it explicitly
       const idToken = await auth.currentUser?.getIdToken(true);
@@ -385,12 +373,6 @@ export default function TradesmanRegisterV2Page() {
             photoUrls = uploadRes.data.urls;
           }
 
-          console.log(
-            "[register-tradesmen] uploaded work photos",
-            form.workPhotos.length,
-            "-> urls:",
-            photoUrls.length
-          );
         }
       } catch (uploadErr: any) {
         console.error(
@@ -430,18 +412,10 @@ export default function TradesmanRegisterV2Page() {
       };
 
       // 6) Upsert vendor profile
-      console.log("[register-tradesmen] calling PUT /api/tradesmen/me", {
-        ...payload,
-        photoUrlsCount: payload.photoUrls.length,
-      });
-
       const { data } = await api.put("/api/tradesmen/me", payload, {
         headers: { Authorization: `Bearer ${idToken}` },
       });
       if (!data?.ok) throw new Error(data?.error || "Failed to save profile");
-      console.log(
-        "[register-tradesmen] PUT /api/tradesmen/me ok; saved profile"
-      );
 
       // 7) Cleanup + redirect
       try {
@@ -477,7 +451,8 @@ export default function TradesmanRegisterV2Page() {
       : "Create account";
 
   return (
-    <>
+    <GuestOnly>
+      <>
       <Head>
         <title>Register as a Tradesperson — VetMyBuilder</title>
         <style>{`body { background: #fafaf9 !important; }`}</style>
@@ -601,6 +576,7 @@ export default function TradesmanRegisterV2Page() {
         )}
       </div>
       </div>
-    </>
+      </>
+    </GuestOnly>
   );
 }

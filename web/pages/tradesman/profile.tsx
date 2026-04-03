@@ -1,7 +1,7 @@
 // web/pages/tradesman/profile.tsx
 import { useRouter } from "next/router";
 import { useEffect, useState, type ReactNode } from "react";
-import AuthedOnly from "@/components/AuthedOnly";
+import TradesmanOnly from "@/components/TradesmanOnly";
 import { useApi } from "@/utils/api";
 import LightboxGallery, {
   type GalleryImage,
@@ -44,9 +44,9 @@ type MeResponse = {
 
 export default function TradesmanProfilePage() {
   return (
-    <AuthedOnly>
+    <TradesmanOnly>
       <Inner />
-    </AuthedOnly>
+    </TradesmanOnly>
   );
 }
 
