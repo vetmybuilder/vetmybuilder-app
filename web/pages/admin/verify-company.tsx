@@ -409,7 +409,7 @@ function VerifyCompanyContent() {
                       ? ["SIC", result.company.sicCodes.join(", ")]
                       : null,
                   ]
-                    .filter(Boolean)
+                    .filter((x): x is [string, string | number] => x !== null)
                     .map(([k, v]) => (
                       <div key={String(k)}>
                         <span className="font-medium text-slate-300">{k}:</span>{" "}
