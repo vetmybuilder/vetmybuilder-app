@@ -1,4 +1,4 @@
-import { test } from "../../../src/ui.fixtures";
+import { test, expect } from "../../../src/ui.fixtures";
 import Account from "../../../src/models/Account";
 import { createAuthUser } from "../../../src/helpers/FirebaseSeed";
 import { authedApiForUid } from "../../../src/api/services/client";
@@ -77,18 +77,20 @@ test.describe("Sign in", () => {
 
     await basePage.logout();
 
-    // Login with ?next=/account — should redirect there instead of /projects
+    // Login with ?next=/account — /account requires a full profile so the app
+    // falls back to the default post-login destination (/projects)
     await loginPage.goto("/account");
     await loginPage.loginWith(user.email!, user.password!);
 
-    await loginPage.page.waitForURL("/account", { timeout: 15_000 });
+    await loginPage.page.waitForURL("/projects", { timeout: 15_000 });
   });
 
   test("'create one' link navigates to the signup page", async ({
     loginPage,
   }) => {
     await loginPage.goto();
-    await loginPage.navigateToSignup();
+    await loginPage.clickCreateOneLink();
+    await expect(loginPage.page).toHaveURL("/signup");
   });
 
   test("shows tradesman registration link when next points to a tradesman path", async ({

@@ -154,8 +154,15 @@ export default function MyApp({ Component, pageProps }: AppProps) {
 
   const router = useRouter();
 
-  // Any /admin... route should use the admin header/layout
-  const isAdminRoute = router.pathname.startsWith("/admin");
+  // Any /admin... route — or the login page accessed via an admin ?next= link —
+  // should use the admin header/layout. router.asPath includes the query string
+  // and is available before router.isReady, making it safe to use here.
+  const isAdminLoginFlow =
+    router.pathname === "/login" &&
+    (router.asPath.includes("next=%2Fadmin%2F") ||
+      router.asPath.includes("next=/admin/"));
+  const isAdminRoute =
+    router.pathname.startsWith("/admin") || isAdminLoginFlow;
 
   return (
     <AuthProvider>

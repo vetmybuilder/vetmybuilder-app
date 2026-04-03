@@ -4,7 +4,7 @@ import { authedApiForUid } from "../../../src/api/services/client";
 
 test.describe("Homeowner account", () => {
   test.setTimeout(180_000);
-  test("can edit homeowner account profile", async ({ //passing
+  test("can edit homeowner account profile", async ({
     accountApi,
     accountPage,
     homeownerProjectsPage,
@@ -47,7 +47,7 @@ test.describe("Homeowner account", () => {
     });
   });
 
-  test("shows validation errors when submitting blank account form", async ({ //passing
+  test("shows validation errors when submitting blank account form", async ({
     accountApi,
     accountPage,
   }) => {
@@ -55,8 +55,6 @@ test.describe("Homeowner account", () => {
 
     await accountApi.createAccount(original.toApiPayload());
     await accountPage.visit();
-    // await accountPage.waitUntilReady();
-
     await accountPage.firstName.fill("");
     await accountPage.lastName.fill("");
     // username is read-only — cannot be cleared
@@ -68,47 +66,5 @@ test.describe("Homeowner account", () => {
       lastName: "Last name is required.",
       location: "Postcode or city is required.",
     });
-  });
-
-  test.skip("shows an error when username is already taken", async ({ //username is read-only
-    request,
-    runtime,
-    authHelper,
-    homeownerProjectsPage,
-    siteHeader,
-    accountPage,
-  }) => {
-    const baseUrl = runtime.apiBaseUrl;
-    const takenUsername = `taken_${Date.now()}`;
-
-    const uid1 = `e2e-u1-${Date.now()}`;
-    const uid2 = `e2e-u2-${Date.now()}`;
-
-    const client1 = await authedApiForUid(request, baseUrl, uid1);
-    const client2 = await authedApiForUid(request, baseUrl, uid2);
-
-    await client1.post("/api/auth/signup", {  //TODO: put in helper
-      firstName: "John",
-      lastName: "Smith",
-      username: takenUsername,
-      location: "E4 6JH",
-    });
-
-    await client2.post("/api/auth/signup", {
-      firstName: "Jane",
-      lastName: "Doe",
-      username: `user_${Date.now()}`,
-      location: "SW1A 1AA",
-    });
-
-    await authHelper.loginAsUid(uid2);
-
-    await homeownerProjectsPage.goto();
-    await siteHeader.goToEditAccount();
-
-    await accountPage.changeUsername(takenUsername);
-    await expect(accountPage.errorAlert).toContainText(
-      "That username is already taken.",
-    );
   });
 });

@@ -11,7 +11,11 @@ export default function Login() {
   const auth = initFirebase();
   const router = useRouter();
 
-  // Read the *explicit* ?next= from the URL (no fallback here).
+  // Read the *explicit* ?next= from the URL for display purposes (vendor flow
+  // label, "don't have an account" link target).
+  // router.isReady may still be false on first render after client-side
+  // navigation, so fall back gracefully — the authoritative read happens inside
+  // the submit handler where window.location is always available.
   const nextRaw = useMemo(() => {
     if (!router.isReady) return "";
     const n = router.query.next;
@@ -20,18 +24,17 @@ export default function Login() {
 
   const hasExplicitNext = !!nextRaw;
 
+  // Detect flow type — router.asPath includes the query string before isReady,
+  // so use it for immediate detection without waiting for router.isReady.
+  const isAdminFlow =
+    router.asPath.includes("next=%2Fadmin%2F") ||
+    router.asPath.includes("next=/admin/");
+
   // Is this login being used for a tradesman flow?
   const isVendorFlow =
+    !isAdminFlow &&
     hasExplicitNext &&
     (nextRaw.startsWith("/tradesman/") || nextRaw.startsWith("/trades/"));
-
-  // Where to send the user after a successful login
-  //  - If ?next= is provided, always honour it (admin / tradesman flows)
-  //  - Otherwise (normal homeowner login), go to /projects
-  const nextPath = useMemo(() => {
-    if (nextRaw && nextRaw.startsWith("/")) return nextRaw;
-    return "/projects";
-  }, [nextRaw]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -43,18 +46,26 @@ export default function Login() {
     setBusy(true);
     setErr(null);
 
+    // Read ?next= at submit time — window.location is always authoritative here,
+    // regardless of whether router.isReady has fired yet. This prevents the
+    // redirect target being lost when the form is submitted quickly after a
+    // client-side navigation (e.g. from /admin/login).
+    const nextParam = router.isReady
+      ? ((router.query.next as string) ?? "")
+      : new URLSearchParams(window.location.search).get("next") ?? "";
+    const resolvedNextPath =
+      nextParam && nextParam.startsWith("/") ? nextParam : "/projects";
+
     try {
-      // Force the global "returnTo" target BEFORE Firebase auth resolves.
       try {
-        sessionStorage.setItem("vmb:returnTo", nextPath || "/projects");
+        sessionStorage.setItem("vmb:returnTo", resolvedNextPath);
       } catch {
         // ignore storage errors
       }
 
       await signInWithEmailAndPassword(auth, email, password);
 
-      // And explicitly navigate there from the login page.
-      await router.replace(nextPath || "/projects");
+      await router.replace(resolvedNextPath);
     } catch (e: any) {
       setErr(e.message || "Failed to login");
     } finally {
@@ -84,12 +95,14 @@ export default function Login() {
             <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-8 sm:p-10" data-testid="login-card">
               <div className="mb-8">
                 <h1 className="text-3xl font-black tracking-tight text-zinc-900" data-testid="login-title">
-                  {isVendorFlow ? "Tradesperson sign in" : "Welcome back"}
+                  {isAdminFlow ? "Admin sign in" : isVendorFlow ? "Tradesperson sign in" : "Welcome back"}
                 </h1>
                 <p className="mt-2 text-zinc-500 text-sm">
-                  {isVendorFlow
-                    ? "Sign in to your tradesperson account."
-                    : "Sign in to your homeowner account."}
+                  {isAdminFlow
+                    ? "Sign in with your admin account."
+                    : isVendorFlow
+                      ? "Sign in to your tradesperson account."
+                      : "Sign in to your homeowner account."}
                 </p>
               </div>
 
@@ -163,23 +176,25 @@ export default function Login() {
                 </button>
               </form>
 
-              <p
-                className="text-sm text-zinc-500 mt-6 text-center"
-                data-testid="login-to-register"
-              >
-                Don&apos;t have an account?{" "}
-                <Link
-                  href={
-                    isVendorFlow
-                      ? { pathname: "/tradesman/register-tradesmen" }
-                      : { pathname: "/signup" }
-                  }
-                  className="font-bold text-red-500 hover:text-red-600"
-                  data-testid="link-to-register"
+              {!isAdminFlow && (
+                <p
+                  className="text-sm text-zinc-500 mt-6 text-center"
+                  data-testid="login-to-register"
                 >
-                  Create one
-                </Link>
-              </p>
+                  Don&apos;t have an account?{" "}
+                  <Link
+                    href={
+                      isVendorFlow
+                        ? { pathname: "/tradesman/register-tradesmen" }
+                        : { pathname: "/signup" }
+                    }
+                    className="font-bold text-red-500 hover:text-red-600"
+                    data-testid="link-to-register"
+                  >
+                    Create one
+                  </Link>
+                </p>
+              )}
             </div>
           </div>
         </div>

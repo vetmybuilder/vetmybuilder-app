@@ -345,6 +345,7 @@ export default function ManageAccount() {
                         }
                       }}
                       reasonText=""
+                      error={fieldErrors.location}
                     />
                   </AccountField>
 

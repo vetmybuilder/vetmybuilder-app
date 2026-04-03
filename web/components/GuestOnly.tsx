@@ -20,6 +20,17 @@ export default function GuestOnly({
     if (authLoading || roleLoading) return;
     if (!user) return; // guest — nothing to do
 
+    // Honour an explicit ?next= param (e.g. admin login flows) so a redirect
+    // set by the login form is not overridden by GuestOnly's default target.
+    const nextParam =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("next")
+        : null;
+    if (nextParam && nextParam.startsWith("/")) {
+      router.replace(nextParam);
+      return;
+    }
+
     if (role === "tradesman") {
       router.replace("/tradesman/projects");
     } else {
@@ -27,11 +38,15 @@ export default function GuestOnly({
     }
   }, [authLoading, roleLoading, user, role, router]);
 
-  // Still determining auth/role state
-  if (authLoading || roleLoading) return null;
+  // Still determining if logged in
+  if (authLoading) return null;
 
-  // Logged-in — redirect in progress, render nothing
-  if (user) return null;
+  // Confirmed guest — no role check needed, render immediately
+  if (!user) return <>{children}</>;
 
-  return <>{children}</>;
+  // Logged in — still determining role for redirect target
+  if (roleLoading) return null;
+
+  // Logged in with role known — redirect fires via useEffect, render nothing
+  return null;
 }

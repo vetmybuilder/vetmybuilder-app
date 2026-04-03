@@ -52,7 +52,7 @@ export class AccountPage {
     this.saveButton = page.getByRole("button", { name: "Save changes" });
 
     this.successAlert = page.locator('[role="status"]');
-    this.errorAlert = page.locator('[role="alert"]');
+    this.errorAlert = page.locator('div[role="alert"]');
 
     this.loadingText = page.getByText("Loading…");
   }

@@ -155,6 +155,19 @@ export default function SignupForm() {
 
       await ensureEmailAvailable(api, email);
 
+      // Check username availability before creating the Firebase user.
+      // If we created the Firebase user first and the username were taken,
+      // GuestOnly would redirect the now-signed-in user before the error renders.
+      const { data: usernameCheck } = await api.get(
+        "/api/auth/check-username",
+        { params: { username: form.username.trim() } },
+      );
+      if (!usernameCheck.available) {
+        setFieldErrors({ username: "That username is already taken." });
+        setErr("That username is already taken.");
+        return;
+      }
+
       const auth = initFirebase();
       const cred = await createUserWithEmailAndPassword(
         auth,
@@ -311,9 +324,10 @@ export default function SignupForm() {
           }}
           dataTestId="reg-reg-loc"
           reasonText=""
+          error={fieldErrors.location}
         />
         {fieldErrors.location && (
-          <p className="mt-1 text-sm text-red-500 font-medium" role="alert">
+          <p className="mt-1 text-sm text-red-500 font-medium" role="alert" data-testid="reg-reg-loc-error">
             {fieldErrors.location}
           </p>
         )}

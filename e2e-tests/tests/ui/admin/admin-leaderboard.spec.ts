@@ -33,6 +33,7 @@ test.describe("Admin leaderboard", () => {
   });
 
   test("Admin can sign in via /admin/login and reach the leaderboard", async ({
+    page,
     basePage,
     loginPage,
     adminLoginPage,
@@ -48,7 +49,11 @@ test.describe("Admin leaderboard", () => {
 
     await loginPage.loginWith(ADMIN_EMAIL, ADMIN_PASSWORD);
 
-    await adminLeaderboardPage.waitUntilReady();
+    // After a successful admin login the ?next= param should redirect here.
+    await expect(page).toHaveURL(/admin\/tradesmen-leaderboard/, {
+      timeout: 20_000,
+    });
+    await expect(adminLeaderboardPage.heading).toBeVisible();
   });
 
   test("Admin can find a newly registered builder (draft) in the leaderboard", async ({

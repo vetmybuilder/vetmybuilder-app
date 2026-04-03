@@ -18,6 +18,9 @@ import ShortlistPage from "./pages/ShortlistPage";
 import AdminLeaderboardPage from "./pages/AdminLeaderboardPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import AdminTradesmenPage from "./pages/AdminTradesmenPage";
+import TradesmanMyProfilePage from "./pages/TradesmanMyProfilePage";
+import TradesmanEditPage from "./pages/TradesmanEditPage";
+import TradesmanRegisterPage from "./pages/TradesmanRegisterPage";
 
 type Runtime = ReturnType<typeof getRuntime>;
 
@@ -39,6 +42,9 @@ type UiFixtures = {
   adminLeaderboardPage: AdminLeaderboardPage;
   adminLoginPage: AdminLoginPage;
   adminTradesmenPage: AdminTradesmenPage;
+  tradesmanMyProfilePage: TradesmanMyProfilePage;
+  tradesmanEditPage: TradesmanEditPage;
+  tradesmanRegisterPage: TradesmanRegisterPage;
 };
 
 function normalizeApiBase(url: string): string {
@@ -137,6 +143,18 @@ export const test = base.extend<UiFixtures, { runtime: Runtime }>({
 
   adminTradesmenPage: async ({ page }, use) => {
     await use(new AdminTradesmenPage(page));
+  },
+
+  tradesmanMyProfilePage: async ({ page }, use) => {
+    await use(new TradesmanMyProfilePage(page));
+  },
+
+  tradesmanEditPage: async ({ page }, use) => {
+    await use(new TradesmanEditPage(page));
+  },
+
+  tradesmanRegisterPage: async ({ page }, use) => {
+    await use(new TradesmanRegisterPage(page));
   },
 });
 

@@ -87,6 +87,7 @@ export default function AdminTradesmenLeaderboardPage() {
   const [err, setErr] = useState<string | null>(null);
   const [mutatingUid, setMutatingUid] = useState<string | null>(null);
   const [menuUid, setMenuUid] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
 
   const [confirmCancelUid, setConfirmCancelUid] = useState<string | null>(null);
 
@@ -407,151 +408,114 @@ export default function AdminTradesmenLeaderboardPage() {
     <>
       <Head>
         <title>Admin · Tradesmen Leaderboard</title>
-        <style>{`body { background: #fafaf9 !important; }`}</style>
+        <style>{`body { background: #475569 !important; }`}</style>
       </Head>
 
       <AuthedOnly>
-        <div data-testid="admin-leaderboard-page" className="relative min-h-screen overflow-x-hidden bg-stone-50 -mt-14">
-          {/* Background bands */}
-          <div className="pointer-events-none absolute inset-0 overflow-hidden">
-            <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
-            <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
-          </div>
-
-          <div className="relative z-10 mx-auto px-4 pt-8 pb-10 w-full max-w-none">
-        <div className="mx-auto px-0 py-0 w-full max-w-none">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <h1 className="text-2xl font-semibold">
-              Tradesmen Leaderboard (Admin)
+        <div data-testid="admin-leaderboard-page" className="min-h-screen">
+          <div className="px-4 pt-6 pb-10 w-full max-w-none">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-xl font-bold text-white">
+              Tradesmen Leaderboard
             </h1>
           </div>
 
           {forbidden && (
-            <div className="mt-8 rounded-xl border border-red-300 bg-red-50 p-6">
-              <h2 className="text-lg font-semibold mb-2">Access restricted</h2>
+            <div className="mt-8 rounded-xl border border-red-800 bg-red-950/60 p-6">
+              <h2 className="text-lg font-semibold text-red-300 mb-2">Access restricted</h2>
             </div>
           )}
 
           {!forbidden && (
             <>
               {err && (
-                <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <div className="mb-4 rounded-lg border border-amber-700 bg-amber-950/60 px-4 py-3 text-sm text-amber-300">
                   {err}
                 </div>
               )}
 
               {/* Filters */}
-              <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-4">
-                <label className="md:col-span-2 text-sm text-slate-700">
-                  <span className="block mb-1">
-                    Search (name or company number)
-                  </span>
-                  <input
-                    data-testid="admin-search-input"
-                    value={q}
-                    onChange={(e) => setQ(e.target.value)}
-                    placeholder="e.g. Elegant or 12758227"
-                    className="border rounded-lg px-3 py-2 w-full"
-                  />
-                </label>
-                <label className="text-sm text-slate-700">
-                  <span className="block mb-1">Trade</span>
-                  <input
-                    value={trade}
-                    onChange={(e) => setTrade(e.target.value)}
-                    placeholder="e.g. plumber"
-                    className="border rounded-lg px-3 py-2 w-full"
-                  />
-                </label>
-                <label className="text-sm text-slate-700">
-                  <span className="block mb-1">Near</span>
-                  <input
-                    value={near}
-                    onChange={(e) => setNear(e.target.value)}
-                    placeholder="e.g. E4 or W1A"
-                    className="border rounded-lg px-3 py-2 w-full"
-                  />
-                </label>
-                <div className="flex items-end gap-2">
-                  <button
-                    onClick={resetAndSearch}
-                    className="rounded-lg px-3 py-2 border bg-black text-white"
-                    disabled={loading}
-                  >
-                    {loading ? "Loading..." : "Search"}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setQ("");
-                      setTrade("");
-                      setNear("");
-                      setWebVerifiedOnly(false);
-                      setChVerifiedOnly(false);
-                      setHasPhotos(false);
-                      setHasDocs(false);
-                      setHasDiscount(false);
-                      setHasWebsites(false);
-                      setOffset(0);
-                    }}
-                    className="rounded-lg px-3 py-2 border"
-                  >
-                    Clear
-                  </button>
+              <div className="rounded-xl border border-slate-400/30 bg-slate-600/40 p-4 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-3">
+                  <label className="md:col-span-2 text-xs font-medium text-slate-400">
+                    <span className="block mb-1">Search (name or company number)</span>
+                    <input
+                      data-testid="admin-search-input"
+                      value={q}
+                      onChange={(e) => setQ(e.target.value)}
+                      placeholder="e.g. Elegant or 12758227"
+                      className="w-full rounded-lg border border-slate-400/40 bg-slate-500/50 px-3 py-2 text-sm text-white placeholder:text-slate-300 focus:border-slate-300 focus:outline-none"
+                    />
+                  </label>
+                  <label className="text-xs font-medium text-slate-400">
+                    <span className="block mb-1">Trade</span>
+                    <input
+                      value={trade}
+                      onChange={(e) => setTrade(e.target.value)}
+                      placeholder="e.g. plumber"
+                      className="w-full rounded-lg border border-slate-400/40 bg-slate-500/50 px-3 py-2 text-sm text-white placeholder:text-slate-300 focus:border-slate-300 focus:outline-none"
+                    />
+                  </label>
+                  <label className="text-xs font-medium text-slate-400">
+                    <span className="block mb-1">Near</span>
+                    <input
+                      value={near}
+                      onChange={(e) => setNear(e.target.value)}
+                      placeholder="e.g. E4 or W1A"
+                      className="w-full rounded-lg border border-slate-400/40 bg-slate-500/50 px-3 py-2 text-sm text-white placeholder:text-slate-300 focus:border-slate-300 focus:outline-none"
+                    />
+                  </label>
+                  <div className="flex items-end gap-2">
+                    <button
+                      onClick={resetAndSearch}
+                      className="rounded-lg px-4 py-2 bg-white text-slate-900 text-sm font-semibold hover:bg-slate-100 transition-colors disabled:opacity-50"
+                      disabled={loading}
+                    >
+                      {loading ? "Loading…" : "Search"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setQ("");
+                        setTrade("");
+                        setNear("");
+                        setWebVerifiedOnly(false);
+                        setChVerifiedOnly(false);
+                        setHasPhotos(false);
+                        setHasDocs(false);
+                        setHasDiscount(false);
+                        setHasWebsites(false);
+                        setOffset(0);
+                      }}
+                      className="rounded-lg px-4 py-2 border border-slate-400/40 text-slate-200 text-sm hover:bg-slate-500/50 transition-colors"
+                    >
+                      Clear
+                    </button>
+                  </div>
                 </div>
-                <div className="md:col-span-6 flex flex-wrap gap-4 mt-1">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={webVerifiedOnly}
-                      onChange={(e) => setWebVerifiedOnly(e.target.checked)}
-                    />
-                    <span>Web verified only</span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={chVerifiedOnly}
-                      onChange={(e) => setChVerifiedOnly(e.target.checked)}
-                    />
-                    <span>CH verified only</span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={hasPhotos}
-                      onChange={(e) => setHasPhotos(e.target.checked)}
-                    />
-                    <span>Has ≥3 photos</span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={hasDocs}
-                      onChange={(e) => setHasDocs(e.target.checked)}
-                    />
-                    <span>Has ≥2 docs</span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={hasDiscount}
-                      onChange={(e) => setHasDiscount(e.target.checked)}
-                    />
-                    <span>Offers discount</span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={hasWebsites}
-                      onChange={(e) => setHasWebsites(e.target.checked)}
-                    />
-                    <span>Has websites</span>
-                  </label>
+                <div className="flex flex-wrap gap-4">
+                  {[
+                    { label: "Web verified only", checked: webVerifiedOnly, set: setWebVerifiedOnly },
+                    { label: "CH verified only", checked: chVerifiedOnly, set: setChVerifiedOnly },
+                    { label: "Has ≥3 photos", checked: hasPhotos, set: setHasPhotos },
+                    { label: "Has ≥2 docs", checked: hasDocs, set: setHasDocs },
+                    { label: "Offers discount", checked: hasDiscount, set: setHasDiscount },
+                    { label: "Has websites", checked: hasWebsites, set: setHasWebsites },
+                  ].map(({ label, checked, set }) => (
+                    <label key={label} className="flex items-center gap-2 text-sm text-slate-200 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => set(e.target.checked)}
+                        className="accent-slate-300"
+                      />
+                      {label}
+                    </label>
+                  ))}
                 </div>
               </div>
 
               {/* Table */}
-              <div className="border rounded-xl">
+              <div className="rounded-xl border border-slate-500/50 overflow-x-auto shadow-sm">
                 <table className="w-full table-fixed text-sm">
                   <colgroup>
                     <col className="w-[13%]" />
@@ -570,160 +534,47 @@ export default function AdminTradesmenLeaderboardPage() {
                     <col className="w-[9%]" />
                     <col className="w-[10%]" />
                   </colgroup>
-                  <thead className="bg-gray-50">
+                  <thead className="bg-slate-600/80">
                     <tr>
-                      <th className="text-left sticky top-0 bg-gray-50 z-10">
-                        <SortHeader
-                          label="Company"
-                          k="company"
-                          sortKey={sortKey}
-                          setSortKey={setSortKey}
-                          sortDir={sortDir}
-                          setSortDir={setSortDir}
-                        />
-                      </th>
-                      <th className="text-left sticky top-0 bg-gray-50 z-10">
-                        <SortHeader
-                          label="VMB Score"
-                          k="score"
-                          sortKey={sortKey}
-                          setSortKey={setSortKey}
-                          sortDir={sortDir}
-                          setSortDir={setSortDir}
-                        />
-                      </th>
-                      <th className="text-left sticky top-0 bg-gray-50 z-10">
-                        <SortHeader
-                          label="CH"
-                          k="chStatus"
-                          sortKey={sortKey}
-                          setSortKey={setSortKey}
-                          sortDir={sortDir}
-                          setSortDir={setSortDir}
-                        />
-                      </th>
-                      <th className="text-left sticky top-0 bg-gray-50 z-10">
-                        <SortHeader
-                          label="Web"
-                          k="webVerified"
-                          sortKey={sortKey}
-                          setSortKey={setSortKey}
-                          sortDir={sortDir}
-                          setSortDir={setSortDir}
-                        />
-                      </th>
-                      <th className="text-left sticky top-0 bg-gray-50 z-10">
-                        <SortHeader
-                          label="Trades"
-                          k="trades"
-                          sortKey={sortKey}
-                          setSortKey={setSortKey}
-                          sortDir={sortDir}
-                          setSortDir={setSortDir}
-                        />
-                      </th>
-                      <th className="text-left sticky top-0 bg-gray-50 z-10">
-                        <SortHeader
-                          label="Areas"
-                          k="areas"
-                          sortKey={sortKey}
-                          setSortKey={setSortKey}
-                          sortDir={sortDir}
-                          setSortDir={setSortDir}
-                        />
-                      </th>
-                      <th className="text-left sticky top-0 bg-gray-50 z-10">
-                        <SortHeader
-                          label="Status"
-                          k="status"
-                          sortKey={sortKey}
-                          setSortKey={setSortKey}
-                          sortDir={sortDir}
-                          setSortDir={setSortDir}
-                        />
-                      </th>
-                      <th className="text-left sticky top-0 bg-gray-50 z-10">
-                        <SortHeader
-                          label="Plan"
-                          k="plan"
-                          sortKey={sortKey}
-                          setSortKey={setSortKey}
-                          sortDir={sortDir}
-                          setSortDir={setSortDir}
-                        />
-                      </th>
-                      <th className="text-left sticky top-0 bg-gray-50 z-10">
-                        <SortHeader
-                          label="Flags"
-                          k="openFlags"
-                          sortKey={sortKey}
-                          setSortKey={setSortKey}
-                          sortDir={sortDir}
-                          setSortDir={setSortDir}
-                        />
-                      </th>
-                      <th className="text-left sticky top-0 bg-gray-50 z-10">
-                        <SortHeader
-                          label="URLs"
-                          k="urls"
-                          sortKey={sortKey}
-                          setSortKey={setSortKey}
-                          sortDir={sortDir}
-                          setSortDir={setSortDir}
-                        />
-                      </th>
-                      <th className="text-left sticky top-0 bg-gray-50 z-10">
-                        <SortHeader
-                          label="Signals"
-                          k="signals"
-                          title="Sort by composite signals"
-                          sortKey={sortKey}
-                          setSortKey={setSortKey}
-                          sortDir={sortDir}
-                          setSortDir={setSortDir}
-                        />
-                      </th>
-                      <th className="text-left sticky top-0 bg-gray-50 z-10">
-                        <SortHeader
-                          label="Unlocks"
-                          k="unlocks"
-                          sortKey={sortKey}
-                          setSortKey={setSortKey}
-                          sortDir={sortDir}
-                          setSortDir={setSortDir}
-                        />
-                      </th>
-                      <th className="text-left sticky top-0 bg-gray-50 z-10">
-                        <SortHeader
-                          label="Joined"
-                          k="createdAt"
-                          sortKey={sortKey}
-                          setSortKey={setSortKey}
-                          sortDir={sortDir}
-                          setSortDir={setSortDir}
-                        />
-                      </th>
-                      <th className="text-left sticky top-0 bg-gray-50 z-10">
-                        <SortHeader
-                          label="Updated"
-                          k="updatedAt"
-                          sortKey={sortKey}
-                          setSortKey={setSortKey}
-                          sortDir={sortDir}
-                          setSortDir={setSortDir}
-                        />
-                      </th>
-                      <th className="text-left px-3 py-2 sticky top-0 bg-gray-50 z-10">
+                      {[
+                        { label: "Company", k: "company" },
+                        { label: "VMB Score", k: "score" },
+                        { label: "CH", k: "chStatus" },
+                        { label: "Web", k: "webVerified" },
+                        { label: "Trades", k: "trades" },
+                        { label: "Areas", k: "areas" },
+                        { label: "Status", k: "status" },
+                        { label: "Plan", k: "plan" },
+                        { label: "Flags", k: "openFlags" },
+                        { label: "URLs", k: "urls" },
+                        { label: "Signals", k: "signals", title: "Sort by composite signals" },
+                        { label: "Unlocks", k: "unlocks" },
+                        { label: "Joined", k: "createdAt" },
+                        { label: "Updated", k: "updatedAt" },
+                      ].map(({ label, k, title }) => (
+                        <th key={k} className="text-left sticky top-0 bg-slate-600/80 z-10 border-b border-slate-500/60">
+                          <SortHeader
+                            label={label}
+                            k={k as any}
+                            title={title}
+                            sortKey={sortKey}
+                            setSortKey={setSortKey}
+                            sortDir={sortDir}
+                            setSortDir={setSortDir}
+                          />
+                        </th>
+                      ))}
+                      <th className="text-left px-3 py-2 sticky top-0 bg-slate-600/80 z-10 border-b border-slate-500/60 text-xs font-semibold text-slate-300 uppercase tracking-wide">
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-slate-500/30">
                     {sortedItems.length === 0 && !loading && (
                       <tr>
                         <td
                           colSpan={15}
-                          className="px-3 py-6 text-center text-gray-500"
+                          className="px-3 py-8 text-center text-slate-500"
                         >
                           No results.
                         </td>
@@ -781,46 +632,46 @@ export default function AdminTradesmenLeaderboardPage() {
                       return (
                         <tr
                           key={it.userId}
-                          className="border-t align-top"
+                          className="align-top bg-slate-700/40 hover:bg-slate-600/40 transition-colors"
                           data-testid={`row-${it.userId}`}
                         >
                           <td className="px-3 py-2">
-                            <div className="font-medium break-words whitespace-normal">
+                            <div className="font-medium text-slate-100 break-words whitespace-normal">
                               {it.company}
                             </div>
-                            <div className="text-xs text-gray-500 break-words whitespace-normal">
+                            <div className="text-xs text-slate-500 break-words whitespace-normal">
                               {it.companyNumber || "—"}
                             </div>
 
                             {pendingPlan && (
-                              <div className="mt-1 text-xs text-sky-700">
+                              <div className="mt-1 text-xs text-sky-400">
                                 Pending plan: <b>{pendingPlan}</b>
                               </div>
                             )}
 
                             {hasPendingUnlock && (
-                              <div className="mt-1 text-xs text-amber-700">
+                              <div className="mt-1 text-xs text-amber-400">
                                 Pending one-off unlock
                               </div>
                             )}
                           </td>
 
-                          <td className="px-3 py-2 font-semibold">
+                          <td className="px-3 py-2 font-semibold text-slate-200">
                             {it.score.toFixed(1)}
                           </td>
                           <td className="px-3 py-2 text-xs">{chChip}</td>
                           <td className="px-3 py-2 text-xs">{webChip}</td>
-                          <td className="px-3 py-2 text-xs break-words whitespace-normal">
+                          <td className="px-3 py-2 text-xs text-slate-300 break-words whitespace-normal">
                             {it.trades || "—"}
                           </td>
-                          <td className="px-3 py-2 text-xs break-words whitespace-normal">
+                          <td className="px-3 py-2 text-xs text-slate-300 break-words whitespace-normal">
                             {it.areas || "—"}
                           </td>
 
                           <td className="px-3 py-2">
                             <StatusChip value={it.status} userId={it.userId} />
                           </td>
-                          <td className="px-3 py-2 text-xs">
+                          <td className="px-3 py-2 text-xs text-slate-300">
                             <div className="capitalize">{effectivePlan}</div>
 
                             {/* Spotlight BADGE */}
@@ -854,7 +705,7 @@ export default function AdminTradesmenLeaderboardPage() {
 
                           <td className="px-3 py-2 text-xs break-words whitespace-normal">
                             {urlsToShow.length === 0 ? (
-                              "—"
+                              <span className="text-slate-500">—</span>
                             ) : (
                               <div className="flex flex-col gap-1">
                                 {urlsToShow.map((u, i) => (
@@ -863,7 +714,7 @@ export default function AdminTradesmenLeaderboardPage() {
                                     href={u}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="link break-words"
+                                    className="text-sky-400 hover:underline break-words"
                                   >
                                     {u.replace(/^https?:\/\//, "")}
                                   </a>
@@ -872,7 +723,7 @@ export default function AdminTradesmenLeaderboardPage() {
                             )}
                           </td>
 
-                          <td className="px-3 py-2 text-xs break-words whitespace-normal">
+                          <td className="px-3 py-2 text-xs text-slate-400 break-words whitespace-normal">
                             <div>Photos: {it.photos}</div>
                             <div>Docs: {it.docs}</div>
                             <div>Warranty: {warrantyText}</div>
@@ -881,18 +732,16 @@ export default function AdminTradesmenLeaderboardPage() {
                             <div>Wins: {it.wins}</div>
                           </td>
 
-                          <td className="px-3 py-2 text-xs">
+                          <td className="px-3 py-2 text-xs text-slate-300">
                             {unlocksDisplay}
                           </td>
 
-                          <td className="px-3 py-2 text-xs">
+                          <td className="px-3 py-2 text-xs text-slate-400">
                             {it.createdAt
-                              ? new Date(it.createdAt).toLocaleDateString(
-                                  "en-GB"
-                                )
+                              ? new Date(it.createdAt).toLocaleDateString("en-GB")
                               : "—"}
                           </td>
-                          <td className="px-3 py-2 text-xs">
+                          <td className="px-3 py-2 text-xs text-slate-400">
                             {new Date(it.updatedAt).toLocaleDateString("en-GB")}
                           </td>
 
@@ -905,16 +754,20 @@ export default function AdminTradesmenLeaderboardPage() {
                                 type="button"
                                 aria-haspopup="menu"
                                 aria-expanded={isOpen}
-                                className={`inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-1 ${
+                                className={`inline-flex items-center gap-1 rounded-md border border-slate-400/50 bg-slate-600/60 px-2.5 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-500/60 transition-colors focus:outline-none ${
                                   isRowBusy
                                     ? "opacity-50 cursor-not-allowed"
                                     : ""
                                 }`}
-                                onClick={() =>
-                                  setMenuUid((v) =>
-                                    v === it.userId ? null : it.userId
-                                  )
-                                }
+                                onClick={(e) => {
+                                  const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
+                                  setMenuPos(
+                                    menuUid === it.userId
+                                      ? null
+                                      : { top: rect.bottom + 4, right: window.innerWidth - rect.right }
+                                  );
+                                  setMenuUid((v) => v === it.userId ? null : it.userId);
+                                }}
                                 disabled={isRowBusy}
                               >
                                 Actions
@@ -928,15 +781,16 @@ export default function AdminTradesmenLeaderboardPage() {
                                 </svg>
                               </button>
 
-                              {isOpen && (
+                              {isOpen && menuPos && (
                                 <div
                                   role="menu"
-                                  className="absolute right-0 z-20 mt-2 w-56 origin-top-right rounded-lg border border-gray-200 bg-white py-1 shadow-xl ring-1 ring-black/5"
+                                  style={{ position: "fixed", top: menuPos.top, right: menuPos.right }}
+                                  className="z-50 w-56 origin-top-right rounded-lg border border-slate-500 bg-slate-700 py-1 shadow-2xl"
                                 >
                                   {/* Pending plan */}
                                   <button
                                     role="menuitem"
-                                    className="block w-full px-3 py-2 text-left text-sm hover:bg-green-50 disabled:opacity-50"
+                                    className="block w-full px-3 py-2 text-left text-sm text-slate-100 hover:bg-slate-600 disabled:opacity-40"
                                     onClick={() => approvePending(it.userId)}
                                     disabled={!pendingPlan || isRowBusy}
                                   >
@@ -944,19 +798,19 @@ export default function AdminTradesmenLeaderboardPage() {
                                   </button>
                                   <button
                                     role="menuitem"
-                                    className="block w-full px-3 py-2 text-left text-sm hover:bg-amber-50 disabled:opacity-50"
+                                    className="block w-full px-3 py-2 text-left text-sm text-slate-100 hover:bg-slate-600 disabled:opacity-40"
                                     onClick={() => rejectPending(it.userId)}
                                     disabled={!pendingPlan || isRowBusy}
                                   >
                                     Reject pending plan
                                   </button>
 
-                                  <div className="my-1 border-t border-gray-100" />
+                                  <div className="my-1 border-t border-slate-500/50" />
 
                                   {/* One-off unlocks */}
                                   <button
                                     role="menuitem"
-                                    className="block w-full px-3 py-2 text-left text-sm hover:bg-sky-50 disabled:opacity-50"
+                                    className="block w-full px-3 py-2 text-left text-sm text-slate-100 hover:bg-slate-600 disabled:opacity-40"
                                     onClick={() => approveUnlock(it.userId)}
                                     disabled={!canApproveRejectUnlock}
                                   >
@@ -964,19 +818,19 @@ export default function AdminTradesmenLeaderboardPage() {
                                   </button>
                                   <button
                                     role="menuitem"
-                                    className="block w-full px-3 py-2 text-left text-sm hover:bg-amber-50 disabled:opacity-50"
+                                    className="block w-full px-3 py-2 text-left text-sm text-slate-100 hover:bg-slate-600 disabled:opacity-40"
                                     onClick={() => rejectUnlock(it.userId)}
                                     disabled={!canApproveRejectUnlock}
                                   >
                                     Reject one-off unlock
                                   </button>
 
-                                  <div className="my-1 border-t border-gray-100" />
+                                  <div className="my-1 border-t border-slate-500/50" />
 
                                   {/* Cancel subscription */}
                                   <button
                                     role="menuitem"
-                                    className="block w-full px-3 py-2 text-left text-sm hover:bg-rose-50 disabled:opacity-50"
+                                    className="block w-full px-3 py-2 text-left text-sm text-rose-300 hover:bg-slate-600 disabled:opacity-40"
                                     onClick={() =>
                                       adminCancel(it.userId, false)
                                     }
@@ -986,7 +840,7 @@ export default function AdminTradesmenLeaderboardPage() {
                                   </button>
                                   <button
                                     role="menuitem"
-                                    className="block w-full px-3 py-2 text-left text-sm hover:bg-rose-50 disabled:opacity-50"
+                                    className="block w-full px-3 py-2 text-left text-sm text-rose-300 hover:bg-slate-600 disabled:opacity-40"
                                     onClick={() => {
                                       setMenuUid(null);
                                       setConfirmCancelUid(it.userId);
@@ -996,54 +850,42 @@ export default function AdminTradesmenLeaderboardPage() {
                                     Cancel subscription now
                                   </button>
 
-                                  <div className="my-1 border-t border-gray-100" />
+                                  <div className="my-1 border-t border-slate-500/50" />
 
                                   {/* Flag */}
                                   <button
                                     role="menuitem"
-                                    className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                                    className="block w-full px-3 py-2 text-left text-sm text-rose-300 hover:bg-slate-600"
                                     onClick={() => flag(it.userId)}
                                     disabled={isRowBusy}
                                   >
                                     Flag tradesman
                                   </button>
 
-                                  <div className="my-1 border-t border-gray-100" />
+                                  <div className="my-1 border-t border-slate-500/50" />
 
                                   {/* Status changes */}
                                   <button
                                     role="menuitem"
-                                    className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50 disabled:opacity-50"
-                                    onClick={() =>
-                                      setStatus(it.userId, "active")
-                                    }
-                                    disabled={
-                                      isRowBusy || it.status === "active"
-                                    }
+                                    className="block w-full px-3 py-2 text-left text-sm text-slate-100 hover:bg-slate-600 disabled:opacity-40"
+                                    onClick={() => setStatus(it.userId, "active")}
+                                    disabled={isRowBusy || it.status === "active"}
                                   >
                                     Make active
                                   </button>
                                   <button
                                     role="menuitem"
-                                    className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50 disabled:opacity-50"
-                                    onClick={() =>
-                                      setStatus(it.userId, "inactive")
-                                    }
-                                    disabled={
-                                      isRowBusy || it.status === "inactive"
-                                    }
+                                    className="block w-full px-3 py-2 text-left text-sm text-slate-100 hover:bg-slate-600 disabled:opacity-40"
+                                    onClick={() => setStatus(it.userId, "inactive")}
+                                    disabled={isRowBusy || it.status === "inactive"}
                                   >
                                     Make inactive
                                   </button>
                                   <button
                                     role="menuitem"
-                                    className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50 disabled:opacity-50"
-                                    onClick={() =>
-                                      setStatus(it.userId, "draft")
-                                    }
-                                    disabled={
-                                      isRowBusy || it.status === "draft"
-                                    }
+                                    className="block w-full px-3 py-2 text-left text-sm text-slate-100 hover:bg-slate-600 disabled:opacity-40"
+                                    onClick={() => setStatus(it.userId, "draft")}
+                                    disabled={isRowBusy || it.status === "draft"}
                                   >
                                     Set to draft
                                   </button>
@@ -1060,12 +902,12 @@ export default function AdminTradesmenLeaderboardPage() {
 
               {/* Pagination */}
               <div className="flex items-center justify-between mt-4">
-                <div className="text-sm text-gray-600">
-                  Showing <b>{sortedItems.length}</b> of <b>{total}</b>
+                <div className="text-sm text-slate-400">
+                  Showing <span className="font-semibold text-slate-200">{sortedItems.length}</span> of <span className="font-semibold text-slate-200">{total}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    className="px-3 py-2 border rounded disabled:opacity-50"
+                    className="px-3 py-1.5 rounded-lg border border-slate-400/40 text-sm text-slate-200 hover:bg-slate-500/50 disabled:opacity-40 transition-colors"
                     disabled={!canPrev || loading}
                     onClick={() => setOffset(Math.max(0, offset - limit))}
                   >
@@ -1077,7 +919,7 @@ export default function AdminTradesmenLeaderboardPage() {
                       setLimit(Number(e.target.value));
                       setOffset(0);
                     }}
-                    className="border rounded px-2 py-1"
+                    className="rounded-lg border border-slate-400/40 bg-slate-500/50 text-white px-2 py-1.5 text-sm"
                   >
                     {[10, 25, 50, 100].map((n) => (
                       <option key={n} value={n}>
@@ -1086,7 +928,7 @@ export default function AdminTradesmenLeaderboardPage() {
                     ))}
                   </select>
                   <button
-                    className="px-3 py-2 border rounded disabled:opacity-50"
+                    className="px-3 py-1.5 rounded-lg border border-slate-400/40 text-sm text-slate-200 hover:bg-slate-500/50 disabled:opacity-40 transition-colors"
                     disabled={!canNext || loading}
                     onClick={() => setOffset(offset + limit)}
                   >
@@ -1096,31 +938,30 @@ export default function AdminTradesmenLeaderboardPage() {
               </div>
             </>
           )}
-        </div>
           </div>
         </div>
       </AuthedOnly>
 
       {/* Confirm Cancel Dialog */}
       {confirmCancelUid && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
-          <div className="w-[420px] rounded-xl bg-white p-5 shadow-xl">
-            <h3 className="text-base font-semibold mb-2">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60">
+          <div className="w-[420px] rounded-xl border border-slate-500/50 bg-slate-600 p-6 shadow-2xl">
+            <h3 className="text-base font-semibold text-white mb-2">
               Confirm cancellation
             </h3>
-            <p className="text-sm text-slate-700 mb-4">
-              This downgrades user to the Free plan.
+            <p className="text-sm text-slate-300 mb-5">
+              This downgrades the user to the Free plan immediately.
             </p>
             <div className="flex justify-end gap-2">
               <button
-                className="px-3 py-2 border rounded"
+                className="px-4 py-2 rounded-lg border border-slate-400/50 text-sm text-slate-200 hover:bg-slate-500/50 transition-colors"
                 onClick={() => setConfirmCancelUid(null)}
                 disabled={mutatingUid === confirmCancelUid}
               >
                 Keep plan
               </button>
               <button
-                className="px-3 py-2 rounded bg-rose-600 text-white disabled:opacity-50"
+                className="px-4 py-2 rounded-lg bg-rose-600 text-sm text-white font-medium hover:bg-rose-500 disabled:opacity-50 transition-colors"
                 onClick={() => {
                   const uid = confirmCancelUid;
                   setConfirmCancelUid(null);
@@ -1173,7 +1014,7 @@ function SortHeader({
     <button
       type="button"
       title={title || `Sort by ${label}`}
-      className={`flex items-center gap-1 px-3 py-2 hover:bg-gray-100 rounded ${className}`}
+      className={`flex items-center gap-1 px-3 py-2 text-xs font-semibold text-slate-200 uppercase tracking-wide hover:bg-slate-500/50 rounded transition-colors ${className}`}
       onClick={() => {
         if (active) setSortDir(dir === "asc" ? "desc" : "asc");
         else {

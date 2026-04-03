@@ -88,7 +88,7 @@ function AdminGate() {
 
   if (status === "checking") {
     return (
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-10 text-sm text-slate-500">
+      <div className="px-4 py-10 text-sm text-slate-300">
         Loading…
       </div>
     );
@@ -97,16 +97,22 @@ function AdminGate() {
   if (status === "forbidden") {
     return (
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-10">
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6">
-          <h2 className="text-lg font-semibold text-amber-900">Admins only</h2>
-          <p className="mt-1 text-sm text-amber-900/80">
-            Your account didn’t pass the admin check (
+        <div
+          className="rounded-2xl border border-amber-500/40 bg-amber-900/30 p-6"
+          data-testid="forbidden-message"
+        >
+          <h2 className="text-lg font-semibold text-amber-200">Access restricted</h2>
+          <p className="mt-1 text-sm text-amber-200/80">
+            Your account didn&apos;t pass the admin check (
             <code>/api/admin/tradesmen</code>). Ensure your{" "}
-            <code>user_roles.role</code> is <code>"admin"</code> or your email
+            <code>user_roles.role</code> is <code>&quot;admin&quot;</code> or your email
             is in <code>ADMIN_EMAILS</code>.
           </p>
           <div className="mt-4">
-            <Link href="/projects" className="btn-outline">
+            <Link
+              href="/projects"
+              className="inline-flex items-center rounded-lg border border-slate-400/40 px-4 py-2 text-sm text-slate-200 hover:bg-slate-500/50 transition-colors"
+            >
               Back to Projects
             </Link>
           </div>
@@ -206,7 +212,6 @@ function AdminLeaderboardInner() {
           }
         } catch (e) {
           // If a project is not accessible (e.g. not live / not owner), just skip it.
-          // We still want scores for other projects.
           // eslint-disable-next-line no-console
           console.warn("[admin rec leaderboard] ratings fetch failed", {
             projectId,
@@ -320,41 +325,40 @@ function AdminLeaderboardInner() {
     <>
       <Head>
         <title>Admin · Recommendation Leaderboard</title>
+        <style>{`body { background: #475569 !important; }`}</style>
       </Head>
 
-      <div className="mx-auto px-4 py-6 max-w-[1700px]">
-        {/* Header + admin sub-nav (mirrors tradesmen-leaderboard) */}
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold">
-            Recommendation Leaderboard (Admin)
+      <div className="px-4 pt-6 pb-10 w-full max-w-none">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-xl font-bold text-white">
+            Recommendation Leaderboard
           </h1>
+          <p className="text-sm text-slate-300">
+            Global · Canonical VMB score from recommendations, wins and photos
+          </p>
         </div>
 
-        <div className="text-sm text-slate-500 mb-4">
-          Global • Canonical VMB score from recommendations, wins and photos
-          (same as project pages)
-        </div>
-
-        {/* Filters block – styled like tradesmen page */}
+        {/* Filters */}
         <div
-          className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4"
+          className="rounded-xl border border-slate-400/30 bg-slate-600/40 p-4 mb-4"
           data-testid="rec-filters"
         >
-          <label className="md:col-span-2 text-sm text-slate-700">
-            <span className="block mb-1">Search (company or contact)</span>
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="e.g. Elegant, Connect2Find"
-              className="border rounded-lg px-3 py-2 w-full"
-              data-testid="rec-filter-q"
-            />
-          </label>
-
-          <div className="flex items-end gap-2 md:col-span-1">
+          <div className="flex flex-wrap items-end gap-3 mb-3">
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-xs text-slate-300 mb-1">
+                Search (company or contact)
+              </label>
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="e.g. Elegant, Connect2Find"
+                className="w-full rounded-lg border border-slate-400/40 bg-slate-500/50 px-3 py-2 text-sm text-white placeholder:text-slate-300 focus:border-slate-300 focus:outline-none"
+                data-testid="rec-filter-q"
+              />
+            </div>
             <button
               onClick={resetFilters}
-              className="rounded-lg px-3 py-2 border"
+              className="rounded-lg px-4 py-2 border border-slate-400/40 text-slate-200 text-sm hover:bg-slate-500/50 transition-colors"
               data-testid="rec-btn-clear"
             >
               Clear
@@ -362,68 +366,45 @@ function AdminLeaderboardInner() {
           </div>
 
           <div
-            className="md:col-span-5 flex flex-wrap gap-4 mt-1"
+            className="flex flex-wrap gap-4"
             data-testid="rec-filter-toggles"
           >
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={friendOnly}
-                onChange={(e) => setFriendOnly(e.target.checked)}
-              />
-              <span>From friends only</span>
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={communityOnly}
-                onChange={(e) => setCommunityOnly(e.target.checked)}
-              />
-              <span>From community only</span>
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={hasPhotos}
-                onChange={(e) => setHasPhotos(e.target.checked)}
-              />
-              <span>Has photos</span>
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={hasWins}
-                onChange={(e) => setHasWins(e.target.checked)}
-              />
-              <span>Has wins</span>
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={hasCH}
-                onChange={(e) => setHasCH(e.target.checked)}
-              />
-              <span>Has CH score</span>
-            </label>
+            {[
+              { label: "From friends only", checked: friendOnly, set: setFriendOnly },
+              { label: "From community only", checked: communityOnly, set: setCommunityOnly },
+              { label: "Has photos", checked: hasPhotos, set: setHasPhotos },
+              { label: "Has wins", checked: hasWins, set: setHasWins },
+              { label: "Has CH score", checked: hasCH, set: setHasCH },
+            ].map(({ label, checked, set }) => (
+              <label key={label} className="flex items-center gap-2 text-sm text-slate-200 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={(e) => set(e.target.checked)}
+                  className="accent-slate-300"
+                />
+                {label}
+              </label>
+            ))}
           </div>
         </div>
 
-        {loading && <p className="text-slate-500 text-sm">Loading…</p>}
+        {loading && <p className="text-slate-300 text-sm py-4">Loading…</p>}
 
         {err && !loading && (
-          <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <div className="mb-4 rounded-lg border border-rose-500/40 bg-rose-900/30 px-4 py-3 text-sm text-rose-300">
             {err}
           </div>
         )}
 
         {!loading && !err && sortedRows.length === 0 && (
-          <div className="mt-4 rounded-xl border border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500">
+          <div className="mt-4 rounded-xl border border-slate-500/50 bg-slate-700/40 px-4 py-6 text-center text-sm text-slate-400">
             No results.
           </div>
         )}
 
         {!loading && !err && sortedRows.length > 0 && (
-          <div className="mt-4 overflow-x-visible border rounded-xl bg-white shadow-sm">
+          <div className="rounded-xl border border-slate-500/50 overflow-x-auto shadow-sm">
             <table className="w-full border-collapse text-sm">
               <colgroup>
                 <col className="w-[6%]" />
@@ -435,12 +416,12 @@ function AdminLeaderboardInner() {
                 <col className="w-[10%]" />
                 <col className="w-[14%]" />
               </colgroup>
-              <thead className="bg-slate-50 border-b border-slate-200">
+              <thead className="bg-slate-600/80">
                 <tr>
-                  <th className="px-3 py-2 text-center text-xs font-medium text-slate-500 uppercase tracking-wide border-r border-slate-100">
+                  <th className="px-3 py-2 text-center text-xs font-semibold text-slate-200 uppercase tracking-wide border-b border-slate-500/60 border-r border-r-slate-500/30">
                     #
                   </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wide border-r border-slate-100">
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-slate-200 uppercase tracking-wide border-b border-slate-500/60 border-r border-r-slate-500/30">
                     <SortHeader
                       label="Company"
                       k="company"
@@ -450,7 +431,7 @@ function AdminLeaderboardInner() {
                       setSortDir={setSortDir}
                     />
                   </th>
-                  <th className="px-3 py-2 text-right text-xs font-medium text-slate-500 uppercase tracking-wide border-r border-slate-100">
+                  <th className="px-3 py-2 text-right text-xs font-semibold text-slate-200 uppercase tracking-wide border-b border-slate-500/60 border-r border-r-slate-500/30">
                     <SortHeader
                       label="VMB Score"
                       k="score"
@@ -460,7 +441,7 @@ function AdminLeaderboardInner() {
                       setSortDir={setSortDir}
                     />
                   </th>
-                  <th className="px-3 py-2 text-right text-xs font-medium text-slate-500 uppercase tracking-wide border-r border-slate-100">
+                  <th className="px-3 py-2 text-right text-xs font-semibold text-slate-200 uppercase tracking-wide border-b border-slate-500/60 border-r border-r-slate-500/30">
                     <SortHeader
                       label="Likes"
                       k="likes"
@@ -470,7 +451,7 @@ function AdminLeaderboardInner() {
                       setSortDir={setSortDir}
                     />
                   </th>
-                  <th className="px-3 py-2 text-right text-xs font-medium text-slate-500 uppercase tracking-wide border-r border-slate-100">
+                  <th className="px-3 py-2 text-right text-xs font-semibold text-slate-200 uppercase tracking-wide border-b border-slate-500/60 border-r border-r-slate-500/30">
                     <SortHeader
                       label="Rec photos"
                       k="recPhotos"
@@ -480,7 +461,7 @@ function AdminLeaderboardInner() {
                       setSortDir={setSortDir}
                     />
                   </th>
-                  <th className="px-3 py-2 text-right text-xs font-medium text-slate-500 uppercase tracking-wide border-r border-slate-100">
+                  <th className="px-3 py-2 text-right text-xs font-semibold text-slate-200 uppercase tracking-wide border-b border-slate-500/60 border-r border-r-slate-500/30">
                     <SortHeader
                       label="Wins"
                       k="completionWins"
@@ -490,7 +471,7 @@ function AdminLeaderboardInner() {
                       setSortDir={setSortDir}
                     />
                   </th>
-                  <th className="px-3 py-2 text-right text-xs font-medium text-slate-500 uppercase tracking-wide border-r border-slate-100">
+                  <th className="px-3 py-2 text-right text-xs font-semibold text-slate-200 uppercase tracking-wide border-b border-slate-500/60 border-r border-r-slate-500/30">
                     <SortHeader
                       label="CH score"
                       k="chScore"
@@ -500,7 +481,7 @@ function AdminLeaderboardInner() {
                       setSortDir={setSortDir}
                     />
                   </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-slate-200 uppercase tracking-wide border-b border-slate-500/60">
                     <SortHeader
                       label="First seen"
                       k="createdAt"
@@ -512,25 +493,24 @@ function AdminLeaderboardInner() {
                   </th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-500/30">
                 {sortedRows.map((r, i) => {
                   const canonicalScore = getCanonicalScore(r);
                   const scoreText =
                     canonicalScore != null ? canonicalScore.toFixed(1) : "—";
+                  const isTop = r.id === topId;
 
                   return (
                     <tr
                       key={r.id}
-                      className={`border-b border-slate-100 ${
-                        r.id === topId
-                          ? "bg-emerald-50/60"
-                          : i % 2 === 0
-                          ? "bg-white"
-                          : "bg-slate-50/40"
-                      } hover:bg-slate-50 transition-colors`}
+                      className={`transition-colors ${
+                        isTop
+                          ? "bg-emerald-900/30 hover:bg-emerald-800/30"
+                          : "bg-slate-700/40 hover:bg-slate-600/40"
+                      }`}
                     >
-                      <td className="px-3 py-2 text-center align-middle border-r border-slate-100">
-                        {r.id === topId ? (
+                      <td className="px-3 py-2 text-center align-middle border-r border-slate-500/20">
+                        {isTop ? (
                           <span
                             className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-white"
                             title="Highest VMB score"
@@ -545,43 +525,43 @@ function AdminLeaderboardInner() {
                         )}
                       </td>
 
-                      <td className="px-3 py-2 align-middle border-r border-slate-100">
-                        <div className="font-medium break-words whitespace-normal">
+                      <td className="px-3 py-2 align-middle border-r border-slate-500/20">
+                        <div className="font-medium text-white break-words whitespace-normal">
                           {r.company}
                         </div>
                         {r.name && (
-                          <div className="text-xs text-slate-500 break-words whitespace-normal">
+                          <div className="text-xs text-slate-400 break-words whitespace-normal">
                             Contact: {r.name}
                           </div>
                         )}
                         {r.projectId && (
-                          <div className="mt-1 text-[11px] text-slate-400">
+                          <div className="mt-1 text-[11px] text-slate-500">
                             Project #{r.projectId}
                           </div>
                         )}
                       </td>
 
-                      <td className="px-3 py-2 text-right align-middle tabular-nums font-semibold border-r border-slate-100">
+                      <td className="px-3 py-2 text-right align-middle tabular-nums font-semibold text-white border-r border-slate-500/20">
                         {scoreText}
                       </td>
 
-                      <td className="px-3 py-2 text-right align-middle tabular-nums border-r border-slate-100">
+                      <td className="px-3 py-2 text-right align-middle tabular-nums text-slate-200 border-r border-slate-500/20">
                         {r.likes}
                       </td>
 
-                      <td className="px-3 py-2 text-right align-middle tabular-nums border-r border-slate-100">
+                      <td className="px-3 py-2 text-right align-middle tabular-nums text-slate-200 border-r border-slate-500/20">
                         {r.recPhotos}
                       </td>
 
-                      <td className="px-3 py-2 text-right align-middle tabular-nums border-r border-slate-100">
+                      <td className="px-3 py-2 text-right align-middle tabular-nums text-slate-200 border-r border-slate-500/20">
                         {r.completionWins}
                       </td>
 
-                      <td className="px-3 py-2 text-right align-middle tabular-nums border-r border-slate-100">
+                      <td className="px-3 py-2 text-right align-middle tabular-nums text-slate-200 border-r border-slate-500/20">
                         {r.chScore ?? "—"}
                       </td>
 
-                      <td className="px-3 py-2 text-left align-middle text-xs">
+                      <td className="px-3 py-2 text-left align-middle text-xs text-slate-400">
                         {new Date(r.createdAt).toLocaleString("en-GB")}
                       </td>
                     </tr>
@@ -593,16 +573,11 @@ function AdminLeaderboardInner() {
         )}
 
         {!loading && !err && (
-          <div className="mt-3 text-xs text-slate-500">
-            Showing <b>{sortedRows.length}</b> of <b>{rows.length}</b> records.
+          <div className="mt-3 text-xs text-slate-400">
+            Showing <span className="font-semibold text-slate-200">{sortedRows.length}</span> of{" "}
+            <span className="font-semibold text-slate-200">{rows.length}</span> records.
           </div>
         )}
-
-        <p className="mt-2 text-slate-500 text-xs">
-          The ✓ marks the current highest VMB score across all companies in the
-          recommendation dataset (using the same scores as the project
-          recommendation cards).
-        </p>
       </div>
     </>
   );
@@ -644,7 +619,7 @@ function SortHeader({
     <button
       type="button"
       title={title || `Sort by ${label}`}
-      className={`flex items-center gap-1 ${className}`}
+      className={`flex items-center gap-1 text-xs font-semibold text-slate-200 uppercase tracking-wide hover:bg-slate-500/50 px-1 py-0.5 rounded transition-colors ${className}`}
       onClick={() => {
         if (active) setSortDir(dir === "asc" ? "desc" : "asc");
         else {

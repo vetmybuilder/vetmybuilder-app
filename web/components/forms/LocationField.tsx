@@ -25,6 +25,8 @@ export type LocationFieldProps = {
   className?: string;
   /** Optional helper text under the field explaining why you ask for a postcode */
   reasonText?: string;
+  /** Validation error message; sets aria-invalid on the input */
+  error?: string;
 };
 
 function useDebounced<T>(value: T, delay = 200) {
@@ -77,6 +79,7 @@ export default function LocationField({
   dataTestId,
   className = "",
   reasonText = "We use your postcode to match you with nearby tradespeople and improve local recommendations. We never share your full address.",
+  error,
 }: LocationFieldProps) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState(value);
@@ -370,7 +373,7 @@ export default function LocationField({
       <div className="relative">
         <input
           id={id}
-          className="input pr-9"
+          className={`input pr-9${error ? " border-red-600" : ""}`}
           placeholder={placeholder}
           value={query}
           onChange={onInput}
@@ -382,6 +385,7 @@ export default function LocationField({
               commitRawOrPlace(query);
             }
           }}
+          aria-invalid={error ? "true" : undefined}
           aria-autocomplete="list"
           aria-expanded={open}
           aria-controls={`${id}-listbox`}

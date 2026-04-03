@@ -22,6 +22,13 @@ export class AuthHelper {
     });
   }
 
+  async logout() {
+    await this.page.goto("/logout", { waitUntil: "domcontentloaded" });
+    await this.page
+      .waitForURL(/signedOut=1/, { timeout: 15_000 })
+      .catch(() => {});
+  }
+
   async loginAsUid(uid: string) {
     const cleanUid = String(uid ?? "").trim();
     if (!cleanUid) throw new Error("Missing uid");

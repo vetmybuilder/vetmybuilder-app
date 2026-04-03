@@ -74,8 +74,13 @@ export class RegisterPage {
   }
 
   async goto(): Promise<void> {
+    // /signup is a guest-only page; ensure we're logged out before navigating
+    await this.page.goto("/logout", { waitUntil: "domcontentloaded" });
+    await this.page
+      .waitForURL(/signedOut=1/, { timeout: 15_000 })
+      .catch(() => {});
     await this.page.goto("/signup");
-    await expect(this.form).toBeVisible();
+    await expect(this.form).toBeVisible({ timeout: 15_000 });
   }
 
   async fill(input: RegisterInput): Promise<void> {
