@@ -528,10 +528,8 @@ function OwnerProjects() {
                     (trades as any)?.[Number(recId)],
                 );
 
-                const tradesmanUid =
-                  (p as any)._winnerTradesmanUid ??
-                  (p as any).winner_tradesman_uid ??
-                  null;
+                const tradesmanPublicId =
+                  (p as any)._winnerTradesmanPublicId ?? null;
 
                 const tradesmanLabel = fromServer || fromHook || "—";
 
@@ -545,10 +543,10 @@ function OwnerProjects() {
                     location={p.location}
                     coverPhotoUrl={p.coverPhotoUrl}
                     tradesmanLabel={tradesmanLabel}
-                    tradesmanUid={tradesmanUid}
+                    tradesmanPublicId={tradesmanPublicId}
                     onOpenBuilder={() => {
-                      if (tradesmanUid) {
-                        router.push(`/tradesman/${encodeURIComponent(tradesmanUid)}`);
+                      if (tradesmanPublicId) {
+                        router.push(`/tradesman/${encodeURIComponent(tradesmanPublicId)}`);
                         return;
                       }
                       if (!recId) return;

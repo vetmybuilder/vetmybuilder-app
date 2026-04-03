@@ -16,9 +16,9 @@ type Props = {
 
   // tradesman
   tradesmanLabel: string; // "—" if unknown
-  tradesmanUid?: string | null;
+  tradesmanPublicId?: string | null;
 
-  // fallback behaviour (builders/<recId>) used when no tradesmanUid
+  // fallback behaviour (builders/<recId>) used when no tradesmanPublicId
   onOpenBuilder: () => void;
 
   // gallery flags
@@ -34,7 +34,7 @@ export default function CompletedProjectCard(props: Props) {
     location,
     coverPhotoUrl,
     tradesmanLabel,
-    tradesmanUid,
+    tradesmanPublicId,
     onOpenBuilder,
     hasGallery,
   } = props;
@@ -54,7 +54,7 @@ export default function CompletedProjectCard(props: Props) {
         type={type}
         location={location}
         tradesmanLabel={tradesmanLabel}
-        tradesmanUid={tradesmanUid ?? null}
+        tradesmanPublicId={tradesmanPublicId ?? null}
         onOpenBuilder={onOpenBuilder}
         hasGallery={hasGallery}
       />

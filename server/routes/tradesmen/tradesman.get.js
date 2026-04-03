@@ -3,7 +3,7 @@ module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
   const log = ctx.log || console;
   const TAG = "[tradesmen/tradesman.get]";
-  const ROUTE = "/tradesmen/:uid";
+  const ROUTE = "/tradesmen/:publicId";
 
   if (!mysqlQuery) {
     throw new Error("mysqlQuery not attached to ctx (MySQL required)");
@@ -179,8 +179,8 @@ module.exports = (router, ctx) => {
   /* ---------- route ---------- */
 
   router.get(ROUTE, auth, async (req, res) => {
-    const uid = String(req.params.uid || "").trim();
-    log.info(`${TAG} hit`, { uid });
+    const publicId = String(req.params.publicId || "").trim();
+    log.info(`${TAG} hit`, { publicId });
 
     try {
       const hasTradesmen = await tableExists("tradesmen");
@@ -189,17 +189,17 @@ module.exports = (router, ctx) => {
         return res.status(500).json({ error: "NO_TRADESMEN_TABLE" });
       }
 
-      if (!uid) {
-        log.warn(`${TAG} missing uid param`);
-        return res.status(400).json({ error: "MISSING_UID" });
+      if (!publicId) {
+        log.warn(`${TAG} missing publicId param`);
+        return res.status(400).json({ error: "MISSING_ID" });
       }
 
       /* 1) Load tradesman row */
       let rows;
       try {
         rows = await mysqlQuery(
-          `SELECT * FROM tradesmen WHERE user_id = ? LIMIT 1`,
-          [uid]
+          `SELECT * FROM tradesmen WHERE public_id = ? LIMIT 1`,
+          [publicId]
         );
       } catch (e) {
         log.error(`${TAG} SELECT error`, {
@@ -215,9 +215,11 @@ module.exports = (router, ctx) => {
 
       const row = rows?.[0];
       if (!row || String(row.status || "").toLowerCase() === "banned") {
-        log.warn(`${TAG} tradesman not found or banned`, { uid });
+        log.warn(`${TAG} tradesman not found or banned`, { publicId });
         return res.status(404).json({ error: "NOT_FOUND" });
       }
+
+      const uid = row.user_id;
 
       /* 2) Photos */
       const photoUrls = await loadPhotoUrlsFor(uid);
@@ -252,6 +254,7 @@ module.exports = (router, ctx) => {
 
       const payload = {
         builderId: uid,
+        publicId: row.public_id,
         companyName: row.company_name || null,
         displayName: row.company_name || row.contact_name || "Tradesman",
 

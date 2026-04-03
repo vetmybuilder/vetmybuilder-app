@@ -208,6 +208,7 @@ module.exports = (router, ctx) => {
         `
         SELECT
           t.user_id AS userId,
+          t.public_id AS publicId,
           t.company_name AS companyName,
           t.contact_name AS contactName,
           t.status AS tStatus,
@@ -296,6 +297,7 @@ module.exports = (router, ctx) => {
 
         items.push({
           builderId: String(r.userId),
+          publicId: r.publicId || null,
           companyName: r.companyName || null,
           displayName: r.companyName || r.contactName || "Tradesman",
           tierActiveUntil: r.expiresAt || null,

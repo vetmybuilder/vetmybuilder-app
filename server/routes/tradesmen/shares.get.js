@@ -152,6 +152,7 @@ module.exports = (router, ctx) => {
       if (hasTradesmenTable) {
         selectCols.push("t.company_name AS tradesman_company_name");
         selectCols.push("t.profile_picture_url AS tradesman_profile_picture_url");
+        selectCols.push("t.public_id AS tradesman_public_id");
       }
 
       const sql = `
@@ -173,6 +174,7 @@ module.exports = (router, ctx) => {
         projectId: r.project_id,
         projectName: r.project_name || null,
         tradesmanUid: r.tradesman_uid,
+        tradesmanPublicId: r.tradesman_public_id || null,
         companyName: r.tradesman_company_name || null,
         primaryPhotoUrl: r.tradesman_profile_picture_url || null,
         photos: normalisePhotos(r.photos_json),

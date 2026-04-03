@@ -13,6 +13,7 @@ import {
 
 export type FeaturedTradesman = {
   builderId: string;
+  publicId?: string | null;
   companyName: string | null;
   displayName: string | null;
   tier: "free" | "unlock" | "gold" | "spotlight" | string;

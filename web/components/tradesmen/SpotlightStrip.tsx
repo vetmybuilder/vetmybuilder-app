@@ -4,6 +4,7 @@ import { useApi } from "@/utils/api";
 
 type SpotlightItem = {
   builderId: string;
+  publicId?: string | null;
   companyName: string | null;
   displayName: string | null;
   tierActiveUntil?: string | null;
@@ -118,7 +119,7 @@ export default function SpotlightStrip({
         onClick={() =>
           onClickCard
             ? onClickCard(t.builderId)
-            : (window.location.href = `/tradesman/${t.builderId}`)
+            : (window.location.href = `/tradesman/${t.publicId || t.builderId}`)
         }
       />
     </section>

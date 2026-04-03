@@ -6,6 +6,7 @@ import { useApi } from "@/utils/api";
 
 type FeaturedTradesman = {
   builderId: string;
+  publicId?: string | null;
   companyName: string | null;
   displayName: string | null;
   tier?: string | null;
@@ -175,7 +176,7 @@ function FeaturedListInner() {
           <FeaturedRow
             key={t.builderId}
             item={t}
-            onClick={() => router.push(`/tradesman/${t.builderId}`)}
+            onClick={() => router.push(`/tradesman/${t.publicId || t.builderId}`)}
           />
         ))}
 

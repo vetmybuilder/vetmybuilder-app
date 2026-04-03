@@ -241,6 +241,7 @@ module.exports = (router, ctx) => {
 
               pc.winnerRecommendationId AS _winnerRecommendationId,
               pc.winner_tradesman_uid AS _winnerTradesmanUid,
+              (SELECT t.public_id FROM tradesmen t WHERE t.user_id = pc.winner_tradesman_uid LIMIT 1) AS _winnerTradesmanPublicId,
 
               -- Best-effort label so UI can show something even if hook fails.
               -- 1) If winner is a recommendation → show recommendation.company (fallback to name)
@@ -315,6 +316,7 @@ module.exports = (router, ctx) => {
 
               pc.winnerRecommendationId AS _winnerRecommendationId,
               pc.winner_tradesman_uid AS _winnerTradesmanUid,
+              (SELECT t.public_id FROM tradesmen t WHERE t.user_id = pc.winner_tradesman_uid LIMIT 1) AS _winnerTradesmanPublicId,
 
               COALESCE(
                 (SELECT NULLIF(TRIM(r.company), '') FROM recommendations r WHERE r.id = pc.winnerRecommendationId LIMIT 1),
