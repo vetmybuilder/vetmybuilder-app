@@ -142,6 +142,7 @@ export default function SignupForm() {
       clientErrors.email = "Enter a valid email address.";
     }
     if (!passwordTrim) clientErrors.password = "Password is required.";
+    if (betaRequired && !form.betaCode.trim()) clientErrors.betaCode = "Access code is required.";
 
     return clientErrors;
   }

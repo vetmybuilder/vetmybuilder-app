@@ -18,10 +18,21 @@ export async function ensureEmailAvailable(
     throw new Error("Email is required.");
   }
 
-  const { data } = await api.post("/api/auth/check-email", {
-    email: clean,
-    ...(betaCode ? { betaCode } : {}),
-  });
+  let data: any;
+  try {
+    const res = await api.post("/api/auth/check-email", {
+      email: clean,
+      ...(betaCode ? { betaCode } : {}),
+    });
+    data = res.data;
+  } catch (e: any) {
+    if (e?.response?.data?.error === "invalid_beta_code") {
+      throw new Error("invalid_beta_code");
+    }
+    throw new Error(
+      e?.response?.data?.error || "Could not verify this email. Please try again."
+    );
+  }
 
   if (data?.ok !== true) {
     if (data?.error === "invalid_beta_code") {
