@@ -33,38 +33,45 @@ const FAST_TIMING = {
 };
 
 // Daemon timing — all values in milliseconds
+// SIM_PROD=1 uses realistic production delays; local uses fast defaults for testing
+const _prod = process.env.SIM_PROD === "1";
+
 const DAEMON_TIMING = {
   // How often the daemon polls for newly published projects
-  pollInterval: 30_000,
+  pollInterval: _prod ? 30_000 : 10_000,
 
   // Delay from project going live → wave 1 starts
-  wave1DelayMin: 60_000,   // 1 min
-  wave1DelayMax: 120_000,  // 2 min
+  wave1DelayMin: _prod ? 60_000  :  5_000,
+  wave1DelayMax: _prod ? 120_000 : 15_000,
 
   // Delay after wave 1 completes → wave 2 starts
-  wave2DelayMin: 240_000,  // 4 min
-  wave2DelayMax: 480_000,  // 8 min
+  wave2DelayMin: _prod ? 240_000 : 30_000,
+  wave2DelayMax: _prod ? 480_000 : 60_000,
 
   // Delay after wave 2 completes → wave 3 starts
-  wave3DelayMin: 360_000,  // 6 min
-  wave3DelayMax: 720_000,  // 12 min
+  wave3DelayMin: _prod ? 360_000 :  60_000,
+  wave3DelayMax: _prod ? 720_000 : 120_000,
 
   // Random pause injected between individual bot actions within each wave
-  actionJitterMin: 5_000,  // 5s
-  actionJitterMax: 30_000, // 30s
+  actionJitterMin: _prod ? 5_000 : 1_000,
+  actionJitterMax: _prod ? 30_000 : 5_000,
 
   // Per-builder independent interest-check intervals (index = BOT_UIDS.builders[i])
   // sim-builder-006 (Elegant, idx 5) is most responsive; others arrive progressively later
-  builderCheckIntervalMin: [180_000, 240_000, 360_000, 480_000, 600_000,  60_000],
-  builderCheckIntervalMax: [300_000, 420_000, 540_000, 720_000, 900_000, 180_000],
+  builderCheckIntervalMin: _prod
+    ? [180_000, 240_000, 360_000, 480_000, 600_000,  60_000]
+    : [ 30_000,  45_000,  60_000,  75_000,  90_000,  10_000],
+  builderCheckIntervalMax: _prod
+    ? [300_000, 420_000, 540_000, 720_000, 900_000, 180_000]
+    : [ 60_000,  75_000,  90_000, 120_000, 150_000,  20_000],
 
   // Delay before the first completed project is seeded (quick start)
-  completedProjectFirstDelayMin: 20_000,  // 20s
-  completedProjectFirstDelayMax: 40_000,  // 40s
+  completedProjectFirstDelayMin: _prod ? 20_000 :  5_000,
+  completedProjectFirstDelayMax: _prod ? 40_000 : 10_000,
 
   // Delay between subsequent completed projects
-  completedProjectDelayMin: 3 * 60_000,   // 3 min
-  completedProjectDelayMax: 8 * 60_000,   // 8 min
+  completedProjectDelayMin: _prod ? 3 * 60_000 : 30_000,
+  completedProjectDelayMax: _prod ? 8 * 60_000 : 60_000,
 };
 
 function getApiBase() {

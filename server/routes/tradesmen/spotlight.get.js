@@ -191,17 +191,6 @@ module.exports = (router, ctx) => {
 
       log.info(`${TAG} budget check`, { projectUpper, threshold: THRESHOLD });
 
-      if (projectUpper < THRESHOLD) {
-        return res.json({
-          items: [],
-          total: 0,
-          page: 1,
-          limit: 0,
-          projectUpper,
-          threshold: THRESHOLD,
-        });
-      }
-
       const nowIso = new Date().toISOString();
 
       const rows = await mysqlQuery(
@@ -211,6 +200,7 @@ module.exports = (router, ctx) => {
           t.public_id AS publicId,
           t.company_name AS companyName,
           t.contact_name AS contactName,
+          t.profile_picture_url AS profilePictureUrl,
           t.status AS tStatus,
           o.expires_at AS expiresAt
         FROM payments_oneoff o
@@ -295,12 +285,17 @@ module.exports = (router, ctx) => {
       for (const r of pick) {
         const gallery = await loadPhotos(r.userId);
 
+        const profilePic = r.profilePictureUrl
+          ? makeAbsolute(r.profilePictureUrl)
+          : null;
+
         items.push({
           builderId: String(r.userId),
           publicId: r.publicId || null,
           companyName: r.companyName || null,
           displayName: r.companyName || r.contactName || "Tradesman",
           tierActiveUntil: r.expiresAt || null,
+          avatarUrl: profilePic || gallery[0] || null,
           gallery,
         });
       }

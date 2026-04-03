@@ -6,7 +6,49 @@ import type { ReactNode } from "react";
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import LightboxGallery, { type GalleryImage } from "@/components/LightboxGallery";
-import { CheckCircle2, ShieldCheck, Heart } from "lucide-react";
+import {
+  CheckCircle2, ShieldCheck, Heart,
+  Hammer, Home, PaintBucket, Layers, Wrench, Bath, Building2,
+  Zap, Droplets, Flame, TreePine, Wind, Lightbulb, Shovel,
+  HardHat, Ruler, Square, Fence, DoorOpen, Sun,
+} from "lucide-react";
+
+const TRADE_ICONS: Record<string, React.ElementType> = {
+  "general builder":          Hammer,
+  "extension builder":        Building2,
+  "loft conversion":          Home,
+  "new build":                Building2,
+  "decorator":                PaintBucket,
+  "painter":                  PaintBucket,
+  "painter & decorator":      PaintBucket,
+  "plasterer":                Layers,
+  "flooring specialist":      Layers,
+  "flooring":                 Layers,
+  "tiler":                    Square,
+  "bathroom fitter":          Bath,
+  "kitchen fitter":           Wrench,
+  "plumber":                  Droplets,
+  "electrician":              Zap,
+  "handyman":                 Wrench,
+  "roofer":                   Home,
+  "external wall insulation": Wind,
+  "insulation":               Wind,
+  "landscaper":               TreePine,
+  "gardener":                 TreePine,
+  "carpenter":                Ruler,
+  "joiner":                   Ruler,
+  "windows & doors":          DoorOpen,
+  "conservatory":             Sun,
+  "solar panels":             Sun,
+  "groundworks":              Shovel,
+  "demolition":               HardHat,
+  "scaffolding":              HardHat,
+  "fencing":                  Fence,
+  "gas engineer":             Flame,
+  "heating engineer":         Flame,
+  "boiler installation":      Flame,
+  "lighting":                 Lightbulb,
+};
 import SharedProfilePhotosSection from "@/components/tradesmen/SharedProfilePhotosSection";
 import {
   initials,
@@ -300,13 +342,20 @@ function Inner() {
                 {trades.length === 0 ? (
                   <p className="text-sm text-zinc-400">No trades listed yet.</p>
                 ) : (
-                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {trades.map((t, i) => (
-                      <li key={`${t}-${i}`} className="inline-flex items-start gap-2 text-sm text-zinc-700" data-testid="tradesman-trade-item">
-                        <CheckCircle2 className="h-4 w-4 mt-[2px] text-emerald-500 flex-shrink-0" />
-                        <span>{t}</span>
-                      </li>
-                    ))}
+                  <ul className="flex flex-wrap gap-2">
+                    {trades.map((t, i) => {
+                      const Icon = TRADE_ICONS[t.toLowerCase()] ?? Hammer;
+                      return (
+                        <li
+                          key={`${t}-${i}`}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-sm font-medium text-zinc-700"
+                          data-testid="tradesman-trade-item"
+                        >
+                          <Icon className="h-3.5 w-3.5 text-red-400 flex-shrink-0" />
+                          {t}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </section>

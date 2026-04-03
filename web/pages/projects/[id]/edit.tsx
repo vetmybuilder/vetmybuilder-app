@@ -1,4 +1,5 @@
 // web/pages/projects/[id]/edit.tsx
+import Head from "next/head";
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
@@ -9,6 +10,7 @@ import Select from "@/components/forms/Select";
 import { PROJECT_TYPES, type ProjectTypeCategory } from "@/types/projectTypes";
 import BedroomsSelect from "@/components/forms/BedroomsSelect";
 import DescriptionBuilder from "@/components/forms/DescriptionBuilder";
+import ProgressBar from "@/components/ProgressBar";
 
 /* ===== Outer page: auth + gate (prevents flicker) ===== */
 export default function EditProjectPage() {
@@ -316,6 +318,14 @@ function EditProjectInner() {
     }
   }
 
+  const autoNext = () => {
+    if (step < maxStep) {
+      moveFocusOffStep();
+      setFormErr(null);
+      setStep((s) => s + 1);
+    }
+  };
+
   const next = () => {
     if (step < maxStep && isStepValid(step)) {
       moveFocusOffStep();
@@ -376,17 +386,17 @@ function EditProjectInner() {
   if (authLoading || loading) {
     return (
       <div
-        className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-10"
+        className="mx-auto max-w-2xl px-4 sm:px-6 lg:px-8 py-10"
         data-testid="project-edit-loading"
       >
-        <p className="text-sm text-slate-500">Loading…</p>
+        <p className="text-sm text-zinc-500">Loading…</p>
       </div>
     );
   }
 
   if (loadErr) {
     return (
-      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-10">
+      <div className="mx-auto max-w-2xl px-4 sm:px-6 lg:px-8 py-10">
         <div className="card" data-testid="project-edit-error">
           <p
             className="text-red-600 text-sm"
@@ -408,103 +418,91 @@ function EditProjectInner() {
 
   if (!form) {
     return (
-      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-10 text-sm text-slate-500">
+      <div className="mx-auto max-w-2xl px-4 sm:px-6 lg:px-8 py-10 text-sm text-zinc-500">
         Project not found.
       </div>
     );
   }
 
   return (
-    <div
-      className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8"
-      data-testid="project-edit-page"
-      aria-label="Edit Project Page"
-    >
+    <>
+      <Head>
+        <style>{`body { background: #fafaf9 !important; }`}</style>
+      </Head>
       <div
-        className="mb-6 flex items-center justify-between"
-        data-testid="project-edit-header"
+        className="relative min-h-screen overflow-hidden bg-stone-50"
+        data-testid="project-edit-page"
+        aria-label="Edit Project Page"
       >
-        <div>
-          <h1
-            className="text-2xl font-semibold tracking-tight"
-            data-testid="project-edit-title"
-          >
-            Edit Project
-          </h1>
-          <p
-            className="mt-1 text-sm text-slate-500"
-            data-testid="project-edit-subtitle"
-          >
-            Update the key details for your project. Location can’t be changed
-            here.
-          </p>
+        {/* Background blobs */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
+          <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
         </div>
-        <Link
-          href={`/projects/${id}`}
-          className="btn-back"
-          data-testid="btn-back"
-          aria-label="Back to project"
-          title="Back to project"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            className="icon-24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
+
+        <div className="relative z-10 mx-auto max-w-2xl px-4 sm:px-6 lg:px-8 py-8">
+          {/* Header */}
+          <div
+            className="mb-6 flex items-center justify-between"
+            data-testid="project-edit-header"
           >
-            <path d="M10 19l-7-7 7-7" />
-            <path d="M3 12h18" />
-          </svg>
-          <span className="sr-only">Back to project</span>
-        </Link>
-      </div>
-
-      <div
-        className="mb-6 flex items-center gap-2"
-        aria-label="Progress"
-        data-testid="wizard-progress-edit"
-      >
-        {STEPS.map((_, i) => (
-          <span
-            key={i}
-            className={`h-1.5 flex-1 rounded-full transition ${
-              i <= step ? "bg-blue-600" : "bg-gray-200"
-            }`}
-            aria-current={i === step ? "step" : undefined}
-          />
-        ))}
-      </div>
-
-      <div
-        ref={wizardRef}
-        tabIndex={-1}
-        className="relative w-full overflow-hidden rounded-2xl bg-white border border-gray-200"
-        data-testid="wizard-edit"
-        data-current-step={STEPS[step].key}
-      >
-        <div
-          className="flex w-full transition-transform duration-300 ease-out"
-          style={{ transform: `translateX(-${step * 100}%)` }}
-        >
-          {STEPS.map((s, i) => {
-            const active = i === step;
-            const titleId = `edit-step-${s.key}-title`;
-            return (
-              <section
-                key={s.key}
-                role="region"
-                aria-labelledby={titleId}
-                aria-hidden={active ? undefined : true}
-                {...(!active ? ({ inert: "" } as any) : {})}
-                className="w-full shrink-0 px-6 py-6 sm:px-10 sm:py-10"
+            <div>
+              <h1
+                className="text-3xl font-black tracking-tight text-zinc-900"
+                data-testid="project-edit-title"
               >
-                <h2 id={titleId} className="text-lg font-semibold">
-                  {s.title}
-                </h2>
+                Edit project
+              </h1>
+              <p
+                className="mt-1 text-sm text-zinc-500"
+                data-testid="project-edit-subtitle"
+              >
+                Update the key details. Location can’t be changed here.
+              </p>
+            </div>
+            <Link
+              href={`/projects/${id}`}
+              data-testid="btn-back"
+              aria-label="Back to project"
+              className="flex items-center gap-2 text-sm font-medium text-zinc-500 hover:text-zinc-900 transition-colors"
+            >
+              <span className="text-lg">←</span>
+              Back
+            </Link>
+          </div>
+
+          {/* Progress bar */}
+          <div data-testid="wizard-progress-edit" aria-label="Progress">
+            <ProgressBar current={step} total={STEPS.length} />
+          </div>
+
+          {/* Wizard card */}
+          <div
+            ref={wizardRef}
+            tabIndex={-1}
+            className="mt-4 relative w-full overflow-hidden rounded-3xl bg-white shadow-xl shadow-zinc-200/60"
+            data-testid="wizard-edit"
+            data-current-step={STEPS[step].key}
+          >
+            <div
+              className="flex w-full transition-transform duration-300 ease-out"
+              style={{ transform: `translateX(-${step * 100}%)` }}
+            >
+              {STEPS.map((s, i) => {
+                const active = i === step;
+                const titleId = `edit-step-${s.key}-title`;
+                return (
+                  <section
+                    key={s.key}
+                    role="region"
+                    aria-labelledby={titleId}
+                    aria-hidden={active ? undefined : true}
+                    {...(!active ? ({ inert: "" } as any) : {})}
+                    className="w-full shrink-0 px-6 py-6 sm:px-10 sm:py-10"
+                  >
+                    <h2 id={titleId} className="text-xl font-black text-zinc-900">
+                      {s.title}
+                    </h2>
 
                 <div className="mt-5 grid max-w-3xl gap-4">
                   {s.key === "category" && (
@@ -518,6 +516,7 @@ function EditProjectInner() {
                         set("selectedTypes", []);
                         set("otherEnabled", false);
                         set("otherText", "");
+                        if (v) autoNext();
                       }}
                       options={CATEGORY_OPTIONS}
                       data-testid="field-category-edit"
@@ -527,16 +526,16 @@ function EditProjectInner() {
                   {s.key === "subtypes" && (
                     <div>
                       {!form.category ? (
-                        <p className="text-sm text-slate-500">
+                        <p className="text-sm text-zinc-400">
                           Pick a category first.
                         </p>
                       ) : SUBTYPE_OPTIONS.length === 0 ? (
-                        <p className="text-sm text-slate-500">
+                        <p className="text-sm text-zinc-400">
                           No sub-types available for this category.
                         </p>
                       ) : (
                         <>
-                          <div className="text-xs text-slate-500 mb-1">
+                          <div className="text-xs text-zinc-400 mb-3">
                             Select all that apply
                           </div>
                           <div
@@ -551,10 +550,10 @@ function EditProjectInner() {
                               return (
                                 <label
                                   key={t}
-                                  className={`flex items-center gap-2 rounded-xl border px-3 py-2 cursor-pointer transition ${
+                                  className={`flex items-center gap-2 rounded-xl border-2 px-3 py-2 cursor-pointer transition ${
                                     checked
-                                      ? "border-indigo-300 bg-indigo-50"
-                                      : "border-slate-200 hover:bg-slate-50"
+                                      ? "border-red-300 bg-red-50"
+                                      : "border-zinc-200 hover:bg-zinc-50"
                                   }`}
                                 >
                                   <input
@@ -563,13 +562,13 @@ function EditProjectInner() {
                                     checked={checked}
                                     onChange={() => toggleSubtype(t)}
                                   />
-                                  <span className="text-sm">{t}</span>
+                                  <span className="text-sm text-zinc-800">{t}</span>
                                 </label>
                               );
                             })}
                           </div>
 
-                          <div className="mt-3 rounded-xl border border-slate-200 p-3">
+                          <div className="mt-3 rounded-xl border-2 border-zinc-200 p-3">
                             <label className="flex items-center gap-2 cursor-pointer">
                               <input
                                 type="checkbox"
@@ -580,11 +579,11 @@ function EditProjectInner() {
                                 }
                                 data-testid="chk-other-edit"
                               />
-                              <span className="text-sm">Other…</span>
+                              <span className="text-sm text-zinc-700">Other…</span>
                             </label>
                             {form.otherEnabled && (
                               <input
-                                className="input mt-2"
+                                className="mt-2 w-full rounded-xl border-2 border-zinc-200 px-4 py-2.5 text-zinc-900 placeholder:text-zinc-400 focus:border-red-400 focus:outline-none transition-colors text-sm"
                                 placeholder="Describe another type of work"
                                 value={form.otherText}
                                 onChange={(e) =>
@@ -604,18 +603,18 @@ function EditProjectInner() {
                     <div>
                       <label
                         htmlFor={ids.location}
-                        className="text-xs text-slate-500"
+                        className="text-xs text-zinc-500"
                       >
                         Location
                       </label>
                       <div
                         id={ids.location}
-                        className="mt-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-gray-900"
+                        className="mt-1 rounded-2xl border-2 border-zinc-100 bg-zinc-50 px-4 py-2.5 text-zinc-800"
                         data-testid="field-location-readonly"
                       >
                         {form.location || "—"}
                       </div>
-                      <p className="mt-1 text-xs text-slate-500">
+                      <p className="mt-1 text-xs text-zinc-400">
                         Location is fixed for this project. If it’s wrong,
                         please close this project and create a new one.
                       </p>
@@ -707,7 +706,7 @@ function EditProjectInner() {
 
                 {formErr && active && (
                   <p
-                    className="mt-3 text-sm text-red-600"
+                    className="mt-3 text-sm text-red-500 font-medium"
                     role="alert"
                     data-testid="edit-error"
                   >
@@ -715,48 +714,52 @@ function EditProjectInner() {
                   </p>
                 )}
 
-                <div className="mt-8 flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={back}
-                    disabled={step === 0 || busy}
-                    className="btn-outline disabled:opacity-50"
-                    aria-label="Back"
-                    data-testid="wizard-back-edit"
-                  >
-                    Back
-                  </button>
+                {active && (
+                  <div className="mt-10 flex items-center justify-center gap-4">
+                    <button
+                      type="button"
+                      onClick={back}
+                      disabled={step === 0 || busy}
+                      className="inline-flex items-center gap-2 rounded-full border-2 border-zinc-200 bg-white px-6 py-3 text-sm font-bold text-zinc-700 hover:bg-zinc-50 disabled:opacity-40 transition-all"
+                      aria-label="Back"
+                      data-testid="wizard-back-edit"
+                    >
+                      Previous
+                    </button>
 
-                  {step < maxStep ? (
-                    <button
-                      type="button"
-                      onClick={next}
-                      disabled={!isStepValid(step) || busy}
-                      className="btn disabled:opacity-50"
-                      aria-label={`Next: ${s.title}`}
-                      data-testid="wizard-next-edit"
-                    >
-                      Next
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={onSave}
-                      disabled={!isStepValid(step) || busy}
-                      className="btn disabled:opacity-50"
-                      aria-label="Save changes"
-                      data-testid="wizard-save-edit"
-                    >
-                      {busy ? "Saving..." : "Save changes"}
-                    </button>
-                  )}
-                </div>
+                    {step < maxStep ? (
+                      <button
+                        type="button"
+                        onClick={next}
+                        disabled={!isStepValid(step) || busy}
+                        className="inline-flex items-center gap-2 rounded-full bg-red-500 px-8 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] disabled:opacity-40 disabled:scale-100 disabled:shadow-none transition-all"
+                        aria-label={`Next: ${s.title}`}
+                        data-testid="wizard-next-edit"
+                      >
+                        Next
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={onSave}
+                        disabled={!isStepValid(step) || busy}
+                        className="inline-flex items-center gap-2 rounded-full bg-red-500 px-8 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] disabled:opacity-40 disabled:scale-100 disabled:shadow-none transition-all"
+                        aria-label="Save changes"
+                        data-testid="wizard-save-edit"
+                      >
+                        {busy ? "Saving…" : "Save changes"}
+                      </button>
+                    )}
+                  </div>
+                )}
               </section>
-            );
-          })}
+              );
+            })}
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -773,19 +776,19 @@ function ReviewRow({
 }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-wide text-gray-500">
+      <div className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1">
         {label}
       </div>
       {multiline ? (
         <p
-          className="mt-1 whitespace-pre-wrap rounded-lg border border-gray-200 bg-gray-50 p-3 text-gray-900"
+          className="whitespace-pre-wrap rounded-2xl border-2 border-zinc-100 bg-zinc-50 p-4 text-zinc-800"
           data-testid={dataTestId}
         >
           {value || "—"}
         </p>
       ) : (
         <div
-          className="mt-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-gray-900"
+          className="rounded-2xl border-2 border-zinc-100 bg-zinc-50 px-4 py-2.5 text-zinc-800"
           data-testid={dataTestId}
         >
           {value || "—"}

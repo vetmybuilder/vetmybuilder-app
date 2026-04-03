@@ -96,8 +96,8 @@
     "tradeTypes": ["General Builder", "New Build", "Extension Builder", "Painter / Decorator", "Bathroom Fitter", "Flooring Specialist", "Tiler", "Plasterer", "External Wall Insulation", "Handyman", "Roofer"],
     "serviceAreas": ["E1", "E2", "E3", "E4", "E5", "N1", "N7", "NW1", "SE1", "SW1", "W1", "WC1", "EC1", "N4", "N5", "E10", "E11", "E17"],
     "companyNumber": "11223344",
-    "photoFiles": ["elegant1.jpeg", "elegant2.jpeg", "elegant3.jpeg", "elegant4.jpeg", "elegant5.jpeg"],
-    "profilePictureFile": "elegant1.jpeg",
+    "photoFiles": ["elegant-profile-logo.png", "elegant1.jpeg", "elegant2.jpeg", "elegant3.jpeg", "elegant4.jpeg", "elegant5.jpeg"],
+    "profilePictureFile": "elegant-profile-logo.png",
     "photoUrls": [
       "https://picsum.photos/seed/elegant1/800/600",
       "https://picsum.photos/seed/elegant2/800/600",

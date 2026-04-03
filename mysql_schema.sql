@@ -300,11 +300,15 @@ CREATE TABLE tradesmen (
   google_reviews_count INT NOT NULL DEFAULT 0,
 
   -- Profile picture: one of the builder's uploaded work photos chosen as their avatar
-  profile_picture_url TEXT NULL
+  profile_picture_url TEXT NULL,
+
+  -- Public-facing URL-safe ID (UUID) so Firebase UID is never exposed in URLs
+  public_id VARCHAR(36) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX idx_tradesmen_service_areas ON tradesmen(service_areas);
 CREATE INDEX idx_tradesmen_trade_types   ON tradesmen(trade_types);
+CREATE UNIQUE INDEX idx_tradesmen_public_id ON tradesmen(public_id);
 CREATE TABLE tradesmen_offers (
   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   user_id VARCHAR(255) NOT NULL,

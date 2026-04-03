@@ -79,6 +79,8 @@ export default function RecommendOnPlatform() {
   const [formError, setFormError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // null = still checking, true = allowed, false = redirecting away
+  const [allowed, setAllowed] = useState<boolean | null>(null);
 
   const successRef = useRef<HTMLDivElement>(null);
   const errorRef = useRef<HTMLDivElement>(null);
@@ -99,25 +101,33 @@ export default function RecommendOnPlatform() {
     })();
   }, [api, id]);
 
+  // Gate: only set allowed=true once we've confirmed the user can see the form
   useEffect(() => {
-    if (authLoading || !project) return;
+    if (authLoading || loading || !project) return;
 
+    // Owner → redirect
     if (user && project.ownerUserId === user.uid) {
       router.replace(`/projects/${project.id}`);
       return;
     }
 
     if (user) {
+      // Tradesman → redirect
       (async () => {
         try {
           const { data } = await api.get("/api/tradesmen/me");
-          if (data?.role === "tradesman") {
+          if (data?.role === "tradesman" || !!data?.profile) {
             router.replace(`/projects/${project.id}`);
+            return;
           }
         } catch {}
+        setAllowed(true);
       })();
+    } else {
+      // Guest → allowed
+      setAllowed(true);
     }
-  }, [authLoading, user, project, api, router]);
+  }, [authLoading, loading, user, project, api, router]);
 
   useEffect(() => {
     if (authLoading || prefilledRef.current) return;
@@ -273,6 +283,16 @@ export default function RecommendOnPlatform() {
     }
   };
 
+  // Don't render anything until access is confirmed — prevents flash of form
+  if (allowed === null) {
+    return (
+      <Head>
+        <title>Recommend a tradesperson — VetMyBuilder</title>
+        <style>{`body { background: #fafaf9 !important; }`}</style>
+      </Head>
+    );
+  }
+
   return (
     <>
       <Head>
@@ -292,11 +312,11 @@ export default function RecommendOnPlatform() {
           {/* Page header card */}
           <div className="mb-6 bg-white rounded-3xl shadow-xl shadow-zinc-200/60 px-8 py-6">
             <h1 className="text-3xl font-black tracking-tight text-zinc-900">
-              {loading
-                ? "Recommend a tradesperson"
-                : `Recommend for "${project?.name ?? ""}"`}
+              {allowed === true && project
+                ? `Recommend for "${project.name}"`
+                : "Recommend a tradesperson"}
             </h1>
-            {!loading && project && (
+            {allowed === true && project && (
               <p className="mt-1 text-sm text-zinc-500">
                 Project location: {project.location}
               </p>
@@ -311,7 +331,7 @@ export default function RecommendOnPlatform() {
             </div>
           )}
 
-          {!loading && project && (
+          {allowed === true && project && (
             <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 px-8 py-8">
               {formError && (
                 <div className="mb-5">
