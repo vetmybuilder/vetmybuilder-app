@@ -1,6 +1,8 @@
-name: Deploy to Production (Manual)
+name: Deploy to Production
 
 on:
+  push:
+    branches: [master]
   workflow_dispatch:
 
 concurrency:
@@ -11,7 +13,25 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check for app code changes
+        id: changed
+        run: |
+          changed=$(git diff --name-only HEAD~1 HEAD)
+          echo "$changed"
+          if echo "$changed" | grep -qvE '^e2e-tests/|^\.github/'; then
+            echo "app=true" >> $GITHUB_OUTPUT
+          else
+            echo "app=false" >> $GITHUB_OUTPUT
+            echo "Only e2e/workflow files changed — skipping deploy"
+          fi
+
       - name: Prepare SSH
+        if: steps.changed.outputs.app == 'true'
         env:
           PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
           PROD_HOST: ${{ secrets.PROD_HOST }}
@@ -22,6 +42,7 @@ jobs:
           ssh-keyscan -H "$PROD_HOST" >> ~/.ssh/known_hosts
 
       - name: Deploy
+        if: steps.changed.outputs.app == 'true'
         env:
           PROD_HOST: ${{ secrets.PROD_HOST }}
         run: |
