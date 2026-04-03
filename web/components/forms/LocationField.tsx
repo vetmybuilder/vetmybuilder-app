@@ -385,6 +385,8 @@ export default function LocationField({
               commitRawOrPlace(query);
             }
             if (e.key === "Escape") {
+              // Reset hasInteracted so the in-flight async fetch doesn't re-open
+              hasInteracted.current = false;
               setOpen(false);
               setSug([]);
             }

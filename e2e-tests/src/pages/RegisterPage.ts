@@ -92,8 +92,14 @@ export class RegisterPage {
     await this.email.fill(input.email);
     await this.password.fill(input.password);
     await this.location.fill(input.location);
-    // Dismiss the postcode autocomplete dropdown so it doesn't block submit
+    // Dismiss the postcode autocomplete dropdown so it doesn't block submit.
+    // hasInteracted is reset in the Escape handler so the in-flight async
+    // fetch cannot re-open the dropdown after we dismiss it.
     await this.location.press("Escape");
+    await this.page
+      .locator('[role="listbox"]')
+      .waitFor({ state: "hidden", timeout: 3_000 })
+      .catch(() => {});
   }
 
   async fillFromAccount(account: Account): Promise<void> {
