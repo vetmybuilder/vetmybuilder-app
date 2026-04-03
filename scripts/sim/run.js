@@ -24,10 +24,13 @@ function getFixturePhotos(offset = 0, max = 8) {
 function assertGuards() {
   if (process.env.ENABLE_TEST_ROUTES !== "1")
     throw new Error("ENABLE_TEST_ROUTES=1 must be set");
-  if (!process.env.FIREBASE_AUTH_EMULATOR_HOST)
-    throw new Error("FIREBASE_AUTH_EMULATOR_HOST must be set");
-  if (process.env.NODE_ENV === "production")
-    throw new Error("Cannot run simulation in production");
+  // SIM_PROD=1: running against live Firebase/MySQL — skip emulator + NODE_ENV checks
+  if (process.env.SIM_PROD !== "1") {
+    if (!process.env.FIREBASE_AUTH_EMULATOR_HOST)
+      throw new Error("FIREBASE_AUTH_EMULATOR_HOST must be set (or use SIM_PROD=1 for production)");
+    if (process.env.NODE_ENV === "production")
+      throw new Error("Cannot run simulation in production (or use SIM_PROD=1 to allow it)");
+  }
 }
 
 function randomComment() {

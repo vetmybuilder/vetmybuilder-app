@@ -3,20 +3,25 @@
 
 require("dotenv").config({ path: require("path").resolve(__dirname, "../.env") });
 
-// Firebase emulator host is set inline by npm run dev:manual, not in .env.
-// Default to the standard local port so the script works standalone.
-if (!process.env.FIREBASE_AUTH_EMULATOR_HOST) {
-  process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
-}
-if (!process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST) {
-  process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
-}
+const SIM_PROD = process.env.SIM_PROD === "1";
 
-// dev:manual runs the API on port 3100, but NEXT_PUBLIC_API_BASE in .env
-// points to 8787 (regular dev). Override to target the dev:manual server.
-// Set SIM_API_BASE in your environment to use a different port.
-process.env.NEXT_PUBLIC_API_BASE =
-  process.env.SIM_API_BASE || "http://localhost:3100";
+if (!SIM_PROD) {
+  // Local dev: Firebase emulator host is set inline by npm run dev:manual,
+  // not in .env. Default to the standard local port so the script works standalone.
+  if (!process.env.FIREBASE_AUTH_EMULATOR_HOST) {
+    process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
+  }
+  if (!process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST) {
+    process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
+  }
+
+  // dev:manual runs the API on port 3100, but NEXT_PUBLIC_API_BASE in .env
+  // points to 8787 (regular dev). Override to target the dev:manual server.
+  // Set SIM_API_BASE in your environment to use a different port.
+  process.env.NEXT_PUBLIC_API_BASE =
+    process.env.SIM_API_BASE || "http://localhost:3100";
+}
+// In SIM_PROD=1 mode, API base and auth are taken directly from .env (no overrides).
 
 const args = process.argv.slice(2);
 const command = args[0];

@@ -1,91 +1,100 @@
 [
   {
-    "companyName": "Apex Build & Renovate Ltd",
-    "contactName": "David Kane",
-    "email": "sim-builder-001@sim.local",
-    "phone": "07700 900001",
-    "tradeTypes": ["Plumbing", "Electrical", "General Building", "Carpentry"],
-    "serviceAreas": ["E4", "E3", "E5", "N1"],
-    "companyNumber": "12345678",
+    "companyName": "AD House Construction",
+    "contactName": "AD House Construction",
+    "email": "info@adhouseconstruction.co.uk",
+    "phone": "07474 162993",
+    "tradeTypes": ["Extension Builder", "Loft Conversion Specialist", "General Builder", "New Build", "Roofer", "Basement Conversion", "Landscaper"],
+    "serviceAreas": ["N1", "N21", "N14", "NW1", "NW3", "EN1", "EN2", "N2", "N3"],
     "photoUrls": [
-      "https://picsum.photos/seed/apexbuild1/800/600",
-      "https://picsum.photos/seed/apexbuild2/800/600",
-      "https://picsum.photos/seed/apexbuild3/800/600",
-      "https://picsum.photos/seed/apexbuild4/800/600"
+      "https://picsum.photos/seed/adhc1/800/600",
+      "https://picsum.photos/seed/adhc2/800/600",
+      "https://picsum.photos/seed/adhc3/800/600",
+      "https://picsum.photos/seed/adhc4/800/600"
     ],
-    "profilePictureUrl": "https://picsum.photos/seed/apexbuild1/800/600",
+    "profilePictureUrl": "https://picsum.photos/seed/adhc1/800/600",
     "supportingDocCount": 2,
     "discountMin": 5,
     "discountMax": 15,
     "warrantyMonths": 24,
-    "website": "https://apexbuild.example.com"
+    "website": "https://adhouseconstruction.co.uk"
   },
   {
-    "companyName": "Greenfield Property Services Ltd",
-    "contactName": "Mark Ellison",
-    "email": "sim-builder-002@sim.local",
-    "phone": "07700 900002",
-    "tradeTypes": ["Plumbing", "Electrical", "General Building"],
-    "serviceAreas": ["E4", "E3", "N1"],
-    "companyNumber": "87654321",
+    "companyName": "JB Roofing Solutions Ltd",
+    "contactName": "JB Roofing Solutions",
+    "email": "info@jbroofingsolutionsltd.co.uk",
+    "phone": "07719 559557",
+    "tradeTypes": ["Roofer", "Skylights / Rooflights"],
+    "serviceAreas": ["N1", "N7", "E1", "E2", "EC1", "EC2", "WC1", "WC2", "N4", "N5"],
     "photoUrls": [
-      "https://picsum.photos/seed/green1/800/600",
-      "https://picsum.photos/seed/green2/800/600",
-      "https://picsum.photos/seed/green3/800/600"
+      "https://picsum.photos/seed/jbr1/800/600",
+      "https://picsum.photos/seed/jbr2/800/600",
+      "https://picsum.photos/seed/jbr3/800/600"
     ],
-    "profilePictureUrl": "https://picsum.photos/seed/green1/800/600",
+    "profilePictureUrl": "https://picsum.photos/seed/jbr1/800/600",
     "discountMin": 5,
-    "discountMax": 10
+    "discountMax": 10,
+    "website": "https://www.jbroofingsolutionsltd.co.uk"
   },
   {
-    "companyName": "Hartwell Contractors",
-    "contactName": "Tom Hartwell",
-    "email": "sim-builder-003@sim.local",
-    "phone": "07700 900003",
-    "tradeTypes": ["General Building", "Carpentry", "Painting & Decorating"],
-    "serviceAreas": ["E4", "E5", "N1"],
+    "companyName": "Rooftech Roofing And Guttering Ltd",
+    "contactName": "Mark",
+    "email": "mark@rooftech.cc",
+    "phone": "07538 539390",
+    "tradeTypes": ["Roofer", "Skylights / Rooflights"],
+    "serviceAreas": ["CR0", "SE1", "SE15", "SE17", "SW2", "SW9", "SW16", "SE25", "CR7"],
     "photoUrls": [
-      "https://picsum.photos/seed/hart1/800/600",
-      "https://picsum.photos/seed/hart2/800/600",
-      "https://picsum.photos/seed/hart3/800/600"
+      "https://picsum.photos/seed/rtech1/800/600",
+      "https://picsum.photos/seed/rtech2/800/600",
+      "https://picsum.photos/seed/rtech3/800/600"
     ],
-    "profilePictureUrl": "https://picsum.photos/seed/hart1/800/600",
+    "profilePictureUrl": "https://picsum.photos/seed/rtech1/800/600",
     "discountMin": 10,
-    "discountMax": 20
+    "discountMax": 20,
+    "warrantyMonths": 24,
+    "website": "https://rooftechroofers.co.uk"
   },
   {
-    "companyName": "Swift Fix Solutions",
-    "contactName": "Lee Watts",
-    "email": "sim-builder-004@sim.local",
-    "phone": "07700 900004",
-    "tradeTypes": ["Plumbing", "General Building", "Carpentry"],
-    "serviceAreas": ["E4", "E3"],
+    "companyName": "Home Improvements Specialist Ltd",
+    "contactName": "Home Improvements Specialist",
+    "email": null,
+    "phone": "07700 189961",
+    "tradeTypes": ["Painter / Decorator", "Plasterer", "Tiler", "Flooring Specialist", "Bathroom Fitter", "Kitchen Fitter", "Handyman"],
+    "serviceAreas": ["N1", "N7", "NW1", "NW3", "WC1", "EC1", "N4", "N5", "N8", "NW6"],
     "photoUrls": [
-      "https://picsum.photos/seed/swift1/800/600",
-      "https://picsum.photos/seed/swift2/800/600",
-      "https://picsum.photos/seed/swift3/800/600"
+      "https://picsum.photos/seed/his1/800/600",
+      "https://picsum.photos/seed/his2/800/600",
+      "https://picsum.photos/seed/his3/800/600"
     ],
-    "profilePictureUrl": "https://picsum.photos/seed/swift1/800/600"
+    "profilePictureUrl": "https://picsum.photos/seed/his1/800/600",
+    "discountMin": 5,
+    "discountMax": 15,
+    "website": "https://www.trustatrader.com/traders/a-painter-near-you-ltd-painters-decorators-greenwich"
   },
   {
-    "companyName": "Budget Build Co",
-    "contactName": "Ryan Price",
-    "email": "sim-builder-005@sim.local",
-    "phone": "07700 900005",
-    "tradeTypes": ["General Building"],
-    "serviceAreas": ["E4"],
+    "companyName": "Pimlico Plumbers",
+    "contactName": "Pimlico Plumbers",
+    "email": "requestbooking@pimlicoplumbers.com",
+    "phone": "020 7928 8888",
+    "tradeTypes": ["Plumber", "Heating Engineer", "Electrician", "Carpenter / Joiner", "Drainage Specialist", "Roofer", "Air Conditioning", "Bathroom Fitter", "Gas Engineer"],
+    "serviceAreas": ["SW1", "SW3", "W1", "WC1", "WC2", "EC1", "SE1", "N1", "NW1", "E1", "W2", "SW7", "SW10"],
     "photoUrls": [
-      "https://picsum.photos/seed/budget1/800/600"
+      "https://picsum.photos/seed/pimlico1/800/600",
+      "https://picsum.photos/seed/pimlico2/800/600",
+      "https://picsum.photos/seed/pimlico3/800/600",
+      "https://picsum.photos/seed/pimlico4/800/600"
     ],
-    "profilePictureUrl": "https://picsum.photos/seed/budget1/800/600"
+    "profilePictureUrl": "https://picsum.photos/seed/pimlico1/800/600",
+    "supportingDocCount": 2,
+    "website": "https://www.pimlicoplumbers.com"
   },
   {
     "companyName": "Elegant Building Services",
-    "contactName": "Marcin Rawski",
+    "contactName": "Elegant Building Services",
     "email": "info@elegantbilding.co.uk",
-    "phone": "07700 900006",
-    "tradeTypes": ["General Building", "Plumbing", "Electrical", "Carpentry", "External Wall Insulation", "Kitchen Renovation", "Bathroom Renovation", "Home Renovation"],
-    "serviceAreas": ["E4", "E3", "E5", "N1"],
+    "phone": "07828 989106",
+    "tradeTypes": ["General Builder", "New Build", "Extension Builder", "Painter / Decorator", "Bathroom Fitter", "Flooring Specialist", "Tiler", "Plasterer", "External Wall Insulation", "Handyman", "Roofer"],
+    "serviceAreas": ["E1", "E2", "E3", "E4", "E5", "N1", "N7", "NW1", "SE1", "SW1", "W1", "WC1", "EC1", "N4", "N5", "E10", "E11", "E17"],
     "companyNumber": "11223344",
     "photoFiles": ["elegant1.jpeg", "elegant2.jpeg", "elegant3.jpeg", "elegant4.jpeg", "elegant5.jpeg"],
     "profilePictureFile": "elegant1.jpeg",
@@ -101,6 +110,7 @@
     "discountMin": 10,
     "discountMax": 20,
     "warrantyMonths": 24,
-    "website": "https://elegantbuilding.example.com"
+    "website": "https://elegantbuilding.co.uk",
+    "facebook": "https://www.facebook.com/profile.php?id=100077500594253"
   }
 ]
