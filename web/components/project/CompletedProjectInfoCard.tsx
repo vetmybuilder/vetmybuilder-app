@@ -8,7 +8,7 @@ type Props = {
   location: string;
 
   tradesmanLabel: string; // "—" if unknown
-  tradesmanUid?: string | null; // <-- NEW
+  tradesmanPublicId?: string | null; // <-- NEW
 
   onOpenBuilder: () => void; // existing behaviour (builders/<recId>)
   hasGallery: boolean;
@@ -19,7 +19,7 @@ export default function CompletedProjectInfoCard({
   type,
   location,
   tradesmanLabel,
-  tradesmanUid,
+  tradesmanPublicId,
   onOpenBuilder,
   hasGallery,
 }: Props) {
@@ -29,8 +29,8 @@ export default function CompletedProjectInfoCard({
 
   const onClickTradesman = () => {
     // Prefer the actual tradesman profile route if we have a UID
-    if (tradesmanUid) {
-      router.push(`/tradesman/${encodeURIComponent(tradesmanUid)}`);
+    if (tradesmanPublicId) {
+      router.push(`/tradesman/${encodeURIComponent(tradesmanPublicId)}`);
       return;
     }
 
@@ -54,7 +54,7 @@ export default function CompletedProjectInfoCard({
             className="text-[15px] font-semibold text-red-500 underline underline-offset-2 decoration-red-300 hover:text-red-600 break-words"
             data-testid={`link-${id}-tradesman`}
             title={
-              tradesmanUid
+              tradesmanPublicId
                 ? `Open tradesman profile for ${tradesmanLabel}`
                 : `Open builder profile for ${tradesmanLabel}`
             }

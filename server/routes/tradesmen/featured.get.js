@@ -336,6 +336,7 @@ module.exports = (router, ctx) => {
 
           return {
             builderId: uid,
+            publicId: r.public_id || null,
             companyName: r.company_name,
             displayName: r.company_name || r.contact_name || "Tradesman",
             tier,

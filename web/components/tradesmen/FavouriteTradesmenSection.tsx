@@ -6,6 +6,7 @@ import FeaturedSimpleCard from "@/components/tradesmen/FeaturedSimpleCard";
 
 export type FavouriteTradesmanLite = {
   builderId: string;
+  publicId?: string | null;
   displayName: string;
   companyName?: string | null;
   avatarUrl?: string | null;
@@ -105,7 +106,7 @@ export default function FavouriteTradesmenSection() {
                 name={t.companyName || t.displayName}
                 img={t.avatarUrl || null}
                 onClick={() =>
-                  router.push(`/tradesman/${encodeURIComponent(t.builderId)}`)
+                  router.push(`/tradesman/${encodeURIComponent(t.publicId || t.builderId)}`)
                 }
               />
             </div>

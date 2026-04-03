@@ -134,6 +134,7 @@ module.exports = (router, ctx) => {
         `
         SELECT
           t.user_id AS builderId,
+          t.public_id AS publicId,
           t.company_name,
           t.contact_name,
           t.vmb_score,
@@ -190,6 +191,7 @@ module.exports = (router, ctx) => {
 
       return {
         builderId,
+        publicId: r.publicId || null,
         companyName: r.company_name || null,
         displayName: r.company_name || r.contact_name || "Tradesman",
         tier: normaliseTier(r),

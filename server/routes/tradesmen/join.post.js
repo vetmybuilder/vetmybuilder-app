@@ -217,7 +217,8 @@ module.exports = (router, ctx) => {
           photo_count, discount_min_percent, discount_max_percent, offers_discount,
           warranty_months, supporting_doc_count,
           likes_count, wins_count,
-          subscription_status, status, created_at, updated_at
+          subscription_status, status, created_at, updated_at,
+          public_id
         )
         VALUES (
           ?, ?, ?, ?, ?,
@@ -227,9 +228,11 @@ module.exports = (router, ctx) => {
           ?, ?, ?, ?,
           ?, ?,
           ?, ?,
-          'draft', 'draft', NOW(), NOW()
+          'draft', 'draft', NOW(), NOW(),
+          UUID()
         )
         ON DUPLICATE KEY UPDATE
+          public_id             = COALESCE(public_id, UUID()),
           company_name          = VALUES(company_name),
           contact_name          = VALUES(contact_name),
           phone                 = VALUES(phone),

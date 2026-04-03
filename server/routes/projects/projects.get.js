@@ -17,6 +17,21 @@ module.exports = (router, ctx) => {
   const { auth, touchUserMw, mysqlQuery } = ctx;
   const log = ctx.log || console;
 
+  // Check once (cached on ctx) whether tradesmen.public_id exists
+  async function tradesmenHasPublicId() {
+    if (ctx.__tradesmenPublicIdExists !== undefined) return ctx.__tradesmenPublicIdExists;
+    try {
+      const rows = await mysqlQuery(
+        `SELECT 1 FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'tradesmen' AND COLUMN_NAME = 'public_id' LIMIT 1`
+      );
+      ctx.__tradesmenPublicIdExists = rows.length > 0;
+    } catch {
+      ctx.__tradesmenPublicIdExists = false;
+    }
+    return ctx.__tradesmenPublicIdExists;
+  }
+
   router.get("/projects", auth, touchUserMw, async (req, res) => {
     log.info?.("[projects.get] start");
 
@@ -213,6 +228,11 @@ module.exports = (router, ctx) => {
 
       // ********** COMPLETED (mine) **********
       if (tab === "completed") {
+        const hasPublicId = await tradesmenHasPublicId();
+        const publicIdSubquery = hasPublicId
+          ? `(SELECT t.public_id FROM tradesmen t WHERE t.user_id = pc.winner_tradesman_uid LIMIT 1) AS _winnerTradesmanPublicId,`
+          : `NULL AS _winnerTradesmanPublicId,`;
+
         const baseParts = ["p.ownerUserId = ?"];
         const baseParams = [uid];
         const { sql: baseSql, params } = applyWhere(baseParts, baseParams);
@@ -241,6 +261,7 @@ module.exports = (router, ctx) => {
 
               pc.winnerRecommendationId AS _winnerRecommendationId,
               pc.winner_tradesman_uid AS _winnerTradesmanUid,
+              ${publicIdSubquery}
 
               -- Best-effort label so UI can show something even if hook fails.
               -- 1) If winner is a recommendation → show recommendation.company (fallback to name)
@@ -274,6 +295,11 @@ module.exports = (router, ctx) => {
 
       // ********** COMPLETED COMMUNITY **********
       if (tab === "completedcommunity") {
+        const hasPublicId = await tradesmenHasPublicId();
+        const publicIdSubquery = hasPublicId
+          ? `(SELECT t.public_id FROM tradesmen t WHERE t.user_id = pc.winner_tradesman_uid LIMIT 1) AS _winnerTradesmanPublicId,`
+          : `NULL AS _winnerTradesmanPublicId,`;
+
         const normTokens = await deriveAreaTokens();
 
         const baseParts = [`p.ownerUserId <> ?`];
@@ -315,6 +341,7 @@ module.exports = (router, ctx) => {
 
               pc.winnerRecommendationId AS _winnerRecommendationId,
               pc.winner_tradesman_uid AS _winnerTradesmanUid,
+              ${publicIdSubquery}
 
               COALESCE(
                 (SELECT NULLIF(TRIM(r.company), '') FROM recommendations r WHERE r.id = pc.winnerRecommendationId LIMIT 1),

@@ -212,6 +212,7 @@ async function seedBuilders(adminUid) {
            photo_count          = ?,
            supporting_doc_count = ?,
            profile_picture_url  = ?,
+           public_id            = COALESCE(public_id, UUID()),
            updated_at           = NOW()
          WHERE user_id = ?`,
         [

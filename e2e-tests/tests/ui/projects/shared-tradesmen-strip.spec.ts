@@ -98,9 +98,10 @@ test.describe("Shared tradesmen strip", () => {
     await projectDetailsPage.hasSharedTradesmenStrip();
     await projectDetailsPage.clickSharedTradesmanCard();
 
-    await expect(projectDetailsPage.page).toHaveURL(
-      new RegExp(`/tradesman/${tradesmanUid}`),
-      { timeout: 15_000 },
-    );
+    // URL now uses public_id (UUID) rather than Firebase UID — verify we
+    // landed on any tradesman profile page.
+    await expect(projectDetailsPage.page).toHaveURL(/\/tradesman\//, {
+      timeout: 15_000,
+    });
   });
 });

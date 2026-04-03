@@ -310,8 +310,16 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
   const createdAtRaw = (project as any)?.createdAt;
   const updatedAtRaw = (project as any)?.updatedAt;
 
-  const createdAtDate = createdAtRaw ? new Date(createdAtRaw) : null;
-  const updatedAtDate = updatedAtRaw ? new Date(updatedAtRaw) : null;
+  // MySQL DATETIME has no timezone suffix — treat as UTC so local display is correct
+  const parseUtc = (raw: any): Date | null => {
+    if (!raw) return null;
+    const s = String(raw);
+    if (/Z$|[+-]\d{2}:\d{2}$/.test(s)) return new Date(s);
+    return new Date(s.replace(" ", "T") + "Z");
+  };
+
+  const createdAtDate = parseUtc(createdAtRaw);
+  const updatedAtDate = parseUtc(updatedAtRaw);
 
   const createdOk =
     createdAtDate instanceof Date && !Number.isNaN(createdAtDate.getTime());

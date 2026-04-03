@@ -150,7 +150,12 @@ export function useProjectView() {
   }, [api, user]);
 
   useEffect(() => {
-    if (!router.isReady || authLoading || !projectId) return;
+    if (!router.isReady || authLoading) return;
+    if (!projectId) {
+      setErrorStatus(404);
+      setLoading(false);
+      return;
+    }
     let alive = true;
     setLoading(true);
     setErrorStatus(null);

@@ -9,8 +9,6 @@ import { AuthApi } from "../../../src/apiHelper/auth/AuthApi";
 
 test.describe("Projects list tabs", () => {
   // Close via API (not UI modal) to avoid slowMo overhead exhausting the 60s test timeout.
-  // The UI modal path is already covered by close-project.spec.ts.
-
   test("closed project (didGoAhead: false) appears in the archived tab", async ({
     apiClient,
     homeownerProjectsPage,

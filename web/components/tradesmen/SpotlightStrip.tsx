@@ -4,9 +4,11 @@ import { useApi } from "@/utils/api";
 
 type SpotlightItem = {
   builderId: string;
+  publicId?: string | null;
   companyName: string | null;
   displayName: string | null;
   tierActiveUntil?: string | null;
+  avatarUrl?: string | null;
   gallery?: string[];
 };
 
@@ -114,11 +116,11 @@ export default function SpotlightStrip({
     <section className={className} aria-label="Spotlight tradesmen">
       <SpotlightTile
         name={t.companyName || t.displayName || "Tradesman"}
-        img={t.gallery?.[0] || null}
+        img={t.avatarUrl || t.gallery?.[0] || null}
         onClick={() =>
           onClickCard
             ? onClickCard(t.builderId)
-            : (window.location.href = `/tradesman/${t.builderId}`)
+            : (window.location.href = `/tradesman/${t.publicId || t.builderId}`)
         }
       />
     </section>
@@ -148,7 +150,7 @@ function SpotlightTile({
       aria-label={`View ${name}`}
     >
       <div
-        className={`relative w-full h-56 sm:h-60 md:h-[260px] overflow-hidden rounded-2xl shadow-sm hover:shadow-md transition-shadow ${
+        className={`relative w-full h-72 sm:h-80 md:h-[340px] overflow-hidden rounded-2xl shadow-sm hover:shadow-md transition-shadow ${
           !src ? bg : ""
         } grid place-items-center`}
       >
@@ -157,7 +159,11 @@ function SpotlightTile({
           <img
             src={src}
             alt={name}
-            className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
+            className={`h-full w-full transition-transform group-hover:scale-[1.02] ${
+              src.match(/\.(png)$/i)
+                ? "object-contain bg-white p-6"
+                : "object-cover"
+            }`}
             loading="lazy"
             referrerPolicy="no-referrer"
             crossOrigin="anonymous"

@@ -14,6 +14,7 @@ type TradeShare = {
   projectId: number;
   projectName: string | null;
   tradesmanUid: string;
+  tradesmanPublicId?: string | null;
   companyName?: string | null;
   photos?: TradeSharePhoto[];
   primaryPhotoUrl?: string | null;
@@ -151,16 +152,17 @@ export default function SharedTradesmen({ projectId }: SharedTradesmenProps) {
 
   if (!loaded || shares.length === 0) return null;
 
-  const handleClick = (uid: string) => {
-    if (!uid) return;
-    router.push(`/tradesman/${uid}`);
+  const handleClick = (share: TradeShare) => {
+    const id = share.tradesmanPublicId || share.tradesmanUid;
+    if (!id) return;
+    router.push(`/tradesman/${id}`);
   };
 
   const slides = shares.map((share) => (
     <SharedCard
       key={share.id}
       share={share}
-      onClick={() => handleClick(share.tradesmanUid)}
+      onClick={() => handleClick(share)}
     />
   ));
 
