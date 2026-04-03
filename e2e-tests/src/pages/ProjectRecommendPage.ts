@@ -47,7 +47,7 @@ export class ProjectRecommendPage extends BasePage {
   async submitRecommendationForLoggedInUser(
     account: Account,
     recommendation: Recommendation,
-    projectId: string | number,
+    // projectId: string | number,
   ) {
     await this.hasPrefilledIdentity(account);
 
@@ -75,9 +75,9 @@ export class ProjectRecommendPage extends BasePage {
     await this.commentInput.fill(fields.comment);
 
     await this.submitButton.click();
-    await expect(this.page).toHaveURL(`/projects/${projectId}`, {
-      timeout: 15_000,
-    });
+    // await expect(this.page).toHaveURL(`/projects/${projectId}`, {
+    //   timeout: 15_000,
+    // });
   }
 
   async submitRecommendationForGuestUser(

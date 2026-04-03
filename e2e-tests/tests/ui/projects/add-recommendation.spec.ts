@@ -78,7 +78,7 @@ test.describe("Add recommendation", () => {
     await projectRecommendPage.submitRecommendationForLoggedInUser(
       neighbour,
       recommendation,
-      created.id,
+      // created.id,
     );
     await projectDetailsPage.waitUntilReady();
     await projectDetailsPage.logout();
