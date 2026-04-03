@@ -53,11 +53,4 @@ jobs:
           PROD_HOST: ${{ secrets.PROD_HOST }}
         run: |
           set -e
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes "root@$PROD_HOST" "vmb-deploy"
-          for i in {1..18}; do
-            if curl -fsS https://vetmybuilder.com/health >/dev/null; then
-              echo 'Health: OK'; exit 0
-            fi
-            sleep 5
-          done
-          echo 'Health: FAIL'; curl -i https://vetmybuilder.com/health; exit 1
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes "root@$PROD_HOST" 'vmb-deploy && for i in $(seq 1 18); do curl -fsS http://localhost:8787/health >/dev/null 2>&1 && echo "Health: OK" && exit 0; sleep 5; done; echo "Health: FAIL"; exit 1'
