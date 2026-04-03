@@ -133,8 +133,12 @@ async function seedBuilders(adminUid) {
     const alreadyActive = checkData.role === "tradesman" && !!checkData.profile;
 
     if (!alreadyActive) {
-      // Step 1: Mint token to ensure the Firebase auth user exists in the emulator
-      await mintToken(uid);
+      // Step 1 (local dev only): pre-create Firebase auth user in the emulator.
+      // In SIM_PROD mode we use X-Sim-Uid auth so no token mint is needed here.
+      if (process.env.SIM_PROD !== "1") {
+        const { mintToken } = require("./api-client");
+        await mintToken(uid);
+      }
 
       // Step 2: Join as a lead (no auth required). This creates a lead_* row
       // in the tradesmen table which the admin can then promote.
