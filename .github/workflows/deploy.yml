@@ -21,6 +21,12 @@ jobs:
       - name: Check for app code changes
         id: changed
         run: |
+          # workflow_dispatch = manual trigger, always deploy
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "app=true" >> $GITHUB_OUTPUT
+            echo "Manual trigger — deploying"
+            exit 0
+          fi
           changed=$(git diff --name-only HEAD~1 HEAD)
           echo "$changed"
           if echo "$changed" | grep -qvE '^e2e-tests/|^\.github/'; then
