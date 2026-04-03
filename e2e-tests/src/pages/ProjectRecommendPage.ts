@@ -72,7 +72,6 @@ export class ProjectRecommendPage extends BasePage {
         .catch(() => {});
     }
 
-    await this.submitButton.scrollIntoViewIfNeeded();
     await this.submitButton.click();
     await expect(this.page).toHaveURL(`/projects/${projectId}`, {
       timeout: 15_000,
@@ -115,7 +114,6 @@ export class ProjectRecommendPage extends BasePage {
         .catch(() => {});
     }
 
-    await this.submitButton.scrollIntoViewIfNeeded();
     await this.submitButton.click();
     await expect(this.page).toHaveURL('/', { timeout: 15_000 });
   }

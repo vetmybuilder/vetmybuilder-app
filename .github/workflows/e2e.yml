@@ -52,6 +52,13 @@ jobs:
         env:
           E2E_WEB_ENV: ${{ secrets.E2E_WEB_ENV }}
 
+      - name: Set up Docker layer cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: docker-e2e-ui-${{ runner.os }}-${{ hashFiles('Dockerfile', 'Dockerfile.e2e', 'e2e-tests/package-lock.json', 'package-lock.json') }}
+          restore-keys: docker-e2e-ui-${{ runner.os }}-
+
       - name: Build Docker images
         run: docker compose -f docker-compose.e2e.ci.yml build
 
@@ -97,6 +104,13 @@ jobs:
         run: printf '%s' "$E2E_WEB_ENV" > web/.env.local
         env:
           E2E_WEB_ENV: ${{ secrets.E2E_WEB_ENV }}
+
+      - name: Set up Docker layer cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: docker-e2e-api-${{ runner.os }}-${{ hashFiles('Dockerfile', 'Dockerfile.e2e', 'e2e-tests/package-lock.json', 'package-lock.json') }}
+          restore-keys: docker-e2e-api-${{ runner.os }}-
 
       - name: Build Docker images
         run: docker compose -f docker-compose.e2e.api.ci.yml build
