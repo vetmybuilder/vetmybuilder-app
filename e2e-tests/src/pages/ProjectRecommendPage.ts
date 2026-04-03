@@ -64,8 +64,15 @@ export class ProjectRecommendPage extends BasePage {
 
     if (photos?.length) {
       await this.fileInput.setInputFiles(photos);
+      // Wait for photo previews to render so the layout is stable before clicking submit
+      await this.page
+        .getByRole("button", { name: /Remove/i })
+        .first()
+        .waitFor({ state: "visible", timeout: 5_000 })
+        .catch(() => {});
     }
 
+    await this.submitButton.scrollIntoViewIfNeeded();
     await this.submitButton.click();
     await expect(this.page).toHaveURL(`/projects/${projectId}`, {
       timeout: 15_000,
@@ -100,8 +107,15 @@ export class ProjectRecommendPage extends BasePage {
 
     if (photos?.length) {
       await this.fileInput.setInputFiles(photos);
+      // Wait for photo previews to render so the layout is stable before clicking submit
+      await this.page
+        .getByRole("button", { name: /Remove/i })
+        .first()
+        .waitFor({ state: "visible", timeout: 5_000 })
+        .catch(() => {});
     }
 
+    await this.submitButton.scrollIntoViewIfNeeded();
     await this.submitButton.click();
     await expect(this.page).toHaveURL('/', { timeout: 15_000 });
   }
