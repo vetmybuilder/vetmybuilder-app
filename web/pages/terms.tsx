@@ -7,7 +7,7 @@ const sections = [
     title: "Acceptance of terms",
     content: `By accessing or using VetMyBuilder (the "Platform") at vetmybuilder.com, you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, do not use the Platform.
 
-These Terms form a legally binding agreement between you and VetMyBuilder Ltd, a company registered in England and Wales. We may update these Terms from time to time; continued use of the Platform constitutes acceptance of any changes.`,
+These Terms form a legally binding agreement between you and Connect2Find Ltd (trading as VetMyBuilder), a company registered in England and Wales. We may update these Terms from time to time; continued use of the Platform constitutes acceptance of any changes.`,
   },
   {
     title: "What VetMyBuilder does",
@@ -70,7 +70,7 @@ VetMyBuilder is not a party to any agreement between a homeowner and a tradesper
   },
   {
     title: "Limitation of liability",
-    content: `To the fullest extent permitted by law, VetMyBuilder Ltd's liability to you for any claim arising from these Terms or your use of the Platform shall not exceed £100.
+    content: `To the fullest extent permitted by law, Connect2Find Ltd's liability to you for any claim arising from these Terms or your use of the Platform shall not exceed £100.
 
 We shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or goodwill, arising from your use of or inability to use the Platform.
 
@@ -78,7 +78,7 @@ Nothing in these Terms limits our liability for death or personal injury caused 
   },
   {
     title: "Intellectual property",
-    content: `All content, design, code, and materials on the Platform (excluding User Content) are owned by or licensed to VetMyBuilder Ltd and are protected by copyright, trademark, and other intellectual property laws.
+    content: `All content, design, code, and materials on the Platform (excluding User Content) are owned by or licensed to Connect2Find Ltd (trading as VetMyBuilder) and are protected by copyright, trademark, and other intellectual property laws.
 
 You may not copy, reproduce, distribute, or create derivative works from our materials without our express written permission.`,
   },
@@ -88,7 +88,7 @@ You may not copy, reproduce, distribute, or create derivative works from our mat
   },
   {
     title: "Contact",
-    content: `If you have questions about these Terms, please contact us at hello@vetmybuilder.com or write to: VetMyBuilder Ltd, London, United Kingdom.`,
+    content: `If you have questions about these Terms, please contact us at hello@vetmybuilder.com or write to: Connect2Find Ltd (trading as VetMyBuilder), London, United Kingdom.`,
   },
 ];
 

@@ -43,8 +43,7 @@ export default function Login() {
     setErr(null);
 
     try {
-      // 🔹 Force the global "returnTo" target BEFORE Firebase auth resolves.
-      // This ensures any AuthProvider redirect uses the same path we intend.
+      // Force the global "returnTo" target BEFORE Firebase auth resolves.
       try {
         sessionStorage.setItem("vmb:returnTo", nextPath || "/projects");
       } catch {
@@ -65,99 +64,122 @@ export default function Login() {
   return (
     <>
       <Head>
-        <title>Login • Vetmybuilder</title>
+        <title>Sign in — VetMyBuilder</title>
+        <meta name="description" content="Sign in to your VetMyBuilder account." />
+        <style>{`body { background: #fafaf9 !important; }`}</style>
       </Head>
 
-      <div className="mx-auto max-w-md px-4 sm:px-0" data-testid="login-page">
-        <div className="card" data-testid="login-card">
-          <h1 className="text-xl font-semibold mb-4" data-testid="login-title">
-            Login
-          </h1>
+      <div className="overflow-x-hidden -mt-14 min-h-screen">
+        {/* Background matching homepage hero */}
+        <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-stone-50 py-24">
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
+            <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
+          </div>
 
-          <form
-            onSubmit={onSubmit}
-            className="space-y-3"
-            aria-label="Sign in form"
-            data-testid="login-form"
-          >
-            <label
-              className="text-sm"
-              htmlFor="login-email"
-              data-testid="label-login-email"
-            >
-              Email
-            </label>
-            <input
-              id="login-email"
-              className="input"
-              placeholder="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              aria-required="true"
-              data-testid="input-login-email"
-            />
+          <div className="relative z-10 w-full max-w-md px-4 sm:px-0" data-testid="login-page">
+            {/* Card */}
+            <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-8 sm:p-10" data-testid="login-card">
+              <div className="mb-8">
+                <h1 className="text-3xl font-black tracking-tight text-zinc-900" data-testid="login-title">
+                  {isVendorFlow ? "Tradesperson sign in" : "Welcome back"}
+                </h1>
+                <p className="mt-2 text-zinc-500 text-sm">
+                  {isVendorFlow
+                    ? "Sign in to your tradesperson account."
+                    : "Sign in to your homeowner account."}
+                </p>
+              </div>
 
-            <label
-              className="text-sm"
-              htmlFor="login-password"
-              data-testid="label-login-password"
-            >
-              Password
-            </label>
-            <input
-              id="login-password"
-              className="input"
-              placeholder="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-              aria-required="true"
-              data-testid="input-login-password"
-            />
-
-            {err && (
-              <p
-                className="text-red-400 text-sm"
-                role="alert"
-                data-testid="login-error"
+              <form
+                onSubmit={onSubmit}
+                className="space-y-5"
+                aria-label="Sign in form"
+                data-testid="login-form"
               >
-                {err}
+                <div>
+                  <label
+                    className="block text-sm font-bold text-zinc-900 mb-2"
+                    htmlFor="login-email"
+                    data-testid="label-login-email"
+                  >
+                    Email address
+                  </label>
+                  <input
+                    id="login-email"
+                    className="w-full rounded-2xl border-2 border-zinc-200 px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:border-red-400 focus:outline-none transition-colors"
+                    placeholder="you@example.com"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                    aria-required="true"
+                    data-testid="input-login-email"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    className="block text-sm font-bold text-zinc-900 mb-2"
+                    htmlFor="login-password"
+                    data-testid="label-login-password"
+                  >
+                    Password
+                  </label>
+                  <input
+                    id="login-password"
+                    className="w-full rounded-2xl border-2 border-zinc-200 px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:border-red-400 focus:outline-none transition-colors"
+                    placeholder="••••••••"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    autoComplete="current-password"
+                    aria-required="true"
+                    data-testid="input-login-password"
+                  />
+                </div>
+
+                {err && (
+                  <p
+                    className="text-red-500 text-sm font-medium"
+                    role="alert"
+                    data-testid="login-error"
+                  >
+                    {err}
+                  </p>
+                )}
+
+                <button
+                  className="w-full inline-flex items-center justify-center rounded-full bg-red-500 px-8 py-4 text-base font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  disabled={busy}
+                  aria-label="Sign in"
+                  data-testid="btn-login"
+                >
+                  {busy ? "Signing in…" : "Sign in"}
+                </button>
+              </form>
+
+              <p
+                className="text-sm text-zinc-500 mt-6 text-center"
+                data-testid="login-to-register"
+              >
+                Don&apos;t have an account?{" "}
+                <Link
+                  href={
+                    isVendorFlow
+                      ? { pathname: "/tradesman/register-tradesmen" }
+                      : { pathname: "/signup" }
+                  }
+                  className="font-bold text-red-500 hover:text-red-600"
+                  data-testid="link-to-register"
+                >
+                  Create one
+                </Link>
               </p>
-            )}
-
-            <button
-              className="btn w-full"
-              disabled={busy}
-              aria-label="Sign in"
-              data-testid="btn-login"
-            >
-              {busy ? "Signing in..." : "Sign in"}
-            </button>
-          </form>
-
-          <p
-            className="text-sm text-zinc-500 mt-4"
-            data-testid="login-to-register"
-          >
-            Don’t have an account?{" "}
-            <Link
-              href={
-                isVendorFlow
-                  ? { pathname: "/tradesman/register-tradesmen" }
-                  : { pathname: "/signup" }
-              }
-              className="text-indigo-600 hover:text-indigo-500"
-              data-testid="link-to-register"
-            >
-              Create one
-            </Link>
-            .
-          </p>
+            </div>
+          </div>
         </div>
       </div>
     </>

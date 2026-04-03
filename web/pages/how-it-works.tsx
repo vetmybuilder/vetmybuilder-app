@@ -57,11 +57,11 @@ const steps = [
     color: "red",
     title: "Post your job",
     tagline: "Takes 2 minutes",
-    description: 'Add a quick brief — type of work, rough location, timescale. Something like "bathroom refit in E4" is enough to get started.',
+    description: 'Add a quick brief - type of work, rough location, timescale. Something like "bathroom refit in E4" is enough to get started.',
     details: [
       "No lengthy forms or complicated sign-ups",
       "You get a unique shareable invite link instantly",
-      "Your job is private — only people you invite can see it",
+      "Your job is private - only people you invite can see it",
       "Edit or close your job at any time",
     ],
   },
@@ -75,7 +75,7 @@ const steps = [
     details: [
       "Recommenders share their own first-hand experience",
       "Ratings cover quality, reliability, communication and price",
-      "Anonymous feedback is never accepted — all real people",
+      "Anonymous feedback is never accepted - all real people",
       "Works in WhatsApp groups, Nextdoor, Facebook, anywhere",
     ],
   },
@@ -85,12 +85,12 @@ const steps = [
     color: "amber",
     title: "Shortlist & hire",
     tagline: "With confidence",
-    description: "Compare the recommended builders side by side. See who has been verified against Companies House. Build your shortlist and reach out.",
+    description: "Compare the recommended tradespeople side by side. See who has been verified against Companies House. Build your shortlist and reach out.",
     details: [
       "See full profiles: past jobs, ratings, verified status",
       "Companies House verification for registered firms",
-      "Shortlist multiple builders and compare quotes",
-      "No commission taken — you deal directly",
+      "Shortlist multiple tradespeople and compare quotes",
+      "No commission taken - you deal directly",
     ],
   },
 ];
@@ -104,22 +104,22 @@ const colorMap = {
 const faqs = [
   {
     q: "Is VetMyBuilder free to use?",
-    a: "Yes — completely free for homeowners. Always. We don't charge commission, we don't take a cut of any job. We make money through optional tools for tradespeople.",
+    a: "Yes - completely free for homeowners. Always. We don't charge commission, we don't take a cut of any job. We make money through optional tools for tradespeople.",
   },
   {
     q: "What if I don't know many people locally?",
-    a: "You can share your invite link in local Facebook groups, Nextdoor, or community WhatsApp chats. You'd be surprised how many people are happy to share their builder experiences.",
+    a: "You can share your invite link in local Facebook groups, Nextdoor, or community WhatsApp chats. You'd be surprised how many people are happy to share their tradesperson experiences.",
   },
   {
     q: "How is this different from Checkatrade or Trustpilot?",
-    a: "Those platforms collect reviews from anyone, including strangers. We collect recommendations from people in your network — people whose opinion you actually trust. It's the difference between a random online review and a tip from your neighbour.",
+    a: "Those platforms collect reviews from anyone, including strangers. We collect recommendations from people in your network - people whose opinion you actually trust. It's the difference between a random online review and a tip from your neighbour.",
   },
   {
     q: "What does 'verified against Companies House' mean?",
-    a: "For builders registered as a limited company or LLP, we automatically check their filing status and company details against the Companies House public register. It adds an extra layer of legitimacy.",
+    a: "For tradespeople registered as a limited company or LLP, we automatically check their filing status and company details against the Companies House public register. It adds an extra layer of legitimacy.",
   },
   {
-    q: "Can a builder pay to appear higher in results?",
+    q: "Can a tradesperson pay to appear higher in results?",
     a: "No. We don't accept paid placements or sponsored listings. Ranking is entirely based on the quality and quantity of recommendations from real people.",
   },
 ];
@@ -130,8 +130,8 @@ export default function HowItWorks() {
   return (
     <>
       <Head>
-        <title>How It Works — VetMyBuilder</title>
-        <meta name="description" content="Learn how VetMyBuilder helps UK homeowners find trusted builders through community recommendations." />
+        <title>How It Works - VetMyBuilder</title>
+        <meta name="description" content="Learn how VetMyBuilder helps UK homeowners find trusted tradespeople through community recommendations." />
         <style>{`body { background: #fafaf9 !important; }`}</style>
       </Head>
 
@@ -143,30 +143,102 @@ export default function HowItWorks() {
             <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
           </div>
           <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-            <div className="max-w-2xl">
-              <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-4 py-1.5 text-sm font-bold text-zinc-800 mb-6">
-                <span>Simple. Honest. Free.</span>
-              </div>
-              <h1 className="text-5xl sm:text-6xl font-black tracking-tight leading-[0.95] text-zinc-900">
-                How{" "}
-                <span className="text-red-500">VetMyBuilder</span>{" "}
-                works
-              </h1>
-              <p className="mt-6 text-xl text-zinc-600 leading-relaxed font-medium">
-                No directories. No paid reviews. No guesswork. Just trusted recommendations
-                from real people in your community — in three simple steps.
-              </p>
-              {!user && (
-                <div className="mt-8">
-                  <Link
-                    href="/signup"
-                    className="inline-flex items-center justify-center gap-2 rounded-full bg-red-500 px-8 py-4 text-lg font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] transition-all"
-                  >
-                    Get started free
-                    <IconArrowRight className="h-5 w-5" />
-                  </Link>
+            <div className="grid lg:grid-cols-2 gap-12 items-center">
+              {/* Text */}
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-4 py-1.5 text-sm font-bold text-zinc-800 mb-6">
+                  <span>Simple. Honest. Free.</span>
                 </div>
-              )}
+                <h1 className="text-5xl sm:text-6xl font-black tracking-tight leading-[0.95] text-zinc-900">
+                  How{" "}
+                  <span className="text-red-500">VetMyBuilder</span>{" "}
+                  works
+                </h1>
+                <p className="mt-6 text-xl text-zinc-600 leading-relaxed font-medium">
+                  No directories. No paid reviews. No guesswork. Just trusted recommendations
+                  from real people in your community - in three simple steps.
+                </p>
+                {!user && (
+                  <div className="mt-8">
+                    <Link
+                      href="/signup"
+                      className="inline-flex items-center justify-center gap-2 rounded-full bg-red-500 px-8 py-4 text-lg font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] transition-all"
+                    >
+                      Get started free
+                      <IconArrowRight className="h-5 w-5" />
+                    </Link>
+                  </div>
+                )}
+              </div>
+
+              {/* Illustration */}
+              <div className="hidden lg:flex items-center justify-center">
+                <div className="relative w-full max-w-sm">
+                  {/* Main project card */}
+                  <div className="bg-white rounded-3xl shadow-2xl shadow-zinc-300/50 p-5 border border-zinc-100">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-2xl bg-red-50 flex items-center justify-center">
+                          <IconProject className="h-5 w-5 text-red-500" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-black text-zinc-900">Bathroom refit, E4</div>
+                          <div className="text-xs text-zinc-400">Posted 2 hours ago</div>
+                        </div>
+                      </div>
+                      <span className="text-xs font-bold bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5">Open</span>
+                    </div>
+
+                    {/* Divider */}
+                    <div className="border-t border-zinc-100 my-3" />
+
+                    {/* Recommendations */}
+                    <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">3 Recommendations</div>
+                    <div className="space-y-3">
+                      {[
+                        { name: "Sarah K.", note: "Used him for our kitchen - brilliant work!", stars: 5, bg: "bg-red-500" },
+                        { name: "James T.", note: "Very reliable, great communication.", stars: 5, bg: "bg-emerald-500" },
+                        { name: "Mark D.", note: "Competitive price, tidy finish.", stars: 4, bg: "bg-amber-500" },
+                      ].map((r) => (
+                        <div key={r.name} className="flex items-start gap-3 bg-zinc-50 rounded-2xl px-3 py-2.5">
+                          <div className={`h-8 w-8 rounded-full ${r.bg} flex-shrink-0 flex items-center justify-center text-xs font-black text-white`}>
+                            {r.name[0]}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-zinc-800">{r.name}</span>
+                              <span className="text-amber-400 text-xs">{"★".repeat(r.stars)}</span>
+                            </div>
+                            <p className="text-xs text-zinc-500 truncate">{r.note}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Floating verified badge */}
+                  <div className="absolute -bottom-4 -right-4 bg-white rounded-2xl shadow-xl shadow-zinc-200/70 px-4 py-3 flex items-center gap-2.5 border border-zinc-100">
+                    <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                      <IconCheck className="h-4 w-4 text-emerald-600" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-black text-zinc-900">Companies House</div>
+                      <div className="text-xs text-zinc-400">Verified business</div>
+                    </div>
+                  </div>
+
+                  {/* Floating share badge */}
+                  <div className="absolute -top-4 -left-4 bg-white rounded-2xl shadow-xl shadow-zinc-200/70 px-4 py-3 flex items-center gap-2.5 border border-zinc-100">
+                    <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                      <IconCommunity className="h-4 w-4 text-red-500" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-black text-zinc-900">Invite link shared</div>
+                      <div className="text-xs text-zinc-400">WhatsApp · Nextdoor</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -237,7 +309,7 @@ export default function HowItWorks() {
         <section className="bg-zinc-900 py-20 sm:py-24">
           <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 text-center">
             <h2 className="text-4xl sm:text-5xl font-black text-white mb-6">
-              Ready to find your builder?
+              Ready to find your tradesperson?
             </h2>
             <p className="text-xl text-zinc-400 mb-10">
               Post your job in 2 minutes. It&apos;s completely free.

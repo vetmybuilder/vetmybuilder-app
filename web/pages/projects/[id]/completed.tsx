@@ -133,98 +133,79 @@ function Inner() {
   };
 
   return (
-    <div
-      className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-6"
-      data-testid="completed-gallery-page"
-    >
-      <header className="mb-6">
-        <button
-          type="button"
-          onClick={onBackToProjects}
-          className="mb-3 text-xs font-medium text-slate-500 hover:text-slate-700"
-          data-testid="btn-back-to-projects"
-          aria-label="Back to projects"
-        >
-          ← Back to projects
-        </button>
-
-        <h1
-          className="text-2xl sm:text-3xl font-semibold tracking-tight text-neutral-900"
-          data-testid="completed-gallery-title"
-        >
-          Completed project photos
-        </h1>
-
-        <p
-          className="mt-1 text-sm text-slate-600"
-          data-testid="completed-gallery-subtitle"
-        >
-          Photos uploaded when the project was marked as completed.
-        </p>
-      </header>
-
-      {authLoading && (
-        <div className="text-sm text-slate-500" data-testid="gallery-auth">
-          Authorising…
+    <>
+      <style>{`body { background: #fafaf9 !important; }`}</style>
+      <div className="relative min-h-screen overflow-x-hidden bg-stone-50 -mt-14" data-testid="completed-gallery-page">
+        {/* Background bands */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
+          <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
         </div>
-      )}
 
-      {!authLoading && loading && (
-        <div className="text-sm text-slate-500" data-testid="gallery-loading">
-          Loading…
-        </div>
-      )}
+        <div className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pt-24 pb-16 space-y-6">
+          {/* Back */}
+          <button
+            type="button"
+            onClick={onBackToProjects}
+            className="text-sm font-medium text-zinc-500 hover:text-zinc-800 transition-colors"
+            data-testid="btn-back-to-projects"
+          >
+            ← Back to projects
+          </button>
 
-      {!authLoading && !loading && err && (
-        <div
-          className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700 whitespace-pre-line"
-          role="alert"
-          data-testid="gallery-error"
-        >
-          {err}
-        </div>
-      )}
-
-      {!authLoading && !loading && !err && (
-        <section
-          className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"
-          data-testid="completed-gallery-card"
-          aria-label="Project photos"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <h2
-              className="text-sm sm:text-base font-semibold text-slate-900"
-              data-testid="completed-gallery-card-title"
-            >
-              Project photos
-            </h2>
-            <span
-              className="text-xs text-slate-500"
-              data-testid="completed-gallery-count"
-            >
-              {galleryImages.length} photo
-              {galleryImages.length === 1 ? "" : "s"}
-            </span>
-          </div>
-
-          {galleryImages.length > 0 ? (
-            <div data-testid="completed-gallery-grid">
-              <LightboxGallery
-                images={galleryImages}
-                cols={4}
-                rounded="rounded-xl"
-              />
-            </div>
-          ) : (
-            <p
-              className="text-sm text-slate-500"
-              data-testid="completed-gallery-empty"
-            >
-              No photos have been uploaded yet.
+          {/* Header card */}
+          <header className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 px-7 py-6">
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-zinc-900" data-testid="completed-gallery-title">
+              Completed project photos
+            </h1>
+            <p className="mt-1 text-sm text-zinc-500" data-testid="completed-gallery-subtitle">
+              Photos uploaded when the project was marked as completed.
             </p>
+          </header>
+
+          {/* States */}
+          {authLoading && (
+            <p className="text-sm text-zinc-400" data-testid="gallery-auth">Authorising…</p>
           )}
-        </section>
-      )}
-    </div>
+
+          {!authLoading && loading && (
+            <p className="text-sm text-zinc-400" data-testid="gallery-loading">Loading…</p>
+          )}
+
+          {!authLoading && !loading && err && (
+            <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-6 text-sm text-red-500" role="alert" data-testid="gallery-error">
+              {err}
+            </div>
+          )}
+
+          {!authLoading && !loading && !err && (
+            <section
+              className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-6 sm:p-8"
+              data-testid="completed-gallery-card"
+              aria-label="Project photos"
+            >
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-lg font-black text-zinc-900" data-testid="completed-gallery-card-title">
+                  Project photos
+                </h2>
+                <span className="text-sm text-zinc-400" data-testid="completed-gallery-count">
+                  {galleryImages.length} photo{galleryImages.length === 1 ? "" : "s"}
+                </span>
+              </div>
+
+              {galleryImages.length > 0 ? (
+                <div data-testid="completed-gallery-grid">
+                  <LightboxGallery images={galleryImages} cols={4} rounded="rounded-xl" />
+                </div>
+              ) : (
+                <p className="text-sm text-zinc-400" data-testid="completed-gallery-empty">
+                  No photos have been uploaded yet.
+                </p>
+              )}
+            </section>
+          )}
+        </div>
+      </div>
+    </>
   );
 }

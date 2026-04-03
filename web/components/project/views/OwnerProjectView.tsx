@@ -440,7 +440,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
               >
                 {isLive && (
                   <button
-                    className="inline-flex items-center gap-2 whitespace-nowrap rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+                    className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-red-500 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-red-600"
                     onClick={() => setShowGetRecModal(true)}
                     data-testid="btn-get-recs"
                   >
@@ -450,7 +450,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
 
                 {!isLive && !isClosed && (
                   <button
-                    className="inline-flex items-center gap-2 whitespace-nowrap rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+                    className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-red-500 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-red-600"
                     onClick={() => setShowGetRecModal(true)}
                     data-testid="btn-get-recs-draft"
                   >
@@ -575,7 +575,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
           <section
             aria-label="Spotlight tradesmen"
             data-testid="spotlight-strip"
-            className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+            className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm"
           >
             <SpotlightStrip projectId={String(project.id)} />
           </section>

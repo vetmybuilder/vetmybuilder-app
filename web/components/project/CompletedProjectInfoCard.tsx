@@ -51,7 +51,7 @@ export default function CompletedProjectInfoCard({
           <button
             type="button"
             onClick={onClickTradesman}
-            className="text-[15px] font-semibold text-indigo-700 underline underline-offset-2 decoration-indigo-400 hover:text-indigo-800 break-words"
+            className="text-[15px] font-semibold text-red-500 underline underline-offset-2 decoration-red-300 hover:text-red-600 break-words"
             data-testid={`link-${id}-tradesman`}
             title={
               tradesmanUid

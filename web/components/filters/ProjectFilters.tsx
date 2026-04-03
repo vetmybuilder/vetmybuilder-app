@@ -91,13 +91,13 @@ const MenuItem: React.FC<{
     }}
     className={[
       "w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg",
-      active ? "bg-slate-900 text-white" : "hover:bg-slate-50 text-slate-900",
+      active ? "bg-red-500 text-white" : "hover:bg-zinc-50 text-zinc-900",
     ].join(" ")}
     role="menuitem"
   >
     <span className="text-[14px]">{label}</span>
     {typeof count === "number" && (
-      <span className={active ? "text-white/80" : "text-slate-500"}>
+      <span className={active ? "text-white/80" : "text-zinc-400"}>
         {count}
       </span>
     )}
@@ -139,7 +139,7 @@ export default function ProjectFilters({
   return (
     <div className={["mb-4", className].filter(Boolean).join(" ")}>
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-slate-500 text-[15px] shrink-0">Filter by</span>
+        <span className="text-zinc-400 text-[15px] shrink-0">Filter by</span>
 
         {/* Type */}
         <Menu label={value.type ? `Type: ${value.type}` : "Type"}>

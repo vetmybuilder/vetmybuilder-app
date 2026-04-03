@@ -1,3 +1,4 @@
+import Head from "next/head";
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
@@ -34,7 +35,6 @@ type Recommendation = {
 
 type ProjectLite = { id: number; name: string; ownerUserId: string };
 
-/* ===== Companies House verification ===== */
 type VerificationStatus =
   | "queued"
   | "running"
@@ -72,19 +72,12 @@ function resolveCompanyName(
   return r.company;
 }
 
-/* ---------- Shortlist-style recommender wording ---------- */
 function shortlistRecommenderText(r: Recommendation) {
   if (r.fromFriend === 1) return "Recommended via your friend.";
-  if (r.fromCommunity === 1)
-    return `Community recommendation made on ${new Date(
-      r.createdAt
-    ).toLocaleDateString()}`;
-  return `Community recommendation made on ${new Date(
-    r.createdAt
-  ).toLocaleDateString()}`;
+  return `Community recommendation made on ${new Date(r.createdAt).toLocaleDateString()}`;
 }
 
-/* ---------------- UI bits ---------------- */
+/* ---------------- Icons ---------------- */
 const ThumbsUpIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
     <path d="M2 10h4v12H2V10zm7.5 12h6.27c1.02 0 1.94-.64 2.29-1.6l2.41-6.52a2 2 0 0 0-1.24-2.55c-.2-.07-.42-.11-.64-.11h-4.6l.62-3.02.02-.23a2 2 0 0 0-.59-1.42L13.2 4 8.9 8.29A3 3 0 0 0 8 10.4V20a2 2 0 0 0 1.5 2z" />
@@ -97,46 +90,6 @@ const CameraIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-function Badge({
-  children,
-  className = "",
-  title,
-  "aria-label": ariaLabel,
-  testId,
-}: any) {
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${className}`}
-      title={title}
-      aria-label={ariaLabel || title}
-      data-testid={testId}
-    >
-      {children}
-    </span>
-  );
-}
-
-function ScoreChip({ value }: { value?: number }) {
-  if (value == null || Number.isNaN(Number(value))) {
-    return (
-      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border border-slate-200 text-slate-600">
-        VMB —
-      </span>
-    );
-  }
-  const n = Number(value);
-  const label = n.toFixed(1).replace(/\.0$/, "");
-  return (
-    <span
-      className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200"
-      title={`VMB score: ${label}`}
-      data-testid="rec-vmb-score"
-    >
-      VMB {label}
-    </span>
-  );
-}
-
 /* ---------------- Type guards ---------------- */
 type VmbListOk = { items: Recommendation[]; total?: number };
 type VmbSingleOk = { item?: Recommendation | null };
@@ -144,12 +97,11 @@ type VmbSingleOk = { item?: Recommendation | null };
 function hasItems(res: unknown): res is VmbListOk {
   return !!res && typeof res === "object" && "items" in (res as any);
 }
-
 function hasItem(res: unknown): res is VmbSingleOk {
   return !!res && typeof res === "object" && "item" in (res as any);
 }
 
-/* --------- grouping (same as your current logic) --------- */
+/* --------- grouping --------- */
 function pickTop(items: Recommendation[]) {
   return [...items].sort((a, b) => {
     const sa = typeof a.score === "number" ? a.score : -1;
@@ -183,12 +135,7 @@ function groupByCompany(items: Recommendation[], verMap: any): Grouped[] {
     const key = chNumber ? `#${chNumber}` : `n:${nameKey}`;
     let bucket = map.get(key);
     if (!bucket) {
-      bucket = {
-        key,
-        company: candidateName,
-        companyNumber: chNumber,
-        items: [],
-      };
+      bucket = { key, company: candidateName, companyNumber: chNumber, items: [] };
       map.set(key, bucket);
     }
     bucket.items.push(it);
@@ -201,14 +148,11 @@ function groupByCompany(items: Recommendation[], verMap: any): Grouped[] {
       typeof i.score === "number" ? i.score : null
     );
     const aggScore =
-      b.items.length >= 2
-        ? computeAggregateScore(scores, b.items.length)
-        : top.score;
+      b.items.length >= 2 ? computeAggregateScore(scores, b.items.length) : top.score;
     const aggLikes = b.items.reduce(
       (s: number, it: Recommendation) => s + (it.likes ?? 0),
       0
     );
-
     groups.push({
       key: b.key,
       company: b.company,
@@ -226,20 +170,17 @@ function groupByCompany(items: Recommendation[], verMap: any): Grouped[] {
 function getShortProjectTitle(name?: string | null): string {
   if (!name) return "";
   let base = name.trim();
-
-  // Strip "Job post" suffix if present
-  if (base.toLowerCase().endsWith(" job post")) {
-    base = base.slice(0, -" job post".length).trim();
-  }
-
-  // Strip postcode / property bit after " in ..."
-  const lower = base.toLowerCase();
-  const inIdx = lower.indexOf(" in ");
-  if (inIdx > 0) {
-    base = base.slice(0, inIdx).trim();
-  }
-
+  if (base.toLowerCase().endsWith(" job post")) base = base.slice(0, -" job post".length).trim();
+  const inIdx = base.toLowerCase().indexOf(" in ");
+  if (inIdx > 0) base = base.slice(0, inIdx).trim();
   return base;
+}
+
+function pickAvatarColor(name: string): string {
+  const palettes = ["bg-red-500","bg-emerald-500","bg-amber-500","bg-sky-500","bg-violet-500","bg-pink-500","bg-teal-500"];
+  let h = 0;
+  for (let i = 0; i < (name || "").length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return palettes[h % palettes.length];
 }
 
 /* ===== Outer page with GATE ===== */
@@ -255,15 +196,11 @@ function ShortlistGate() {
   const api = useApi();
   const router = useRouter();
   const { loading: authLoading } = useAuth();
-
-  const [status, setStatus] = useState<"checking" | "ok" | "redirect">(
-    "checking"
-  );
+  const [status, setStatus] = useState<"checking" | "ok" | "redirect">("checking");
 
   useEffect(() => {
     if (!router.isReady || authLoading) return;
     let alive = true;
-
     try {
       if (sessionStorage.getItem("vmb:isTradesman") === "1") {
         setStatus("redirect");
@@ -271,13 +208,10 @@ function ShortlistGate() {
         return;
       }
     } catch {}
-
     (async () => {
       try {
         const { data } = await api.get("/api/tradesmen/me");
-        const isT =
-          String(data?.role || "").toLowerCase() === "tradesman" ||
-          !!data?.profile;
+        const isT = String(data?.role || "").toLowerCase() === "tradesman" || !!data?.profile;
         if (!alive) return;
         if (isT) {
           sessionStorage.setItem("vmb:isTradesman", "1");
@@ -288,16 +222,11 @@ function ShortlistGate() {
       } catch {}
       if (alive) setStatus("ok");
     })();
-
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [api, router, authLoading]);
 
-  if (status === "redirect")
-    return <div className="py-10 text-sm">Redirecting…</div>;
-  if (status !== "ok") return <div className="py-10 text-sm">Loading…</div>;
-
+  if (status === "redirect") return <div className="py-10 text-sm text-zinc-500">Redirecting…</div>;
+  if (status !== "ok") return <div className="py-10 text-sm text-zinc-500">Loading…</div>;
   return <ShortlistInner />;
 }
 
@@ -319,49 +248,29 @@ function ShortlistInner() {
   const [votingId, setVotingId] = useState<number | null>(null);
 
   const [hasPhotos, setHasPhotos] = useState<Record<number, boolean>>({});
-  const [recVerification, setRecVerification] = useState<
-    Record<number, Verification>
-  >({});
-
-  const [phoneVisible, setPhoneVisible] = useState<Record<number, boolean>>({});
+  const [recVerification, setRecVerification] = useState<Record<number, Verification>>({});
 
   const isOwner = !!(user && project && project.ownerUserId === user.uid);
   const canVote = !!user && !!project && !isOwner;
 
-  /* Load project */
   useEffect(() => {
     if (!router.isReady || authLoading || !user || !id) return;
     let alive = true;
-
     (async () => {
       try {
         const { data } = await api.get(`/api/projects/${id}`);
         if (!alive) return;
-        setProject({
-          id: data.project.id,
-          name: data.project.name,
-          ownerUserId: data.project.ownerUserId,
-        });
+        setProject({ id: data.project.id, name: data.project.name, ownerUserId: data.project.ownerUserId });
       } catch {}
     })();
-
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [api, id, router.isReady, authLoading, user]);
 
-  /* Load shortlist */
   async function loadPage(p: number) {
     const pid = Number(Array.isArray(id) ? id[0] : id);
     if (!Number.isFinite(pid)) return;
     const offset = Math.max(0, (p - 1) * pageSize);
-
-    const res = await fetchVmbRatings(api, {
-      projectId: pid,
-      offset,
-      limit: pageSize,
-    });
-
+    const res = await fetchVmbRatings(api, { projectId: pid, offset, limit: pageSize });
     if (hasItems(res)) {
       setItems(res.items ?? []);
       setTotal(res.total ?? 0);
@@ -381,308 +290,248 @@ function ShortlistInner() {
   useEffect(() => {
     if (!router.isReady || authLoading || !user || !id) return;
     let alive = true;
-
     setLoading(true);
     (async () => {
-      try {
-        await loadPage(page);
-      } catch {
-        setErr("Failed to load shortlist");
-      } finally {
-        if (alive) setLoading(false);
-      }
+      try { await loadPage(page); }
+      catch { setErr("Failed to load shortlist"); }
+      finally { if (alive) setLoading(false); }
     })();
-
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [api, id, page, pageSize, router.isReady, authLoading, user]);
 
-  /* Fetch CH verification + photos */
   useEffect(() => {
-    if (items.length === 0) {
-      setHasPhotos({});
-      setRecVerification({});
-      return;
-    }
-
+    if (items.length === 0) { setHasPhotos({}); setRecVerification({}); return; }
     let cancelled = false;
     (async () => {
       const entries = await Promise.all(
         items.map(async (r) => {
           try {
-            const verRes = await api.get(
-              `/api/recommendations/${r.id}/verification`
-            );
+            const verRes = await api.get(`/api/recommendations/${r.id}/verification`);
             const ver: Verification | null = verRes?.data?.verification ?? null;
-
             let has = false;
             try {
               const { data } = await api.get(`/api/recommendations/${r.id}`);
-              has =
-                Array.isArray(data?.recommendation?.photos) &&
-                data.recommendation.photos.length > 0;
+              has = Array.isArray(data?.recommendation?.photos) && data.recommendation.photos.length > 0;
             } catch {}
-
             return [r.id, has, ver] as const;
-          } catch {
-            return [r.id, false, null] as const;
-          }
+          } catch { return [r.id, false, null] as const; }
         })
       );
-
       if (!cancelled) {
         const photosMap: Record<number, boolean> = {};
         const verMap: Record<number, Verification> = {};
-
         for (const [rid, has, ver] of entries) {
           photosMap[rid] = has;
-          if (ver)
-            verMap[rid] = {
-              ...ver,
-              recommendationId: ver.recommendationId ?? rid,
-            };
+          if (ver) verMap[rid] = { ...ver, recommendationId: ver.recommendationId ?? rid };
         }
-
         setHasPhotos(photosMap);
         setRecVerification(verMap);
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [api, items]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const voteUpOnce = async (rec: Recommendation) => {
     if (!canVote || votingId || rec.myLike === 1) return;
-
     setVotingId(rec.id);
-    setItems((prev) =>
-      prev.map((r) =>
-        r.id === rec.id ? { ...r, myLike: 1, likes: (r.likes ?? 0) + 1 } : r
-      )
-    );
-
+    setItems((prev) => prev.map((r) => r.id === rec.id ? { ...r, myLike: 1, likes: (r.likes ?? 0) + 1 } : r));
     try {
       await voteUpRecommendation(api, rec.id);
       await loadPage(page);
     } catch {
       await loadPage(page);
       alert("Unable to vote right now");
-    } finally {
-      setVotingId(null);
-    }
+    } finally { setVotingId(null); }
   };
 
-  const groups = useMemo(
-    () => groupByCompany(items, recVerification),
-    [items, recVerification]
-  );
+  const groups = useMemo(() => groupByCompany(items, recVerification), [items, recVerification]);
+  const projectTitle = getShortProjectTitle(project?.name);
 
   return (
-    <div
-      className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8"
-      data-testid="recommendations-page"
-    >
-      {/* ===== Header ===== */}
-      <div className="mb-6 rounded-2xl border border-gray-200 bg-white/80 backdrop-blur px-6 py-5 shadow-sm">
-        <div className="flex items-center gap-3">
-          <a
-            href={`/projects/${id}`}
-            className="text-sm text-slate-600 hover:text-slate-800"
-          >
-            ← Back
-          </a>
+    <>
+      <Head>
+        <title>{projectTitle ? `Recommendations · ${projectTitle}` : "Recommendations"} — VetMyBuilder</title>
+        <style>{`body { background: #fafaf9 !important; }`}</style>
+      </Head>
+
+      <div className="relative min-h-screen overflow-x-hidden bg-stone-50 -mt-14">
+        {/* Background bands */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
+          <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
         </div>
-        <h1
-          className="text-2xl font-semibold tracking-tight"
-          data-testid="recommendations-title"
-        >
-          All recommendations for your Job post
-          {project ? ` · ${getShortProjectTitle(project.name)}` : ""}
-        </h1>
 
-        {/* <p className="mt-1 text-sm text-slate-500">
-          Grouped by company and ranked by the VMB score.
-        </p> */}
-      </div>
+        <div className="relative z-10 mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 pt-24 pb-16">
 
-      {/* ===== List ===== */}
-      {loading ? (
-        <p>Loading…</p>
-      ) : err ? (
-        <p className="text-red-600">{err}</p>
-      ) : groups.length === 0 ? (
-        <div className="card">No builders have yet been recommended.</div>
-      ) : (
-        <div className="space-y-3" data-testid="recommendations-list">
-          {groups.map((g) => {
-            const r = g.top;
-            const votes = g.aggLikes;
-            const hasVoted = r.myLike === 1;
+          {/* Header card */}
+          <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 px-7 py-6 mb-6">
+            <Link
+              href={`/projects/${id}`}
+              className="text-sm font-medium text-zinc-500 hover:text-zinc-800 transition-colors"
+            >
+              ← Back
+            </Link>
+            <h1
+              className="mt-2 text-2xl font-black tracking-tight text-zinc-900"
+              data-testid="recommendations-title"
+            >
+              All recommendations
+              {projectTitle ? <span className="text-zinc-400"> · {projectTitle}</span> : ""}
+            </h1>
+            {total > 0 && (
+              <p className="mt-1 text-sm text-zinc-500">{total} recommendation{total !== 1 ? "s" : ""}</p>
+            )}
+          </div>
 
-            const isFriend = r.fromFriend === 1;
-            const isCommunity = r.fromCommunity === 1;
+          {/* List */}
+          {loading ? (
+            <p className="text-sm text-zinc-500 px-1">Loading…</p>
+          ) : err ? (
+            <p className="text-sm text-red-500 px-1">{err}</p>
+          ) : groups.length === 0 ? (
+            <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-7 text-sm text-zinc-500">
+              No builders have yet been recommended.
+            </div>
+          ) : (
+            <div className="space-y-3" data-testid="recommendations-list">
+              {groups.map((g) => {
+                const r = g.top;
+                const votes = g.aggLikes;
+                const hasVoted = r.myLike === 1;
+                const showPhotos = !!hasPhotos[r.id];
+                const ver = recVerification[r.id];
+                const vStatus = ver?.status;
+                const displayCompanyName = resolveCompanyName(r, recVerification);
+                const googleRating = typeof ver?.googleRating === "number" ? ver.googleRating : undefined;
+                const googleReviewsCount = typeof ver?.googleReviewsCount === "number" ? ver.googleReviewsCount : undefined;
+                const recommender = shortlistRecommenderText(r);
 
-            const showPhotos = !!hasPhotos[r.id];
-
-            const ver = recVerification[r.id];
-            const vStatus = ver?.status;
-            const displayCompanyName = resolveCompanyName(r, recVerification);
-
-            const scoreToShow =
-              g.aggScore ?? (typeof r.score === "number" ? r.score : undefined);
-
-            const googleRating =
-              typeof ver?.googleRating === "number"
-                ? ver.googleRating
-                : undefined;
-            const googleReviewsCount =
-              typeof ver?.googleReviewsCount === "number"
-                ? ver.googleReviewsCount
-                : undefined;
-
-            const recommender = shortlistRecommenderText(r);
-
-            return (
-              <div
-                key={g.key}
-                className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm hover:shadow-md transition p-5 relative"
-              >
-                {/* stack count */}
-                {g.extraCount > 0 && (
-                  <span className="absolute -top-2 -right-2 z-20 rounded-full bg-indigo-600 text-white text-[11px] px-2 py-1 shadow-md">
-                    +{g.extraCount} more
-                  </span>
-                )}
-
-                <div className="flex items-start gap-4">
-                  {/* Voting (hidden for owner) */}
-                  {!isOwner && (
-                    <div className="w-12 flex-none flex flex-col items-center">
-                      <button
-                        onClick={() => voteUpOnce(r)}
-                        disabled={!canVote || hasVoted || votingId === r.id}
-                        data-testid="rec-vote-button"
-                        className={`h-9 w-9 rounded-full grid place-items-center border transition ${
-                          hasVoted
-                            ? "bg-indigo-50 border-indigo-200 text-indigo-700 cursor-default"
-                            : "border-slate-200 hover:bg-slate-50"
-                        } ${!canVote ? "opacity-60" : ""}`}
-                      >
-                        <ThumbsUpIcon className="h-4 w-4" />
-                      </button>
-                      <div
-                        data-testid="rec-vote-count"
-                        className="mt-1 text-xs tabular-nums text-slate-600"
-                      >
-                        {votes}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Body */}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="font-medium truncate">
-                          <Link
-                            href={`/builders/${r.id}`}
-                            className="hover:underline"
-                          >
-                            {displayCompanyName}
-                          </Link>
-                        </div>
-
-                        {/* badges row — matching ShortlistSection */}
-                        <div className="mt-1 flex flex-wrap items-center gap-2">
-                          {/* VERIFIED badge */}
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${chBadgeClass(
-                              vStatus as any
-                            )}`}
-                          >
-                            {chIcon(vStatus as any)}
-                            {chLabel(vStatus as any)}
-                          </span>
-
-                          {isFriend && (
-                            <Badge className="border border-blue-200 bg-blue-50 text-blue-700">
-                              Friend
-                            </Badge>
-                          )}
-
-                          {showPhotos && (
-                            <Badge className="border border-indigo-200 bg-indigo-50 text-indigo-700">
-                              <CameraIcon className="h-3.5 w-3.5" />
-                              Photos
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col items-end shrink-0 gap-1 whitespace-nowrap">
-                        <div className="flex items-center gap-3">
-                          {googleRating !== undefined && (
-                            <GoogleRatingChip
-                              rating={googleRating}
-                              count={googleReviewsCount}
-                              placeId={ver?.googlePlaceId ?? undefined}
-                            />
-                          )}
-                          {false && <ScoreChip value={scoreToShow} />}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* comment */}
-                    {r.comment && (
-                      <p className="text-sm text-slate-700 mt-2 whitespace-pre-wrap">
-                        {r.comment}
-                      </p>
+                return (
+                  <div key={g.key} className="relative" data-testid="shortlist-group">
+                    {/* Stack count badge */}
+                    {g.extraCount > 0 && (
+                      <span className="absolute -top-2 -right-2 z-20 rounded-full bg-red-500 text-white text-[11px] leading-none px-2 py-1 shadow-md">
+                        +{g.extraCount} more
+                      </span>
                     )}
 
-                    {/* META — matching shortlist logic */}
-                    <div className="text-xs text-slate-500 mt-3 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span>{recommender}</span>
-                      </div>
+                    <div className="bg-zinc-50 hover:bg-zinc-100/80 transition rounded-2xl p-4">
+                      <div className="flex items-start gap-3">
+                        {/* Avatar */}
+                        <div
+                          className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-sm font-black text-white select-none ${pickAvatarColor(displayCompanyName)}`}
+                          aria-hidden="true"
+                        >
+                          {(displayCompanyName?.[0] ?? "T").toUpperCase()}
+                        </div>
 
-                      {/* ❌ Removed the created date from bottom-right */}
+                        <div className="min-w-0 flex-1">
+                          {/* Name row */}
+                          <div className="flex items-center gap-3">
+                            <div className="font-black text-zinc-900 truncate flex-1 min-w-0">
+                              <Link href={`/builders/${r.id}`} className="hover:underline decoration-zinc-400/60">
+                                {displayCompanyName}
+                              </Link>
+                            </div>
+
+                            {googleRating !== undefined && (
+                              <GoogleRatingChip
+                                rating={googleRating}
+                                count={googleReviewsCount}
+                                placeId={ver?.googlePlaceId ?? undefined}
+                                className="text-xs"
+                              />
+                            )}
+                          </div>
+
+                          {/* Comment */}
+                          {r.comment && (
+                            <p className="text-sm text-zinc-500 mt-0.5 whitespace-pre-wrap">
+                              {r.comment}
+                            </p>
+                          )}
+
+                          {/* Badges */}
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${chBadgeClass(vStatus as any)}`}
+                            >
+                              {chIcon(vStatus as any)}
+                              {chLabel(vStatus as any)}
+                            </span>
+                            {r.fromFriend === 1 && (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 text-sky-700 px-2 py-0.5 text-xs">
+                                Friend
+                              </span>
+                            )}
+                            {showPhotos && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 text-xs">
+                                <CameraIcon className="h-3.5 w-3.5" />
+                                Photos
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Footer row */}
+                          <div className="mt-2 flex items-center justify-between">
+                            <span className="text-xs text-zinc-400">{recommender}</span>
+
+                            {/* Vote button (non-owner) */}
+                            {!isOwner && (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => voteUpOnce(r)}
+                                  disabled={!canVote || hasVoted || votingId === r.id}
+                                  data-testid="rec-vote-button"
+                                  className={`h-8 w-8 rounded-full grid place-items-center border transition ${
+                                    hasVoted
+                                      ? "bg-red-50 border-red-200 text-red-500 cursor-default"
+                                      : "border-zinc-200 hover:bg-zinc-100"
+                                  } ${!canVote ? "opacity-60" : ""}`}
+                                >
+                                  <ThumbsUpIcon className="h-3.5 w-3.5" />
+                                </button>
+                                <span data-testid="rec-vote-count" className="text-xs tabular-nums text-zinc-500 w-4 text-center">
+                                  {votes}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
+                );
+              })}
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-4">
+                  <button
+                    className="inline-flex items-center justify-center rounded-full border-2 border-zinc-200 bg-white px-5 py-2 text-sm font-bold text-zinc-700 hover:bg-zinc-50 transition-colors disabled:opacity-40"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    ← Prev
+                  </button>
+                  <span className="text-sm text-zinc-500">
+                    Page {page} / {totalPages}
+                  </span>
+                  <button
+                    className="inline-flex items-center justify-center rounded-full bg-red-500 px-5 py-2 text-sm font-bold text-white shadow-sm shadow-red-500/25 hover:bg-red-600 transition-colors disabled:opacity-40"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    Next →
+                  </button>
                 </div>
-              </div>
-            );
-          })}
-
-          {/* Pager */}
-          <div className="flex items-center justify-between pt-2">
-            <button
-              className="btn disabled:opacity-50"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              Prev
-            </button>
-
-            <div className="text-sm text-slate-600">
-              Page {page} / {totalPages} • Total: {total}
+              )}
             </div>
-
-            <button
-              className="btn disabled:opacity-50"
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Next
-            </button>
-          </div>
+          )}
         </div>
-      )}
-    </div>
+      </div>
+    </>
   );
 }

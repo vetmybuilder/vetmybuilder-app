@@ -70,7 +70,7 @@ export default function Step1Company({
   disableBusinessEmail,
 }: Props) {
   return (
-    <form className="card grid gap-3" onSubmit={onNext} data-testid="step-1">
+    <form className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-8 grid gap-5" onSubmit={onNext} data-testid="step-1">
       <label
         className="text-sm"
         htmlFor="companyName"
@@ -201,8 +201,8 @@ export default function Step1Company({
         <label className="text-sm">Website (optional)</label>
         <div className="mt-1">
           {!form.website ? (
-            <div className="group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm focus-within:ring-2 focus-within:ring-indigo-500">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900 text-white">
+            <div className="group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm focus-within:ring-2 focus-within:ring-red-400">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-zinc-900 text-white">
                 🌐
               </span>
               <span className="shrink-0 text-sm text-slate-700 w-28">
@@ -218,7 +218,7 @@ export default function Step1Company({
               />
               <button
                 type="button"
-                className="rounded-xl px-3 py-1.5 text-sm bg-slate-900 text-white hover:bg-slate-800"
+                className="rounded-xl px-3 py-1.5 text-sm bg-red-500 text-white hover:bg-red-600"
                 onClick={commitWebsite}
                 aria-label="Add website"
               >
@@ -228,7 +228,7 @@ export default function Step1Company({
           ) : (
             <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
               <div className="flex items-center gap-3 min-w-0">
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900 text-white">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-zinc-900 text-white">
                   🌐
                 </span>
                 <span className="shrink-0 text-sm text-slate-700 w-28">
@@ -340,7 +340,7 @@ export default function Step1Company({
 
       <div className="mt-1 flex items-center justify-end gap-2">
         <button
-          className="rounded-xl px-4 py-2 text-sm bg-slate-900 text-white hover:bg-slate-800"
+          className="inline-flex items-center justify-center rounded-full bg-red-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:bg-red-600 transition-all"
           data-testid="btn-next"
           disabled={
             !canProceed &&

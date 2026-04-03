@@ -11,11 +11,11 @@ type Props = {
 export default function BuilderContactDetails({ user, phones }: Props) {
   return (
     <section
-      className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm"
+      className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-6 sm:p-7"
       aria-label="Contact details"
       data-testid="contact-details-card"
     >
-      <h2 className="text-sm sm:text-base font-semibold text-slate-900 mb-4">
+      <h2 className="text-lg font-black text-zinc-900 mb-4">
         Profile details
       </h2>
 

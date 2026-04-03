@@ -174,7 +174,7 @@ export default function Home() {
       icon: IconShortlist,
       title: "Shortlist & hire",
       tagline: "With confidence",
-      description: "Compare feedback, build your shortlist, and pick the right tradesperson — no more guesswork.",
+      description: "Compare feedback, build your shortlist, and pick the right tradesperson - no more guesswork.",
       color: "amber",
     },
   ];
@@ -182,7 +182,7 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>VetMyBuilder — Find a tradesperson you actually trust</title>
+        <title>VetMyBuilder - Find a tradesperson you actually trust</title>
         <meta name="description" content="Community-powered tradesperson vetting for UK homeowners. Post a job, gather recommendations, hire with confidence." />
         {/* Override body background to cream so the header gap area blends in */}
         <style>{`body { background: #fafaf9 !important; }`}</style>
@@ -193,18 +193,18 @@ export default function Home() {
         <section className="relative pt-20 sm:pt-24 pb-16 sm:pb-20 overflow-hidden bg-stone-50" aria-label="Hero">
           {/* Diagonal colour bands */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            {/* Pink/rose band — right side */}
+            {/* Pink/rose band - right side */}
             <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
-            {/* Sage green blob — bottom left */}
+            {/* Sage green blob - bottom left */}
             <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
           </div>
 
           <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 lg:gap-16 items-center">
-              {/* Left: Text — 3/5 width so 'tradesperson' fits on one line */}
+              {/* Left: Text - 3/5 width so 'tradesperson' fits on one line */}
               <div className="lg:col-span-3">
                 <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-4 py-1.5 text-sm font-bold text-zinc-800 mb-6">
-                  The smarter way to hire a tradesperson
+                  👋 The smarter way to hire a tradesperson
                 </div>
 
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.05] text-zinc-900">
@@ -232,7 +232,7 @@ export default function Home() {
                 </h1>
 
                 <p className="mt-6 text-xl sm:text-2xl leading-relaxed text-zinc-600 font-medium">
-                  Post a job. Get recommendations from people you know. Hire with confidence. It&apos;s that simple.
+                  Post a job. Get vetted by your neighbourhood. Hire with confidence. It&apos;s that simple.
                 </p>
 
                 <div className="mt-10 flex flex-col sm:flex-row gap-4">
@@ -245,12 +245,13 @@ export default function Home() {
                     Start your project
                     <IconArrowRight className="h-5 w-5" />
                   </Link>
-                  <Link
-                    href="#how-it-works"
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}
                     className="inline-flex items-center justify-center gap-2 rounded-full bg-zinc-100 px-8 py-4 text-lg font-bold text-zinc-900 hover:bg-zinc-200 transition-colors"
                   >
                     See how it works
-                  </Link>
+                  </button>
                 </div>
 
                 {/* Social proof */}
@@ -285,7 +286,7 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Right: Image with fun frame — 2/5 width */}
+              {/* Right: Image with fun frame - 2/5 width */}
               <div className="relative hidden lg:block lg:col-span-2">
                 <div className="relative rounded-3xl overflow-hidden shadow-2xl rotate-2 hover:rotate-0 transition-transform duration-500">
                   <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/40 via-transparent to-transparent z-10" />
@@ -485,7 +486,7 @@ export default function Home() {
                     "Recommendations only from people you trust",
                     "No paid placements or sponsored listings",
                     "100% transparent ratings and feedback",
-                    "Completely free to use — always",
+                    "Completely free to use - always",
                   ].map((item, i) => (
                     <li key={i} className="flex items-start gap-4">
                       <div className="flex-shrink-0 h-7 w-7 rounded-full bg-emerald-500 flex items-center justify-center mt-0.5">

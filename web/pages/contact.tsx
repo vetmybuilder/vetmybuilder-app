@@ -1,6 +1,7 @@
 // web/pages/contact.tsx
 import Head from "next/head";
 import { useState } from "react";
+import { useAuth } from "@/utils/auth";
 
 function IconArrowRight(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -11,6 +12,8 @@ function IconArrowRight(props: React.SVGProps<SVGSVGElement>) {
 }
 
 export default function Contact() {
+  const { user } = useAuth();
+
   const [submitted, setSubmitted] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", subject: "", message: "" });
   const [sending, setSending] = useState(false);
@@ -90,18 +93,20 @@ export default function Contact() {
                   </p>
                 </div>
 
-                <div className="bg-amber-50 rounded-3xl p-8">
-                  <h3 className="text-lg font-black text-zinc-900 mb-3">Are you a tradesperson?</h3>
-                  <p className="text-zinc-600 text-sm leading-relaxed mb-4">
-                    Interested in getting listed or have questions about your profile?
-                  </p>
-                  <a
-                    href="/tradesman/register"
-                    className="inline-flex items-center gap-2 text-sm font-bold text-amber-700 hover:text-amber-800 transition-colors"
-                  >
-                    Register as a tradesperson <IconArrowRight className="h-4 w-4" />
-                  </a>
-                </div>
+                {!user && (
+                  <div className="bg-amber-50 rounded-3xl p-8">
+                    <h3 className="text-lg font-black text-zinc-900 mb-3">Are you a tradesperson?</h3>
+                    <p className="text-zinc-600 text-sm leading-relaxed mb-4">
+                      Interested in getting listed or have questions about your profile?
+                    </p>
+                    <a
+                      href="/tradesman/register-tradesmen"
+                      className="inline-flex items-center gap-2 text-sm font-bold text-amber-700 hover:text-amber-800 transition-colors"
+                    >
+                      Register as a tradesperson <IconArrowRight className="h-4 w-4" />
+                    </a>
+                  </div>
+                )}
               </div>
 
               {/* Form */}

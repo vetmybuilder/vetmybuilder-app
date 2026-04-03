@@ -144,7 +144,7 @@ function SpotlightTile({
     <button
       type="button"
       onClick={onClick}
-      className="group w-full text-left focus:outline-none"
+      className="group block w-full text-left focus:outline-none leading-[0]"
       aria-label={`View ${name}`}
     >
       <div

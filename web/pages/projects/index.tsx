@@ -1,4 +1,5 @@
 // web/pages/projects/index.tsx
+import Head from "next/head";
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -50,9 +51,15 @@ type OwnerTab = ProjectTabKey | "favourites";
 /* ===== Outer page: auth + gate ===== */
 export default function ProjectsPage() {
   return (
-    <AuthedOnly>
-      <ProjectsGate />
-    </AuthedOnly>
+    <>
+      <Head>
+        <title>My Projects — VetMyBuilder</title>
+        <style>{`body { background: #fafaf9 !important; }`}</style>
+      </Head>
+      <AuthedOnly>
+        <ProjectsGate />
+      </AuthedOnly>
+    </>
   );
 }
 
@@ -107,7 +114,7 @@ function ProjectsGate() {
 
   if (status === "redirect") {
     return (
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 text-sm text-slate-500">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 text-sm text-zinc-400">
         Redirecting…
       </div>
     );
@@ -115,7 +122,7 @@ function ProjectsGate() {
 
   if (status !== "ok") {
     return (
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 text-sm text-slate-500">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 text-sm text-zinc-400">
         Loading…
       </div>
     );
@@ -442,20 +449,26 @@ function OwnerProjects() {
   }, [items]);
 
   const SkeletonCard = () => (
-    <div className="rounded-2xl border border-slate-200 p-3 animate-pulse">
-      <div className="aspect-[4/3] rounded-xl bg-slate-200 mb-3" />
-      <div className="h-4 w-3/4 bg-slate-200 rounded mb-2" />
+    <div className="rounded-2xl border border-zinc-200 p-3 animate-pulse">
+      <div className="aspect-[4/3] rounded-xl bg-zinc-200 mb-3" />
+      <div className="h-4 w-3/4 bg-zinc-200 rounded mb-2" />
       <div className="space-y-2">
-        <div className="h-3 w-1/2 bg-slate-200 rounded" />
-        <div className="h-3 w-2/3 bg-slate-200 rounded" />
-        <div className="h-3 w-1/3 bg-slate-200 rounded" />
+        <div className="h-3 w-1/2 bg-zinc-200 rounded" />
+        <div className="h-3 w-2/3 bg-zinc-200 rounded" />
+        <div className="h-3 w-1/3 bg-zinc-200 rounded" />
       </div>
     </div>
   );
 
   return (
+    <div className="relative min-h-screen overflow-hidden bg-stone-50">
+      {/* Background bands matching homepage hero */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
+        <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
+      </div>
     <div
-      className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8"
+      className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 lg:px-8"
       data-testid="projects-page"
     >
       {/* top padding so content doesn’t crash into header */}
@@ -553,10 +566,10 @@ function OwnerProjects() {
                 [...Array(4)].map((_, i) => <SkeletonCard key={`skc-${i}`} />)}
               {items.length === 0 && !loading && (
                 <div
-                  className="col-span-full text-sm text-zinc-400"
+                  className="col-span-full py-12 text-center text-sm text-zinc-400"
                   data-testid="projects-empty"
                 >
-                  No projects.
+                  No projects yet.
                 </div>
               )}
             </div>
@@ -592,10 +605,10 @@ function OwnerProjects() {
                 [...Array(4)].map((_, i) => <SkeletonCard key={`sk-${i}`} />)}
               {items.length === 0 && !loading && (
                 <div
-                  className="col-span-full text-sm text-zinc-400"
+                  className="col-span-full py-12 text-center text-sm text-zinc-400"
                   data-testid="projects-empty"
                 >
-                  No projects.
+                  No projects yet.
                 </div>
               )}
             </div>
@@ -603,12 +616,12 @@ function OwnerProjects() {
 
           <div ref={sentinelRef} />
 
-          <div className="flex flex-col items-center gap-2 mt-6">
-            <div className="text-sm text-slate-600">
+          <div className="flex flex-col items-center gap-3 mt-8">
+            <div className="text-sm text-zinc-400">
               Showing {items.length} of {total}
             </div>
             <button
-              className="btn disabled:opacity-50"
+              className="inline-flex items-center justify-center rounded-full bg-zinc-900 px-6 py-3 text-sm font-bold text-white hover:bg-zinc-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               onClick={() => fetchPage(page + 1)}
               disabled={!hasMore || loading}
               id="load-more"
@@ -622,6 +635,7 @@ function OwnerProjects() {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }

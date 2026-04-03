@@ -1,6 +1,7 @@
 // pages/projects/[id].tsx
 import * as React from "react";
 import { useEffect, useState } from "react";
+import Head from "next/head";
 import { useProjectView } from "@/components/project/views/useProjectView";
 import OwnerProjectView from "@/components/project/views/OwnerProjectView";
 import TradesmanProjectView from "@/components/project/views/TradesmanProjectView";
@@ -63,8 +64,14 @@ export default function ProjectViewPage() {
 
   if (!ready) {
     return (
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
-        {vm.loadingUi}
+      <div className="relative min-h-screen overflow-hidden bg-stone-50">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
+          <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
+        </div>
+        <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
+          {vm.loadingUi}
+        </div>
       </div>
     );
   }
@@ -87,13 +94,25 @@ export default function ProjectViewPage() {
   // 5) FINAL RENDER
   // ---------------------------------------------------------
   return (
-    <div
-      className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8"
-      data-testid="project-view-page"
-    >
-      {viewContent}
-      {vm.closeProjectModal}
-      {vm.plansModal}
-    </div>
+    <>
+      <Head>
+        <title>{vm.project?.name ? `${vm.project.name} — VetMyBuilder` : "Project — VetMyBuilder"}</title>
+        <style>{`body { background: #fafaf9 !important; }`}</style>
+      </Head>
+      <div className="relative min-h-screen overflow-hidden bg-stone-50">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
+          <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
+        </div>
+        <div
+          className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8"
+          data-testid="project-view-page"
+        >
+          {viewContent}
+          {vm.closeProjectModal}
+          {vm.plansModal}
+        </div>
+      </div>
+    </>
   );
 }

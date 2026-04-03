@@ -4,7 +4,7 @@ import Head from "next/head";
 const sections = [
   {
     title: "Who we are",
-    content: `VetMyBuilder Ltd ("VetMyBuilder", "we", "us", "our") operates the website at vetmybuilder.com. We are registered in England and Wales. This Privacy Policy explains how we collect, use, disclose, and safeguard your personal information when you use our platform.
+    content: `Connect2Find Ltd (trading as VetMyBuilder, "we", "us", "our") operates the website at vetmybuilder.com. We are registered in England and Wales. This Privacy Policy explains how we collect, use, disclose, and safeguard your personal information when you use our platform.
 
 If you have questions about this policy, contact us at hello@vetmybuilder.com.`,
   },

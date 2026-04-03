@@ -293,7 +293,7 @@ export default function SiteHeader() {
                   >
                     <Home className="h-4 w-4" />
                   </span>
-                  <span className="text-lg font-black tracking-tight text-zinc-900">
+                  <span className="text-2xl font-black tracking-tight text-zinc-900">
                     Vet<span className="text-red-500">My</span>Builder
                   </span>
                 </Link>
@@ -391,7 +391,7 @@ export default function SiteHeader() {
 
                     <Link
                       href="/login"
-                      className="hidden sm:inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium bg-red-500 text-white shadow-sm hover:bg-red-600"
+                      className="hidden sm:inline-flex items-center gap-1.5 justify-center rounded-xl px-3 h-9 text-sm font-medium bg-red-500 text-white shadow-sm hover:bg-red-600"
                       aria-label="Homeowner sign in"
                       data-testid="nav-sign-in"
                     >
@@ -472,11 +472,13 @@ export default function SiteHeader() {
               >
                 <span
                   aria-hidden
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-slate-900 text-white ring-1 ring-slate-900/10 shadow-sm"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-red-500 text-white shadow-sm"
                 >
                   <Home className="h-4 w-4" />
                 </span>
-                <span className="sr-only">VetMyBuilder</span>
+                <span className="text-2xl font-black tracking-tight text-zinc-900">
+                  Vet<span className="text-red-500">My</span>Builder
+                </span>
               </Link>
             </div>
 
@@ -719,7 +721,7 @@ export default function SiteHeader() {
               {!user && (
                 <Link
                   href="/login"
-                  className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium bg-red-500 text-white shadow-sm hover:bg-red-600"
+                  className="inline-flex items-center gap-1.5 justify-center rounded-xl px-3 h-9 text-sm font-medium bg-red-500 text-white shadow-sm hover:bg-red-600"
                   aria-label="Homeowner sign in"
                   data-testid="nav-sign-in"
                 >
