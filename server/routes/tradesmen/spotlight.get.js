@@ -193,11 +193,20 @@ module.exports = (router, ctx) => {
 
       const nowIso = new Date().toISOString();
 
+      // Check if public_id column exists (may be missing on pre-migration prod DB)
+      let hasPublicIdCol = false;
+      try {
+        const colCheck = await mysqlQuery(
+          `SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'tradesmen' AND COLUMN_NAME = 'public_id' LIMIT 1`
+        );
+        hasPublicIdCol = colCheck.length > 0;
+      } catch { /* ignore */ }
+
       const rows = await mysqlQuery(
         `
         SELECT
           t.user_id AS userId,
-          t.public_id AS publicId,
+          ${hasPublicIdCol ? "t.public_id AS publicId," : "NULL AS publicId,"}
           t.company_name AS companyName,
           t.contact_name AS contactName,
           t.profile_picture_url AS profilePictureUrl,

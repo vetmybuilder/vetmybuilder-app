@@ -200,11 +200,37 @@ function Inner() {
 
   if (err) {
     return (
-      <div className="relative min-h-screen bg-stone-50 -mt-14">
-        <div className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pt-24">
-          <p className="text-sm text-red-500">{err}</p>
+      <>
+        <Head>
+          <title>Tradesman not found — VetMyBuilder</title>
+          <style>{`body { background: #fafaf9 !important; }`}</style>
+        </Head>
+        <div className="overflow-x-hidden min-h-screen">
+          <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-stone-50">
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+              <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
+              <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
+            </div>
+            <div className="relative z-10 w-full max-w-lg px-4 sm:px-0 text-center">
+              <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-10 sm:p-14">
+                <p className="text-8xl font-black text-red-500 leading-none mb-4">404</p>
+                <h1 className="text-2xl font-black tracking-tight text-zinc-900 mb-3">
+                  Tradesman not found
+                </h1>
+                <p className="text-zinc-500 text-sm leading-relaxed mb-8">
+                  This tradesman profile doesn&apos;t exist or is no longer available.
+                </p>
+                <a
+                  href="/"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-red-500 px-8 py-3.5 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] transition-all"
+                >
+                  Back to home
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 

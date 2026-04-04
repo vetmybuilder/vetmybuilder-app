@@ -194,7 +194,9 @@ module.exports = (router, ctx) => {
         return res.status(400).json({ error: "MISSING_ID" });
       }
 
-      /* 1) Load tradesman row — try public_id first, fall back to user_id */
+      /* 1) Load tradesman row — try public_id first, fall back to user_id.
+            If the public_id column doesn't exist yet (pre-migration prod DB),
+            fall back to user_id-only lookup. */
       let rows;
       try {
         rows = await mysqlQuery(
@@ -202,15 +204,23 @@ module.exports = (router, ctx) => {
           [publicId, publicId]
         );
       } catch (e) {
-        log.error(`${TAG} SELECT error`, {
-          stage: "select_tradesman",
-          error: e?.message || e,
-        });
-        return res.status(500).json({
-          error: "FAILED",
-          stage: "select_tradesman",
-          message: String(e?.message || e),
-        });
+        const msg = String(e?.message || e);
+        if (msg.includes("public_id")) {
+          // Column not yet in DB — fall back to user_id only
+          log.warn(`${TAG} public_id column missing, falling back to user_id lookup`);
+          try {
+            rows = await mysqlQuery(
+              `SELECT * FROM tradesmen WHERE user_id = ? LIMIT 1`,
+              [publicId]
+            );
+          } catch (e2) {
+            log.error(`${TAG} SELECT error (fallback)`, { error: e2?.message || e2 });
+            return res.status(500).json({ error: "FAILED", stage: "select_tradesman" });
+          }
+        } else {
+          log.error(`${TAG} SELECT error`, { stage: "select_tradesman", error: msg });
+          return res.status(500).json({ error: "FAILED", stage: "select_tradesman", message: msg });
+        }
       }
 
       const row = rows?.[0];
