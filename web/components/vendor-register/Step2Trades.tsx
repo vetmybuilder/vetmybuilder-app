@@ -1,5 +1,6 @@
 // web/components/vendor-register/Step2Trades.tsx
 import { useMemo, useState, useEffect } from "react";
+import { Check, ArrowLeft, ArrowRight, Wrench, Images } from "lucide-react";
 import { TRADE_TYPES, type TradeType } from "@/types/tradeTypes";
 import FileGridUploader from "@/components/fileUpload/FileGridUploader";
 
@@ -116,49 +117,55 @@ export default function Step2Trades({
   const clearAll = () => setTradeTypes([]);
 
   return (
-    <form className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-8 grid gap-6" onSubmit={onNext} data-testid="step-2">
-      <div className="flex items-end justify-between gap-3">
+    <form className="bg-white rounded-2xl shadow-lg shadow-zinc-200/60 p-7 sm:p-9 space-y-7" onSubmit={onNext} data-testid="step-2">
+
+      {/* ── Trades section ── */}
+      <div className="space-y-4">
+        {/* Header */}
         <div>
-          <h2 className="text-xl font-black text-zinc-900 mb-1">Choose your trades</h2>
-          <p className="text-sm text-zinc-500">
-            Pick everything you genuinely offer—this helps us match you to the
-            right projects.
+          <div className="flex items-center gap-2 mb-0.5">
+            <Wrench className="h-4 w-4 text-zinc-400" />
+            <h2 className="text-sm font-bold text-zinc-800">Choose your trades</h2>
+            {tradeTypes.length > 0 && (
+              <span className="ml-1 rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
+                {tradeTypes.length}
+              </span>
+            )}
+            {tradeTypes.length > 0 && (
+              <button
+                type="button"
+                className="ml-auto text-xs text-zinc-400 hover:text-red-500 transition-colors"
+                onClick={clearAll}
+                data-testid="btn-clear-trades"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-zinc-400 ml-6">
+            Pick everything you genuinely offer — helps us match you to the right projects.
           </p>
         </div>
-        {tradeTypes.length > 0 && (
-          <button
-            type="button"
-            className="text-sm text-zinc-500 hover:text-zinc-900"
-            onClick={clearAll}
-            data-testid="btn-clear-trades"
-            aria-label="Clear all selected trades"
-          >
-            Clear all
-          </button>
-        )}
-      </div>
 
-      {/* Search */}
-      <div className="grid gap-3">
+        {/* Search */}
         <input
           type="search"
-          className="h-11 w-full rounded-2xl border-2 border-zinc-200 bg-white px-4 text-[15px] leading-6 placeholder:text-zinc-400 focus:border-red-400 focus:outline-none transition-colors"
+          className="h-11 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 text-sm placeholder:text-zinc-400 focus:border-red-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-400/20 transition-colors"
           placeholder="Search trades… e.g., electrician, tiler, loft (synonyms supported)"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           data-testid="input-trades-search"
-          aria-label="Search trades"
         />
 
-        {/* Buckets (wrap, neutral) */}
-        <div className="flex flex-wrap gap-2">
+        {/* Bucket filters */}
+        <div className="flex flex-wrap gap-1.5">
           <button
             type="button"
             onClick={() => setBucket("")}
-            className={`px-3 py-1.5 rounded-2xl text-sm ring-1 ${
+            className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
               bucket === ""
-                ? "bg-zinc-900 text-white ring-zinc-900"
-                : "bg-white text-zinc-700 ring-zinc-200 hover:bg-zinc-50"
+                ? "bg-zinc-900 text-white"
+                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
             }`}
             data-testid="bucket-all"
           >
@@ -168,11 +175,11 @@ export default function Step2Trades({
             <button
               key={b}
               type="button"
-              onClick={() => setBucket(b)}
-              className={`px-3 py-1.5 rounded-2xl text-sm ring-1 ${
+              onClick={() => setBucket(b === bucket ? "" : b)}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
                 bucket === b
-                  ? "bg-slate-900 text-white ring-slate-900"
-                  : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
+                  ? "bg-zinc-900 text-white"
+                  : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
               }`}
               data-testid={`bucket-${b}`}
             >
@@ -181,74 +188,47 @@ export default function Step2Trades({
           ))}
         </div>
 
-        {/* Selected — minimal chips */}
-        {tradeTypes.length > 0 && (
-          <div
-            className="flex flex-wrap items-center gap-2"
-            data-testid="selected-trades"
-          >
-            {tradeTypes.map((t) => (
-              <span
-                key={t}
-                className="inline-flex items-center gap-2 rounded-full bg-zinc-100 px-3 py-1 text-sm text-zinc-700"
-              >
-                {t}
-                <button
-                  type="button"
-                  onClick={() => clearOne(t)}
-                  className="rounded-full p-0.5 text-zinc-400 hover:text-zinc-700 focus:outline-none"
-                  aria-label={`Remove ${t}`}
-                  title="Remove"
-                >
-                  ×
-                </button>
-              </span>
-            ))}
+        {/* Trade pills grid */}
+        <div className="rounded-xl border border-zinc-200 bg-zinc-50/50">
+          <div className="max-h-72 overflow-y-auto p-4" data-testid="trades-list">
+            {filtered.length === 0 ? (
+              <p className="text-sm text-zinc-400">No matches{query ? ` for "${query}"` : ""}.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2" data-testid="selected-trades">
+                {filtered.map((t) => {
+                  const label = t.label;
+                  const checked = tradeTypes.includes(label);
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => setTradeTypes(toggle(tradeTypes, label))}
+                      aria-pressed={checked}
+                      aria-label={label}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-all ${
+                        checked
+                          ? "bg-red-500 text-white shadow-sm shadow-red-500/30 scale-[1.02]"
+                          : "bg-white text-zinc-600 border border-zinc-200 hover:border-red-300 hover:text-red-500"
+                      }`}
+                    >
+                      {checked && <Check className="h-3.5 w-3.5 shrink-0" />}
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
-      </div>
-
-      {/* Results list */}
-      <div className="rounded-2xl border-2 border-zinc-200">
-        <div className="max-h-80 overflow-auto p-3" data-testid="trades-list">
-          {filtered.length === 0 ? (
-            <p className="px-1 py-2 text-sm text-zinc-400">
-              No matches{query ? ` for "${query}"` : ""}.
-            </p>
-          ) : (
-            <ul className="grid md:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-2">
-              {filtered.map((t) => {
-                const label = t.label;
-                const checked = tradeTypes.includes(label);
-                return (
-                  <li key={label}>
-                    <label className="inline-flex select-none items-center gap-3 text-[15px] leading-6 text-zinc-800">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-zinc-300 accent-red-500"
-                        checked={checked}
-                        onChange={() =>
-                          setTradeTypes(toggle(tradeTypes, label))
-                        }
-                        aria-checked={checked}
-                        aria-label={label}
-                      />
-                      <span>{label}</span>
-                    </label>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
         </div>
       </div>
 
-      {/* Work photos */}
-      <div data-testid="work-photos">
-        <label className="text-sm font-medium block mb-1">
-          Pictures of your work
-        </label>
-        <p className="text-xs text-zinc-400 mb-2">
+      {/* ── Work photos ── */}
+      <div data-testid="work-photos" className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Images className="h-4 w-4 text-zinc-400" />
+          <label className="text-sm font-bold text-zinc-800">Pictures of your work</label>
+        </div>
+        <p className="text-xs text-zinc-400 ml-6">
           Upload photos of your completed projects, then choose one as your
           profile picture. Homeowners are far more likely to reach out when they
           can see who they&rsquo;d be hiring.
@@ -307,25 +287,25 @@ export default function Step2Trades({
       </div>
 
       {err && (
-        <p className="text-sm text-red-600" role="alert">
-          {err}
-        </p>
+        <p className="text-sm text-red-600 font-medium" role="alert">{err}</p>
       )}
 
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between border-t border-zinc-100 pt-6">
         <button
           type="button"
-          className="inline-flex items-center justify-center rounded-full border-2 border-zinc-200 bg-white px-6 py-3 text-sm font-bold text-zinc-700 hover:bg-zinc-50 transition-all"
+          className="inline-flex items-center gap-2 rounded-full border-2 border-zinc-200 bg-white px-5 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 transition-colors"
           onClick={onBack}
           data-testid="btn-back"
         >
+          <ArrowLeft className="h-4 w-4" />
           Back
         </button>
         <button
-          className="inline-flex items-center justify-center rounded-full bg-red-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:bg-red-600 transition-all"
+          className="inline-flex items-center gap-2 rounded-full bg-red-500 px-6 py-2.5 text-sm font-bold text-white shadow-sm shadow-red-500/25 hover:bg-red-600 transition-colors"
           data-testid="btn-continue"
         >
-          Next
+          Continue
+          <ArrowRight className="h-4 w-4" />
         </button>
       </div>
     </form>

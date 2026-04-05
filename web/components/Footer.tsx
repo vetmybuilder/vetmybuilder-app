@@ -56,8 +56,10 @@ export default function Footer() {
             <h4 className="font-bold text-white mb-4">Platform</h4>
             <ul className="space-y-3">
               {[
-                { label: "How it Works", href: "/how-it-works" },
-                { label: "Post a Job", href: "/projects/new" },
+                isTrades
+                  ? { label: "How it Works", href: "/how-it-works-trades" }
+                  : { label: "How it Works", href: "/how-it-works" },
+                ...(user && !isTrades ? [{ label: "Post a Job", href: "/projects/new" }] : []),
                 ...(!user ? [{ label: "Sign Up", href: "/signup" }] : []),
               ].map((item) => (
                 <li key={item.label}>

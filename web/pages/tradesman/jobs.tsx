@@ -115,7 +115,7 @@ export default function TradesJobsPage() {
         <div className="mb-4 flex items-center justify-between gap-3">
           <h1 className="text-2xl font-semibold">Jobs</h1>
           <Link
-            href="/tradesman/register"
+            href="/tradesman/profile"
             className="text-sm text-indigo-700 hover:text-indigo-600"
             data-testid="link-edit-trades-profile"
             title="Edit trades profile"
@@ -140,7 +140,7 @@ export default function TradesJobsPage() {
                   <a
                     className="btn"
                     href={`/login?next=${encodeURIComponent(
-                      "/tradesman/register"
+                      "/tradesman/register-tradesmen"
                     )}`}
                     data-testid="gate-login"
                   >
@@ -149,7 +149,7 @@ export default function TradesJobsPage() {
                   <a
                     className="btn btn-secondary"
                     href={`/register?next=${encodeURIComponent(
-                      "/tradesman/register"
+                      "/tradesman/register-tradesmen"
                     )}`}
                     data-testid="gate-register"
                   >
@@ -159,7 +159,7 @@ export default function TradesJobsPage() {
               ) : (
                 <Link
                   className="btn"
-                  href="/tradesman/register"
+                  href="/tradesman/register-tradesmen"
                   data-testid="gate-go-register"
                 >
                   Create trades profile

@@ -378,7 +378,7 @@ export default function TradesmanProjectAccordionRow({
       contactStatus === "verification_rejected" ||
       contactStatus === "verification_pending"
     ) {
-      router.push("/tradesman/register");
+      router.push("/tradesman/profile");
       return;
     }
 
