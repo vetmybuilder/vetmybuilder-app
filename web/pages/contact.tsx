@@ -2,6 +2,7 @@
 import Head from "next/head";
 import { useState } from "react";
 import { useAuth } from "@/utils/auth";
+import api from "@/utils/api";
 
 function IconArrowRight(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -17,14 +18,20 @@ export default function Contact() {
   const [submitted, setSubmitted] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", subject: "", message: "" });
   const [sending, setSending] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSending(true);
-    // Simulate send — replace with real endpoint when ready
-    await new Promise((r) => setTimeout(r, 800));
-    setSubmitted(true);
-    setSending(false);
+    setErr(null);
+    try {
+      await api.post("/api/contact", form);
+      setSubmitted(true);
+    } catch {
+      setErr("Something went wrong — please try again or email us directly.");
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
@@ -43,17 +50,82 @@ export default function Contact() {
             <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
           </div>
           <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-            <div className="max-w-2xl">
-              <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-4 py-1.5 text-sm font-bold text-zinc-800 mb-6">
-                <span>We&apos;d love to hear from you</span>
+            <div className="grid lg:grid-cols-2 gap-12 items-center">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-4 py-1.5 text-sm font-bold text-zinc-800 mb-6">
+                  <span>We&apos;d love to hear from you</span>
+                </div>
+                <h1 className="text-5xl sm:text-6xl font-black tracking-tight leading-[0.95] text-zinc-900">
+                  Get in <span className="text-red-500">touch</span>
+                </h1>
+                <p className="mt-6 text-xl text-zinc-600 leading-relaxed font-medium">
+                  Questions, feedback, or just want to say hello? Drop us a message and
+                  we&apos;ll get back to you within one working day.
+                </p>
               </div>
-              <h1 className="text-5xl sm:text-6xl font-black tracking-tight leading-[0.95] text-zinc-900">
-                Get in <span className="text-red-500">touch</span>
-              </h1>
-              <p className="mt-6 text-xl text-zinc-600 leading-relaxed font-medium">
-                Questions, feedback, or just want to say hello? Drop us a message and
-                we&apos;ll get back to you within one working day.
-              </p>
+
+              {/* Illustration */}
+              <div className="hidden lg:flex items-center justify-center">
+                <div className="relative w-full max-w-sm">
+                  {/* Main message card */}
+                  <div className="bg-white rounded-3xl shadow-2xl shadow-zinc-300/50 p-5 border border-zinc-100">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="h-10 w-10 rounded-2xl bg-red-50 flex items-center justify-center flex-shrink-0">
+                        <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5 text-red-500" aria-hidden>
+                          <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="2"/>
+                          <path d="M3 7l9 6 9-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <div className="text-sm font-black text-zinc-900">New message</div>
+                        <div className="text-xs text-zinc-400">From your website</div>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-zinc-100 my-3" />
+
+                    <div className="space-y-3">
+                      {[
+                        { label: "Name", value: "Jane Smith", bg: "bg-red-500" },
+                        { label: "Subject", value: "General enquiry" },
+                        { label: "Message", value: "Hi, I'd love to find out more about listing my business…" },
+                      ].map((row) => (
+                        <div key={row.label} className="flex items-start gap-3 bg-zinc-50 rounded-2xl px-3 py-2.5">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 w-16 shrink-0 pt-0.5">{row.label}</div>
+                          <div className="text-xs font-medium text-zinc-700">{row.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Floating reply badge */}
+                  <div className="absolute -bottom-4 -right-4 bg-white rounded-2xl shadow-xl shadow-zinc-200/70 px-4 py-3 flex items-center gap-2.5 border border-zinc-100">
+                    <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                      <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 text-emerald-600" aria-hidden>
+                        <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <div className="text-xs font-black text-zinc-900">Reply within 1 day</div>
+                      <div className="text-xs text-zinc-400">Guaranteed response</div>
+                    </div>
+                  </div>
+
+                  {/* Floating sent badge */}
+                  <div className="absolute -top-4 -left-4 bg-white rounded-2xl shadow-xl shadow-zinc-200/70 px-4 py-3 flex items-center gap-2.5 border border-zinc-100">
+                    <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                      <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 text-red-500" aria-hidden>
+                        <path d="M22 2L11 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                        <path d="M22 2L15 22l-4-9-9-4 20-7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <div className="text-xs font-black text-zinc-900">Message sent</div>
+                      <div className="text-xs text-zinc-400">Just now</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -68,12 +140,6 @@ export default function Contact() {
                 <div className="bg-stone-50 rounded-3xl p-8">
                   <h2 className="text-2xl font-black text-zinc-900 mb-6">Contact info</h2>
                   <div className="space-y-5">
-                    <div>
-                      <div className="text-xs font-bold uppercase tracking-wider text-red-500 mb-1">Email</div>
-                      <a href="mailto:hello@vetmybuilder.com" className="text-zinc-900 font-semibold hover:text-red-500 transition-colors">
-                        hello@vetmybuilder.com
-                      </a>
-                    </div>
                     <div>
                       <div className="text-xs font-bold uppercase tracking-wider text-red-500 mb-1">Based in</div>
                       <p className="text-zinc-700 font-medium">London, United Kingdom</p>
@@ -189,6 +255,9 @@ export default function Contact() {
                         className="w-full rounded-2xl border-2 border-zinc-200 px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:border-red-400 focus:outline-none transition-colors resize-none"
                       />
                     </div>
+                    {err && (
+                      <p className="text-sm text-red-600 font-medium">{err}</p>
+                    )}
                     <button
                       type="submit"
                       disabled={sending}
