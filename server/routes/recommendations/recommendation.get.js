@@ -40,12 +40,6 @@ module.exports = (router, ctx) => {
     };
   }
 
-  const PUBLIC_API_BASE =
-    ctx.PUBLIC_API_BASE ||
-    process.env.NEXT_PUBLIC_API_BASE_URL ||
-    process.env.NEXT_PUBLIC_API_BASE ||
-    `http://localhost:${process.env.PORT || 8787}`;
-
   /** Determine whether viewer is in the same local area as the project */
   async function isCommunityViewer(projectLocation, viewerUid) {
     if (!viewerUid || !extractLocationTokens) return false;
@@ -197,8 +191,7 @@ module.exports = (router, ctx) => {
       }
 
       const photos = (photoRows || []).map((p) => {
-        const abs = new URL(p.fp, PUBLIC_API_BASE).toString();
-        return { id: String(p.id), url: abs, thumb: abs };
+        return { id: String(p.id), url: p.fp, thumb: p.fp };
       });
 
       // ===== fromCommunity (same logic) =====

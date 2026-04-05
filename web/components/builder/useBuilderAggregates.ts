@@ -132,14 +132,21 @@ export function useBuilderAggregates({
         (rec: any) => rec.fromFriend === 1,
       ).length;
 
-      const sharedOnly: Photo[] = normalizePhotos(builder).map(
-        (photo: any) => ({
-          ...photo,
-          alt:
-            photo.alt && photo.alt.trim()
-              ? photo.alt
-              : `${builder.company} — shared photo`,
-        }),
+      const seenUrls = new Set<string>();
+      const sharedOnly: Photo[] = full.flatMap((rec: any) =>
+        normalizePhotos(rec)
+          .filter((photo: any) => {
+            if (!photo.url || seenUrls.has(photo.url)) return false;
+            seenUrls.add(photo.url);
+            return true;
+          })
+          .map((photo: any) => ({
+            ...photo,
+            alt:
+              photo.alt && photo.alt.trim()
+                ? photo.alt
+                : `${rec.company || builder.company} — shared photo`,
+          })),
       );
 
       const reviews: Review[] = full
