@@ -1,6 +1,7 @@
 // server/routes/projects/recommendations.post.js
 
 const { optional } = require("zod");
+const { uploadToR2, isR2Configured } = require("../../lib/r2");
 
 /**
  * POST /api/projects/:id/recommendations
@@ -68,11 +69,14 @@ module.exports = (router, ctx) => {
     }
   }
 
-  // Conditionally parse multipart
+  // Conditionally parse multipart — use memory storage for R2, disk for local
+  const multer = require("multer");
+  const r2Upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 8 } });
   const multipartGate = (req, res, next) => {
     const ct = (req.headers["content-type"] || "").toLowerCase();
     if (ct.startsWith("multipart/form-data")) {
-      upload.array("photos", 8)(req, res, (err) => {
+      const handler = isR2Configured ? r2Upload.array("photos", 8) : upload.array("photos", 8);
+      handler(req, res, (err) => {
         if (err) {
           return res
             .status(400)
@@ -342,7 +346,7 @@ module.exports = (router, ctx) => {
           console.warn("[recommendation auto-like] failed", e?.message || e);
         }
 
-        /* ---------- Photos (MySQL) ---------- */
+        /* ---------- Photos (R2 or local disk) ---------- */
 
         const files = Array.isArray(req.files) ? req.files : [];
         if (files.length) {
@@ -350,33 +354,52 @@ module.exports = (router, ctx) => {
           const params = [];
 
           for (const f of files) {
-            const rel = path
-              .relative(UPLOAD_DIR, f.path)
-              .split(path.sep)
-              .join("/");
-            const filePath = `/uploads/${rel}`;
+            let filePath;
+
+            if (isR2Configured) {
+              try {
+                filePath = await uploadToR2({
+                  buffer: f.buffer,
+                  mimetype: f.mimetype,
+                  originalname: f.originalname,
+                  folder: "recommendations",
+                });
+              } catch (e) {
+                console.warn("[recommendations.post] R2 upload failed:", e?.message || e);
+                continue;
+              }
+            } else {
+              const rel = path
+                .relative(UPLOAD_DIR, f.path)
+                .split(path.sep)
+                .join("/");
+              filePath = `/uploads/${rel}`;
+            }
+
             values.push("(?, ?, ?, ?, ?)");
             params.push(
               recommendationId,
               filePath,
               f.mimetype,
-              f.size,
-              now // ✅ same Date object
+              f.size ?? f.buffer?.length ?? 0,
+              now
             );
           }
 
-          const sql = `
-            INSERT INTO recommendation_photos
-              (recommendationId, filePath, mime, sizeBytes, createdAt)
-            VALUES ${values.join(", ")}
-          `;
-          try {
-            await mysqlQuery(sql, params);
-          } catch (e) {
-            console.warn(
-              "[recommendations.post] inserting recommendation_photos failed:",
-              e?.message || e
-            );
+          if (values.length) {
+            const sql = `
+              INSERT INTO recommendation_photos
+                (recommendationId, filePath, mime, sizeBytes, createdAt)
+              VALUES ${values.join(", ")}
+            `;
+            try {
+              await mysqlQuery(sql, params);
+            } catch (e) {
+              console.warn(
+                "[recommendations.post] inserting recommendation_photos failed:",
+                e?.message || e
+              );
+            }
           }
         }
 
