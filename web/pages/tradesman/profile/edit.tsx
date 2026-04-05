@@ -595,6 +595,12 @@ function Inner() {
             existingPhotoUrls={form.existingPhotoUrls}
             profilePictureKey={form.profilePictureKey}
             onProfilePictureKeyChange={(key) => set("profilePictureKey", key)}
+            onRemoveExistingPhoto={(url) =>
+              set(
+                "existingPhotoUrls",
+                form.existingPhotoUrls.filter((u) => u !== url)
+              )
+            }
           />
         )}
 

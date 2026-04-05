@@ -20,6 +20,7 @@ type Props = {
   existingPhotoUrls?: string[];
   profilePictureKey?: string | null;
   onProfilePictureKeyChange?: (key: string | null) => void;
+  onRemoveExistingPhoto?: (url: string) => void;
 };
 
 const toggle = (arr: string[], item: string) => {
@@ -40,6 +41,7 @@ export default function Step2Trades({
   existingPhotoUrls = [],
   profilePictureKey,
   onProfilePictureKeyChange,
+  onRemoveExistingPhoto,
 }: Props) {
   const [query, setQuery] = useState("");
   const [bucket, setBucket] = useState<string>("");
@@ -264,6 +266,21 @@ export default function Step2Trades({
                     <span className="pointer-events-none absolute top-1 left-1 rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white shadow">
                       Profile
                     </span>
+                  )}
+                  {onRemoveExistingPhoto && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) onProfilePictureKeyChange(null);
+                        onRemoveExistingPhoto(url);
+                      }}
+                      className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                      aria-label="Remove photo"
+                    >
+                      <svg viewBox="0 0 12 12" fill="currentColor" className="h-2.5 w-2.5">
+                        <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                      </svg>
+                    </button>
                   )}
                 </li>
               );
