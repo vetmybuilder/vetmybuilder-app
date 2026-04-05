@@ -158,7 +158,18 @@ module.exports = (router, ctx) => {
         : reqOrigin(req);
 
     for (const r of rows) {
-      const browserPath = normalizeUploadPath(r.filePath);
+      const fp = String(r.filePath || "");
+
+      // R2 / external URL — use directly without disk check
+      if (/^https?:\/\//i.test(fp)) {
+        if (seen.has(fp)) continue;
+        seen.add(fp);
+        photos.push({ ...r, filePath: fp, fileUrl: fp });
+        continue;
+      }
+
+      // Local disk file
+      const browserPath = normalizeUploadPath(fp);
       if (!browserPath) continue;
 
       const abs = toAbsDiskPath(browserPath);
@@ -170,7 +181,6 @@ module.exports = (router, ctx) => {
       if (seen.has(browserPath)) continue;
       seen.add(browserPath);
 
-      // Absolute if we can, otherwise return relative "/uploads/..."
       const fileUrl = base ? joinBaseAndPath(base, browserPath) : browserPath;
 
       photos.push({

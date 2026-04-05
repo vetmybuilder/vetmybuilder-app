@@ -8,6 +8,7 @@
 
 module.exports = (router, ctx) => {
   const { db, admin, notifyUsers, mysqlQuery } = ctx;
+  const { uploadToR2, isR2Configured } = require("../../lib/r2");
   const log = ctx.log || console;
   const TAG = "[recommendations/magic.post]";
 
@@ -91,36 +92,25 @@ module.exports = (router, ctx) => {
     };
   }
 
-  const upload =
-    ctx.upload ||
-    (() => {
+  const upload = (() => {
+    const multer = require("multer");
+    const storage = isR2Configured ? multer.memoryStorage() : (() => {
       const fs = require("node:fs");
-      const multer = require("multer");
-
-      if (!fs.existsSync(UPLOAD_DIR))
-        fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-
-      const storage = multer.diskStorage({
+      if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+      return multer.diskStorage({
         destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
         filename: (_req, file, cb) => {
           const ext = path.extname(file.originalname || "");
-          const base =
-            Date.now().toString(36) +
-            "-" +
-            crypto.randomBytes(6).toString("base64url");
+          const base = Date.now().toString(36) + "-" + crypto.randomBytes(6).toString("base64url");
           cb(null, `${base}${ext}`);
         },
       });
-
-      return multer({
-        storage,
-        limits: { fileSize: 8 * 1024 * 1024, files: 8 },
-        fileFilter: (_req, file, cb) => {
-          const ok = /^image\/(jpeg|png|webp|gif)$/i.test(file.mimetype);
-          cb(ok ? null : new Error("Only images are allowed"), ok);
-        },
-      });
     })();
+    return multer({ storage, limits: { fileSize: 8 * 1024 * 1024, files: 8 }, fileFilter: (_req, file, cb) => {
+      const ok = /^image\/(jpeg|png|webp|gif)$/i.test(file.mimetype);
+      cb(ok ? null : new Error("Only images are allowed"), ok);
+    }});
+  })();
 
   const multipartGate = (req, res, next) => {
     const ct = (req.headers["content-type"] || "").toLowerCase();
@@ -358,17 +348,19 @@ module.exports = (router, ctx) => {
             `VALUES (?, ?, ?, ?, ?)`;
 
           for (const f of files) {
-            const rel = path
-              .relative(UPLOAD_DIR, f.path)
-              .split(path.sep)
-              .join("/");
-            await mysqlQuery(stmt, [
-              recommendationId,
-              `/uploads/${rel}`,
-              f.mimetype,
-              f.size,
-              now,
-            ]);
+            let filePath;
+            if (isR2Configured) {
+              try {
+                filePath = await uploadToR2({ buffer: f.buffer, mimetype: f.mimetype, originalname: f.originalname, folder: "recommendations" });
+              } catch (e) {
+                log.warn(`${TAG} R2 upload failed`, { error: e?.message });
+                continue;
+              }
+            } else {
+              const rel = path.relative(UPLOAD_DIR, f.path).split(path.sep).join("/");
+              filePath = `/uploads/${rel}`;
+            }
+            await mysqlQuery(stmt, [recommendationId, filePath, f.mimetype, f.size ?? f.buffer?.length ?? 0, now]);
           }
 
           log.info(`${TAG} photos stored`, { count: files.length });

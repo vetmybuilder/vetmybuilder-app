@@ -6,6 +6,7 @@
  */
 
 const path = require("node:path");
+const { uploadToR2, isR2Configured } = require("../../lib/r2");
 
 module.exports = (router, ctx) => {
   const {
@@ -22,9 +23,12 @@ module.exports = (router, ctx) => {
 
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
-  // Multer middleware
-  const withUploads =
-    typeof upload?.array === "function"
+  // Multer middleware — memory storage for R2, disk for local
+  const multer = require("multer");
+  const r2Upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 8 } });
+  const withUploads = isR2Configured
+    ? r2Upload.array("photos", 8)
+    : typeof upload?.array === "function"
       ? upload.array("photos", 8)
       : (_req, _res, next) => next();
 
@@ -192,7 +196,19 @@ module.exports = (router, ctx) => {
       // Photos
       let photos = [];
       if (Array.isArray(req.files) && req.files.length) {
-        photos = filesToPhotos(req.files);
+        if (isR2Configured) {
+          photos = (await Promise.all(req.files.map(async (f) => {
+            try {
+              const url = await uploadToR2({ buffer: f.buffer, mimetype: f.mimetype, originalname: f.originalname, folder: "shares" });
+              return { name: f.originalname || "", type: f.mimetype || "", size: f.buffer?.length ?? 0, url, absoluteUrl: url };
+            } catch (e) {
+              log.warn(`${TAG} R2 upload failed`, { error: e?.message });
+              return null;
+            }
+          }))).filter(Boolean);
+        } else {
+          photos = filesToPhotos(req.files);
+        }
       } else if (Array.isArray(req.body?.photos)) {
         photos = (req.body.photos || []).map((p) => {
           const filename = p.filename || "";
