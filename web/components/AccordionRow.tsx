@@ -35,7 +35,7 @@ export default function AccordionRow({
 
       {/* Expanded content */}
       {expanded && (
-        <div className="border-t-2 border-red-500 bg-white px-4 py-5 shadow-inner">
+        <div className="bg-white px-4 py-5 shadow-inner">
           {children}
         </div>
       )}

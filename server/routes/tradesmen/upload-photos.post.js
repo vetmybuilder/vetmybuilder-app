@@ -2,6 +2,7 @@
 const path = require("node:path");
 const fs = require("node:fs");
 const multer = require("multer");
+const { uploadToR2, isR2Configured } = require("../../lib/r2");
 
 module.exports = (router, ctx) => {
   const { auth, UPLOAD_DIR } = ctx;
@@ -9,65 +10,51 @@ module.exports = (router, ctx) => {
   const TAG = "[tradesmen/upload-photos]";
   const ROUTE = "/tradesmen/upload-photos";
 
-  // Write under the SAME uploads root the server serves
+  /* ---------- Local disk storage (dev / fallback) ---------- */
   const tradesmenDir = path.join(UPLOAD_DIR, "tradesmen");
 
-  /* ---------- Ensure directory structure ---------- */
-  try {
-    if (!fs.existsSync(UPLOAD_DIR)) {
-      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-      log.info(`${TAG} created UPLOAD_DIR`, { UPLOAD_DIR });
+  if (!isR2Configured) {
+    try {
+      if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+      if (!fs.existsSync(tradesmenDir)) fs.mkdirSync(tradesmenDir, { recursive: true });
+    } catch (e) {
+      log.error(`${TAG} failed to ensure upload directories`, { error: e?.message });
     }
-
-    if (!fs.existsSync(tradesmenDir)) {
-      fs.mkdirSync(tradesmenDir, { recursive: true });
-      log.info(`${TAG} created tradesmenDir`, { tradesmenDir });
-    }
-  } catch (e) {
-    log.error(`${TAG} failed to ensure upload directories`, {
-      error: e?.message || e,
-    });
   }
 
-  /* ---------- Multer storage ---------- */
-  const storage = multer.diskStorage({
+  const diskStorage = multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, tradesmenDir),
     filename: (req, file, cb) => {
-      const uid = (req.user && req.user.uid) || "anon";
+      const uid = req.user?.uid || "anon";
       const ext = path.extname(file.originalname || ".jpg");
       const ts = Date.now().toString(36);
       const rnd = Math.random().toString(36).slice(2, 8);
-      const filename = `${uid}_${ts}_${rnd}${ext}`;
-
-      log.info(`${TAG} generating filename`, { uid, filename });
-
-      cb(null, filename);
+      cb(null, `${uid}_${ts}_${rnd}${ext}`);
     },
   });
+
+  /* ---------- Memory storage (for R2 — we need the buffer) ---------- */
+  const memoryStorage = multer.memoryStorage();
+
+  const fileFilter = (_req, file, cb) => {
+    const ok = /^image\/(jpeg|png|webp|gif)$/i.test(file.mimetype);
+    if (!ok) log.warn(`${TAG} rejected file: invalid mime`, { mimetype: file.mimetype });
+    cb(ok ? null : new Error("Only images are allowed"), ok);
+  };
 
   const upload = multer({
-    storage,
+    storage: isR2Configured ? memoryStorage : diskStorage,
     limits: { fileSize: 10 * 1024 * 1024, files: 12 },
-    fileFilter: (_req, file, cb) => {
-      const ok = /^image\/(jpeg|png|webp|gif)$/i.test(file.mimetype);
-      if (!ok) {
-        log.warn(`${TAG} rejected file: invalid mime`, {
-          mimetype: file.mimetype,
-        });
-      }
-      cb(ok ? null : new Error("Only images are allowed"), ok);
-    },
+    fileFilter,
   });
 
-  /* ---------- Log directory config ---------- */
   log.info(`${TAG} config`, {
-    UPLOAD_DIR,
-    tradesmenDir,
-    exists: fs.existsSync(tradesmenDir),
+    storage: isR2Configured ? "r2" : "local",
+    UPLOAD_DIR: isR2Configured ? "n/a" : UPLOAD_DIR,
   });
 
   /* ---------- Route ---------- */
-  router.post(ROUTE, auth, upload.array("photos", 12), (req, res) => {
+  router.post(ROUTE, auth, upload.array("photos", 12), async (req, res) => {
     const uid = req.user?.uid || "unknown";
 
     try {
@@ -78,14 +65,26 @@ module.exports = (router, ctx) => {
         return res.status(400).json({ ok: false, error: "no_files" });
       }
 
-      const urls = files.map((f) => `/uploads/tradesmen/${f.filename}`);
+      let urls;
 
-      log.info(`${TAG} upload success`, {
-        uid,
-        fileCount: files.length,
-        urls,
-      });
+      if (isR2Configured) {
+        // Upload each file to R2
+        urls = await Promise.all(
+          files.map((f) =>
+            uploadToR2({
+              buffer: f.buffer,
+              mimetype: f.mimetype,
+              originalname: f.originalname,
+              folder: "tradesmen",
+            })
+          )
+        );
+      } else {
+        // Local disk — return relative URLs as before
+        urls = files.map((f) => `/uploads/tradesmen/${f.filename}`);
+      }
 
+      log.info(`${TAG} upload success`, { uid, fileCount: files.length, storage: isR2Configured ? "r2" : "local" });
       return res.json({ ok: true, urls });
     } catch (e) {
       log.error(`${TAG} upload failed`, { error: e?.message || e });
@@ -93,7 +92,6 @@ module.exports = (router, ctx) => {
     }
   });
 
-  /* ---------- Mounted logging ---------- */
   if (!ctx.__logged_tradesmen_upload_photos_post) {
     ctx.__logged_tradesmen_upload_photos_post = true;
     log.info(`[routes] mounted: POST ${ROUTE}`);
