@@ -87,7 +87,7 @@ export default function TradesmanRegisterV2Page() {
   useEffect(() => {
     api
       .get("/api/auth/beta-status")
-      .then((res) => setBetaRequired(!!res.data?.betaRequired))
+      .then((res) => setBetaRequired(!!res.data?.required))
       .catch(() => {});
   }, []); // eslint-disable-line
 
