@@ -208,4 +208,89 @@ describe("<Step2Trades /> — profile picture", () => {
       ).not.toBeInTheDocument();
     });
   });
+
+  describe("photo removal", () => {
+    it("shows Remove photo button on each existing photo when onRemoveExistingPhoto is provided", () => {
+      render(
+        <Step2Trades
+          {...base}
+          existingPhotoUrls={[
+            "https://cdn.example.com/a.jpg",
+            "https://cdn.example.com/b.jpg",
+          ]}
+          profilePictureKey="https://cdn.example.com/a.jpg"
+          onProfilePictureKeyChange={vi.fn()}
+          onRemoveExistingPhoto={vi.fn()}
+        />
+      );
+      expect(screen.getAllByRole("button", { name: /remove photo/i })).toHaveLength(2);
+    });
+
+    it("does not show Remove photo button when onRemoveExistingPhoto is not provided", () => {
+      render(
+        <Step2Trades
+          {...base}
+          existingPhotoUrls={["https://cdn.example.com/a.jpg"]}
+          profilePictureKey="https://cdn.example.com/a.jpg"
+          onProfilePictureKeyChange={vi.fn()}
+        />
+      );
+      expect(screen.queryByRole("button", { name: /remove photo/i })).not.toBeInTheDocument();
+    });
+
+    it("calls onRemoveExistingPhoto with the photo URL when Remove is clicked", () => {
+      const onRemoveExistingPhoto = vi.fn();
+      render(
+        <Step2Trades
+          {...base}
+          existingPhotoUrls={[
+            "https://cdn.example.com/a.jpg",
+            "https://cdn.example.com/b.jpg",
+          ]}
+          profilePictureKey="https://cdn.example.com/a.jpg"
+          onProfilePictureKeyChange={vi.fn()}
+          onRemoveExistingPhoto={onRemoveExistingPhoto}
+        />
+      );
+      const removeBtns = screen.getAllByRole("button", { name: /remove photo/i });
+      fireEvent.click(removeBtns[1]); // click remove on second photo
+      expect(onRemoveExistingPhoto).toHaveBeenCalledWith("https://cdn.example.com/b.jpg");
+    });
+
+    it("also deselects the profile picture when the selected photo is removed", () => {
+      const onProfilePictureKeyChange = vi.fn();
+      const onRemoveExistingPhoto = vi.fn();
+      render(
+        <Step2Trades
+          {...base}
+          existingPhotoUrls={["https://cdn.example.com/a.jpg"]}
+          profilePictureKey="https://cdn.example.com/a.jpg"
+          onProfilePictureKeyChange={onProfilePictureKeyChange}
+          onRemoveExistingPhoto={onRemoveExistingPhoto}
+        />
+      );
+      fireEvent.click(screen.getByRole("button", { name: /remove photo/i }));
+      expect(onProfilePictureKeyChange).toHaveBeenCalledWith(null);
+      expect(onRemoveExistingPhoto).toHaveBeenCalledWith("https://cdn.example.com/a.jpg");
+    });
+
+    it("does not call onProfilePictureKeyChange when a non-selected photo is removed", () => {
+      const onProfilePictureKeyChange = vi.fn();
+      render(
+        <Step2Trades
+          {...base}
+          existingPhotoUrls={[
+            "https://cdn.example.com/a.jpg",
+            "https://cdn.example.com/b.jpg",
+          ]}
+          profilePictureKey="https://cdn.example.com/a.jpg"
+          onProfilePictureKeyChange={onProfilePictureKeyChange}
+          onRemoveExistingPhoto={vi.fn()}
+        />
+      );
+      const removeBtns = screen.getAllByRole("button", { name: /remove photo/i });
+      fireEvent.click(removeBtns[1]); // remove the non-selected photo
+      expect(onProfilePictureKeyChange).not.toHaveBeenCalled();
+    });
+  });
 });

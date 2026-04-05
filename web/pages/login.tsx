@@ -154,6 +154,11 @@ export default function Login() {
                     aria-required="true"
                     data-testid="input-login-password"
                   />
+                  <div className="mt-2 text-right">
+                    <Link href="/forgot-password" className="text-xs text-zinc-400 hover:text-red-500 transition-colors">
+                      Forgot password?
+                    </Link>
+                  </div>
                 </div>
 
                 {err && (

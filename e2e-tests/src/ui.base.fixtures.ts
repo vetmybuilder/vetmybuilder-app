@@ -24,6 +24,8 @@ import TradesmanEditPage from "./pages/TradesmanEditPage";
 import TradesmanRegisterPage from "./pages/TradesmanRegisterPage";
 import TradesmanApi from "./apiHelper/tradesman/TradesmanApi";
 import AdminApi from "./apiHelper/admin/AdminApi";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 
 type Runtime = ReturnType<typeof getRuntime>;
 
@@ -51,6 +53,8 @@ type UiFixtures = {
   tradesmanRegisterPage: TradesmanRegisterPage;
   tradesmanApi: TradesmanApi;
   adminApi: AdminApi;
+  forgotPasswordPage: ForgotPasswordPage;
+  resetPasswordPage: ResetPasswordPage;
 };
 
 function normalizeApiBase(url: string): string {
@@ -169,6 +173,14 @@ export const test = base.extend<UiFixtures, { runtime: Runtime }>({
 
   tradesmanApi: async ({ request, runtime }, use) => {
     await use(new TradesmanApi(request, runtime.apiBaseUrl));
+  },
+
+  forgotPasswordPage: async ({ page }, use) => {
+    await use(new ForgotPasswordPage(page));
+  },
+
+  resetPasswordPage: async ({ page }, use) => {
+    await use(new ResetPasswordPage(page));
   },
 
   adminApi: async ({ request, runtime }, use) => {

@@ -11,14 +11,34 @@ vi.mock("@/utils/auth", () => ({
   signOutUser: (...args: any[]) => signOutUserMock(...args),
 }));
 
+// Mock api (SiteHeader calls api.get("/api/tradesmen/me") when user is present)
+const apiMock = { get: vi.fn().mockResolvedValue({ data: {} }) };
+vi.mock("@/utils/api", () => ({
+  useApi: () => apiMock,
+}));
+
+// Mock next/router (SiteHeader uses useRouter)
+vi.mock("next/router", () => ({
+  useRouter: () => ({
+    pathname: "/test",
+    query: {},
+    push: vi.fn(),
+    replace: vi.fn(),
+  }),
+}));
+
+// Mock next/link
+vi.mock("next/link", () => {
+  const Link = ({ href, children, ...rest }: any) => (
+    <a href={typeof href === "string" ? href : "#"} {...rest}>{children}</a>
+  );
+  return { default: Link };
+});
+
 // Mock next/dynamic so the dynamic NotificationsBell doesn't complicate this test.
 // It returns a dummy component (null) for any dynamic import used by Layout.
 vi.mock("next/dynamic", () => ({
-  default: (loader: any) => {
-    // You could return loader() if you want to render the real component,
-    // but for Layout tests we don't need it.
-    return () => null;
-  },
+  default: () => () => null,
 }));
 
 import Layout from "../../../web/components/Layout";
@@ -45,7 +65,7 @@ describe("<Layout />", () => {
     expect(within(main).getByText(/content/i)).toBeInTheDocument();
 
     // No account menu when logged out
-    expect(screen.queryByTestId("account-button")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("account-menu-button")).not.toBeInTheDocument();
   });
 
   it("shows account button and initials when signed in", () => {
@@ -57,7 +77,7 @@ describe("<Layout />", () => {
     render(<Layout>content</Layout>);
 
     // Account button and initials
-    expect(screen.getByTestId("account-button")).toBeInTheDocument();
+    expect(screen.getByTestId("account-menu-button")).toBeInTheDocument();
     expect(screen.getByTestId("account-initials")).toHaveTextContent("CM");
 
     // No "Sign in" when logged in
@@ -73,7 +93,7 @@ describe("<Layout />", () => {
     render(<Layout>content</Layout>);
 
     // Open menu
-    fireEvent.click(screen.getByTestId("account-button"));
+    fireEvent.click(screen.getByTestId("account-menu-button"));
     const menu = await screen.findByTestId("account-menu");
     expect(menu).toBeInTheDocument();
 

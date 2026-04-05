@@ -686,6 +686,7 @@ export default function SiteHeader() {
                   >
                     <span
                       aria-hidden
+                      data-testid="account-initials"
                       className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white text-xs font-semibold"
                     >
                       {initials || "U"}
@@ -727,6 +728,7 @@ export default function SiteHeader() {
                         role="menuitem"
                         onClick={onLogout}
                         className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50/60"
+                        data-testid="menu-logout"
                       >
                         Logout
                       </button>

@@ -94,56 +94,67 @@ export default function LightboxGallery({
       {/* Lightbox Modal */}
       {open && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 px-3"
+          className="fixed inset-0 z-[100] flex flex-col bg-black/90"
           role="dialog"
           aria-modal="true"
           aria-label="Image lightbox"
         >
-          {/* Close */}
-          <button
-            ref={closeBtnRef}
-            onClick={() => setOpen(false)}
-            className="absolute top-3 right-3 inline-flex items-center justify-center h-10 w-10 rounded-full bg-white/10 hover:bg-white/15 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            aria-label="Close"
-          >
-            ✕
-          </button>
-
-          {/* Prev */}
-          {images.length > 1 && (
+          {/* Top bar — always above image */}
+          <div className="flex shrink-0 items-center justify-between px-4 py-3">
+            <span className="text-sm text-zinc-400">
+              {index + 1} / {images.length}
+            </span>
             <button
-              onClick={() =>
-                setIndex((i) => (i - 1 + images.length) % images.length)
-              }
-              className="absolute left-3 md:left-6 inline-flex items-center justify-center h-10 w-10 rounded-full bg-white/10 hover:bg-white/15 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              aria-label="Previous image"
+              ref={closeBtnRef}
+              onClick={() => setOpen(false)}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-white/10 hover:bg-white/20 px-4 py-2 text-sm font-semibold text-white transition-colors focus:outline-none"
+              aria-label="Close"
             >
-              ‹
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
+              </svg>
+              Close
             </button>
-          )}
+          </div>
 
-          {/* Image */}
-          <div className="max-w-6xl w-full">
+          {/* Image area — click backdrop to close */}
+          <div
+            className="relative flex flex-1 items-center justify-center px-16"
+            onClick={() => setOpen(false)}
+          >
             <img
               src={images[index].fullUrl}
               alt={images[index].alt || ""}
-              className="mx-auto max-h-[80vh] w-auto object-contain"
+              className="max-h-full max-w-full object-contain"
+              onClick={(e) => e.stopPropagation()}
             />
-            <div className="mt-2 text-center text-xs text-zinc-300">
-              {index + 1} / {images.length}
-            </div>
-          </div>
 
-          {/* Next */}
-          {images.length > 1 && (
-            <button
-              onClick={() => setIndex((i) => (i + 1) % images.length)}
-              className="absolute right-3 md:right-6 inline-flex items-center justify-center h-10 w-10 rounded-full bg-white/10 hover:bg-white/15 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              aria-label="Next image"
-            >
-              ›
-            </button>
-          )}
+            {/* Prev */}
+            {images.length > 1 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setIndex((i) => (i - 1 + images.length) % images.length); }}
+                className="absolute left-3 inline-flex items-center justify-center h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors focus:outline-none"
+                aria-label="Previous image"
+              >
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+                  <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd"/>
+                </svg>
+              </button>
+            )}
+
+            {/* Next */}
+            {images.length > 1 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setIndex((i) => (i + 1) % images.length); }}
+                className="absolute right-3 inline-flex items-center justify-center h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors focus:outline-none"
+                aria-label="Next image"
+              >
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"/>
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
       )}
     </>
