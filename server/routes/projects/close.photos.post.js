@@ -10,6 +10,9 @@
 module.exports = (router, ctx) => {
   const { auth, upload, mysqlQuery } = ctx;
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
+  const { uploadToR2, isR2Configured } = require("../../lib/r2");
+  const multer = require("multer");
+  const r2Upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 20 } });
 
   // Structured logger
   const { logger, withRequest } = require("../../lib/logger");
@@ -27,7 +30,8 @@ module.exports = (router, ctx) => {
         return next();
       }
 
-      upload.array("photos", 20)(req, res, (err) => {
+      const handler = isR2Configured ? r2Upload.array("photos", 20) : upload.array("photos", 20);
+      handler(req, res, (err) => {
         if (err) {
           if (
             err.code === "LIMIT_FILE_COUNT" ||
@@ -122,17 +126,22 @@ module.exports = (router, ctx) => {
         // --------------------------------------------------------------
         try {
           for (const f of files) {
+            let filePath;
+            if (isR2Configured) {
+              try {
+                filePath = await uploadToR2({ buffer: f.buffer, mimetype: f.mimetype, originalname: f.originalname, folder: "closures" });
+              } catch (e) {
+                log.error({ error: e?.message }, "R2 upload failed for closure photo");
+                continue;
+              }
+            } else {
+              filePath = f.filename || f.key || f.originalname || "";
+            }
             await mysqlQuery(
               `INSERT INTO project_closure_photos
                  (projectId, filePath, mime, sizeBytes, createdAt)
                VALUES (?, ?, ?, ?, ?)`,
-              [
-                projectId,
-                f.filename || f.key || f.originalname || "",
-                f.mimetype || null,
-                f.size || null,
-                now,
-              ]
+              [projectId, filePath, f.mimetype || null, f.size ?? f.buffer?.length ?? null, now]
             );
           }
         } catch (err) {
