@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import BasePage from "./BasePage";
+import { safeGoto } from "../helpers/navigation";
 
 export class TradesmanRegisterPage extends BasePage {
   readonly step1: Locator;
@@ -26,9 +27,7 @@ export class TradesmanRegisterPage extends BasePage {
   }
 
   async goto() {
-    await this.page.goto("/tradesman/register-tradesmen", {
-      waitUntil: "domcontentloaded",
-    });
+    await safeGoto(this.page, "/tradesman/register-tradesmen");
     await expect(this.step1).toBeVisible({ timeout: 15_000 });
   }
 

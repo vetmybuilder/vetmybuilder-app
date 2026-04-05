@@ -291,7 +291,7 @@ export default function MobileMenu({
 
         {/* Bottom actions */}
         <div className="sticky bottom-0 left-0 right-0 border-t border-white/10 shrink-0">
-          <div className="grid grid-cols-2">
+          <div className={`grid ${isAuthed && isTrades ? "grid-cols-1" : "grid-cols-2"}`}>
             {isAuthed ? (
               <>
                 <button
@@ -313,24 +313,26 @@ export default function MobileMenu({
                   </span>
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    onPostJob();
-                    onClose();
-                  }}
-                  className={[
-                    "px-6 py-6 text-left flex items-center gap-3",
-                    "bg-amber-400 hover:bg-amber-300",
-                    "text-slate-900",
-                  ].join(" ")}
-                  data-testid="mobile-menu-post-job"
-                >
-                  <PlusSquare className="h-5 w-5" />
-                  <span className="block text-[22px] leading-tight font-medium">
-                    Post a Job
-                  </span>
-                </button>
+                {!isTrades && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onPostJob();
+                      onClose();
+                    }}
+                    className={[
+                      "px-6 py-6 text-left flex items-center gap-3",
+                      "bg-amber-400 hover:bg-amber-300",
+                      "text-slate-900",
+                    ].join(" ")}
+                    data-testid="mobile-menu-post-job"
+                  >
+                    <PlusSquare className="h-5 w-5" />
+                    <span className="block text-[22px] leading-tight font-medium">
+                      Post a Job
+                    </span>
+                  </button>
+                )}
               </>
             ) : (
               <>

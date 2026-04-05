@@ -479,6 +479,9 @@ export default function SiteHeader() {
                 <span className="text-2xl font-black tracking-tight text-zinc-900">
                   Vet<span className="text-red-500">My</span>Builder
                 </span>
+                {isTrades && (
+                  <span className="ml-1.5 text-sm font-semibold text-red-500">Trade</span>
+                )}
               </Link>
             </div>
 
@@ -563,17 +566,6 @@ export default function SiteHeader() {
                   >
                     ↗
                   </span>
-                </Link>
-              )}
-
-              {tradeCta && (
-                <Link
-                  href={tradeCta.href}
-                  className={tradeCta.className}
-                  title={tradeCta.label}
-                  data-testid={tradeCta.testid}
-                >
-                  {tradeCta.label}
                 </Link>
               )}
 

@@ -6,6 +6,7 @@ import Layout from "@/components/Layout";
 import * as React from "react";
 import { useRouter } from "next/router";
 import AdminLayout from "@/components/AdminLayout";
+import TradesmanLayout from "@/components/TradesmanLayout";
 
 // ✅ IMPORTANT: adjust this import path to where your initFirebase() file actually is.
 // Example candidates:
@@ -164,6 +165,17 @@ export default function MyApp({ Component, pageProps }: AppProps) {
   const isAdminRoute =
     router.pathname.startsWith("/admin") || isAdminLoginFlow;
 
+  // Tradesman authenticated pages only — excludes public profile (/tradesman/[id])
+  // and login/register which have their own backgrounds
+  const TRADESMAN_AUTH_PATHS = new Set([
+    "/tradesman/projects",
+    "/tradesman/profile",
+    "/tradesman/profile/edit",
+    "/tradesman/jobs",
+    "/tradesman/featured",
+  ]);
+  const isTradesmanRoute = TRADESMAN_AUTH_PATHS.has(router.pathname);
+
   return (
     <AuthProvider>
       {/* Bootstrap GSID + pageview tracking */}
@@ -173,6 +185,10 @@ export default function MyApp({ Component, pageProps }: AppProps) {
         <AdminLayout>
           <Component {...pageProps} />
         </AdminLayout>
+      ) : isTradesmanRoute ? (
+        <TradesmanLayout>
+          <Component {...pageProps} />
+        </TradesmanLayout>
       ) : (
         <Layout>
           <Component {...pageProps} />

@@ -9,39 +9,32 @@ import { AuthApi } from "../../../src/apiHelper/auth/AuthApi";
 
 test.describe("Homeowner projects", () => {
   test("can unarchive a closed project", async ({
-    apiClient,
+    projectApi,
     projectDetailsPage,
   }) => {
-    const { project } = await (
-      await apiClient.post(
-        "/api/projects",
-        Project.aProject().withRandomDetails().toApiPayload(),
-      )
-    ).json();
+    const created = await projectApi.createProject(
+      Project.aProject().withRandomDetails().toApiPayload(),
+    );
 
-    await apiClient.post(`/api/projects/${project.id}/close`, {
+    await projectApi.closeProject(created.id, {
       didGoAhead: false,
       reasons: ["budget"],
     });
 
-    await projectDetailsPage.visit(project.id);
+    await projectDetailsPage.visit(created.id);
     await projectDetailsPage.hasStatus("Archived");
     await projectDetailsPage.unarchive();
   });
-});
 
-// passing
-test.describe("Homeowner projects", () => {
   test("can close a project that didn't go ahead", async ({
     projectApi,
     projectDetailsPage,
   }) => {
-    const project = Project.aProject().withRandomDetails();
+    const created = await projectApi.createProject(
+      Project.aProject().withRandomDetails().toApiPayload(),
+    );
 
-    const created = await projectApi.createProject(project.toApiPayload());
-    const projectId = created.id;
-
-    await projectDetailsPage.visit(projectId);
+    await projectDetailsPage.visit(created.id);
 
     await projectDetailsPage.closeProject({
       didGoAhead: false,
@@ -60,12 +53,11 @@ test.describe("Homeowner projects", () => {
     const location = "E4";
     const password = "Passw0rd!";
 
-    const project = Project.aProject().withRandomDetails({
-      locationQuery: location,
-      locationPick: location,
-    });
-
-    const created = await projectApi.createProject(project.toApiPayload());
+    const created = await projectApi.createProject(
+      Project.aProject()
+        .withRandomDetails({ locationQuery: location, locationPick: location })
+        .toApiPayload(),
+    );
     await projectApi.publishProject(created.id);
 
     // Seed a recommendation from a separate neighbour user so the winner
@@ -89,15 +81,16 @@ test.describe("Homeowner projects", () => {
 
     await AuthApi.signup(neighbourClient, neighbour);
 
-    const recommendation = Recommendation.aRecommendation();
-    const recApi = new RecommendationApi(neighbourClient);
-    await recApi.createRecommendation(created.id, recommendation.toPayload());
+    await new RecommendationApi(neighbourClient).createRecommendation(
+      created.id,
+      Recommendation.aRecommendation().withRandomDetails().toPayload(),
+    );
 
     await projectDetailsPage.visit(created.id);
 
-    await projectDetailsPage.closeProject({ //failing on this line
+    await projectDetailsPage.closeProject({
       didGoAhead: true,
-      tradespersonLabel: recommendation.company,
+      selectFirstTradesperson: true,
     });
     await projectDetailsPage.hasStatus("Completed");
   });

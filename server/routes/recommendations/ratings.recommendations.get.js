@@ -376,6 +376,38 @@ module.exports = (router, ctx) => {
       })
     );
 
+    // Match recommendations to registered tradesmen by company number
+    const companyNumbers = enriched
+      .map((r) => r.chCompanyNumber)
+      .filter(Boolean);
+
+    const tradesmanByCompanyNumber = new Map();
+    if (companyNumbers.length > 0) {
+      try {
+        const placeholders = companyNumbers.map(() => "?").join(",");
+        const tradesmanRows = await mysqlQuery(
+          `SELECT company_number, COALESCE(public_id, user_id) AS tradesmanPublicId
+             FROM tradesmen
+            WHERE company_number IN (${placeholders})
+              AND COALESCE(status, 'active') != 'banned'`,
+          companyNumbers
+        );
+        for (const tr of tradesmanRows) {
+          if (tr.company_number) {
+            tradesmanByCompanyNumber.set(String(tr.company_number), tr.tradesmanPublicId);
+          }
+        }
+      } catch (e) {
+        log.warn?.(`${TAG} tradesman company_number lookup failed`, { error: e?.message });
+      }
+    }
+
+    for (const item of enriched) {
+      item.tradesmanPublicId = item.chCompanyNumber
+        ? (tradesmanByCompanyNumber.get(String(item.chCompanyNumber)) ?? null)
+        : null;
+    }
+
     enriched.sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
       if ((b.likes || 0) !== (a.likes || 0))

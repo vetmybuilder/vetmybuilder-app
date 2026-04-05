@@ -106,8 +106,8 @@ export default function AdminHeader() {
             <svg className="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
           </div>
           <div className="leading-tight">
-            <span className="text-sm font-black text-white">Vet<span className="text-red-400">My</span>Builder</span>
-            <span className="ml-1.5 text-xs font-semibold text-slate-400">Admin</span>
+            <span className="text-xl font-black text-white">Vet<span className="text-red-400">My</span>Builder</span>
+            <span className="ml-2 text-xs font-bold text-amber-400 tracking-wide">Admin</span>
           </div>
         </Link>
 

@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
+import { safeGoto } from "../helpers/navigation";
 
 export class AdminLoginPage {
   readonly page: Page;
@@ -12,7 +13,7 @@ export class AdminLoginPage {
   }
 
   async visit() {
-    await this.page.goto("/admin/login");
+    await safeGoto(this.page, "/admin/login");
     await expect(this.heading).toBeVisible();
   }
 
@@ -20,6 +21,11 @@ export class AdminLoginPage {
     await expect(this.continueButton).toBeVisible();
     await this.continueButton.click();
     await expect(this.page).toHaveURL(/\/login\?next.*admin/, {
+      timeout: 20_000,
+    });
+    // GuestOnly renders null while auth state loads; wait for the login form
+    // before returning so callers can immediately fill the form.
+    await expect(this.page.getByTestId("login-page")).toBeVisible({
       timeout: 20_000,
     });
   }

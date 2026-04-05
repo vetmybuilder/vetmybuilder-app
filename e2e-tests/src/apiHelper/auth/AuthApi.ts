@@ -1,4 +1,4 @@
-import { expect } from "@playwright/test";
+import { expect, type APIRequestContext } from "@playwright/test";
 import Account from "../../models/Account";
 
 type ApiResponse = {
@@ -21,6 +21,28 @@ export class AuthApi {
 
     expect(res.status()).toBe(200);
     return res.json();
+  }
+
+  /**
+   * Ensures a Firebase user exists in the Auth emulator with the given credentials.
+   * Routes through the server's test endpoint (guaranteed to target the emulator)
+   * rather than calling the Admin SDK directly from the test runner.
+   */
+  static async ensureEmulatorUser(
+    request: APIRequestContext,
+    apiBaseUrl: string,
+    uid: string,
+    email: string,
+    password: string,
+  ): Promise<void> {
+    const res = await request.post(
+      `${apiBaseUrl}/api/__test__/auth/custom-token`,
+      {
+        headers: { "X-Test-Secret": process.env.E2E_TEST_SECRET! },
+        data: { uid, email, password },
+      },
+    );
+    expect(res.status()).toBe(200);
   }
 }
 

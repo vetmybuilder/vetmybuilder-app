@@ -297,6 +297,7 @@ export default function LocationField({
         s.kind === "postcode"
           ? await fetchMeta(s.postcode)
           : await resolvePlaceToMeta(s);
+      hasInteracted.current = false; // prevent value-sync re-triggering the dropdown
       onChange(meta.postcode, meta);
       setQuery(meta.postcode);
       setOpen(false);
@@ -312,6 +313,7 @@ export default function LocationField({
     if (UK_POSTCODE_RE.test(v)) {
       try {
         const meta = await fetchMeta(v);
+        hasInteracted.current = false; // prevent value-sync re-triggering the dropdown
         onChange(meta.postcode, meta);
         setQuery(meta.postcode);
         setOpen(false);

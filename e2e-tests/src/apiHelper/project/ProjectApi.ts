@@ -53,6 +53,28 @@ export class ProjectApi {
     return body.project;
   }
 
+  async closeProject(
+    projectId: string | number,
+    options: { didGoAhead: boolean; reasons?: string[] },
+  ) {
+    const res = await this.apiClient.post(
+      `/api/projects/${projectId}/close`,
+      options,
+    );
+    expect(res.status()).toBe(200);
+    return res.json();
+  }
+
+  async getMagicLink(projectId: string | number): Promise<string> {
+    const res = await this.apiClient.post(
+      `/api/projects/${projectId}/magic-link`,
+    );
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.token).toBeTruthy();
+    return body.token;
+  }
+
   async publishProject(projectId: string | number) {
     const res = await this.apiClient.post(`/api/projects/${projectId}/publish`);
     expect(res.status()).toBe(200);

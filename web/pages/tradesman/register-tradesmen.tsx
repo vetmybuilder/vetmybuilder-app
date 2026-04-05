@@ -78,7 +78,18 @@ export default function TradesmanRegisterV2Page() {
     chStatus: null as string | null,
     password: "",
     confirmPassword: "",
+    betaCode: "",
   });
+
+  const [betaRequired, setBetaRequired] = useState(false);
+  const [betaCodeErr, setBetaCodeErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .get("/api/auth/beta-status")
+      .then((res) => setBetaRequired(!!res.data?.betaRequired))
+      .catch(() => {});
+  }, []); // eslint-disable-line
 
   const [areaQuery, setAreaQuery] = useState("");
   const [websiteInput, setWebsiteInput] = useState("");
@@ -224,6 +235,7 @@ export default function TradesmanRegisterV2Page() {
     e.preventDefault();
     setErr(null);
     setEmailErr(null);
+    setBetaCodeErr(null);
 
     const hasBasics =
       form.companyName.trim() &&
@@ -237,12 +249,19 @@ export default function TradesmanRegisterV2Page() {
     }
 
     try {
-      await ensureEmailAvailable(api, form.email.trim());
+      await ensureEmailAvailable(
+        api,
+        form.email.trim(),
+        betaRequired ? form.betaCode : undefined
+      );
       setStep(2);
     } catch (ex: any) {
-      setEmailErr(
-        ex?.response?.data?.error || ex?.message || "Email already in use."
-      );
+      const errCode = ex?.response?.data?.error || ex?.message || "";
+      if (errCode === "invalid_beta_code") {
+        setBetaCodeErr("Invalid beta access code.");
+      } else {
+        setEmailErr(errCode || "Email already in use.");
+      }
     }
   };
 
@@ -317,7 +336,11 @@ export default function TradesmanRegisterV2Page() {
         throw new Error("Passwords do not match.");
 
       // 🔹 Ensure email isn't already taken (including aliases)
-      await ensureEmailAvailable(api, form.email.trim());
+      await ensureEmailAvailable(
+        api,
+        form.email.trim(),
+        betaRequired ? form.betaCode : undefined
+      );
 
       // 1) Create Firebase user (this also logs them in)
       const auth = initFirebase();
@@ -518,6 +541,10 @@ export default function TradesmanRegisterV2Page() {
             userIsAuthed={!!user || !!authLoading}
             nextQuery={"?next=/tradesman/projects"}
             emailError={emailErr}
+            betaRequired={betaRequired}
+            betaCode={form.betaCode}
+            setBetaCode={(v) => set("betaCode", v)}
+            betaCodeError={betaCodeErr}
           />
         )}
 

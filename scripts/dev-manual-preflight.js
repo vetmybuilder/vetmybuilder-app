@@ -55,6 +55,16 @@ function findSchemaFile() {
 }
 
 (async () => {
+  // ---- 0. Clear sim state (DB is about to be wiped, state will be stale) ----
+  // Skip during E2E — tests manage their own state
+  if (process.env.TEST_ENV !== "e2e" && !process.env.CI) {
+    const simStatePath = path.resolve(__dirname, "../.sim-state.json");
+    if (fs.existsSync(simStatePath)) {
+      fs.unlinkSync(simStatePath);
+      logger.info("Cleared stale .sim-state.json");
+    }
+  }
+
   // ---- 1. Kill stale processes ----
   const stale = [];
   for (const p of PORTS) {

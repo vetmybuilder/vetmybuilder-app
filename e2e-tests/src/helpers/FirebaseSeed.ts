@@ -64,7 +64,13 @@ export async function createAuthUserWithUid(
       err?.code === "auth/uid-already-exists" ||
       err?.code === "auth/email-already-exists"
     ) {
-      return await auth.getUser(uid).catch(() => auth.getUserByEmail(email));
+      // User already exists — update their password so the caller's credentials
+      // always work even if the emulator retained a user from a previous run.
+      const existing = await auth
+        .getUser(uid)
+        .catch(() => auth.getUserByEmail(email));
+      await auth.updateUser(existing.uid, { password });
+      return existing;
     }
     throw err;
   }

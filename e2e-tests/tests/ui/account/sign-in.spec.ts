@@ -29,7 +29,7 @@ test.describe("Sign in", () => {
 
     await AuthApi.signup(client, user);
 
-    await basePage.logout();
+    await basePage.logoutViaUrl();
     await loginPage.loginExpectSuccess(user.email!, user.password!);
     await homeownerProjectsPage.waitUntilReady();
   });
@@ -38,7 +38,7 @@ test.describe("Sign in", () => {
     basePage,
     loginPage,
   }) => {
-    await basePage.logout();
+    await basePage.logoutViaUrl();
     await loginPage.login("test@test.com", "wrongpassword");
     await loginPage.hasError();
   });
@@ -47,7 +47,7 @@ test.describe("Sign in", () => {
     basePage,
     loginPage,
   }) => {
-    await basePage.logout();
+    await basePage.logoutViaUrl();
     await loginPage.login(`unknown+${Date.now()}@test.com`, "Passw0rd!");
     await loginPage.hasError();
   });
@@ -75,7 +75,7 @@ test.describe("Sign in", () => {
 
     await AuthApi.signup(client, user);
 
-    await basePage.logout();
+    await basePage.logoutViaUrl();
 
     await loginPage.goto("/projects");
     await loginPage.loginWith(user.email!, user.password!);

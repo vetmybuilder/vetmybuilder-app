@@ -1,24 +1,12 @@
 import type { APIRequestContext, Page } from "@playwright/test";
-import { authedApiForUid } from "../api/services/client";
 import { uiLoginAsUid } from "./uiAuth";
 
 type MaybeString = string | null | undefined;
 
-function reqString(v: MaybeString, fieldName: string) {
+function reqString(v: MaybeString, field: string): string {
   const s = String(v ?? "").trim();
-  if (!s) throw new Error(`Missing required field: ${fieldName}`);
+  if (!s) throw new Error(`Missing required field: ${field}`);
   return s;
-}
-
-function looksLikeAlreadySignedUp(bodyText: string): boolean {
-  const t = (bodyText || "").toLowerCase();
-  return (
-    t.includes("already") ||
-    t.includes("exists") ||
-    t.includes("signed up") ||
-    t.includes("user exists") ||
-    t.includes("duplicate")
-  );
 }
 
 export async function loginInAsHomeowner(args: {
@@ -27,7 +15,6 @@ export async function loginInAsHomeowner(args: {
   apiBaseUrl: string;
   uiBaseUrl: string;
   uid?: string;
-
   firstName: MaybeString;
   lastName: MaybeString;
   location: MaybeString;
@@ -36,33 +23,31 @@ export async function loginInAsHomeowner(args: {
   const uid = String(args.uid || `ui-homeowner-${Date.now()}`).trim();
   if (!uid) throw new Error("Missing uid");
 
-  const email = String(args.email || `e2e+${uid}@example.test`).trim();
+  const testSecret = process.env.E2E_TEST_SECRET;
+  if (!testSecret) throw new Error("Missing E2E_TEST_SECRET");
 
-  const apiClient = await authedApiForUid(
-    args.page.request,
-    args.apiBaseUrl,
-    uid,
-    args.page,
-  );
-
-  const res = await apiClient.post("/api/auth/signup", {
+  const payload = {
     firstName: reqString(args.firstName, "firstName"),
     lastName: reqString(args.lastName, "lastName"),
     location: reqString(args.location, "location"),
+  };
+
+  // Use X-Sim-Uid + X-Test-Secret to bypass Firebase token verification.
+  // This avoids flakiness from the server-side 60s ID token cache, which can
+  // return stale tokens when the emulator user is updated between tests.
+  const res = await args.request.post(`${args.apiBaseUrl}/api/auth/signup`, {
+    data: payload,
+    headers: {
+      "X-Sim-Uid": uid,
+      "X-Test-Secret": testSecret,
+    },
   });
 
-  const bodyText = await res.text().catch(() => "");
-
-  if (!res.ok()) {
-    if (res.status() === 409) {
-      // already exists
-    } else if (res.status() === 400 && looksLikeAlreadySignedUp(bodyText)) {
-      // ignore known already-signed-up case
-    } else {
-      throw new Error(
-        `Signup failed: ${res.status()} ${res.statusText()}\n${bodyText || "(no body)"}`,
-      );
-    }
+  if (!res.ok() && res.status() !== 409) {
+    const body = await res.text().catch(() => "");
+    throw new Error(
+      `Signup failed: ${res.status()} ${res.statusText()}\n${body || "(no body)"}`,
+    );
   }
 
   await uiLoginAsUid({

@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
+import { safeGoto } from "../helpers/navigation";
 import Project from "../models/Project";
 
 export class HomeownerProjectsPage {
@@ -52,18 +53,7 @@ export class HomeownerProjectsPage {
   }
 
   async goto() {
-    try {
-      await this.page.goto("/projects", { waitUntil: "domcontentloaded" });
-    } catch (error) {
-      const message = String(error);
-      if (!message.includes("interrupted by another navigation")) {
-        throw error;
-      }
-      await this.page.waitForURL(/\/projects$/, {
-        waitUntil: "domcontentloaded",
-      });
-    }
-
+    await safeGoto(this.page, "/projects");
     await expect(this.page).toHaveURL(/\/projects$/);
   }
 
@@ -81,16 +71,7 @@ export class HomeownerProjectsPage {
   }
 
   async gotoTab(tab: string) {
-    const url = `/projects?tab=${tab}`;
-    try {
-      await this.page.goto(url);
-    } catch (error) {
-      if (String(error).includes("WebKit encountered an internal error")) {
-        await this.page.goto(url);
-      } else {
-        throw error;
-      }
-    }
+    await safeGoto(this.page, `/projects?tab=${tab}`);
   }
 
   findProjectById(projectId: string | number): Locator {
