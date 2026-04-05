@@ -105,6 +105,8 @@ export default function BuilderProfilePage() {
                 avatarUrl={avatarUrl}
                 avatarInitials={avatarInitials}
                 updatedDisplay={updatedDisplay}
+                reviewCount={aggReviews.length}
+                photoCount={aggPhotos.length}
               />
 
               <div className="grid gap-6 lg:grid-cols-[minmax(0,2.1fr)_minmax(280px,1fr)]">

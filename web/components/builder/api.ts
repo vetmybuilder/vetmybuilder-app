@@ -7,7 +7,7 @@ export async function fetchProjectRecommendations(
   projectId: number,
 ): Promise<any[]> {
   const tryRoutes = [
-    `/api/projects/${projectId}/recommendations`,
+    `/api/projects/${projectId}/recommendations?limit=50`,
     `/api/projects/${projectId}`,
   ];
 
