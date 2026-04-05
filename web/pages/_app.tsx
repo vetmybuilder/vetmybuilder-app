@@ -21,7 +21,6 @@ const AUTH_PATHS = new Set([
   "/signup",
   "/auth/complete",
   "/tradesman/login",
-  "/tradesman/register",
 ]);
 
 function isAuthPath(pathname: string) {

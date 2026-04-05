@@ -2,6 +2,7 @@
 
 import Head from "next/head";
 import { useEffect, useState, useCallback } from "react";
+import { Check } from "lucide-react";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
 import GuestOnly from "@/components/GuestOnly";
@@ -87,7 +88,7 @@ export default function TradesmanRegisterV2Page() {
   useEffect(() => {
     api
       .get("/api/auth/beta-status")
-      .then((res) => setBetaRequired(!!res.data?.betaRequired))
+      .then((res) => setBetaRequired(!!res.data?.required))
       .catch(() => {});
   }, []); // eslint-disable-line
 
@@ -462,16 +463,12 @@ export default function TradesmanRegisterV2Page() {
     }
   };
 
-  // ---- progress bar label ----
-  const progress = (step / 4) * 100;
-  const stepLabel =
-    step === 1
-      ? "Company & contact"
-      : step === 2
-      ? "Trades & photos"
-      : step === 3
-      ? "Offers & documents"
-      : "Create account";
+  const STEPS = [
+    { id: 1 as Step, label: "Company & contact" },
+    { id: 2 as Step, label: "Trades & photos" },
+    { id: 3 as Step, label: "Offers & documents" },
+    { id: 4 as Step, label: "Create account" },
+  ];
 
   return (
     <GuestOnly>
@@ -488,37 +485,54 @@ export default function TradesmanRegisterV2Page() {
           <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
         </div>
 
-      <div
-        className="relative z-10 mx-auto max-w-4xl px-6 py-8"
-        data-testid="trades-register-page"
-      >
-        <div className="mb-8">
-          <h1 className="text-3xl font-black tracking-tight text-zinc-900">Register as a tradesperson</h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            Fill in your details. The more compelling your profile, the more
-            likely homeowners will choose you.
-          </p>
-        </div>
+        <div className="relative z-10 flex min-h-screen flex-col lg:flex-row" data-testid="trades-register-page">
 
-        {/* Progress bar stepper */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2 text-xs text-zinc-500">
-            <span>Step {step} of 4</span>
-            <span className="font-medium text-zinc-700">{stepLabel}</span>
-          </div>
-          <div className="h-2 rounded-full bg-zinc-200 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-red-500 transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
+          {/* ── Left sidebar ── */}
+          <aside className="shrink-0 lg:sticky lg:top-0 lg:h-screen lg:w-72 xl:w-80 bg-white/85 backdrop-blur-sm border-b border-zinc-200 lg:border-b-0 lg:border-r lg:overflow-y-auto px-8 py-8 flex flex-col">
+            <h1 className="text-2xl font-black text-zinc-900 mb-1.5">Join our network</h1>
+            <p className="text-sm text-zinc-500 mb-10 leading-relaxed">
+              Connect with homeowners looking for your services
+            </p>
 
-        {err && (
-          <p className="mb-3 text-sm text-red-500 font-medium" role="alert">
-            {err}
-          </p>
-        )}
+            {/* Vertical step indicator */}
+            <nav aria-label="Registration steps">
+              {STEPS.map((s, i) => {
+                const done = step > s.id;
+                const active = step === s.id;
+                const isLast = i === STEPS.length - 1;
+                return (
+                  <div key={s.id} className="flex items-start gap-3">
+                    <div className="flex flex-col items-center">
+                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold transition-colors ${
+                        done ? "border-red-500 bg-red-500 text-white" :
+                        active ? "border-red-500 bg-white text-red-500" :
+                        "border-zinc-300 bg-white text-zinc-400"
+                      }`}>
+                        {done ? <Check className="h-4 w-4" /> : s.id}
+                      </div>
+                      {!isLast && (
+                        <div className={`w-0.5 h-9 transition-colors ${done ? "bg-red-400" : "bg-zinc-200"}`} />
+                      )}
+                    </div>
+                    <div className={`pt-1.5 ${!isLast ? "pb-9" : ""}`}>
+                      <p className={`text-sm font-medium transition-colors ${
+                        active ? "text-zinc-900" : done ? "text-zinc-500" : "text-zinc-300"
+                      }`}>
+                        {s.label}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </nav>
+          </aside>
+
+          {/* ── Right panel ── */}
+          <div className="flex-1 px-6 py-10 lg:px-10 xl:px-16 lg:py-12">
+            <div className="mx-auto max-w-2xl">
+              {err && (
+                <p className="mb-4 text-sm text-red-500 font-medium" role="alert">{err}</p>
+              )}
 
         {step === 1 && (
           <Step1Company
@@ -601,7 +615,9 @@ export default function TradesmanRegisterV2Page() {
             err={err}
           />
         )}
-      </div>
+            </div>
+          </div>
+        </div>
       </div>
       </>
     </GuestOnly>

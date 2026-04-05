@@ -1,5 +1,12 @@
+import { useState } from "react";
+import {
+  Building2, User, Phone, Mail, Globe, MapPin,
+  ChevronDown, ChevronUp, ArrowRight, KeyRound,
+} from "lucide-react";
 import LocationField from "@/components/forms/LocationField";
-import SocialRow from "./SocialRow";
+import {
+  IconInstagram, IconTikTok, IconFacebook, IconX, IconYouTube, IconLinkedIn,
+} from "./icons";
 import {
   normalizeFacebook,
   normalizeInstagram,
@@ -44,7 +51,7 @@ type Props = {
   nextQuery: string;
   emailError?: string | null;
 
-  // NEW: only used by the edit-profile page
+  // Only used by edit-profile page
   disableCompanyName?: boolean;
   disableBusinessEmail?: boolean;
 
@@ -53,6 +60,12 @@ type Props = {
   setBetaCode?: (v: string) => void;
   betaCodeError?: string | null;
 };
+
+const fieldCls =
+  "h-12 w-full rounded-xl border border-zinc-200 bg-zinc-50 pl-11 pr-4 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-red-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-400/20 transition-colors disabled:opacity-50";
+
+const iconCls =
+  "absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400 pointer-events-none";
 
 export default function Step1Company({
   form,
@@ -78,180 +91,196 @@ export default function Step1Company({
   setBetaCode,
   betaCodeError,
 }: Props) {
+  const [socialsOpen, setSocialsOpen] = useState(false);
+
+  const filledSocials = Object.values(form.socials).filter(Boolean).length;
+
   return (
-    <form className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-8 grid gap-5" onSubmit={onNext} data-testid="step-1">
-      <label
-        className="text-sm"
-        htmlFor="companyName"
-        data-testid="label-company-name"
-      >
-        Company name *
-      </label>
-      <input
-        id="companyName"
-        className="input"
-        value={form.companyName}
-        onChange={(e) => set("companyName", e.target.value)}
-        placeholder="Company Ltd"
-        data-testid="input-company-name"
-        disabled={disableCompanyName}
-      />
-
-      <label
-        className="text-sm"
-        htmlFor="contactName"
-        data-testid="label-contact-name"
-      >
-        Contact name *
-      </label>
-      <input
-        id="contactName"
-        className="input"
-        value={form.contactName}
-        onChange={(e) => set("contactName", e.target.value)}
-        placeholder="Your name"
-        data-testid="input-contact-name"
-      />
-
-      <div className="grid sm:grid-cols-2 gap-3">
-        <div>
-          <label className="text-sm" htmlFor="phone" data-testid="label-phone">
-            Phone (optional)
-          </label>
-          <input
-            id="phone"
-            className="input"
-            value={form.phone}
-            onChange={(e) => set("phone", e.target.value)}
-            placeholder="020..."
-            data-testid="input-phone"
-          />
-          <p className="mt-1 text-xs text-slate-500">
-            We ask for this so homeowners can contact you.
-          </p>
+    <form
+      className="bg-white rounded-2xl shadow-lg shadow-zinc-200/60 p-7 sm:p-9 space-y-7"
+      onSubmit={onNext}
+      data-testid="step-1"
+    >
+      {/* Step header */}
+      <div>
+        <div className="flex items-center gap-2.5 mb-1">
+          <span className="inline-flex h-6 w-6 items-center justify-center rounded border border-zinc-200 text-xs font-semibold text-zinc-600">
+            1
+          </span>
+          <h2 className="text-lg font-bold tracking-tight text-zinc-900">Company &amp; contact details</h2>
         </div>
-        <div>
-          <label className="text-sm" htmlFor="email" data-testid="label-email">
-            Business email *
-          </label>
-          <input
-            id="email"
-            className={`input ${
-              emailError
-                ? "border-red-500 ring-1 ring-red-500 focus:border-red-500 focus:ring-red-500"
-                : ""
-            }`}
-            type="email"
-            value={form.email}
-            onChange={(e) => set("email", e.target.value)}
-            placeholder="you@company.com"
-            autoComplete="email"
-            required
-            data-testid="input-email"
-            aria-invalid={!!emailError}
-            aria-describedby={emailError ? "email-error" : undefined}
-            disabled={disableBusinessEmail}
-          />
-          {emailError && (
-            <p
-              id="email-error"
-              className="mt-1 text-sm text-red-600"
-              role="alert"
-            >
-              {emailError}
-            </p>
-          )}
-        </div>
+        <p className="ml-8 text-sm text-zinc-500">
+          Tell us about your business so homeowners can find you
+        </p>
       </div>
 
-      {betaRequired && (
-        <div>
-          <label className="text-sm" htmlFor="betaCode" data-testid="label-beta-code">
-            Beta access code *
+      <div className="space-y-5">
+        {/* Company name */}
+        <div className="space-y-1.5">
+          <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500" htmlFor="companyName" data-testid="label-company-name">
+            Company name <span className="text-red-500">*</span>
           </label>
-          <input
-            id="betaCode"
-            className={`input mt-1 ${
-              betaCodeError
-                ? "border-red-500 ring-1 ring-red-500 focus:border-red-500 focus:ring-red-500"
-                : ""
-            }`}
-            type="text"
-            value={betaCode ?? ""}
-            onChange={(e) => setBetaCode?.(e.target.value)}
-            placeholder="Enter your beta access code"
-            data-testid="input-beta-code"
-            aria-invalid={!!betaCodeError}
-            aria-describedby={betaCodeError ? "beta-code-error" : undefined}
-          />
-          {betaCodeError && (
-            <p
-              id="beta-code-error"
-              className="mt-1 text-sm text-red-600"
-              role="alert"
-              data-testid="beta-code-error"
-            >
-              {betaCodeError}
-            </p>
-          )}
+          <div className="relative">
+            <Building2 className={iconCls} />
+            <input
+              id="companyName"
+              className={fieldCls}
+              value={form.companyName}
+              onChange={(e) => set("companyName", e.target.value)}
+              placeholder="Company Ltd"
+              data-testid="input-company-name"
+              disabled={disableCompanyName}
+            />
+          </div>
         </div>
-      )}
 
-      <label className="text-sm" data-testid="label-areas">
-        Service areas * (postcode sectors)
-      </label>
-      <div data-testid="input-areas">
-        <LocationField
-          label=""
-          reasonText=""
-          placeholder="Type a postcode or place… e.g., E4, N17, Chingford"
-          value={areaQuery}
-          onChange={(val: string, meta?: any) => {
-            setAreaQuery(val || "");
-            if (meta) {
-              const token = meta.outward || meta.sector || meta.postcode || "";
-              if (token) addServiceArea(token);
-              setAreaQuery("");
-            }
-          }}
-        />
-        {form.serviceAreas.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {form.serviceAreas.map((s) => (
-              <span
-                key={s}
-                className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700"
-              >
-                {s}
-                <button
-                  type="button"
-                  onClick={() => removeServiceArea(s)}
-                  className="rounded-full p-0.5 text-slate-400 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
-                  aria-label={`Remove ${s}`}
-                  title="Remove"
-                >
-                  ×
-                </button>
-              </span>
-            ))}
+        {/* Contact name */}
+        <div className="space-y-1.5">
+          <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500" htmlFor="contactName" data-testid="label-contact-name">
+            Contact name <span className="text-red-500">*</span>
+          </label>
+          <div className="relative">
+            <User className={iconCls} />
+            <input
+              id="contactName"
+              className={fieldCls}
+              value={form.contactName}
+              onChange={(e) => set("contactName", e.target.value)}
+              placeholder="Your name"
+              data-testid="input-contact-name"
+            />
+          </div>
+        </div>
+
+        {/* Phone + Email */}
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500" htmlFor="phone" data-testid="label-phone">
+              Phone <span className="text-zinc-400 font-normal normal-case">(optional)</span>
+            </label>
+            <div className="relative">
+              <Phone className={iconCls} />
+              <input
+                id="phone"
+                className={fieldCls}
+                value={form.phone}
+                onChange={(e) => set("phone", e.target.value)}
+                placeholder="020..."
+                data-testid="input-phone"
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500" htmlFor="email" data-testid="label-email">
+              Business email <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <Mail className={iconCls} />
+              <input
+                id="email"
+                className={`${fieldCls} ${emailError ? "border-red-400 ring-2 ring-red-400/20" : ""}`}
+                type="email"
+                value={form.email}
+                onChange={(e) => set("email", e.target.value)}
+                placeholder="you@company.com"
+                autoComplete="email"
+                required
+                data-testid="input-email"
+                aria-invalid={!!emailError}
+                aria-describedby={emailError ? "email-error" : undefined}
+                disabled={disableBusinessEmail}
+              />
+            </div>
+            {emailError && (
+              <p id="email-error" className="text-sm text-red-600" role="alert">{emailError}</p>
+            )}
+          </div>
+        </div>
+        <p className="text-xs text-zinc-400 -mt-2">We use your contact details so homeowners can reach you</p>
+
+        {/* Beta code */}
+        {betaRequired && (
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500" htmlFor="betaCode" data-testid="label-beta-code">
+              Beta access code <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <KeyRound className={iconCls} />
+              <input
+                id="betaCode"
+                className={`${fieldCls} ${betaCodeError ? "border-red-400 ring-2 ring-red-400/20" : ""}`}
+                type="text"
+                value={betaCode ?? ""}
+                onChange={(e) => setBetaCode?.(e.target.value)}
+                placeholder="Enter your beta access code"
+                data-testid="input-beta-code"
+                aria-invalid={!!betaCodeError}
+                aria-describedby={betaCodeError ? "beta-code-error" : undefined}
+              />
+            </div>
+            {betaCodeError && (
+              <p id="beta-code-error" className="text-sm text-red-600" role="alert" data-testid="beta-code-error">
+                {betaCodeError}
+              </p>
+            )}
           </div>
         )}
-      </div>
 
-      {/* Website (single) */}
-      <div className="mt-2" data-testid="website-field">
-        <label className="text-sm">Website (optional)</label>
-        <div className="mt-1">
+        {/* Service areas */}
+        <div className="space-y-1.5">
+          <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-500" data-testid="label-areas">
+            <MapPin className="h-3.5 w-3.5 text-zinc-400" />
+            Service areas <span className="text-red-500">*</span>{" "}
+            <span className="text-zinc-400 font-normal normal-case">(postcode sectors)</span>
+          </label>
+          <div data-testid="input-areas">
+            <LocationField
+              label=""
+              reasonText=""
+              placeholder="Type a postcode or place… e.g., E4, N17, Chingford"
+              value={areaQuery}
+              onChange={(val: string, meta?: any) => {
+                setAreaQuery(val || "");
+                if (meta) {
+                  const token = meta.outward || meta.sector || meta.postcode || "";
+                  if (token) addServiceArea(token);
+                  setAreaQuery("");
+                }
+              }}
+            />
+          </div>
+          {form.serviceAreas.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {form.serviceAreas.map((s) => (
+                <span
+                  key={s}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-sm text-zinc-700"
+                >
+                  {s}
+                  <button
+                    type="button"
+                    onClick={() => removeServiceArea(s)}
+                    className="rounded-full text-zinc-400 hover:text-zinc-700"
+                    aria-label={`Remove ${s}`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Website */}
+        <div className="space-y-1.5" data-testid="website-field">
+          <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500">
+            Website <span className="text-zinc-400 font-normal normal-case">(optional)</span>
+          </label>
           {!form.website ? (
-            <div className="group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm focus-within:ring-2 focus-within:ring-red-400">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-zinc-900 text-white">
-                🌐
-              </span>
-              <span className="shrink-0 text-sm text-slate-700 w-28">
-                Website
-              </span>
+            <div className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 focus-within:border-red-400 focus-within:ring-2 focus-within:ring-red-400/20 transition-colors">
+              <Globe className="h-4 w-4 shrink-0 text-zinc-400" />
               <input
-                className="input h-11 flex-1 border-0 bg-transparent p-0 shadow-none focus:ring-0 placeholder:text-slate-400"
+                className="h-12 flex-1 border-0 bg-transparent text-sm placeholder:text-zinc-400 focus:outline-none"
                 placeholder="https://yourwebsite.com"
                 value={websiteInput}
                 onChange={(e) => setWebsiteInput(e.target.value)}
@@ -260,154 +289,170 @@ export default function Step1Company({
               />
               <button
                 type="button"
-                className="rounded-xl px-3 py-1.5 text-sm bg-red-500 text-white hover:bg-red-600"
+                className="shrink-0 rounded-lg bg-red-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-600 transition-colors"
                 onClick={commitWebsite}
-                aria-label="Add website"
               >
                 + Add
               </button>
             </div>
           ) : (
-            <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-zinc-900 text-white">
-                  🌐
-                </span>
-                <span className="shrink-0 text-sm text-slate-700 w-28">
-                  Website
-                </span>
-                <a
-                  href={form.website}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="truncate text-sm link"
-                >
+            <div className="flex items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 px-4 h-12">
+              <div className="flex items-center gap-2 min-w-0">
+                <Globe className="h-4 w-4 shrink-0 text-zinc-400" />
+                <a href={form.website} target="_blank" rel="noreferrer" className="truncate text-sm text-red-500 hover:underline">
                   {form.website.replace(/^https?:\/\//, "")}
                 </a>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className="text-xs text-slate-500 hover:text-red-600"
-                  onClick={clearWebsite}
-                  aria-label="Remove website"
-                  title="Remove"
-                >
-                  Remove
-                </button>
+              <button type="button" className="shrink-0 text-xs text-zinc-400 hover:text-red-500 ml-3" onClick={clearWebsite}>
+                Remove
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Social links — collapsible */}
+        <div className="space-y-2" data-testid="socials">
+          <button
+            type="button"
+            onClick={() => setSocialsOpen((v) => !v)}
+            className="flex w-full items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-left hover:bg-zinc-100 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              {/* Social icons row */}
+              <div className="flex -space-x-1">
+                {/* Instagram */}
+                <span className="flex h-6 w-6 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500">
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
+                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                  </svg>
+                </span>
+                {/* TikTok */}
+                <span className="flex h-6 w-6 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500">
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
+                    <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
+                  </svg>
+                </span>
+                {/* Facebook */}
+                <span className="flex h-6 w-6 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500">
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                  </svg>
+                </span>
+                {/* X */}
+                <span className="flex h-6 w-6 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500">
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                  </svg>
+                </span>
               </div>
+              <span className="text-sm font-medium text-zinc-700">Social links</span>
+              <span className="text-xs text-zinc-400">(optional)</span>
+              {filledSocials > 0 && (
+                <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-600">
+                  {filledSocials} added
+                </span>
+              )}
+            </div>
+            {socialsOpen ? (
+              <ChevronUp className="h-4 w-4 text-zinc-400" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-zinc-400" />
+            )}
+          </button>
+
+          {socialsOpen && (
+            <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4 grid gap-3 sm:grid-cols-2">
+              {([
+                {
+                  id: "ig", key: "instagram" as const, label: "Instagram",
+                  placeholder: "@yourhandle or profile URL",
+                  Icon: IconInstagram,
+                  hover: "hover:border-pink-300 hover:[&_.icon]:text-pink-500 hover:[&_.name]:text-pink-500",
+                  normalize: normalizeInstagram,
+                },
+                {
+                  id: "tt", key: "tiktok" as const, label: "TikTok",
+                  placeholder: "@yourhandle or profile URL",
+                  Icon: IconTikTok,
+                  hover: "hover:border-zinc-700 hover:[&_.icon]:text-zinc-900 hover:[&_.name]:text-zinc-900",
+                  normalize: normalizeTikTok,
+                },
+                {
+                  id: "fb", key: "facebook" as const, label: "Facebook",
+                  placeholder: "Page name or URL",
+                  Icon: IconFacebook,
+                  hover: "hover:border-blue-300 hover:[&_.icon]:text-blue-600 hover:[&_.name]:text-blue-600",
+                  normalize: normalizeFacebook,
+                },
+                {
+                  id: "tw", key: "x" as const, label: "X (Twitter)",
+                  placeholder: "@yourhandle or profile URL",
+                  Icon: IconX,
+                  hover: "hover:border-zinc-700 hover:[&_.icon]:text-zinc-900 hover:[&_.name]:text-zinc-900",
+                  normalize: normalizeX,
+                },
+                {
+                  id: "yt", key: "youtube" as const, label: "YouTube",
+                  placeholder: "@yourhandle or channel URL",
+                  Icon: IconYouTube,
+                  hover: "hover:border-red-300 hover:[&_.icon]:text-red-500 hover:[&_.name]:text-red-500",
+                  normalize: normalizeYouTube,
+                },
+                {
+                  id: "li", key: "linkedin" as const, label: "LinkedIn",
+                  placeholder: "Company page or URL",
+                  Icon: IconLinkedIn,
+                  hover: "hover:border-sky-300 hover:[&_.icon]:text-sky-700 hover:[&_.name]:text-sky-700",
+                  normalize: normalizeLinkedIn,
+                },
+              ] as const).map(({ id, key, label, placeholder, Icon, hover, normalize }) => (
+                <div
+                  key={id}
+                  data-testid={`social-${key}`}
+                  className={`flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 transition-colors focus-within:border-red-300 focus-within:ring-2 focus-within:ring-red-400/20 ${hover}`}
+                >
+                  <span className="icon shrink-0 text-zinc-400 transition-colors">
+                    <Icon />
+                  </span>
+                  <span className="name shrink-0 w-24 text-sm font-medium text-zinc-500 transition-colors">{label}</span>
+                  <input
+                    id={id}
+                    className="flex-1 border-0 bg-transparent text-sm placeholder:text-zinc-300 focus:outline-none min-w-0"
+                    placeholder={placeholder}
+                    value={form.socials[key]}
+                    onChange={(e) => set("socials", { ...form.socials, [key]: e.target.value })}
+                    onBlur={() => { const url = normalize(form.socials[key]); if (url) set("socials", { ...form.socials, [key]: url }); }}
+                  />
+                </div>
+              ))}
             </div>
           )}
         </div>
       </div>
 
-      {/* Social links */}
-      <div className="mt-4" data-testid="socials">
-        <label className="text-sm">Social links (optional)</label>
-        <div className="mt-2 grid gap-3 sm:grid-cols-2">
-          <SocialRow
-            id="ig"
-            brand="instagram"
-            label="Instagram"
-            placeholder="@yourhandle or profile URL"
-            value={form.socials.instagram}
-            onChange={(v) => set("socials", { ...form.socials, instagram: v })}
-            onBlur={() => {
-              const url = normalizeInstagram(form.socials.instagram);
-              if (url) set("socials", { ...form.socials, instagram: url });
-            }}
-          />
-          <SocialRow
-            id="tt"
-            brand="tiktok"
-            label="TikTok"
-            placeholder="@yourhandle or profile URL"
-            value={form.socials.tiktok}
-            onChange={(v) => set("socials", { ...form.socials, tiktok: v })}
-            onBlur={() => {
-              const url = normalizeTikTok(form.socials.tiktok);
-              if (url) set("socials", { ...form.socials, tiktok: url });
-            }}
-          />
-          <SocialRow
-            id="fb"
-            brand="facebook"
-            label="Facebook"
-            placeholder="Page name or URL"
-            value={form.socials.facebook}
-            onChange={(v) => set("socials", { ...form.socials, facebook: v })}
-            onBlur={() => {
-              const url = normalizeFacebook(form.socials.facebook);
-              if (url) set("socials", { ...form.socials, facebook: url });
-            }}
-          />
-          <SocialRow
-            id="tw"
-            brand="x"
-            label="X (Twitter)"
-            placeholder="@yourhandle or profile URL"
-            value={form.socials.x}
-            onChange={(v) => set("socials", { ...form.socials, x: v })}
-            onBlur={() => {
-              const url = normalizeX(form.socials.x);
-              if (url) set("socials", { ...form.socials, x: url });
-            }}
-          />
-          <SocialRow
-            id="yt"
-            brand="youtube"
-            label="YouTube"
-            placeholder="@yourhandle or channel URL"
-            value={form.socials.youtube}
-            onChange={(v) => set("socials", { ...form.socials, youtube: v })}
-            onBlur={() => {
-              const url = normalizeYouTube(form.socials.youtube);
-              if (url) set("socials", { ...form.socials, youtube: url });
-            }}
-          />
-          <SocialRow
-            id="li"
-            brand="linkedin"
-            label="LinkedIn"
-            placeholder="Company page or URL"
-            value={form.socials.linkedin}
-            onChange={(v) => set("socials", { ...form.socials, linkedin: v })}
-            onBlur={() => {
-              const url = normalizeLinkedIn(form.socials.linkedin);
-              if (url) set("socials", { ...form.socials, linkedin: url });
-            }}
-          />
+      {/* Footer */}
+      <div className="flex items-center justify-between border-t border-zinc-100 pt-6">
+        <p className="text-xs text-zinc-400">
+          <span className="text-red-500">*</span> Required fields
+        </p>
+        <div className="flex items-center gap-4">
+          {!userIsAuthed && (
+            <p className="text-sm text-zinc-500" data-testid="vendor-already-member">
+              Already a member?{" "}
+              <a className="font-medium text-red-500 hover:underline" href={`/login${nextQuery}`} data-testid="link-vendor-signin">
+                Sign in
+              </a>
+            </p>
+          )}
+          <button
+            className="inline-flex items-center gap-2 rounded-full bg-red-500 px-6 py-2.5 text-sm font-bold text-white shadow-sm shadow-red-500/25 hover:bg-red-600 transition-colors"
+            data-testid="btn-next"
+          >
+            Continue
+            <ArrowRight className="h-4 w-4" />
+          </button>
         </div>
       </div>
-
-      <div className="mt-1 flex items-center justify-end gap-2">
-        <button
-          className="inline-flex items-center justify-center rounded-full bg-red-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:bg-red-600 transition-all"
-          data-testid="btn-next"
-          disabled={
-            !canProceed &&
-            false /* kept for API parity; handler controls flow */
-          }
-        >
-          Next
-        </button>
-      </div>
-
-      {!userIsAuthed && (
-        <p
-          className="text-sm text-slate-600"
-          data-testid="vendor-already-member"
-        >
-          Already a member?{" "}
-          <a
-            className="link"
-            href={`/login${nextQuery}`}
-            data-testid="link-vendor-signin"
-          >
-            Sign in
-          </a>
-        </p>
-      )}
     </form>
   );
 }

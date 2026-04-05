@@ -196,7 +196,7 @@ export default function TradesmanProjects() {
             <p className="text-sm mt-1">
               You’ll be able to view and contact projects once your account is{" "}
               <strong>active</strong>. You can still update your details on{" "}
-              <Link className="link" href="/tradesman/register">
+              <Link className="link" href="/tradesman/profile">
                 Manage profile
               </Link>
               .
@@ -214,7 +214,7 @@ export default function TradesmanProjects() {
             </p>
             <p className="text-sm mt-1">
               Go to{" "}
-              <Link className="link" href="/tradesman/register">
+              <Link className="link" href="/tradesman/profile">
                 Manage profile
               </Link>{" "}
               and complete your details.
