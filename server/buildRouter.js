@@ -97,6 +97,9 @@ function buildRouter(ctx) {
   require("./routes/__test__/auth/session.post")(router, ctx);
   require("./routes/__test__/sim/live-projects.get")(router, ctx);
 
+  // ---------------- contact ----------------
+  require("./routes/contact/contact.post")(router, ctx);
+
   // ---------------- auth ----------------
   require("./routes/auth/beta-status.get")(router, ctx);
   require("./routes/auth/check-email.post")(router, ctx);
