@@ -65,7 +65,7 @@ describe("<Layout />", () => {
     expect(within(main).getByText(/content/i)).toBeInTheDocument();
 
     // No account menu when logged out
-    expect(screen.queryByTestId("account-button")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("account-menu-button")).not.toBeInTheDocument();
   });
 
   it("shows account button and initials when signed in", () => {
@@ -77,7 +77,7 @@ describe("<Layout />", () => {
     render(<Layout>content</Layout>);
 
     // Account button and initials
-    expect(screen.getByTestId("account-button")).toBeInTheDocument();
+    expect(screen.getByTestId("account-menu-button")).toBeInTheDocument();
     expect(screen.getByTestId("account-initials")).toHaveTextContent("CM");
 
     // No "Sign in" when logged in
@@ -93,7 +93,7 @@ describe("<Layout />", () => {
     render(<Layout>content</Layout>);
 
     // Open menu
-    fireEvent.click(screen.getByTestId("account-button"));
+    fireEvent.click(screen.getByTestId("account-menu-button"));
     const menu = await screen.findByTestId("account-menu");
     expect(menu).toBeInTheDocument();
 

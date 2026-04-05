@@ -682,7 +682,7 @@ export default function SiteHeader() {
                       setOpenMenu((m) => (m === "account" ? null : "account"))
                     }
                     className="inline-flex items-center gap-2 rounded-full px-2 py-1 ring-1 ring-gray-300/80 bg-white hover:bg-gray-50 shadow-sm"
-                    data-testid="account-button"
+                    data-testid="account-menu-button"
                   >
                     <span
                       aria-hidden
