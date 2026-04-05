@@ -363,7 +363,7 @@ export default function ShortlistSection({
                               data-testid="shortlist-company"
                             >
                               <Link
-                                href={r.tradesmanPublicId ? `/tradesman/${r.tradesmanPublicId}` : `/builders/${r.id}`}
+                                href={`/builders/${r.id}`}
                                 className="hover:underline decoration-zinc-400/60"
                                 title="Open builder profile"
                               >

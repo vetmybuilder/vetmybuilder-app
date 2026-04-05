@@ -1,9 +1,8 @@
 // web/components/builder/BuilderHeader.tsx
 
 import { useRouter } from "next/router";
-import Badge from "./Badge";
-import ScoreChip from "./ScoreChip";
-import ThumbsUpIcon from "./ThumbsUpIcon";
+import { ShieldCheck, ThumbsUp } from "lucide-react";
+import StatPill from "@/components/StatPill";
 import { GoogleRatingChip } from "@/components/GoogleRatingChip";
 import {
   Builder,
@@ -25,6 +24,8 @@ type Props = {
   avatarUrl?: string | null;
   avatarInitials: string;
   updatedDisplay?: string | null;
+  reviewCount?: number;
+  photoCount?: number;
 };
 
 export default function BuilderHeader({
@@ -41,6 +42,8 @@ export default function BuilderHeader({
   avatarUrl,
   avatarInitials,
   updatedDisplay,
+  reviewCount,
+  photoCount,
 }: Props) {
   const router = useRouter();
 
@@ -88,11 +91,13 @@ export default function BuilderHeader({
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {verification?.status === "verified" && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-700 px-3 py-0.5 text-xs font-bold">
-                    ✅ Companies House verified
+                    <ShieldCheck className="h-3 w-3" />
+                    Companies House verified
                   </span>
                 )}
                 {friendCount > 0 && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 text-sky-700 px-3 py-0.5 text-xs font-bold">
+                    <ShieldCheck className="h-3 w-3" />
                     {friendCount === 1 ? "Shared by a friend" : "Shared by friends"}
                   </span>
                 )}
@@ -103,21 +108,44 @@ export default function BuilderHeader({
                 ) : null}
                 {updatedDisplay && (
                   <span className="text-xs text-zinc-400">
-                    Updated {new Date(updatedDisplay).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                    Member since {new Date(updatedDisplay).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
                   </span>
                 )}
               </div>
 
               {/* stats */}
-              <div className="mt-2 flex flex-wrap items-center gap-3">
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 {user ? (
                   <>
-                    <ScoreChip value={score ?? builder?.score} />
                     {verification?.googleRating != null && !Number.isNaN(Number(verification.googleRating)) && (
                       <GoogleRatingChip
                         rating={verification.googleRating}
                         count={verification.googleReviewsCount ?? null}
                         placeId={verification.googlePlaceId ?? null}
+                      />
+                    )}
+                    {reviewCount != null && (
+                      <StatPill
+                        testId="builder-reviews"
+                        icon={<svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-rose-400"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd"/></svg>}
+                        label="Reviews"
+                        value={reviewCount}
+                      />
+                    )}
+                    {photoCount != null && (
+                      <StatPill
+                        testId="builder-photos"
+                        icon={<svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-sky-400"><path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"/></svg>}
+                        label="Photos"
+                        value={photoCount}
+                      />
+                    )}
+                    {(score ?? builder?.score) != null && (
+                      <StatPill
+                        testId="builder-score"
+                        icon={<svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-red-500"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>}
+                        label="VMB score"
+                        value={Number((score ?? builder?.score) ?? 0).toFixed(1)}
                       />
                     )}
                   </>
@@ -134,11 +162,12 @@ export default function BuilderHeader({
           <div className="flex sm:flex-col items-start sm:items-end gap-2">
             {canVote && (
               <button
+                type="button"
                 className={[
-                  "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold shadow-sm transition",
+                  "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold shadow-sm border transition",
                   builder.myLike === 1
-                    ? "bg-red-50 border border-red-200 text-red-500 cursor-default"
-                    : "bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-50",
+                    ? "bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100"
+                    : "bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50",
                   voting ? "opacity-70 cursor-wait" : "",
                 ].join(" ")}
                 disabled={!user || builder.myLike === 1 || voting || !canVote}
@@ -146,7 +175,7 @@ export default function BuilderHeader({
                 data-testid="btn-vote-up"
                 aria-pressed={builder.myLike === 1}
               >
-                <ThumbsUpIcon className="h-4 w-4" />
+                <ThumbsUp className={`h-4 w-4 ${builder.myLike === 1 ? "fill-rose-500 text-rose-500" : ""}`} />
                 <span>{builder.myLike === 1 ? "You’ve voted" : "Vote up"}</span>
               </button>
             )}

@@ -2,11 +2,18 @@
 
 import { Review } from "@/types/builderTypes";
 
-function pickAvatarColor(name: string): string {
-  const palettes = ["bg-red-500","bg-emerald-500","bg-amber-500","bg-sky-500","bg-violet-500","bg-pink-500","bg-teal-500"];
-  let h = 0;
-  for (let i = 0; i < (name || "").length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
-  return palettes[h % palettes.length];
+const AVATAR_PALETTE = ["bg-violet-500","bg-emerald-500","bg-sky-500","bg-amber-500","bg-pink-500","bg-teal-500","bg-orange-500","bg-indigo-500"];
+
+function buildColorMap(reviews: Review[]): Map<string, string> {
+  const map = new Map<string, string>();
+  let idx = 0;
+  for (const rev of reviews) {
+    if (!map.has(rev.name)) {
+      map.set(rev.name, AVATAR_PALETTE[idx % AVATAR_PALETTE.length]);
+      idx++;
+    }
+  }
+  return map;
 }
 
 type Props = {
@@ -15,6 +22,8 @@ type Props = {
 
 export default function BuilderReviews({ reviews }: Props) {
   if (!reviews || reviews.length === 0) return null;
+
+  const colorMap = buildColorMap(reviews);
 
   return (
     <section
@@ -31,7 +40,7 @@ export default function BuilderReviews({ reviews }: Props) {
           <article key={rev.id} className="rounded-2xl bg-zinc-50 px-4 py-3">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-3">
-                <div className={`h-8 w-8 rounded-full text-white grid place-items-center text-xs font-black flex-shrink-0 ${pickAvatarColor(rev.name)}`}>
+                <div className={`h-8 w-8 rounded-full text-white grid place-items-center text-xs font-black flex-shrink-0 ${colorMap.get(rev.name)}`}>
                   {rev.name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase()}
                 </div>
                 <span className="text-sm font-black text-zinc-900">{rev.name}</span>
