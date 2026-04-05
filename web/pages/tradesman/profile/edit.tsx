@@ -476,64 +476,68 @@ function Inner() {
         <div className="relative z-10 flex min-h-screen flex-col lg:flex-row" data-testid="trades-edit-profile-page">
 
           {/* ── Left sidebar ── */}
-          <aside className="shrink-0 lg:sticky lg:top-0 lg:h-screen lg:w-72 xl:w-80 bg-white/85 backdrop-blur-sm border-b border-zinc-200 lg:border-b-0 lg:border-r lg:overflow-y-auto px-8 py-8 flex flex-col">
-            <h1 className="text-2xl font-black text-zinc-900 mb-1.5">{title}</h1>
-            <p className="text-sm text-zinc-500 mb-10 leading-relaxed">
-              Update the key details project owners will see.
-            </p>
-
-            {/* Vertical step indicator */}
-            <nav aria-label="Edit profile steps">
-              {STEPS.map((s, i) => {
-                const done = step > s.n;
-                const active = step === s.n;
-                const isLast = i === STEPS.length - 1;
-                return (
-                  <div key={s.n} className="flex items-start gap-3">
-                    <div className="flex flex-col items-center">
-                      <button
-                        type="button"
-                        onClick={() => setStep(s.n)}
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold transition-colors ${
-                          done ? "border-red-500 bg-red-500 text-white" :
-                          active ? "border-red-500 bg-white text-red-500" :
-                          "border-zinc-300 bg-white text-zinc-400"
-                        }`}
-                        aria-current={active ? "step" : undefined}
-                      >
-                        {done ? (
-                          <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
-                        ) : s.n}
-                      </button>
-                      {!isLast && (
-                        <div className={`w-0.5 h-9 transition-colors ${done ? "bg-red-400" : "bg-zinc-200"}`} />
-                      )}
-                    </div>
-                    <div className={`pt-1.5 ${!isLast ? "pb-9" : ""}`}>
-                      <button
-                        type="button"
-                        onClick={() => setStep(s.n)}
-                        className={`text-sm font-medium transition-colors text-left ${
-                          active ? "text-zinc-900" : done ? "text-zinc-500" : "text-zinc-300"
-                        }`}
-                      >
-                        {s.label}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </nav>
-
-            <div className="mt-auto pt-8">
+          <aside className="shrink-0 lg:sticky lg:top-0 lg:h-screen lg:w-72 xl:w-80 bg-white/85 backdrop-blur-sm border-b border-zinc-200 lg:border-b-0 lg:border-r flex flex-col">
+            {/* scrollable top */}
+            <div className="flex-1 overflow-y-auto px-8 py-8">
               <button
                 type="button"
                 onClick={goToProfile}
-                className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-100 transition-colors"
+                className="inline-flex items-center gap-1.5 mb-6 text-xs font-medium text-zinc-400 hover:text-rose-500 transition-colors"
               >
-                Cancel without saving
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 shrink-0">
+                  <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd"/>
+                </svg>
+                Back to profile
               </button>
+              <h1 className="text-2xl font-black text-zinc-900 mb-1.5">{title}</h1>
+              <p className="text-sm text-zinc-500 mb-10 leading-relaxed">
+                Update the key details project owners will see.
+              </p>
+
+              {/* Vertical step indicator */}
+              <nav aria-label="Edit profile steps">
+                {STEPS.map((s, i) => {
+                  const done = step > s.n;
+                  const active = step === s.n;
+                  const isLast = i === STEPS.length - 1;
+                  return (
+                    <div key={s.n} className="flex items-start gap-3">
+                      <div className="flex flex-col items-center">
+                        <button
+                          type="button"
+                          onClick={() => setStep(s.n)}
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold transition-colors ${
+                            done ? "border-red-500 bg-red-500 text-white" :
+                            active ? "border-red-500 bg-white text-red-500" :
+                            "border-zinc-300 bg-white text-zinc-400"
+                          }`}
+                          aria-current={active ? "step" : undefined}
+                        >
+                          {done ? (
+                            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+                          ) : s.n}
+                        </button>
+                        {!isLast && (
+                          <div className={`w-0.5 h-9 transition-colors ${done ? "bg-red-400" : "bg-zinc-200"}`} />
+                        )}
+                      </div>
+                      <div className={`pt-1.5 ${!isLast ? "pb-9" : ""}`}>
+                        <button
+                          type="button"
+                          onClick={() => setStep(s.n)}
+                          className={`text-sm font-medium transition-colors text-left ${
+                            active ? "text-zinc-900" : done ? "text-zinc-500" : "text-zinc-300"
+                          }`}
+                        >
+                          {s.label}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </nav>
             </div>
+
           </aside>
 
           {/* ── Right panel ── */}
