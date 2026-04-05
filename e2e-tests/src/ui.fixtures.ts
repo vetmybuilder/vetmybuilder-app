@@ -2,6 +2,7 @@ import { test as uiBaseTest, expect } from "./ui.base.fixtures";
 import { api, authedApiForUid } from "./api/services/client";
 import { AccountApi } from "./apiHelper/account/AccountApi";
 import { ProjectApi } from "./apiHelper/project/ProjectApi";
+import { RecommendationApi } from "./apiHelper/project/ProjectRecommendationApi";
 import { BasePage } from "./pages/BasePage";
 
 type ApiClient = ReturnType<typeof api>;
@@ -28,6 +29,7 @@ export const test = uiBaseTest.extend<{
   adminApiClient: ApiClient;
   projectApi: ProjectApi;
   accountApi: AccountApi;
+  recommendationApi: RecommendationApi;
   basePage: BasePage;
 }>({
   login: [
@@ -98,6 +100,10 @@ export const test = uiBaseTest.extend<{
 
   accountApi: async ({ apiClient }, use) => {
     await use(new AccountApi(apiClient));
+  },
+
+  recommendationApi: async ({ apiClient }, use) => {
+    await use(new RecommendationApi(apiClient));
   },
 });
 

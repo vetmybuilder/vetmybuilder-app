@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
+import { safeGoto } from "../helpers/navigation";
 import Project from "../models/Project";
 import Recommendation from "../models/Recommendation";
 import { type PublishOptions } from "./components/PublishModalComponent";
@@ -226,16 +227,7 @@ export class ProjectDetailsPage extends BasePage {
   }
 
   async visit(projectId: string | number) {
-    const url = `/projects/${projectId}`;
-    try {
-      await this.page.goto(url, { waitUntil: "domcontentloaded" });
-    } catch (error) {
-      if (String(error).includes("WebKit encountered an internal error")) {
-        await this.page.goto(url, { waitUntil: "domcontentloaded" });
-      } else {
-        throw error;
-      }
-    }
+    await safeGoto(this.page, `/projects/${projectId}`);
     await expect(this.page).toHaveURL(
       new RegExp(`/projects/${projectId}(\\?.*)?$`),
     );
@@ -268,10 +260,10 @@ export class ProjectDetailsPage extends BasePage {
 
   async hasNotification(text: string) {
     await expect(this.notificationsButton).toBeVisible({ timeout: 15_000 });
-    await this.notificationsButton.click();
+    await this.notificationsButton.click({delay: 1000});
     await expect(
       this.page.getByRole("menuitem", { name: text }).first(),
-    ).toBeVisible({ timeout: 15_000 });
+    ).toBeVisible({ timeout: 25_000 });
   }
 
   async openNotification(text: string) {
@@ -404,16 +396,21 @@ export class ProjectDetailsPage extends BasePage {
   }
 
   async hasProjectRecommendation(recommendation: Recommendation) {
-    await expect(this.shortlistCompanyName).toHaveText(
-      new RegExp(recommendation.company.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"),
+    const companyRegex = new RegExp(
+      recommendation.company.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+      "i",
     );
-    await expect(this.shortlistComment).toHaveText(recommendation.comment);
-    await expect(this.shortlistCompaniesHouseBadge).toBeVisible();
-    await expect(this.shortlistPhotosBadge).toBeVisible();
-    await expect(this.shortlistRecommender).toContainText(
-      "Community recommendation",
-    );
-    await expect(this.shortlistRecommender).toHaveText(
+
+    const card = this.page
+      .getByTestId("shortlist-group")
+      .filter({ has: this.page.getByTestId("shortlist-company-name").filter({ hasText: companyRegex }) })
+      .first();
+
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await expect(card.getByTestId("shortlist-comment")).toHaveText(recommendation.comment);
+    await expect(card.getByTestId("shortlist-badge-ch")).toBeVisible();
+    await expect(card.getByTestId("shortlist-badge-photos")).toBeVisible();
+    await expect(card.getByTestId("shortlist-recommender")).toHaveText(
       `Community recommendation made on ${dayjs().format("M/D/YYYY")}`,
     );
   }

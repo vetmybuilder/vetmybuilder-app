@@ -14,6 +14,8 @@ export type CloseProjectOptions = {
   otherReasonText?: string;
 
   tradespersonLabel?: string;
+  /** Select the first available tradesperson option instead of matching by label. */
+  selectFirstTradesperson?: boolean;
 
   photoPaths?: string[];
 };
@@ -153,6 +155,33 @@ export class CloseProjectModalComponent {
     await this.whoDidWorkSelect.selectOption(matchedValue!);
   }
 
+  private async selectFirstAvailableTradesperson() {
+    await expect(this.whoDidWorkSelect).toBeVisible();
+
+    // Poll until at least one non-empty option appears.
+    let firstValue: string | null = null;
+
+    await expect
+      .poll(
+        async () => {
+          const options = this.whoDidWorkSelect.locator("option");
+          const count = await options.count();
+          for (let i = 0; i < count; i++) {
+            const value = await options.nth(i).getAttribute("value");
+            if (value) {
+              firstValue = value;
+              return true;
+            }
+          }
+          return false;
+        },
+        { timeout: 15_000, message: "Waiting for at least one tradesperson option" },
+      )
+      .toBe(true);
+
+    await this.whoDidWorkSelect.selectOption(firstValue!);
+  }
+
   private async uploadPhotos(photoPaths: string[]) {
     if (!photoPaths.length) return;
     const fileInput = this.dialog.locator('input[type="file"]').first();
@@ -173,7 +202,9 @@ export class CloseProjectModalComponent {
     } else {
       await expect(this.reasonsFieldset).toBeHidden();
 
-      if (opts.tradespersonLabel) {
+      if (opts.selectFirstTradesperson) {
+        await this.selectFirstAvailableTradesperson();
+      } else if (opts.tradespersonLabel) {
         await this.chooseTradespersonByLabel(opts.tradespersonLabel);
       }
 

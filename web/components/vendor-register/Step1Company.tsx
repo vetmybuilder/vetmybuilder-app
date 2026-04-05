@@ -47,6 +47,11 @@ type Props = {
   // NEW: only used by the edit-profile page
   disableCompanyName?: boolean;
   disableBusinessEmail?: boolean;
+
+  betaRequired?: boolean;
+  betaCode?: string;
+  setBetaCode?: (v: string) => void;
+  betaCodeError?: string | null;
 };
 
 export default function Step1Company({
@@ -68,6 +73,10 @@ export default function Step1Company({
   emailError,
   disableCompanyName,
   disableBusinessEmail,
+  betaRequired,
+  betaCode,
+  setBetaCode,
+  betaCodeError,
 }: Props) {
   return (
     <form className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-8 grid gap-5" onSubmit={onNext} data-testid="step-1">
@@ -154,6 +163,39 @@ export default function Step1Company({
           )}
         </div>
       </div>
+
+      {betaRequired && (
+        <div>
+          <label className="text-sm" htmlFor="betaCode" data-testid="label-beta-code">
+            Beta access code *
+          </label>
+          <input
+            id="betaCode"
+            className={`input mt-1 ${
+              betaCodeError
+                ? "border-red-500 ring-1 ring-red-500 focus:border-red-500 focus:ring-red-500"
+                : ""
+            }`}
+            type="text"
+            value={betaCode ?? ""}
+            onChange={(e) => setBetaCode?.(e.target.value)}
+            placeholder="Enter your beta access code"
+            data-testid="input-beta-code"
+            aria-invalid={!!betaCodeError}
+            aria-describedby={betaCodeError ? "beta-code-error" : undefined}
+          />
+          {betaCodeError && (
+            <p
+              id="beta-code-error"
+              className="mt-1 text-sm text-red-600"
+              role="alert"
+              data-testid="beta-code-error"
+            >
+              {betaCodeError}
+            </p>
+          )}
+        </div>
+      )}
 
       <label className="text-sm" data-testid="label-areas">
         Service areas * (postcode sectors)

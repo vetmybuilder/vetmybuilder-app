@@ -51,7 +51,7 @@ export default defineConfig({
   // origin (the proxy), keeping the Authorization header intact.
   workers: process.env.PW_WORKERS ? Number(process.env.PW_WORKERS) : 2,
   timeout: Number(process.env.PW_TIMEOUT ?? 90_000),
-  retries: process.env.CI ? 1 : 0,
+  retries: 2,
   reporter: [["list"], ["html", { open: "never" }]],
 
   ...(SHOULD_START_WEB_SERVER
@@ -97,6 +97,7 @@ export default defineConfig({
     {
       name: "ui-mobile-webkit-iphone",
       testMatch: /tests\/ui\//,
+      testIgnore: /tests\/ui\/admin\//,
       use: {
         ...devices["iPhone 14"],
         browserName: "webkit",

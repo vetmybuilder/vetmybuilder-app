@@ -9,7 +9,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
-    return res.status(405).end("Method Not Allowed");
+    res.status(405).end("Method Not Allowed");
+    return;
   }
 
   const expired = [
@@ -24,5 +25,5 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   );
 
   res.setHeader("Set-Cookie", expired);
-  return res.status(204).end();
+  res.status(204).end();
 }

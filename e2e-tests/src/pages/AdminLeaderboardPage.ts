@@ -22,9 +22,9 @@ export class AdminLeaderboardPage extends BasePage {
 
   /** Waits for the admin-authenticated view (heading visible). Call after visit() for admin tests. */
   async waitUntilReady() {
-    await expect(
-      this.page.getByTestId("admin-leaderboard-page"),
-    ).toBeVisible({ timeout: 30_000 });
+    await expect(this.page.getByTestId("admin-leaderboard-page")).toBeVisible({
+      timeout: 30_000,
+    });
     await expect(this.heading).toBeVisible({ timeout: 15_000 });
   }
 
@@ -34,9 +34,9 @@ export class AdminLeaderboardPage extends BasePage {
     await this.page.goto("/admin/tradesmen-leaderboard", {
       waitUntil: "domcontentloaded",
     });
-    await expect(
-      this.page.getByTestId("admin-leaderboard-page"),
-    ).toBeVisible({ timeout: 30_000 });
+    await expect(this.page.getByTestId("admin-leaderboard-page")).toBeVisible({
+      timeout: 30_000,
+    });
   }
 
   async searchFor(query: string) {
@@ -66,10 +66,7 @@ export class AdminLeaderboardPage extends BasePage {
     await actionsButton.click();
   }
 
-  async setStatus(
-    userId: string,
-    status: TradesmanStatus,
-  ): Promise<void> {
+  async setStatus(userId: string, status: TradesmanStatus): Promise<void> {
     const actionLabel =
       status === "active"
         ? "Make active"
@@ -82,11 +79,10 @@ export class AdminLeaderboardPage extends BasePage {
     const [response] = await Promise.all([
       this.page.waitForResponse(
         (res) =>
-          res.url().includes("/api/admin/tradesmen/") &&
-          res.url().endsWith("/status"),
+          res.url().includes(`/api/admin/tradesmen/${userId}/status`),
         { timeout: 20_000 },
       ),
-      this.page.getByRole("menuitem", { name: actionLabel }).click(),
+      this.page.getByRole("button", { name: actionLabel }).click(),
     ]);
 
     if (!response.ok()) {

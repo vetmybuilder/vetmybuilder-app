@@ -18,9 +18,12 @@ import ShortlistPage from "./pages/ShortlistPage";
 import AdminLeaderboardPage from "./pages/AdminLeaderboardPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import AdminTradesmenPage from "./pages/AdminTradesmenPage";
+import AdminRecommendationLeaderboardPage from "./pages/AdminRecommendationLeaderboardPage";
 import TradesmanMyProfilePage from "./pages/TradesmanMyProfilePage";
 import TradesmanEditPage from "./pages/TradesmanEditPage";
 import TradesmanRegisterPage from "./pages/TradesmanRegisterPage";
+import TradesmanApi from "./apiHelper/tradesman/TradesmanApi";
+import AdminApi from "./apiHelper/admin/AdminApi";
 
 type Runtime = ReturnType<typeof getRuntime>;
 
@@ -42,9 +45,12 @@ type UiFixtures = {
   adminLeaderboardPage: AdminLeaderboardPage;
   adminLoginPage: AdminLoginPage;
   adminTradesmenPage: AdminTradesmenPage;
+  adminRecommendationLeaderboardPage: AdminRecommendationLeaderboardPage;
   tradesmanMyProfilePage: TradesmanMyProfilePage;
   tradesmanEditPage: TradesmanEditPage;
   tradesmanRegisterPage: TradesmanRegisterPage;
+  tradesmanApi: TradesmanApi;
+  adminApi: AdminApi;
 };
 
 function normalizeApiBase(url: string): string {
@@ -145,6 +151,10 @@ export const test = base.extend<UiFixtures, { runtime: Runtime }>({
     await use(new AdminTradesmenPage(page));
   },
 
+  adminRecommendationLeaderboardPage: async ({ page }, use) => {
+    await use(new AdminRecommendationLeaderboardPage(page));
+  },
+
   tradesmanMyProfilePage: async ({ page }, use) => {
     await use(new TradesmanMyProfilePage(page));
   },
@@ -155,6 +165,26 @@ export const test = base.extend<UiFixtures, { runtime: Runtime }>({
 
   tradesmanRegisterPage: async ({ page }, use) => {
     await use(new TradesmanRegisterPage(page));
+  },
+
+  tradesmanApi: async ({ request, runtime }, use) => {
+    await use(new TradesmanApi(request, runtime.apiBaseUrl));
+  },
+
+  adminApi: async ({ request, runtime }, use) => {
+    const adminUid = process.env.TEST_ADMIN_USER_UID!;
+    const testSecret = process.env.E2E_TEST_SECRET!;
+    const baseUrl = runtime.apiBaseUrl;
+    // Use X-Sim-Uid + X-Test-Secret bypass to avoid Firebase token cache flakiness.
+    // requireAdmin accepts this UID in test env without a DB role lookup.
+    const client = {
+      post: (path: string, payload?: any) =>
+        request.post(baseUrl + path, {
+          data: payload,
+          headers: { "X-Sim-Uid": adminUid, "X-Test-Secret": testSecret },
+        }),
+    };
+    await use(new AdminApi(client));
   },
 });
 

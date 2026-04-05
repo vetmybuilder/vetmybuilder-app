@@ -2,8 +2,6 @@ import Head from "next/head";
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
-import { useRouter } from "next/router";
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 /* ========= Types ========= */
@@ -40,88 +38,9 @@ type SortDir = "asc" | "desc";
 export default function AdminRecommendationLeaderboardPage() {
   return (
     <AuthedOnly>
-      <AdminGate />
+      <AdminLeaderboardInner />
     </AuthedOnly>
   );
-}
-
-/** Gate: verify admin by probing an existing admin-only route */
-function AdminGate() {
-  const api = useApi();
-  const router = useRouter();
-  const { loading: authLoading } = useAuth();
-  const [status, setStatus] = useState<"checking" | "ok" | "forbidden">(
-    "checking"
-  );
-
-  useEffect(() => {
-    let alive = true;
-    if (!router.isReady || authLoading) return;
-
-    try {
-      if (sessionStorage.getItem("vmb:isAdmin") === "1") {
-        setStatus("ok");
-        return;
-      }
-    } catch {}
-
-    (async () => {
-      try {
-        await api.get("/api/admin/tradesmen", {
-          params: { page: 1, pageSize: 1, status: "all" },
-        });
-        if (!alive) return;
-        try {
-          sessionStorage.setItem("vmb:isAdmin", "1");
-        } catch {}
-        setStatus("ok");
-      } catch {
-        if (!alive) return;
-        setStatus("forbidden");
-      }
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, [api, router.isReady, authLoading]);
-
-  if (status === "checking") {
-    return (
-      <div className="px-4 py-10 text-sm text-slate-300">
-        Loading…
-      </div>
-    );
-  }
-
-  if (status === "forbidden") {
-    return (
-      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-10">
-        <div
-          className="rounded-2xl border border-amber-500/40 bg-amber-900/30 p-6"
-          data-testid="forbidden-message"
-        >
-          <h2 className="text-lg font-semibold text-amber-200">Access restricted</h2>
-          <p className="mt-1 text-sm text-amber-200/80">
-            Your account didn&apos;t pass the admin check (
-            <code>/api/admin/tradesmen</code>). Ensure your{" "}
-            <code>user_roles.role</code> is <code>&quot;admin&quot;</code> or your email
-            is in <code>ADMIN_EMAILS</code>.
-          </p>
-          <div className="mt-4">
-            <Link
-              href="/projects"
-              className="inline-flex items-center rounded-lg border border-slate-400/40 px-4 py-2 text-sm text-slate-200 hover:bg-slate-500/50 transition-colors"
-            >
-              Back to Projects
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return <AdminLeaderboardInner />;
 }
 
 /** Recommendation leaderboard (debug aggregate, but canonical VMB scoring per rec ID) */
@@ -131,6 +50,7 @@ function AdminLeaderboardInner() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [forbidden, setForbidden] = useState(false);
 
   // local filters (client-side)
   const [q, setQ] = useState(""); // search company/name
@@ -166,7 +86,9 @@ function AdminLeaderboardInner() {
       })
       .catch((e: any) => {
         if (!alive) return;
-        setErr(e?.response?.data?.error || e?.message || "Failed");
+        const status = e?.response?.status ?? e?.status;
+        if (status === 403) setForbidden(true);
+        else setErr(e?.response?.data?.error || e?.message || "Failed");
         setRows([]);
       })
       .finally(() => alive && setLoading(false));
@@ -337,6 +259,15 @@ function AdminLeaderboardInner() {
             Global · Canonical VMB score from recommendations, wins and photos
           </p>
         </div>
+
+        {forbidden && (
+          <div
+            className="mt-8 rounded-xl border border-red-800 bg-red-950/60 p-6"
+            data-testid="forbidden-message"
+          >
+            <h2 className="text-lg font-semibold text-red-300 mb-2">Access restricted</h2>
+          </div>
+        )}
 
         {/* Filters */}
         <div

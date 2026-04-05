@@ -63,7 +63,7 @@ test.describe("Add recommendation", () => {
 
     await AuthApi.signup(neighbourClient, neighbour);
     await ownerProjectApi.publishProject(created.id);
-    await projectDetailsPage.logout();
+    await projectDetailsPage.logoutViaUrl();
     await loginPage.loginExpectSuccess(neighbour.email!, neighbour.password!);
 
     const notificationText = `A new project “${project.workTypes[0]} in ${location} (${project.propertyType})” in your area is now live`;
@@ -78,10 +78,9 @@ test.describe("Add recommendation", () => {
     await projectRecommendPage.submitRecommendationForLoggedInUser(
       neighbour,
       recommendation,
-      // created.id,
     );
     await projectDetailsPage.waitUntilReady();
-    await projectDetailsPage.logout();
+    await projectDetailsPage.logoutViaUrl();
     await loginPage.loginExpectSuccess(owner.email!, owner.password!);
     await projectDetailsPage.visit(created.id);
 
@@ -135,7 +134,7 @@ test.describe("Add recommendation", () => {
     const guestRecommender = Account.aGuestAccount();
     const recommendation = Recommendation.aRecommendation();
 
-    await projectDetailsPage.logout();
+    await projectDetailsPage.logoutViaUrl();
     await projectDetailsPage.visit(created.id);
     await projectDetailsPage.hasHomeownerProjectDetails(created.id, project);
 

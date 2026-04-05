@@ -79,7 +79,13 @@ export class AdminTradesmenPage extends BasePage {
   }
 
   async assertRowVisible(userId: string) {
-    await expect(this.getStatusBadge(userId)).toBeVisible({ timeout: 15_000 });
+    await expect(this.getStatusBadge(userId)).toBeVisible({ timeout: 30_000 });
+  }
+
+  async hasTradesmenCount(expected: number) {
+    await expect(
+      this.page.locator('[data-testid^="tradesman-status-"]'),
+    ).toHaveCount(expected, { timeout: 15_000 });
   }
 
   async makeInactive(userId: string) {

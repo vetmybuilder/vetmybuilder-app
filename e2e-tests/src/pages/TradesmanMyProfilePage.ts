@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import BasePage from "./BasePage";
+import { safeGoto } from "../helpers/navigation";
 
 export class TradesmanMyProfilePage extends BasePage {
   readonly avatarImg: Locator;
@@ -12,9 +13,7 @@ export class TradesmanMyProfilePage extends BasePage {
   }
 
   async goto() {
-    await this.page.goto("/tradesman/profile", {
-      waitUntil: "domcontentloaded",
-    });
+    await safeGoto(this.page, "/tradesman/profile");
     await this.waitUntilReady();
   }
 

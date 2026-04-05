@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
+import { safeGoto } from "../helpers/navigation";
 import type Recommendation from "../models/Recommendation";
 
 export class MagicLinkPage {
@@ -27,7 +28,7 @@ export class MagicLinkPage {
   }
 
   async visit(token: string): Promise<void> {
-    await this.page.goto(`/r/${token}`, { waitUntil: "domcontentloaded" });
+    await safeGoto(this.page, `/r/${token}`);
     await expect(this.form).toBeVisible({ timeout: 15_000 });
   }
 

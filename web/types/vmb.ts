@@ -22,6 +22,7 @@ export type Recommendation = {
   likes?: number; // votes
   myLike?: 0 | 1; // I’ve voted
   score?: number; // VMB score
+  tradesmanPublicId?: string | null; // set when the recommended company is a registered tradesman
 };
 
 export type Verification = {

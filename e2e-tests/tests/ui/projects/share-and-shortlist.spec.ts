@@ -4,7 +4,6 @@ import Recommendation from "../../../src/models/Recommendation";
 
 test.describe("Share link and shortlist", () => {
   test("guest can recommend via a magic link shared by the homeowner", async ({
-    apiClient,
     projectApi,
     basePage,
     magicLinkPage,
@@ -14,12 +13,9 @@ test.describe("Share link and shortlist", () => {
       publish: true,
     });
 
-    const linkRes = await apiClient.post(
-      `/api/projects/${created.id}/magic-link`,
-    );
-    const { token } = await linkRes.json();
+    const token = await projectApi.getMagicLink(created.id);
 
-    await basePage.logout();
+    await basePage.logoutViaUrl();
 
     const recommendation = Recommendation.aRecommendation();
     await magicLinkPage.visit(token);
@@ -28,8 +24,8 @@ test.describe("Share link and shortlist", () => {
   });
 
   test("homeowner can view all recommendations on the shortlist page", async ({
-    apiClient,
     projectApi,
+    recommendationApi,
     shortlistPage,
   }) => {
     const project = Project.aProject().withRandomDetails();
@@ -37,8 +33,8 @@ test.describe("Share link and shortlist", () => {
       publish: true,
     });
 
-    await apiClient.post(
-      `/api/projects/${created.id}/recommendations`,
+    await recommendationApi.createRecommendation(
+      created.id,
       Recommendation.aRecommendation().toPayload(),
     );
 

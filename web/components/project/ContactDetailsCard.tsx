@@ -1,4 +1,5 @@
 import * as React from "react";
+import { User, Mail, ShieldCheck, Lock, AlertTriangle, Clock, XCircle } from "lucide-react";
 
 type Contact = {
   firstName?: string | null;
@@ -12,7 +13,6 @@ type ContactStatus =
   | "pending_admin_review"
   | "loaded"
   | "error"
-  // new, for verification + payment flow
   | "verification_required"
   | "verification_pending"
   | "verification_rejected"
@@ -40,24 +40,19 @@ export default function ContactDetailsCard({
     [contact?.firstName, contact?.lastName].filter(Boolean).join(" ") || null;
 
   const hasEmail = !!contact?.email;
-
   const effectiveLocked = locked || !hasEmail;
 
   const isPendingReview = status === "pending_admin_review";
   const hasError = status === "error";
-
   const isVerificationRequired = status === "verification_required";
   const isVerificationPending = status === "verification_pending";
   const isVerificationRejected = status === "verification_rejected";
-
   const isPaymentRequired = status === "payment_required";
   const isUnlockRejected = status === "unlock_rejected";
-
   const isNotUnlocked = status === "not_unlocked" || status === "unknown";
 
   const shouldShowUpgradeButton = effectiveLocked && !loading && !!onUpgrade;
 
-  // Label + copy for the main CTA button depending on state
   let primaryCtaLabel = "View plans & unlock contact";
   if (isVerificationRequired || isVerificationRejected) {
     primaryCtaLabel = "Start verification & request access";
@@ -69,195 +64,151 @@ export default function ContactDetailsCard({
 
   return (
     <aside
-      className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm"
+      className="rounded-2xl border border-zinc-200 bg-white shadow-md overflow-hidden"
       data-testid="owner-contact-card"
     >
-      <h2 className="text-sm sm:text-base font-semibold text-slate-900 mb-3">
-        {title}
-      </h2>
+      {/* Coloured header band */}
+      <div className="bg-gradient-to-r from-red-500 to-red-600 px-5 py-4">
+        <h2 className="text-sm font-black tracking-wide text-white">{title}</h2>
+        <p className="mt-0.5 text-xs text-red-100">
+          {effectiveLocked ? "Unlock to view contact details" : "Contact unlocked"}
+        </p>
+      </div>
 
-      {loading && (
-        <div className="space-y-2 text-sm text-slate-500">
-          <div className="h-4 w-2/3 animate-pulse rounded bg-slate-200" />
-          <div className="h-4 w-1/2 animate-pulse rounded bg-slate-200" />
-        </div>
-      )}
+      <div className="p-5">
+        {loading && (
+          <div className="space-y-3">
+            <div className="h-4 w-2/3 animate-pulse rounded-full bg-zinc-200" />
+            <div className="h-4 w-1/2 animate-pulse rounded-full bg-zinc-200" />
+          </div>
+        )}
 
-      {!loading && (
-        <>
-          {/* UNLOCKED: show full contact */}
-          {!effectiveLocked && hasEmail ? (
-            <div className="space-y-3 text-sm text-slate-800">
-              {name && (
-                <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    Name
+        {!loading && (
+          <>
+            {/* UNLOCKED */}
+            {!effectiveLocked && hasEmail ? (
+              <div className="space-y-4">
+                {name && (
+                  <div className="flex items-start gap-3">
+                    <span className="mt-0.5 inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-zinc-100">
+                      <User className="h-4 w-4 text-zinc-500" />
+                    </span>
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Name</div>
+                      <div className="mt-0.5 font-semibold text-zinc-800">{name}</div>
+                    </div>
                   </div>
-                  <div className="mt-0.5">{name}</div>
+                )}
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-emerald-50">
+                    <Mail className="h-4 w-4 text-emerald-600" />
+                  </span>
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Email</div>
+                    <a
+                      href={`mailto:${contact!.email}`}
+                      className="mt-0.5 block text-sm font-semibold text-emerald-600 hover:underline break-all"
+                    >
+                      {contact!.email}
+                    </a>
+                  </div>
                 </div>
-              )}
-              <div>
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                  Email
+                <div className="flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2">
+                  <ShieldCheck className="h-4 w-4 flex-shrink-0 text-emerald-600" />
+                  <p className="text-xs text-emerald-700">Use this contact respectfully and only for this project.</p>
                 </div>
-                <a
-                  href={`mailto:${contact!.email}`}
-                  className="mt-0.5 inline-flex items-center text-sm font-medium text-emerald-700 hover:underline break-all"
-                >
-                  {contact!.email}
-                </a>
               </div>
-              <p className="mt-2 text-[11px] text-slate-400">
-                Use this contact respectfully and only for this project.
-              </p>
-            </div>
-          ) : (
-            // LOCKED STATES
-            <div className="space-y-3 text-sm text-slate-700">
-              {/* VERIFICATION REQUIRED / PENDING / REJECTED */}
-              {(isVerificationRequired ||
-                isVerificationPending ||
-                isVerificationRejected) && (
-                <div
-                  className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-900"
-                  data-testid="owner-contact-verification-state"
-                >
-                  {isVerificationRequired && (
-                    <>
-                      <p className="font-medium">
-                        We need to verify your account before sharing contacts.
-                      </p>
-                      <p className="mt-1 text-xs">
-                        Upload your insurance and supporting documents so we can
-                        complete your VetMyBuilder verification. Once approved,
-                        you&apos;ll be able to unlock homeowner contact details.
-                      </p>
-                    </>
-                  )}
-
-                  {isVerificationPending && (
-                    <>
-                      <p className="font-medium">
-                        Your verification is being reviewed.
-                      </p>
-                      <p className="mt-1 text-xs">
-                        Our team is checking your documents. You&apos;ll be able
-                        to choose a plan and unlock contact details once
-                        verification is approved.
-                      </p>
-                    </>
-                  )}
-
-                  {isVerificationRejected && (
-                    <>
-                      <p className="font-medium">
-                        Your verification needs attention.
-                      </p>
-                      <p className="mt-1 text-xs">
-                        Something wasn&apos;t right with the documents we
-                        received. Please review and re-submit updated insurance
-                        or supporting documents to continue.
-                      </p>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* PAYMENT REQUIRED (verification approved, but no unlock yet) */}
-              {isPaymentRequired && (
-                <div
-                  className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-[13px] text-slate-700"
-                  data-testid="owner-contact-payment-required"
-                >
-                  <p className="font-medium">
-                    Verification approved – choose a plan to unlock contact.
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Your documents are approved. Select a one-off unlock or
-                    subscription plan to see this homeowner&apos;s contact
-                    details.
-                  </p>
-                </div>
-              )}
-
-              {/* UNLOCK PENDING ADMIN REVIEW (for a one-off unlock or plan approval) */}
-              {isPendingReview &&
-                !isPaymentRequired &&
-                !isVerificationPending && (
-                  <div
-                    className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-900"
-                    data-testid="owner-contact-pending-review"
-                  >
-                    <p className="font-medium">
-                      Your request is being reviewed by VetMyBuilder.
-                    </p>
-                    <p className="mt-1 text-xs">
-                      Once it&apos;s approved, you&apos;ll automatically see
-                      this homeowner&apos;s contact details for eligible
-                      projects.
-                    </p>
+            ) : (
+              // LOCKED STATES
+              <div className="space-y-3">
+                {(isVerificationRequired || isVerificationPending || isVerificationRejected) && (
+                  <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3" data-testid="owner-contact-verification-state">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
+                    <div className="text-sm">
+                      {isVerificationRequired && (
+                        <>
+                          <p className="font-semibold text-amber-900">Verification required</p>
+                          <p className="mt-1 text-xs text-amber-700">Upload your insurance and supporting documents to complete verification before unlocking contacts.</p>
+                        </>
+                      )}
+                      {isVerificationPending && (
+                        <>
+                          <p className="font-semibold text-amber-900">Verification in review</p>
+                          <p className="mt-1 text-xs text-amber-700">Our team is checking your documents. You'll be notified once approved.</p>
+                        </>
+                      )}
+                      {isVerificationRejected && (
+                        <>
+                          <p className="font-semibold text-amber-900">Verification needs attention</p>
+                          <p className="mt-1 text-xs text-amber-700">Please review and re-submit your insurance or supporting documents.</p>
+                        </>
+                      )}
+                    </div>
                   </div>
                 )}
 
-              {/* UNLOCK REJECTED OR GENERIC NOT UNLOCKED */}
-              {isUnlockRejected && (
-                <div
-                  className="rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-[13px] text-rose-900"
-                  data-testid="owner-contact-unlock-rejected"
-                >
-                  <p className="font-medium">
-                    Your unlock request was not approved.
-                  </p>
-                  <p className="mt-1 text-xs">
-                    If you think this is a mistake, check your details and try
-                    again or contact support.
-                  </p>
-                </div>
-              )}
-
-              {isNotUnlocked &&
-                !isVerificationRequired &&
-                !isVerificationPending &&
-                !isVerificationRejected &&
-                !isPaymentRequired &&
-                !isUnlockRejected &&
-                !isPendingReview && (
-                  <div
-                    className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-[13px] text-slate-700"
-                    data-testid="owner-contact-locked"
-                  >
-                    <p className="font-medium">Contact details are locked.</p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Complete verification and choose an unlock option to see
-                      this homeowner&apos;s email for the project.
-                    </p>
+                {isPaymentRequired && (
+                  <div className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-3" data-testid="owner-contact-payment-required">
+                    <ShieldCheck className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-600" />
+                    <div className="text-sm">
+                      <p className="font-semibold text-zinc-900">Verification approved</p>
+                      <p className="mt-1 text-xs text-zinc-500">Select a plan to unlock this homeowner's contact details.</p>
+                    </div>
                   </div>
                 )}
 
-              {/* GENERIC ERROR */}
-              {hasError && (
-                <p className="text-xs text-rose-600">
-                  We couldn&apos;t check your entitlement just now. Try
-                  refreshing the page or contact support if this keeps
-                  happening.
-                </p>
-              )}
+                {isPendingReview && !isPaymentRequired && !isVerificationPending && (
+                  <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3" data-testid="owner-contact-pending-review">
+                    <Clock className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
+                    <div className="text-sm">
+                      <p className="font-semibold text-amber-900">Request under review</p>
+                      <p className="mt-1 text-xs text-amber-700">Once approved, contact details will appear here automatically.</p>
+                    </div>
+                  </div>
+                )}
 
-              {/* CTA BUTTON */}
-              {shouldShowUpgradeButton && (
-                <button
-                  type="button"
-                  onClick={onUpgrade}
-                  className="mt-1 inline-flex h-9 items-center justify-center rounded-full bg-slate-900 px-4 text-xs font-semibold text-white hover:bg-slate-900/90"
-                  data-testid="btn-upgrade-plan"
-                >
-                  {primaryCtaLabel}
-                </button>
-              )}
-            </div>
-          )}
-        </>
-      )}
+                {isUnlockRejected && (
+                  <div className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-3" data-testid="owner-contact-unlock-rejected">
+                    <XCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-rose-600" />
+                    <div className="text-sm">
+                      <p className="font-semibold text-rose-900">Request not approved</p>
+                      <p className="mt-1 text-xs text-rose-700">Check your details and try again, or contact support.</p>
+                    </div>
+                  </div>
+                )}
+
+                {isNotUnlocked && !isVerificationRequired && !isVerificationPending && !isVerificationRejected && !isPaymentRequired && !isUnlockRejected && !isPendingReview && (
+                  <div className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-3" data-testid="owner-contact-locked">
+                    <Lock className="mt-0.5 h-4 w-4 flex-shrink-0 text-zinc-400" />
+                    <div className="text-sm">
+                      <p className="font-semibold text-zinc-700">Contact details locked</p>
+                      <p className="mt-1 text-xs text-zinc-500">Complete verification and choose an unlock option to see this homeowner's email.</p>
+                    </div>
+                  </div>
+                )}
+
+                {hasError && (
+                  <div className="flex items-center gap-2 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2">
+                    <XCircle className="h-4 w-4 flex-shrink-0 text-rose-500" />
+                    <p className="text-xs text-rose-600">Couldn't check entitlement. Try refreshing.</p>
+                  </div>
+                )}
+
+                {shouldShowUpgradeButton && (
+                  <button
+                    type="button"
+                    onClick={onUpgrade}
+                    className="mt-1 w-full inline-flex items-center justify-center rounded-full bg-red-500 px-4 py-2.5 text-xs font-bold text-white shadow-sm shadow-red-500/30 hover:bg-red-600 transition-colors"
+                    data-testid="btn-upgrade-plan"
+                  >
+                    {primaryCtaLabel}
+                  </button>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </aside>
   );
 }

@@ -458,7 +458,7 @@ export default function TradesmanProjectAccordionRow({
                     onClick={() => setShareOpen(true)}
                     disabled={shareBusy || shareChecking}
                     aria-busy={shareBusy || shareChecking}
-                    className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-900/90 disabled:opacity-60"
+                    className="rounded-full bg-red-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-red-500/30 hover:bg-red-600 disabled:opacity-60"
                     data-testid="btn-express-interest-inline"
                   >
                     {shareBusy || shareChecking

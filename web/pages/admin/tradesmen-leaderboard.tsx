@@ -1,5 +1,5 @@
 import Head from "next/head";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AuthedOnly from "@/components/AuthedOnly";
 import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
@@ -87,31 +87,19 @@ export default function AdminTradesmenLeaderboardPage() {
   const [err, setErr] = useState<string | null>(null);
   const [mutatingUid, setMutatingUid] = useState<string | null>(null);
   const [menuUid, setMenuUid] = useState<string | null>(null);
-  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
 
   const [confirmCancelUid, setConfirmCancelUid] = useState<string | null>(null);
 
   const [sortKey, setSortKey] = useState<SortKey>("score");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
-  const menuRef = useRef<HTMLDivElement | null>(null);
-
   useEffect(() => {
-    function onDocClick(e: MouseEvent) {
-      if (!menuUid) return;
-      const t = e.target as Node;
-      if (menuRef.current && !menuRef.current.contains(t)) setMenuUid(null);
-    }
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setMenuUid(null);
     }
-    document.addEventListener("mousedown", onDocClick);
     document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDocClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [menuUid]);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
 
   const queryString = useMemo(() => {
     const p = new URLSearchParams();
@@ -746,152 +734,15 @@ export default function AdminTradesmenLeaderboardPage() {
                           </td>
 
                           <td className="px-3 py-2">
-                            <div
-                              className="relative inline-block"
-                              ref={isOpen ? menuRef : null}
+                            <button
+                              type="button"
+                              className={`rounded-md bg-red-500 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-red-600 transition-colors focus:outline-none ${isRowBusy ? "opacity-50 cursor-not-allowed" : ""}`}
+                              onClick={() => setMenuUid(isOpen ? null : it.userId)}
+                              disabled={isRowBusy}
+                              data-testid={`btn-actions-${it.userId}`}
                             >
-                              <button
-                                type="button"
-                                aria-haspopup="menu"
-                                aria-expanded={isOpen}
-                                className={`inline-flex items-center gap-1 rounded-md border border-slate-400/50 bg-slate-600/60 px-2.5 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-500/60 transition-colors focus:outline-none ${
-                                  isRowBusy
-                                    ? "opacity-50 cursor-not-allowed"
-                                    : ""
-                                }`}
-                                onClick={(e) => {
-                                  const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
-                                  setMenuPos(
-                                    menuUid === it.userId
-                                      ? null
-                                      : { top: rect.bottom + 4, right: window.innerWidth - rect.right }
-                                  );
-                                  setMenuUid((v) => v === it.userId ? null : it.userId);
-                                }}
-                                disabled={isRowBusy}
-                              >
-                                Actions
-                                <svg
-                                  width="12"
-                                  height="12"
-                                  viewBox="0 0 20 20"
-                                  fill="currentColor"
-                                >
-                                  <path d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 011.08 1.04l-4.25 4.25a.75.75 0 01-1.06 0L5.21 8.27a.75.75 0 01.02-1.06z" />
-                                </svg>
-                              </button>
-
-                              {isOpen && menuPos && (
-                                <div
-                                  role="menu"
-                                  style={{ position: "fixed", top: menuPos.top, right: menuPos.right }}
-                                  className="z-50 w-56 origin-top-right rounded-lg border border-slate-500 bg-slate-700 py-1 shadow-2xl"
-                                >
-                                  {/* Pending plan */}
-                                  <button
-                                    role="menuitem"
-                                    className="block w-full px-3 py-2 text-left text-sm text-slate-100 hover:bg-slate-600 disabled:opacity-40"
-                                    onClick={() => approvePending(it.userId)}
-                                    disabled={!pendingPlan || isRowBusy}
-                                  >
-                                    Approve pending plan
-                                  </button>
-                                  <button
-                                    role="menuitem"
-                                    className="block w-full px-3 py-2 text-left text-sm text-slate-100 hover:bg-slate-600 disabled:opacity-40"
-                                    onClick={() => rejectPending(it.userId)}
-                                    disabled={!pendingPlan || isRowBusy}
-                                  >
-                                    Reject pending plan
-                                  </button>
-
-                                  <div className="my-1 border-t border-slate-500/50" />
-
-                                  {/* One-off unlocks */}
-                                  <button
-                                    role="menuitem"
-                                    className="block w-full px-3 py-2 text-left text-sm text-slate-100 hover:bg-slate-600 disabled:opacity-40"
-                                    onClick={() => approveUnlock(it.userId)}
-                                    disabled={!canApproveRejectUnlock}
-                                  >
-                                    Approve one-off unlock
-                                  </button>
-                                  <button
-                                    role="menuitem"
-                                    className="block w-full px-3 py-2 text-left text-sm text-slate-100 hover:bg-slate-600 disabled:opacity-40"
-                                    onClick={() => rejectUnlock(it.userId)}
-                                    disabled={!canApproveRejectUnlock}
-                                  >
-                                    Reject one-off unlock
-                                  </button>
-
-                                  <div className="my-1 border-t border-slate-500/50" />
-
-                                  {/* Cancel subscription */}
-                                  <button
-                                    role="menuitem"
-                                    className="block w-full px-3 py-2 text-left text-sm text-rose-300 hover:bg-slate-600 disabled:opacity-40"
-                                    onClick={() =>
-                                      adminCancel(it.userId, false)
-                                    }
-                                    disabled={!canCancel}
-                                  >
-                                    Cancel subscription (period end)
-                                  </button>
-                                  <button
-                                    role="menuitem"
-                                    className="block w-full px-3 py-2 text-left text-sm text-rose-300 hover:bg-slate-600 disabled:opacity-40"
-                                    onClick={() => {
-                                      setMenuUid(null);
-                                      setConfirmCancelUid(it.userId);
-                                    }}
-                                    disabled={!canCancel}
-                                  >
-                                    Cancel subscription now
-                                  </button>
-
-                                  <div className="my-1 border-t border-slate-500/50" />
-
-                                  {/* Flag */}
-                                  <button
-                                    role="menuitem"
-                                    className="block w-full px-3 py-2 text-left text-sm text-rose-300 hover:bg-slate-600"
-                                    onClick={() => flag(it.userId)}
-                                    disabled={isRowBusy}
-                                  >
-                                    Flag tradesman
-                                  </button>
-
-                                  <div className="my-1 border-t border-slate-500/50" />
-
-                                  {/* Status changes */}
-                                  <button
-                                    role="menuitem"
-                                    className="block w-full px-3 py-2 text-left text-sm text-slate-100 hover:bg-slate-600 disabled:opacity-40"
-                                    onClick={() => setStatus(it.userId, "active")}
-                                    disabled={isRowBusy || it.status === "active"}
-                                  >
-                                    Make active
-                                  </button>
-                                  <button
-                                    role="menuitem"
-                                    className="block w-full px-3 py-2 text-left text-sm text-slate-100 hover:bg-slate-600 disabled:opacity-40"
-                                    onClick={() => setStatus(it.userId, "inactive")}
-                                    disabled={isRowBusy || it.status === "inactive"}
-                                  >
-                                    Make inactive
-                                  </button>
-                                  <button
-                                    role="menuitem"
-                                    className="block w-full px-3 py-2 text-left text-sm text-slate-100 hover:bg-slate-600 disabled:opacity-40"
-                                    onClick={() => setStatus(it.userId, "draft")}
-                                    disabled={isRowBusy || it.status === "draft"}
-                                  >
-                                    Set to draft
-                                  </button>
-                                </div>
-                              )}
-                            </div>
+                              Actions
+                            </button>
                           </td>
                         </tr>
                       );
@@ -941,6 +792,117 @@ export default function AdminTradesmenLeaderboardPage() {
           </div>
         </div>
       </AuthedOnly>
+
+      {/* Actions Modal */}
+      {menuUid && (() => {
+        const it = sortedItems.find(i => i.userId === menuUid);
+        if (!it) return null;
+        const isBusy = mutatingUid === it.userId;
+        const pendingPlan = it.pendingPlan || null;
+        const pending = it.oneOffUnlocksPending || 0;
+        const effectivePlan = planLabel(it.plan);
+        const canCancel = effectivePlan !== "free" && !isBusy;
+
+        const btn = (label: string, onClick: () => void, tone: "default" | "danger" | "success" | "warn" = "default", disabled = false) => (
+          <button
+            key={label}
+            type="button"
+            disabled={disabled || isBusy}
+            onClick={() => { onClick(); }}
+            className={[
+              "w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
+              tone === "danger" ? "bg-rose-50 text-rose-700 hover:bg-rose-100" :
+              tone === "success" ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100" :
+              tone === "warn" ? "bg-amber-50 text-amber-700 hover:bg-amber-100" :
+              "bg-slate-100 text-slate-700 hover:bg-slate-200",
+            ].join(" ")}
+          >
+            {label}
+          </button>
+        );
+
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onMouseDown={(e) => { if (e.target === e.currentTarget) setMenuUid(null); }}
+          >
+            <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl overflow-hidden">
+              {/* Header */}
+              <div className="bg-slate-700 px-5 py-4 flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wide font-semibold mb-0.5">Actions</p>
+                  <h3 className="text-base font-bold text-white truncate">{it.company}</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMenuUid(null)}
+                  className="rounded-full bg-white/10 p-1.5 text-white hover:bg-white/20 transition-colors"
+                  aria-label="Close"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/></svg>
+                </button>
+              </div>
+
+              <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+                {/* Status */}
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Status</p>
+                  <div className="space-y-1.5">
+                    {btn("Make active", () => { setStatus(it.userId, "active"); setMenuUid(null); }, "success", it.status === "active")}
+                    {btn("Make inactive", () => { setStatus(it.userId, "inactive"); setMenuUid(null); }, "warn", it.status === "inactive")}
+                    {btn("Set to draft", () => { setStatus(it.userId, "draft"); setMenuUid(null); }, "default", it.status === "draft")}
+                  </div>
+                </div>
+
+                {/* Plans */}
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">
+                    Plans {pendingPlan && <span className="ml-1 text-sky-500 normal-case">(pending: {pendingPlan})</span>}
+                  </p>
+                  <div className="space-y-1.5">
+                    {btn("Approve pending plan", () => { approvePending(it.userId); setMenuUid(null); }, "success", !pendingPlan)}
+                    {btn("Reject pending plan", () => { rejectPending(it.userId); setMenuUid(null); }, "danger", !pendingPlan)}
+                  </div>
+                </div>
+
+                {/* Unlocks */}
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">
+                    One-off unlocks {pending > 0 && <span className="ml-1 text-amber-500 normal-case">({pending} pending)</span>}
+                  </p>
+                  <div className="space-y-1.5">
+                    {btn("Approve one-off unlock", () => { approveUnlock(it.userId); setMenuUid(null); }, "success", pending === 0)}
+                    {btn("Reject one-off unlock", () => { rejectUnlock(it.userId); setMenuUid(null); }, "danger", pending === 0)}
+                  </div>
+                </div>
+
+                {/* Danger zone */}
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Danger zone</p>
+                  <div className="space-y-1.5">
+                    {btn("Flag tradesman", () => { flag(it.userId); }, "danger")}
+                    {btn("Cancel at period end", () => { adminCancel(it.userId, false); setMenuUid(null); }, "danger", !canCancel)}
+                    {btn("Cancel subscription now", () => { setMenuUid(null); setConfirmCancelUid(it.userId); }, "danger", !canCancel)}
+                  </div>
+                </div>
+              </div>
+
+              {/* View profile link */}
+              <div className="border-t border-slate-100 px-5 py-3">
+                <Link
+                  href={`/tradesman/${it.userId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-sky-600 hover:underline"
+                  onClick={() => setMenuUid(null)}
+                >
+                  View public profile ↗
+                </Link>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Confirm Cancel Dialog */}
       {confirmCancelUid && (

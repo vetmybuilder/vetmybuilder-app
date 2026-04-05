@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
+import { safeGoto } from "../helpers/navigation";
 import Account, { type RegisterInput } from "../models/Account";
 
 type FieldKey =
@@ -79,7 +80,12 @@ export class RegisterPage {
     await this.page
       .waitForURL(/signedOut=1/, { timeout: 15_000 })
       .catch(() => {});
-    await this.page.goto("/signup");
+    // Wait for the home page to finish loading so the /logout page's deferred
+    // window.location.replace cannot interrupt the next navigation on WebKit.
+    await this.page
+      .waitForLoadState("load", { timeout: 10_000 })
+      .catch(() => {});
+    await safeGoto(this.page, "/signup");
     await expect(this.form).toBeVisible({ timeout: 15_000 });
   }
 

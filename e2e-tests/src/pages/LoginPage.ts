@@ -1,4 +1,5 @@
 import { Page, Locator, expect } from "@playwright/test";
+import { safeGoto } from "../helpers/navigation";
 
 export class LoginPage {
   readonly page: Page;
@@ -45,19 +46,7 @@ export class LoginPage {
       .catch(() => {});
 
     const url = next ? `/login?next=${encodeURIComponent(next)}` : "/login";
-    try {
-      await this.page.goto(url);
-    } catch (error) {
-      const message = String(error);
-      if (message.includes("interrupted by another navigation")) {
-        await this.page.waitForURL(/\/login/, { waitUntil: "domcontentloaded" });
-      } else if (message.includes("WebKit encountered an internal error")) {
-        // WebKit can crash on first navigation under resource pressure; retry once.
-        await this.page.goto(url);
-      } else {
-        throw error;
-      }
-    }
+    await safeGoto(this.page, url);
     await expect(this.loginPage).toBeVisible({ timeout: 15_000 });
   }
 
