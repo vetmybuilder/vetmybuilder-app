@@ -134,6 +134,19 @@ export default function SiteHeader() {
 
   const [isTrades, setIsTrades] = useState(false);
   const [company, setCompany] = useState<string | null>(null);
+  const [roleChecked, setRoleChecked] = useState(false);
+
+  // Seed from sessionStorage on client to avoid blink on subsequent loads
+  useEffect(() => {
+    try {
+      const cached = sessionStorage.getItem("vmb:isTradesman");
+      if (cached !== null) {
+        setIsTrades(cached === "1");
+        setCompany(sessionStorage.getItem("vmb:tradesCo") || null);
+        setRoleChecked(true);
+      }
+    } catch {}
+  }, []);
 
   // mobile menu
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -145,6 +158,7 @@ export default function SiteHeader() {
     if (!user) {
       setIsTrades(false);
       setCompany(null);
+      setRoleChecked(true);
       try {
         sessionStorage.setItem("vmb:isTradesman", "0");
         sessionStorage.removeItem("vmb:tradesCo");
@@ -164,6 +178,7 @@ export default function SiteHeader() {
         if (!alive) return;
         setIsTrades(!!isT);
         setCompany(co || null);
+        setRoleChecked(true);
 
         try {
           sessionStorage.setItem("vmb:isTradesman", isT ? "1" : "0");
@@ -173,6 +188,7 @@ export default function SiteHeader() {
         if (!alive) return;
         setIsTrades(false);
         setCompany(null);
+        setRoleChecked(true);
         try {
           sessionStorage.setItem("vmb:isTradesman", "0");
         } catch {}
@@ -236,7 +252,7 @@ export default function SiteHeader() {
     } catch {
       // ignore
     }
-    router.replace("/");
+    window.location.href = "/";
   }
 
   // ---- Owner project tabs in header ----
@@ -555,7 +571,7 @@ export default function SiteHeader() {
                 </Link>
               )}
 
-              {user && !isTrades && router.pathname !== "/login" && (
+              {user && roleChecked && !isTrades && router.pathname !== "/login" && (
                 <Link
                   href="/projects/new"
                   aria-label="Post a Job"

@@ -1,5 +1,6 @@
 import Head from "next/head";
 import AuthedOnly from "@/components/AuthedOnly";
+import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
@@ -58,6 +59,24 @@ type FormShape = {
 export default function NewProject() {
   const api = useApi();
   const router = useRouter();
+  const { user, loading } = useAuth();
+
+  // Tradesmen are not allowed to post projects — redirect them away
+  const [roleChecked, setRoleChecked] = useState(false);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user) { setRoleChecked(true); return; } // AuthedOnly handles unauthed
+    api.get("/api/tradesmen/me").then((res: any) => {
+      const data = res?.data ?? res;
+      const role = String(data?.role || "user").toLowerCase();
+      if (role === "tradesman" || !!data?.profile) {
+        router.replace("/tradesman/projects");
+      } else {
+        setRoleChecked(true);
+      }
+    }).catch(() => { setRoleChecked(true); });
+  }, [loading, user, router, api]);
 
   // Scroll target (just above the card, under header)
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -272,6 +291,8 @@ export default function NewProject() {
   );
 
   /* ===== Render ===== */
+
+  if (!roleChecked) return null;
 
   return (
     <AuthedOnly>

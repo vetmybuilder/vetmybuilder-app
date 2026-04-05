@@ -110,6 +110,12 @@ function CountUp({
 export default function Home() {
   const { user } = useAuth();
 
+  const isTrades = user
+    ? (() => {
+        try { return sessionStorage.getItem("vmb:isTradesman") === "1"; } catch { return false; }
+      })()
+    : false;
+
   const [stats, setStats] = useState({
     communityMembers: 0,
     recommendations: 0,
@@ -237,12 +243,12 @@ export default function Home() {
 
                 <div className="mt-10 flex flex-col sm:flex-row gap-4">
                   <Link
-                    href={user ? "/projects/new" : "/signup"}
+                    href={isTrades ? "/tradesman/projects" : user ? "/projects/new" : "/signup"}
                     onClick={!user ? rememberReturnTo : undefined}
                     className="inline-flex items-center justify-center gap-2 rounded-full bg-red-500 px-8 py-4 text-lg font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/30 hover:scale-[1.02] transition-all"
                     data-testid="hero-cta"
                   >
-                    Start your project
+                    {isTrades ? "View available jobs" : "Start your project"}
                     <IconArrowRight className="h-5 w-5" />
                   </Link>
                   <button
@@ -453,11 +459,11 @@ export default function Home() {
             {/* CTA */}
             <div className="mt-16 text-center">
               <Link
-                href={user ? "/projects/new" : "/signup"}
+                href={isTrades ? "/tradesman/projects" : user ? "/projects/new" : "/signup"}
                 onClick={!user ? rememberReturnTo : undefined}
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-zinc-900 px-10 py-5 text-lg font-bold text-white hover:scale-[1.02] hover:shadow-xl transition-all"
               >
-                Start your free project
+                {isTrades ? "View available jobs" : "Start your free project"}
                 <IconArrowRight className="h-5 w-5" />
               </Link>
               <p className="mt-4 text-sm text-zinc-400">
