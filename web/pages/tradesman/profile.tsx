@@ -1,7 +1,7 @@
 // web/pages/tradesman/profile.tsx
 import { useRouter } from "next/router";
 import { useEffect, useState, type ReactNode } from "react";
-import AuthedOnly from "@/components/AuthedOnly";
+import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 import LightboxGallery, {
   type GalleryImage,
@@ -85,11 +85,17 @@ type MeResponse = {
 };
 
 export default function TradesmanProfilePage() {
-  return (
-    <AuthedOnly>
-      <Inner />
-    </AuthedOnly>
-  );
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/tradesman/login");
+    }
+  }, [loading, user, router]);
+
+  if (loading || !user) return null;
+  return <Inner />;
 }
 
 function Inner() {
@@ -256,19 +262,26 @@ function Inner() {
             <div className="flex flex-wrap sm:flex-col items-start gap-2 shrink-0">
               <button
                 type="button"
-                onClick={() => router.push("/tradesman/profile/edit")}
-                className="inline-flex items-center justify-center rounded-full bg-red-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] transition-all"
-                data-testid="btn-edit-tradesman-profile"
+                onClick={() => router.push("/tradesman/projects")}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-emerald-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-500/30 hover:bg-emerald-600 hover:shadow-xl hover:scale-[1.02] transition-all"
+                data-testid="btn-view-tradesman-jobs"
               >
-                Edit profile
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0">
+                  <path fillRule="evenodd" d="M6 6V5a3 3 0 013-3h2a3 3 0 013 3v1h2a2 2 0 012 2v3.57A22.952 22.952 0 0110 13a22.95 22.95 0 01-8-1.43V8a2 2 0 012-2h2zm2-1a1 1 0 011-1h2a1 1 0 011 1v1H8V5zm1 5a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clipRule="evenodd"/>
+                  <path d="M2 13.692V16a2 2 0 002 2h12a2 2 0 002-2v-2.308A24.974 24.974 0 0110 15c-2.796 0-5.487-.46-8-1.308z"/>
+                </svg>
+                View available jobs
               </button>
               <button
                 type="button"
-                onClick={() => router.push("/tradesman/projects")}
-                className="inline-flex items-center justify-center rounded-full border-2 border-zinc-200 bg-white px-5 py-2.5 text-sm font-bold text-zinc-700 hover:bg-zinc-50 transition-all"
-                data-testid="btn-view-tradesman-jobs"
+                onClick={() => router.push("/tradesman/profile/edit")}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-red-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] transition-all"
+                data-testid="btn-edit-tradesman-profile"
               >
-                View available jobs
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0">
+                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
+                </svg>
+                Edit your profile
               </button>
             </div>
           </div>
@@ -397,6 +410,32 @@ function Inner() {
                     value={item.companyNumber}
                     dataTestId="tradesman-company-number"
                   />
+                  {item.socials && item.socials.length > 0 && (
+                    <div data-testid="tradesman-socials">
+                      <span className="text-[11px] uppercase tracking-wide text-slate-500 block mb-1">
+                        Social links
+                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        {item.socials.map((url, i) => {
+                          const href = url.startsWith("http") ? url : `https://${url}`;
+                          const { icon, label, color } = getSocialMeta(url);
+                          return (
+                            <a
+                              key={i}
+                              href={href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              aria-label={label}
+                              title={label}
+                              className={`inline-flex h-8 w-8 items-center justify-center rounded-full transition-opacity hover:opacity-80 ${color}`}
+                            >
+                              {icon}
+                            </a>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </section>
 
@@ -635,6 +674,76 @@ function formatMemberSince(createdAt?: string | null): string | null {
     month: "long",
     year: "numeric",
   });
+}
+
+function getSocialMeta(url: string): { icon: React.ReactNode; label: string; color: string } {
+  if (/instagram/i.test(url)) return {
+    label: "Instagram",
+    color: "bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 text-white",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+        <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+      </svg>
+    ),
+  };
+  if (/tiktok/i.test(url)) return {
+    label: "TikTok",
+    color: "bg-black text-white",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+        <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.67a8.18 8.18 0 004.78 1.52V6.74a4.85 4.85 0 01-1.01-.05z"/>
+      </svg>
+    ),
+  };
+  if (/facebook/i.test(url)) return {
+    label: "Facebook",
+    color: "bg-[#1877F2] text-white",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+      </svg>
+    ),
+  };
+  if (/twitter|x\.com/i.test(url)) return {
+    label: "X",
+    color: "bg-black text-white",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+      </svg>
+    ),
+  };
+  if (/youtube/i.test(url)) return {
+    label: "YouTube",
+    color: "bg-[#FF0000] text-white",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+        <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+      </svg>
+    ),
+  };
+  if (/linkedin/i.test(url)) return {
+    label: "LinkedIn",
+    color: "bg-[#0A66C2] text-white",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+      </svg>
+    ),
+  };
+  // fallback — generic link icon
+  let hostname = url;
+  try { hostname = new URL(url.startsWith("http") ? url : `https://${url}`).hostname.replace("www.", ""); } catch {}
+  return {
+    label: hostname,
+    color: "bg-zinc-200 text-zinc-700",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+        <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/>
+        <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>
+      </svg>
+    ),
+  };
 }
 
 function parseSocials(raw: any): string[] {

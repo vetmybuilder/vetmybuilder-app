@@ -126,6 +126,12 @@ export default function SiteHeader() {
 
   const isHome = router.pathname === "/";
 
+  // Show "Trade" badge on tradesman pages even for guests
+  const isTradesPage =
+    router.pathname.startsWith("/tradesman/") ||
+    (router.pathname === "/login" &&
+      String(router.query.next || "").includes("/tradesman/"));
+
   const [isTrades, setIsTrades] = useState(false);
   const [company, setCompany] = useState<string | null>(null);
 
@@ -296,6 +302,9 @@ export default function SiteHeader() {
                   <span className="text-2xl font-black tracking-tight text-zinc-900">
                     Vet<span className="text-red-500">My</span>Builder
                   </span>
+                  {(isTrades || isTradesPage) && (
+                    <span className="ml-1.5 text-sm font-semibold text-red-500">Trade</span>
+                  )}
                 </Link>
               </div>
 
@@ -479,7 +488,7 @@ export default function SiteHeader() {
                 <span className="text-2xl font-black tracking-tight text-zinc-900">
                   Vet<span className="text-red-500">My</span>Builder
                 </span>
-                {isTrades && (
+                {(isTrades || isTradesPage) && (
                   <span className="ml-1.5 text-sm font-semibold text-red-500">Trade</span>
                 )}
               </Link>
