@@ -86,7 +86,8 @@ async function deleteSimData(recIds) {
       "DELETE FROM payments_oneoff WHERE user_id LIKE 'sim-%' AND type = 'spotlight'"
     );
 
-    // Delete tradesman profiles (PK is user_id)
+    // Delete tradesman photos and profiles
+    await conn.query("DELETE FROM tradesmen_photos WHERE tradesman_user_id LIKE 'sim-%'");
     await conn.query("DELETE FROM tradesmen WHERE user_id LIKE 'sim-%'");
 
     // Delete user roles and user rows
