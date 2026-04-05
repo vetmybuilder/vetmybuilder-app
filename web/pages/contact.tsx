@@ -2,7 +2,7 @@
 import Head from "next/head";
 import { useState } from "react";
 import { useAuth } from "@/utils/auth";
-import api from "@/utils/api";
+import { useApi } from "@/utils/api";
 
 function IconArrowRight(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -14,6 +14,7 @@ function IconArrowRight(props: React.SVGProps<SVGSVGElement>) {
 
 export default function Contact() {
   const { user } = useAuth();
+  const api = useApi();
 
   const [submitted, setSubmitted] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", subject: "", message: "" });
