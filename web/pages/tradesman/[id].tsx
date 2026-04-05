@@ -1,6 +1,7 @@
 // web/pages/tradesman/[id].tsx
 import Head from "next/head";
 import { useRouter } from "next/router";
+import StatPill from "@/components/StatPill";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import AuthedOnly from "@/components/AuthedOnly";
@@ -318,17 +319,37 @@ function Inner() {
                   </div>
 
                   {/* Stats */}
-                  <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-zinc-500">
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
                     <GoogleRatingChip
                       rating={item.stats?.stars}
                       count={item.stats?.reviews}
                       placeId={item.googlePlaceId || undefined}
                     />
-                    <span data-testid="tradesman-likes">Likes: {item.stats?.reviews ?? 0}</span>
-                    <span data-testid="tradesman-completed">Completed: {item.stats?.completed ?? 0}</span>
-                    <span data-testid="tradesman-photos">Photos: {item.stats?.photos ?? item.gallery?.length ?? 0}</span>
+                    <StatPill
+                      testId="tradesman-likes"
+                      icon={<svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-rose-400"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd"/></svg>}
+                      label="Likes"
+                      value={item.stats?.reviews ?? 0}
+                    />
+                    <StatPill
+                      testId="tradesman-completed"
+                      icon={<svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-emerald-500"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/></svg>}
+                      label="Completed"
+                      value={item.stats?.completed ?? 0}
+                    />
+                    <StatPill
+                      testId="tradesman-photos"
+                      icon={<svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-sky-400"><path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"/></svg>}
+                      label="Photos"
+                      value={item.stats?.photos ?? item.gallery?.length ?? 0}
+                    />
                     {item.score != null && (
-                      <span data-testid="tradesman-score">VMB score: {item.score}</span>
+                      <StatPill
+                        testId="tradesman-score"
+                        icon={<svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-red-500"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>}
+                        label="VMB score"
+                        value={item.score}
+                      />
                     )}
                   </div>
                 </div>

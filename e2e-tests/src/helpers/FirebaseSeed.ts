@@ -76,6 +76,21 @@ export async function createAuthUserWithUid(
   }
 }
 
+/**
+ * Generates a password reset oobCode directly via the Admin SDK.
+ * Extracts the oobCode query param from the generated link.
+ */
+export async function generatePasswordResetCode(email: string): Promise<string> {
+  initAdmin();
+  const link = await admin.auth().generatePasswordResetLink(email, {
+    url: "http://localhost:3000/reset-password",
+  });
+  const url = new URL(link);
+  const oobCode = url.searchParams.get("oobCode");
+  if (!oobCode) throw new Error(`No oobCode in generated link: ${link}`);
+  return oobCode;
+}
+
 export async function deleteAuthUserByEmail(email: string) {
   initAdmin();
 

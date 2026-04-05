@@ -73,22 +73,22 @@ describe("<NotificationsBell />", () => {
   it("shows badge, opens menu, and can mark all as read", async () => {
     renderBellLoggedIn({ unread: 3 });
 
-    // Button should announce unread count
+    // Button shows unread indicator
     const btn = await screen.findByRole("button", {
-      name: /3 unread notifications/i,
+      name: /notifications \(unread\)/i,
     });
     expect(btn).toBeInTheDocument();
 
     // Open menu
     fireEvent.click(btn);
 
-    // Menu visible with Mark all read
+    // Menu visible with Clear all button
     const markAll = await screen.findByRole("button", {
-      name: /mark all read/i,
+      name: /clear all/i,
     });
     expect(markAll).toBeEnabled();
 
-    // Click "Mark all read" -> POST called and button disabled
+    // Click "Clear all" -> POST called and button disabled
     fireEvent.click(markAll);
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith("/api/notifications/read-all");
@@ -114,7 +114,7 @@ describe("<NotificationsBell />", () => {
     });
 
     const btn = await screen.findByRole("button", {
-      name: /1 unread notifications/i,
+      name: /notifications \(unread\)/i,
     });
     fireEvent.click(btn);
 
@@ -141,7 +141,7 @@ describe("<NotificationsBell />", () => {
       await screen.findByText(/you’re all caught up\./i)
     ).toBeInTheDocument();
     const markAll = await screen.findByRole("button", {
-      name: /mark all read/i,
+      name: /clear all/i,
     });
     expect(markAll).toBeDisabled();
   });

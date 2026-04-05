@@ -32,6 +32,16 @@ export default class Account {
   email?: string;
   password?: string;
 
+  static readonly STRONG_PASSWORD = "Str0ng!Pass#99";
+
+  static readonly WEAK_PASSWORDS: { value: string; label: string }[] = [
+    { value: "Short1!",          label: "too short (< 8 chars)" },
+    { value: "alllowercase1!",   label: "no uppercase letter" },
+    { value: "ALLUPPERCASE1!",   label: "no lowercase letter" },
+    { value: "NoNumbers!ABC",    label: "no number" },
+    { value: "NoSpecialChars1A", label: "no special character" },
+  ];
+
   static anAccount(): Account {
     return new Account();
   }
@@ -69,6 +79,11 @@ export default class Account {
 
   withPassword(password: string): Account {
     this.password = password;
+    return this;
+  }
+
+  withStrongPassword(): Account {
+    this.password = Account.STRONG_PASSWORD;
     return this;
   }
 

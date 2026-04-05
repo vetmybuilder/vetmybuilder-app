@@ -1,6 +1,7 @@
 // web/pages/tradesman/profile.tsx
 import { useRouter } from "next/router";
 import { useEffect, useState, type ReactNode } from "react";
+import StatPill from "@/components/StatPill";
 import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 import LightboxGallery, {
@@ -707,28 +708,6 @@ function formatMemberSince(createdAt?: string | null): string | null {
   });
 }
 
-function StatPill({
-  icon,
-  label,
-  value,
-  testId,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string | number;
-  testId?: string;
-}) {
-  return (
-    <div
-      data-testid={testId}
-      className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-600"
-    >
-      <span className="flex items-center">{icon}</span>
-      <span className="font-bold text-zinc-800">{value}</span>
-      <span className="text-zinc-400">{label}</span>
-    </div>
-  );
-}
 
 function getSocialMeta(url: string): { icon: React.ReactNode; label: string; color: string } {
   if (/instagram/i.test(url)) return {
