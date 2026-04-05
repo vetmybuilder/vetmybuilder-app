@@ -1,7 +1,7 @@
 // web/pages/tradesman/profile.tsx
 import { useRouter } from "next/router";
 import { useEffect, useState, type ReactNode } from "react";
-import AuthedOnly from "@/components/AuthedOnly";
+import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 import LightboxGallery, {
   type GalleryImage,
@@ -85,11 +85,17 @@ type MeResponse = {
 };
 
 export default function TradesmanProfilePage() {
-  return (
-    <AuthedOnly>
-      <Inner />
-    </AuthedOnly>
-  );
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/tradesman/login");
+    }
+  }, [loading, user, router]);
+
+  if (loading || !user) return null;
+  return <Inner />;
 }
 
 function Inner() {
