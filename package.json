@@ -43,6 +43,7 @@
     "sim:reset": "node scripts/simulate.js reset"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1024.0",
     "axios": "^1.7.7",
     "better-sqlite3": "^9.6.0",
     "cors": "^2.8.5",
