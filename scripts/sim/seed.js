@@ -185,72 +185,38 @@ async function seedBuilders(adminUid) {
       // else: silently use photoUrls fallback already set above
     }
 
-    // Step 5: Write phone, photos, and profile picture directly to the DB.
-    // This is simpler and more reliable than going through PUT /api/tradesmen/me
-    // which has token/auth machinery that can fail silently.
-    const conn = await mysql2.createConnection(dbConfig());
-    try {
-      const tradeTypes = Array.isArray(profile.tradeTypes)
-        ? profile.tradeTypes.join(",")
-        : profile.tradeTypes || "";
-      const serviceAreas = Array.isArray(profile.serviceAreas)
-        ? profile.serviceAreas.join(",")
-        : profile.serviceAreas || "";
+    // Step 5: Patch profile + photos via PUT /api/tradesmen/me.
+    // Using the API (not direct DB) ensures writes always land in the correct DB
+    // regardless of where seed is run from (local vs prod server).
+    const putRes = await apiPut(
+      "/api/tradesmen/me",
+      {
+        companyName: profile.companyName,
+        contactName: profile.contactName || null,
+        phone: profile.phone || null,
+        email: profile.email || null,
+        tradeTypes: profile.tradeTypes || [],
+        serviceAreas: profile.serviceAreas || [],
+        website: profile.website || null,
+        discountMinPercent: profile.discountMin || 0,
+        discountMaxPercent: profile.discountMax || 0,
+        offersDiscount: profile.discountMin || profile.discountMax ? 1 : 0,
+        warrantyMonths: profile.warrantyMonths || 0,
+        supportingDocCount: profile.supportingDocCount || 0,
+        photoUrls,
+        profilePictureUrl,
+      },
+      uid
+    );
 
-      await conn.query(
-        `UPDATE tradesmen SET
-           phone                = ?,
-           email                = ?,
-           contact_name         = ?,
-           trade_types          = ?,
-           service_areas        = ?,
-           web_url              = ?,
-           discount_min_percent = ?,
-           discount_max_percent = ?,
-           offers_discount      = ?,
-           warranty_months      = ?,
-           photo_count          = ?,
-           supporting_doc_count = ?,
-           profile_picture_url  = ?,
-           public_id            = COALESCE(public_id, UUID()),
-           updated_at           = NOW()
-         WHERE user_id = ?`,
-        [
-          profile.phone || null,
-          profile.email || null,
-          profile.contactName || null,
-          tradeTypes,
-          serviceAreas,
-          profile.website || null,
-          profile.discountMin || 0,
-          profile.discountMax || 0,
-          profile.discountMin || profile.discountMax ? 1 : 0,
-          profile.warrantyMonths || 0,
-          photoUrls.length,
-          profile.supportingDocCount || 0,
-          profilePictureUrl,
-          uid,
-        ]
-      );
-
-      // Replace photos
-      await conn.query(
-        `DELETE FROM tradesmen_photos WHERE tradesman_user_id = ?`,
-        [uid]
-      );
-      for (let idx = 0; idx < photoUrls.length; idx++) {
-        await conn.query(
-          `INSERT INTO tradesmen_photos (tradesman_user_id, url, sort_order) VALUES (?, ?, ?)`,
-          [uid, photoUrls[idx], idx]
-        );
-      }
-
-      console.log(
-        `  ✓ ${uid} profile patched — phone: ${profile.phone || "none"}, photos: ${photoUrls.length}`
-      );
-    } finally {
-      await conn.end();
+    if (!putRes.ok) {
+      const body = await putRes.text().catch(() => "");
+      throw new Error(`Profile PUT failed for ${uid}: ${putRes.status} ${body}`);
     }
+
+    console.log(
+      `  ✓ ${uid} profile patched — phone: ${profile.phone || "none"}, photos: ${photoUrls.length}`
+    );
   }
 }
 
