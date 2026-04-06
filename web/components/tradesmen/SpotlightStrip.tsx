@@ -166,7 +166,6 @@ function SpotlightTile({
             }`}
             loading="lazy"
             referrerPolicy="no-referrer"
-            crossOrigin="anonymous"
             onError={() => setSrc(null)}
           />
         ) : (
