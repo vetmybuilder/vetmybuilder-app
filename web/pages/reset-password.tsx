@@ -74,23 +74,34 @@ export default function ResetPassword() {
     }
   }
 
-  if (verifying && router.query.oobCode) {
-    return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
-        <p className="text-sm text-zinc-400">Verifying link…</p>
-      </div>
-    );
-  }
-
-  return (
+  const pageShell = (content: React.ReactNode) => (
     <>
       <Head>
         <title>Set new password • VetMyBuilder</title>
+        <style>{`body { background: #fafaf9 !important; }`}</style>
       </Head>
+      <div className="overflow-x-hidden -mt-14 min-h-screen">
+        <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-stone-50 px-4 py-24">
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
+            <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
+          </div>
+          <div className="relative z-10 w-full max-w-md">
+            {content}
+          </div>
+        </div>
+      </div>
+    </>
+  );
 
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center px-4">
-        <div className="w-full max-w-md">
-          <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-8 sm:p-10" data-testid="reset-password-card">
+  if (verifying && router.query.oobCode) {
+    return pageShell(
+      <p className="text-sm text-zinc-400 text-center">Verifying link…</p>
+    );
+  }
+
+  return pageShell(
+    <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-8 sm:p-10" data-testid="reset-password-card">
 
             {invalidCode ? (
               <div className="text-center space-y-4">
@@ -234,8 +245,5 @@ export default function ResetPassword() {
               </>
             )}
           </div>
-        </div>
-      </div>
-    </>
   );
 }
