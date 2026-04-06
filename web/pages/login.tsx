@@ -112,11 +112,9 @@ export default function Login() {
         !isAdminFlow &&
         (nextParam.startsWith("/tradesman/") || nextParam.startsWith("/trades/"));
 
-      // Check whether this account is a tradesman.
-      // NEXT_PUBLIC_API_BASE already includes /api (e.g. http://localhost:3100/api)
-      // so we must not add /api again.
-      const apiBase = (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/+$/, "");
-      const meRes = await fetch(`${apiBase}/tradesmen/me`, {
+      // Use a relative URL so this always goes through the Next.js rewrite
+      // proxy — works in every environment (local, Docker CI, production).
+      const meRes = await fetch("/api/tradesmen/me", {
         headers: { Authorization: `Bearer ${token}` },
       });
       const meData = meRes.ok ? await meRes.json() : null;

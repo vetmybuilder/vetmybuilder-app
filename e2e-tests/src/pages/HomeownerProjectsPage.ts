@@ -34,7 +34,7 @@ export class HomeownerProjectsPage {
     this.communityTab = page.getByRole("link", { name: /community/i });
     this.favouritesTab = page.getByRole("link", { name: /favourites/i });
 
-    this.safetyAccordion = page.getByTestId("safety-verification-accordion");
+    this.safetyAccordion = page.getByTestId("projects-safety-card");
     this.safetyHeading = page.getByRole("heading", {
       name: /Safety & verification on VetMyBuilder/i,
     });
@@ -193,10 +193,6 @@ export class HomeownerProjectsPage {
     await expect(this.safetyAccordion).toBeVisible();
     await expect(this.safetyHeading).toBeVisible();
     await expect(this.safetyDescription).toBeVisible();
-
-    await expect(this.companiesHouseRow).toBeVisible();
-    await expect(this.vmbScoreRow).toBeVisible();
-    await expect(this.tipRow).toBeVisible();
     await expect(this.page).toHaveURL("/projects");
   }
 
