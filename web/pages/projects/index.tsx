@@ -14,8 +14,29 @@ import ProjectFilters, {
   type ProjectFiltersValue,
 } from "@/components/filters/ProjectFilters";
 import FavouriteTradesmenSection from "@/components/tradesmen/FavouriteTradesmenSection";
-import SafetyVerificationCard from "@/components/SafetyVerificationCard";
-import { Home, Heart } from "lucide-react";
+import { Home, Heart, FolderOpen, Shield, Building2, Star, Lightbulb, ChevronDown, ChevronUp, Plus, CheckCircle2 } from "lucide-react";
+
+
+function EmptyState({ onNewProject }: { onNewProject: () => void }) {
+  return (
+    <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm flex flex-col items-center justify-center py-20 px-6 text-center">
+      <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-zinc-100">
+        <FolderOpen className="h-10 w-10 text-zinc-400" />
+      </div>
+      <h3 className="mb-2 text-lg font-semibold text-zinc-900">No projects yet</h3>
+      <p className="mb-6 max-w-sm text-sm text-zinc-500">
+        Start your first project to find verified builders in your area
+      </p>
+      <button
+        onClick={onNewProject}
+        className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-semibold text-white hover:bg-emerald-600 transition-colors"
+      >
+        <Plus className="h-4 w-4" />
+        Post a Job
+      </button>
+    </div>
+  );
+}
 
 type Status = "pending" | "live" | "completed" | "archived";
 
@@ -53,7 +74,7 @@ export default function ProjectsPage() {
   return (
     <>
       <Head>
-        <title>My Projects — VetMyBuilder</title>
+        <title>My Jobs — VetMyBuilder</title>
         <style>{`body { background: #fafaf9 !important; }`}</style>
       </Head>
       <AuthedOnly>
@@ -159,34 +180,29 @@ const TAB_META: Partial<
     {
       title: string;
       desc: string;
-      activeColor: string;
-      icon: "mine" | "completed" | "community" | "favourites";
+      color: string;
     }
   >
 > = {
   mine: {
-    title: "My Projects",
-    desc: "Live and draft jobs you're currently running.",
-    activeColor: "#22c55e",
-    icon: "mine",
+    title: "My Jobs",
+    desc: "Live and draft jobs you're currently running",
+    color: "bg-red-500",
   },
   completed: {
     title: "Completed",
     desc: "Projects you've marked as completed",
-    activeColor: "#0ea5e9",
-    icon: "completed",
+    color: "bg-sky-500",
   },
   completedCommunity: {
     title: "Community",
-    desc: "Completed projects shared by others in your area.",
-    activeColor: "#f97316",
-    icon: "community",
+    desc: "Completed projects shared by others in your area",
+    color: "bg-orange-500",
   },
   favourites: {
     title: "Favourites",
-    desc: "Tradespeople you've saved.",
-    activeColor: "#6366f1",
-    icon: "favourites",
+    desc: "Tradespeople you've saved",
+    color: "bg-indigo-500",
   },
 };
 
@@ -194,55 +210,22 @@ function ProjectsTabHelperBanner({ tab }: { tab: OwnerTab }) {
   const meta = TAB_META[tab];
   if (!meta) return null;
 
-  const badgeClass =
-    "mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/95 ring-1 ring-black/10";
-
   return (
     <section
       aria-label="Projects tab helper"
       data-testid="projects-tab-helper-inline"
-      className="mb-4"
+      className="mb-6"
     >
-      <div
-        className="w-full rounded-2xl px-4 py-3 text-white shadow-sm"
-        style={{ backgroundColor: meta.activeColor }}
-      >
-        <div className="flex items-start gap-3">
-          <span className={badgeClass}>
-            {meta.icon === "mine" && (
-              <Home className="h-5 w-5" style={{ color: meta.activeColor }} />
-            )}
-
-            {meta.icon === "completed" && (
-              <span
-                className="text-base leading-none"
-                style={{ color: meta.activeColor }}
-              >
-                ✓
-              </span>
-            )}
-
-            {meta.icon === "community" && (
-              <span
-                className="text-base leading-none"
-                style={{ color: meta.activeColor }}
-              >
-                ★
-              </span>
-            )}
-
-            {meta.icon === "favourites" && (
-              // ✅ match the old helper look: white badge + red heart
-              <Heart className="h-5 w-5 text-rose-600" />
-            )}
-          </span>
-
-          <div className="min-w-0">
-            <div className="text-base sm:text-lg font-semibold leading-tight">
-              {meta.title} <span className="opacity-95">—</span>{" "}
-              <span className="font-medium opacity-95">{meta.desc}</span>
-            </div>
-          </div>
+      <div className={`inline-flex items-center gap-3 rounded-2xl ${meta.color} px-6 py-4`}>
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 shrink-0">
+          {tab === "mine" && <FolderOpen className="h-5 w-5 text-white" />}
+          {tab === "completed" && <Home className="h-5 w-5 text-white" />}
+          {tab === "completedCommunity" && <Star className="h-5 w-5 text-white" />}
+          {tab === "favourites" && <Heart className="h-5 w-5 text-white" />}
+        </div>
+        <div>
+          <h1 className="text-lg font-semibold text-white leading-tight">{meta.title}</h1>
+          <p className="text-sm text-white/80">{meta.desc}</p>
         </div>
       </div>
     </section>
@@ -460,184 +443,232 @@ function OwnerProjects() {
     </div>
   );
 
+  const [safetyOpen, setSafetyOpen] = useState(false);
+
   return (
-    <div className="relative min-h-screen overflow-hidden bg-stone-50">
-      {/* Background bands matching homepage hero */}
+    <div className="relative min-h-screen overflow-hidden bg-stone-50 -mt-14">
+      {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
-        <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
+        <div className="absolute bottom-0 -left-[30%] w-[70%] h-[60%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
       </div>
-    <div
-      className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 lg:px-8"
-      data-testid="projects-page"
-    >
-      {/* top padding so content doesn’t crash into header */}
-      <div className="pt-4" />
 
-      {/* helper banner sits ABOVE safety card */}
-      <ProjectsTabHelperBanner tab={tab} />
-
-      {/* Safety & verification card at the top */}
-      <section
-        aria-label="Safety and verification"
-        data-testid="projects-safety-card"
-        className="mb-6"
+      <div
+        className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pb-12 pt-20"
+        data-testid="projects-page"
       >
-        <SafetyVerificationCard />
-      </section>
 
-      {/* Projects filters only for project tabs (not favourites) */}
-      {tab !== "favourites" && (
-        <ProjectFilters
-          typeOptions={typeOptions}
-          statusOptions={statusOptions as any}
-          items={items as any}
-          value={{ type: chipType, status: chipStatus }}
-          onChange={(next: ProjectFiltersValue) => {
-            setChipType(next.type);
-            setChipStatus(next.status);
-          }}
-        />
-      )}
+        {/* Tab title pill */}
+        <ProjectsTabHelperBanner tab={tab} />
 
-      {/* Main content */}
-      {tab === "favourites" ? (
-        <div className="mt-2" data-testid="projects-list-favourites">
-          <FavouriteTradesmenSection />
-        </div>
-      ) : (
-        <div className="mt-2" data-testid="projects-list">
-          {tab === "completed" || tab === "completedCommunity" ? (
-            <div
-              className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5"
-              data-testid="projects-card-grid-completed"
-            >
-              {items.map((p) => {
-                const recId =
-                  (p as any)._winnerRecommendationId ??
-                  (p as any)._winner_rec_id ??
-                  (p as any)._winnerId;
-
-                const fromServer = normalizeHookLabel(
-                  (p as any)._winnerTradesmanName,
-                );
-
-                const fromHook = normalizeHookLabel(
-                  (trades as any)?.[recId] ??
-                    (trades as any)?.[String(recId)] ??
-                    (trades as any)?.[Number(recId)],
-                );
-
-                // Prefer UUID public_id; fall back to Firebase UID so the
-                // tradesman link always works (tradesman.get.js accepts both).
-                const tradesmanPublicId =
-                  (p as any)._winnerTradesmanPublicId ||
-                  (p as any)._winnerTradesmanUid ||
-                  null;
-
-                const tradesmanLabel = fromServer || fromHook || "—";
-
-                return (
-                  <CompletedProjectCard
-                    key={p.id}
-                    id={p.id}
-                    name={p.name}
-                    status={p.status}
-                    type={p.type}
-                    location={p.location}
-                    coverPhotoUrl={p.coverPhotoUrl}
-                    tradesmanLabel={tradesmanLabel}
-                    tradesmanPublicId={tradesmanPublicId}
-                    onOpenBuilder={() => {
-                      if (tradesmanPublicId) {
-                        router.push(`/tradesman/${encodeURIComponent(tradesmanPublicId)}`);
-                        return;
-                      }
-                      if (!recId) return;
-                      const n = Number(recId);
-                      const slug = Number.isFinite(n)
-                        ? String(n)
-                        : String(recId);
-                      router.push(`/builders/${encodeURIComponent(slug)}`);
-                    }}
-                    hasGallery={hasGallery(p)}
-                  />
-                );
-              })}
-              {loading &&
-                [...Array(4)].map((_, i) => <SkeletonCard key={`skc-${i}`} />)}
-              {items.length === 0 && !loading && (
-                <div
-                  className="col-span-full py-12 text-center text-sm text-zinc-400"
-                  data-testid="projects-empty"
-                >
-                  No projects yet.
-                </div>
-              )}
-            </div>
-          ) : (
-            <div
-              className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5"
-              data-testid="projects-card-grid"
-            >
-              {items.map((p) => (
-                <div className="contents" key={p.id}>
-                  <ProjectImageCard
-                    id={p.id}
-                    status={p.status}
-                    imageUrl={
-                      p.coverPhotoUrl ||
-                      "https://cdn.home-designing.com/wp-content/uploads/2024/08/Graceful-Mid-Century-Modern-Living-Rooms.jpg"
-                    }
-                    name={p.name}
-                  />
-                  <ProjectInfoCard
-                    id={p.id}
-                    name={p.name}
-                    type={p.type}
-                    location={p.location}
-                    propertyType={p.propertyType}
-                    bedrooms={p.bedrooms}
-                    createdAt={p.createdAt}
-                    status={p.status}
-                  />
-                </div>
-              ))}
-              {loading &&
-                [...Array(4)].map((_, i) => <SkeletonCard key={`sk-${i}`} />)}
-              {items.length === 0 && !loading && (
-                <div
-                  className="col-span-full py-12 text-center text-sm text-zinc-400"
-                  data-testid="projects-empty"
-                >
-                  No projects yet.
-                </div>
-              )}
-            </div>
-          )}
-
-          <div ref={sentinelRef} />
-
-          <div className="flex flex-col items-center gap-3 mt-8">
-            <div className="text-sm text-zinc-400">
-              Showing {items.length} of {total}
-            </div>
+        {/* Safety & verification collapsible card */}
+        <section
+          aria-label="Safety and verification"
+          data-testid="projects-safety-card"
+          className="mb-6"
+        >
+          <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
             <button
-              className="inline-flex items-center justify-center rounded-full bg-zinc-900 px-6 py-3 text-sm font-bold text-white hover:bg-zinc-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-              onClick={() => fetchPage(page + 1)}
-              disabled={!hasMore || loading}
-              id="load-more"
-              data-testid="load-more"
+              onClick={() => setSafetyOpen((v) => !v)}
+              className="flex w-full items-center justify-between px-5 py-4 text-left hover:bg-zinc-50 transition-colors"
             >
-              {loading ? "Loading…" : hasMore ? "Load more" : "All caught up"}
+              <div className="flex items-center gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50">
+                  <Shield className="h-5 w-5 text-emerald-600" />
+                </div>
+                <div>
+                  <h2 className="font-semibold text-zinc-900">Safety &amp; verification on VetMyBuilder</h2>
+                  <p className="text-sm text-zinc-500">We combine official checks with community signals to help you feel confident</p>
+                </div>
+              </div>
+              {safetyOpen
+                ? <ChevronUp className="h-5 w-5 text-zinc-400 shrink-0 ml-4" />
+                : <ChevronDown className="h-5 w-5 text-zinc-400 shrink-0 ml-4" />
+              }
             </button>
-            <div className="sr-only" aria-live="polite">
-              {announce}
-            </div>
+
+            {safetyOpen && (
+              <div className="border-t border-zinc-200 px-5 pb-5 pt-4 space-y-4">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100">
+                    <Building2 className="h-4 w-4 text-zinc-500" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-zinc-900">Companies House checks</p>
+                    <p className="text-sm text-zinc-500">Where possible, we match tradesmen to a registered company and show when that match is verified.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100">
+                    <Star className="h-4 w-4 text-amber-500" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-zinc-900">VMB score &amp; badges</p>
+                    <p className="text-sm text-zinc-500">Profiles are ranked using signals like photos, completed projects, documents and web presence — not just who paid the most.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50">
+                    <Lightbulb className="h-4 w-4 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-emerald-700">Tip</p>
+                    <p className="text-sm text-zinc-500">Always ask for a written quote, check proof of insurance, and keep all messages and agreements in writing.</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
-    </div>
+        </section>
+
+        {/* Filters row */}
+        {tab !== "favourites" && (
+          <div className="mb-6">
+            <ProjectFilters
+              typeOptions={typeOptions}
+              statusOptions={statusOptions as any}
+              items={items as any}
+              value={{ type: chipType, status: chipStatus }}
+              onChange={(next: ProjectFiltersValue) => {
+                setChipType(next.type);
+                setChipStatus(next.status);
+              }}
+            />
+          </div>
+        )}
+
+        {/* Main content */}
+        {tab === "favourites" ? (
+          <div data-testid="projects-list-favourites">
+            <FavouriteTradesmenSection />
+          </div>
+        ) : (
+          <div data-testid="projects-list">
+            {tab === "completed" || tab === "completedCommunity" ? (
+              <div
+                className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5"
+                data-testid="projects-card-grid-completed"
+              >
+                {items.map((p) => {
+                  const recId =
+                    (p as any)._winnerRecommendationId ??
+                    (p as any)._winner_rec_id ??
+                    (p as any)._winnerId;
+
+                  const fromServer = normalizeHookLabel(
+                    (p as any)._winnerTradesmanName,
+                  );
+
+                  const fromHook = normalizeHookLabel(
+                    (trades as any)?.[recId] ??
+                      (trades as any)?.[String(recId)] ??
+                      (trades as any)?.[Number(recId)],
+                  );
+
+                  const tradesmanPublicId =
+                    (p as any)._winnerTradesmanPublicId ||
+                    (p as any)._winnerTradesmanUid ||
+                    null;
+
+                  const tradesmanLabel = fromServer || fromHook || "—";
+
+                  return (
+                    <CompletedProjectCard
+                      key={p.id}
+                      id={p.id}
+                      name={p.name}
+                      status={p.status}
+                      type={p.type}
+                      location={p.location}
+                      coverPhotoUrl={p.coverPhotoUrl}
+                      tradesmanLabel={tradesmanLabel}
+                      tradesmanPublicId={tradesmanPublicId}
+                      onOpenBuilder={() => {
+                        if (tradesmanPublicId) {
+                          router.push(`/tradesman/${encodeURIComponent(tradesmanPublicId)}`);
+                          return;
+                        }
+                        if (!recId) return;
+                        const n = Number(recId);
+                        const slug = Number.isFinite(n) ? String(n) : String(recId);
+                        router.push(`/builders/${encodeURIComponent(slug)}`);
+                      }}
+                      hasGallery={hasGallery(p)}
+                    />
+                  );
+                })}
+                {loading && [...Array(4)].map((_, i) => <SkeletonCard key={`skc-${i}`} />)}
+                {items.length === 0 && !loading && (
+                  <div className="col-span-full" data-testid="projects-empty">
+                    <EmptyState onNewProject={() => router.push("/projects/new")} />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div
+                className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5"
+                data-testid="projects-card-grid"
+              >
+                {items.map((p) => (
+                  <div className="contents" key={p.id}>
+                    <ProjectImageCard
+                      id={p.id}
+                      status={p.status}
+                      imageUrl={
+                        p.coverPhotoUrl ||
+                        "https://cdn.home-designing.com/wp-content/uploads/2024/08/Graceful-Mid-Century-Modern-Living-Rooms.jpg"
+                      }
+                      name={p.name}
+                    />
+                    <ProjectInfoCard
+                      id={p.id}
+                      name={p.name}
+                      type={p.type}
+                      location={p.location}
+                      propertyType={p.propertyType}
+                      bedrooms={p.bedrooms}
+                      createdAt={p.createdAt}
+                      status={p.status}
+                    />
+                  </div>
+                ))}
+                {loading && [...Array(4)].map((_, i) => <SkeletonCard key={`sk-${i}`} />)}
+                {items.length === 0 && !loading && (
+                  <div className="col-span-full" data-testid="projects-empty">
+                    <EmptyState onNewProject={() => router.push("/projects/new")} />
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div ref={sentinelRef} />
+
+            {/* Footer */}
+            <div className="mt-8 flex items-center justify-between">
+              <p className="text-sm text-zinc-400">
+                Showing {items.length} of {total} projects
+              </p>
+              {hasMore ? (
+                <button
+                  className="inline-flex items-center justify-center rounded-full bg-zinc-900 px-6 py-2.5 text-sm font-bold text-white hover:bg-zinc-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  onClick={() => fetchPage(page + 1)}
+                  disabled={loading}
+                  id="load-more"
+                  data-testid="load-more"
+                >
+                  {loading ? "Loading…" : "Load more"}
+                </button>
+              ) : (
+                <div className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  <span className="text-sm font-medium text-emerald-700">All caught up</span>
+                </div>
+              )}
+            </div>
+            <div className="sr-only" aria-live="polite">{announce}</div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

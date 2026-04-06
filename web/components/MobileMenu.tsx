@@ -172,7 +172,7 @@ export default function MobileMenu({
                 >
                   <span className={rowClass}>
                     <FolderKanban className={iconClass(false)} />
-                    <span>My Projects</span>
+                    <span>My Jobs</span>
                   </span>
                 </button>
 

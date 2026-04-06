@@ -137,6 +137,11 @@ export class SiteHeader {
     await expect(this.initialsBadge(initials)).toBeVisible({ timeout: 15_000 });
   }
 
+  async assertGuestState() {
+    await expect(this.navSignIn).toBeVisible({ timeout: 10_000 });
+    await expect(this.accountMenuButton).not.toBeVisible();
+  }
+
   async signOut() {
     if (await this.isMobileNav()) {
       await this.openMobileMenu();

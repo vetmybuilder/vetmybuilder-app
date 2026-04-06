@@ -9,6 +9,7 @@ pnpm-debug.log*
 Thumbs.db
 .idea/
 .vscode/
+.claude/
 
 # Environment (root & subpackages)
 .env
@@ -78,4 +79,4 @@ scripts/sqlite_to_mysql_schema.js
 scripts/sim/fixtures/photos/
 scripts/sim/fixtures/builder-photos/
 
-.claude/
+.firebase-emulator-data/

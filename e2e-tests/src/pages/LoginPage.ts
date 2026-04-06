@@ -75,6 +75,11 @@ export class LoginPage {
     await expect(this.errorMessage).toBeVisible({ timeout: 10_000 });
   }
 
+  async hasErrorMessage(text: string) {
+    await expect(this.errorMessage).toBeVisible({ timeout: 10_000 });
+    await expect(this.errorMessage).toContainText(text);
+  }
+
   async clickCreateOneLink(): Promise<void> {
     await expect(this.createOneLink).toBeVisible();
     await this.createOneLink.click();
@@ -85,5 +90,30 @@ export class LoginPage {
       "href",
       "/tradesman/register-tradesmen",
     );
+  }
+
+  /** Navigate to the trade-facing login form (next=/tradesman/projects). */
+  async gotoTradeForm() {
+    await this.goto("/tradesman/projects");
+  }
+
+  /**
+   * Assert the role-mismatch error is visible and that the inline link
+   * points to the correct login page for the other role.
+   */
+  async hasRoleError(variant: "not-trade" | "not-homeowner") {
+    await expect(this.errorMessage).toBeVisible({ timeout: 15_000 });
+
+    if (variant === "not-trade") {
+      await expect(this.errorMessage).toContainText("not a trade account");
+      await expect(
+        this.errorMessage.getByRole("link"),
+      ).toHaveAttribute("href", "/login");
+    } else {
+      await expect(this.errorMessage).toContainText("trade account");
+      await expect(
+        this.errorMessage.getByRole("link"),
+      ).toHaveAttribute("href", "/tradesman/login");
+    }
   }
 }

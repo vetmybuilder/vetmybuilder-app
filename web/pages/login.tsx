@@ -2,57 +2,99 @@
 import Head from "next/head";
 import { initFirebase } from "@/utils/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { useState, useMemo } from "react";
+import { signOutUser } from "@/utils/auth";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import GuestOnly from "@/components/GuestOnly";
+import { useAuth } from "@/utils/auth";
+import { useRole } from "@/utils/useRole";
 
 export default function Login() {
   const auth = initFirebase();
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+  const { role, loading: roleLoading } = useRole();
 
-  // Read the *explicit* ?next= from the URL for display purposes (vendor flow
-  // label, "don't have an account" link target).
-  // router.isReady may still be false on first render after client-side
-  // navigation, so fall back gracefully — the authoritative read happens inside
-  // the submit handler where window.location is always available.
+  const submittingRef = useRef(false);
+
   const nextRaw = useMemo(() => {
     if (!router.isReady) return "";
     const n = router.query.next;
     return typeof n === "string" ? n : Array.isArray(n) ? n[0] : "";
   }, [router.isReady, router.query.next]);
 
-  const hasExplicitNext = !!nextRaw;
-
-  // Detect flow type — router.asPath includes the query string before isReady,
-  // so use it for immediate detection without waiting for router.isReady.
   const isAdminFlow =
     router.asPath.includes("next=%2Fadmin%2F") ||
     router.asPath.includes("next=/admin/");
 
-  // Is this login being used for a tradesman flow?
   const isVendorFlow =
     !isAdminFlow &&
-    hasExplicitNext &&
+    !!nextRaw &&
     (nextRaw.startsWith("/tradesman/") || nextRaw.startsWith("/trades/"));
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const roleErrorMsg = useMemo((): React.ReactNode | null => {
+    if (!router.isReady) return null;
+    const e = router.query.role_error;
+    if (e === "not-trade")
+      return (
+        <>
+          This is not a trade account.{" "}
+          <Link href="/login" className="underline hover:text-red-700">
+            Sign in as a homeowner
+          </Link>{" "}
+          instead.
+        </>
+      );
+    if (e === "not-homeowner")
+      return (
+        <>
+          This is a trade account.{" "}
+          <Link href="/tradesman/login" className="underline hover:text-red-700">
+            Use the tradesperson sign in
+          </Link>{" "}
+          instead.
+        </>
+      );
+    return null;
+  }, [router.isReady, router.query.role_error]);
+
+  const [err, setErr] = useState<string | null>(null);
+  const displayErr: React.ReactNode = roleErrorMsg || err;
+
+  // Redirect already-logged-in users (GuestOnly behaviour)
+  useEffect(() => {
+    if (authLoading || roleLoading) return;
+    if (!user) return;
+    if (submittingRef.current) return;
+    if (roleErrorMsg) return;
+
+    const nextParam =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("next")
+        : null;
+    if (nextParam && nextParam.startsWith("/")) {
+      router.replace(nextParam);
+      return;
+    }
+
+    if (role === "tradesman") {
+      router.replace("/tradesman/projects");
+    } else {
+      router.replace("/projects");
+    }
+  }, [authLoading, roleLoading, user, role, router, roleErrorMsg]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
+    submittingRef.current = true;
     setErr(null);
 
-    // Read ?next= at submit time — window.location is always authoritative here,
-    // regardless of whether router.isReady has fired yet. This prevents the
-    // redirect target being lost when the form is submitted quickly after a
-    // client-side navigation (e.g. from /admin/login).
-    const nextParam = router.isReady
-      ? ((router.query.next as string) ?? "")
-      : new URLSearchParams(window.location.search).get("next") ?? "";
+    const nextParam = new URLSearchParams(window.location.search).get("next") ?? "";
     const resolvedNextPath =
       nextParam && nextParam.startsWith("/") ? nextParam : "/projects";
 
@@ -63,19 +105,69 @@ export default function Login() {
         // ignore storage errors
       }
 
-      await signInWithEmailAndPassword(auth, email, password);
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      const token = await credential.user.getIdToken();
+
+      const isVendorFlowAtSubmit =
+        !isAdminFlow &&
+        (nextParam.startsWith("/tradesman/") || nextParam.startsWith("/trades/"));
+
+      // Check whether this account is a tradesman.
+      // NEXT_PUBLIC_API_BASE already includes /api (e.g. http://localhost:3100/api)
+      // so we must not add /api again.
+      const apiBase = (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/+$/, "");
+      const meRes = await fetch(`${apiBase}/tradesmen/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const meData = meRes.ok ? await meRes.json() : null;
+      const isTradesman =
+        String(meData?.role || "").toLowerCase() === "tradesman" ||
+        !!meData?.profile;
+
+      if (isVendorFlowAtSubmit && !isTradesman) {
+        await signOutUser();
+        try { sessionStorage.setItem("vmb:expect-signout", "1"); } catch {}
+        const p = new URLSearchParams(window.location.search);
+        p.set("role_error", "not-trade");
+        window.location.replace(`${window.location.pathname}?${p.toString()}`);
+        return;
+      }
+
+      if (!isVendorFlowAtSubmit && !isAdminFlow && isTradesman) {
+        await signOutUser();
+        try { sessionStorage.setItem("vmb:expect-signout", "1"); } catch {}
+        window.location.replace(`${window.location.pathname}?role_error=not-homeowner`);
+        return;
+      }
 
       await router.replace(resolvedNextPath);
     } catch (e: any) {
-      setErr(e.message || "Failed to login");
+      const code = e?.code ?? "";
+      if (
+        code === "auth/user-not-found" ||
+        code === "auth/wrong-password" ||
+        code === "auth/invalid-credential" ||
+        code === "auth/invalid-email"
+      ) {
+        setErr("Incorrect email or password. Please try again.");
+      } else if (code === "auth/too-many-requests") {
+        setErr("Too many failed attempts. Please try again later or reset your password.");
+      } else if (code === "auth/user-disabled") {
+        setErr("This account has been disabled. Please contact support.");
+      } else {
+        setErr("Something went wrong. Please try again.");
+      }
     } finally {
+      submittingRef.current = false;
       setBusy(false);
     }
   };
 
+  if (authLoading) return null;
+  if (user && !busy && !roleErrorMsg) return null;
+
   return (
-    <GuestOnly>
-      <>
+    <>
       <Head>
         <title>Sign in — VetMyBuilder</title>
         <meta name="description" content="Sign in to your VetMyBuilder account." />
@@ -83,7 +175,6 @@ export default function Login() {
       </Head>
 
       <div className="overflow-x-hidden -mt-14 min-h-screen">
-        {/* Background matching homepage hero */}
         <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-stone-50 py-24">
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
@@ -91,7 +182,6 @@ export default function Login() {
           </div>
 
           <div className="relative z-10 w-full max-w-md px-4 sm:px-0" data-testid="login-page">
-            {/* Card */}
             <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-8 sm:p-10" data-testid="login-card">
               <div className="mb-8">
                 <h1 className="text-3xl font-black tracking-tight text-zinc-900" data-testid="login-title">
@@ -161,13 +251,13 @@ export default function Login() {
                   </div>
                 </div>
 
-                {err && (
+                {displayErr && (
                   <p
                     className="text-red-500 text-sm font-medium"
                     role="alert"
                     data-testid="login-error"
                   >
-                    {err}
+                    {displayErr}
                   </p>
                 )}
 
@@ -204,7 +294,6 @@ export default function Login() {
           </div>
         </div>
       </div>
-      </>
-    </GuestOnly>
+    </>
   );
 }

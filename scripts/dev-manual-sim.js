@@ -34,6 +34,50 @@ async function waitForServer() {
   return false;
 }
 
+// Real accounts that need to exist in the local Firebase emulator for manual testing.
+// Add entries here if you need to log in as a real (non-sim) user locally.
+const EMULATOR_USERS = [
+  {
+    localId: "pLT7RLEYByX6IJWzGAMjAKrW5L93",
+    email: "info@elegantbuilding.co.uk",
+    password: "o8hSUU8vagHTyuaOY0ov1w==",
+    displayName: "Elegant Building Services",
+  },
+];
+
+async function ensureEmulatorUsers() {
+  const emulatorHost =
+    process.env.FIREBASE_AUTH_EMULATOR_HOST || "127.0.0.1:9099";
+  const projectId = process.env.GCLOUD_PROJECT ||
+    process.env.FIREBASE_PROJECT_ID ||
+    "vetmybuilder";
+  const base = `http://${emulatorHost}/identitytoolkit.googleapis.com/v1/projects/${projectId}`;
+
+  for (const user of EMULATOR_USERS) {
+    try {
+      const res = await fetch(`${base}/accounts`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer owner",
+        },
+        body: JSON.stringify({ ...user, emailVerified: true }),
+      });
+      if (res.ok) {
+        log(`Emulator user ensured: ${user.email}`);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        // DUPLICATE_EMAIL means user already exists — that's fine
+        if (body?.error?.message !== "DUPLICATE_EMAIL") {
+          log(`Warning: could not create emulator user ${user.email}: ${body?.error?.message}`);
+        }
+      }
+    } catch (e) {
+      log(`Warning: emulator user creation skipped (${user.email}): ${e.message}`);
+    }
+  }
+}
+
 function runScript(script, env = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(
@@ -58,6 +102,9 @@ function runScript(script, env = {}) {
     log("Server did not become ready in time — skipping sim autostart");
     process.exit(1);
   }
+
+  // Ensure known real-account test users exist in the emulator
+  await ensureEmulatorUsers();
 
   log("Server ready. Running seed...");
   try {

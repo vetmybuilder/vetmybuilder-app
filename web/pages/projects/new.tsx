@@ -301,14 +301,14 @@ export default function NewProject() {
         <style>{`body { background: #fafaf9 !important; }`}</style>
       </Head>
 
-      <div className="relative min-h-screen overflow-hidden bg-stone-50">
+      <div className="relative min-h-screen overflow-hidden bg-stone-50 -mt-14">
         {/* Background bands */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
-          <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
+          <div className="absolute bottom-0 -left-[30%] w-[70%] h-[60%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
         </div>
 
-        <div className="relative z-10 mx-auto max-w-2xl px-4 sm:px-6 lg:px-8 py-8">
+        <div className="relative z-10 mx-auto max-w-2xl px-4 sm:px-6 lg:px-8 pt-20 pb-8">
           {/* Header */}
           <div className="mb-6 flex items-center justify-between">
             <div>

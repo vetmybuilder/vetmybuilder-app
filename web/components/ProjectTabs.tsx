@@ -24,7 +24,7 @@ const tabs: Array<{
 }> = [
   {
     key: "mine",
-    label: "My Projects",
+    label: "My Jobs",
     color: "#2563eb",
     testId: "tab-my-projects",
   },

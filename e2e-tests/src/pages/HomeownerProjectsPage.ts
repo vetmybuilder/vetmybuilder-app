@@ -29,7 +29,7 @@ export class HomeownerProjectsPage {
   constructor(page: Page) {
     this.page = page;
 
-    this.myProjectsTab = page.getByRole("link", { name: /my projects/i });
+    this.myProjectsTab = page.getByRole("link", { name: /my jobs/i });
     this.completedTab = page.getByRole("link", { name: /completed/i });
     this.communityTab = page.getByRole("link", { name: /community/i });
     this.favouritesTab = page.getByRole("link", { name: /favourites/i });
