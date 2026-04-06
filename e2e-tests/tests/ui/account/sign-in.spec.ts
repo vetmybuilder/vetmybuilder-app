@@ -34,22 +34,22 @@ test.describe("Sign in", () => {
     await homeownerProjectsPage.waitUntilReady();
   });
 
-  test("shows an error when the password is wrong", async ({
+  test("shows a friendly error when the password is wrong", async ({
     basePage,
     loginPage,
   }) => {
     await basePage.logoutViaUrl();
     await loginPage.login("test@test.com", "wrongpassword");
-    await loginPage.hasError();
+    await loginPage.hasErrorMessage("Incorrect email or password");
   });
 
-  test("shows an error when the email does not exist", async ({
+  test("shows a friendly error when the email does not exist", async ({
     basePage,
     loginPage,
   }) => {
     await basePage.logoutViaUrl();
     await loginPage.login(`unknown+${Date.now()}@test.com`, "Passw0rd!");
-    await loginPage.hasError();
+    await loginPage.hasErrorMessage("Incorrect email or password");
   });
 
   test("redirects to the next path after signing in", async ({

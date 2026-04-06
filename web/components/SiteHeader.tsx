@@ -1,7 +1,7 @@
 // web/components/SiteHeader.tsx
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useMemo, useRef, useState, useEffect } from "react";
+import React, { useMemo, useRef, useState, useEffect } from "react";
 import { useAuth, signOutUser } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
@@ -81,7 +81,7 @@ const PROJECT_HEADER_TABS: Array<{
 }> = [
   {
     key: "mine",
-    label: "MY PROJECTS",
+    label: "MY JOBS",
     testId: "tab-my-projects",
     activeColor: "#22c55e",
     hoverColor: "#bbf7d0",
@@ -120,9 +120,35 @@ function getProjectsTabKey(
 }
 
 export default function SiteHeader() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const api = useApi();
   const router = useRouter();
+
+  // On the role-error page the user is mid-sign-out; treat them as guest to
+  // prevent Firebase's brief IndexedDB cache restore from flashing the avatar.
+  // Use window.location.search (not router.asPath) so it's available from the
+  // very first render before Next.js router initialization completes.
+  const [isRoleErrorPage, setIsRoleErrorPage] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return window.location.search.includes("role_error=");
+    }
+    return false;
+  });
+
+  // Keep in sync if the URL changes client-side
+  useEffect(() => {
+    const next = typeof window !== "undefined"
+      ? window.location.search.includes("role_error=")
+      : router.asPath.includes("role_error=");
+    setIsRoleErrorPage(next);
+  }, [router.asPath]);
+
+  // Also suppress avatar on the login page itself — Firebase fires the auth-state
+  // change as soon as signInWithEmailAndPassword resolves, so the avatar would
+  // briefly flash before the role check and redirect/reload complete.
+  const isLoginPage = router.pathname === "/login";
+  const displayUser = (isRoleErrorPage || isLoginPage) ? null : user;
+
 
   const isHome = router.pathname === "/";
 
@@ -155,7 +181,7 @@ export default function SiteHeader() {
   useEffect(() => {
     let alive = true;
 
-    if (!user) {
+    if (!displayUser) {
       setIsTrades(false);
       setCompany(null);
       setRoleChecked(true);
@@ -232,7 +258,7 @@ export default function SiteHeader() {
     };
   }, [openMenu]);
 
-  const initials = useMemo(() => computeInitials(user), [user]);
+  const initials = useMemo(() => computeInitials(displayUser), [displayUser]);
 
   // Trades-only CTA
   const tradeCta = useMemo(() => {
@@ -282,7 +308,7 @@ export default function SiteHeader() {
     );
   }
 
-  const showProjectTabsInHeader = !!user && !isTrades && isOwnerProjectsPage;
+  const showProjectTabsInHeader = !!displayUser && !isTrades && isOwnerProjectsPage;
 
   const tradesRegisterHref = "/tradesman/login";
   const homeHref = "/";
@@ -326,7 +352,7 @@ export default function SiteHeader() {
 
               <div className="flex items-center gap-3">
                 {/* Logged-in homeowner: Projects button + account menu */}
-                {user && !isTrades && (
+                {displayUser && !isTrades && (
                   <>
                     <Link
                       href="/projects"
@@ -370,7 +396,7 @@ export default function SiteHeader() {
                 )}
 
                 {/* Logged-in tradesperson: trades menu */}
-                {user && isTrades && (
+                {displayUser && isTrades && (
                   <div className="relative hidden sm:block" data-testid="trades-menu-wrapper">
                     <button
                       ref={btnTradesRef}
@@ -403,7 +429,7 @@ export default function SiteHeader() {
                 )}
 
                 {/* Logged-out (desktop) */}
-                {!user && (
+                {!displayUser && (
                   <>
                     <Link
                       href={tradesRegisterHref}
@@ -450,8 +476,8 @@ export default function SiteHeader() {
           open={mobileOpen}
           onClose={() => setMobileOpen(false)}
           isTrades={isTrades}
-          isAuthed={!!user}
-          firstName={user?.firstName ?? null}
+          isAuthed={!!displayUser}
+          firstName={displayUser?.firstName ?? null}
           tradeCta={tradeCta}
           onLogout={onLogout}
           onGoHome={() => router.push("/")}
@@ -478,7 +504,7 @@ export default function SiteHeader() {
         role="banner"
         aria-label="Site header"
         data-testid="site-header"
-        className="sticky top-0 z-50 border-b border-gray-200/70 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60"
+        className="sticky top-0 z-50 border-b border-stone-200/70 bg-stone-50/80 backdrop-blur supports-[backdrop-filter]:bg-stone-50/70"
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <nav
@@ -560,7 +586,7 @@ export default function SiteHeader() {
               className="hidden md:flex items-center gap-3"
               data-testid="nav-actions"
             >
-              {!user && (
+              {!displayUser && (
                 <Link
                   href={tradesRegisterHref}
                   className="hidden sm:inline-flex items-center gap-1.5 justify-center rounded-xl px-3 h-9 text-sm font-medium bg-emerald-600 text-white shadow-sm hover:bg-emerald-500"
@@ -571,7 +597,7 @@ export default function SiteHeader() {
                 </Link>
               )}
 
-              {user && roleChecked && !isTrades && router.pathname !== "/login" && (
+              {displayUser && roleChecked && !isTrades && router.pathname !== "/login" && (
                 <Link
                   href="/projects/new"
                   aria-label="Post a Job"
@@ -594,9 +620,9 @@ export default function SiteHeader() {
                 </Link>
               )}
 
-              {user && <NotificationsBell />}
+              {displayUser && <NotificationsBell />}
 
-              {user && isTrades && (
+              {displayUser && isTrades && (
                 <div className="relative" data-testid="trades-menu-wrapper">
                   <button
                     ref={btnTradesRef}
@@ -669,7 +695,7 @@ export default function SiteHeader() {
                 </div>
               )}
 
-              {user && !isTrades && (
+              {displayUser && !isTrades && (
                 <div className="relative" data-testid="account-menu-wrapper">
                   <button
                     ref={btnAccountRef}
@@ -737,7 +763,7 @@ export default function SiteHeader() {
                 </div>
               )}
 
-              {!user && (
+              {!displayUser && (
                 <Link
                   href="/login"
                   className="inline-flex items-center gap-1.5 justify-center rounded-xl px-3 h-9 text-sm font-medium bg-red-500 text-white shadow-sm hover:bg-red-600"
@@ -752,9 +778,9 @@ export default function SiteHeader() {
 
             {/* Right (mobile): bell + initials + burger */}
             <div className="flex md:hidden items-center gap-2">
-              {user && <NotificationsBell />}
+              {displayUser && <NotificationsBell />}
 
-              {user && !isTrades && (
+              {displayUser && !isTrades && (
                 <InitialsBadge
                   initials={initials}
                   testId="account-initials-badge-mobile"
@@ -788,8 +814,8 @@ export default function SiteHeader() {
         open={mobileOpen}
         onClose={() => setMobileOpen(false)}
         isTrades={isTrades}
-        isAuthed={!!user}
-        firstName={user?.firstName ?? null}
+        isAuthed={!!displayUser}
+        firstName={displayUser?.firstName ?? null}
         tradeCta={tradeCta}
         onLogout={onLogout}
         onGoHome={() => router.push("/")}

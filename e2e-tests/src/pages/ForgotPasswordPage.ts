@@ -18,6 +18,9 @@ export class ForgotPasswordPage {
   }
 
   async goto() {
+    // /forgot-password is guest-only; ensure we're logged out before navigating
+    await this.page.goto("/logout", { waitUntil: "domcontentloaded" }).catch(() => {});
+    await this.page.waitForURL(/signedOut=1/, { timeout: 20_000 });
     await safeGoto(this.page, "/forgot-password");
     await expect(this.card).toBeVisible({ timeout: 10_000 });
   }

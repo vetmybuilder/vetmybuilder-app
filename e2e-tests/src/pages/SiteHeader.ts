@@ -137,6 +137,13 @@ export class SiteHeader {
     await expect(this.initialsBadge(initials)).toBeVisible({ timeout: 15_000 });
   }
 
+  async assertGuestState() {
+    // accountMenuButton is the reliable cross-device signal — it's absent on
+    // mobile (inside hidden md:flex) and hidden on desktop when logged out.
+    // navSignIn is desktop-only (hidden sm:inline-flex) so can't be used here.
+    await expect(this.accountMenuButton).not.toBeVisible({ timeout: 10_000 });
+  }
+
   async signOut() {
     if (await this.isMobileNav()) {
       await this.openMobileMenu();

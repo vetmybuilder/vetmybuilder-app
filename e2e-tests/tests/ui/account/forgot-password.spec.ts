@@ -101,4 +101,22 @@ test.describe("Forgot password", () => {
     await expect(link).toBeVisible();
     await expect(link).toHaveAttribute("href", "/forgot-password");
   });
+
+  test("logged-in user visiting /forgot-password is redirected away", async ({
+    loginPage,
+    forgotPasswordPage,
+    homeownerProjectsPage,
+  }) => {
+    // Sign in first
+    await loginPage.loginExpectSuccess(testEmail, Account.STRONG_PASSWORD);
+
+    // Navigate to forgot-password while authenticated
+    await forgotPasswordPage.page.goto("/forgot-password");
+
+    // Should be redirected — the forgot-password card should never appear
+    await expect(forgotPasswordPage.card).not.toBeVisible({ timeout: 8_000 });
+
+    // Should land on the projects dashboard
+    await homeownerProjectsPage.waitUntilReady();
+  });
 });
