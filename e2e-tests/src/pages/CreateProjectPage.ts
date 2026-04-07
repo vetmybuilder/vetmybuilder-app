@@ -32,7 +32,10 @@ export class CreateProjectPage {
 
     this.mobileMenuButton = page.getByTestId("btn-mobile-menu");
     this.desktopPostJob = page.getByTestId("btn-post-job-header");
-    this.mobilePostJob = page.getByRole("button", { name: "Post a Job" });
+    // Scoped to the mobile menu's testid — getByRole("button", { name: "Post
+    // a Job" }) was too broad and collided with the projects-empty CTA when
+    // the homeowner had no projects yet.
+    this.mobilePostJob = page.getByTestId("mobile-menu-post-job");
 
     this.categorySelect = page.getByTestId("field-category");
 

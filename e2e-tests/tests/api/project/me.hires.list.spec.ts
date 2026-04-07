@@ -194,8 +194,6 @@ test.describe("GET /api/tradesmen/me/hires", () => {
   });
 
   test("returns 403 when the caller is not a tradesman", async ({ hireApi }) => {
-    // The fixture-provided hireApi is bound to apiClient, which is a plain
-    // (non-tradesman) user.
     const res = await hireApi.listMyHiresRaw();
 
     expect(res.status()).toBe(403);
