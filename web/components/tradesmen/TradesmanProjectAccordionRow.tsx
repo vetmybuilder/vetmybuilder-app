@@ -5,8 +5,12 @@ import ShareProfileModal from "@/components/fileUpload/ShareProfileModal";
 import PlansModal from "@/components/plans/PlansModal";
 import AccordionRow from "@/components/AccordionRow";
 import ProjectDetailsSummaryCard from "@/components/project/ProjectDetailsSummaryCard";
+import HireRequestCard, {
+  type HireRequest,
+} from "@/components/tradesmen/HireRequestCard";
 import type { PlanId } from "@/shared/lib/plans";
 import { useRouter } from "next/router";
+import { Briefcase } from "lucide-react";
 
 /** Shape from tradesman/projects list */
 export type ListProject = {
@@ -101,6 +105,28 @@ export default function TradesmanProjectAccordionRow({
   const [currentPlanId, setCurrentPlanId] = React.useState<PlanId | undefined>(
     "free"
   );
+
+  // ----- inline hire requests for THIS project -----
+  const [projectHires, setProjectHires] = React.useState<HireRequest[]>([]);
+  const [hiresLoading, setHiresLoading] = React.useState(false);
+
+  const fetchProjectHires = React.useCallback(async () => {
+    setHiresLoading(true);
+    try {
+      const { data } = await api.get("/api/tradesmen/me/hires");
+      const all: HireRequest[] = Array.isArray(data?.items) ? data.items : [];
+      setProjectHires(all.filter((h) => h.projectId === project.id));
+    } catch {
+      setProjectHires([]);
+    } finally {
+      setHiresLoading(false);
+    }
+  }, [api, project.id]);
+
+  React.useEffect(() => {
+    if (!expanded) return;
+    fetchProjectHires();
+  }, [expanded, fetchProjectHires]);
 
   // Load current plan (for PlansModal badge only)
   React.useEffect(() => {
@@ -410,6 +436,32 @@ export default function TradesmanProjectAccordionRow({
         </>
       }
     >
+      {/* Inline hire requests for this project (preview) */}
+      {!hiresLoading && projectHires.length > 0 && (
+        <div
+          className="mb-4 rounded-2xl border border-red-100 bg-red-50/40 p-4"
+          data-testid="inline-hire-requests"
+        >
+          <div className="mb-3 flex items-center gap-2">
+            <Briefcase className="h-4 w-4 text-red-500" />
+            <h3 className="text-sm font-bold text-zinc-900">
+              {projectHires.length === 1
+                ? "Hire request for this project"
+                : `${projectHires.length} hire requests for this project`}
+            </h3>
+          </div>
+          <div className="space-y-3">
+            {projectHires.map((h) => (
+              <HireRequestCard
+                key={h.id}
+                hire={h}
+                onResponded={fetchProjectHires}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* share banners */}
       {shareFlash && (
         <div

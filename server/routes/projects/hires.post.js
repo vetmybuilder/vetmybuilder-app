@@ -23,6 +23,11 @@ const { resolveHireContact } = require("../../lib/hireContactResolution");
 
 const HIRE_EXPIRY_DAYS = 7;
 
+// Statuses that count as "active" — block duplicate hires for the same
+// (project, tradesman) or (project, recommendation) pair. Terminal statuses
+// (declined, cancelled, expired) DO NOT block re-hiring.
+const ACTIVE_HIRE_STATUSES = ["pending", "pending_invite", "accepted"];
+
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
   const log = ctx.log || console;
@@ -114,12 +119,14 @@ module.exports = (router, ctx) => {
           return res.status(409).json({ error: "TRADESMAN_BANNED" });
         }
 
-        // Already hired for this project?
+        // Already actively hired for this project? (terminal statuses don't
+        // block — homeowner can re-hire after a decline/cancel/expire)
         const dupRows = await mysqlQuery(
           `SELECT id FROM hires
             WHERE projectId = ? AND tradesmanUserId = ?
+              AND status IN (?, ?, ?)
             LIMIT 1`,
-          [projectId, tradesmanUserId],
+          [projectId, tradesmanUserId, ...ACTIVE_HIRE_STATUSES],
         );
         if (dupRows.length > 0) {
           return res.status(409).json({ error: "ALREADY_HIRED" });
@@ -250,12 +257,13 @@ module.exports = (router, ctx) => {
           return res.status(400).json({ error: "CANNOT_HIRE_SELF" });
         }
 
-        // Already hired this tradesman for this project?
+        // Already actively hired this tradesman for this project?
         const dupTmRows = await mysqlQuery(
           `SELECT id FROM hires
             WHERE projectId = ? AND tradesmanUserId = ?
+              AND status IN (?, ?, ?)
             LIMIT 1`,
-          [projectId, matchedTradesman.user_id],
+          [projectId, matchedTradesman.user_id, ...ACTIVE_HIRE_STATUSES],
         );
         if (dupTmRows.length > 0) {
           return res.status(409).json({ error: "ALREADY_HIRED" });
@@ -316,12 +324,13 @@ module.exports = (router, ctx) => {
         });
       }
 
-      // Already hired this recommendation for this project?
+      // Already actively hired this recommendation for this project?
       const dupRows = await mysqlQuery(
         `SELECT id FROM hires
           WHERE projectId = ? AND recommendationId = ?
+            AND status IN (?, ?, ?)
           LIMIT 1`,
-        [projectId, recommendationId],
+        [projectId, recommendationId, ...ACTIVE_HIRE_STATUSES],
       );
       if (dupRows.length > 0) {
         return res.status(409).json({ error: "ALREADY_HIRED" });

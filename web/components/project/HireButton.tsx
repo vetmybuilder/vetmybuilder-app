@@ -57,7 +57,16 @@ export default function HireButton({
     try {
       const { data } = await api.get(`/api/projects/${projectId}/hires`);
       const items = Array.isArray(data?.items) ? data.items : [];
+      // Only ACTIVE hires (pending, pending_invite, accepted) block the
+      // button — terminal statuses (declined, cancelled, expired) free it
+      // up so the homeowner can re-hire.
+      const ACTIVE_STATUSES = new Set([
+        "pending",
+        "pending_invite",
+        "accepted",
+      ]);
       const hit = items.some((h: any) => {
+        if (!ACTIVE_STATUSES.has(h?.status)) return false;
         if (recommendationId != null) {
           return h?.recommendationId === recommendationId;
         }

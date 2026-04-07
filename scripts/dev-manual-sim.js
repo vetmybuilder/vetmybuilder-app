@@ -36,6 +36,10 @@ async function waitForServer() {
 
 // Real accounts that need to exist in the local Firebase emulator for manual testing.
 // Add entries here if you need to log in as a real (non-sim) user locally.
+//
+// If `homeownerProfile` is set, a matching row in the MySQL `users` table will be
+// upserted so the account is treated as a registered homeowner without going
+// through the signup form on every server restart.
 const EMULATOR_USERS = [
   {
     localId: "pLT7RLEYByX6IJWzGAMjAKrW5L93",
@@ -43,7 +47,66 @@ const EMULATOR_USERS = [
     password: "o8hSUU8vagHTyuaOY0ov1w==",
     displayName: "Elegant Building Services",
   },
+  {
+    localId: "chris-morris-homeowner-dev",
+    email: "morris27sky@icloud.com",
+    password: "password",
+    displayName: "Chris Morris",
+    homeownerProfile: {
+      firstName: "Chris",
+      lastName: "Morris",
+      username: "chris.morris",
+      location: "E4",
+    },
+  },
 ];
+
+async function ensureHomeownerProfiles() {
+  const usersWithProfiles = EMULATOR_USERS.filter((u) => u.homeownerProfile);
+  if (usersWithProfiles.length === 0) return;
+
+  const mysql2 = require("mysql2/promise");
+  const conn = await mysql2.createConnection({
+    host: process.env.MYSQL_HOST || process.env.TEST_DB_HOST || "localhost",
+    port: Number(process.env.MYSQL_PORT || process.env.TEST_DB_PORT || 3306),
+    user: process.env.MYSQL_USER || process.env.TEST_DB_USER || "root",
+    password: process.env.MYSQL_PASSWORD || process.env.TEST_DB_PASSWORD || "",
+    database:
+      process.env.MYSQL_DATABASE ||
+      process.env.TEST_DB_NAME ||
+      "vetmybuilder_test_s1_4_w0",
+  });
+
+  try {
+    for (const user of usersWithProfiles) {
+      const p = user.homeownerProfile;
+      const outward = (p.location || "").trim().toUpperCase().split(/\s+/)[0] || null;
+      await conn.query(
+        `INSERT INTO users (uid, email, firstName, lastName, username, locationRaw, postcodeOutward, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+         ON DUPLICATE KEY UPDATE
+           email           = VALUES(email),
+           firstName       = VALUES(firstName),
+           lastName        = VALUES(lastName),
+           username        = VALUES(username),
+           locationRaw     = VALUES(locationRaw),
+           postcodeOutward = VALUES(postcodeOutward)`,
+        [
+          user.localId,
+          user.email,
+          p.firstName,
+          p.lastName,
+          p.username || null,
+          p.location || null,
+          outward,
+        ],
+      );
+      log(`Homeowner profile ensured: ${user.email}`);
+    }
+  } finally {
+    await conn.end();
+  }
+}
 
 async function ensureEmulatorUsers() {
   const emulatorHost =
@@ -105,6 +168,13 @@ function runScript(script, env = {}) {
 
   // Ensure known real-account test users exist in the emulator
   await ensureEmulatorUsers();
+
+  // Upsert MySQL profile rows for real homeowner accounts
+  try {
+    await ensureHomeownerProfiles();
+  } catch (e) {
+    log(`Warning: failed to ensure homeowner profiles: ${e.message}`);
+  }
 
   log("Server ready. Running seed...");
   try {

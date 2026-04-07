@@ -677,8 +677,8 @@ CREATE TABLE hires (
   FOREIGN KEY (recommendationId) REFERENCES recommendations(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE UNIQUE INDEX uniq_hires_project_tradesman      ON hires (projectId, tradesmanUserId);
-CREATE UNIQUE INDEX uniq_hires_project_recommendation ON hires (projectId, recommendationId);
+CREATE INDEX idx_hires_project_tradesman      ON hires (projectId, tradesmanUserId);
+CREATE INDEX idx_hires_project_recommendation ON hires (projectId, recommendationId);
 CREATE INDEX idx_hires_homeowner    ON hires (homeownerUid);
 CREATE INDEX idx_hires_tradesman    ON hires (tradesmanUserId);
 CREATE INDEX idx_hires_status       ON hires (status);
@@ -1362,8 +1362,8 @@ CREATE TABLE hires (
   FOREIGN KEY (recommendationId) REFERENCES recommendations(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE UNIQUE INDEX uniq_hires_project_tradesman      ON hires (projectId, tradesmanUserId);
-CREATE UNIQUE INDEX uniq_hires_project_recommendation ON hires (projectId, recommendationId);
+CREATE INDEX idx_hires_project_tradesman      ON hires (projectId, tradesmanUserId);
+CREATE INDEX idx_hires_project_recommendation ON hires (projectId, recommendationId);
 CREATE INDEX idx_hires_homeowner    ON hires (homeownerUid);
 CREATE INDEX idx_hires_tradesman    ON hires (tradesmanUserId);
 CREATE INDEX idx_hires_status       ON hires (status);
@@ -2047,8 +2047,8 @@ CREATE TABLE hires (
   FOREIGN KEY (recommendationId) REFERENCES recommendations(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE UNIQUE INDEX uniq_hires_project_tradesman      ON hires (projectId, tradesmanUserId);
-CREATE UNIQUE INDEX uniq_hires_project_recommendation ON hires (projectId, recommendationId);
+CREATE INDEX idx_hires_project_tradesman      ON hires (projectId, tradesmanUserId);
+CREATE INDEX idx_hires_project_recommendation ON hires (projectId, recommendationId);
 CREATE INDEX idx_hires_homeowner    ON hires (homeownerUid);
 CREATE INDEX idx_hires_tradesman    ON hires (tradesmanUserId);
 CREATE INDEX idx_hires_status       ON hires (status);
@@ -2732,8 +2732,8 @@ CREATE TABLE hires (
   FOREIGN KEY (recommendationId) REFERENCES recommendations(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE UNIQUE INDEX uniq_hires_project_tradesman      ON hires (projectId, tradesmanUserId);
-CREATE UNIQUE INDEX uniq_hires_project_recommendation ON hires (projectId, recommendationId);
+CREATE INDEX idx_hires_project_tradesman      ON hires (projectId, tradesmanUserId);
+CREATE INDEX idx_hires_project_recommendation ON hires (projectId, recommendationId);
 CREATE INDEX idx_hires_homeowner    ON hires (homeownerUid);
 CREATE INDEX idx_hires_tradesman    ON hires (tradesmanUserId);
 CREATE INDEX idx_hires_status       ON hires (status);
@@ -3417,8 +3417,8 @@ CREATE TABLE hires (
   FOREIGN KEY (recommendationId) REFERENCES recommendations(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE UNIQUE INDEX uniq_hires_project_tradesman      ON hires (projectId, tradesmanUserId);
-CREATE UNIQUE INDEX uniq_hires_project_recommendation ON hires (projectId, recommendationId);
+CREATE INDEX idx_hires_project_tradesman      ON hires (projectId, tradesmanUserId);
+CREATE INDEX idx_hires_project_recommendation ON hires (projectId, recommendationId);
 CREATE INDEX idx_hires_homeowner    ON hires (homeownerUid);
 CREATE INDEX idx_hires_tradesman    ON hires (tradesmanUserId);
 CREATE INDEX idx_hires_status       ON hires (status);
