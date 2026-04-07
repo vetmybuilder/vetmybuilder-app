@@ -244,9 +244,25 @@ module.exports = (router, ctx) => {
 
           ${unlockSelect},
 
+          COALESCE(hs.total,    0) AS hires_total,
+          COALESCE(hs.accepted, 0) AS hires_accepted,
+          COALESCE(hs.declined, 0) AS hires_declined,
+          COALESCE(hs.pending,  0) AS hires_pending,
+
           t.created_at,
           t.updated_at
         FROM tradesmen t
+        LEFT JOIN (
+          SELECT
+            tradesmanUserId,
+            COUNT(*)                                           AS total,
+            SUM(status = 'accepted')                            AS accepted,
+            SUM(status = 'declined')                            AS declined,
+            SUM(status IN ('pending','pending_invite'))        AS pending
+          FROM hires
+          WHERE tradesmanUserId IS NOT NULL
+          GROUP BY tradesmanUserId
+        ) hs ON hs.tradesmanUserId = t.user_id
         ${whereSql}
         ORDER BY t.vmb_score DESC, t.updated_at DESC, t.company_name ASC
         LIMIT ${limit} OFFSET ${offset}
@@ -310,6 +326,14 @@ module.exports = (router, ctx) => {
           docs: Number(r.supporting_doc_count || 0),
           likes: Number(r.likes_count || 0),
           wins: Number(r.wins_count || 0),
+
+          hires: {
+            total: Number(r.hires_total || 0),
+            accepted: Number(r.hires_accepted || 0),
+            declined: Number(r.hires_declined || 0),
+            pending: Number(r.hires_pending || 0),
+          },
+
           createdAt: r.created_at,
           updatedAt: r.updated_at,
 

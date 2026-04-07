@@ -6,6 +6,10 @@
 // Auth: required.
 
 const { logger, withRequest } = require("../../lib/logger");
+const {
+  computeScore,
+  ageInDays,
+} = require("../../lib/recommendationScoring");
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery, extractLocationTokens } = ctx;
@@ -102,6 +106,28 @@ module.exports = (router, ctx) => {
     return Number(rows[0]?.c || 0);
   }
 
+  async function hireCountsFor(rid) {
+    const rows = await mysqlQuery(
+      `
+      SELECT
+        COUNT(*)                                           AS total,
+        SUM(status = 'accepted')                            AS accepted,
+        SUM(status = 'declined')                            AS declined,
+        SUM(status IN ('pending','pending_invite'))        AS pending
+      FROM hires
+      WHERE recommendationId = ?
+      `,
+      [rid]
+    );
+    const r = rows[0] || {};
+    return {
+      total: Number(r.total || 0),
+      accepted: Number(r.accepted || 0),
+      declined: Number(r.declined || 0),
+      pending: Number(r.pending || 0),
+    };
+  }
+
   async function companyVerification(rid) {
     const rows = await mysqlQuery(
       `
@@ -124,39 +150,9 @@ module.exports = (router, ctx) => {
     };
   }
 
-  /* ---------- scoring ---------- */
-  function computeScore({
-    isRecommended,
-    fromFriend,
-    fromCommunity,
-    likes,
-    wins,
-    recPhotos,
-    completionPhotos,
-    wouldAgain,
-    ch,
-  }) {
-    let s = 0;
-    s += isRecommended ? 1.0 : 0;
-    if (fromFriend) s += 0.2;
-    if (fromCommunity) s += 0.4;
-    s += Math.min(4, Math.log2(1 + wins)) * 0.8;
-    s += Math.min(4, Math.log2(1 + likes)) * 0.5;
-    if (recPhotos > 0) s += Math.min(3, Math.log2(1 + recPhotos)) * 0.35;
-    if (completionPhotos > 0)
-      s += Math.min(3, Math.log2(1 + completionPhotos)) * 0.25;
-    s += wouldAgain * 0.7;
-
-    if (ch) {
-      const st = String(ch.status || "").toLowerCase();
-      if (st === "verified") s += 0.6;
-      else if (st === "ambiguous") s += 0.15;
-      if (Number.isFinite(ch.score))
-        s += Math.min(0.5, (Number(ch.score) / 100) * 0.5);
-    }
-
-    return Math.round(s * 20) / 20;
-  }
+  // computeScore + ageInDays now live in server/lib/recommendationScoring.js
+  // (imported at the top of this file). Keeps the route thin and the
+  // scoring logic unit-testable in isolation.
 
   /* ---------- shared helpers ---------- */
 
@@ -260,6 +256,7 @@ module.exports = (router, ctx) => {
             wouldAgain,
             ch,
             fromCommunity,
+            hires,
           ] = await Promise.all([
             likesFor(r.id),
             recPhotoCount(r.id),
@@ -268,13 +265,15 @@ module.exports = (router, ctx) => {
             closuresWouldAgainCount(r.id),
             companyVerification(r.id),
             fromCommunityFlag(r.projectId, r.recommenderUserId),
+            hireCountsFor(r.id),
           ]);
 
           const fromFriend =
             String(r.source || "platform").toLowerCase() === "magic" ? 1 : 0;
 
+          const ageDays = ageInDays(r.createdAt);
+
           const score = computeScore({
-            isRecommended: 1,
             fromFriend,
             fromCommunity,
             likes,
@@ -283,6 +282,9 @@ module.exports = (router, ctx) => {
             completionPhotos: compPhotos,
             wouldAgain,
             ch,
+            hiresAccepted: hires.accepted,
+            hiresDeclined: hires.declined,
+            ageDays,
           });
 
           const row = {
@@ -291,6 +293,7 @@ module.exports = (router, ctx) => {
             company: r.company,
             name: r.name,
             createdAt: r.createdAt,
+            ageDays,
             fromFriend,
             fromCommunity,
             likes,
@@ -303,6 +306,7 @@ module.exports = (router, ctx) => {
             chScore: ch?.score ?? null,
             chCompanyNumber: ch?.companyNumber || null,
             chCompanyName: ch?.companyName || null,
+            hires,
             score,
           };
 
@@ -362,9 +366,25 @@ module.exports = (router, ctx) => {
             (s, it) => s + it.wouldAgain,
             0
           );
+          const aggHires = bucket.items.reduce(
+            (acc, it) => ({
+              total: acc.total + (it.hires?.total || 0),
+              accepted: acc.accepted + (it.hires?.accepted || 0),
+              declined: acc.declined + (it.hires?.declined || 0),
+              pending: acc.pending + (it.hires?.pending || 0),
+            }),
+            { total: 0, accepted: 0, declined: 0, pending: 0 }
+          );
+
+          // For the bucket's age, use the freshest recommendation in the
+          // bucket — a builder with one recent rec and several old ones
+          // shouldn't be punished by the old ones' decay.
+          const freshestAgeDays = bucket.items.reduce(
+            (min, it) => Math.min(min, it.ageDays ?? 0),
+            Number.POSITIVE_INFINITY
+          );
 
           const aggScore = computeScore({
-            isRecommended: 1,
             fromFriend: bucket.items.some((it) => truthy(it.fromFriend))
               ? 1
               : 0,
@@ -377,6 +397,9 @@ module.exports = (router, ctx) => {
             completionPhotos: aggCompPhotos,
             wouldAgain: aggWouldAgain,
             ch: { status: top.chStatus, score: top.chScore },
+            hiresAccepted: aggHires.accepted,
+            hiresDeclined: aggHires.declined,
+            ageDays: Number.isFinite(freshestAgeDays) ? freshestAgeDays : 0,
           });
 
           collapsed.push({
@@ -395,6 +418,7 @@ module.exports = (router, ctx) => {
             wouldAgain: aggWouldAgain,
             chStatus: top.chStatus,
             chScore: top.chScore,
+            hires: aggHires,
             score: aggScore,
           });
         }
@@ -504,6 +528,7 @@ module.exports = (router, ctx) => {
           wouldAgain,
           ch,
           fromCommunity,
+          hires,
         ] = await Promise.all([
           likesFor(r.id),
           recPhotoCount(r.id),
@@ -512,13 +537,15 @@ module.exports = (router, ctx) => {
           closuresWouldAgainCount(r.id),
           companyVerification(r.id),
           fromCommunityFlagProject(r),
+          hireCountsFor(r.id),
         ]);
 
         const fromFriend =
           String(r.source || "platform").toLowerCase() === "magic" ? 1 : 0;
 
+        const ageDays = ageInDays(r.createdAt);
+
         const score = computeScore({
-          isRecommended: 1,
           fromFriend,
           fromCommunity,
           likes,
@@ -527,6 +554,9 @@ module.exports = (router, ctx) => {
           completionPhotos: compPhotos,
           wouldAgain,
           ch,
+          hiresAccepted: hires.accepted,
+          hiresDeclined: hires.declined,
+          ageDays,
         });
 
         items.push({
@@ -545,6 +575,7 @@ module.exports = (router, ctx) => {
           wouldAgain,
           chStatus: ch?.status || null,
           chScore: ch?.score ?? null,
+          hires,
           score,
         });
       }
