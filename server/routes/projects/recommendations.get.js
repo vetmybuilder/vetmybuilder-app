@@ -7,7 +7,11 @@
  * Query: page, pageSize, limit
  *
  * Returns recommendations ranked primarily by createdAt (most recent first).
- * Does not return recommender PII.
+ * Does not return recommender PII (name, email, phone).
+ *
+ * Owner-only fields:
+ *   - companyEmail: the recommended company's contact email, used by the
+ *     hire flow to send invitations. Hidden from non-owners.
  */
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery, extractLocationTokens } = ctx;
@@ -114,6 +118,7 @@ module.exports = (router, ctx) => {
           r.source,
           r.isAnonymous,
           r.company,
+          r.companyEmail,
           r.comment,
           r.rating,
 
@@ -185,7 +190,7 @@ module.exports = (router, ctx) => {
         const fromFriend = isMagic && (!hasUser || isAnonFlag);
         const fromCommunity = !fromFriend ? computeFromCommunity(r) : 0;
 
-        return {
+        const item = {
           id: r.id,
           company: r.company,
           comment: r.comment,
@@ -198,6 +203,14 @@ module.exports = (router, ctx) => {
           photoCount: Number(r.photoCount || 0),
           score: 0,
         };
+
+        // Owner-only: expose the company contact email so the hire flow can
+        // send invitations directly. Non-owners never see tradesman PII.
+        if (isOwner) {
+          item.companyEmail = r.companyEmail || null;
+        }
+
+        return item;
       });
 
       log.info?.("[projects.recommendations] done", {

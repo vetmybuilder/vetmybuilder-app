@@ -22,6 +22,7 @@ export function useBuilderProfile(id: string | string[] | undefined) {
   const [builder, setBuilder] = useState<Builder | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
 
   const [verification, setVerification] = useState<Verification | null>(null);
   const [score, setScore] = useState<number | undefined>(undefined);
@@ -63,6 +64,7 @@ export function useBuilderProfile(id: string | string[] | undefined) {
     let alive = true;
     setLoading(true);
     setErr(null);
+    setNotFound(false);
 
     (async () => {
       try {
@@ -87,6 +89,8 @@ export function useBuilderProfile(id: string | string[] | undefined) {
 
         if (status === 401 || /bearer token/i.test(String(msg))) {
           setErr(null);
+        } else if (status === 404) {
+          setNotFound(true);
         } else {
           setErr("Failed to load builder");
         }
@@ -240,6 +244,7 @@ export function useBuilderProfile(id: string | string[] | undefined) {
     setBuilder,
     loading: authLoading || loading,
     err,
+    notFound,
     verification,
     score,
     setScore,

@@ -277,7 +277,7 @@ module.exports = (router, ctx) => {
 
       try {
         if (!srcUid) return res.status(400).json({ error: "uid required" });
-        if (!["draft", "active", "inactive"].includes(status)) {
+        if (!["draft", "active", "inactive", "banned"].includes(status)) {
           log.warn({ status }, "Invalid status");
           return res.status(400).json({ error: "invalid status" });
         }
@@ -311,6 +311,14 @@ module.exports = (router, ctx) => {
               `UPDATE tradesmen
                   SET status = 'draft',
                       verification_status = 'unverified',
+                      updated_at = NOW()
+                WHERE user_id = ?`,
+              [srcUid]
+            );
+          } else if (status === "banned") {
+            await mysqlQuery(
+              `UPDATE tradesmen
+                  SET status = 'banned',
                       updated_at = NOW()
                 WHERE user_id = ?`,
               [srcUid]
@@ -350,6 +358,14 @@ module.exports = (router, ctx) => {
               `UPDATE tradesmen
                   SET status = 'draft',
                       verification_status = 'unverified',
+                      updated_at = NOW()
+                WHERE user_id = ?`,
+              [srcUid]
+            );
+          } else if (status === "banned") {
+            await mysqlQuery(
+              `UPDATE tradesmen
+                  SET status = 'banned',
                       updated_at = NOW()
                 WHERE user_id = ?`,
               [srcUid]

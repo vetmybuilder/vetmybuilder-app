@@ -51,6 +51,7 @@ const TRADE_ICONS: Record<string, React.ElementType> = {
   "lighting":                 Lightbulb,
 };
 import SharedProfilePhotosSection from "@/components/tradesmen/SharedProfilePhotosSection";
+import HireButton from "@/components/project/HireButton";
 import {
   initials,
   prettyDomain,
@@ -377,6 +378,16 @@ function Inner() {
               </div>
             </div>
           </header>
+
+          {/* Hire button — only renders when reached from a project context (?projectId=) */}
+          {item.builderId && (
+            <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 px-6 py-5">
+              <HireButton
+                tradesmanUserId={item.builderId}
+                displayName={title}
+              />
+            </div>
+          )}
 
           {/* Main layout */}
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)] gap-6">

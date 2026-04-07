@@ -155,7 +155,9 @@ export default function SharedTradesmen({ projectId }: SharedTradesmenProps) {
   const handleClick = (share: TradeShare) => {
     const id = share.tradesmanPublicId || share.tradesmanUid;
     if (!id) return;
-    router.push(`/tradesman/${id}`);
+    // Forward the project context so the tradesman profile page can render
+    // the Hire button.
+    router.push(`/tradesman/${id}?projectId=${encodeURIComponent(projectId)}`);
   };
 
   const slides = shares.map((share) => (

@@ -3,11 +3,29 @@ import BasePage from "./BasePage";
 import Account from "../models/Account";
 import Recommendation from "../models/Recommendation";
 
+export type RecommendFieldKey =
+  | "name"
+  | "email"
+  | "company"
+  | "companyEmail"
+  | "phone"
+  | "comment";
+
+const FIELD_ERROR_TESTID: Record<RecommendFieldKey, string> = {
+  name: "recommend-name-error",
+  email: "recommend-email-error",
+  company: "recommend-company-error",
+  companyEmail: "recommend-company-email-error",
+  phone: "recommend-phone-error",
+  comment: "recommend-comment-error",
+};
+
 export class ProjectRecommendPage extends BasePage {
   readonly heading: Locator;
   readonly nameInput: Locator;
   readonly emailInput: Locator;
   readonly companyInput: Locator;
+  readonly companyEmailInput: Locator;
   readonly phoneInput: Locator;
   readonly commentInput: Locator;
   readonly fileInput: Locator;
@@ -20,12 +38,34 @@ export class ProjectRecommendPage extends BasePage {
     this.nameInput = page.getByLabel("Your name");
     this.emailInput = page.getByLabel("Your email (optional)");
     this.companyInput = page.getByLabel("Company name");
+    this.companyEmailInput = page.getByLabel("Company email (optional)");
     this.phoneInput = page.getByLabel("Company phone number (optional)");
     this.commentInput = page.getByLabel("Comment (min 10 characters)");
     this.fileInput = page.locator('input[type="file"]');
     this.submitButton = page.getByRole("button", {
       name: "Submit recommendation",
     });
+  }
+
+  fieldError(field: RecommendFieldKey): Locator {
+    return this.page.getByTestId(FIELD_ERROR_TESTID[field]);
+  }
+
+  async assertFieldError(
+    field: RecommendFieldKey,
+    expectedMessage: string | RegExp,
+  ) {
+    const locator = this.fieldError(field);
+    await expect(locator).toBeVisible({ timeout: 10_000 });
+    if (typeof expectedMessage === "string") {
+      await expect(locator).toHaveText(expectedMessage);
+    } else {
+      await expect(locator).toHaveText(expectedMessage);
+    }
+  }
+
+  async submitForm() {
+    await this.submitButton.click();
   }
 
   async visit(projectId: string | number) {
@@ -67,6 +107,10 @@ export class ProjectRecommendPage extends BasePage {
     }
 
     await this.companyInput.fill(fields.company);
+
+    if (fields.companyEmail) {
+      await this.companyEmailInput.fill(fields.companyEmail);
+    }
 
     if (fields.phone) {
       await this.phoneInput.fill(fields.phone);
@@ -111,6 +155,10 @@ export class ProjectRecommendPage extends BasePage {
     }
 
     await this.companyInput.fill(fields.company);
+
+    if (fields.companyEmail) {
+      await this.companyEmailInput.fill(fields.companyEmail);
+    }
 
     if (fields.phone) {
       await this.phoneInput.fill(fields.phone);

@@ -6,9 +6,11 @@ import BuilderHeader from "@/components/builder/BuilderHeader";
 import BuilderReviews from "@/components/builder/BuilderReviews";
 import BuilderPhotos from "@/components/builder/BuilderPhotos";
 import BuilderContactDetails from "@/components/builder/BuilderContactDetails";
+import HireButton from "@/components/project/HireButton";
 import { useBuilderProfile } from "@/components/builder/useBuilderProfile";
 import { resolveCompanyNameForBuilder } from "@/types/builderTypes";
 import { useBuilderVoting } from "@/components/builder/useBuilderVoting";
+import NotFound from "@/pages/404";
 
 export default function BuilderProfilePage() {
   const router = useRouter();
@@ -19,6 +21,7 @@ export default function BuilderProfilePage() {
     setBuilder,
     loading,
     err,
+    notFound,
     verification,
     score,
     setScore,
@@ -43,6 +46,9 @@ export default function BuilderProfilePage() {
   });
 
   if (redirecting) return null;
+
+  // Builder doesn't exist → render the standard 404 page
+  if (notFound) return <NotFound />;
 
   const companyName = user
     ? resolveCompanyNameForBuilder(builder, verification)
@@ -108,6 +114,16 @@ export default function BuilderProfilePage() {
                 reviewCount={aggReviews.length}
                 photoCount={aggPhotos.length}
               />
+
+              {/* Hire button — only renders when reached from a project context (?projectId=) */}
+              {builder?.id && user && (
+                <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 px-6 py-5">
+                  <HireButton
+                    recommendationId={Number(builder.id)}
+                    displayName={companyName}
+                  />
+                </div>
+              )}
 
               <div className="grid gap-6 lg:grid-cols-[minmax(0,2.1fr)_minmax(280px,1fr)]">
                 <div className="space-y-6">

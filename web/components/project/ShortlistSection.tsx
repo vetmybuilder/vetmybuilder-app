@@ -32,6 +32,17 @@ type Props = {
   onOwnerShareClick?: () => void;
   /** Project id so we can fetch canonical VMB aggregate scores */
   projectId?: number;
+  /**
+   * Owner-only: callback when the homeowner clicks "Hire" on a recommendation
+   * card. Receives the top recommendation's id and the display name. The
+   * parent owns the modal and the API call.
+   */
+  onHire?: (recommendationId: number, displayName: string) => void;
+  /**
+   * Owner-only: set of recommendation ids that have already been hired for
+   * this project. Used to render the Hire button as "Hired" + disabled.
+   */
+  hiredRecommendationIds?: Set<number>;
   "data-testid"?: string;
 };
 
@@ -51,6 +62,8 @@ export default function ShortlistSection({
   showOwnerShareCta = false,
   onOwnerShareClick,
   projectId,
+  onHire,
+  hiredRecommendationIds,
   "data-testid": dataTestId = "project-shortlist",
 }: Props) {
   const api = useApi();
@@ -363,7 +376,11 @@ export default function ShortlistSection({
                               data-testid="shortlist-company"
                             >
                               <Link
-                                href={`/builders/${r.id}`}
+                                href={
+                                  projectId
+                                    ? `/builders/${r.id}?projectId=${projectId}`
+                                    : `/builders/${r.id}`
+                                }
                                 className="hover:underline decoration-zinc-400/60"
                                 title="Open builder profile"
                               >
@@ -468,6 +485,31 @@ export default function ShortlistSection({
                               </div>
                             </div>
                           )}
+
+                          {isOwner && onHire && (() => {
+                            const alreadyHired = hiredRecommendationIds?.has(
+                              r.id,
+                            );
+                            return (
+                              <div className="mt-3">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    onHire(r.id, displayCompanyName || "Tradesman")
+                                  }
+                                  disabled={alreadyHired}
+                                  data-testid={`shortlist-hire-${r.id}`}
+                                  className={`inline-flex items-center justify-center rounded-full px-4 py-1.5 text-xs font-bold transition-colors ${
+                                    alreadyHired
+                                      ? "bg-emerald-100 text-emerald-700 cursor-default"
+                                      : "bg-red-500 text-white shadow-sm hover:bg-red-600"
+                                  }`}
+                                >
+                                  {alreadyHired ? "✓ Hired" : "Hire"}
+                                </button>
+                              </div>
+                            );
+                          })()}
                         </div>
 
                         {!isOwner && (

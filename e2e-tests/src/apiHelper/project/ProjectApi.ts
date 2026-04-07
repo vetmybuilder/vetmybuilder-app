@@ -42,6 +42,16 @@ export class ProjectApi {
     return this.createProject(payload, opts);
   }
 
+  /**
+   * Convenience: creates a project and immediately publishes it. Returns the
+   * published project. Use this when a test needs an existing live project to
+   * operate against and doesn't care about the draft state.
+   */
+  async createLiveProject(payload: any) {
+    const project = await this.createProject(payload);
+    return this.publishProject(project.id);
+  }
+
   async getProject(projectId: string | number) {
     const res = await this.apiClient.get(`/api/projects/${projectId}`);
     expect(res.status()).toBe(200);
@@ -61,6 +71,25 @@ export class ProjectApi {
       `/api/projects/${projectId}/close`,
       options,
     );
+    expect(res.status()).toBe(200);
+    return res.json();
+  }
+
+  /**
+   * Closes the project AS COMPLETED — i.e. didGoAhead=true with a chosen
+   * winner. The server only sets status='completed' when both conditions
+   * hold; otherwise it goes to 'archived'.
+   */
+  async completeProject(
+    projectId: string | number,
+    opts: { winnerRecommendationId: number | string; wouldUseAgain?: boolean },
+  ) {
+    const res = await this.apiClient.post(`/api/projects/${projectId}/close`, {
+      didGoAhead: true,
+      winnerRecommendationId: opts.winnerRecommendationId,
+      wouldUseAgain: opts.wouldUseAgain ?? true,
+      reasons: [],
+    });
     expect(res.status()).toBe(200);
     return res.json();
   }

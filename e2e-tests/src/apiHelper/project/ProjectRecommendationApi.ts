@@ -62,6 +62,38 @@ export class RecommendationApi {
   ) {
     return this.createRecommendation(projectId, payload, opts);
   }
+
+  /**
+   * POSTs the payload and asserts the API rejects it with a Zod validation
+   * error containing an issue for the given field.
+   *
+   * Use this for tests that check field-level validation behaviour
+   * (e.g. invalid email format on `companyEmail`) instead of hand-rolling
+   * .find() against the issues array in every spec.
+   */
+  async expectValidationErrorForField(
+    projectId: string | number,
+    payload: any,
+    field: string,
+  ): Promise<void> {
+    const res = await this.apiClient.post(
+      `/api/projects/${projectId}/recommendations`,
+      payload,
+    );
+    expect(res.status()).toBe(400);
+
+    const body = await res.json();
+    expect(body.error).toBe("Invalid payload");
+    expect(Array.isArray(body.issues)).toBe(true);
+
+    const issue = body.issues.find(
+      (i: any) => Array.isArray(i?.path) && i.path[0] === field,
+    );
+    expect(
+      issue,
+      `Expected a validation issue for field "${field}", but none was found in: ${JSON.stringify(body.issues)}`,
+    ).toBeTruthy();
+  }
 }
 
 export default RecommendationApi;

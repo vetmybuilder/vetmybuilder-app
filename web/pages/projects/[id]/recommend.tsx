@@ -41,6 +41,19 @@ function Banner({
   );
 }
 
+type FieldKey =
+  | "name"
+  | "email"
+  | "phone"
+  | "company"
+  | "companyEmail"
+  | "comment";
+
+type FieldErrors = Partial<Record<FieldKey, string>>;
+
+const isValidEmail = (s: string) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
+
 type AnonymousRecommendationTracking = {
   recommendationId: number;
   projectId: number;
@@ -54,7 +67,22 @@ type AnonymousRecommendationTracking = {
 const ANON_RECOMMENDATIONS_KEY = "vmb:anonRecommendations";
 
 const inputClass = "w-full rounded-2xl border-2 border-zinc-200 px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:border-red-400 focus:outline-none transition-colors";
+const inputErrorClass = "w-full rounded-2xl border-2 border-red-400 px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:border-red-500 focus:outline-none transition-colors";
 const labelClass = "block text-sm font-bold text-zinc-900 mb-2";
+
+function FieldError({ id, message }: { id: string; message?: string }) {
+  if (!message) return null;
+  return (
+    <p
+      id={id}
+      role="alert"
+      data-testid={id}
+      className="mt-1.5 text-xs font-semibold text-red-600"
+    >
+      {message}
+    </p>
+  );
+}
 
 export default function RecommendOnPlatform() {
   const api = useApi();
@@ -72,11 +100,13 @@ export default function RecommendOnPlatform() {
     email: "",
     phone: "",
     company: "",
+    companyEmail: "",
     hireAgain: "yes" as "yes" | "no",
     comment: "",
   });
   const [lockIdentity, setLockIdentity] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [notice, setNotice] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   // null = still checking, true = allowed, false = redirecting away
@@ -160,17 +190,63 @@ export default function RecommendOnPlatform() {
     }
   }, [authLoading, user, api]);
 
-  const set = (key: string, value: any) =>
+  const set = (key: string, value: any) => {
     setForm((prev) => ({ ...prev, [key]: value }));
-
-  const validate = () => {
-    if (!form.name.trim()) return "Please enter your name.";
-    if (!form.company.trim()) return "Please enter the company.";
-    if (form.comment.trim().length < 10) {
-      return "Comment should be at least 10 characters.";
+    // Clear that field's error as the user edits it
+    if (fieldErrors[key as FieldKey]) {
+      setFieldErrors((prev) => {
+        const next = { ...prev };
+        delete next[key as FieldKey];
+        return next;
+      });
     }
-    return null;
   };
+
+  const validate = (): FieldErrors => {
+    const errs: FieldErrors = {};
+
+    if (!form.name.trim()) {
+      errs.name = "Please enter your name.";
+    }
+
+    if (form.email.trim() && !isValidEmail(form.email)) {
+      errs.email = "Please enter a valid email address.";
+    }
+
+    if (!form.company.trim()) {
+      errs.company = "Please enter the company name.";
+    }
+
+    if (form.companyEmail.trim() && !isValidEmail(form.companyEmail)) {
+      errs.companyEmail = "Please enter a valid email address.";
+    }
+
+    if (form.comment.trim().length < 10) {
+      errs.comment = "Comment should be at least 10 characters.";
+    }
+
+    return errs;
+  };
+
+  const focusFirstError = (errs: FieldErrors) => {
+    const order: FieldKey[] = [
+      "name",
+      "email",
+      "company",
+      "companyEmail",
+      "phone",
+      "comment",
+    ];
+    const first = order.find((k) => errs[k]);
+    if (!first) return;
+    const el = document.getElementById(`recommend-${kebab(first)}`);
+    if (el && typeof (el as HTMLInputElement).focus === "function") {
+      (el as HTMLInputElement).focus();
+    }
+  };
+
+  const kebab = (k: FieldKey): string =>
+    k === "companyEmail" ? "company-email" : k;
 
   const trackAnonymousRecommendation = (recommendationId: number) => {
     if (user || !project) return;
@@ -207,13 +283,15 @@ export default function RecommendOnPlatform() {
     e.preventDefault();
     if (submitting) return;
 
-    const validationError = validate();
-    if (validationError) {
-      setFormError(validationError);
-      setTimeout(() => errorRef.current?.focus(), 0);
+    const errs = validate();
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      setFormError(null);
+      focusFirstError(errs);
       return;
     }
 
+    setFieldErrors({});
     setFormError(null);
     setSubmitting(true);
 
@@ -228,6 +306,7 @@ export default function RecommendOnPlatform() {
         if (form.email) fd.set("email", form.email);
         if (form.phone) fd.set("phone", form.phone);
         fd.set("company", form.company);
+        if (form.companyEmail) fd.set("companyEmail", form.companyEmail);
         fd.set("rating", String(rating));
         fd.set("comment", form.comment);
         photos.forEach((file) => fd.append("photos", file));
@@ -243,6 +322,7 @@ export default function RecommendOnPlatform() {
           email: form.email || undefined,
           phone: form.phone || undefined,
           company: form.company,
+          companyEmail: form.companyEmail || undefined,
           rating,
           comment: form.comment,
         });
@@ -272,6 +352,33 @@ export default function RecommendOnPlatform() {
         }
       }, 500);
     } catch (e: any) {
+      // If the API returned Zod validation issues, map them back to field errors.
+      const issues: any[] | undefined = e?.response?.data?.issues;
+      if (Array.isArray(issues) && issues.length > 0) {
+        const apiErrs: FieldErrors = {};
+        for (const issue of issues) {
+          const path = Array.isArray(issue?.path) ? issue.path[0] : null;
+          if (typeof path !== "string") continue;
+          const friendly =
+            issue?.message === "Invalid email"
+              ? "Please enter a valid email address."
+              : issue?.message || "Invalid value.";
+          if (
+            ["name", "email", "phone", "company", "companyEmail", "comment"].includes(
+              path,
+            )
+          ) {
+            apiErrs[path as FieldKey] = friendly;
+          }
+        }
+        if (Object.keys(apiErrs).length > 0) {
+          setFieldErrors(apiErrs);
+          focusFirstError(apiErrs);
+          return;
+        }
+      }
+
+      // Fallback: top-level error banner
       setFormError(
         e?.response?.data?.error ||
           e?.message ||
@@ -300,14 +407,14 @@ export default function RecommendOnPlatform() {
         <style>{`body { background: #fafaf9 !important; }`}</style>
       </Head>
 
-      <div className="relative min-h-screen overflow-hidden bg-stone-50">
+      <div className="relative min-h-screen overflow-hidden bg-stone-50 -mt-14">
         {/* Background bands */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
-          <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
+          <div className="absolute bottom-0 -left-[30%] w-[70%] h-[60%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
         </div>
 
-        <div className="relative z-10 mx-auto max-w-2xl px-4 sm:px-6 lg:px-8 py-10">
+        <div className="relative z-10 mx-auto max-w-2xl px-4 sm:px-6 lg:px-8 pt-20 pb-10">
 
           {/* Page header card */}
           <div className="mb-6 bg-white rounded-3xl shadow-xl shadow-zinc-200/60 px-8 py-6">
@@ -364,7 +471,7 @@ export default function RecommendOnPlatform() {
                 </div>
               )}
 
-              <form onSubmit={submit} className="space-y-5">
+              <form onSubmit={submit} noValidate className="space-y-5">
                 <div>
                   <label htmlFor="recommend-name" className={labelClass}>
                     Your name
@@ -372,11 +479,14 @@ export default function RecommendOnPlatform() {
                   <input
                     id="recommend-name"
                     data-testid="recommend-name"
-                    className={`${inputClass} ${lockIdentity ? "opacity-60 cursor-not-allowed" : ""}`}
+                    className={`${fieldErrors.name ? inputErrorClass : inputClass} ${lockIdentity ? "opacity-60 cursor-not-allowed" : ""}`}
                     value={form.name}
                     onChange={(e) => set("name", e.target.value)}
                     disabled={lockIdentity}
+                    aria-invalid={!!fieldErrors.name}
+                    aria-describedby={fieldErrors.name ? "recommend-name-error" : undefined}
                   />
+                  <FieldError id="recommend-name-error" message={fieldErrors.name} />
                 </div>
 
                 <div>
@@ -386,12 +496,15 @@ export default function RecommendOnPlatform() {
                   <input
                     id="recommend-email"
                     data-testid="recommend-email"
-                    className={`${inputClass} ${lockIdentity ? "opacity-60 cursor-not-allowed" : ""}`}
+                    className={`${fieldErrors.email ? inputErrorClass : inputClass} ${lockIdentity ? "opacity-60 cursor-not-allowed" : ""}`}
                     type="email"
                     value={form.email}
                     onChange={(e) => set("email", e.target.value)}
                     disabled={lockIdentity}
+                    aria-invalid={!!fieldErrors.email}
+                    aria-describedby={fieldErrors.email ? "recommend-email-error" : undefined}
                   />
+                  <FieldError id="recommend-email-error" message={fieldErrors.email} />
                 </div>
 
                 <div>
@@ -401,10 +514,37 @@ export default function RecommendOnPlatform() {
                   <input
                     id="recommend-company"
                     data-testid="recommend-company"
-                    className={inputClass}
+                    className={fieldErrors.company ? inputErrorClass : inputClass}
                     value={form.company}
                     onChange={(e) => set("company", e.target.value)}
+                    aria-invalid={!!fieldErrors.company}
+                    aria-describedby={fieldErrors.company ? "recommend-company-error" : undefined}
                   />
+                  <FieldError id="recommend-company-error" message={fieldErrors.company} />
+                </div>
+
+                <div>
+                  <label htmlFor="recommend-company-email" className={labelClass}>
+                    Company email <span className="font-normal text-zinc-400">(optional)</span>
+                  </label>
+                  <input
+                    id="recommend-company-email"
+                    data-testid="recommend-company-email"
+                    className={fieldErrors.companyEmail ? inputErrorClass : inputClass}
+                    type="email"
+                    value={form.companyEmail}
+                    onChange={(e) => set("companyEmail", e.target.value)}
+                    placeholder="hello@company.co.uk"
+                    aria-invalid={!!fieldErrors.companyEmail}
+                    aria-describedby={fieldErrors.companyEmail ? "recommend-company-email-error" : undefined}
+                  />
+                  {fieldErrors.companyEmail ? (
+                    <FieldError id="recommend-company-email-error" message={fieldErrors.companyEmail} />
+                  ) : (
+                    <p className="mt-1.5 text-xs text-zinc-500">
+                      Optional — we may use this to contact them about jobs.
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -414,11 +554,14 @@ export default function RecommendOnPlatform() {
                   <input
                     id="recommend-phone"
                     data-testid="recommend-phone"
-                    className={inputClass}
+                    className={fieldErrors.phone ? inputErrorClass : inputClass}
                     value={form.phone}
                     onChange={(e) => set("phone", e.target.value)}
                     inputMode="tel"
+                    aria-invalid={!!fieldErrors.phone}
+                    aria-describedby={fieldErrors.phone ? "recommend-phone-error" : undefined}
                   />
+                  <FieldError id="recommend-phone-error" message={fieldErrors.phone} />
                 </div>
 
                 <div>
@@ -461,10 +604,13 @@ export default function RecommendOnPlatform() {
                   <textarea
                     id="recommend-comment"
                     data-testid="recommend-comment"
-                    className={`${inputClass} min-h-32 resize-none`}
+                    className={`${fieldErrors.comment ? inputErrorClass : inputClass} min-h-32 resize-none`}
                     value={form.comment}
                     onChange={(e) => set("comment", e.target.value)}
+                    aria-invalid={!!fieldErrors.comment}
+                    aria-describedby={fieldErrors.comment ? "recommend-comment-error" : undefined}
                   />
+                  <FieldError id="recommend-comment-error" message={fieldErrors.comment} />
                 </div>
 
                 <button

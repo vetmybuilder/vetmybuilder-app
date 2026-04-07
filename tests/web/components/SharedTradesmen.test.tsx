@@ -100,12 +100,16 @@ describe("<SharedTradesmen />", () => {
     expect(screen.getByText("Apex Builders Ltd")).toBeInTheDocument();
   });
 
-  it("clicking a card navigates to the tradesman profile", async () => {
+  it("clicking a card navigates to the tradesman profile with the project context", async () => {
     renderStrip([makeShare({ tradesmanUid: "tm-abc-123" })]);
 
     const card = await screen.findByTestId("shared-tradesman-card");
     fireEvent.click(card);
 
-    expect(pushMock).toHaveBeenCalledWith("/tradesman/tm-abc-123");
+    // ?projectId=10 is forwarded so the tradesman profile page can render
+    // the Hire button.
+    expect(pushMock).toHaveBeenCalledWith(
+      "/tradesman/tm-abc-123?projectId=10",
+    );
   });
 });

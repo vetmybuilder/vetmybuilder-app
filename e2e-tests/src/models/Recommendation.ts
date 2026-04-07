@@ -10,6 +10,7 @@ export type RecommendationInput = {
   rating?: number;
   email?: string;
   phone?: string;
+  companyEmail?: string;
   source?: "platform" | "magic";
 };
 
@@ -26,6 +27,7 @@ export default class Recommendation {
   rating?: number;
   email?: string;
   phone?: string;
+  companyEmail?: string;
   source?: "platform" | "magic";
 
   private photos: MultipartPhoto[] = [];
@@ -77,6 +79,7 @@ export default class Recommendation {
 
     if (this.email) out.email = this.email;
     if (this.phone) out.phone = this.phone;
+    if (this.companyEmail !== undefined) out.companyEmail = this.companyEmail;
     if (this.source) out.source = this.source;
 
     return out;
@@ -108,6 +111,11 @@ export default class Recommendation {
 
   withPhone(phone: string): Recommendation {
     this.phone = phone;
+    return this;
+  }
+
+  withCompanyEmail(companyEmail: string): Recommendation {
+    this.companyEmail = companyEmail;
     return this;
   }
 

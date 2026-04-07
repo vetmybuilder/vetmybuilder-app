@@ -43,6 +43,7 @@ CREATE TABLE recommendations (
   rating            INTEGER,
   comment           TEXT,
   isAnonymous       INTEGER DEFAULT 0, source VARCHAR(50) DEFAULT 'magic', phone TEXT,
+  companyEmail      TEXT NULL,
 
   FOREIGN KEY(projectId) REFERENCES projects(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -651,3 +652,46 @@ CREATE TABLE tradesmen_spotlight_views (
 
 CREATE INDEX idx_oneoff_user_type_entity
          ON payments_oneoff (user_id, type, entity_id, status);
+
+CREATE TABLE hires (
+  id                    INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  projectId             INT NOT NULL,
+  homeownerUid          VARCHAR(255) NOT NULL,
+  -- Exactly one of these is set: tradesmanUserId for onboarded tradesmen,
+  -- recommendationId for an unjoined recommendation we need to invite.
+  tradesmanUserId       VARCHAR(255) NULL,
+  recommendationId      INT NULL,
+  -- Denormalized snapshot of contact info at hire time, used for the magic-link
+  -- invite flow when hiring a recommendation that's not yet onboarded.
+  invitedCompanyName    VARCHAR(255) NULL,
+  invitedContactEmail   VARCHAR(255) NULL,
+  inviteChannel         VARCHAR(20)  NULL,
+  inviteToken           VARCHAR(64)  NULL,
+  -- pending_invite | pending | accepted | declined | cancelled | expired
+  status                VARCHAR(20)  NOT NULL,
+  homeownerMessage      TEXT NULL,
+  tradesmanMessage      TEXT NULL,
+  -- Validated against a known set in app code (server/lib/hireCancelReasons.js)
+  cancelReason          VARCHAR(50) NULL,
+  hiredAt               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  respondedAt           DATETIME NULL,
+  cancelledAt           DATETIME NULL,
+  expiresAt             DATETIME NOT NULL,
+
+  FOREIGN KEY (projectId) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (recommendationId) REFERENCES recommendations(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- One hire per (project, tradesman) — a homeowner can't hire the same
+-- onboarded tradesman twice for the same project.
+CREATE UNIQUE INDEX uniq_hires_project_tradesman
+  ON hires (projectId, tradesmanUserId);
+
+-- One hire per (project, recommendation) — same constraint for the unjoined case.
+CREATE UNIQUE INDEX uniq_hires_project_recommendation
+  ON hires (projectId, recommendationId);
+
+CREATE INDEX idx_hires_homeowner ON hires (homeownerUid);
+CREATE INDEX idx_hires_tradesman ON hires (tradesmanUserId);
+CREATE INDEX idx_hires_status    ON hires (status);
+CREATE INDEX idx_hires_invite_token ON hires (inviteToken);
