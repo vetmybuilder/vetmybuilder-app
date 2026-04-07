@@ -58,6 +58,12 @@ export default class Tradesman {
   photoUrls?: string[];
   profilePictureUrl?: string | null;
 
+  // Registration-only fields used by the /tradesman/register-tradesmen wizard.
+  // Not part of any API payload.
+  password?: string;
+  primaryTradeLabel?: string;
+  serviceAreaPostcode?: string;
+
   // join route fields
   websites: string[] = [];
   docs: string[] = [];
@@ -85,6 +91,55 @@ export default class Tradesman {
     this.serviceAreas = "London";
     this.website = "https://example.com";
     return this;
+  }
+
+  /**
+   * Populate the fields needed to walk through the
+   * /tradesman/register-tradesmen wizard end-to-end. Mirrors
+   * Account.withRandomRegistration() on the homeowner side.
+   */
+  withRandomRegistration(opts?: {
+    password?: string;
+    primaryTradeLabel?: string;
+    serviceAreaPostcode?: string;
+    emailDomain?: string;
+  }): Tradesman {
+    const tag = chance.string({
+      length: 8,
+      alpha: true,
+      casing: "lower",
+    });
+    const domain = opts?.emailDomain ?? "test.com";
+
+    this.companyName = `E2E Reg Builder ${tag} Ltd`;
+    this.contactName = "E2E Reg Builder";
+    this.email = `e2e-reg-${tag}@${domain}`;
+    this.password = opts?.password ?? "Passw0rd!";
+    this.primaryTradeLabel = opts?.primaryTradeLabel ?? "General Builder";
+    this.serviceAreaPostcode = opts?.serviceAreaPostcode ?? "SW1A 1AA";
+    return this;
+  }
+
+  get requiredEmail(): string {
+    if (!this.email) throw new Error("Tradesman.email is required");
+    return this.email;
+  }
+
+  get requiredPassword(): string {
+    if (!this.password) throw new Error("Tradesman.password is required");
+    return this.password;
+  }
+
+  get requiredPrimaryTradeLabel(): string {
+    if (!this.primaryTradeLabel)
+      throw new Error("Tradesman.primaryTradeLabel is required");
+    return this.primaryTradeLabel;
+  }
+
+  get requiredServiceAreaPostcode(): string {
+    if (!this.serviceAreaPostcode)
+      throw new Error("Tradesman.serviceAreaPostcode is required");
+    return this.serviceAreaPostcode;
   }
 
   withCompanyName(companyName: string): Tradesman {

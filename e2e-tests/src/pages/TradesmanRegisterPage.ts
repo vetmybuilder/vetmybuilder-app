@@ -1,6 +1,7 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import BasePage from "./BasePage";
 import { safeGoto } from "../helpers/navigation";
+import type Tradesman from "../models/tradesman";
 
 export class TradesmanRegisterPage extends BasePage {
   readonly step1: Locator;
@@ -139,6 +140,29 @@ export class TradesmanRegisterPage extends BasePage {
     } else {
       await expect(item).toHaveClass(/text-zinc-400/);
     }
+  }
+
+  /**
+   * Walk the wizard from a fresh /tradesman/register-tradesmen state through
+   * Steps 1 → 4 using the data from a Tradesman model. Caller is responsible
+   * for ensuring guest auth state and any postcode mocking is in place
+   * before calling.
+   */
+  async walkToAccountStep(tradesman: Tradesman) {
+    await this.goto();
+
+    await this.fillStep1({
+      companyName: tradesman.companyName,
+      contactName: tradesman.contactName ?? "Test Contact",
+      email: tradesman.requiredEmail,
+    });
+    await this.addServiceArea(tradesman.requiredServiceAreaPostcode);
+    await this.goToStep2();
+
+    await this.selectTradeType(tradesman.requiredPrimaryTradeLabel);
+    await this.goToStep3();
+
+    await this.goToStep4();
   }
 }
 

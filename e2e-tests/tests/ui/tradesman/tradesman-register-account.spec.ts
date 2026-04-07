@@ -6,56 +6,15 @@
 //   - Password checklist surfaces and updates as the user types
 //   - Confirm-password mismatch is rejected
 //
-// All tests walk Steps 1 → 3 with the minimum data needed to reach Step 4
-// (a trade type is required on Step 2 so the wizard considers the profile
-// fillable; nothing on Step 3 is mandatory).
+// Each test starts from a fresh guest state, walks Steps 1 → 3 via the page
+// object's walkToAccountStep helper, and then asserts behaviour on Step 4.
 
 import { test, expect } from "../../../src/ui.fixtures";
+import Tradesman from "../../../src/models/tradesman";
 import { mockPostcodesIo } from "../../../src/helpers/PostcodesIoMock";
 
-const STRONG_PASSWORD = "Passw0rd!";
 const STRONG_PASSWORD_ERROR =
   "Password must be at least 8 characters and include uppercase, lowercase, a number, and a symbol.";
-const TRADE_LABEL = "General Builder";
-
-/**
- * Drive the wizard from a fresh /tradesman/register-tradesmen state through
- * Steps 1 → 4 with deterministic test inputs. Returns the email used so the
- * test can also use it for the post-registration login or to assert.
- */
-async function walkToStep4(opts: {
-  page: import("@playwright/test").Page;
-  authHelper: any;
-  tradesmanRegisterPage: any;
-  uniqueTag: string;
-}) {
-  const { page, authHelper, tradesmanRegisterPage, uniqueTag } = opts;
-
-  // /tradesman/register-tradesmen is guest-only. Force a clean guest state
-  // by logging in as a throwaway uid and then immediately logging out — this
-  // mirrors the pattern used by tradesman-profile-picture.spec.ts and is more
-  // reliable than a bare logout when a previous test left Firebase auth state.
-  await authHelper.loginAsUid(`reg-cleanup-${uniqueTag}`);
-  await authHelper.logout();
-  await mockPostcodesIo(page);
-
-  await tradesmanRegisterPage.goto();
-
-  await tradesmanRegisterPage.fillStep1({
-    companyName: `E2E Reg Builder ${uniqueTag} Ltd`,
-    contactName: "E2E Reg Builder",
-    email: `e2e-reg-${uniqueTag}@test.com`,
-  });
-  await tradesmanRegisterPage.addServiceArea("SW1A 1AA");
-  await tradesmanRegisterPage.goToStep2();
-
-  await tradesmanRegisterPage.selectTradeType(TRADE_LABEL);
-  await tradesmanRegisterPage.goToStep3();
-
-  await tradesmanRegisterPage.goToStep4();
-
-  return { email: `e2e-reg-${uniqueTag}@test.com` };
-}
 
 test.describe("Tradesman registration — Step 4 (account)", () => {
   test("successfully registers with a strong password and lands on the projects page", async ({
@@ -63,11 +22,16 @@ test.describe("Tradesman registration — Step 4 (account)", () => {
     authHelper,
     tradesmanRegisterPage,
   }) => {
-    const tag = `ok-${Date.now()}`;
-    await walkToStep4({ page, authHelper, tradesmanRegisterPage, uniqueTag: tag });
+    const tradesman = Tradesman.aTradesman().withRandomRegistration();
 
-    await tradesmanRegisterPage.fillStep4Password(STRONG_PASSWORD);
-    await tradesmanRegisterPage.fillStep4ConfirmPassword(STRONG_PASSWORD);
+    await authHelper.ensureGuest();
+    await mockPostcodesIo(page);
+    await tradesmanRegisterPage.walkToAccountStep(tradesman);
+
+    await tradesmanRegisterPage.fillStep4Password(tradesman.requiredPassword);
+    await tradesmanRegisterPage.fillStep4ConfirmPassword(
+      tradesman.requiredPassword,
+    );
     await tradesmanRegisterPage.submitStep4();
 
     await page.waitForURL(/\/tradesman\/projects/, { timeout: 30_000 });
@@ -79,11 +43,18 @@ test.describe("Tradesman registration — Step 4 (account)", () => {
     authHelper,
     tradesmanRegisterPage,
   }) => {
-    const tag = `weak-${Date.now()}`;
-    await walkToStep4({ page, authHelper, tradesmanRegisterPage, uniqueTag: tag });
+    const tradesman = Tradesman.aTradesman().withRandomRegistration({
+      password: "abc",
+    });
 
-    await tradesmanRegisterPage.fillStep4Password("abc");
-    await tradesmanRegisterPage.fillStep4ConfirmPassword("abc");
+    await authHelper.ensureGuest();
+    await mockPostcodesIo(page);
+    await tradesmanRegisterPage.walkToAccountStep(tradesman);
+
+    await tradesmanRegisterPage.fillStep4Password(tradesman.requiredPassword);
+    await tradesmanRegisterPage.fillStep4ConfirmPassword(
+      tradesman.requiredPassword,
+    );
     await tradesmanRegisterPage.submitStep4();
 
     await expect(tradesmanRegisterPage.createAccountError).toContainText(
@@ -98,8 +69,11 @@ test.describe("Tradesman registration — Step 4 (account)", () => {
     authHelper,
     tradesmanRegisterPage,
   }) => {
-    const tag = `chk-${Date.now()}`;
-    await walkToStep4({ page, authHelper, tradesmanRegisterPage, uniqueTag: tag });
+    const tradesman = Tradesman.aTradesman().withRandomRegistration();
+
+    await authHelper.ensureGuest();
+    await mockPostcodesIo(page);
+    await tradesmanRegisterPage.walkToAccountStep(tradesman);
 
     // Empty → checklist hidden (renders nothing when password is empty)
     await expect(tradesmanRegisterPage.passwordChecklist).toBeHidden();
@@ -171,10 +145,13 @@ test.describe("Tradesman registration — Step 4 (account)", () => {
     authHelper,
     tradesmanRegisterPage,
   }) => {
-    const tag = `mismatch-${Date.now()}`;
-    await walkToStep4({ page, authHelper, tradesmanRegisterPage, uniqueTag: tag });
+    const tradesman = Tradesman.aTradesman().withRandomRegistration();
 
-    await tradesmanRegisterPage.fillStep4Password(STRONG_PASSWORD);
+    await authHelper.ensureGuest();
+    await mockPostcodesIo(page);
+    await tradesmanRegisterPage.walkToAccountStep(tradesman);
+
+    await tradesmanRegisterPage.fillStep4Password(tradesman.requiredPassword);
     await tradesmanRegisterPage.fillStep4ConfirmPassword("DifferentPw1!");
     await tradesmanRegisterPage.submitStep4();
 

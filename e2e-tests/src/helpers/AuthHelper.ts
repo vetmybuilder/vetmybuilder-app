@@ -44,4 +44,18 @@ export class AuthHelper {
       location: "SW1A",
     });
   }
+
+  /**
+   * Force the page into a clean guest state so a GuestOnly route is reachable.
+   * A bare logout after a previous Firebase registration can leave residual
+   * auth state that bounces GuestOnly; logging in as a throwaway uid first
+   * and then logging out clears it deterministically.
+   */
+  async ensureGuest() {
+    const throwawayUid = `guest-cleanup-${Date.now()}-${Math.random()
+      .toString(16)
+      .slice(2, 8)}`;
+    await this.loginAsUid(throwawayUid);
+    await this.logout();
+  }
 }
