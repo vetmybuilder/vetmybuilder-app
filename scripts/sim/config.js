@@ -1,5 +1,12 @@
 "use strict";
 
+// IMPORTANT: builders[5] is special. It uses the Firebase emulator UID for the
+// real "info@elegantbuilding.co.uk" account (created by ensureEmulatorUsers in
+// dev-manual-sim.js) instead of a sim- prefix. This means the sim-seeded
+// "Elegant Building Services" tradesman row IS the same row a real human can
+// log in to via the trade login form. Without this, the sim's Elegant row
+// (sim-builder-006) and the Firebase user are two unrelated records and login
+// silently breaks with "not a trade account".
 const BOT_UIDS = {
   builders: [
     "sim-builder-001",
@@ -7,7 +14,7 @@ const BOT_UIDS = {
     "sim-builder-003",
     "sim-builder-004",
     "sim-builder-005",
-    "sim-builder-006",
+    "pLT7RLEYByX6IJWzGAMjAKrW5L93", // Elegant Building Services — real Firebase UID
   ],
   neighbours: [
     "sim-neighbour-001",
@@ -57,7 +64,8 @@ const DAEMON_TIMING = {
   actionJitterMax: _prod ? 30_000 : 5_000,
 
   // Per-builder independent interest-check intervals (index = BOT_UIDS.builders[i])
-  // sim-builder-006 (Elegant, idx 5) is most responsive; others arrive progressively later
+  // builders[5] (Elegant — uses the real Firebase UID) is most responsive;
+  // others arrive progressively later
   builderCheckIntervalMin: _prod
     ? [180_000, 240_000, 360_000, 480_000, 600_000,  60_000]
     : [ 30_000,  45_000,  60_000,  75_000,  90_000,  10_000],

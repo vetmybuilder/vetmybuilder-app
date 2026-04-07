@@ -13,6 +13,20 @@ export function projectsClient(core: ApiCore) {
     return item || null;
   }
 
+  async function findProjectRecommendationByCompany(
+    projectId: number,
+    companyName: string,
+  ) {
+    const res = await core.get(`/api/projects/${projectId}/recommendations`);
+    expect(res.ok()).toBe(true);
+
+    const body = await res.json();
+    const items = Array.isArray(body?.items) ? body.items : [];
+    const item = items.find((r: any) => r && r.company === companyName);
+
+    return item || null;
+  }
+
   async function uploadProjectClosePhotos(
     projectId: number,
     photoPaths: string[],
@@ -65,6 +79,7 @@ export function projectsClient(core: ApiCore) {
 
   return {
     getProjectRecommendation,
+    findProjectRecommendationByCompany,
     uploadProjectClosePhotos,
     uploadProjectClosePhotosUnauthed,
     createProjectMagicLink,

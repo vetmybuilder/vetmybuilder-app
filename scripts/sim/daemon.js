@@ -52,7 +52,7 @@ const BUILDER_INTEREST_KEY = [
   "interest-builder-003",
   "interest-builder-004",
   "interest-builder-005",
-  "interest-elegant",       // idx 5 = sim-builder-006 (Elegant)
+  "interest-elegant",       // idx 5 = Elegant Building Services (real Firebase UID)
 ];
 
 // ---------------------------------------------------------------------------

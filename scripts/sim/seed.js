@@ -247,7 +247,9 @@ async function seedNeighbours() {
 
 async function seedElegantSpotlight() {
   const mysql2 = require("mysql2/promise");
-  const elegantUid = BOT_UIDS.builders[5]; // sim-builder-006 = Elegant Building Services
+  // builders[5] = Elegant Building Services — uses the real Firebase emulator
+  // UID rather than a sim- prefix so a human can log in as Elegant in dev.
+  const elegantUid = BOT_UIDS.builders[5];
 
   const conn = await mysql2.createConnection({
     host: process.env.MYSQL_HOST || process.env.TEST_DB_HOST || "localhost",

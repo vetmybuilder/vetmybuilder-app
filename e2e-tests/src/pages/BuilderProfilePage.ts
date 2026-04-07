@@ -83,7 +83,9 @@ export class BuilderProfilePage extends BasePage {
   async hasBuilderRecommendationDetails(recommendation: Recommendation) {
     await this.waitUntilReady();
 
-    await expect(this.page).toHaveURL(/\/builders\/\d+$/);
+    // Allow an optional ?projectId= query string — the project view forwards
+    // it so the builder profile page can render the Hire button.
+    await expect(this.page).toHaveURL(/\/builders\/\d+(\?.*)?$/);
     await expect(this.companyName).toHaveText(
       new RegExp(recommendation.company.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"),
     );

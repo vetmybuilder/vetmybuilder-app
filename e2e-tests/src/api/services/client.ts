@@ -56,6 +56,7 @@ export function api(
     get: core.get,
     post: core.post,
     put: core.put,
+    patch: core.patch,
     del: core.del,
     getJson: core.getJson,
     waitForAccount: core.waitForAccount,

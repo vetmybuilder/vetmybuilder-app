@@ -117,11 +117,16 @@ export default function SpotlightStrip({
       <SpotlightTile
         name={t.companyName || t.displayName || "Tradesman"}
         img={t.avatarUrl || t.gallery?.[0] || null}
-        onClick={() =>
-          onClickCard
-            ? onClickCard(t.builderId)
-            : (window.location.href = `/tradesman/${t.publicId || t.builderId}`)
-        }
+        onClick={() => {
+          if (onClickCard) {
+            onClickCard(t.builderId);
+            return;
+          }
+          // Forward the project context so the tradesman profile page can
+          // render the Hire button.
+          const target = `/tradesman/${t.publicId || t.builderId}?projectId=${encodeURIComponent(projectId)}`;
+          window.location.href = target;
+        }}
       />
     </section>
   );

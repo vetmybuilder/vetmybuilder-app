@@ -152,9 +152,12 @@ export default function SiteHeader() {
 
   const isHome = router.pathname === "/";
 
-  // Show "Trade" badge on tradesman pages even for guests
+  // Show "Trade" badge on tradesman-section pages (dashboard, profile, login,
+  // etc.) but NOT on the public tradesman profile page `/tradesman/[id]`
+  // which homeowners visit to browse a specific tradesman.
   const isTradesPage =
-    router.pathname.startsWith("/tradesman/") ||
+    (router.pathname.startsWith("/tradesman/") &&
+      router.pathname !== "/tradesman/[id]") ||
     (router.pathname === "/login" &&
       String(router.query.next || "").includes("/tradesman/"));
 

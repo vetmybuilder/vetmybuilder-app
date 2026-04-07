@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
 import TradesmanProjectAccordionRow from "@/components/tradesmen/TradesmanProjectAccordionRow";
+import HireRequestsSection from "@/components/tradesmen/HireRequestsSection";
 import TradesmanOnly from "@/components/TradesmanOnly";
 
 type Project = {
@@ -221,6 +222,9 @@ export default function TradesmanProjects() {
             </p>
           </div>
         )}
+
+        {/* Hire requests — only when the tradesman has a profile and is signed in */}
+        {user && gate === "none" && <HireRequestsSection />}
 
         {/* Filters */}
         <div className="mb-4 grid gap-3 md:grid-cols-[1.5fr_1fr_1fr_1fr]">

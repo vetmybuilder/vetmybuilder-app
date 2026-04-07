@@ -1,7 +1,10 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import BasePage from "./BasePage";
+import type { TradesmanStatus } from "../types/tradesman";
 
-export type TradesmanStatus = "draft" | "active" | "inactive";
+// Re-exported for backwards compatibility with existing imports.
+// Prefer importing from "../types/tradesman" directly in new code.
+export type { TradesmanStatus };
 
 export class AdminLeaderboardPage extends BasePage {
   readonly heading: Locator;

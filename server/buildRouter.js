@@ -139,6 +139,14 @@ function buildRouter(ctx) {
   require("./routes/projects/recommendations.get")(router, ctx);
   require("./routes/projects/recommendations.post")(router, ctx);
 
+  // ---------------- Hires ----------------
+  require("./routes/projects/hires.post")(router, ctx);
+  require("./routes/projects/hires.get")(router, ctx);
+  require("./routes/tradesmen/me.hires.get")(router, ctx);
+  require("./routes/hires/accept.patch")(router, ctx);
+  require("./routes/hires/decline.patch")(router, ctx);
+  require("./routes/hires/cancel.patch")(router, ctx);
+
   // ---------------- Recommendations ----------------
   require("./routes/recommendations/magic.post")(router, ctx);
   require("./routes/recommendations/magic.get")(router, ctx);

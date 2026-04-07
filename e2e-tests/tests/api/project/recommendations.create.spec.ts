@@ -235,6 +235,191 @@ test.describe("POST /api/projects/:id/recommendations", () => {
     expect(body.total).toBeGreaterThan(0);
   });
 
+  test("persists companyEmail and exposes it to the owner via GET", async ({
+    apiClient,
+  }) => {
+    const projectRes = await apiClient.post(
+      "/api/projects",
+      Project.aProject().withRandomDetails().toPayload(),
+    );
+    expect(projectRes.status()).toBe(201);
+    const { project } = await projectRes.json();
+
+    const companyEmail = `hello+${Date.now()}@elegantbuilding.test`;
+    const rec = Recommendation.aRecommendation()
+      .withRandomDetails()
+      .withCompanyEmail(companyEmail);
+
+    const res = await apiClient.post(
+      `/api/projects/${project.id}/recommendations`,
+      rec.toPayload(),
+    );
+    expect(res.status()).toBe(201);
+
+    const { recommendationId } = await res.json();
+    expect(recommendationId).toBeTruthy();
+
+    const created = await apiClient.getProjectRecommendation(
+      project.id,
+      recommendationId,
+    );
+    expect(created).toBeTruthy();
+    expect(created.companyEmail).toBe(companyEmail);
+  });
+
+  test("companyEmail is optional — exposed as null when omitted", async ({
+    apiClient,
+  }) => {
+    const projectRes = await apiClient.post(
+      "/api/projects",
+      Project.aProject().withRandomDetails().toPayload(),
+    );
+    expect(projectRes.status()).toBe(201);
+    const { project } = await projectRes.json();
+
+    // Default Recommendation does NOT set companyEmail
+    const rec = Recommendation.aRecommendation().withRandomDetails();
+
+    const res = await apiClient.post(
+      `/api/projects/${project.id}/recommendations`,
+      rec.toPayload(),
+    );
+    expect(res.status()).toBe(201);
+
+    const { recommendationId } = await res.json();
+    const created = await apiClient.getProjectRecommendation(
+      project.id,
+      recommendationId,
+    );
+    expect(created).toBeTruthy();
+    expect(created.companyEmail).toBeNull();
+  });
+
+  test("companyEmail rejects an invalid email format", async ({
+    apiClient,
+    projectRecommendationApi,
+  }) => {
+    const projectRes = await apiClient.post(
+      "/api/projects",
+      Project.aProject().withRandomDetails().toPayload(),
+    );
+    expect(projectRes.status()).toBe(201);
+    const { project } = await projectRes.json();
+
+    const rec = Recommendation.aRecommendation()
+      .withRandomDetails()
+      .withCompanyEmail("not-an-email");
+
+    await projectRecommendationApi.expectValidationErrorForField(
+      project.id,
+      rec.toPayload(),
+      "companyEmail",
+    );
+  });
+
+  test("empty-string companyEmail is accepted and exposed as null", async ({
+    apiClient,
+  }) => {
+    const projectRes = await apiClient.post(
+      "/api/projects",
+      Project.aProject().withRandomDetails().toPayload(),
+    );
+    expect(projectRes.status()).toBe(201);
+    const { project } = await projectRes.json();
+
+    const rec = Recommendation.aRecommendation()
+      .withRandomDetails()
+      .withCompanyEmail("");
+
+    const res = await apiClient.post(
+      `/api/projects/${project.id}/recommendations`,
+      rec.toPayload(),
+    );
+    expect(res.status()).toBe(201);
+
+    const { recommendationId } = await res.json();
+    const created = await apiClient.getProjectRecommendation(
+      project.id,
+      recommendationId,
+    );
+    expect(created).toBeTruthy();
+    expect(created.companyEmail).toBeNull();
+  });
+
+  test("non-owner viewing a live project does NOT see companyEmail", async ({
+    apiClient,
+    request,
+    runtime,
+  }) => {
+    const projectRes = await apiClient.post(
+      "/api/projects",
+      Project.aProject().withRandomDetails().toPayload(),
+    );
+    expect(projectRes.status()).toBe(201);
+    const { project } = await projectRes.json();
+
+    const publishRes = await apiClient.post(
+      `/api/projects/${project.id}/publish`,
+    );
+    expect(publishRes.status()).toBe(200);
+
+    const companyEmail = `private+${Date.now()}@elegantbuilding.test`;
+    const rec = Recommendation.aRecommendation()
+      .withRandomDetails()
+      .withCompanyEmail(companyEmail);
+
+    const recRes = await apiClient.post(
+      `/api/projects/${project.id}/recommendations`,
+      rec.toPayload(),
+    );
+    expect(recRes.status()).toBe(201);
+
+    // Owner sees the email
+    const ownerView = await apiClient.getProjectRecommendation(
+      project.id,
+      (await recRes.json()).recommendationId,
+    );
+    expect(ownerView.companyEmail).toBe(companyEmail);
+
+    // Non-owner does not — companyEmail must not appear in the response at all
+    const otherUid = `viewer-${Date.now()}`;
+    const otherClient = await authedApiForUid(
+      request,
+      runtime.apiBaseUrl,
+      otherUid,
+    );
+    const otherViewRes = await otherClient.get(
+      `/api/projects/${project.id}/recommendations`,
+    );
+    expect(otherViewRes.status()).toBe(200);
+    const otherBody = await otherViewRes.json();
+    const otherItem = otherBody.items.find((r: any) => r.company === rec.company);
+    expect(otherItem).toBeTruthy();
+    expect(otherItem.companyEmail).toBeUndefined();
+  });
+
+  test("recommender email rejects an invalid format", async ({
+    apiClient,
+    projectRecommendationApi,
+  }) => {
+    const projectRes = await apiClient.post(
+      "/api/projects",
+      Project.aProject().withRandomDetails().toPayload(),
+    );
+    expect(projectRes.status()).toBe(201);
+    const { project } = await projectRes.json();
+
+    const rec = Recommendation.aRecommendation()
+      .withRandomDetails()
+      .withEmail("nope-not-email");
+
+    await projectRecommendationApi.expectValidationErrorForField(
+      project.id,
+      rec.toPayload(),
+      "email",
+    );
+  });
+
   test("non-owner cannot view recommendations when project is not live or completed", async ({
     apiClient,
     request,

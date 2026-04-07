@@ -110,6 +110,8 @@ module.exports = (router, ctx) => {
           email: String(req.body?.email ?? "").trim() || undefined,
           phone: String(req.body?.phone ?? "").trim() || undefined,
           company: String(req.body?.company ?? "").trim(),
+          companyEmail:
+            String(req.body?.companyEmail ?? "").trim() || undefined,
           rating: asNumber(req.body?.rating) ?? 5,
           comment: String(req.body?.comment ?? "").trim(),
         };
@@ -121,7 +123,8 @@ module.exports = (router, ctx) => {
             .json({ error: "Invalid payload", issues: parsed.error.issues });
         }
 
-        const { name, email, phone, company, rating, comment } = parsed.data;
+        const { name, email, phone, company, companyEmail, rating, comment } =
+          parsed.data;
         const now = new Date(); // ✅ use Date object so mysql2 formats correctly
         const uid = req.user?.uid ?? null;
 
@@ -267,11 +270,12 @@ module.exports = (router, ctx) => {
               email,
               phone,
               company,
+              companyEmail,
               rating,
               comment,
               isAnonymous,
               source)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
           [
             projectId,
             uid,
@@ -280,6 +284,7 @@ module.exports = (router, ctx) => {
             email ?? null,
             cleanPhone(phone),
             resolvedCompany, // canonical name
+            companyEmail ?? null,
             rating,
             comment,
             source,

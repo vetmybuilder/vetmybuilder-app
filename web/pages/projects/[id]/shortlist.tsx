@@ -431,7 +431,14 @@ function ShortlistInner() {
                           {/* Name row */}
                           <div className="flex items-center gap-3">
                             <div className="font-black text-zinc-900 truncate flex-1 min-w-0">
-                              <Link href={`/builders/${r.id}`} className="hover:underline decoration-zinc-400/60">
+                              <Link
+                                href={
+                                  id
+                                    ? `/builders/${r.id}?projectId=${id}`
+                                    : `/builders/${r.id}`
+                                }
+                                className="hover:underline decoration-zinc-400/60"
+                              >
                                 {displayCompanyName}
                               </Link>
                             </div>

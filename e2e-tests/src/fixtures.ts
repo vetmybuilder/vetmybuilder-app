@@ -12,6 +12,9 @@ import { wipeDatabase } from "./db/wipe";
 import { api, authedApiForUid } from "./api/services/client";
 import ProjectApi from "./apiHelper/project/ProjectApi";
 import ProjectRecommendationApi from "./apiHelper/project/ProjectRecommendationApi";
+import HireApi from "./apiHelper/project/HireApi";
+import AdminApi from "./apiHelper/admin/AdminApi";
+import NotificationsApi from "./apiHelper/NotificationsApi";
 
 type Runtime = ReturnType<typeof getRuntime>;
 type ApiClient = ReturnType<typeof api>;
@@ -21,6 +24,9 @@ type TestFixtures = {
   adminApiClient: ApiClient;
   projectApi: ProjectApi;
   projectRecommendationApi: ProjectRecommendationApi;
+  hireApi: HireApi;
+  adminApi: AdminApi;
+  notificationsApi: NotificationsApi;
 };
 
 type WorkerFixtures = {
@@ -137,6 +143,18 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   projectRecommendationApi: async ({ apiClient }, use) => {
     await use(new ProjectRecommendationApi(apiClient));
+  },
+
+  hireApi: async ({ apiClient }, use) => {
+    await use(new HireApi(apiClient));
+  },
+
+  adminApi: async ({ adminApiClient }, use) => {
+    await use(new AdminApi(adminApiClient));
+  },
+
+  notificationsApi: async ({ apiClient }, use) => {
+    await use(new NotificationsApi(apiClient));
   },
 });
 

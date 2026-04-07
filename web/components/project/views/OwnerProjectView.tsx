@@ -2,6 +2,8 @@
 import * as React from "react";
 import StatusBadge from "@/components/StatusBadge";
 import ShortlistSection from "@/components/project/ShortlistSection";
+import HireConfirmModal from "@/components/project/HireConfirmModal";
+import HiredTradesmenSection from "@/components/project/HiredTradesmenSection";
 import {
   SquarePen,
   XCircle,
@@ -99,6 +101,17 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
   // 🔹 NEW: shortlist items using aggregated VMB scores (ratings endpoint)
   const [shortlistItems, setShortlistItems] = React.useState<any[]>([]);
   const [shortlistTotal, setShortlistTotal] = React.useState<number>(0);
+
+  // ===== Hire flow state =====
+  const [hireTarget, setHireTarget] = React.useState<{
+    recommendationId: number;
+    displayName: string;
+  } | null>(null);
+  const [hiredRecommendationIds, setHiredRecommendationIds] = React.useState<
+    Set<number>
+  >(new Set());
+  // Bumped after a successful hire so the HiredTradesmenSection refetches.
+  const [hiresRefreshKey, setHiresRefreshKey] = React.useState(0);
 
   // state for "Get recommendations" modal visibility
   const [showGetRecModal, setShowGetRecModal] = React.useState(false);
@@ -216,6 +229,47 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
       cancelled = true;
     };
   }, [api, project?.id, recs, recTotal]);
+
+  // Fetch existing hires so we can render the Hire button as "Hired" on
+  // recommendations that have already been hired. Refetched whenever a new
+  // hire is created (via hiresRefreshKey).
+  React.useEffect(() => {
+    if (!project?.id) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const { data } = await api.get(`/api/projects/${project.id}/hires`);
+        if (cancelled) return;
+        const ids = new Set<number>(
+          (Array.isArray(data?.items) ? data.items : [])
+            .map((h: any) => h?.recommendationId)
+            .filter((id: any): id is number => typeof id === "number"),
+        );
+        setHiredRecommendationIds(ids);
+      } catch {
+        // non-critical — leave the set as-is
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [api, project?.id, hiresRefreshKey]);
+
+  // Handler called when the homeowner confirms a hire from the modal.
+  const submitHire = React.useCallback(
+    async (message: string) => {
+      if (!project?.id || !hireTarget) return;
+      await api.post(`/api/projects/${project.id}/hires`, {
+        recommendationId: hireTarget.recommendationId,
+        homeownerMessage: message || undefined,
+      });
+      setHireTarget(null);
+      setHiresRefreshKey((k) => k + 1);
+    },
+    [api, project?.id, hireTarget],
+  );
 
   if (!project) return null;
 
@@ -567,6 +621,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
             onVoteUp={async () => {}}
             recHasPhotos={recHasPhotos}
             recVerification={recVerification}
+            projectId={project.id}
             showOwnerShareCta={
               !isLive &&
               !isClosed &&
@@ -574,6 +629,10 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
               (shortlistData?.length ?? 0) === 0
             }
             onOwnerShareClick={() => setShowGetRecModal(true)}
+            onHire={(recommendationId, displayName) =>
+              setHireTarget({ recommendationId, displayName })
+            }
+            hiredRecommendationIds={hiredRecommendationIds}
           />
           {recsErr && <p className="mt-2 text-sm text-rose-600">{recsErr}</p>}
         </div>
@@ -589,6 +648,20 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
           </section>
         </div>
       </div>
+
+      {/* Hired tradesmen — only renders if there are any */}
+      <HiredTradesmenSection
+        projectId={project.id}
+        refreshKey={hiresRefreshKey}
+      />
+
+      {/* Hire confirmation modal */}
+      <HireConfirmModal
+        open={hireTarget !== null}
+        targetName={hireTarget?.displayName || ""}
+        onConfirm={submitHire}
+        onClose={() => setHireTarget(null)}
+      />
     </>
   );
 }

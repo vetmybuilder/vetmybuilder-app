@@ -35,6 +35,7 @@ export type ApiCore = {
   get: (urlPath: string) => Promise<any>;
   post: (urlPath: string, data?: any) => Promise<any>;
   put: (urlPath: string, data?: any) => Promise<any>;
+  patch: (urlPath: string, data?: any) => Promise<any>;
   del: (urlPath: string) => Promise<any>;
 
   getJson: (urlPath: string) => Promise<{ res: any; json: any }>;
@@ -300,6 +301,8 @@ export function createApiCore(args: {
       request.post(baseUrl + urlPath, { data, headers }),
     put: (urlPath: string, data?: any) =>
       request.put(baseUrl + urlPath, { data, headers }),
+    patch: (urlPath: string, data?: any) =>
+      request.patch(baseUrl + urlPath, { data, headers }),
     del: (urlPath: string) => request.delete(baseUrl + urlPath, { headers }),
   };
 

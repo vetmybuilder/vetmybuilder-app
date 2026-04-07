@@ -1,5 +1,5 @@
 import { expect } from "@playwright/test";
-import type { TradesmanStatus } from "../../pages/AdminLeaderboardPage";
+import type { TradesmanStatus } from "../../types/tradesman";
 
 type ApiClient = {
   post: (path: string, payload?: any) => Promise<{ status(): number }>;

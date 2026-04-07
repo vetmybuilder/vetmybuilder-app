@@ -45,6 +45,7 @@ CREATE TABLE recommendations (
   rating            INTEGER,
   comment           TEXT,
   isAnonymous       INTEGER DEFAULT 0, source VARCHAR(50) DEFAULT 'magic', phone TEXT,
+  companyEmail      TEXT NULL,
 
   FOREIGN KEY(projectId) REFERENCES projects(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -653,6 +654,35 @@ CREATE TABLE tradesmen_spotlight_views (
 
 CREATE INDEX idx_oneoff_user_type_entity
          ON payments_oneoff (user_id, type, entity_id, status);
+
+CREATE TABLE hires (
+  id                    INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  projectId             INT NOT NULL,
+  homeownerUid          VARCHAR(255) NOT NULL,
+  tradesmanUserId       VARCHAR(255) NULL,
+  recommendationId      INT NULL,
+  invitedCompanyName    VARCHAR(255) NULL,
+  invitedContactEmail   VARCHAR(255) NULL,
+  inviteChannel         VARCHAR(20)  NULL,
+  inviteToken           VARCHAR(64)  NULL,
+  status                VARCHAR(20)  NOT NULL,
+  homeownerMessage      TEXT NULL,
+  tradesmanMessage      TEXT NULL,
+  cancelReason          VARCHAR(50) NULL,
+  hiredAt               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  respondedAt           DATETIME NULL,
+  cancelledAt           DATETIME NULL,
+  expiresAt             DATETIME NOT NULL,
+  FOREIGN KEY (projectId) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (recommendationId) REFERENCES recommendations(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE UNIQUE INDEX uniq_hires_project_tradesman      ON hires (projectId, tradesmanUserId);
+CREATE UNIQUE INDEX uniq_hires_project_recommendation ON hires (projectId, recommendationId);
+CREATE INDEX idx_hires_homeowner    ON hires (homeownerUid);
+CREATE INDEX idx_hires_tradesman    ON hires (tradesmanUserId);
+CREATE INDEX idx_hires_status       ON hires (status);
+CREATE INDEX idx_hires_invite_token ON hires (inviteToken);
 USE `vetmybuilder_test_s1_4_w1`;
 
 CREATE TABLE IF NOT EXISTS _migrations (
@@ -700,6 +730,7 @@ CREATE TABLE recommendations (
   rating            INTEGER,
   comment           TEXT,
   isAnonymous       INTEGER DEFAULT 0, source VARCHAR(50) DEFAULT 'magic', phone TEXT,
+  companyEmail      TEXT NULL,
 
   FOREIGN KEY(projectId) REFERENCES projects(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -1308,6 +1339,35 @@ CREATE TABLE tradesmen_spotlight_views (
 
 CREATE INDEX idx_oneoff_user_type_entity
          ON payments_oneoff (user_id, type, entity_id, status);
+
+CREATE TABLE hires (
+  id                    INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  projectId             INT NOT NULL,
+  homeownerUid          VARCHAR(255) NOT NULL,
+  tradesmanUserId       VARCHAR(255) NULL,
+  recommendationId      INT NULL,
+  invitedCompanyName    VARCHAR(255) NULL,
+  invitedContactEmail   VARCHAR(255) NULL,
+  inviteChannel         VARCHAR(20)  NULL,
+  inviteToken           VARCHAR(64)  NULL,
+  status                VARCHAR(20)  NOT NULL,
+  homeownerMessage      TEXT NULL,
+  tradesmanMessage      TEXT NULL,
+  cancelReason          VARCHAR(50) NULL,
+  hiredAt               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  respondedAt           DATETIME NULL,
+  cancelledAt           DATETIME NULL,
+  expiresAt             DATETIME NOT NULL,
+  FOREIGN KEY (projectId) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (recommendationId) REFERENCES recommendations(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE UNIQUE INDEX uniq_hires_project_tradesman      ON hires (projectId, tradesmanUserId);
+CREATE UNIQUE INDEX uniq_hires_project_recommendation ON hires (projectId, recommendationId);
+CREATE INDEX idx_hires_homeowner    ON hires (homeownerUid);
+CREATE INDEX idx_hires_tradesman    ON hires (tradesmanUserId);
+CREATE INDEX idx_hires_status       ON hires (status);
+CREATE INDEX idx_hires_invite_token ON hires (inviteToken);
 USE `vetmybuilder_test_s1_4_w2`;
 
 CREATE TABLE IF NOT EXISTS _migrations (
@@ -1355,6 +1415,7 @@ CREATE TABLE recommendations (
   rating            INTEGER,
   comment           TEXT,
   isAnonymous       INTEGER DEFAULT 0, source VARCHAR(50) DEFAULT 'magic', phone TEXT,
+  companyEmail      TEXT NULL,
 
   FOREIGN KEY(projectId) REFERENCES projects(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -1963,6 +2024,35 @@ CREATE TABLE tradesmen_spotlight_views (
 
 CREATE INDEX idx_oneoff_user_type_entity
          ON payments_oneoff (user_id, type, entity_id, status);
+
+CREATE TABLE hires (
+  id                    INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  projectId             INT NOT NULL,
+  homeownerUid          VARCHAR(255) NOT NULL,
+  tradesmanUserId       VARCHAR(255) NULL,
+  recommendationId      INT NULL,
+  invitedCompanyName    VARCHAR(255) NULL,
+  invitedContactEmail   VARCHAR(255) NULL,
+  inviteChannel         VARCHAR(20)  NULL,
+  inviteToken           VARCHAR(64)  NULL,
+  status                VARCHAR(20)  NOT NULL,
+  homeownerMessage      TEXT NULL,
+  tradesmanMessage      TEXT NULL,
+  cancelReason          VARCHAR(50) NULL,
+  hiredAt               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  respondedAt           DATETIME NULL,
+  cancelledAt           DATETIME NULL,
+  expiresAt             DATETIME NOT NULL,
+  FOREIGN KEY (projectId) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (recommendationId) REFERENCES recommendations(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE UNIQUE INDEX uniq_hires_project_tradesman      ON hires (projectId, tradesmanUserId);
+CREATE UNIQUE INDEX uniq_hires_project_recommendation ON hires (projectId, recommendationId);
+CREATE INDEX idx_hires_homeowner    ON hires (homeownerUid);
+CREATE INDEX idx_hires_tradesman    ON hires (tradesmanUserId);
+CREATE INDEX idx_hires_status       ON hires (status);
+CREATE INDEX idx_hires_invite_token ON hires (inviteToken);
 USE `vetmybuilder_test_s1_4_w3`;
 
 CREATE TABLE IF NOT EXISTS _migrations (
@@ -2010,6 +2100,7 @@ CREATE TABLE recommendations (
   rating            INTEGER,
   comment           TEXT,
   isAnonymous       INTEGER DEFAULT 0, source VARCHAR(50) DEFAULT 'magic', phone TEXT,
+  companyEmail      TEXT NULL,
 
   FOREIGN KEY(projectId) REFERENCES projects(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -2618,6 +2709,35 @@ CREATE TABLE tradesmen_spotlight_views (
 
 CREATE INDEX idx_oneoff_user_type_entity
          ON payments_oneoff (user_id, type, entity_id, status);
+
+CREATE TABLE hires (
+  id                    INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  projectId             INT NOT NULL,
+  homeownerUid          VARCHAR(255) NOT NULL,
+  tradesmanUserId       VARCHAR(255) NULL,
+  recommendationId      INT NULL,
+  invitedCompanyName    VARCHAR(255) NULL,
+  invitedContactEmail   VARCHAR(255) NULL,
+  inviteChannel         VARCHAR(20)  NULL,
+  inviteToken           VARCHAR(64)  NULL,
+  status                VARCHAR(20)  NOT NULL,
+  homeownerMessage      TEXT NULL,
+  tradesmanMessage      TEXT NULL,
+  cancelReason          VARCHAR(50) NULL,
+  hiredAt               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  respondedAt           DATETIME NULL,
+  cancelledAt           DATETIME NULL,
+  expiresAt             DATETIME NOT NULL,
+  FOREIGN KEY (projectId) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (recommendationId) REFERENCES recommendations(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE UNIQUE INDEX uniq_hires_project_tradesman      ON hires (projectId, tradesmanUserId);
+CREATE UNIQUE INDEX uniq_hires_project_recommendation ON hires (projectId, recommendationId);
+CREATE INDEX idx_hires_homeowner    ON hires (homeownerUid);
+CREATE INDEX idx_hires_tradesman    ON hires (tradesmanUserId);
+CREATE INDEX idx_hires_status       ON hires (status);
+CREATE INDEX idx_hires_invite_token ON hires (inviteToken);
 USE `vetmybuilder_test_s1_4_w4`;
 
 CREATE TABLE IF NOT EXISTS _migrations (
@@ -2665,6 +2785,7 @@ CREATE TABLE recommendations (
   rating            INTEGER,
   comment           TEXT,
   isAnonymous       INTEGER DEFAULT 0, source VARCHAR(50) DEFAULT 'magic', phone TEXT,
+  companyEmail      TEXT NULL,
 
   FOREIGN KEY(projectId) REFERENCES projects(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -3273,3 +3394,32 @@ CREATE TABLE tradesmen_spotlight_views (
 
 CREATE INDEX idx_oneoff_user_type_entity
          ON payments_oneoff (user_id, type, entity_id, status);
+
+CREATE TABLE hires (
+  id                    INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  projectId             INT NOT NULL,
+  homeownerUid          VARCHAR(255) NOT NULL,
+  tradesmanUserId       VARCHAR(255) NULL,
+  recommendationId      INT NULL,
+  invitedCompanyName    VARCHAR(255) NULL,
+  invitedContactEmail   VARCHAR(255) NULL,
+  inviteChannel         VARCHAR(20)  NULL,
+  inviteToken           VARCHAR(64)  NULL,
+  status                VARCHAR(20)  NOT NULL,
+  homeownerMessage      TEXT NULL,
+  tradesmanMessage      TEXT NULL,
+  cancelReason          VARCHAR(50) NULL,
+  hiredAt               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  respondedAt           DATETIME NULL,
+  cancelledAt           DATETIME NULL,
+  expiresAt             DATETIME NOT NULL,
+  FOREIGN KEY (projectId) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (recommendationId) REFERENCES recommendations(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE UNIQUE INDEX uniq_hires_project_tradesman      ON hires (projectId, tradesmanUserId);
+CREATE UNIQUE INDEX uniq_hires_project_recommendation ON hires (projectId, recommendationId);
+CREATE INDEX idx_hires_homeowner    ON hires (homeownerUid);
+CREATE INDEX idx_hires_tradesman    ON hires (tradesmanUserId);
+CREATE INDEX idx_hires_status       ON hires (status);
+CREATE INDEX idx_hires_invite_token ON hires (inviteToken);

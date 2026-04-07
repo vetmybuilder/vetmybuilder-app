@@ -1,5 +1,6 @@
 import ProjectApi from "../../../src/apiHelper/project/ProjectApi";
 import { AuthApi } from "../../../src/apiHelper/auth/AuthApi";
+import { setupOwnerWithLiveProject } from "../../../src/apiHelper/project/setupOwnerWithLiveProject";
 import Project from "../../../src/models/Project";
 import Recommendation from "../../../src/models/Recommendation";
 import Account from "../../../src/models/Account";
@@ -72,7 +73,10 @@ test.describe("Add recommendation", () => {
     await projectDetailsPage.openNotification(notificationText);
     await projectDetailsPage.hasHomeownerProjectDetails(created.id, project);
 
-    const recommendation = Recommendation.aRecommendation();
+    const companyEmail = `hello+${Date.now()}@elegantbuilding.test`;
+    const recommendation = Recommendation.aRecommendation().withCompanyEmail(
+      companyEmail,
+    );
 
     await projectDetailsPage.recommendTradespersonButton.click();
     await projectRecommendPage.submitRecommendationForLoggedInUser(
@@ -83,6 +87,14 @@ test.describe("Add recommendation", () => {
     await projectDetailsPage.logoutViaUrl();
     await loginPage.loginExpectSuccess(owner.email!, owner.password!);
     await projectDetailsPage.visit(created.id);
+
+    // Owner should see the companyEmail exposed via the API for the hire flow.
+    const recItem = await ownerClient.findProjectRecommendationByCompany(
+      created.id,
+      recommendation.company,
+    );
+    expect(recItem).toBeTruthy();
+    expect(recItem.companyEmail).toBe(companyEmail);
 
     const newNotificationText = `Someone has recommended a tradesperson to your project “${project.workTypes[0]} in ${location} (${project.propertyType})”`;
 
@@ -153,5 +165,88 @@ test.describe("Add recommendation", () => {
     await projectDetailsPage.hasProjectRecommendation(recommendation);
     await projectDetailsPage.openProjectRecommendation(recommendation);
     await builderProfilePage.hasBuilderRecommendationDetails(recommendation);
+  });
+
+  test("shows inline error when companyEmail is invalid", async ({
+    request,
+    runtime,
+    projectRecommendPage,
+    projectDetailsPage,
+  }) => {
+    const { projectId } = await setupOwnerWithLiveProject({
+      request,
+      apiBaseUrl: runtime.apiBaseUrl,
+    });
+    await projectDetailsPage.logoutViaUrl();
+    await projectRecommendPage.visit(projectId);
+
+    const guest = Account.aGuestAccount();
+    await projectRecommendPage.nameInput.fill(
+      `${guest.firstName} ${guest.lastName}`.trim(),
+    );
+    await projectRecommendPage.companyInput.fill("Some Company Ltd");
+    await projectRecommendPage.companyEmailInput.fill("not-an-email");
+    await projectRecommendPage.commentInput.fill(
+      "This is a perfectly valid comment over ten characters.",
+    );
+
+    await projectRecommendPage.submitForm();
+
+    await projectRecommendPage.assertFieldError(
+      "companyEmail",
+      "Please enter a valid email address.",
+    );
+  });
+
+  test("shows inline error when recommender email is invalid", async ({
+    request,
+    runtime,
+    projectRecommendPage,
+    projectDetailsPage,
+  }) => {
+    const { projectId } = await setupOwnerWithLiveProject({
+      request,
+      apiBaseUrl: runtime.apiBaseUrl,
+    });
+    await projectDetailsPage.logoutViaUrl();
+    await projectRecommendPage.visit(projectId);
+
+    const guest = Account.aGuestAccount();
+    await projectRecommendPage.nameInput.fill(
+      `${guest.firstName} ${guest.lastName}`.trim(),
+    );
+    await projectRecommendPage.emailInput.fill("nope-not-email");
+    await projectRecommendPage.companyInput.fill("Some Company Ltd");
+    await projectRecommendPage.commentInput.fill(
+      "This is a perfectly valid comment over ten characters.",
+    );
+
+    await projectRecommendPage.submitForm();
+
+    await projectRecommendPage.assertFieldError(
+      "email",
+      "Please enter a valid email address.",
+    );
+  });
+
+  test("shows inline errors for empty required fields on submit", async ({
+    request,
+    runtime,
+    projectRecommendPage,
+    projectDetailsPage,
+  }) => {
+    const { projectId } = await setupOwnerWithLiveProject({
+      request,
+      apiBaseUrl: runtime.apiBaseUrl,
+    });
+    await projectDetailsPage.logoutViaUrl();
+    await projectRecommendPage.visit(projectId);
+
+    await projectRecommendPage.submitForm();
+
+    await projectRecommendPage.assertFieldError(
+      "name",
+      "Please enter your name.",
+    );
   });
 });

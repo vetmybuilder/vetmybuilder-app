@@ -40,7 +40,11 @@ export default defineConfig({
   testDir: "./tests",
   fullyParallel: true,
   workers: TOTAL_SHARDS,
-  timeout: 60_000,
+  // Bumped from 60s to 90s — `authedApiForUid` (used by the apiClient fixture)
+  // has its own internal 60s retry deadline for minting Firebase tokens. With
+  // a 60s test timeout, a slow token mint could consume the entire budget
+  // during fixture setup before the test body even ran.
+  timeout: 90_000,
   reporter: [["list"], ["html", { open: "never" }]],
 
   ...(SHOULD_MANAGE_SERVERS
