@@ -231,8 +231,9 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
   }, [api, project?.id, recs, recTotal]);
 
   // Fetch existing hires so we can render the Hire button as "Hired" on
-  // recommendations that have already been hired. Refetched whenever a new
-  // hire is created (via hiresRefreshKey).
+  // recommendations that are currently hired. Only ACTIVE hires (pending,
+  // pending_invite, accepted) block the rec card — terminal statuses
+  // (declined, cancelled, expired) free it up so the homeowner can re-hire.
   React.useEffect(() => {
     if (!project?.id) return;
     let cancelled = false;
@@ -241,8 +242,14 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
       try {
         const { data } = await api.get(`/api/projects/${project.id}/hires`);
         if (cancelled) return;
+        const ACTIVE_STATUSES = new Set([
+          "pending",
+          "pending_invite",
+          "accepted",
+        ]);
         const ids = new Set<number>(
           (Array.isArray(data?.items) ? data.items : [])
+            .filter((h: any) => ACTIVE_STATUSES.has(h?.status))
             .map((h: any) => h?.recommendationId)
             .filter((id: any): id is number => typeof id === "number"),
         );
@@ -637,7 +644,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
           {recsErr && <p className="mt-2 text-sm text-rose-600">{recsErr}</p>}
         </div>
 
-        {/* RIGHT: Spotlight */}
+        {/* RIGHT: Spotlight + Hired tradesmen */}
         <div>
           <section
             aria-label="Spotlight tradesmen"
@@ -646,14 +653,19 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
           >
             <SpotlightStrip projectId={String(project.id)} />
           </section>
+
+          {/* Hired tradesmen — only renders if there are any */}
+          <div className="mt-3">
+            <HiredTradesmenSection
+              projectId={project.id}
+              refreshKey={hiresRefreshKey}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Hired tradesmen — only renders if there are any */}
-      <HiredTradesmenSection
-        projectId={project.id}
-        refreshKey={hiresRefreshKey}
-      />
+      {/* Invisible bottom spacer so content doesn't sit flush with the viewport edge */}
+      <div aria-hidden="true" className="h-8" />
 
       {/* Hire confirmation modal */}
       <HireConfirmModal

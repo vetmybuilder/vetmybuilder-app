@@ -9,10 +9,20 @@ import { useAuth } from "@/utils/auth";
 import { ensureEmailAvailable } from "@/utils/email";
 import RegisterField from "./RegisterField";
 import LocationField from "@/components/forms/LocationField";
+import PasswordChecklist, {
+  isStrongPassword,
+} from "@/components/forms/PasswordChecklist";
 
 type FieldErrors = Partial<
   Record<
-    "firstName" | "lastName" | "username" | "email" | "password" | "location" | "betaCode",
+    | "firstName"
+    | "lastName"
+    | "username"
+    | "email"
+    | "password"
+    | "confirmPassword"
+    | "location"
+    | "betaCode",
     string
   >
 >;
@@ -23,9 +33,13 @@ type FormState = {
   username: string;
   email: string;
   password: string;
+  confirmPassword: string;
   location: string;
   betaCode: string;
 };
+
+const STRONG_PASSWORD_MESSAGE =
+  "Password must be at least 8 characters and include uppercase, lowercase, a number, and a symbol.";
 
 export default function SignupForm() {
   const api = useApi();
@@ -53,6 +67,7 @@ export default function SignupForm() {
     username: "",
     email: "",
     password: "",
+    confirmPassword: "",
     location: "",
     betaCode: "",
   });
@@ -141,7 +156,16 @@ export default function SignupForm() {
     if (emailTrim && !isValidEmail(emailTrim)) {
       clientErrors.email = "Enter a valid email address.";
     }
-    if (!passwordTrim) clientErrors.password = "Password is required.";
+    if (!passwordTrim) {
+      clientErrors.password = "Password is required.";
+    } else if (!isStrongPassword(form.password)) {
+      clientErrors.password = STRONG_PASSWORD_MESSAGE;
+    }
+    if (!form.confirmPassword) {
+      clientErrors.confirmPassword = "Please confirm your password.";
+    } else if (form.password && form.password !== form.confirmPassword) {
+      clientErrors.confirmPassword = "Passwords do not match.";
+    }
     if (betaRequired && !form.betaCode.trim()) clientErrors.betaCode = "Access code is required.";
 
     return clientErrors;
@@ -311,15 +335,29 @@ export default function SignupForm() {
         onChange={(v) => set("email", v)}
       />
 
+      <div>
+        <RegisterField
+          id="reg-pass"
+          label="Password"
+          type="password"
+          value={form.password}
+          required
+          error={fieldErrors.password}
+          testIdPrefix="reg"
+          onChange={(v) => set("password", v)}
+        />
+        <PasswordChecklist password={form.password} />
+      </div>
+
       <RegisterField
-        id="reg-pass"
-        label="Password"
+        id="reg-pass-confirm"
+        label="Confirm password"
         type="password"
-        value={form.password}
+        value={form.confirmPassword}
         required
-        error={fieldErrors.password}
+        error={fieldErrors.confirmPassword}
         testIdPrefix="reg"
-        onChange={(v) => set("password", v)}
+        onChange={(v) => set("confirmPassword", v)}
       />
 
       <div>

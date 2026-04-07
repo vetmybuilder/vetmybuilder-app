@@ -5,25 +5,44 @@ import { safeGoto } from "../helpers/navigation";
 export class TradesmanRegisterPage extends BasePage {
   readonly step1: Locator;
   readonly step2: Locator;
+  readonly step3: Locator;
+  readonly step4: Locator;
   readonly companyNameInput: Locator;
   readonly contactNameInput: Locator;
   readonly emailInput: Locator;
   readonly areasInput: Locator;
   readonly nextButton: Locator;
+  readonly continueButton: Locator;
   readonly fileInput: Locator;
   readonly profileBadge: Locator;
+
+  // Step 4 (account)
+  readonly passwordInput: Locator;
+  readonly confirmPasswordInput: Locator;
+  readonly createAccountButton: Locator;
+  readonly createAccountError: Locator;
+  readonly passwordChecklist: Locator;
 
   constructor(page: Page) {
     super(page);
     this.step1 = page.getByTestId("step-1");
     this.step2 = page.getByTestId("step-2");
+    this.step3 = page.getByTestId("step-3");
+    this.step4 = page.getByTestId("step-4");
     this.companyNameInput = page.getByTestId("input-company-name");
     this.contactNameInput = page.getByTestId("input-contact-name");
     this.emailInput = page.getByTestId("input-email");
     this.areasInput = page.getByTestId("input-areas").locator("input").first();
     this.nextButton = page.getByTestId("btn-next");
+    this.continueButton = page.getByTestId("btn-continue");
     this.fileInput = page.getByTestId("file-input");
     this.profileBadge = page.getByText("Profile", { exact: true });
+
+    this.passwordInput = page.getByTestId("input-password");
+    this.confirmPasswordInput = page.getByTestId("input-password-confirm");
+    this.createAccountButton = page.getByTestId("btn-create-account");
+    this.createAccountError = page.getByTestId("create-error");
+    this.passwordChecklist = page.getByTestId("password-checklist");
   }
 
   async goto() {
@@ -72,6 +91,54 @@ export class TradesmanRegisterPage extends BasePage {
       name: /set as profile picture/i,
     });
     await selectionButtons.first().click();
+  }
+
+  /** Click a trade-type pill on Step 2 by its visible label. */
+  async selectTradeType(label: string) {
+    await this.page
+      .getByRole("button", { name: label, exact: true })
+      .first()
+      .click();
+  }
+
+  /** Click Continue on Step 2 → Step 3. */
+  async goToStep3() {
+    await this.continueButton.click();
+    await expect(this.step3).toBeVisible({ timeout: 15_000 });
+  }
+
+  /** Click Continue on Step 3 → Step 4 (no required inputs). */
+  async goToStep4() {
+    await this.continueButton.click();
+    await expect(this.step4).toBeVisible({ timeout: 15_000 });
+  }
+
+  async fillStep4Password(password: string) {
+    await this.passwordInput.fill(password);
+  }
+
+  async fillStep4ConfirmPassword(password: string) {
+    await this.confirmPasswordInput.fill(password);
+  }
+
+  async submitStep4() {
+    await this.createAccountButton.click();
+  }
+
+  /**
+   * Assert that the Step 4 password checklist is showing a given rule
+   * as either passing (green / emerald) or failing (zinc).
+   */
+  async assertChecklistRule(label: string, pass: boolean) {
+    const item = this.passwordChecklist
+      .locator("li", { hasText: label })
+      .first();
+    await expect(item).toBeVisible();
+    if (pass) {
+      await expect(item).toHaveClass(/text-emerald-600/);
+    } else {
+      await expect(item).toHaveClass(/text-zinc-400/);
+    }
   }
 }
 

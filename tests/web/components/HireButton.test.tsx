@@ -112,6 +112,30 @@ describe("<HireButton />", () => {
     expect(btn).toHaveTextContent(/^Hired$/i);
   });
 
+  it("[recommendation] terminal-status hires (declined/cancelled/expired) do NOT block the button", async () => {
+    routerQuery = { projectId: "123" };
+    api.get.mockResolvedValue({
+      data: {
+        items: [
+          { id: 7, recommendationId: 4, status: "declined" },
+          { id: 8, recommendationId: 4, status: "cancelled" },
+          { id: 9, recommendationId: 4, status: "expired" },
+        ],
+      },
+    });
+
+    render(
+      <HireButton
+        recommendationId={4}
+        displayName="Elegant Building Services"
+      />,
+    );
+
+    const btn = await screen.findByTestId("hire-button");
+    expect(btn).toBeEnabled();
+    expect(btn).toHaveTextContent(/Hire this tradesperson/i);
+  });
+
   it("[recommendation] clicking Hire opens the modal and POSTs with recommendationId", async () => {
     routerQuery = { projectId: "123" };
     api.get

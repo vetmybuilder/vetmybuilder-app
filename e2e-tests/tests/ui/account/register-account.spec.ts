@@ -62,10 +62,10 @@ test.describe("Homeowner registration", () => {
       location: "E4 7DT",
       username: takenUsername,
       email: `homeowner+${Date.now()}@test.com`,
-      password: "password",
+      password: "Passw0rd!",
     });
 
-    
+
     await registerPage.goto();
 
     await registerPage.page.context().clearCookies();
@@ -82,6 +82,7 @@ test.describe("Homeowner registration", () => {
     await registerPage.location.fill(account.location);
     await registerPage.email.fill(account.requiredEmail);
     await registerPage.password.fill(account.requiredPassword);
+    await registerPage.confirmPassword.fill(account.requiredPassword);
     await registerPage.submitButton.click();
     await expect(registerPage.errorAlert.first()).toContainText(
       "That username is already taken.",
@@ -111,7 +112,7 @@ test.describe("Homeowner registration", () => {
     registerPage,
   }) => {
     const takenEmail = `existing+${Date.now()}@test.com`;
-    const password = "password123!";
+    const password = "Passw0rd!";
 
     await createAuthUser(takenEmail, password);
 
@@ -129,6 +130,7 @@ test.describe("Homeowner registration", () => {
     await registerPage.location.fill(account.location);
     await registerPage.email.fill(account.email!);
     await registerPage.password.fill(account.password!);
+    await registerPage.confirmPassword.fill(account.password!);
     await registerPage.submitButton.click();
     await registerPage.hasAlert(
       "An account with this email already exists. Try signing in instead.",

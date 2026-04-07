@@ -26,6 +26,7 @@ import {
   normalizeYouTube,
 } from "@/utils/socialLinks";
 import { ensureEmailAvailable } from "@/utils/email";
+import { isStrongPassword } from "@/components/forms/PasswordChecklist";
 
 const DRAFT_KEY = "vmb.vendorDraft.v3";
 const REG_SENTINEL = "__vendor_registration_in_progress__";
@@ -331,8 +332,10 @@ export default function TradesmanRegisterV2Page() {
     setBusy(true);
     try {
       if (!form.email.trim()) throw new Error("Business email is required.");
-      if (form.password.length < 8)
-        throw new Error("Password must be at least 8 characters.");
+      if (!isStrongPassword(form.password))
+        throw new Error(
+          "Password must be at least 8 characters and include uppercase, lowercase, a number, and a symbol.",
+        );
       if (form.password !== form.confirmPassword)
         throw new Error("Passwords do not match.");
 

@@ -1,4 +1,6 @@
 // web/components/vendor-register/Step4Account.tsx
+import PasswordChecklist from "@/components/forms/PasswordChecklist";
+
 type Props = {
   email: string;
   password: string;
@@ -36,7 +38,7 @@ export default function Step4Account({
 
       <div>
         <label className={labelClass} htmlFor="reg-pass" data-testid="label-password">
-          Password <span className="font-normal text-zinc-400">(min 8 characters)</span>
+          Password
         </label>
         <input
           id="reg-pass"
@@ -50,6 +52,7 @@ export default function Step4Account({
           autoComplete="new-password"
           data-testid="input-password"
         />
+        <PasswordChecklist password={password} />
       </div>
 
       <div>

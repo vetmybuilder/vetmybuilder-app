@@ -682,13 +682,15 @@ CREATE TABLE hires (
   FOREIGN KEY (recommendationId) REFERENCES recommendations(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- One hire per (project, tradesman) — a homeowner can't hire the same
--- onboarded tradesman twice for the same project.
-CREATE UNIQUE INDEX uniq_hires_project_tradesman
+-- Compound indexes for the route's "already actively hired?" lookup. NOT
+-- unique — terminal-status hires (declined/cancelled/expired) are allowed
+-- to coexist with a new active hire, so the homeowner can re-hire after a
+-- decline. Uniqueness is enforced at the application level on active
+-- statuses only (see hires.post.js).
+CREATE INDEX idx_hires_project_tradesman
   ON hires (projectId, tradesmanUserId);
 
--- One hire per (project, recommendation) — same constraint for the unjoined case.
-CREATE UNIQUE INDEX uniq_hires_project_recommendation
+CREATE INDEX idx_hires_project_recommendation
   ON hires (projectId, recommendationId);
 
 CREATE INDEX idx_hires_homeowner ON hires (homeownerUid);

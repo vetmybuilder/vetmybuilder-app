@@ -72,6 +72,9 @@ export default function HiredTradesmenSection({
   const [error, setError] = React.useState<string | null>(null);
 
   const [cancelTarget, setCancelTarget] = React.useState<HireItem | null>(null);
+  const [showAll, setShowAll] = React.useState(false);
+
+  const VISIBLE_LIMIT = 3;
 
   const fetchHires = React.useCallback(async () => {
     setLoading(true);
@@ -121,7 +124,7 @@ export default function HiredTradesmenSection({
   if (loading) {
     return (
       <section
-        className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5"
+        className="rounded-2xl border border-zinc-200 bg-white p-5"
         data-testid="hired-tradesmen-loading"
       >
         <p className="text-sm text-zinc-500">Loading hired tradesmen…</p>
@@ -136,11 +139,10 @@ export default function HiredTradesmenSection({
 
   return (
     <section
-      className="mt-6"
       aria-label="Hired tradesmen"
       data-testid="hired-tradesmen-section"
     >
-      <div className="mb-4 flex items-center gap-2">
+      <div className="mb-3 flex items-center gap-2">
         <Briefcase className="h-5 w-5 text-red-500" />
         <h2 className="text-xl font-bold text-zinc-900">Hired tradesmen</h2>
         <span className="inline-flex items-center justify-center rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-bold text-zinc-700">
@@ -158,7 +160,7 @@ export default function HiredTradesmenSection({
       )}
 
       <div className="space-y-3">
-        {hires.map((hire) => {
+        {(showAll ? hires : hires.slice(0, VISIBLE_LIMIT)).map((hire) => {
           const isCancellable = CANCELLABLE.includes(hire.status);
           const needsReason = hire.status === "accepted";
 
@@ -226,6 +228,21 @@ export default function HiredTradesmenSection({
           );
         })}
       </div>
+
+      {hires.length > VISIBLE_LIMIT && (
+        <div className="mt-3 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setShowAll((v) => !v)}
+            data-testid="hired-tradesmen-toggle"
+            className="inline-flex items-center justify-center rounded-full bg-red-500 px-5 py-2 text-sm font-semibold text-white hover:bg-red-600 transition-colors"
+          >
+            {showAll
+              ? "View less"
+              : `View more (${hires.length - VISIBLE_LIMIT})`}
+          </button>
+        </div>
+      )}
 
       <CancelHireModal
         open={cancelTarget !== null}

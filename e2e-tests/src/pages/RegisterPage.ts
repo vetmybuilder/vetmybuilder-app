@@ -23,6 +23,7 @@ export class RegisterPage {
   readonly username: Locator;
   readonly email: Locator;
   readonly password: Locator;
+  readonly confirmPassword: Locator;
   readonly location: Locator;
 
   readonly firstNameError: Locator;
@@ -52,6 +53,7 @@ export class RegisterPage {
     this.username = page.getByLabel("Username", { exact: true });
     this.email = page.getByLabel("Email", { exact: true });
     this.password = page.getByLabel("Password", { exact: true });
+    this.confirmPassword = page.getByLabel("Confirm password", { exact: true });
     this.location = page.getByLabel("Postcode or City/Borough", {
       exact: true,
     });
@@ -97,6 +99,7 @@ export class RegisterPage {
 
     await this.email.fill(input.email);
     await this.password.fill(input.password);
+    await this.confirmPassword.fill(input.password);
     await this.location.fill(input.location);
     // Dismiss the postcode autocomplete dropdown so it doesn't block submit.
     // hasInteracted is reset in the Escape handler so the in-flight async
@@ -130,7 +133,11 @@ export class RegisterPage {
   }
 
   async hasWeakPasswordError(): Promise<void> {
-    await this.hasAlert("Your password is too weak. Try a longer password.");
+    // Strong-password validation now runs client-side, so we assert against
+    // the password field error rather than a Firebase auth alert.
+    await expect(this.passwordError).toContainText(
+      "Password must be at least 8 characters and include uppercase, lowercase, a number, and a symbol.",
+    );
   }
 
   async navigateToLogin(): Promise<void> {
