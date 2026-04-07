@@ -4,6 +4,8 @@ import Account from "../../../src/models/Account";
 import Recommendation from "../../../src/models/Recommendation";
 import { AuthApi } from "../../../src/apiHelper/auth/AuthApi";
 import { setupTradesmanProfile } from "../../../src/apiHelper/tradesman/setupTradesmanProfile";
+import { authedApiForUid } from "../../../src/api/services/client";
+import HireApi from "../../../src/apiHelper/project/HireApi";
 
 test.describe("GET /api/tradesmen/me/hires", () => {
   test("returns an empty list when the tradesman has no hires", async ({
@@ -193,8 +195,25 @@ test.describe("GET /api/tradesmen/me/hires", () => {
     expect(bBody.total).toBe(0);
   });
 
-  test("returns 403 when the caller is not a tradesman", async ({ hireApi }) => {
-    const res = await hireApi.listMyHiresRaw();
+  test("returns 403 when the caller is not a tradesman", async ({
+    request,
+    runtime,
+  }) => {
+    // Create a brand-new authed client for a unique uid that has no chance
+    // of being a tradesman. The shared apiClient fixture can accumulate
+    // user_roles state across tests in the same shard (the wipe keeps
+    // user_roles, and the test/auth/id-token endpoint upserts a 'user' row
+    // for every authed uid), so a fresh per-test uid is the safest way to
+    // assert the "not a tradesman" branch.
+    const freshUid = `not-a-tradesman-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+    const freshClient = await authedApiForUid(
+      request,
+      runtime.apiBaseUrl,
+      freshUid,
+    );
+    const freshHireApi = new HireApi(freshClient);
+
+    const res = await freshHireApi.listMyHiresRaw();
 
     expect(res.status()).toBe(403);
   });
