@@ -68,6 +68,31 @@ export class AdminApi {
     return row;
   }
 
+  /** Find every leaderboard row for a given company name (case-sensitive). */
+  async findTradesmenInLeaderboardByCompany(company: string): Promise<any[]> {
+    const { items } = await this.getTradesmenLeaderboard();
+    return items.filter((r) => r.company === company);
+  }
+
+  /**
+   * Asserts that exactly one leaderboard row exists for the given company
+   * and that its `userId` matches `expectedUserId`. Used by the
+   * promoted-lead audit-shadow tests where we want to be sure the
+   * leaderboard de-duplication is working without leaking the assertion
+   * shape into the spec.
+   */
+  async expectSingleLeaderboardRowForCompany(
+    company: string,
+    expected: { userId: string },
+  ): Promise<void> {
+    const matching = await this.findTradesmenInLeaderboardByCompany(company);
+    expect(
+      matching,
+      `Expected exactly one leaderboard row for "${company}", got ${matching.length}`,
+    ).toHaveLength(1);
+    expect(matching[0].userId).toBe(expected.userId);
+  }
+
   /**
    * Asserts the hire-count breakdown for a tradesman on the leaderboard.
    * Pass only the fields you care about; missing fields are not checked.
