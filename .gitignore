@@ -80,3 +80,12 @@ scripts/sim/fixtures/photos/
 scripts/sim/fixtures/builder-photos/
 
 .firebase-emulator-data/
+
+# Pitch deck and internal planning artefacts — local-only.
+# Generated from scripts/build-pitch-deck.py, build-lighthouse-deck.py,
+# and build-vault-deck.py. Contains investor-facing copy, financial
+# figures, draft founder bio, and binary .pptx files. Regenerate from
+# the scripts when needed; never commit the outputs.
+pitch-deck/
+project-lighthouse/
+project-vault/
