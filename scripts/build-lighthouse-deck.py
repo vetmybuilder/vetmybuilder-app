@@ -720,7 +720,22 @@ def slide_11_cost_model(prs):
         size=26, bold=True,
     )
 
-    # 3 cost tiles for different volume bands
+    # Local-dev callout — make it explicit that the figures below are
+    # production-only. Dev cost is always £0 thanks to the stub-mode
+    # llmClient (server/lib/ai/llmClient.js). This is the most-asked
+    # clarification on this slide so it gets called out before the tiles.
+    callout = panel(
+        slide, left=0.7, top=1.95, width=12, height=0.55,
+        fill=PANEL, border=GREEN, border_width=1.5,
+    )
+    add_text(
+        slide,
+        text="LOCAL DEV: £0 — every LLM call defaults to a deterministic stub. Real API only fires in production or when you set LLM_MODE=real.",
+        left=0.7, top=2.06, width=12, height=0.4,
+        size=11, bold=True, color=GREEN, align=PP_ALIGN.CENTER,
+    )
+
+    # 3 cost tiles for different volume bands. ALL FIGURES ARE PRODUCTION.
     bands = [
         ("MVP", "100 projects / month", [
             ("Project classifier", "£0.50"),
@@ -743,10 +758,10 @@ def slide_11_cost_model(prs):
     ]
 
     tile_w = 4.0
-    tile_h = 4.4
+    tile_h = 3.85
     gap = 0.25
     start_left = (SLIDE_W_IN - (tile_w * 3 + gap * 2)) / 2
-    top = 2.3
+    top = 2.75
 
     for i, (name, traffic, lines, total) in enumerate(bands):
         left = start_left + i * (tile_w + gap)
@@ -784,8 +799,8 @@ def slide_11_cost_model(prs):
                  size=20, bold=True, color=ACCENT, align=PP_ALIGN.CENTER)
 
     add_text(slide,
-             text="Cost is not the constraint. Engineering time and data quality are.",
-             left=0.7, top=6.95, width=12, height=0.4,
+             text="All figures above are production costs. Cost is not the constraint — engineering time and data quality are.",
+             left=0.7, top=6.85, width=12, height=0.4,
              size=11, color=ACCENT_DIM, align=PP_ALIGN.CENTER)
 
     add_footer(slide, 11)
