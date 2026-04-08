@@ -683,6 +683,69 @@ CREATE INDEX idx_hires_homeowner    ON hires (homeownerUid);
 CREATE INDEX idx_hires_tradesman    ON hires (tradesmanUserId);
 CREATE INDEX idx_hires_status       ON hires (status);
 CREATE INDEX idx_hires_invite_token ON hires (inviteToken);
+
+-- ─────────────────────────────────────────────────────────────────────
+-- Project Lighthouse — AI Phase 2 (Tier 1 schema)
+-- See mysql_schema.sql / project-lighthouse plan slide 9 for rationale.
+-- ─────────────────────────────────────────────────────────────────────
+
+CREATE TABLE project_classifications (
+  id                 BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  project_id         INT NOT NULL,
+  classified_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  classifier_version VARCHAR(40) NOT NULL,
+  raw_description    TEXT NOT NULL,
+  structured         JSON NOT NULL,
+  cost_pence         INT NULL,
+  latency_ms         INT NULL,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  KEY idx_pc_project (project_id),
+  KEY idx_pc_version (classifier_version, classified_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE match_observations (
+  id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  project_id          INT NOT NULL,
+  tradesman_user_id   VARCHAR(255) NOT NULL,
+  surfaced_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  surface_context     VARCHAR(64) NOT NULL,
+  rank_position       INT NOT NULL,
+  match_score         DECIMAL(7,3) NULL,
+  homeowner_action    VARCHAR(32) NULL,
+  homeowner_action_at DATETIME NULL,
+  hire_outcome        VARCHAR(32) NULL,
+  hire_outcome_at     DATETIME NULL,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  KEY idx_mo_project (project_id),
+  KEY idx_mo_tradesman (tradesman_user_id),
+  KEY idx_mo_surface (surface_context, surfaced_at),
+  KEY idx_mo_outcome (hire_outcome, hire_outcome_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE recommendation_signals (
+  recommendation_id  INT NOT NULL PRIMARY KEY,
+  word_count         INT NOT NULL,
+  generic_score      DECIMAL(3,2) NULL,
+  sentiment          DECIMAL(3,2) NULL,
+  themes             JSON NULL,
+  computed_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  classifier_version VARCHAR(40) NULL,
+  FOREIGN KEY (recommendation_id) REFERENCES recommendations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE ai_inference_log (
+  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  feature     VARCHAR(64) NOT NULL,
+  model       VARCHAR(64) NOT NULL,
+  prompt_hash CHAR(64) NOT NULL,
+  prompt      TEXT NOT NULL,
+  response    TEXT NOT NULL,
+  cost_pence  INT NULL,
+  latency_ms  INT NULL,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_ail_feature (feature, created_at),
+  KEY idx_ail_hash (prompt_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 USE `vetmybuilder_test_s1_4_w1`;
 
 CREATE TABLE IF NOT EXISTS _migrations (
@@ -1368,6 +1431,69 @@ CREATE INDEX idx_hires_homeowner    ON hires (homeownerUid);
 CREATE INDEX idx_hires_tradesman    ON hires (tradesmanUserId);
 CREATE INDEX idx_hires_status       ON hires (status);
 CREATE INDEX idx_hires_invite_token ON hires (inviteToken);
+
+-- ─────────────────────────────────────────────────────────────────────
+-- Project Lighthouse — AI Phase 2 (Tier 1 schema)
+-- See mysql_schema.sql / project-lighthouse plan slide 9 for rationale.
+-- ─────────────────────────────────────────────────────────────────────
+
+CREATE TABLE project_classifications (
+  id                 BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  project_id         INT NOT NULL,
+  classified_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  classifier_version VARCHAR(40) NOT NULL,
+  raw_description    TEXT NOT NULL,
+  structured         JSON NOT NULL,
+  cost_pence         INT NULL,
+  latency_ms         INT NULL,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  KEY idx_pc_project (project_id),
+  KEY idx_pc_version (classifier_version, classified_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE match_observations (
+  id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  project_id          INT NOT NULL,
+  tradesman_user_id   VARCHAR(255) NOT NULL,
+  surfaced_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  surface_context     VARCHAR(64) NOT NULL,
+  rank_position       INT NOT NULL,
+  match_score         DECIMAL(7,3) NULL,
+  homeowner_action    VARCHAR(32) NULL,
+  homeowner_action_at DATETIME NULL,
+  hire_outcome        VARCHAR(32) NULL,
+  hire_outcome_at     DATETIME NULL,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  KEY idx_mo_project (project_id),
+  KEY idx_mo_tradesman (tradesman_user_id),
+  KEY idx_mo_surface (surface_context, surfaced_at),
+  KEY idx_mo_outcome (hire_outcome, hire_outcome_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE recommendation_signals (
+  recommendation_id  INT NOT NULL PRIMARY KEY,
+  word_count         INT NOT NULL,
+  generic_score      DECIMAL(3,2) NULL,
+  sentiment          DECIMAL(3,2) NULL,
+  themes             JSON NULL,
+  computed_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  classifier_version VARCHAR(40) NULL,
+  FOREIGN KEY (recommendation_id) REFERENCES recommendations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE ai_inference_log (
+  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  feature     VARCHAR(64) NOT NULL,
+  model       VARCHAR(64) NOT NULL,
+  prompt_hash CHAR(64) NOT NULL,
+  prompt      TEXT NOT NULL,
+  response    TEXT NOT NULL,
+  cost_pence  INT NULL,
+  latency_ms  INT NULL,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_ail_feature (feature, created_at),
+  KEY idx_ail_hash (prompt_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 USE `vetmybuilder_test_s1_4_w2`;
 
 CREATE TABLE IF NOT EXISTS _migrations (
@@ -2053,6 +2179,69 @@ CREATE INDEX idx_hires_homeowner    ON hires (homeownerUid);
 CREATE INDEX idx_hires_tradesman    ON hires (tradesmanUserId);
 CREATE INDEX idx_hires_status       ON hires (status);
 CREATE INDEX idx_hires_invite_token ON hires (inviteToken);
+
+-- ─────────────────────────────────────────────────────────────────────
+-- Project Lighthouse — AI Phase 2 (Tier 1 schema)
+-- See mysql_schema.sql / project-lighthouse plan slide 9 for rationale.
+-- ─────────────────────────────────────────────────────────────────────
+
+CREATE TABLE project_classifications (
+  id                 BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  project_id         INT NOT NULL,
+  classified_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  classifier_version VARCHAR(40) NOT NULL,
+  raw_description    TEXT NOT NULL,
+  structured         JSON NOT NULL,
+  cost_pence         INT NULL,
+  latency_ms         INT NULL,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  KEY idx_pc_project (project_id),
+  KEY idx_pc_version (classifier_version, classified_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE match_observations (
+  id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  project_id          INT NOT NULL,
+  tradesman_user_id   VARCHAR(255) NOT NULL,
+  surfaced_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  surface_context     VARCHAR(64) NOT NULL,
+  rank_position       INT NOT NULL,
+  match_score         DECIMAL(7,3) NULL,
+  homeowner_action    VARCHAR(32) NULL,
+  homeowner_action_at DATETIME NULL,
+  hire_outcome        VARCHAR(32) NULL,
+  hire_outcome_at     DATETIME NULL,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  KEY idx_mo_project (project_id),
+  KEY idx_mo_tradesman (tradesman_user_id),
+  KEY idx_mo_surface (surface_context, surfaced_at),
+  KEY idx_mo_outcome (hire_outcome, hire_outcome_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE recommendation_signals (
+  recommendation_id  INT NOT NULL PRIMARY KEY,
+  word_count         INT NOT NULL,
+  generic_score      DECIMAL(3,2) NULL,
+  sentiment          DECIMAL(3,2) NULL,
+  themes             JSON NULL,
+  computed_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  classifier_version VARCHAR(40) NULL,
+  FOREIGN KEY (recommendation_id) REFERENCES recommendations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE ai_inference_log (
+  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  feature     VARCHAR(64) NOT NULL,
+  model       VARCHAR(64) NOT NULL,
+  prompt_hash CHAR(64) NOT NULL,
+  prompt      TEXT NOT NULL,
+  response    TEXT NOT NULL,
+  cost_pence  INT NULL,
+  latency_ms  INT NULL,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_ail_feature (feature, created_at),
+  KEY idx_ail_hash (prompt_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 USE `vetmybuilder_test_s1_4_w3`;
 
 CREATE TABLE IF NOT EXISTS _migrations (
@@ -2738,6 +2927,69 @@ CREATE INDEX idx_hires_homeowner    ON hires (homeownerUid);
 CREATE INDEX idx_hires_tradesman    ON hires (tradesmanUserId);
 CREATE INDEX idx_hires_status       ON hires (status);
 CREATE INDEX idx_hires_invite_token ON hires (inviteToken);
+
+-- ─────────────────────────────────────────────────────────────────────
+-- Project Lighthouse — AI Phase 2 (Tier 1 schema)
+-- See mysql_schema.sql / project-lighthouse plan slide 9 for rationale.
+-- ─────────────────────────────────────────────────────────────────────
+
+CREATE TABLE project_classifications (
+  id                 BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  project_id         INT NOT NULL,
+  classified_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  classifier_version VARCHAR(40) NOT NULL,
+  raw_description    TEXT NOT NULL,
+  structured         JSON NOT NULL,
+  cost_pence         INT NULL,
+  latency_ms         INT NULL,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  KEY idx_pc_project (project_id),
+  KEY idx_pc_version (classifier_version, classified_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE match_observations (
+  id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  project_id          INT NOT NULL,
+  tradesman_user_id   VARCHAR(255) NOT NULL,
+  surfaced_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  surface_context     VARCHAR(64) NOT NULL,
+  rank_position       INT NOT NULL,
+  match_score         DECIMAL(7,3) NULL,
+  homeowner_action    VARCHAR(32) NULL,
+  homeowner_action_at DATETIME NULL,
+  hire_outcome        VARCHAR(32) NULL,
+  hire_outcome_at     DATETIME NULL,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  KEY idx_mo_project (project_id),
+  KEY idx_mo_tradesman (tradesman_user_id),
+  KEY idx_mo_surface (surface_context, surfaced_at),
+  KEY idx_mo_outcome (hire_outcome, hire_outcome_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE recommendation_signals (
+  recommendation_id  INT NOT NULL PRIMARY KEY,
+  word_count         INT NOT NULL,
+  generic_score      DECIMAL(3,2) NULL,
+  sentiment          DECIMAL(3,2) NULL,
+  themes             JSON NULL,
+  computed_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  classifier_version VARCHAR(40) NULL,
+  FOREIGN KEY (recommendation_id) REFERENCES recommendations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE ai_inference_log (
+  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  feature     VARCHAR(64) NOT NULL,
+  model       VARCHAR(64) NOT NULL,
+  prompt_hash CHAR(64) NOT NULL,
+  prompt      TEXT NOT NULL,
+  response    TEXT NOT NULL,
+  cost_pence  INT NULL,
+  latency_ms  INT NULL,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_ail_feature (feature, created_at),
+  KEY idx_ail_hash (prompt_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 USE `vetmybuilder_test_s1_4_w4`;
 
 CREATE TABLE IF NOT EXISTS _migrations (
@@ -3423,3 +3675,66 @@ CREATE INDEX idx_hires_homeowner    ON hires (homeownerUid);
 CREATE INDEX idx_hires_tradesman    ON hires (tradesmanUserId);
 CREATE INDEX idx_hires_status       ON hires (status);
 CREATE INDEX idx_hires_invite_token ON hires (inviteToken);
+
+-- ─────────────────────────────────────────────────────────────────────
+-- Project Lighthouse — AI Phase 2 (Tier 1 schema)
+-- See mysql_schema.sql / project-lighthouse plan slide 9 for rationale.
+-- ─────────────────────────────────────────────────────────────────────
+
+CREATE TABLE project_classifications (
+  id                 BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  project_id         INT NOT NULL,
+  classified_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  classifier_version VARCHAR(40) NOT NULL,
+  raw_description    TEXT NOT NULL,
+  structured         JSON NOT NULL,
+  cost_pence         INT NULL,
+  latency_ms         INT NULL,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  KEY idx_pc_project (project_id),
+  KEY idx_pc_version (classifier_version, classified_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE match_observations (
+  id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  project_id          INT NOT NULL,
+  tradesman_user_id   VARCHAR(255) NOT NULL,
+  surfaced_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  surface_context     VARCHAR(64) NOT NULL,
+  rank_position       INT NOT NULL,
+  match_score         DECIMAL(7,3) NULL,
+  homeowner_action    VARCHAR(32) NULL,
+  homeowner_action_at DATETIME NULL,
+  hire_outcome        VARCHAR(32) NULL,
+  hire_outcome_at     DATETIME NULL,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  KEY idx_mo_project (project_id),
+  KEY idx_mo_tradesman (tradesman_user_id),
+  KEY idx_mo_surface (surface_context, surfaced_at),
+  KEY idx_mo_outcome (hire_outcome, hire_outcome_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE recommendation_signals (
+  recommendation_id  INT NOT NULL PRIMARY KEY,
+  word_count         INT NOT NULL,
+  generic_score      DECIMAL(3,2) NULL,
+  sentiment          DECIMAL(3,2) NULL,
+  themes             JSON NULL,
+  computed_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  classifier_version VARCHAR(40) NULL,
+  FOREIGN KEY (recommendation_id) REFERENCES recommendations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE ai_inference_log (
+  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  feature     VARCHAR(64) NOT NULL,
+  model       VARCHAR(64) NOT NULL,
+  prompt_hash CHAR(64) NOT NULL,
+  prompt      TEXT NOT NULL,
+  response    TEXT NOT NULL,
+  cost_pence  INT NULL,
+  latency_ms  INT NULL,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_ail_feature (feature, created_at),
+  KEY idx_ail_hash (prompt_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
