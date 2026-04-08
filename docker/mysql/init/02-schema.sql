@@ -706,7 +706,8 @@ CREATE TABLE project_classifications (
 CREATE TABLE match_observations (
   id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   project_id          INT NOT NULL,
-  tradesman_user_id   VARCHAR(255) NOT NULL,
+  recommendation_id   INT NULL,
+  tradesman_user_id   VARCHAR(255) NULL,
   surfaced_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   surface_context     VARCHAR(64) NOT NULL,
   rank_position       INT NOT NULL,
@@ -716,7 +717,9 @@ CREATE TABLE match_observations (
   hire_outcome        VARCHAR(32) NULL,
   hire_outcome_at     DATETIME NULL,
   FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (recommendation_id) REFERENCES recommendations(id) ON DELETE SET NULL,
   KEY idx_mo_project (project_id),
+  KEY idx_mo_recommendation (recommendation_id),
   KEY idx_mo_tradesman (tradesman_user_id),
   KEY idx_mo_surface (surface_context, surfaced_at),
   KEY idx_mo_outcome (hire_outcome, hire_outcome_at)
@@ -1454,7 +1457,8 @@ CREATE TABLE project_classifications (
 CREATE TABLE match_observations (
   id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   project_id          INT NOT NULL,
-  tradesman_user_id   VARCHAR(255) NOT NULL,
+  recommendation_id   INT NULL,
+  tradesman_user_id   VARCHAR(255) NULL,
   surfaced_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   surface_context     VARCHAR(64) NOT NULL,
   rank_position       INT NOT NULL,
@@ -1464,7 +1468,9 @@ CREATE TABLE match_observations (
   hire_outcome        VARCHAR(32) NULL,
   hire_outcome_at     DATETIME NULL,
   FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (recommendation_id) REFERENCES recommendations(id) ON DELETE SET NULL,
   KEY idx_mo_project (project_id),
+  KEY idx_mo_recommendation (recommendation_id),
   KEY idx_mo_tradesman (tradesman_user_id),
   KEY idx_mo_surface (surface_context, surfaced_at),
   KEY idx_mo_outcome (hire_outcome, hire_outcome_at)
@@ -2202,7 +2208,8 @@ CREATE TABLE project_classifications (
 CREATE TABLE match_observations (
   id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   project_id          INT NOT NULL,
-  tradesman_user_id   VARCHAR(255) NOT NULL,
+  recommendation_id   INT NULL,
+  tradesman_user_id   VARCHAR(255) NULL,
   surfaced_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   surface_context     VARCHAR(64) NOT NULL,
   rank_position       INT NOT NULL,
@@ -2212,7 +2219,9 @@ CREATE TABLE match_observations (
   hire_outcome        VARCHAR(32) NULL,
   hire_outcome_at     DATETIME NULL,
   FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (recommendation_id) REFERENCES recommendations(id) ON DELETE SET NULL,
   KEY idx_mo_project (project_id),
+  KEY idx_mo_recommendation (recommendation_id),
   KEY idx_mo_tradesman (tradesman_user_id),
   KEY idx_mo_surface (surface_context, surfaced_at),
   KEY idx_mo_outcome (hire_outcome, hire_outcome_at)
@@ -2950,7 +2959,8 @@ CREATE TABLE project_classifications (
 CREATE TABLE match_observations (
   id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   project_id          INT NOT NULL,
-  tradesman_user_id   VARCHAR(255) NOT NULL,
+  recommendation_id   INT NULL,
+  tradesman_user_id   VARCHAR(255) NULL,
   surfaced_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   surface_context     VARCHAR(64) NOT NULL,
   rank_position       INT NOT NULL,
@@ -2960,7 +2970,9 @@ CREATE TABLE match_observations (
   hire_outcome        VARCHAR(32) NULL,
   hire_outcome_at     DATETIME NULL,
   FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (recommendation_id) REFERENCES recommendations(id) ON DELETE SET NULL,
   KEY idx_mo_project (project_id),
+  KEY idx_mo_recommendation (recommendation_id),
   KEY idx_mo_tradesman (tradesman_user_id),
   KEY idx_mo_surface (surface_context, surfaced_at),
   KEY idx_mo_outcome (hire_outcome, hire_outcome_at)
@@ -3698,7 +3710,8 @@ CREATE TABLE project_classifications (
 CREATE TABLE match_observations (
   id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   project_id          INT NOT NULL,
-  tradesman_user_id   VARCHAR(255) NOT NULL,
+  recommendation_id   INT NULL,
+  tradesman_user_id   VARCHAR(255) NULL,
   surfaced_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   surface_context     VARCHAR(64) NOT NULL,
   rank_position       INT NOT NULL,
@@ -3708,7 +3721,9 @@ CREATE TABLE match_observations (
   hire_outcome        VARCHAR(32) NULL,
   hire_outcome_at     DATETIME NULL,
   FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (recommendation_id) REFERENCES recommendations(id) ON DELETE SET NULL,
   KEY idx_mo_project (project_id),
+  KEY idx_mo_recommendation (recommendation_id),
   KEY idx_mo_tradesman (tradesman_user_id),
   KEY idx_mo_surface (surface_context, surfaced_at),
   KEY idx_mo_outcome (hire_outcome, hire_outcome_at)

@@ -13,6 +13,9 @@
 // helper because each is short and clearer to read on its own.
 
 const { RespondHireSchema } = require("../../lib/validation");
+const {
+  recordHireOutcome,
+} = require("../../lib/observability/matchObservations");
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
@@ -44,7 +47,7 @@ module.exports = (router, ctx) => {
 
     try {
       const hireRows = await mysqlQuery(
-        `SELECT id, projectId, homeownerUid, tradesmanUserId, status
+        `SELECT id, projectId, homeownerUid, tradesmanUserId, recommendationId, status
            FROM hires
           WHERE id = ?
           LIMIT 1`,
@@ -124,6 +127,16 @@ module.exports = (router, ctx) => {
           hireId,
         });
       }
+
+      // Project Lighthouse telemetry — fire-and-forget outcome label
+      recordHireOutcome({
+        mysqlQuery,
+        projectId: hire.projectId,
+        recommendationId: hire.recommendationId,
+        tradesmanUserId: hire.tradesmanUserId,
+        outcome: "declined",
+        log,
+      });
 
       return res.status(200).json({
         ok: true,

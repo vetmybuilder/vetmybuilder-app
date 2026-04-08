@@ -13,6 +13,10 @@
  *   - companyEmail: the recommended company's contact email, used by the
  *     hire flow to send invitations. Hidden from non-owners.
  */
+const {
+  logSurfacings,
+} = require("../../lib/observability/matchObservations");
+
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery, extractLocationTokens } = ctx;
   const log = ctx.log || console;
@@ -216,6 +220,23 @@ module.exports = (router, ctx) => {
       log.info?.("[projects.recommendations] done", {
         projectId,
         count: items.length,
+      });
+
+      // Project Lighthouse telemetry — fire-and-forget. Logs every
+      // recommendation surfaced to a homeowner so the future re-ranker
+      // model has a labelled training row per (project, recommendation).
+      logSurfacings({
+        mysqlQuery,
+        projectId,
+        surfaceContext: "top_recommendations",
+        items: items.map((it) => ({
+          recommendationId: it.id,
+          // tradesmanUserId is unknown at this layer (recommendations are
+          // keyed by company name, not uid). Resolved later by the matcher.
+          tradesmanUserId: null,
+          score: it.score ?? null,
+        })),
+        log,
       });
 
       return res.json({

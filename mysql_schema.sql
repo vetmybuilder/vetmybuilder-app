@@ -736,9 +736,18 @@ CREATE TABLE project_classifications (
 CREATE TABLE match_observations (
   id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   project_id          INT NOT NULL,
-  tradesman_user_id   VARCHAR(255) NOT NULL,
+  -- The unit being surfaced. At least one of these MUST be set:
+  --   recommendation_id  : when the surface is the Top Recommendations card
+  --                        on the project view (builder is referenced via
+  --                        a company-name string, no uid yet)
+  --   tradesman_user_id  : when the surface knows the tradesman uid directly
+  --                        (jobs list, builder profile click-through, hires)
+  -- Both are set when an auto-match links a recommendation to an onboarded
+  -- tradesman during the hire flow.
+  recommendation_id   INT NULL,
+  tradesman_user_id   VARCHAR(255) NULL,
   surfaced_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  -- 'top_recommendations' | 'jobs_list' | 'search' | 'builder_profile_visit'
+  -- 'top_recommendations' | 'jobs_list' | 'search' | 'builder_profile_visit' | 'hire_created'
   surface_context     VARCHAR(64) NOT NULL,
   rank_position       INT NOT NULL,
   -- Whatever score we showed at the time (deterministic + later learned)
@@ -751,7 +760,9 @@ CREATE TABLE match_observations (
   hire_outcome_at     DATETIME NULL,
 
   FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (recommendation_id) REFERENCES recommendations(id) ON DELETE SET NULL,
   KEY idx_mo_project (project_id),
+  KEY idx_mo_recommendation (recommendation_id),
   KEY idx_mo_tradesman (tradesman_user_id),
   KEY idx_mo_surface (surface_context, surfaced_at),
   KEY idx_mo_outcome (hire_outcome, hire_outcome_at)

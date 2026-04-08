@@ -20,6 +20,9 @@
 
 const { CreateHireSchema } = require("../../lib/validation");
 const { resolveHireContact } = require("../../lib/hireContactResolution");
+const {
+  recordHomeownerAction,
+} = require("../../lib/observability/matchObservations");
 
 const HIRE_EXPIRY_DAYS = 7;
 
@@ -171,6 +174,15 @@ module.exports = (router, ctx) => {
           });
         }
 
+        // Project Lighthouse telemetry — fire-and-forget
+        recordHomeownerAction({
+          mysqlQuery,
+          projectId,
+          tradesmanUserId,
+          action: "hired",
+          log,
+        });
+
         return res.status(201).json({
           ok: true,
           hire: {
@@ -309,6 +321,16 @@ module.exports = (router, ctx) => {
           });
         }
 
+        // Project Lighthouse telemetry — both ids are known here
+        recordHomeownerAction({
+          mysqlQuery,
+          projectId,
+          recommendationId,
+          tradesmanUserId: matchedTradesman.user_id,
+          action: "hired",
+          log,
+        });
+
         return res.status(201).json({
           ok: true,
           hire: {
@@ -362,6 +384,15 @@ module.exports = (router, ctx) => {
 
       // No in-app notification — the recommendation isn't a user. Email send
       // and admin queue handling happen in later steps of the build.
+
+      // Project Lighthouse telemetry — pending_invite, recommendation only
+      recordHomeownerAction({
+        mysqlQuery,
+        projectId,
+        recommendationId,
+        action: "hired",
+        log,
+      });
 
       return res.status(201).json({
         ok: true,

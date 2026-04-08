@@ -10,6 +10,9 @@
 // Email send is wired up in a later step of the build.
 
 const { RespondHireSchema } = require("../../lib/validation");
+const {
+  recordHireOutcome,
+} = require("../../lib/observability/matchObservations");
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
@@ -41,7 +44,7 @@ module.exports = (router, ctx) => {
 
     try {
       const hireRows = await mysqlQuery(
-        `SELECT id, projectId, homeownerUid, tradesmanUserId, status
+        `SELECT id, projectId, homeownerUid, tradesmanUserId, recommendationId, status
            FROM hires
           WHERE id = ?
           LIMIT 1`,
@@ -121,6 +124,17 @@ module.exports = (router, ctx) => {
           hireId,
         });
       }
+
+      // Project Lighthouse telemetry — labels the matching observation row
+      // with the outcome (the most valuable single field on the table).
+      recordHireOutcome({
+        mysqlQuery,
+        projectId: hire.projectId,
+        recommendationId: hire.recommendationId,
+        tradesmanUserId: hire.tradesmanUserId,
+        outcome: "accepted",
+        log,
+      });
 
       return res.status(200).json({
         ok: true,
