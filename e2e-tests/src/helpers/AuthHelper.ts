@@ -1,5 +1,6 @@
 // src/helpers/AuthHelper.ts
 import { loginInAsHomeowner } from "../apiHelper/setupHomeownerSession";
+import { uiLoginAsUid } from "../apiHelper/uiAuth";
 
 export class AuthHelper {
   constructor(
@@ -43,6 +44,28 @@ export class AuthHelper {
       lastName: "Homeowner",
       location: "SW1A",
     });
+  }
+
+  /**
+   * Sign in as a fresh uid that has NO homeowner profile in MySQL.
+   * Mirrors the state of a user who just signed in via Google for the first
+   * time: authenticated, but missing first/last/username/postcode. Used to
+   * exercise the post-OAuth /signup/complete flow.
+   */
+  async loginAsUidWithoutProfile(uid?: string): Promise<{ uid: string }> {
+    const cleanUid = String(
+      uid || `oauth-incomplete-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    ).trim();
+
+    await uiLoginAsUid({
+      request: this.request,
+      apiBaseUrl: this.runtime.apiBaseUrl,
+      uiBaseUrl: this.runtime.webBaseUrl,
+      uid: cleanUid,
+      page: this.page,
+    });
+
+    return { uid: cleanUid };
   }
 
   /**

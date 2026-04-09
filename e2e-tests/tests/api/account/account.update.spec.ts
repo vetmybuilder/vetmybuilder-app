@@ -23,7 +23,7 @@ test.describe("Account APIs", () => {
     expect(await res.json()).toEqual({ ok: true });
   });
 
-  test("POST /api/account rejects empty values (required fields)", async ({
+  test("POST /api/account requires location (other fields are derived from token claims)", async ({
     request,
     runtime,
   }) => {
@@ -41,6 +41,10 @@ test.describe("Account APIs", () => {
     });
     expect(signup.status()).toBe(200);
 
+    // Only `location` is required from the client now — first/last/username
+    // are derived server-side from the Firebase token claims (Google `name`,
+    // email) when not supplied. So omitting them but providing a blank
+    // location should fail with a single fieldError on `location`.
     const res = await client.post("/api/account", {
       firstName: null,
       lastName: null,
@@ -51,11 +55,8 @@ test.describe("Account APIs", () => {
     expect(res.status()).toBe(400);
     expect(await res.json()).toEqual({
       error: "missing_required_fields",
-      message: "Please fill in all required fields.",
+      message: "Please enter your postcode or city.",
       fieldErrors: {
-        firstName: "First name is required.",
-        lastName: "Last name is required.",
-        username: "Username is required.",
         location: "Postcode or city is required.",
       },
     });
@@ -122,6 +123,41 @@ test.describe("Account APIs", () => {
       message: "That username is already taken.",
     });
   });
+
+  test("POST /api/account derives firstName/lastName/username from token claims when not supplied", async ({
+    request,
+    runtime,
+  }) => {
+    const baseUrl = runtime.apiBaseUrl;
+    const uid = `user-derive-${Date.now()}`;
+
+    const client = await authedApiForUid(request, baseUrl, uid);
+
+    // Send ONLY location — the server should derive the rest from the
+    // Firebase token claims (uid alone, in this E2E test). With no `name`
+    // claim it falls back to the email-localpart-as-firstName path.
+    const res = await client.post("/api/account", { location: "E4" });
+    expect(res.status()).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+
+    // Verify the user row got populated. firstName/lastName/username should
+    // all be non-null even though we didn't supply them.
+    const me = await client.get("/api/me");
+    expect(me.status()).toBe(200);
+    const meBody = await me.json();
+    expect(meBody.firstName).toBeTruthy();
+    expect(meBody.username).toBeTruthy();
+    expect(meBody.locationRaw).toBe("E4");
+    expect(meBody.postcodeOutward).toBe("E4");
+  });
+
+  // NOTE: the auto-username collision-suffix path is exercised in
+  // tests/server/account.post.spec.ts. We can't test it via E2E because the
+  // username derivation reads the `email` claim from the Firebase token, and
+  // the test-mint endpoint (`/api/__test__/auth/id-token`) only sets `uid`.
+  // Sending an explicit clashing username in the body just hits the legacy
+  // 409 path, which is already covered by the "enforces username uniqueness"
+  // test above.
 
   test("email availability check rejects an existing email", async ({
     request,
