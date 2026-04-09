@@ -89,3 +89,4 @@ scripts/sim/fixtures/builder-photos/
 pitch-deck/
 project-lighthouse/
 project-vault/
+.playwright-mcp/

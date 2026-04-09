@@ -1,6 +1,6 @@
 import { test, expect } from "../../../src/ui.fixtures";
 import {
-  createAuthUser,
+  createHomeownerUser,
   generatePasswordResetCode,
 } from "../../../src/helpers/FirebaseSeed";
 import { getPasswordResetCode } from "../../../src/helpers/EmulatorHelper";
@@ -9,14 +9,23 @@ import Account from "../../../src/models/Account";
 test.describe("Forgot password", () => {
   let testEmail: string;
 
-  test.beforeEach(async () => {
+  test.beforeEach(async ({ page, runtime }) => {
     const account = Account.anAccount()
       .withRandomDetails()
       .withEmail(`reset+${Date.now()}@test.com`)
       .withStrongPassword();
 
     testEmail = account.requiredEmail;
-    await createAuthUser(testEmail, account.requiredPassword);
+
+    // Create a complete homeowner so they can sign in and land cleanly on
+    // /projects after the password reset (not /signup/complete).
+    await createHomeownerUser(page.request, runtime.apiBaseUrl, {
+      email: testEmail,
+      password: account.requiredPassword,
+      firstName: account.firstName,
+      lastName: account.lastName,
+      location: account.location,
+    });
   });
 
   test("user can request a password reset link, set a strong new password, and sign in successfully", async ({
@@ -45,7 +54,7 @@ test.describe("Forgot password", () => {
     // 5. Sign in with the new password
     await basePage.logoutViaUrl();
     await loginPage.loginExpectSuccess(testEmail, Account.STRONG_PASSWORD);
-    await homeownerProjectsPage.waitUntilReady();
+    await homeownerProjectsPage.expectVisible();
   });
 
   test("shows success screen even for an unknown email", async ({
@@ -117,6 +126,6 @@ test.describe("Forgot password", () => {
     await expect(forgotPasswordPage.card).not.toBeVisible({ timeout: 8_000 });
 
     // Should land on the projects dashboard
-    await homeownerProjectsPage.waitUntilReady();
+    await homeownerProjectsPage.expectVisible();
   });
 });
