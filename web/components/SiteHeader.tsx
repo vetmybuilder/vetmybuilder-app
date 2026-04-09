@@ -23,13 +23,11 @@ function computeInitials(u: any | null | undefined): string | undefined {
     return out || undefined;
   }
 
-  const dn = (u.displayName || "").trim();
-  if (dn) {
-    const parts = dn.split(/\s+/).filter(Boolean);
-    return (
-      parts[0]?.[0] + (parts[1]?.[0] || "") || dn.slice(0, 2)
-    ).toUpperCase();
-  }
+  // NOTE: we deliberately do NOT fall back to Firebase's `displayName` here.
+  // For Google OAuth users mid-signup, displayName is the Google profile name
+  // even though the homeowner profile (firstName/lastName/username) hasn't
+  // been captured yet — falling back would leak Google initials into the
+  // header before the user has actually finished signing up.
 
   const un = (u.username || "").trim();
   if (un) {
@@ -120,7 +118,7 @@ function getProjectsTabKey(
 }
 
 export default function SiteHeader() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, profileComplete } = useAuth();
   const api = useApi();
   const router = useRouter();
 
@@ -147,7 +145,17 @@ export default function SiteHeader() {
   // change as soon as signInWithEmailAndPassword resolves, so the avatar would
   // briefly flash before the role check and redirect/reload complete.
   const isLoginPage = router.pathname === "/login";
-  const displayUser = (isRoleErrorPage || isLoginPage) ? null : user;
+
+  // Suppress the account chrome (avatar, notifications, Post-a-Job) once we
+  // KNOW the user is authed at the Firebase layer but hasn't finished
+  // homeowner signup yet — i.e. /api/me has explicitly returned with no
+  // postcode. profileComplete === null means we're still fetching /api/me;
+  // in that case we leave the header alone to avoid flashing on every
+  // page load for returning users with a complete profile.
+  const isMidSignup = !!user && profileComplete === false;
+
+  const displayUser =
+    isRoleErrorPage || isLoginPage || isMidSignup ? null : user;
 
 
   const isHome = router.pathname === "/";

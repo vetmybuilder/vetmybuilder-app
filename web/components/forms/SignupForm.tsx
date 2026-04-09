@@ -9,6 +9,7 @@ import { useAuth } from "@/utils/auth";
 import { ensureEmailAvailable } from "@/utils/email";
 import RegisterField from "./RegisterField";
 import LocationField from "@/components/forms/LocationField";
+import OAuthSignInButton from "@/components/forms/OAuthSignInButton";
 import PasswordChecklist, {
   isStrongPassword,
 } from "@/components/forms/PasswordChecklist";
@@ -44,7 +45,7 @@ const STRONG_PASSWORD_MESSAGE =
 export default function SignupForm() {
   const api = useApi();
   const router = useRouter();
-  const { hydrateFromSignup } = useAuth();
+  const { hydrateFromSignup, refreshProfile } = useAuth();
 
   const explicitNext = useMemo(() => {
     if (!router.isReady) return null;
@@ -235,6 +236,14 @@ export default function SignupForm() {
         email,
       });
 
+      // Re-hydrate the auth context from /api/me so profileComplete flips
+      // to true before we navigate. Without this, AuthedOnly on /projects
+      // would see the stale profileComplete=false (set when /api/me fired
+      // immediately after createUserWithEmailAndPassword, before our POST
+      // /api/account had a chance to upsert the postcode) and bounce the
+      // brand-new user back to /signup/complete.
+      await refreshProfile();
+
       const target = nextPath || "/projects";
 
       try {
@@ -281,15 +290,33 @@ export default function SignupForm() {
   };
 
   return (
-    <form
-      className="grid gap-4"
-      onSubmit={onSubmit}
-      noValidate
-      aria-label="Create account form"
-      aria-describedby="register-help"
-      aria-busy={loading ? "true" : "false"}
-      data-testid="register-form"
-    >
+    <div className="grid gap-4">
+      <OAuthSignInButton
+        provider="google"
+        returnTo={nextPath}
+        onError={(msg) => setErr(msg)}
+      />
+      <OAuthSignInButton
+        provider="facebook"
+        returnTo={nextPath}
+        onError={(msg) => setErr(msg)}
+      />
+
+      <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-zinc-400">
+        <div className="h-px flex-1 bg-zinc-200" />
+        <span>or sign up with email</span>
+        <div className="h-px flex-1 bg-zinc-200" />
+      </div>
+
+      <form
+        className="grid gap-4"
+        onSubmit={onSubmit}
+        noValidate
+        aria-label="Create account form"
+        aria-describedby="register-help"
+        aria-busy={loading ? "true" : "false"}
+        data-testid="register-form"
+      >
       <p id="register-help" className="sr-only">
         All fields marked as required must be completed to create your account.
       </p>
@@ -420,6 +447,7 @@ export default function SignupForm() {
           Sign in
         </Link>
       </p>
-    </form>
+      </form>
+    </div>
   );
 }
