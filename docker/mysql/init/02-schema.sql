@@ -749,6 +749,17 @@ CREATE TABLE ai_inference_log (
   KEY idx_ail_feature (feature, created_at),
   KEY idx_ail_hash (prompt_hash)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE builder_summaries (
+  id                  INT AUTO_INCREMENT PRIMARY KEY,
+  company             VARCHAR(255) NOT NULL,
+  bullets             JSON         NOT NULL,
+  recommendation_count INT         NOT NULL,
+  recommendation_ids  JSON         NOT NULL,
+  classifier_version  VARCHAR(40)  NOT NULL,
+  computed_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_company (company)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 USE `vetmybuilder_test_s1_4_w1`;
 
 CREATE TABLE IF NOT EXISTS _migrations (
@@ -1499,6 +1510,17 @@ CREATE TABLE ai_inference_log (
   created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY idx_ail_feature (feature, created_at),
   KEY idx_ail_hash (prompt_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE builder_summaries (
+  id                  INT AUTO_INCREMENT PRIMARY KEY,
+  company             VARCHAR(255) NOT NULL,
+  bullets             JSON         NOT NULL,
+  recommendation_count INT         NOT NULL,
+  recommendation_ids  JSON         NOT NULL,
+  classifier_version  VARCHAR(40)  NOT NULL,
+  computed_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_company (company)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 USE `vetmybuilder_test_s1_4_w2`;
 
@@ -2251,6 +2273,17 @@ CREATE TABLE ai_inference_log (
   KEY idx_ail_feature (feature, created_at),
   KEY idx_ail_hash (prompt_hash)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE builder_summaries (
+  id                  INT AUTO_INCREMENT PRIMARY KEY,
+  company             VARCHAR(255) NOT NULL,
+  bullets             JSON         NOT NULL,
+  recommendation_count INT         NOT NULL,
+  recommendation_ids  JSON         NOT NULL,
+  classifier_version  VARCHAR(40)  NOT NULL,
+  computed_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_company (company)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 USE `vetmybuilder_test_s1_4_w3`;
 
 CREATE TABLE IF NOT EXISTS _migrations (
@@ -3002,6 +3035,17 @@ CREATE TABLE ai_inference_log (
   KEY idx_ail_feature (feature, created_at),
   KEY idx_ail_hash (prompt_hash)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE builder_summaries (
+  id                  INT AUTO_INCREMENT PRIMARY KEY,
+  company             VARCHAR(255) NOT NULL,
+  bullets             JSON         NOT NULL,
+  recommendation_count INT         NOT NULL,
+  recommendation_ids  JSON         NOT NULL,
+  classifier_version  VARCHAR(40)  NOT NULL,
+  computed_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_company (company)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 USE `vetmybuilder_test_s1_4_w4`;
 
 CREATE TABLE IF NOT EXISTS _migrations (
@@ -3752,4 +3796,15 @@ CREATE TABLE ai_inference_log (
   created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY idx_ail_feature (feature, created_at),
   KEY idx_ail_hash (prompt_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE builder_summaries (
+  id                  INT AUTO_INCREMENT PRIMARY KEY,
+  company             VARCHAR(255) NOT NULL,
+  bullets             JSON         NOT NULL,
+  recommendation_count INT         NOT NULL,
+  recommendation_ids  JSON         NOT NULL,
+  classifier_version  VARCHAR(40)  NOT NULL,
+  computed_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_company (company)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

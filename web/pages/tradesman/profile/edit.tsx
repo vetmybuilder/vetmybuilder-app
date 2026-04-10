@@ -1,8 +1,9 @@
 import Head from "next/head";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
+import { getCoachingTips } from "@/utils/coachingTips";
 
 import Step1Company, {
   type Step1Form,
@@ -224,6 +225,23 @@ function Inner() {
   }
 
   const title = form.companyName || "Edit profile";
+
+  const tips = useMemo(() => {
+    const p = profile;
+    if (!p) return [];
+    const socialsArray = parseSocials(p.social_links_json);
+    return getCoachingTips({
+      photoCount: (p.photo_urls?.length ?? 0),
+      chStatus: (p.ch_status as any) ?? null,
+      warrantyMonths: p.warranty_months ?? null,
+      trades: parseCsv(p.trade_types),
+      serviceAreas: parseCsv(p.service_areas),
+      supportingDocCount: 0, // not on RawProfile — will surface the tip
+      websiteUrl: p.web_url ?? null,
+      socialLinks: socialsArray,
+      offersDiscount: !!p.offers_discount,
+    });
+  }, [profile]);
 
   // simple setter helper
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => {
@@ -552,6 +570,22 @@ function Inner() {
               {err && (
                 <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 whitespace-pre-line">
                   {err}
+                </div>
+              )}
+
+              {tips.length > 0 && (
+                <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+                  <p className="text-sm font-semibold text-amber-900">
+                    Boost your profile — {tips.length} quick win{tips.length === 1 ? "" : "s"}
+                  </p>
+                  <ul className="mt-2 space-y-1">
+                    {tips.map((tip) => (
+                      <li key={tip.key} className="flex items-start gap-2 text-sm text-amber-800">
+                        <span className="mt-0.5 text-amber-500">•</span>
+                        {tip.message}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
 

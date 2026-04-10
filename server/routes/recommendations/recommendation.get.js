@@ -235,6 +235,32 @@ module.exports = (router, ctx) => {
       // ===== SAFE PROJECT LOCATION (MASKED) =====
       const safeProjectLocation = formatPostcode(row.projectLocation);
 
+      // ===== Builder summary =====
+      let summary = null;
+      if (row.company) {
+        try {
+          const summaryRows = await mysqlQuery(
+            `SELECT bullets, recommendation_count, computed_at
+               FROM builder_summaries
+              WHERE company = ?
+              LIMIT 1`,
+            [row.company],
+          );
+          if (summaryRows.length > 0) {
+            summary = {
+              bullets: JSON.parse(summaryRows[0].bullets),
+              recommendationCount: summaryRows[0].recommendation_count,
+              computedAt: summaryRows[0].computed_at,
+            };
+          }
+        } catch (err) {
+          log.warn?.(`${TAG} summary lookup failed`, {
+            company: row.company,
+            error: err?.message,
+          });
+        }
+      }
+
       // ===== Build final response =====
       const recommendation = {
         id: row.id,
@@ -258,6 +284,8 @@ module.exports = (router, ctx) => {
           name: row.projectName,
           location: safeProjectLocation,
         },
+
+        summary,  // null if no summary exists
       };
 
       log.info?.(`${TAG} success`, { recId });

@@ -212,6 +212,7 @@ function buildRouter(ctx) {
   require("./routes/admin/pending-payments.get")(router, ctx);
   require("./routes/admin/subscription.approve.post")(router, ctx);
   require("./routes/admin/subscription.reject.post")(router, ctx);
+  require("./routes/admin/compute-builder-summaries.post")(router, ctx);
 
   return router;
 }

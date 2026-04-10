@@ -3,6 +3,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
+import { getCoachingTips } from "@/utils/coachingTips";
+import type { VendorForScoring } from "@/utils/vendorScoring";
 import TradesmanProjectAccordionRow from "@/components/tradesmen/TradesmanProjectAccordionRow";
 import TradesmanOnly from "@/components/TradesmanOnly";
 
@@ -49,6 +51,45 @@ export default function TradesmanProjects() {
 
   // which project row is expanded (accordion)
   const [openId, setOpenId] = useState<number | null>(null);
+
+  // ---- coaching tips: fetch tradesman profile ----
+  const [meProfile, setMeProfile] = useState<VendorForScoring | null>(null);
+
+  useEffect(() => {
+    if (!user || loading) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const { data } = await api.get("/api/tradesmen/me");
+        if (cancelled) return;
+        if (data?.profile) {
+          const p = data.profile;
+          const mapped: VendorForScoring = {
+            photoCount: p.photo_count ?? 0,
+            chStatus: p.ch_status ?? null,
+            warrantyMonths: p.warranty_months ?? null,
+            trades: p.trade_types ? String(p.trade_types).split(",").filter(Boolean) : [],
+            serviceAreas: p.service_areas ? String(p.service_areas).split(",").filter(Boolean) : [],
+            supportingDocCount: p.supporting_doc_count ?? 0,
+            websiteUrl: p.web_url ?? null,
+            socialLinks: p.social_links_json ? JSON.parse(p.social_links_json) : [],
+            offersDiscount: !!p.offers_discount,
+          };
+          setMeProfile(mapped);
+        }
+      } catch {
+        // non-critical — coaching tips just won't show
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [user, loading, api]);
+
+  const tips = useMemo(
+    () => (meProfile ? getCoachingTips(meProfile) : []),
+    [meProfile]
+  );
 
   const canQuery = useMemo(() => !!user && !loading, [user, loading]);
 
@@ -171,6 +212,33 @@ export default function TradesmanProjects() {
             </Link>
           </div>
         </div>
+
+        {/* Coaching tips */}
+        {gate === "none" && tips.length > 0 && (
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-amber-900">
+                  Boost your profile — {tips.length} quick win{tips.length === 1 ? "" : "s"}
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {tips.map((tip) => (
+                    <li key={tip.key} className="flex items-start gap-2 text-sm text-amber-800">
+                      <span className="mt-0.5 text-amber-500">•</span>
+                      {tip.message}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <Link
+                href="/tradesman/profile/edit"
+                className="flex-shrink-0 rounded-full bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+              >
+                Edit profile
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* NOT SIGNED IN */}
         {!user && !loading && (
