@@ -1,5 +1,3 @@
-// e2e-tests/tests/api/project/job-matching.spec.ts
-//
 // Verifies that GET /api/tradesmen/jobs:
 //   1. Includes a numeric `matchScore` on every item
 //   2. Returns items sorted by matchScore DESC
