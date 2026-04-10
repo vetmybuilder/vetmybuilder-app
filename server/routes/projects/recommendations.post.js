@@ -37,6 +37,8 @@ module.exports = (router, ctx) => {
     getCompanyProfile: ctxGetCompanyProfile,
   } = ctx;
 
+  const { computeRecommendationSignals } = require("../../lib/ai/recommendationSignaller");
+
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
   const path = nodePath || require("node:path");
@@ -323,6 +325,14 @@ module.exports = (router, ctx) => {
             e?.message || e
           );
         }
+
+        /* ---------- Fire-and-forget: compute recommendation signals ---------- */
+        computeRecommendationSignals({
+          mysqlQuery,
+          recommendationId,
+          comment,
+          log: console,
+        }).catch(() => {});
 
         /* ---------- Auto-like by recommender (unless owner) ---------- */
 
