@@ -93,3 +93,5 @@ pitch-deck/
 project-lighthouse/
 project-vault/
 docs/superpowers/
+.superpowers/
+.playwright-mcp/

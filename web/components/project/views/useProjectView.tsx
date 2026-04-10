@@ -62,6 +62,7 @@ export function useProjectView() {
     | undefined;
 
   const [project, setProject] = useState<Project | null>(null);
+  const [classification, setClassification] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [flash, setFlash] = useState<Flash | null>(null);
@@ -164,11 +165,13 @@ export function useProjectView() {
         const { data } = await api.get(`/api/projects/${projectId}`);
         if (!alive) return;
         setProject(data.project);
+        setClassification(data.classification || null);
       } catch (e: any) {
         if (!alive) return;
         const status = e?.status ?? e?.response?.status ?? 500;
         setErrorStatus(status);
         setProject(null);
+        setClassification(null);
       } finally {
         if (alive) setLoading(false);
       }
@@ -629,6 +632,7 @@ export function useProjectView() {
 
   return {
     project,
+    classification,
     loading,
     errorStatus,
     flash,

@@ -101,9 +101,28 @@ module.exports = (router, ctx) => {
           return res.status(401).json({ error: "missing_bearer_token" });
         }
 
+        // --------------------------------------------------
+        // Classification (AI insights)
+        // --------------------------------------------------
+        let classification = null;
+        try {
+          const classRows = await mysqlQuery(
+            `SELECT structured FROM project_classifications
+             WHERE project_id = ? ORDER BY classified_at DESC LIMIT 1`,
+            [projectId],
+          );
+          if (classRows.length > 0 && classRows[0].structured) {
+            classification = typeof classRows[0].structured === "string"
+              ? JSON.parse(classRows[0].structured)
+              : classRows[0].structured;
+          }
+        } catch (err) {
+          log.warn({ err: err?.message }, "classification lookup failed");
+        }
+
         res.set("Cache-Control", "no-store");
         log.info("Anonymous viewer accessing live project");
-        return res.json({ project });
+        return res.json({ project, classification });
       }
 
       // --------------------------------------------------
@@ -116,13 +135,32 @@ module.exports = (router, ctx) => {
         return res.status(404).json({ error: "not_found" });
       }
 
+      // --------------------------------------------------
+      // Classification (AI insights)
+      // --------------------------------------------------
+      let classification = null;
+      try {
+        const classRows = await mysqlQuery(
+          `SELECT structured FROM project_classifications
+           WHERE project_id = ? ORDER BY classified_at DESC LIMIT 1`,
+          [projectId],
+        );
+        if (classRows.length > 0 && classRows[0].structured) {
+          classification = typeof classRows[0].structured === "string"
+            ? JSON.parse(classRows[0].structured)
+            : classRows[0].structured;
+        }
+      } catch (err) {
+        log.warn({ err: err?.message }, "classification lookup failed");
+      }
+
       res.set("Cache-Control", "no-store");
       log.info("Authenticated viewer accessing project", {
         isOwner,
         status,
       });
 
-      return res.json({ project });
+      return res.json({ project, classification });
     }
   );
 };

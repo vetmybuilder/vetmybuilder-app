@@ -51,6 +51,63 @@ export default function TradesmanProjectView({ vm }: { vm: VM }) {
         </div>
       )}
 
+      {/* === Project Insights (AI classification) === */}
+      {vm.classification && (
+        <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-6 border-l-4 border-violet-500 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-base">✨</span>
+              <h3 className="text-sm font-bold text-zinc-900">Project Insights</h3>
+            </div>
+            <span className="text-[10px] text-zinc-400">AI-generated</span>
+          </div>
+
+          <div className="flex flex-wrap gap-2 mb-4">
+            {vm.classification.type && (
+              <span className="bg-violet-100 text-violet-700 text-xs font-semibold px-3 py-1 rounded-full">
+                {vm.classification.type}
+              </span>
+            )}
+            {vm.classification.scope && (
+              <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full">
+                {vm.classification.scope.charAt(0).toUpperCase() + vm.classification.scope.slice(1)} scope
+              </span>
+            )}
+            {vm.classification.complexity && (
+              <span className="bg-amber-100 text-amber-700 text-xs font-semibold px-3 py-1 rounded-full">
+                {vm.classification.complexity.charAt(0).toUpperCase() + vm.classification.complexity.slice(1)}
+              </span>
+            )}
+            {vm.classification.urgency && (
+              <span className="bg-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-1 rounded-full">
+                {vm.classification.urgency.charAt(0).toUpperCase() + vm.classification.urgency.slice(1)}
+              </span>
+            )}
+          </div>
+
+          <div className="grid gap-2 text-sm">
+            {vm.classification.recommended_trades?.length > 0 && (
+              <div className="flex gap-2">
+                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wide min-w-[100px] pt-0.5">Trades</span>
+                <span className="text-zinc-600">{vm.classification.recommended_trades.join(", ")}</span>
+              </div>
+            )}
+            {vm.classification.key_concerns?.length > 0 && (
+              <div className="flex gap-2">
+                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wide min-w-[100px] pt-0.5">Concerns</span>
+                <span className="text-zinc-600">{vm.classification.key_concerns.join(", ")}</span>
+              </div>
+            )}
+            {vm.classification.summary && (
+              <div className="flex gap-2">
+                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wide min-w-[100px] pt-0.5">Summary</span>
+                <span className="text-zinc-600 italic">{vm.classification.summary}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-6 grid-cols-1 lg:[grid-template-columns:580px_minmax(0,1fr)]">
         <div>
           <ProjectDetailsCard
