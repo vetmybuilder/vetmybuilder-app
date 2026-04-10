@@ -15,8 +15,6 @@ test.describe("Recommendation signals", () => {
     const rec = Recommendation.aRecommendation().withRandomDetails();
     await projectRecommendationApi.createRecommendation(project.id, rec.toPayload());
 
-    // The signaller runs fire-and-forget. Trigger the admin batch route
-    // to ensure any missed signals are computed, then verify.
     const batchRes = await adminApiClient.post(
       "/api/admin/compute-recommendation-signals",
     );
@@ -24,8 +22,6 @@ test.describe("Recommendation signals", () => {
     const batch = await batchRes.json();
     expect(batch.ok).toBe(true);
 
-    // Either the fire-and-forget already computed it (skipped by batch)
-    // or the batch just computed it. Either way, total should be accounted for.
     expect(batch.computed + batch.skipped).toBeGreaterThanOrEqual(0);
     expect(batch.failed).toBe(0);
   });
