@@ -28,8 +28,6 @@ test.describe("GET /api/projects/:id — classification", () => {
       Project.aProject().withRandomDetails().toApiPayload(),
     );
 
-    // Fetch immediately — classification may not exist yet.
-    // The endpoint must never error; classification is null or valid.
     const fetched = await projectApi.getProject(project.id);
     expect(fetched).toBeTruthy();
   });
