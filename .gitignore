@@ -90,3 +90,6 @@ pitch-deck/
 project-lighthouse/
 project-vault/
 .playwright-mcp/
+.superpowers/
+docs/
+e2e-tests/test-results-pw-ui-1/
