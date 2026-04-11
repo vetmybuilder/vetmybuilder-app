@@ -85,6 +85,21 @@ module.exports = (router, ctx) => {
     res.json({ project: updated });
 
     // ---- BACKGROUND NOTIFICATIONS ----
+    // Notify matched tradesmen first — this doesn't depend on location
+    // token extraction so it must run even if the homeowner-area
+    // notification block exits early below.
+    notifyMatchedTradesmen({
+      mysqlQuery,
+      projectId: id,
+      projectName: updated.name,
+      projectType: updated.type,
+      projectLocation: updated.location,
+      projectCreatedAt: updated.createdAt,
+      log,
+    }).catch((err) => {
+      log.warn?.("[projects.publish] notifyMatchedTradesmen error", err);
+    });
+
     try {
       const locTokens = extractLocationTokens(updated.location);
       log.info?.("[projects.publish] locTokens", { id, locTokens });
@@ -214,19 +229,6 @@ module.exports = (router, ctx) => {
           log.warn?.("[projects.publish] notifyUsers legacy error", err);
         }
       }
-
-      // ---- Notify matched tradesmen (AI-powered matching) ----
-      notifyMatchedTradesmen({
-        mysqlQuery,
-        projectId: id,
-        projectName: updated.name,
-        projectType: updated.type,
-        projectLocation: updated.location,
-        projectCreatedAt: updated.createdAt,
-        log,
-      }).catch((err) => {
-        log.warn?.("[projects.publish] notifyMatchedTradesmen error", err);
-      });
 
       log.info?.("[projects.publish] done", { id });
     } catch (err) {

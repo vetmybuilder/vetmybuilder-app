@@ -57,9 +57,10 @@ module.exports = (router, ctx) => {
           }
 
           // Fetch the actual comments
+          const placeholders = recIds.map(() => "?").join(",");
           const recs = await mysqlQuery(
-            `SELECT id, comment FROM recommendations WHERE id IN (?) ORDER BY id`,
-            [recIds],
+            `SELECT id, comment FROM recommendations WHERE id IN (${placeholders}) ORDER BY id`,
+            recIds,
           );
           const comments = recs
             .map((r) => String(r.comment || "").trim())
