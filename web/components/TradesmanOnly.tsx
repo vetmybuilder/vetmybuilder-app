@@ -2,10 +2,10 @@
 // Only logged-in tradesmen may see the wrapped page.
 // Guests are redirected to /tradesman/login.
 // Logged-in homeowners are redirected to /projects.
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "@/utils/auth";
-import { useRole } from "@/utils/useRole";
+import { useApi } from "@/utils/api";
 
 export default function TradesmanOnly({
   children,
@@ -13,24 +13,44 @@ export default function TradesmanOnly({
   children: React.ReactNode;
 }) {
   const { user, loading: authLoading } = useAuth();
-  const { role, loading: roleLoading } = useRole();
+  const api = useApi();
   const router = useRouter();
+  const [verified, setVerified] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (authLoading || roleLoading) return;
+    if (authLoading) return;
 
     if (!user) {
       router.replace("/tradesman/login");
       return;
     }
 
-    if (role !== "tradesman") {
-      router.replace("/projects");
-    }
-  }, [authLoading, roleLoading, user, role, router]);
+    // Always verify with the API — sessionStorage cache is unreliable
+    // during signup flows where SiteHeader can overwrite it.
+    let alive = true;
+    api
+      .get("/api/tradesmen/me")
+      .then(({ data }) => {
+        if (!alive) return;
+        const isTradesman =
+          String(data?.role || "").toLowerCase() === "tradesman" ||
+          !!data?.profile;
+        if (isTradesman) {
+          try { sessionStorage.setItem("vmb:isTradesman", "1"); } catch {}
+          setVerified(true);
+        } else {
+          router.replace("/projects");
+        }
+      })
+      .catch(() => {
+        if (alive) router.replace("/projects");
+      });
 
-  if (authLoading || roleLoading) return null;
-  if (!user || role !== "tradesman") return null;
+    return () => { alive = false; };
+  }, [authLoading, user, api, router]);
+
+  if (authLoading) return null;
+  if (!user || !verified) return null;
 
   return <>{children}</>;
 }

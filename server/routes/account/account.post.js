@@ -56,6 +56,15 @@ module.exports = (router, ctx) => {
     const log = withRequest(req);
     const uid = req.user.uid;
 
+    // Beta access code check — only enforced when BETA_CODE is set and not in test mode
+    const requiredCode = process.env.BETA_CODE;
+    if (requiredCode && !process.env.ENABLE_TEST_ROUTES) {
+      const provided = String(req.body?.betaCode || "").trim();
+      if (provided !== requiredCode) {
+        return res.status(403).json({ ok: false, error: "invalid_beta_code" });
+      }
+    }
+
     const claimName = String(req.user.name || "").trim();
     const claimEmail = String(req.user.email || "").trim();
 

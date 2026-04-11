@@ -146,13 +146,22 @@ export default function SiteHeader() {
   // briefly flash before the role check and redirect/reload complete.
   const isLoginPage = router.pathname === "/login";
 
+  const [isTrades, setIsTrades] = useState(() => {
+    try {
+      return sessionStorage.getItem("vmb:isTradesman") === "1";
+    } catch { return false; }
+  });
+  const [company, setCompany] = useState<string | null>(null);
+  const [roleChecked, setRoleChecked] = useState(false);
+
   // Suppress the account chrome (avatar, notifications, Post-a-Job) once we
   // KNOW the user is authed at the Firebase layer but hasn't finished
   // homeowner signup yet — i.e. /api/me has explicitly returned with no
   // postcode. profileComplete === null means we're still fetching /api/me;
   // in that case we leave the header alone to avoid flashing on every
   // page load for returning users with a complete profile.
-  const isMidSignup = !!user && profileComplete === false;
+  // Tradesmen don't need a postcode, so skip this for them.
+  const isMidSignup = !!user && profileComplete === false && !isTrades;
 
   const displayUser =
     isRoleErrorPage || isLoginPage || isMidSignup ? null : user;
@@ -168,10 +177,6 @@ export default function SiteHeader() {
       router.pathname !== "/tradesman/[id]") ||
     (router.pathname === "/login" &&
       String(router.query.next || "").includes("/tradesman/"));
-
-  const [isTrades, setIsTrades] = useState(false);
-  const [company, setCompany] = useState<string | null>(null);
-  const [roleChecked, setRoleChecked] = useState(false);
 
   // Seed from sessionStorage on client to avoid blink on subsequent loads
   useEffect(() => {
@@ -193,13 +198,17 @@ export default function SiteHeader() {
     let alive = true;
 
     if (!displayUser) {
-      setIsTrades(false);
-      setCompany(null);
+      // Only clear the tradesman flag if the user is truly signed out,
+      // not just suppressed due to mid-signup display logic
+      if (!user) {
+        setIsTrades(false);
+        setCompany(null);
+        try {
+          sessionStorage.setItem("vmb:isTradesman", "0");
+          sessionStorage.removeItem("vmb:tradesCo");
+        } catch {}
+      }
       setRoleChecked(true);
-      try {
-        sessionStorage.setItem("vmb:isTradesman", "0");
-        sessionStorage.removeItem("vmb:tradesCo");
-      } catch {}
       return;
     }
 

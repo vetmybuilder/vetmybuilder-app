@@ -79,7 +79,15 @@ export default function Login() {
     // /signup/complete kicked in — a visible flash.
     if (profileComplete === null) return;
 
-    if (profileComplete === false) {
+    // Tradesman SSO: check before the homeowner profileComplete gate
+    let oauthRole: string | null = null;
+    try { oauthRole = sessionStorage.getItem("vmb:oauthRole"); } catch {}
+    if (oauthRole === "tradesman") {
+      router.replace("/tradesman/signup/complete");
+      return;
+    }
+
+    if (profileComplete === false && role !== "tradesman") {
       router.replace("/signup/complete");
       return;
     }

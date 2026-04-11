@@ -27,9 +27,26 @@ export default function GuestOnly({
     // in — a visible flash.
     if (profileComplete === null) return;
 
-    // Mid-signup users (Firebase-authed but no homeowner profile yet) go
-    // straight to the post-OAuth completion page.
-    if (profileComplete === false) {
+    // Tradesman SSO: check before the homeowner profileComplete gate,
+    // otherwise a new Google user (no homeowner row) would be sent to
+    // /signup/complete instead of /tradesman/signup/complete.
+    let oauthRole: string | null = null;
+    try {
+      oauthRole = sessionStorage.getItem("vmb:oauthRole");
+    } catch {}
+
+    if (oauthRole === "tradesman") {
+      if (role !== "tradesman") {
+        router.replace("/tradesman/signup/complete");
+        return;
+      }
+      try { sessionStorage.removeItem("vmb:oauthRole"); } catch {}
+    }
+
+    // Mid-signup homeowners (Firebase-authed but no homeowner profile yet)
+    // go straight to the post-OAuth completion page.
+    // Tradesmen don't need a homeowner postcode — skip this gate for them.
+    if (profileComplete === false && role !== "tradesman") {
       router.replace("/signup/complete");
       return;
     }

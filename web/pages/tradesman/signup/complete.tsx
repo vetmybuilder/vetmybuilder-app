@@ -1,28 +1,26 @@
-// web/pages/signup/complete.tsx
-// Post-OAuth profile completion page.
+// web/pages/tradesman/signup/complete.tsx
+// Post-OAuth profile completion page for tradesmen.
 //
-// Reached by users who signed in via a social provider (currently Google)
-// but don't yet have a complete homeowner profile in MySQL — specifically,
-// they're missing a postcode. We only ask for the postcode here; first/last
-// name and username are derived server-side from the Google token claims
-// (`name` and `email`) by POST /api/account.
+// Reached by users who signed in via Google on the tradesman login page
+// but don't yet have a tradesman profile. Collects company name, trade
+// types, and service areas, then POSTs to /api/tradesmen/join.
 
 import { useEffect, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
-import LocationField from "@/components/forms/LocationField";
+import TradePicker from "@/components/TradePicker";
+import ServiceAreaPicker from "@/components/ServiceAreaPicker";
 
-type FieldErrors = Partial<Record<"location", string>>;
-
-export default function SignupComplete() {
+export default function TradesmanSignupComplete() {
   const router = useRouter();
   const api = useApi();
-  const { user, loading: authLoading, refreshProfile } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
-  const [location, setLocation] = useState("");
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [companyName, setCompanyName] = useState("");
+  const [tradeTypes, setTradeTypes] = useState<string[]>([]);
+  const [serviceAreas, setServiceAreas] = useState<string[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [hydrating, setHydrating] = useState(true);
@@ -40,38 +38,26 @@ export default function SignupComplete() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
-      router.replace("/login");
+      router.replace("/tradesman/login");
     }
   }, [authLoading, user, router]);
 
-  // Prefill the postcode if /api/me already has one (e.g. user landed here
-  // by mistake) and bounce them out if onboarding is already complete.
+  // Check if tradesman profile already exists — if so, bounce to projects
   useEffect(() => {
     if (authLoading || !user) return;
 
     let alive = true;
     (async () => {
       try {
-        const { data } = await api.get("/api/me");
+        const { data } = await api.get("/api/tradesmen/me");
         if (!alive) return;
 
-        setLocation(data?.locationRaw || "");
-
-        // Already complete? Bounce them to wherever they came from. Use the
-        // dedicated `vmb:oauthReturnTo` key (NOT vmb:returnTo) — see the
-        // OAuthSignInButton comment for why.
-        if (data?.postcodeOutward) {
-          let target = "/projects";
-          try {
-            const stored = sessionStorage.getItem("vmb:oauthReturnTo");
-            if (stored && stored.startsWith("/")) target = stored;
-            sessionStorage.removeItem("vmb:oauthReturnTo");
-          } catch {}
-          router.replace(target);
+        if (data?.profile) {
+          router.replace("/tradesman/projects");
           return;
         }
       } catch {
-        // Non-fatal — user can still fill the form manually
+        // Non-fatal — user can still fill the form
       } finally {
         if (alive) setHydrating(false);
       }
@@ -85,11 +71,9 @@ export default function SignupComplete() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
-    setFieldErrors({});
 
-    if (!location.trim()) {
-      setFieldErrors({ location: "Postcode or city is required." });
-      setErr("Please enter your postcode or city.");
+    if (!companyName.trim() || tradeTypes.length === 0 || serviceAreas.length === 0) {
+      setErr("Please fill in all required fields.");
       return;
     }
 
@@ -102,35 +86,25 @@ export default function SignupComplete() {
     setLoading(true);
     setBetaCodeError(null);
     try {
-      await api.post("/api/account", {
-        location: location.trim(),
+      await api.post("/api/tradesmen/join", {
+        companyName: companyName.trim(),
+        tradeTypes: tradeTypes.join(", "),
+        serviceAreas: serviceAreas.join(", "),
         betaCode: betaRequired ? betaCode.trim() : undefined,
       });
 
-      // Re-hydrate the auth context so profileComplete flips to true and the
-      // header swaps from the minimal "finishing signup" state to the full
-      // logged-in chrome before we navigate away.
-      await refreshProfile();
-
-      // Read the dedicated OAuth return-to (NOT vmb:returnTo, which can be
-      // poisoned by _app.tsx's auto-stash).
-      let target = "/projects";
       try {
-        const stored = sessionStorage.getItem("vmb:oauthReturnTo");
-        if (stored && stored.startsWith("/")) target = stored;
-        sessionStorage.removeItem("vmb:oauthReturnTo");
+        sessionStorage.removeItem("vmb:oauthRole");
+        sessionStorage.setItem("vmb:isTradesman", "1");
       } catch {}
-      router.replace(target);
+
+      window.location.replace("/tradesman/projects");
     } catch (e: any) {
       const status = e?.response?.status;
       const body = e?.response?.data;
-
       if (status === 403 && body?.error === "invalid_beta_code") {
         setBetaCodeError("Incorrect access code.");
         setErr("Invalid beta access code.");
-      } else if (status === 400 && body?.fieldErrors) {
-        setFieldErrors(body.fieldErrors as FieldErrors);
-        setErr(body?.message || "Please enter your postcode or city.");
       } else {
         setErr(body?.message || "Could not save your profile. Please try again.");
       }
@@ -148,63 +122,62 @@ export default function SignupComplete() {
       </Head>
 
       <div className="min-h-screen bg-stone-50 py-16">
-        <div className="mx-auto max-w-md px-4" data-testid="signup-complete-page">
+        <div className="mx-auto max-w-2xl px-4" data-testid="tradesman-signup-complete-page">
           <div className="rounded-3xl bg-white p-8 shadow-xl shadow-zinc-200/60 sm:p-10">
             <h1 className="text-2xl font-black tracking-tight text-zinc-900">
               Almost there
             </h1>
             <p className="mt-2 text-sm text-zinc-500">
-              Just one more thing — what's your postcode? We use it to match
-              you with tradespeople near you.
+              Tell us about your business so we can match you with the right
+              homeowner projects.
             </p>
 
             <form
-              className="mt-6 grid gap-4"
+              className="mt-6 space-y-6"
               onSubmit={onSubmit}
               noValidate
-              aria-label="Complete profile form"
-              data-testid="signup-complete-form"
+              aria-label="Complete tradesman profile form"
+              data-testid="tradesman-signup-complete-form"
             >
               <div>
-                <LocationField
-                  id="complete-loc"
-                  label="Postcode or City/Borough"
-                  placeholder="e.g., E4, N17, Chingford"
-                  value={location}
-                  onChange={(v, meta) => {
-                    if (meta) {
-                      const token =
-                        meta.outward || meta.sector || meta.postcode || v;
-                      setLocation(token);
-                    } else {
-                      setLocation(v);
-                    }
-                  }}
-                  dataTestId="complete-complete-loc"
-                  reasonText=""
-                  error={fieldErrors.location}
+                <label
+                  className="block text-sm font-bold text-zinc-900 mb-2"
+                  htmlFor="tradesman-complete-company"
+                >
+                  Company name
+                </label>
+                <input
+                  id="tradesman-complete-company"
+                  className="w-full rounded-2xl border-2 border-zinc-200 px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:border-red-400 focus:outline-none transition-colors"
+                  placeholder="e.g., Smith & Sons Builders"
+                  type="text"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  required
+                  data-testid="tradesman-complete-company"
                 />
-                {fieldErrors.location && (
-                  <p
-                    className="mt-1 text-sm font-medium text-red-500"
-                    role="alert"
-                    data-testid="complete-complete-loc-error"
-                  >
-                    {fieldErrors.location}
-                  </p>
-                )}
               </div>
+
+              <TradePicker
+                selected={tradeTypes}
+                onChange={setTradeTypes}
+              />
+
+              <ServiceAreaPicker
+                areas={serviceAreas}
+                onChange={setServiceAreas}
+              />
 
               {betaRequired && (
                 <div>
                   <label
                     className="block text-sm font-bold text-zinc-900 mb-2"
-                    htmlFor="complete-beta-code"
+                    htmlFor="tradesman-complete-beta-code"
                   >
                     Beta access code
                   </label>
                   <input
-                    id="complete-beta-code"
+                    id="tradesman-complete-beta-code"
                     className={`w-full rounded-2xl border-2 px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:outline-none transition-colors ${
                       betaCodeError
                         ? "border-red-400 focus:border-red-400"
@@ -228,7 +201,7 @@ export default function SignupComplete() {
                 <p
                   className="text-sm font-medium text-red-500"
                   role="alert"
-                  data-testid="signup-complete-error"
+                  data-testid="tradesman-complete-error"
                 >
                   {err}
                 </p>
@@ -238,7 +211,7 @@ export default function SignupComplete() {
                 type="submit"
                 disabled={loading}
                 className="mt-2 w-full inline-flex items-center justify-center rounded-full bg-red-500 px-8 py-4 text-base font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-                data-testid="btn-signup-complete"
+                data-testid="btn-tradesman-complete"
               >
                 {loading ? "Saving…" : "Finish sign up"}
               </button>

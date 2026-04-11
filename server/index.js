@@ -117,6 +117,16 @@ function wipeAllRows(_db) {
 
 function optionalAuth(adminInstance) {
   return async (req, _res, next) => {
+    // Sim-bot shortcut (same as auth middleware)
+    if (process.env.ENABLE_TEST_ROUTES === "1") {
+      const secret = process.env.E2E_TEST_SECRET;
+      const simUid = req.headers["x-sim-uid"];
+      if (secret && simUid && req.headers["x-test-secret"] === secret) {
+        req.user = { uid: simUid };
+        return next();
+      }
+    }
+
     try {
       const h = req.headers?.authorization || "";
       if (h.startsWith("Bearer ")) {

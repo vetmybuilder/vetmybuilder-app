@@ -69,6 +69,32 @@ export class AuthHelper {
   }
 
   /**
+   * Simulate the tradesman OAuth flow by signing in a fresh user with no
+   * profile and stashing `vmb:oauthRole=tradesman` in sessionStorage.
+   */
+  async loginAsTradesmanSsoUser(uid?: string): Promise<{ uid: string }> {
+    const result = await this.loginAsUidWithoutProfile(uid);
+    await this.page.goto("/");
+    await this.page.evaluate(() => {
+      sessionStorage.setItem("vmb:oauthRole", "tradesman");
+    });
+    return result;
+  }
+
+  /**
+   * Sign in as an existing tradesman (profile already created via API).
+   * Primes `vmb:isTradesman` so TradesmanOnly doesn't redirect while
+   * the API role check is in flight.
+   */
+  async loginAsExistingTradesman(uid: string): Promise<void> {
+    await this.loginAsUidWithoutProfile(uid);
+    await this.page.goto("/");
+    await this.page.evaluate(() => {
+      sessionStorage.setItem("vmb:isTradesman", "1");
+    });
+  }
+
+  /**
    * Force the page into a clean guest state so a GuestOnly route is reachable.
    * A bare logout after a previous Firebase registration can leave residual
    * auth state that bounces GuestOnly; logging in as a throwaway uid first

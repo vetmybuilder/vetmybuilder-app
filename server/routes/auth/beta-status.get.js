@@ -5,6 +5,8 @@
  */
 module.exports = (router) => {
   router.get("/auth/beta-status", (req, res) => {
-    res.json({ required: !!process.env.BETA_CODE });
+    // Skip beta gate in test mode — ENABLE_TEST_ROUTES means E2E/dev environment
+    const required = !!process.env.BETA_CODE && !process.env.ENABLE_TEST_ROUTES;
+    res.json({ required });
   });
 };

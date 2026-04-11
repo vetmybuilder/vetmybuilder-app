@@ -6,7 +6,7 @@
  * and computes VMB score on the 0.0–10.0 scale.
  */
 module.exports = (router, ctx) => {
-  const { mysqlQuery, matchByName, extractLocationTokens } = ctx;
+  const { mysqlQuery, matchByName, extractLocationTokens, optionalAuth } = ctx;
   const log = ctx.log || console;
   const TAG = "[tradesmen/join.post]";
   const ROUTE = "/tradesmen/join";
@@ -96,7 +96,16 @@ module.exports = (router, ctx) => {
   }
 
   // ---------- ROUTE ----------
-  router.post(ROUTE, async (req, res) => {
+  router.post(ROUTE, optionalAuth, async (req, res) => {
+    // Beta access code check — only enforced when BETA_CODE is set and not in test mode
+    const requiredCode = process.env.BETA_CODE;
+    if (requiredCode && !process.env.ENABLE_TEST_ROUTES) {
+      const provided = String(req.body?.betaCode || "").trim();
+      if (provided !== requiredCode) {
+        return res.status(403).json({ ok: false, error: "invalid_beta_code" });
+      }
+    }
+
     const b = req.body || {};
     const companyName = String(b.companyName || "").trim();
 
@@ -196,12 +205,13 @@ module.exports = (router, ctx) => {
       log.warn(`${TAG} CH match failed`, { error: e?.message });
     }
 
-    // lead_* id
-    const leadId =
-      "lead_" +
-      Date.now().toString(36) +
-      "_" +
-      Math.random().toString(36).slice(2, 8);
+    // Use Firebase UID if authenticated (SSO flow), otherwise generate lead_* id
+    const leadId = req.user?.uid
+      ? req.user.uid
+      : "lead_" +
+        Date.now().toString(36) +
+        "_" +
+        Math.random().toString(36).slice(2, 8);
 
     // ---------- write to DB ----------
     try {
@@ -260,9 +270,9 @@ module.exports = (router, ctx) => {
         [
           leadId,
           companyName,
-          b.contactName ?? null,
+          b.contactName || req.user?.name || null,
           b.phone ?? null,
-          b.email ?? null,
+          b.email || req.user?.email || null,
           trade_types,
           service_areas,
           web_verified,

@@ -28,6 +28,8 @@ import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import SignupCompletePage from "./pages/SignupCompletePage";
 import AdminUsersPage from "./pages/AdminUsersPage";
+import TradesmanSignupCompletePage from "./pages/TradesmanSignupCompletePage";
+import TradesmanLoginPage from "./pages/TradesmanLoginPage";
 
 type Runtime = ReturnType<typeof getRuntime>;
 
@@ -59,6 +61,8 @@ type UiFixtures = {
   resetPasswordPage: ResetPasswordPage;
   signupCompletePage: SignupCompletePage;
   adminUsersPage: AdminUsersPage;
+  tradesmanSignupCompletePage: TradesmanSignupCompletePage;
+  tradesmanLoginPage: TradesmanLoginPage;
 };
 
 function normalizeApiBase(url: string): string {
@@ -193,6 +197,14 @@ export const test = base.extend<UiFixtures, { runtime: Runtime }>({
 
   adminUsersPage: async ({ page }, use) => {
     await use(new AdminUsersPage(page));
+  },
+
+  tradesmanSignupCompletePage: async ({ page }, use) => {
+    await use(new TradesmanSignupCompletePage(page));
+  },
+
+  tradesmanLoginPage: async ({ page }, use) => {
+    await use(new TradesmanLoginPage(page));
   },
 
   adminApi: async ({ request, runtime }, use) => {
