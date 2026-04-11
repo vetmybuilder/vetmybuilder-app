@@ -59,6 +59,15 @@ const EMULATOR_USERS = [
       location: "E4",
     },
   },
+  {
+    // Local admin account. The matching `user_roles` row (uid → 'admin')
+    // is already in MySQL, so we only need to ensure the Firebase emulator
+    // user exists with this email/password on every startup.
+    localId: "BpSvMxVYpnQeG211hiY8cNPbDCW2",
+    email: "admin@example.com",
+    password: "password",
+    displayName: "Local Admin",
+  },
 ];
 
 async function ensureHomeownerProfiles() {

@@ -212,6 +212,10 @@ function buildRouter(ctx) {
   require("./routes/admin/pending-payments.get")(router, ctx);
   require("./routes/admin/subscription.approve.post")(router, ctx);
   require("./routes/admin/subscription.reject.post")(router, ctx);
+  require("./routes/admin/users.get")(router, ctx);
+  require("./routes/admin/users.post")(router, ctx);
+  require("./routes/admin/users.put")(router, ctx);
+  require("./routes/admin/users.delete")(router, ctx);
 
   return router;
 }
