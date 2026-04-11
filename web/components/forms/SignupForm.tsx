@@ -296,11 +296,13 @@ export default function SignupForm() {
         returnTo={nextPath}
         onError={(msg) => setErr(msg)}
       />
-      <OAuthSignInButton
-        provider="facebook"
-        returnTo={nextPath}
-        onError={(msg) => setErr(msg)}
-      />
+      {process.env.NEXT_PUBLIC_FACEBOOK_LOGIN === "1" && (
+        <OAuthSignInButton
+          provider="facebook"
+          returnTo={nextPath}
+          onError={(msg) => setErr(msg)}
+        />
+      )}
 
       <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-zinc-400">
         <div className="h-px flex-1 bg-zinc-200" />

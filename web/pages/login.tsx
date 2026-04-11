@@ -228,11 +228,13 @@ export default function Login() {
                       returnTo={nextRaw && nextRaw.startsWith("/") ? nextRaw : undefined}
                       onError={(msg) => setErr(msg)}
                     />
-                    <OAuthSignInButton
-                      provider="facebook"
-                      returnTo={nextRaw && nextRaw.startsWith("/") ? nextRaw : undefined}
-                      onError={(msg) => setErr(msg)}
-                    />
+                    {process.env.NEXT_PUBLIC_FACEBOOK_LOGIN === "1" && (
+                      <OAuthSignInButton
+                        provider="facebook"
+                        returnTo={nextRaw && nextRaw.startsWith("/") ? nextRaw : undefined}
+                        onError={(msg) => setErr(msg)}
+                      />
+                    )}
                   </div>
 
                   <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-wide text-zinc-400">
