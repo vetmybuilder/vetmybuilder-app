@@ -6,6 +6,7 @@
  * and computes VMB score on the 0.0–10.0 scale.
  */
 module.exports = (router, ctx) => {
+  const { enrichTradesmanWithGoogle } = require("../../lib/ai/googleEnricher");
   const { mysqlQuery, matchByName, extractLocationTokens } = ctx;
   const log = ctx.log || console;
   const TAG = "[tradesmen/join.post]";
@@ -318,6 +319,16 @@ module.exports = (router, ctx) => {
         );
         log.info(`${TAG} score computed`, { score: s10 });
       }
+
+      // Fire-and-forget: enrich with Google Places data
+      enrichTradesmanWithGoogle({
+        mysqlQuery,
+        userId: leadId,
+        companyName,
+        locationHint: service_areas ? String(service_areas).split(",")[0] : undefined,
+        existingWebUrl: web_url || null,
+        log,
+      }).catch(() => {});
 
       return res.status(201).json({
         ok: true,
