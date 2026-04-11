@@ -16,7 +16,7 @@ test.describe("Homeowner registration", () => {
     });
 
     await registerPage.signUp(account);
-    await homeownerProjectsPage.waitUntilReady();
+    await homeownerProjectsPage.expectVisible();
     await homeownerProjectsPage.assertSafetyVerificationCardVisible();
     await homeownerProjectsPage.assertFiltersVisible();
     await expect(siteHeader.initialsBadge(account.initials)).toBeVisible({
@@ -123,15 +123,8 @@ test.describe("Homeowner registration", () => {
     });
 
     await registerPage.goto();
-
-    await registerPage.firstName.fill(account.firstName);
-    await registerPage.lastName.fill(account.lastName);
-    await registerPage.username.fill(account.username);
-    await registerPage.location.fill(account.location);
-    await registerPage.email.fill(account.email!);
-    await registerPage.password.fill(account.password!);
-    await registerPage.confirmPassword.fill(account.password!);
-    await registerPage.submitButton.click();
+    await registerPage.fillFromAccount(account);
+    await registerPage.submit();
     await registerPage.hasAlert(
       "An account with this email already exists. Try signing in instead.",
     );

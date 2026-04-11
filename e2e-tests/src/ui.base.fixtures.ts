@@ -26,6 +26,7 @@ import TradesmanApi from "./apiHelper/tradesman/TradesmanApi";
 import AdminApi from "./apiHelper/admin/AdminApi";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
+import SignupCompletePage from "./pages/SignupCompletePage";
 import AdminUsersPage from "./pages/AdminUsersPage";
 
 type Runtime = ReturnType<typeof getRuntime>;
@@ -56,6 +57,7 @@ type UiFixtures = {
   adminApi: AdminApi;
   forgotPasswordPage: ForgotPasswordPage;
   resetPasswordPage: ResetPasswordPage;
+  signupCompletePage: SignupCompletePage;
   adminUsersPage: AdminUsersPage;
 };
 
@@ -103,6 +105,10 @@ export const test = base.extend<UiFixtures, { runtime: Runtime }>({
 
   registerPage: async ({ page }, use) => {
     await use(new RegisterPage(page));
+  },
+
+  signupCompletePage: async ({ page }, use) => {
+    await use(new SignupCompletePage(page));
   },
 
   homeownerProjectsPage: async ({ page }, use) => {

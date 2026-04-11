@@ -390,15 +390,13 @@ export default function RecommendOnPlatform() {
     }
   };
 
-  // Don't render anything until access is confirmed — prevents flash of form
-  if (allowed === null) {
-    return (
-      <Head>
-        <title>Recommend a tradesperson — VetMyBuilder</title>
-        <style>{`body { background: #fafaf9 !important; }`}</style>
-      </Head>
-    );
-  }
+  // Decide what kind of friendly screen to show when the project fetch
+  // failed. The server returns 401 for projects that don't exist or aren't
+  // visible to the current viewer (live + non-archived), and 404 for ids
+  // that genuinely don't match anything. Either way, the user experience
+  // should be a clear "this project isn't available" card — not a blank
+  // page or a raw HTTP error.
+  const isProjectUnavailable = !loading && !!pageError && !project;
 
   return (
     <>
@@ -408,7 +406,8 @@ export default function RecommendOnPlatform() {
       </Head>
 
       <div className="relative min-h-screen overflow-hidden bg-stone-50 -mt-14">
-        {/* Background bands */}
+        {/* Background bands — always rendered so the page never flashes blank,
+            including during loading and on the error/unavailable state. */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
           <div className="absolute bottom-0 -left-[30%] w-[70%] h-[60%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
@@ -416,25 +415,55 @@ export default function RecommendOnPlatform() {
 
         <div className="relative z-10 mx-auto max-w-2xl px-4 sm:px-6 lg:px-8 pt-20 pb-10">
 
-          {/* Page header card */}
-          <div className="mb-6 bg-white rounded-3xl shadow-xl shadow-zinc-200/60 px-8 py-6">
-            <h1 className="text-3xl font-black tracking-tight text-zinc-900">
-              {allowed === true && project
-                ? `Recommend for "${project.name}"`
-                : "Recommend a tradesperson"}
-            </h1>
-            {allowed === true && project && (
+          {/* Loading state — gate is still resolving and we don't know yet
+              whether we'll show the form or an error card. */}
+          {!isProjectUnavailable && allowed === null && (
+            <div
+              className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 px-8 py-12 text-center"
+              data-testid="recommend-loading"
+            >
+              <p className="text-sm font-medium text-zinc-500">Loading…</p>
+            </div>
+          )}
+
+          {/* Project unavailable (404 / 401 / network error). Show a clear
+              card explaining the situation rather than a blank page. */}
+          {isProjectUnavailable && (
+            <div
+              className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 px-8 py-10 text-center"
+              data-testid="recommend-project-unavailable"
+            >
+              <div className="mx-auto mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-2xl">
+                🔒
+              </div>
+              <h1 className="text-2xl font-black tracking-tight text-zinc-900">
+                This project isn't accepting recommendations
+              </h1>
+              <p className="mt-3 text-sm text-zinc-500">
+                The project may have been closed, archived, or might not exist.
+                Double-check the link from the person who shared it with you.
+              </p>
+              <div className="mt-6 flex items-center justify-center gap-3">
+                <a
+                  href="/"
+                  className="inline-flex items-center justify-center rounded-full bg-red-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] transition-all"
+                  data-testid="recommend-unavailable-home"
+                >
+                  Back to homepage
+                </a>
+              </div>
+            </div>
+          )}
+
+          {/* Page header card — happy path only. */}
+          {allowed === true && project && (
+            <div className="mb-6 bg-white rounded-3xl shadow-xl shadow-zinc-200/60 px-8 py-6">
+              <h1 className="text-3xl font-black tracking-tight text-zinc-900">
+                Recommend for "{project.name}"
+              </h1>
               <p className="mt-1 text-sm text-zinc-500">
                 Project location: {project.location}
               </p>
-            )}
-          </div>
-
-          {pageError && (
-            <div className="mb-4">
-              <Banner kind="error" focusRef={errorRef}>
-                {pageError}
-              </Banner>
             </div>
           )}
 

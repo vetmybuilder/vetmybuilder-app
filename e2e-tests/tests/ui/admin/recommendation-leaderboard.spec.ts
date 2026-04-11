@@ -12,6 +12,13 @@ import { RecommendationApi } from "../../../src/apiHelper/project/ProjectRecomme
 const ADMIN_UID = process.env.TEST_ADMIN_USER_UID!;
 
 test.describe("Admin recommendation leaderboard", () => {
+  // All tests in this file share the same TEST_ADMIN_USER_UID and seed the
+  // admin row in beforeEach. Running them in parallel across workers races
+  // against the shared Firebase emulator state and the per-test reseed,
+  // surfacing as intermittent leaderboard data leaks. Serial mode keeps
+  // the file pinned to a single worker.
+  test.describe.configure({ mode: "serial" });
+
   test.beforeEach(async ({ runtime }) => {
     await seedUsers(runtime.dbName);
   });

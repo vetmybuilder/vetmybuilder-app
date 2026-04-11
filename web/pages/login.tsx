@@ -8,11 +8,12 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { useAuth } from "@/utils/auth";
 import { useRole } from "@/utils/useRole";
+import OAuthSignInButton from "@/components/forms/OAuthSignInButton";
 
 export default function Login() {
   const auth = initFirebase();
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, profileComplete } = useAuth();
   const { role, loading: roleLoading } = useRole();
 
   const submittingRef = useRef(false);
@@ -72,6 +73,17 @@ export default function Login() {
     if (submittingRef.current) return;
     if (roleErrorMsg) return;
 
+    // Wait until /api/me has resolved so we know whether the user has
+    // finished homeowner signup. Without this gate, a mid-signup user would
+    // briefly land on /projects before auth.tsx's hard-nav to
+    // /signup/complete kicked in — a visible flash.
+    if (profileComplete === null) return;
+
+    if (profileComplete === false) {
+      router.replace("/signup/complete");
+      return;
+    }
+
     const nextParam =
       typeof window !== "undefined"
         ? new URLSearchParams(window.location.search).get("next")
@@ -81,12 +93,26 @@ export default function Login() {
       return;
     }
 
+    // Honour a sessionStorage `vmb:oauthReturnTo` set by the OAuth sign-in
+    // button. Dedicated key (NOT vmb:returnTo) so the auto-stash from
+    // _app.tsx (which can hold values like "/?signedOut=1") can't poison
+    // the post-signup redirect target.
+    let stashedReturnTo: string | null = null;
+    try {
+      stashedReturnTo = sessionStorage.getItem("vmb:oauthReturnTo");
+      if (stashedReturnTo) sessionStorage.removeItem("vmb:oauthReturnTo");
+    } catch {}
+    if (stashedReturnTo && stashedReturnTo.startsWith("/")) {
+      router.replace(stashedReturnTo);
+      return;
+    }
+
     if (role === "tradesman") {
       router.replace("/tradesman/projects");
     } else {
       router.replace("/projects");
     }
-  }, [authLoading, roleLoading, user, role, router, roleErrorMsg]);
+  }, [authLoading, roleLoading, user, role, router, roleErrorMsg, profileComplete]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -193,6 +219,31 @@ export default function Login() {
                       : "Sign in to your homeowner account."}
                 </p>
               </div>
+
+              {!isAdminFlow && !isVendorFlow && (
+                <>
+                  <div className="grid gap-3">
+                    <OAuthSignInButton
+                      provider="google"
+                      returnTo={nextRaw && nextRaw.startsWith("/") ? nextRaw : undefined}
+                      onError={(msg) => setErr(msg)}
+                    />
+                    {process.env.NEXT_PUBLIC_FACEBOOK_LOGIN === "1" && (
+                      <OAuthSignInButton
+                        provider="facebook"
+                        returnTo={nextRaw && nextRaw.startsWith("/") ? nextRaw : undefined}
+                        onError={(msg) => setErr(msg)}
+                      />
+                    )}
+                  </div>
+
+                  <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-wide text-zinc-400">
+                    <div className="h-px flex-1 bg-zinc-200" />
+                    <span>or</span>
+                    <div className="h-px flex-1 bg-zinc-200" />
+                  </div>
+                </>
+              )}
 
               <form
                 onSubmit={onSubmit}

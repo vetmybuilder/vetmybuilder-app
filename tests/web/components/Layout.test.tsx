@@ -84,6 +84,47 @@ describe("<Layout />", () => {
     expect(screen.queryByTestId("nav-sign-in")).not.toBeInTheDocument();
   });
 
+  it("hides the account menu while a user is mid-signup (profileComplete=false)", () => {
+    // A Firebase-authed user with no homeowner profile yet — e.g. landed
+    // on /signup/complete after Google/Facebook OAuth. The header chrome
+    // should treat them as a guest until they finish signup.
+    useAuthMock.mockReturnValue({
+      user: {
+        firstName: null,
+        lastName: null,
+        username: null,
+        // displayName comes from Firebase (e.g. "Chris Morris" from Google)
+        // and would otherwise leak through as initials. The header must NOT
+        // fall back to it while profileComplete === false.
+        displayName: "Chris Morris",
+      },
+      loading: false,
+      profileComplete: false,
+    });
+
+    render(<Layout>content</Layout>);
+
+    // The avatar/notifications/Post-a-Job cluster must be hidden.
+    expect(screen.queryByTestId("account-menu-button")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("account-initials")).not.toBeInTheDocument();
+  });
+
+  it("does NOT hide the account menu while profileComplete is still null (loading /api/me)", () => {
+    // Returning user — Firebase has signed them in but /api/me hasn't
+    // returned yet. profileComplete is null (unknown). We must NOT flash
+    // the logged-out chrome on every page load while waiting for /api/me.
+    useAuthMock.mockReturnValue({
+      user: { firstName: "Chris", lastName: "Morris" },
+      loading: false,
+      profileComplete: null,
+    });
+
+    render(<Layout>content</Layout>);
+
+    expect(screen.getByTestId("account-menu-button")).toBeInTheDocument();
+    expect(screen.getByTestId("account-initials")).toHaveTextContent("CM");
+  });
+
   it("opens the account menu and can click Logout", async () => {
     useAuthMock.mockReturnValue({
       user: { firstName: "Chris", lastName: "Morris" },

@@ -1,6 +1,19 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { safeGoto } from "../helpers/navigation";
 import Account, { type RegisterInput } from "../models/Account";
+import EmulatorIdpWidgetPage from "./EmulatorIdpWidgetPage";
+
+type OAuthProviderName = "google" | "facebook";
+
+const OAUTH_BUTTON_TESTID: Record<OAuthProviderName, string> = {
+  google: "google-signin-button",
+  facebook: "facebook-signin-button",
+};
+
+const OAUTH_PROVIDER_LABEL: Record<OAuthProviderName, string> = {
+  google: "Google.com",
+  facebook: "Facebook.com",
+};
 
 type FieldKey =
   | "firstName"
@@ -41,6 +54,9 @@ export class RegisterPage {
   readonly errorAlert: Locator;
   readonly signInLink: Locator;
 
+  readonly googleSignInButton: Locator;
+  readonly facebookSignInButton: Locator;
+
   constructor(page: Page) {
     this.page = page;
 
@@ -74,6 +90,9 @@ export class RegisterPage {
 
     this.errorAlert = page.getByTestId("register-error");
     this.signInLink = page.getByTestId("register-form").getByRole("link", { name: "Sign in" });
+
+    this.googleSignInButton = page.getByTestId(OAUTH_BUTTON_TESTID.google);
+    this.facebookSignInButton = page.getByTestId(OAUTH_BUTTON_TESTID.facebook);
   }
 
   async goto(): Promise<void> {
@@ -126,6 +145,38 @@ export class RegisterPage {
     await this.fillFromAccount(account);
     await this.submit();
     await this.page.waitForURL("/projects");
+  }
+
+  /**
+   * Click "Continue with Google/Facebook" on /signup, drive the Firebase
+   * Auth emulator's IDP popup widget to create a fresh fake account, and
+   * wait for the popup to close. After this resolves the main tab is
+   * Firebase-authed and the auth context will (a) bounce mid-signup users
+   * to /signup/complete or (b) land returning users on /projects.
+   *
+   * Hides ALL the popup-window choreography (waitForEvent("page"),
+   * waitForEvent("close"), per-provider button + heading selectors) so the
+   * spec stays free of locators and Playwright internals.
+   */
+  async signInAsNewOAuthAccount(
+    provider: OAuthProviderName,
+    input: { email: string; displayName: string },
+  ): Promise<void> {
+    const button =
+      provider === "google" ? this.googleSignInButton : this.facebookSignInButton;
+    await expect(button).toBeVisible();
+
+    // Set up the popup listener BEFORE clicking, so we don't miss the event
+    // on slow CI runs.
+    const popupPromise = this.page.context().waitForEvent("page");
+    await button.click();
+    const popup = await popupPromise;
+
+    const widget = new EmulatorIdpWidgetPage(
+      popup,
+      OAUTH_PROVIDER_LABEL[provider],
+    );
+    await widget.signInAsNewAccount(input);
   }
 
   async hasAlert(text: string): Promise<void> {
