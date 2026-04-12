@@ -13,7 +13,7 @@
  * - notifies local users (by postcode / city) + prior recommenders in area
  */
 module.exports = (router, ctx) => {
-  const { db, auth, extractLocationTokens, notifyUsers, mysqlQuery } = ctx;
+  const { db, auth, extractLocationTokens, notifyUsers, mysqlQuery, broadcastNotification } = ctx;
   const log = ctx.log || console;
   const { notifyMatchedTradesmen } = require("../../lib/ai/notifyMatchedTradesmen");
 
@@ -91,6 +91,7 @@ module.exports = (router, ctx) => {
     notifyMatchedTradesmen({
       mysqlQuery,
       projectId: id,
+      sseBroadcast: broadcastNotification,
       projectName: updated.name,
       projectType: updated.type,
       projectLocation: updated.location,
@@ -206,6 +207,7 @@ module.exports = (router, ctx) => {
              VALUES (?, ?, ?, ?, ?, ?)`,
             [uid, "project_live_local", message, id, linkPath, createdAt]
           );
+          broadcastNotification?.(uid, { type: "project_live_local", message, projectId: id, linkPath });
           inserted++;
         }
         log.info?.("[projects.publish] notifications inserted", {

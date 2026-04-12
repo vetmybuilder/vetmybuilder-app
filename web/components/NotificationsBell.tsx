@@ -33,8 +33,7 @@ function dedupeAndSort(items: NotifItem[], limit = NOTIF_LIMIT) {
 export default function NotificationsBell() {
   // Guard for any SSR rendering path
   if (typeof window === "undefined") return null;
-
-  const { user } = useAuth();
+  const { user, token: authToken } = useAuth();
   const api = useApi();
   const router = useRouter();
 
@@ -42,17 +41,23 @@ export default function NotificationsBell() {
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<NotifItem[]>([]);
   const [busy, setBusy] = useState(false);
-  const [apiBase, setApiBase] = useState<string>("");
+  // SSE must bypass the Next.js rewrite proxy (which buffers SSE streams).
+  // In dev, the web runs on :3000 and API on :3100. Detect and connect directly.
+  const sseBase = (() => {
+    if (typeof window === "undefined") return "";
+    const loc = window.location;
+    // Dev: Next.js on :3000 proxies to API on :3100. Connect SSE directly to :3100.
+    if (loc.hostname === "localhost" && loc.port === "3000") {
+      return `${loc.protocol}//localhost:3100`;
+    }
+    // Production or other setups: same origin
+    return loc.origin;
+  })();
 
   const btnRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const esRef = useRef<EventSource | null>(null);
   const refreshTimer = useRef<number | null>(null);
-
-  useEffect(() => {
-    const envBase = process.env.NEXT_PUBLIC_API_BASE || "";
-    setApiBase(envBase || window.location.origin);
-  }, []);
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
@@ -110,16 +115,18 @@ export default function NotificationsBell() {
       if (cancelled) return;
 
       try {
-        const token =
-          typeof (user as any)?.getIdToken === "function"
-            ? await (user as any).getIdToken()
-            : undefined;
-        if (!token || !apiBase) return;
+        // Get token from Firebase directly — useAuth token may lag behind
+        const fbAuth = (window as any).firebaseAuth;
+        const fbToken = fbAuth?.currentUser
+          ? await fbAuth.currentUser.getIdToken()
+          : null;
+        const token = fbToken || authToken;
+        if (!token || !sseBase) return;
 
-        // Include limit on SSE bootstrap too
-        const url = `${apiBase}/api/notifications/stream?limit=${NOTIF_LIMIT}&token=${encodeURIComponent(
+        const url = `${sseBase}/api/notifications/stream?limit=${NOTIF_LIMIT}&token=${encodeURIComponent(
           token,
         )}`;
+        console.log("[SSE-DEBUG] connecting to", url.slice(0, 80));
         const es = new EventSource(url);
         esRef.current = es;
 
@@ -137,22 +144,47 @@ export default function NotificationsBell() {
           }
         });
 
-        es.addEventListener("notification", () => {
+        es.addEventListener("notification", (ev: MessageEvent) => {
           if (cancelled) return;
           setUnread((u) => u + 1);
-          // Throttle a refresh that also asks with a higher limit
-          if (refreshTimer.current) window.clearTimeout(refreshTimer.current);
-          refreshTimer.current = window.setTimeout(() => {
-            refreshList();
-            refreshTimer.current = null;
-          }, 250);
+
+          // Try to use the event data directly (avoids an extra API call)
+          try {
+            const n = JSON.parse(ev.data);
+
+            // Broadcast to other components (e.g. rec list auto-refresh)
+            try {
+              window.dispatchEvent(new CustomEvent("vmb:notification", { detail: n }));
+            } catch {}
+
+            if (n?.message) {
+              setItems((prev) =>
+                dedupeAndSort([
+                  {
+                    id: -(Date.now()),
+                    type: n.type || "info",
+                    message: n.message,
+                    projectId: n.projectId ?? null,
+                    linkPath: n.linkPath ?? null,
+                    createdAt: n.createdAt || new Date().toISOString(),
+                    readAt: null,
+                  },
+                  ...prev,
+                ]),
+              );
+            }
+          } catch {
+            // Fallback: refresh from API
+            if (refreshTimer.current) window.clearTimeout(refreshTimer.current);
+            refreshTimer.current = window.setTimeout(() => {
+              refreshList();
+              refreshTimer.current = null;
+            }, 250);
+          }
         });
 
-        es.onerror = () => {
-          try {
-            es.close();
-          } catch {}
-        };
+        // Let EventSource auto-reconnect on errors — don't close it
+        es.onerror = () => {};
       } catch {
         /* ignore */
       }
@@ -164,7 +196,7 @@ export default function NotificationsBell() {
       cancelled = true;
       cleanup();
     };
-  }, [user, apiBase]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, authToken, sseBase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // CLEAR ALL: mark everything read on server then clear list locally
   async function clearAll() {

@@ -13,6 +13,7 @@ module.exports = (router, ctx) => {
     auth,
     mysqlQuery,
     notifyUsers,
+    broadcastNotification,
     upload,
     PUBLIC_API_BASE = "",
     db,
@@ -121,6 +122,7 @@ module.exports = (router, ctx) => {
          VALUES (?, ?, ?, ?, ?, ?)`,
         [userId, type, message, projectId, linkPath || null, new Date()]
       );
+      broadcastNotification?.(userId, { type, message, projectId, linkPath });
     } catch (err) {
       log.warn(`${TAG} notification insert failed`, { error: err?.message });
     }

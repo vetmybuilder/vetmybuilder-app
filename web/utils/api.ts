@@ -73,6 +73,17 @@ api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
   return config;
 });
 
+/**
+ * The API server origin (e.g. "http://localhost:3100").
+ * Used by SSE to bypass the Next.js rewrite proxy which buffers streams.
+ * In production this is same-origin, so returns "".
+ */
+export const API_ORIGIN: string = (() => {
+  const raw = (process.env.NEXT_PUBLIC_API_BASE || "").trim();
+  if (!raw || raw === "/api") return ""; // same-origin
+  try { return new URL(raw).origin; } catch { return ""; }
+})();
+
 export function useApi() {
   return api;
 }

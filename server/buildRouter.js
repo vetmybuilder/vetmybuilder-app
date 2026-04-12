@@ -25,6 +25,10 @@ function buildRouter(ctx) {
     ctx.clientsByUser = ctx.clientsByUser || sse.clientsByUser;
     ctx.sseSend = ctx.sseSend || sse.sseSend;
   }
+  if (!ctx.broadcastNotification) {
+    const sse = require("./lib/sse");
+    ctx.broadcastNotification = sse.broadcastNotification;
+  }
 
   // Uploads
   if (!ctx.upload || !ctx.UPLOAD_DIR) {

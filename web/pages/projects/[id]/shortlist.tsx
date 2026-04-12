@@ -287,6 +287,8 @@ function ShortlistInner() {
     }
   }
 
+  const [refreshKey, setRefreshKey] = useState(0);
+
   useEffect(() => {
     if (!router.isReady || authLoading || !user || !id) return;
     let alive = true;
@@ -297,7 +299,21 @@ function ShortlistInner() {
       finally { if (alive) setLoading(false); }
     })();
     return () => { alive = false; };
-  }, [api, id, page, pageSize, router.isReady, authLoading, user]);
+  }, [api, id, page, pageSize, router.isReady, authLoading, user, refreshKey]);
+
+  // Real-time: refetch when a new recommendation arrives for this project
+  useEffect(() => {
+    const pid = Number(Array.isArray(id) ? id[0] : id);
+    if (!pid) return;
+    const onNotif = (e: Event) => {
+      const data = (e as CustomEvent).detail;
+      if (data?.projectId === pid && (data?.type === "recommendation_new" || data?.type === "tradesman_shared_profile")) {
+        setRefreshKey((k) => k + 1);
+      }
+    };
+    window.addEventListener("vmb:notification", onNotif);
+    return () => window.removeEventListener("vmb:notification", onNotif);
+  }, [id]);
 
   useEffect(() => {
     if (items.length === 0) { setHasPhotos({}); setRecVerification({}); return; }
@@ -363,26 +379,28 @@ function ShortlistInner() {
           <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
         </div>
 
-        <div className="relative z-10 mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 pt-24 pb-16">
+        <div className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pt-24 pb-16">
 
-          {/* Header card */}
-          <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 px-7 py-6 mb-6">
+          {/* Header */}
+          <div className="mb-8">
             <Link
               href={`/projects/${id}`}
-              className="text-sm font-medium text-zinc-500 hover:text-zinc-800 transition-colors"
+              className="text-sm font-medium text-zinc-400 hover:text-zinc-700 transition-colors"
             >
               ← Back
             </Link>
-            <h1
-              className="mt-2 text-2xl font-black tracking-tight text-zinc-900"
-              data-testid="recommendations-title"
-            >
-              All recommendations
-              {projectTitle ? <span className="text-zinc-400"> · {projectTitle}</span> : ""}
-            </h1>
-            {total > 0 && (
-              <p className="mt-1 text-sm text-zinc-500">{total} recommendation{total !== 1 ? "s" : ""}</p>
-            )}
+            <div className="mt-3 pb-4 border-b-2 border-zinc-900">
+              <h1
+                className="text-2xl sm:text-3xl font-black tracking-tight text-zinc-900"
+                data-testid="recommendations-title"
+              >
+                All recommendations
+                {projectTitle ? <span className="text-zinc-400 font-bold"> · {projectTitle}</span> : ""}
+              </h1>
+              {total > 0 && (
+                <p className="mt-1 text-sm text-zinc-500">{total} recommendation{total !== 1 ? "s" : ""} from neighbours and the community</p>
+              )}
+            </div>
           </div>
 
           {/* List */}
@@ -391,12 +409,12 @@ function ShortlistInner() {
           ) : err ? (
             <p className="text-sm text-red-500 px-1">{err}</p>
           ) : groups.length === 0 ? (
-            <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-7 text-sm text-zinc-500">
+            <p className="text-sm text-zinc-400 py-8">
               No builders have yet been recommended.
-            </div>
+            </p>
           ) : (
-            <div className="space-y-3" data-testid="recommendations-list">
-              {groups.map((g) => {
+            <div className="divide-y divide-zinc-200" data-testid="recommendations-list">
+              {groups.map((g, idx) => {
                 const r = g.top;
                 const votes = g.aggLikes;
                 const hasVoted = r.myLike === 1;
@@ -409,103 +427,103 @@ function ShortlistInner() {
                 const recommender = shortlistRecommenderText(r);
 
                 return (
-                  <div key={g.key} className="relative" data-testid="shortlist-group">
+                  <div
+                    key={g.key}
+                    className="relative py-6 animate-slide-in-left"
+                    style={{ animationDelay: `${idx * 0.08}s` }}
+                    data-testid="shortlist-group"
+                  >
                     {/* Stack count badge */}
                     {g.extraCount > 0 && (
-                      <span className="absolute -top-2 -right-2 z-20 rounded-full bg-red-500 text-white text-[11px] leading-none px-2 py-1 shadow-md">
+                      <span className="absolute -top-2 right-0 z-20 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none px-2 py-1 shadow-sm">
                         +{g.extraCount} more
                       </span>
                     )}
 
-                    <div className="bg-zinc-50 hover:bg-zinc-100/80 transition rounded-2xl p-4">
-                      <div className="flex items-start gap-3">
-                        {/* Avatar */}
-                        <div
-                          className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-sm font-black text-white select-none ${pickAvatarColor(displayCompanyName)}`}
-                          aria-hidden="true"
-                        >
-                          {(displayCompanyName?.[0] ?? "T").toUpperCase()}
+                    <div className="flex gap-3.5">
+                      {/* Avatar */}
+                      <div
+                        className={`flex-shrink-0 h-11 w-11 rounded-full flex items-center justify-center text-sm font-black text-white select-none ${pickAvatarColor(displayCompanyName)}`}
+                        aria-hidden="true"
+                      >
+                        {(displayCompanyName?.[0] ?? "T").toUpperCase()}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        {/* Name + Google row */}
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <Link
+                            href={
+                              id
+                                ? `/builders/${r.id}?projectId=${id}`
+                                : `/builders/${r.id}`
+                            }
+                            className="font-extrabold text-base text-zinc-900 hover:underline decoration-zinc-300"
+                          >
+                            {displayCompanyName}
+                          </Link>
+
+                          {googleRating !== undefined && (
+                            <GoogleRatingChip
+                              rating={googleRating}
+                              count={googleReviewsCount}
+                              placeId={ver?.googlePlaceId ?? undefined}
+                              className="text-xs"
+                            />
+                          )}
                         </div>
 
-                        <div className="min-w-0 flex-1">
-                          {/* Name row */}
-                          <div className="flex items-center gap-3">
-                            <div className="font-black text-zinc-900 truncate flex-1 min-w-0">
-                              <Link
-                                href={
-                                  id
-                                    ? `/builders/${r.id}?projectId=${id}`
-                                    : `/builders/${r.id}`
-                                }
-                                className="hover:underline decoration-zinc-400/60"
-                              >
-                                {displayCompanyName}
-                              </Link>
-                            </div>
+                        {/* Comment */}
+                        {r.comment && (
+                          <p className="text-sm text-zinc-600 mt-1.5 leading-relaxed">
+                            &ldquo;{r.comment}&rdquo;
+                          </p>
+                        )}
 
-                            {googleRating !== undefined && (
-                              <GoogleRatingChip
-                                rating={googleRating}
-                                count={googleReviewsCount}
-                                placeId={ver?.googlePlaceId ?? undefined}
-                                className="text-xs"
-                              />
-                            )}
-                          </div>
-
-                          {/* Comment */}
-                          {r.comment && (
-                            <p className="text-sm text-zinc-500 mt-0.5 whitespace-pre-wrap">
-                              {r.comment}
-                            </p>
-                          )}
-
-                          {/* Badges */}
-                          <div className="mt-2 flex flex-wrap items-center gap-2">
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${chBadgeClass(vStatus as any)}`}
-                            >
-                              {chIcon(vStatus as any)}
-                              {chLabel(vStatus as any)}
+                        {/* Badges */}
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${chBadgeClass(vStatus as any)}`}
+                          >
+                            {chIcon(vStatus as any)}
+                            {chLabel(vStatus as any)}
+                          </span>
+                          {r.fromFriend === 1 && (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 text-sky-700 px-2 py-0.5 text-xs font-semibold">
+                              Friend
                             </span>
-                            {r.fromFriend === 1 && (
-                              <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 text-sky-700 px-2 py-0.5 text-xs">
-                                Friend
-                              </span>
-                            )}
-                            {showPhotos && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 text-xs">
-                                <CameraIcon className="h-3.5 w-3.5" />
-                                Photos
-                              </span>
-                            )}
-                          </div>
+                          )}
+                          {showPhotos && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 text-xs font-semibold">
+                              <CameraIcon className="h-3 w-3" />
+                              Photos
+                            </span>
+                          )}
+                        </div>
 
-                          {/* Footer row */}
-                          <div className="mt-2 flex items-center justify-between">
-                            <span className="text-xs text-zinc-400">{recommender}</span>
+                        {/* Footer */}
+                        <div className="mt-2 flex items-center justify-between">
+                          <span className="text-xs text-zinc-500">{recommender}</span>
 
-                            {/* Vote button (non-owner) */}
-                            {!isOwner && (
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => voteUpOnce(r)}
-                                  disabled={!canVote || hasVoted || votingId === r.id}
-                                  data-testid="rec-vote-button"
-                                  className={`h-8 w-8 rounded-full grid place-items-center border transition ${
-                                    hasVoted
-                                      ? "bg-red-50 border-red-200 text-red-500 cursor-default"
-                                      : "border-zinc-200 hover:bg-zinc-100"
-                                  } ${!canVote ? "opacity-60" : ""}`}
-                                >
-                                  <ThumbsUpIcon className="h-3.5 w-3.5" />
-                                </button>
-                                <span data-testid="rec-vote-count" className="text-xs tabular-nums text-zinc-500 w-4 text-center">
-                                  {votes}
-                                </span>
-                              </div>
-                            )}
-                          </div>
+                          {!isOwner && (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => voteUpOnce(r)}
+                                disabled={!canVote || hasVoted || votingId === r.id}
+                                data-testid="rec-vote-button"
+                                className={`h-7 w-7 rounded-full grid place-items-center border transition ${
+                                  hasVoted
+                                    ? "bg-red-50 border-red-200 text-red-500 cursor-default"
+                                    : "border-zinc-200 hover:bg-zinc-100"
+                                } ${!canVote ? "opacity-60" : ""}`}
+                              >
+                                <ThumbsUpIcon className="h-3 w-3" />
+                              </button>
+                              <span data-testid="rec-vote-count" className="text-xs tabular-nums text-zinc-500 w-4 text-center">
+                                {votes}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

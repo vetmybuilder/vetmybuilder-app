@@ -18,7 +18,7 @@
 const { CancelHireSchema } = require("../../lib/validation");
 
 module.exports = (router, ctx) => {
-  const { auth, mysqlQuery } = ctx;
+  const { auth, mysqlQuery, broadcastNotification } = ctx;
   const log = ctx.log || console;
   const TAG = "[hires/cancel.patch]";
   const ROUTE = "/hires/:id/cancel";
@@ -121,6 +121,13 @@ module.exports = (router, ctx) => {
               now,
             ],
           );
+
+          broadcastNotification?.(hire.tradesmanUserId, {
+            type: "hire_cancelled",
+            message: `${ownerFirstName} cancelled the hire for "${projectName}"`,
+            projectId: hire.projectId,
+            linkPath: `/tradesman/projects`,
+          });
         } catch (e) {
           log.warn?.(`${TAG} failed to insert hire_cancelled notification`, {
             error: e?.message || e,

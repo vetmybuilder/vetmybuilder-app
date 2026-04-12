@@ -255,11 +255,11 @@ export default function ShortlistSection({
         ) : (
           <>
             <ul
-              className="space-y-3"
+              className="divide-y divide-zinc-200"
               aria-label="Top recommendations"
               data-testid="shortlist-list"
             >
-              {groupsToShow.map((g) => {
+              {groupsToShow.map((g, idx) => {
                 const r: any = g.top;
                 const votes = g.totalLikes;
                 const hasVoted = r.myLike === 1;
@@ -342,149 +342,90 @@ export default function ShortlistSection({
                   <li
                     key={g.key}
                     data-testid="shortlist-group"
-                    className="relative"
+                    className="relative py-5 animate-slide-in-left"
+                    style={{ animationDelay: `${idx * 0.08}s` }}
                   >
-                    <DeckLayers count={g.items.length} />
-
                     {g.extraCount > 0 && (
                       <span
-                        className="absolute -top-2 -right-2 z-20 rounded-full bg-red-500 text-white text-[11px] leading-none px-2 py-1 shadow-md"
-                        title={`${g.extraCount} more recommendation${
-                          g.extraCount === 1 ? "" : "s"
-                        } in this stack`}
+                        className="absolute -top-2 right-0 z-20 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none px-2 py-1 shadow-sm"
+                        title={`${g.extraCount} more recommendation${g.extraCount === 1 ? "" : "s"}`}
                         data-testid="shortlist-stack-count"
                       >
                         +{g.extraCount} more
                       </span>
                     )}
 
-                    <div className="rounded-2xl bg-zinc-50 hover:bg-zinc-100/80 transition p-4 relative z-10">
-                      <div className="flex items-start gap-3">
-                        {/* Avatar */}
-                        <div
-                          className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-sm font-black text-white select-none ${pickAvatarColor(displayCompanyName)}`}
-                          aria-hidden="true"
-                        >
-                          {(displayCompanyName?.[0] ?? "T").toUpperCase()}
+                    <div className="flex gap-3.5">
+                      <div
+                        className={`flex-shrink-0 h-11 w-11 rounded-full flex items-center justify-center text-sm font-black text-white select-none ${pickAvatarColor(displayCompanyName)}`}
+                        aria-hidden="true"
+                      >
+                        {(displayCompanyName?.[0] ?? "T").toUpperCase()}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-3 flex-wrap" data-testid="shortlist-company">
+                          <Link
+                            href={
+                              projectId
+                                ? `/builders/${r.id}?projectId=${projectId}`
+                                : `/builders/${r.id}`
+                            }
+                            className="font-extrabold text-base text-zinc-900 hover:underline decoration-zinc-300"
+                            title="Open builder profile"
+                          >
+                            <span data-testid="shortlist-company-name" aria-label="Company name">
+                              {displayCompanyName}
+                            </span>
+                          </Link>
+
+                          {googleRating !== undefined && (
+                            <GoogleRatingChip
+                              rating={googleRating}
+                              count={googleReviewsCount}
+                              placeId={googlePlaceId}
+                              className="text-xs"
+                            />
+                          )}
                         </div>
 
-                        <div className="min-w-0 flex-1">
-                          {/* top row: name + votes */}
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="font-black text-zinc-900 truncate flex-1 min-w-0"
-                              data-testid="shortlist-company"
-                            >
-                              <Link
-                                href={
-                                  projectId
-                                    ? `/builders/${r.id}?projectId=${projectId}`
-                                    : `/builders/${r.id}`
-                                }
-                                className="hover:underline decoration-zinc-400/60"
-                                title="Open builder profile"
-                              >
-                                <span
-                                  data-testid="shortlist-company-name"
-                                  aria-label="Company name"
-                                >
-                                  {displayCompanyName}
-                                </span>
-                              </Link>
-                            </div>
+                        {r.comment && (
+                          <p className="text-sm text-zinc-600 mt-1.5 leading-relaxed line-clamp-3" data-testid="shortlist-comment">
+                            &ldquo;{r.comment}&rdquo;
+                          </p>
+                        )}
 
-                            <div className="shrink-0 flex items-center gap-3 whitespace-nowrap">
-                              {false && <ScoreChip value={scoreToShow} />}
-                              {/* <div
-                                className="text-xs text-slate-500 tabular-nums flex items-center gap-1"
-                                aria-label={`${votes} votes`}
-                                data-testid="shortlist-votes"
-                                title={`${votes} vote${votes === 1 ? "" : "s"}`}
-                              >
-                                <ThumbsUpIcon className="h-3.5 w-3.5 -mt-px" />{" "}
-                                {votes}
-                              </div> */}
-                            </div>
-                          </div>
+                        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${chBadgeClass(vStatus as any)}`}
+                            title={`Companies House status${checkedAt ? ` · checked ${new Date(checkedAt).toLocaleString()}` : ""}${g.companyNumber ? ` · ${g.companyNumber}` : ""}`}
+                            aria-label={`Companies House status: ${vLabel}`}
+                            data-testid="shortlist-badge-ch"
+                            data-status={vStatus || "unknown"}
+                          >
+                            {chIcon(vStatus as any)}
+                            <span data-testid="shortlist-badge-ch-text">{vLabel}</span>
+                          </span>
 
-                          {r.comment && (
-                            <p
-                              className="text-sm text-zinc-500 mt-0.5 line-clamp-3"
-                              data-testid="shortlist-comment"
-                            >
-                              {r.comment}
-                            </p>
+                          {r.fromFriend ? (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 text-sky-700 px-2 py-0.5 text-xs font-semibold" data-testid="shortlist-badge-friend">
+                              Friend
+                            </span>
+                          ) : null}
+
+                          {hasPhotos && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 text-xs font-semibold" title="Includes photos" data-testid="shortlist-badge-photos">
+                              <CameraIcon className="h-3 w-3" />
+                              Photos
+                            </span>
                           )}
+                        </div>
 
-                          {/* badges row + bottom-right meta (Google + date) */}
-                          <div className="mt-2 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${chBadgeClass(
-                                  vStatus as any,
-                                )}`}
-                                title={`Companies House status${
-                                  checkedAt
-                                    ? ` · checked ${new Date(
-                                        checkedAt,
-                                      ).toLocaleString()}`
-                                    : ""
-                                }${
-                                  g.companyNumber ? ` · ${g.companyNumber}` : ""
-                                }`}
-                                aria-label={`Companies House status: ${vLabel}`}
-                                data-testid="shortlist-badge-ch"
-                                data-status={vStatus || "unknown"}
-                              >
-                                {chIcon(vStatus as any)}
-                                <span data-testid="shortlist-badge-ch-text">
-                                  {vLabel}
-                                </span>
-                              </span>
-
-                              {r.fromFriend ? (
-                                <span
-                                  className="badge blue"
-                                  data-testid="shortlist-badge-friend"
-                                >
-                                  Friend
-                                </span>
-                              ) : null}
-                              {hasPhotos && (
-                                <span
-                                  className="inline-flex items-center gap-1 rounded-full bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 text-xs"
-                                  title="Includes photos"
-                                  data-testid="shortlist-badge-photos"
-                                >
-                                  <CameraIcon className="h-3.5 w-3.5" />
-                                  Photos
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex flex-col items-end gap-1 text-right">
-                              {googleRating !== undefined && (
-                                <GoogleRatingChip
-                                  rating={googleRating}
-                                  count={googleReviewsCount}
-                                  placeId={googlePlaceId}
-                                  className="text-xs sm:text-sm"
-                                />
-                              )}
-                            </div>
-                          </div>
-
-                          {recommenderText && (
-                            <div className="mt-2 flex items-center justify-between">
-                              <div
-                                className="text-xs text-slate-500"
-                                aria-label="Recommender"
-                                data-testid="shortlist-recommender"
-                              >
-                                {recommenderText}
-                              </div>
-                            </div>
-                          )}
+                        {recommenderText && (
+                          <p className="mt-2 text-xs text-zinc-500" aria-label="Recommender" data-testid="shortlist-recommender">
+                            {recommenderText}
+                          </p>
+                        )}
 
                           {isOwner && onHire && (() => {
                             const alreadyHired = hiredRecommendationIds?.has(
@@ -510,7 +451,6 @@ export default function ShortlistSection({
                               </div>
                             );
                           })()}
-                        </div>
 
                         {!isOwner && (
                           <div className="ml-3 shrink-0 flex flex-col items-center">

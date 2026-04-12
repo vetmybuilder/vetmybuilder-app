@@ -216,7 +216,7 @@ function ProjectsTabHelperBanner({ tab }: { tab: OwnerTab }) {
       data-testid="projects-tab-helper-inline"
       className="mb-6"
     >
-      <div className={`inline-flex items-center gap-3 rounded-2xl ${meta.color} px-6 py-4`}>
+      <div className={`flex items-center gap-3 rounded-2xl ${meta.color} px-6 py-4`}>
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 shrink-0">
           {tab === "mine" && <FolderOpen className="h-5 w-5 text-white" />}
           {tab === "completed" && <Home className="h-5 w-5 text-white" />}
@@ -454,7 +454,7 @@ function OwnerProjects() {
       </div>
 
       <div
-        className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pb-12 pt-20"
+        className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pb-12 pt-4 sm:pt-10"
         data-testid="projects-page"
       >
 

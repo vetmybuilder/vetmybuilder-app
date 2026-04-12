@@ -158,32 +158,59 @@ export default function Home() {
     };
   }, []);
 
-  const steps = [
-    {
-      number: 1,
-      icon: IconProject,
-      title: "Post your job",
-      tagline: "Takes 2 minutes",
-      description: 'Add a quick brief (e.g. "bathroom refit in E4"). You\'ll get a unique invite link to share.',
-      color: "red",
-    },
-    {
-      number: 2,
-      icon: IconCommunity,
-      title: "Gather recommendations",
-      tagline: "From people you trust",
-      description: "Share with friends & local members. They submit real recommendations with ratings and comments.",
-      color: "emerald",
-    },
-    {
-      number: 3,
-      icon: IconShortlist,
-      title: "Shortlist & hire",
-      tagline: "With confidence",
-      description: "Compare feedback, build your shortlist, and pick the right tradesperson - no more guesswork.",
-      color: "amber",
-    },
-  ];
+  const steps = isTrades
+    ? [
+        {
+          number: 1,
+          icon: IconProject,
+          title: "Build your profile",
+          tagline: "Stand out from the crowd",
+          description: "Set up your trade profile with photos, service areas, and certifications. We'll verify your business against Companies House and pull in your Google Reviews automatically.",
+          color: "red",
+        },
+        {
+          number: 2,
+          icon: IconCommunity,
+          title: "Get matched to jobs",
+          tagline: "The right jobs find you",
+          description: "We analyse every project posted in your area and notify you in real time when one matches your trade and location - no browsing required.",
+          color: "emerald",
+        },
+        {
+          number: 3,
+          icon: IconShortlist,
+          title: "Win work on reputation",
+          tagline: "No commission, ever",
+          description: "Homeowners see your verified profile, Google rating, and community recommendations side by side. The better your reputation, the more work you win.",
+          color: "amber",
+        },
+      ]
+    : [
+        {
+          number: 1,
+          icon: IconProject,
+          title: "Post your job",
+          tagline: "Takes 2 minutes",
+          description: "Describe what you need and we'll instantly break it down - which trades are involved, complexity, estimated budget - so the right tradespeople find you.",
+          color: "red",
+        },
+        {
+          number: 2,
+          icon: IconCommunity,
+          title: "Gather recommendations",
+          tagline: "Verified by your community",
+          description: "Share with friends and neighbours. Every recommendation is checked against Companies House and Google Reviews so you see the full picture, not just a name.",
+          color: "emerald",
+        },
+        {
+          number: 3,
+          icon: IconShortlist,
+          title: "Shortlist & hire",
+          tagline: "Matched to your project",
+          description: "We rank tradespeople by how well they match your job - trade, location, reputation. Compare profiles side by side and hire with confidence.",
+          color: "amber",
+        },
+      ];
 
   return (
     <>
@@ -196,7 +223,7 @@ export default function Home() {
 
       <div className="overflow-x-hidden -mt-14">
         {/* HERO */}
-        <section className="relative pt-20 sm:pt-24 pb-16 sm:pb-20 overflow-hidden bg-stone-50" aria-label="Hero">
+        <section className="relative pt-6 sm:pt-24 pb-16 sm:pb-20 overflow-hidden bg-stone-50" aria-label="Hero">
           {/* Diagonal colour bands */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             {/* Pink/rose band - right side */}
@@ -210,35 +237,63 @@ export default function Home() {
               {/* Left: Text - 3/5 width so 'tradesperson' fits on one line */}
               <div className="lg:col-span-3">
                 <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-4 py-1.5 text-sm font-bold text-zinc-800 mb-6">
-                  👋 The smarter way to hire a tradesperson
+                  {isTrades ? "🔧 The smarter way to win work" : "👋 The smarter way to hire a tradesperson"}
                 </div>
 
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.05] text-zinc-900">
-                  <span className="block">Find a tradesperson</span>
-                  <span className="block">
-                    you{" "}
-                    <span className="relative inline-block">
-                      <span className="relative z-10 text-red-500">actually</span>
-                      <svg
-                        className="absolute -bottom-1 left-0 w-full h-3 text-red-300"
-                        viewBox="0 0 100 12"
-                        preserveAspectRatio="none"
-                      >
-                        <path
-                          d="M0 6 Q25 0, 50 6 T100 6"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="8"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    </span>{" "}
-                    trust
-                  </span>
+                  {isTrades ? (
+                    <>
+                      <span className="block">Win more work with</span>
+                      <span className="block">
+                        <span className="relative inline-block">
+                          <span className="relative z-10 text-red-500">VetMyBuilder</span>
+                          <svg
+                            className="absolute -bottom-1 left-0 w-full h-3 text-red-300"
+                            viewBox="0 0 100 12"
+                            preserveAspectRatio="none"
+                          >
+                            <path
+                              d="M0 6 Q25 0, 50 6 T100 6"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="8"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                        </span>
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="block">Find a tradesperson</span>
+                      <span className="block">
+                        you{" "}
+                        <span className="relative inline-block">
+                          <span className="relative z-10 text-red-500">actually</span>
+                          <svg
+                            className="absolute -bottom-1 left-0 w-full h-3 text-red-300"
+                            viewBox="0 0 100 12"
+                            preserveAspectRatio="none"
+                          >
+                            <path
+                              d="M0 6 Q25 0, 50 6 T100 6"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="8"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                        </span>{" "}
+                        trust
+                      </span>
+                    </>
+                  )}
                 </h1>
 
                 <p className="mt-6 text-xl sm:text-2xl leading-relaxed text-zinc-600 font-medium">
-                  Post a job. Get vetted by your neighbourhood. Hire with confidence. It&apos;s that simple.
+                  {isTrades
+                    ? "We match you to local projects that fit your skills, verify your credentials automatically, and put you in front of homeowners who are ready to hire."
+                    : "Post a job. We'll analyse it, match you with the right tradespeople, and surface verified recommendations from your neighbourhood."}
                 </p>
 
                 <div className="mt-10 flex flex-col sm:flex-row gap-4">
@@ -384,10 +439,10 @@ export default function Home() {
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-2xl mx-auto mb-16">
               <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-1.5 text-sm font-bold text-emerald-700 mb-4">
-                Dead simple
+                {isTrades ? "Free to join. No commission." : "Smart and simple"}
               </div>
               <h2 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-zinc-900">
-                Three steps to your perfect tradesperson
+                {isTrades ? "Three steps to winning more work" : "Three steps to the right tradesperson"}
               </h2>
             </div>
 

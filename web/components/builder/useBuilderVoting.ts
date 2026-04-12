@@ -10,6 +10,7 @@ type Params = {
   canVote: boolean;
   setBuilder: React.Dispatch<React.SetStateAction<Builder | null>>;
   setScore: React.Dispatch<React.SetStateAction<number | undefined>>;
+  onVoted?: () => void;
 };
 
 export function useBuilderVoting({
@@ -18,6 +19,7 @@ export function useBuilderVoting({
   canVote,
   setBuilder,
   setScore,
+  onVoted,
 }: Params) {
   const api = useApi();
   const [voting, setVoting] = useState(false);
@@ -35,6 +37,7 @@ export function useBuilderVoting({
 
     try {
       await api.post(`/api/recommendations/${builder.id}/like`);
+      onVoted?.();
 
       const { data } = await api.get(`/api/recommendations/${builder.id}`);
       setBuilder(data.recommendation);

@@ -30,6 +30,7 @@ module.exports = (router, ctx) => {
     cleanPhone,
     queueCompanyVerification,
     notifyUsers,
+    broadcastNotification,
     path: nodePath,
     UPLOAD_DIR,
     matchByName: ctxMatchByName,
@@ -453,6 +454,7 @@ module.exports = (router, ctx) => {
                   new Date(), // separate timestamp for the notification
                 ]
               );
+              broadcastNotification?.(ownerUid, { type: "recommendation_new", message, projectId, linkPath });
             } catch (e) {
               console.warn(
                 "[recommendations.post] failed to insert notification into MySQL:",

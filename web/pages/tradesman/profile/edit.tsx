@@ -206,6 +206,22 @@ function Inner() {
     };
   }, [api]);
 
+  const tips = useMemo(() => {
+    if (!profile) return [];
+    const socialsArray = parseSocials(profile.social_links_json);
+    return getCoachingTips({
+      photoCount: (profile.photo_urls?.length ?? 0),
+      chStatus: (profile.ch_status as any) ?? null,
+      warrantyMonths: profile.warranty_months ?? null,
+      trades: parseCsv(profile.trade_types),
+      serviceAreas: parseCsv(profile.service_areas),
+      supportingDocCount: 0,
+      websiteUrl: profile.web_url ?? null,
+      socialLinks: socialsArray,
+      offersDiscount: !!profile.offers_discount,
+    });
+  }, [profile]);
+
   if (loading) {
     return (
       <div className="mx-auto max-w-4xl px-6 py-8 text-sm text-slate-500">
@@ -225,23 +241,6 @@ function Inner() {
   }
 
   const title = form.companyName || "Edit profile";
-
-  const tips = useMemo(() => {
-    const p = profile;
-    if (!p) return [];
-    const socialsArray = parseSocials(p.social_links_json);
-    return getCoachingTips({
-      photoCount: (p.photo_urls?.length ?? 0),
-      chStatus: (p.ch_status as any) ?? null,
-      warrantyMonths: p.warranty_months ?? null,
-      trades: parseCsv(p.trade_types),
-      serviceAreas: parseCsv(p.service_areas),
-      supportingDocCount: 0, // not on RawProfile — will surface the tip
-      websiteUrl: p.web_url ?? null,
-      socialLinks: socialsArray,
-      offersDiscount: !!p.offers_discount,
-    });
-  }, [profile]);
 
   // simple setter helper
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => {
@@ -496,7 +495,7 @@ function Inner() {
           {/* ── Left sidebar ── */}
           <aside className="shrink-0 lg:sticky lg:top-0 lg:h-screen lg:w-72 xl:w-80 bg-white/85 backdrop-blur-sm border-b border-zinc-200 lg:border-b-0 lg:border-r flex flex-col">
             {/* scrollable top */}
-            <div className="flex-1 overflow-y-auto px-8 py-8">
+            <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-4 sm:py-8">
               <button
                 type="button"
                 onClick={goToProfile}

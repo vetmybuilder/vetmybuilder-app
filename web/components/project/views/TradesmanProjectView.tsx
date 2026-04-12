@@ -53,24 +53,18 @@ export default function TradesmanProjectView({ vm }: { vm: VM }) {
 
       {/* === Project Insights (AI classification) === */}
       {vm.classification && (
-        <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-6 border-l-4 border-violet-500 mb-6">
+        <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-6 border-l-4 border-violet-500 mb-6 animate-slide-in-left">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <span className="text-base">✨</span>
               <h3 className="text-sm font-bold text-zinc-900">Project Insights</h3>
             </div>
-            <span className="text-[10px] text-zinc-400">AI-generated</span>
           </div>
 
           <div className="flex flex-wrap gap-2 mb-4">
             {vm.classification.type && (
               <span className="bg-violet-100 text-violet-700 text-xs font-semibold px-3 py-1 rounded-full">
                 {vm.classification.type}
-              </span>
-            )}
-            {vm.classification.scope && (
-              <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full">
-                {vm.classification.scope.charAt(0).toUpperCase() + vm.classification.scope.slice(1)} scope
               </span>
             )}
             {vm.classification.complexity && (

@@ -32,7 +32,7 @@ const HIRE_EXPIRY_DAYS = 7;
 const ACTIVE_HIRE_STATUSES = ["pending", "pending_invite", "accepted"];
 
 module.exports = (router, ctx) => {
-  const { auth, mysqlQuery } = ctx;
+  const { auth, mysqlQuery, broadcastNotification } = ctx;
   const log = ctx.log || console;
   const TAG = "[projects/hires.post]";
   const ROUTE = "/projects/:projectId/hires";
@@ -167,6 +167,13 @@ module.exports = (router, ctx) => {
               now,
             ],
           );
+
+          broadcastNotification?.(tradesmanUserId, {
+            type: "hire_received",
+            message: `You've been hired for "${project.name}"`,
+            projectId,
+            linkPath: `/tradesman/projects`,
+          });
         } catch (e) {
           log.warn?.(`${TAG} failed to insert hire_received notification`, {
             error: e?.message || e,
@@ -314,6 +321,13 @@ module.exports = (router, ctx) => {
               now,
             ],
           );
+
+          broadcastNotification?.(matchedTradesman.user_id, {
+            type: "hire_received",
+            message: `You've been hired for "${project.name}"`,
+            projectId,
+            linkPath: `/tradesman/projects`,
+          });
         } catch (e) {
           log.warn?.(`${TAG} failed to insert hire_received notification (matched)`, {
             error: e?.message || e,

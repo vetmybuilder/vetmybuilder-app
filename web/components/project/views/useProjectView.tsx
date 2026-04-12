@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
@@ -193,6 +193,9 @@ export function useProjectView() {
     ? "/tradesman/projects"
     : `/projects${sourceTab ? `?tab=${sourceTab}` : ""}`;
 
+  const [recsRefreshKey, setRecsRefreshKey] = useState(0);
+  const refreshRecs = useCallback(() => setRecsRefreshKey((k) => k + 1), []);
+
   useEffect(() => {
     if (!project?.id || isTrades) return;
     let dead = false;
@@ -236,7 +239,35 @@ export function useProjectView() {
     return () => {
       dead = true;
     };
-  }, [api, project?.id, isTrades]);
+  }, [api, project?.id, isTrades, recsRefreshKey]);
+
+  // Listen for real-time recommendation notifications via SSE
+  useEffect(() => {
+    if (!project?.id || isTrades) return;
+    if (typeof window === "undefined") return;
+
+    const sseBase = (() => {
+      const loc = window.location;
+      if (loc.hostname === "localhost" && loc.port === "3000") {
+        return `${loc.protocol}//localhost:3100`;
+      }
+      return loc.origin;
+    })();
+
+    const onNotif = (e: Event) => {
+      const data = (e as CustomEvent).detail;
+      if (!data) return;
+      if (
+        data.projectId === project.id &&
+        (data.type === "recommendation_new" || data.type === "tradesman_shared_profile")
+      ) {
+        refreshRecs();
+      }
+    };
+
+    window.addEventListener("vmb:notification", onNotif);
+    return () => window.removeEventListener("vmb:notification", onNotif);
+  }, [project?.id, isTrades, refreshRecs]);
 
   useEffect(() => {
     if (!project?.id) return;
@@ -652,6 +683,7 @@ export function useProjectView() {
     recs,
     recTotal,
     recsErr,
+    refreshRecs,
     ownerContact,
     contactLoading,
     contactUnlocked,

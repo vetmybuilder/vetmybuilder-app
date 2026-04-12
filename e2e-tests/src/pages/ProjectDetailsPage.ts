@@ -29,10 +29,6 @@ export class ProjectDetailsPage extends BasePage {
   readonly closeThisJobButton: Locator;
   readonly editProjectButton: Locator;
 
-  readonly estimateValue: Locator;
-  readonly estimateInfoButton: Locator;
-  readonly estimateTooltip: Locator;
-
   readonly topRecommendationsSection: Locator;
   readonly spotlightSection: Locator;
 
@@ -50,10 +46,6 @@ export class ProjectDetailsPage extends BasePage {
   readonly unarchiveButton: Locator;
 
   readonly sharedTradesmenStrip: Locator;
-
-  readonly partnerFinanceBanner: Locator;
-  readonly personalLoanButton: Locator;
-  readonly remortgageButton: Locator;
 
   private readonly headerMetaDate: Locator;
   private readonly closeProjectModal: CloseProjectModalComponent;
@@ -78,10 +70,6 @@ export class ProjectDetailsPage extends BasePage {
     this.shortlistEmptyCta = this.root.getByTestId("btn-shortlist-share-publish");
     this.closeThisJobButton = this.root.getByTestId("btn-close-project");
     this.editProjectButton = this.root.getByTestId("btn-edit");
-
-    this.estimateValue = this.root.getByText(/^£[\d,]+–£[\d,]+$/);
-    this.estimateInfoButton = this.root.getByTestId("job-estimate-info");
-    this.estimateTooltip = this.root.getByTestId("job-estimate-tooltip");
 
     this.projectDetailsHeading = page.getByRole("heading", {
       name: "Project details",
@@ -110,14 +98,6 @@ export class ProjectDetailsPage extends BasePage {
     this.unarchiveButton = this.root.getByTestId("btn-unarchive");
 
     this.sharedTradesmenStrip = page.getByTestId("shared-tradesmen-strip");
-
-    this.partnerFinanceBanner = page.getByTestId("partner-finance-banner");
-    this.personalLoanButton = this.partnerFinanceBanner.getByRole("button", {
-      name: "Personal loan",
-    });
-    this.remortgageButton = this.partnerFinanceBanner.getByRole("button", {
-      name: "Remortgage",
-    });
 
     this.closeProjectModal = new CloseProjectModalComponent(page);
   }
@@ -302,16 +282,6 @@ export class ProjectDetailsPage extends BasePage {
     await expect(this.root).toContainText(`${input.bedrooms} bed`);
     await expect(this.root).toContainText(input.locationPick.split(" ")[0]);
     await expect(this.root).toContainText(input.budget);
-    await expect(this.estimateValue).toBeVisible();
-    await expect(this.estimateInfoButton).toBeVisible();
-    await this.estimateInfoButton.hover();
-    await expect(this.estimateTooltip).toBeVisible();
-    await expect(this.estimateTooltip).toContainText(
-      "Job estimate based on your project details.",
-    );
-    await expect(this.estimateTooltip).toContainText(
-      "This is a guide price and actual quotes may vary depending on site visit, materials and final scope.",
-    );
   }
 
   async hasTopRecommendations(expected: boolean) {
@@ -476,44 +446,6 @@ export class ProjectDetailsPage extends BasePage {
       .click();
   }
 
-  async hasEstimateVisible(): Promise<void> {
-    await expect(this.estimateValue).toBeVisible({ timeout: 15_000 });
-  }
-
-  async hasEstimateTooltip(): Promise<void> {
-    await expect(this.estimateInfoButton).toBeVisible({ timeout: 15_000 });
-    await this.estimateInfoButton.hover();
-    await expect(this.estimateTooltip).toBeVisible();
-    await expect(this.estimateTooltip).toContainText(
-      "Job estimate based on your project details.",
-    );
-    await expect(this.estimateTooltip).toContainText(
-      "This is a guide price and actual quotes may vary depending on site visit, materials and final scope.",
-    );
-  }
-
-  async hasFinanceBanner(): Promise<void> {
-    await expect(this.partnerFinanceBanner).toBeVisible({ timeout: 15_000 });
-  }
-
-  async hasFinanceBannerWithEstimateText(): Promise<void> {
-    await expect(this.partnerFinanceBanner).toContainText(
-      /Your project is estimated at £[\d,]+–£[\d,]+ — how would you like to fund it\?/,
-      { timeout: 15_000 },
-    );
-  }
-
-  async hasFinanceBannerWithGenericText(): Promise<void> {
-    await expect(this.partnerFinanceBanner).toContainText(
-      "Home improvements can be a big investment — how would you like to fund it?",
-      { timeout: 15_000 },
-    );
-  }
-
-  async hasFinanceBannerButtons(): Promise<void> {
-    await expect(this.personalLoanButton).toBeVisible({ timeout: 15_000 });
-    await expect(this.remortgageButton).toBeVisible();
-  }
 }
 
 export default ProjectDetailsPage;

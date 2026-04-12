@@ -109,7 +109,7 @@ export default function Privacy() {
       <div className="overflow-x-hidden -mt-14">
 
         {/* HERO */}
-        <section className="relative pt-24 pb-12 sm:pt-28 overflow-hidden bg-stone-50">
+        <section className="relative pt-6 pb-12 sm:pt-28 overflow-hidden bg-stone-50">
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
           </div>

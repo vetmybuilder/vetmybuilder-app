@@ -1,6 +1,7 @@
 import Head from "next/head";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
 import { getCoachingTips } from "@/utils/coachingTips";
@@ -35,6 +36,7 @@ const BUDGET_OPTIONS: { value: string; label: string }[] = [
 
 export default function TradesmanProjects() {
   const api = useApi();
+  const router = useRouter();
   const { user, loading } = useAuth();
 
   /* ---------- filters ---------- */
@@ -51,6 +53,20 @@ export default function TradesmanProjects() {
 
   // which project row is expanded (accordion)
   const [openId, setOpenId] = useState<number | null>(null);
+
+  // Auto-expand a project from ?open=<id> (e.g. from notification click)
+  useEffect(() => {
+    if (!router.isReady) return;
+    const openParam = Number(router.query.open);
+    if (openParam && items.some((p) => p.id === openParam)) {
+      setOpenId(openParam);
+      // Scroll the row into view after a short delay for the accordion to expand
+      setTimeout(() => {
+        const el = document.querySelector(`[data-project-id="${openParam}"]`);
+        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 300);
+    }
+  }, [router.isReady, router.query.open, items]);
 
   // ---- coaching tips: fetch tradesman profile ----
   const [meProfile, setMeProfile] = useState<VendorForScoring | null>(null);
@@ -187,11 +203,11 @@ export default function TradesmanProjects() {
       </Head>
 
       <div
-        className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6"
+        className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-2 sm:py-6"
         data-testid="tradesman-projects-page"
       >
         {/* Heading + primary actions */}
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-900">
               Jobs list
@@ -332,7 +348,7 @@ export default function TradesmanProjects() {
         {/* Accordion list */}
         {user && gate === "none" && !loading && (
           <div
-            className="overflow-hidden rounded-xl border border-gray-200 bg-white"
+            className=""
             data-testid="tradesman-projects-accordion"
           >
             {err && (
@@ -349,14 +365,15 @@ export default function TradesmanProjects() {
 
             {!err &&
               filteredItems.map((p) => (
-                <TradesmanProjectAccordionRow
-                  key={p.id}
-                  project={p}
-                  expanded={openId === p.id}
-                  onToggle={() =>
-                    setOpenId((curr) => (curr === p.id ? null : p.id))
-                  }
-                />
+                <div key={p.id} data-project-id={p.id}>
+                  <TradesmanProjectAccordionRow
+                    project={p}
+                    expanded={openId === p.id}
+                    onToggle={() =>
+                      setOpenId((curr) => (curr === p.id ? null : p.id))
+                    }
+                  />
+                </div>
               ))}
 
             {busy && (

@@ -117,7 +117,7 @@ export default function Footer() {
 
         {/* Bottom bar */}
         <div className="mt-12 pt-8 border-t border-white/10 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 text-center sm:text-left">
             <p className="text-sm text-zinc-500">
               &copy; {year} VetMyBuilder. All rights reserved.
             </p>

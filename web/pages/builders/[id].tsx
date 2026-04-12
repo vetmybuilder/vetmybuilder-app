@@ -1,5 +1,6 @@
 // web/pages/builders/[id].tsx
 import { useState } from "react";
+import Toast from "@/components/Toast";
 import { useRouter } from "next/router";
 import type { GalleryImage } from "@/components/LightboxGallery";
 import BuilderHeader from "@/components/builder/BuilderHeader";
@@ -37,12 +38,15 @@ export default function BuilderProfilePage() {
     user,
   } = useBuilderProfile(id);
 
+  const [toast, setToast] = useState<string | null>(null);
+
   const { voting, voteUpOnce } = useBuilderVoting({
     builder,
     user,
     canVote,
     setBuilder,
     setScore,
+    onVoted: () => setToast("Vote recorded"),
   });
 
   if (redirecting) return null;
@@ -86,7 +90,7 @@ export default function BuilderProfilePage() {
           <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
         </div>
 
-        <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-24 pb-16">
+        <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-4 sm:pt-10 pb-16">
           {loading ? (
             <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-8 text-sm text-zinc-500">
               Loading…
@@ -160,6 +164,7 @@ export default function BuilderProfilePage() {
           ) : null}
         </div>
       </div>
+      <Toast message={toast} onDismiss={() => setToast(null)} />
     </>
   );
 }

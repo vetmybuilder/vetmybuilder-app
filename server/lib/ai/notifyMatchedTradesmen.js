@@ -18,6 +18,7 @@ const { scoreMatch } = require("./jobMatcher");
 async function notifyMatchedTradesmen({
   mysqlQuery,
   projectId,
+  sseBroadcast,
   projectName,
   projectType,
   projectLocation,
@@ -77,12 +78,22 @@ async function notifyMatchedTradesmen({
 
       try {
         const message = `A new ${projectType || "project"} in ${projectLocation || "your area"} was just posted — it matches your profile.`;
+        const linkPath = `/tradesman/projects?open=${projectId}`;
         await mysqlQuery(
           `INSERT INTO notifications
             (userId, type, message, projectId, linkPath, createdAt)
-          VALUES (?, 'project_match', ?, ?, '/tradesman/projects', NOW())`,
-          [t.user_id, message, projectId],
+          VALUES (?, 'project_match', ?, ?, ?, NOW())`,
+          [t.user_id, message, projectId, linkPath],
         );
+        // Push real-time via SSE if available
+        if (typeof sseBroadcast === "function") {
+          sseBroadcast(t.user_id, {
+            type: "project_match",
+            message,
+            projectId,
+            linkPath,
+          });
+        }
         notified += 1;
       } catch (err) {
         log.warn?.(`${TAG} notification insert failed`, {

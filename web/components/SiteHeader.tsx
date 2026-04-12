@@ -414,6 +414,11 @@ export default function SiteHeader() {
                       <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white text-xs font-semibold">
                         {(company?.[0] || "T").toUpperCase()}
                       </span>
+                      {company && (
+                        <span className="text-sm font-medium text-gray-700 max-w-[200px] truncate">
+                          {company}
+                        </span>
+                      )}
                       <svg className={`h-4 w-4 text-gray-500 transition-transform ${openMenu === "trades" ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                         <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 011.08 1.04l-4.25 4.25a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clipRule="evenodd" />
                       </svg>
@@ -720,6 +725,11 @@ export default function SiteHeader() {
                     >
                       {initials || "U"}
                     </span>
+                    {isTrades && company && (
+                      <span className="hidden sm:inline text-sm font-medium text-gray-700 max-w-[200px] truncate">
+                        {company}
+                      </span>
+                    )}
                     <svg
                       className={`h-4 w-4 text-gray-500 transition-transform ${
                         openMenu === "account" ? "rotate-180" : ""

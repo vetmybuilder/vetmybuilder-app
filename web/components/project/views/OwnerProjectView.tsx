@@ -9,11 +9,10 @@ import {
   XCircle,
   Archive as ArchiveIcon,
   Link as LinkIcon,
-  Info as InfoIcon,
 } from "lucide-react";
 import { useApi } from "@/utils/api";
 import SpotlightStrip from "@/components/tradesmen/SpotlightStrip";
-import PartnerFinanceBanner from "@/components/project/PartnerFinanceBanner";
+import ScrollReveal from "@/components/ScrollReveal";
 import NextLink from "next/link";
 import { useRouter } from "next/router";
 import GetRecommendationsModal, {
@@ -26,47 +25,9 @@ import {
   openEmailShare,
 } from "@/utils/shareInvite";
 import SharedTradesmen from "@/components/project/SharedTradesmen";
-import { estimateProjectCost } from "@/utils/estimate";
 import type { Verification } from "@/types/vmb"; // 🔑 CH verification type
 
 type VM = ReturnType<typeof import("./useProjectView").useProjectView>;
-
-// Helper: extract a clean budget string from the description
-function extractBudget(description?: string | null): string | null {
-  if (!description) return null;
-  const desc = String(description).trim();
-
-  // 1) Pattern like: "Budget: £5k–£15k" (up to first dot/newline)
-  const explicit = desc.match(/Budget[:\-]\s*([^.\n]+)/i);
-  if (explicit?.[1]) {
-    return explicit[1].trim();
-  }
-
-  // 2) If description starts with a budget like: "£5k–£15k. Materials: ..."
-  const startMatch = desc.match(/^£([^.\n]*)\./);
-  if (startMatch?.[1]) {
-    return `£${startMatch[1]}`.replace(/\.$/, "").trim();
-  }
-
-  // 3) Fallback: any "£..." chunk (e.g. "£5k–£15k")
-  const poundMatch = desc.match(/£[0-9][0-9,.\-\sKk+–£]*/);
-  if (poundMatch?.[0]) {
-    return poundMatch[0].replace(/\.$/, "").trim();
-  }
-
-  return null;
-}
-
-// Helper: pull "Additional work types: A, B, C" from the description
-function extractAdditionalTypes(description?: string | null): string[] {
-  if (!description) return [];
-  const match = description.match(/Additional work types:\s*([^\n]+)/i);
-  if (!match?.[1]) return [];
-  return match[1]
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
 
 export default function OwnerProjectView({ vm }: { vm: VM }) {
   const {
@@ -282,32 +243,6 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
 
   // Use the "short" project name in the header (type is the clean label like "Cavity Wall Insulation")
   const headerTitle = project.type || project.name;
-  const budget = extractBudget(project.description);
-
-  // Build list of work types for the estimator (primary type + "Additional work types")
-  const additionalTypes = extractAdditionalTypes(project.description);
-  const allTypes = [project.type, ...additionalTypes].filter((x): x is string =>
-    Boolean(x && x.trim()),
-  );
-
-  const estimate = React.useMemo(
-    () =>
-      estimateProjectCost({
-        category: null, // can be wired up when category is available on project
-        types: allTypes,
-        location: project.location || "",
-        propertyType: project.propertyType || "",
-        bedrooms: project.bedrooms ?? 0,
-        description: project.description || "",
-      }),
-    [
-      allTypes.join("|"),
-      project.location,
-      project.propertyType,
-      project.bedrooms,
-      project.description,
-    ],
-  );
 
   const handleShare = async (channel: GetRecommendationsChannel) => {
     if (!project?.id) return;
@@ -430,18 +365,20 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
         }}
       />
 
+      {/* Back link — outside the header card */}
+      <a
+        href={backHref}
+        className="inline-block mb-3 text-sm font-medium text-zinc-400 hover:text-zinc-700 transition-colors"
+      >
+        ← Back to projects
+      </a>
+
       {/* Header */}
-      <header className="mb-6 rounded-xl border border-slate-200 bg-white/70 backdrop-blur p-4 sm:p-6 shadow-sm">
+      <header className="mb-6 rounded-2xl bg-gradient-to-br from-emerald-100 via-emerald-50 to-green-50 border border-emerald-200 p-4 sm:p-6 shadow-md shadow-emerald-100/40">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           {/* LEFT: title + meta + badges + primary CTA */}
           <div className="flex-1">
             <div className="flex items-center gap-3">
-              <a
-                href={backHref}
-                className="text-sm text-slate-500 hover:text-slate-700"
-              >
-                ← Back
-              </a>
               <span className="text-xs text-slate-400">
                 {metaLabel} {metaText}
               </span>
@@ -467,16 +404,6 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
               aria-label="Project attributes"
               data-testid="project-badges"
             >
-              {budget && (
-                <span
-                  role="listitem"
-                  className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800"
-                  data-testid="badge-budget"
-                >
-                  {budget}
-                </span>
-              )}
-
               <span
                 role="listitem"
                 className="badge gray"
@@ -547,7 +474,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
               {!isClosed ? (
                 <>
                   <button
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 hover:bg-rose-100 md:text-sm"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-4 py-2 text-xs font-semibold text-zinc-500 shadow-sm hover:bg-zinc-50 hover:text-zinc-700 hover:border-zinc-300 transition-all md:text-sm"
                     onClick={onCloseProject}
                     data-testid="btn-close-project"
                   >
@@ -569,51 +496,18 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
               )}
             </div>
 
-            {estimate && (
-              <div className="mt-3 w-full text-right">
-                <div className="inline-flex items-center gap-2">
-                  <div className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-900">
-                    £{estimate.low.toLocaleString()}–£
-                    {estimate.high.toLocaleString()}
-                  </div>
-                  <div className="relative group">
-                    <button
-                      type="button"
-                      data-testid="job-estimate-info"
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                      aria-label="How this estimate is calculated"
-                    >
-                      <InfoIcon size={14} />
-                    </button>
-                    <div
-                      data-testid="job-estimate-tooltip"
-                      className="pointer-events-none absolute right-0 z-10 mt-2 w-72 rounded-lg bg-slate-900 px-3 py-2 text-left text-[11px] leading-snug text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-                    >
-                      <p className="font-semibold">
-                        Job estimate based on your project details.
-                      </p>
-                      <p className="mt-1">
-                        This is a guide price and actual quotes may vary
-                        depending on site visit, materials and final scope.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </header>
 
       {/* === Project Insights (AI classification) === */}
       {vm.classification && (
-        <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-6 border-l-4 border-violet-500 mb-6">
+        <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-6 border-l-4 border-violet-500 mb-6 animate-slide-in-left">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <span className="text-base">✨</span>
               <h3 className="text-sm font-bold text-zinc-900">Project Insights</h3>
             </div>
-            <span className="text-[10px] text-zinc-400">AI-generated</span>
           </div>
 
           <div className="flex flex-wrap gap-2 mb-4">
@@ -640,6 +534,12 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
           </div>
 
           <div className="grid gap-2 text-sm">
+            {vm.classification.price_band_estimate && (
+              <div className="flex gap-2">
+                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wide min-w-[100px] pt-0.5">Est. budget</span>
+                <span className="text-zinc-700 font-semibold">{vm.classification.price_band_estimate}</span>
+              </div>
+            )}
             {vm.classification.recommended_trades?.length > 0 && (
               <div className="flex gap-2">
                 <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wide min-w-[100px] pt-0.5">Trades</span>
@@ -662,16 +562,11 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
         </div>
       )}
 
-      {/* === Partner Finance Banner === */}
-      <PartnerFinanceBanner
-        estimateLow={estimate?.low ?? null}
-        estimateHigh={estimate?.high ?? null}
-      />
-
       {/* === Shared tradesmen strip (profiles shared directly to this project) === */}
       <SharedTradesmen projectId={project.id} />
 
       {/* === Two-column: Top recs (left) • Spotlight (right) === */}
+      <ScrollReveal>
       <div className="grid gap-6 grid-cols-1 lg:[grid-template-columns:580px_minmax(0,1fr)]">
         {/* LEFT: Top recommendations */}
         <div>
@@ -720,6 +615,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
           </div>
         </div>
       </div>
+      </ScrollReveal>
 
       {/* Invisible bottom spacer so content doesn't sit flush with the viewport edge */}
       <div aria-hidden="true" className="h-8" />

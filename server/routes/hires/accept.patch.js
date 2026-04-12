@@ -15,7 +15,7 @@ const {
 } = require("../../lib/observability/matchObservations");
 
 module.exports = (router, ctx) => {
-  const { auth, mysqlQuery } = ctx;
+  const { auth, mysqlQuery, broadcastNotification } = ctx;
   const log = ctx.log || console;
   const TAG = "[hires/accept.patch]";
   const ROUTE = "/hires/:id/accept";
@@ -118,6 +118,13 @@ module.exports = (router, ctx) => {
             now,
           ],
         );
+
+        broadcastNotification?.(hire.homeownerUid, {
+          type: "hire_accepted",
+          message: `${tradesmanName} accepted your hire request for "${projectName}"`,
+          projectId: hire.projectId,
+          linkPath: `/projects/${hire.projectId}`,
+        });
       } catch (e) {
         log.warn?.(`${TAG} failed to insert hire_accepted notification`, {
           error: e?.message || e,

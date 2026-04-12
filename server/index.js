@@ -146,7 +146,7 @@ try {
 
 if (!notifyUsers) {
   notifyUsers = async function fallbackNotifyUsers(_dbConn, uids, payload) {
-    const now = new Date().toISOString();
+    const now = new Date().toISOString().slice(0, 19).replace("T", " ");
     const ids = Array.isArray(uids) ? uids : [];
     if (!ids.length) return;
 
