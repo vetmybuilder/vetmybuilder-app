@@ -52,6 +52,27 @@ export default class Account {
       .withEmail(`guest+${uniqueSuffix()}@example.test`);
   }
 
+  /**
+   * Build a fresh "Sign in with X" OAuth test account for the given
+   * provider. Generates a unique email per call so the user has no MySQL
+   * row yet — the test exercises the post-OAuth /signup/complete flow.
+   *
+   * The display name is fixed per provider ("Google Tester" / "Facebook
+   * Tester") so server-side derivation produces predictable initials.
+   */
+  static aNewOAuthAccount(provider: "google" | "facebook"): {
+    email: string;
+    displayName: string;
+  } {
+    const u = uniqueSuffix();
+    const displayName =
+      provider === "google" ? "Google Tester" : "Facebook Tester";
+    return {
+      email: `register-via-${provider}-${u}@example.test`,
+      displayName,
+    };
+  }
+
   withFirstName(firstName: string): Account {
     this.firstName = firstName;
     return this;

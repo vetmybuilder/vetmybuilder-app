@@ -81,17 +81,15 @@ scripts/sim/fixtures/builder-photos/
 
 .firebase-emulator-data/
 
-# Pitch deck and Project Lighthouse — local-only artifacts.
-# Keep the build scripts under scripts/ tracked, but the generated decks,
-# videos, screenshots and draft business content stay off git so they don't
-# end up on master or in any clone of the repo. Regenerate via:
-#   python3 scripts/build-pitch-deck.py
-#   python3 scripts/build-lighthouse-deck.py
-#   node scripts/capture-pitch-screenshots.js
-#   node scripts/record-pitch-demo.js
+# Pitch deck and internal planning artefacts — local-only.
+# Generated from scripts/build-pitch-deck.py, build-lighthouse-deck.py,
+# and build-vault-deck.py. Contains investor-facing copy, financial
+# figures, draft founder bio, and binary .pptx files. Regenerate from
+# the scripts when needed; never commit the outputs.
 pitch-deck/
 project-lighthouse/
 project-vault/
-docs/superpowers/
-.superpowers/
 .playwright-mcp/
+.superpowers/
+docs/
+e2e-tests/test-results-pw-ui-1/

@@ -31,7 +31,7 @@ test.describe("Sign in", () => {
 
     await basePage.logoutViaUrl();
     await loginPage.loginExpectSuccess(user.email!, user.password!);
-    await homeownerProjectsPage.waitUntilReady();
+    await homeownerProjectsPage.expectVisible();
   });
 
   test("shows a friendly error when the password is wrong", async ({

@@ -96,6 +96,7 @@ export default function AdminHeader() {
     router.pathname === "/admin/tradesmen";
   const atRecs = router.pathname === "/admin/recommendation-leaderboard";
   const atVerify = router.pathname === "/admin/verify-company";
+  const atUsers = router.pathname === "/admin/users";
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-500/60 bg-slate-700/90 backdrop-blur">
@@ -206,6 +207,19 @@ export default function AdminHeader() {
                     data-testid="menu-admin-recs"
                   >
                     Recommendation leaderboard
+                  </Link>
+
+                  <Link
+                    href="/admin/users"
+                    className={`block px-3 py-2 text-sm ${
+                      atUsers
+                        ? "bg-slate-100 font-semibold text-slate-900"
+                        : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                    onClick={() => setMenuOpen(false)}
+                    data-testid="menu-admin-users"
+                  >
+                    User management
                   </Link>
 
                   <Link

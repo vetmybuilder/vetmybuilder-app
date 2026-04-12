@@ -11,6 +11,13 @@ const ADMIN_EMAIL = process.env.E2E_ADMIN_USER_EMAIL!;
 const ADMIN_PASSWORD = process.env.E2E_ADMIN_USER_PASSWORD!;
 
 test.describe("Admin leaderboard", () => {
+  // All tests in this file share the same TEST_ADMIN_USER_UID and seed the
+  // admin row in beforeEach. Running them in parallel across workers races
+  // against the shared Firebase emulator state and the per-test reseed,
+  // surfacing as intermittent "Invalid token" 401s on the leaderboard
+  // fetch. Serial mode keeps the file pinned to a single worker.
+  test.describe.configure({ mode: "serial" });
+
   test.beforeEach(async ({ runtime, request }) => {
     // Seed admin and test users so the admin UID has role='admin' in user_roles.
     await seedUsers(runtime.dbName);

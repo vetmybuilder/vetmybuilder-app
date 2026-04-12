@@ -3,7 +3,7 @@
  * GET /api/me
  * Auth: required.
  * Response:
- *  { uid, email, firstName, lastName, username, displayName, initials }
+ *  { uid, email, firstName, lastName, username, locationRaw, postcodeOutward, displayName, initials }
  */
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery, touchUserMw } = ctx;
@@ -17,7 +17,7 @@ module.exports = (router, ctx) => {
     try {
       const rows = await mysqlQuery(
         `
-        SELECT uid, email, firstName, lastName, username
+        SELECT uid, email, firstName, lastName, username, locationRaw, postcodeOutward
         FROM users
         WHERE uid = ?
         LIMIT 1
@@ -120,6 +120,8 @@ module.exports = (router, ctx) => {
       firstName,
       lastName,
       username,
+      locationRaw: row.locationRaw ?? null,
+      postcodeOutward: row.postcodeOutward ?? null,
       displayName,
       initials,
     });

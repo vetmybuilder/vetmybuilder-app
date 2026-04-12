@@ -219,6 +219,10 @@ function buildRouter(ctx) {
   require("./routes/admin/compute-builder-summaries.post")(router, ctx);
   require("./routes/admin/compute-recommendation-signals.post")(router, ctx);
   require("./routes/admin/enrich-tradesmen.post")(router, ctx);
+  require("./routes/admin/users.get")(router, ctx);
+  require("./routes/admin/users.post")(router, ctx);
+  require("./routes/admin/users.put")(router, ctx);
+  require("./routes/admin/users.delete")(router, ctx);
 
   return router;
 }

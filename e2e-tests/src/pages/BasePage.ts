@@ -31,8 +31,23 @@ export class BasePage {
   async logoutViaUrl() {
     // domcontentloaded fires before React hydrates, so useEffect (which calls
     // window.location.replace) cannot run until after goto resolves — no race.
-    await this.page.goto("/logout", { waitUntil: "domcontentloaded" }).catch(() => {});
-    await this.page.waitForURL(/signedOut=1/, { timeout: 20_000 });
+    //
+    // On mobile-webkit under load, the replace() navigation occasionally
+    // gets cancelled by webkit's policy checker ("Navigation canceled by
+    // policy check"), leaving the page stuck on /logout. Retrying the
+    // navigation once is enough to recover — it's the same webkit timing
+    // quirk that shows up in other logout-heavy specs on this browser.
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      await this.page
+        .goto("/logout", { waitUntil: "domcontentloaded" })
+        .catch(() => {});
+      try {
+        await this.page.waitForURL(/signedOut=1/, { timeout: 15_000 });
+        return;
+      } catch (err) {
+        if (attempt === 1) throw err;
+      }
+    }
   }
 }
 
