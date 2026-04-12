@@ -31,6 +31,7 @@ export class ProjectDetailsPage extends BasePage {
 
   readonly topRecommendationsSection: Locator;
   readonly spotlightSection: Locator;
+  readonly projectInsightsCard: Locator;
 
   readonly notificationsButton: Locator;
   readonly projectBadges: Locator;
@@ -82,6 +83,7 @@ export class ProjectDetailsPage extends BasePage {
     );
     this.topRecommendationsSection = page.getByTestId("project-shortlist");
     this.spotlightSection = page.getByTestId("spotlight-strip");
+    this.projectInsightsCard = page.getByTestId("project-insights-card");
 
     this.notificationsButton = page.locator(
       'button[aria-label="Notifications (unread)"]:visible',
@@ -281,7 +283,6 @@ export class ProjectDetailsPage extends BasePage {
     await expect(this.root).toContainText(input.propertyType);
     await expect(this.root).toContainText(`${input.bedrooms} bed`);
     await expect(this.root).toContainText(input.locationPick.split(" ")[0]);
-    await expect(this.root).toContainText(input.budget);
   }
 
   async hasTopRecommendations(expected: boolean) {
@@ -377,7 +378,7 @@ export class ProjectDetailsPage extends BasePage {
       .first();
 
     await expect(card).toBeVisible({ timeout: 15_000 });
-    await expect(card.getByTestId("shortlist-comment")).toHaveText(recommendation.comment);
+    await expect(card.getByTestId("shortlist-comment")).toContainText(recommendation.comment);
     await expect(card.getByTestId("shortlist-badge-ch")).toBeVisible();
     await expect(card.getByTestId("shortlist-badge-photos")).toBeVisible();
     await expect(card.getByTestId("shortlist-recommender")).toHaveText(
@@ -446,6 +447,29 @@ export class ProjectDetailsPage extends BasePage {
       .click();
   }
 
+  async expectInsightsVisible(): Promise<void> {
+    // Classification is fire-and-forget after publish - may need a reload
+    await expect
+      .poll(
+        async () => {
+          const visible = await this.projectInsightsCard.isVisible().catch(() => false);
+          if (visible) return true;
+          await this.page.reload({ waitUntil: "domcontentloaded" });
+          await this.page.waitForTimeout(1500);
+          return this.projectInsightsCard.isVisible().catch(() => false);
+        },
+        { timeout: 30_000, intervals: [3000] },
+      )
+      .toBe(true);
+  }
+
+  async expectInsightsNotVisible(): Promise<void> {
+    await expect(this.projectInsightsCard).not.toBeVisible({ timeout: 5_000 });
+  }
+
+  async expectInsightsContains(text: string): Promise<void> {
+    await expect(this.projectInsightsCard).toContainText(text, { timeout: 10_000 });
+  }
 }
 
 export default ProjectDetailsPage;

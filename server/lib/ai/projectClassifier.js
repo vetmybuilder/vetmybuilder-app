@@ -26,7 +26,7 @@
 // Real mode uses Claude Haiku via the llmClient. ~£0.005 per call at
 // production volume; £0 in dev.
 
-const { complete } = require("./llmClient");
+const llmClient = require("./llmClient");
 
 const CLASSIFIER_VERSION = "project-classifier-v1";
 const FEATURE = "project_classify";
@@ -127,7 +127,7 @@ async function classifyProject({
 
   let result;
   try {
-    result = await complete({
+    result = await llmClient.complete({
       feature: FEATURE,
       system: SYSTEM_PROMPT,
       user: userPrompt,

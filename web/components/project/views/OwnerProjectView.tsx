@@ -502,7 +502,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
 
       {/* === Project Insights (AI classification) === */}
       {vm.classification && (
-        <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-6 border-l-4 border-violet-500 mb-6 animate-slide-in-left">
+        <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-6 border-l-4 border-violet-500 mb-6 animate-slide-in-left" data-testid="project-insights-card">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <span className="text-base">✨</span>

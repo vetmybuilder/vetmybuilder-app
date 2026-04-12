@@ -490,7 +490,7 @@ export default function TradesmanProjectAccordionRow({
 
       {/* Project Insights */}
       {classification && (
-        <div className="rounded-xl border border-[#e8e0da] bg-[#f5f0ed] p-5 space-y-4">
+        <div className="rounded-xl border border-[#e8e0da] bg-[#f5f0ed] p-5 space-y-4" data-testid="project-insights-card">
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-amber-500" />
             <h4 className="font-semibold text-slate-900">Project Insights</h4>

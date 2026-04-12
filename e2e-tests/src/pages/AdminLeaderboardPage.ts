@@ -53,7 +53,25 @@ export class AdminLeaderboardPage extends BasePage {
   }
 
   async assertRowVisible(userId: string) {
-    await expect(this.getRow(userId)).toBeVisible({ timeout: 15_000 });
+    await expect
+      .poll(
+        async () => {
+          const visible = await this.getRow(userId).isVisible().catch(() => false);
+          if (visible) return true;
+          // Reload page and re-search to pick up newly inserted data
+          const query = await this.searchInput.inputValue().catch(() => "");
+          await this.page.reload({ waitUntil: "domcontentloaded" });
+          await this.waitUntilReady();
+          if (query) {
+            await this.searchInput.fill(query);
+            await this.searchButton.click();
+          }
+          await this.page.waitForTimeout(1500);
+          return this.getRow(userId).isVisible().catch(() => false);
+        },
+        { timeout: 40_000, intervals: [3000] },
+      )
+      .toBe(true);
   }
 
   async hasStatus(userId: string, status: TradesmanStatus) {
