@@ -13,6 +13,7 @@ export class BuilderProfilePage extends BasePage {
   readonly sharedPhotosSection: Locator;
   readonly voteUpButton: Locator;
   readonly backToProjectLink: Locator;
+  readonly googleRatingChip: Locator;
 
   constructor(page: Page) {
     super(page);
@@ -30,6 +31,7 @@ export class BuilderProfilePage extends BasePage {
     this.backToProjectLink = page.getByRole("button", {
       name: "Back to this project",
     });
+    this.googleRatingChip = page.getByTestId("builder-google-rating");
   }
 
   async visit(recommendationId: string | number) {

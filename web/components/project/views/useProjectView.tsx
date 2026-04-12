@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
@@ -62,6 +62,7 @@ export function useProjectView() {
     | undefined;
 
   const [project, setProject] = useState<Project | null>(null);
+  const [classification, setClassification] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [flash, setFlash] = useState<Flash | null>(null);
@@ -164,11 +165,13 @@ export function useProjectView() {
         const { data } = await api.get(`/api/projects/${projectId}`);
         if (!alive) return;
         setProject(data.project);
+        setClassification(data.classification || null);
       } catch (e: any) {
         if (!alive) return;
         const status = e?.status ?? e?.response?.status ?? 500;
         setErrorStatus(status);
         setProject(null);
+        setClassification(null);
       } finally {
         if (alive) setLoading(false);
       }
@@ -189,6 +192,9 @@ export function useProjectView() {
   const backHref = isTrades
     ? "/tradesman/projects"
     : `/projects${sourceTab ? `?tab=${sourceTab}` : ""}`;
+
+  const [recsRefreshKey, setRecsRefreshKey] = useState(0);
+  const refreshRecs = useCallback(() => setRecsRefreshKey((k) => k + 1), []);
 
   useEffect(() => {
     if (!project?.id || isTrades) return;
@@ -233,7 +239,35 @@ export function useProjectView() {
     return () => {
       dead = true;
     };
-  }, [api, project?.id, isTrades]);
+  }, [api, project?.id, isTrades, recsRefreshKey]);
+
+  // Listen for real-time recommendation notifications via SSE
+  useEffect(() => {
+    if (!project?.id || isTrades) return;
+    if (typeof window === "undefined") return;
+
+    const sseBase = (() => {
+      const loc = window.location;
+      if (loc.hostname === "localhost" && loc.port === "3000") {
+        return `${loc.protocol}//localhost:3100`;
+      }
+      return loc.origin;
+    })();
+
+    const onNotif = (e: Event) => {
+      const data = (e as CustomEvent).detail;
+      if (!data) return;
+      if (
+        data.projectId === project.id &&
+        (data.type === "recommendation_new" || data.type === "tradesman_shared_profile")
+      ) {
+        refreshRecs();
+      }
+    };
+
+    window.addEventListener("vmb:notification", onNotif);
+    return () => window.removeEventListener("vmb:notification", onNotif);
+  }, [project?.id, isTrades, refreshRecs]);
 
   useEffect(() => {
     if (!project?.id) return;
@@ -629,6 +663,7 @@ export function useProjectView() {
 
   return {
     project,
+    classification,
     loading,
     errorStatus,
     flash,
@@ -648,6 +683,7 @@ export function useProjectView() {
     recs,
     recTotal,
     recsErr,
+    refreshRecs,
     ownerContact,
     contactLoading,
     contactUnlocked,

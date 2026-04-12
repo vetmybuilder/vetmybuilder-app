@@ -25,6 +25,10 @@ function buildRouter(ctx) {
     ctx.clientsByUser = ctx.clientsByUser || sse.clientsByUser;
     ctx.sseSend = ctx.sseSend || sse.sseSend;
   }
+  if (!ctx.broadcastNotification) {
+    const sse = require("./lib/sse");
+    ctx.broadcastNotification = sse.broadcastNotification;
+  }
 
   // Uploads
   if (!ctx.upload || !ctx.UPLOAD_DIR) {
@@ -212,6 +216,9 @@ function buildRouter(ctx) {
   require("./routes/admin/pending-payments.get")(router, ctx);
   require("./routes/admin/subscription.approve.post")(router, ctx);
   require("./routes/admin/subscription.reject.post")(router, ctx);
+  require("./routes/admin/compute-builder-summaries.post")(router, ctx);
+  require("./routes/admin/compute-recommendation-signals.post")(router, ctx);
+  require("./routes/admin/enrich-tradesmen.post")(router, ctx);
   require("./routes/admin/users.get")(router, ctx);
   require("./routes/admin/users.post")(router, ctx);
   require("./routes/admin/users.put")(router, ctx);

@@ -63,10 +63,15 @@ module.exports = (router, ctx) => {
     }
 
     // From here on, we switch to SSE
+    const origin = req.headers.origin || "";
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
       Connection: "keep-alive",
+      ...(origin ? {
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Credentials": "true",
+      } : {}),
     });
     res.write("\n");
 

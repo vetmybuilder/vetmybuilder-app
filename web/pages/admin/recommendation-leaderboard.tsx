@@ -21,6 +21,12 @@ type Row = {
   wouldAgain: number;
   chStatus: string | null;
   chScore: number | null;
+  hires?: {
+    total: number;
+    accepted: number;
+    declined: number;
+    pending: number;
+  };
   score: number; // debug score – now treated as fallback only
 };
 
@@ -30,6 +36,7 @@ type SortKey =
   | "likes"
   | "recPhotos"
   | "completionWins"
+  | "hires"
   | "chScore"
   | "createdAt";
 
@@ -197,6 +204,8 @@ function AdminLeaderboardInner() {
         return asNumberOrNull(r.recPhotos) ?? -Infinity;
       case "completionWins":
         return asNumberOrNull(r.completionWins) ?? -Infinity;
+      case "hires":
+        return r.hires?.total ?? 0;
       case "chScore":
         return asNumberOrNull(r.chScore) ?? -Infinity;
       case "createdAt":
@@ -404,6 +413,16 @@ function AdminLeaderboardInner() {
                   </th>
                   <th className="px-3 py-2 text-right text-xs font-semibold text-slate-200 uppercase tracking-wide border-b border-slate-500/60 border-r border-r-slate-500/30">
                     <SortHeader
+                      label="Hires"
+                      k="hires"
+                      sortKey={sortKey}
+                      setSortKey={setSortKey}
+                      sortDir={sortDir}
+                      setSortDir={setSortDir}
+                    />
+                  </th>
+                  <th className="px-3 py-2 text-right text-xs font-semibold text-slate-200 uppercase tracking-wide border-b border-slate-500/60 border-r border-r-slate-500/30">
+                    <SortHeader
                       label="CH score"
                       k="chScore"
                       sortKey={sortKey}
@@ -488,6 +507,27 @@ function AdminLeaderboardInner() {
                         {r.completionWins}
                       </td>
 
+                      <td
+                        className="px-3 py-2 text-right align-middle tabular-nums text-slate-200 border-r border-slate-500/20"
+                        title={
+                          r.hires
+                            ? `${r.hires.accepted} accepted, ${r.hires.declined} declined, ${r.hires.pending} pending`
+                            : "No hire data"
+                        }
+                      >
+                        {r.hires?.total ?? 0}
+                        {r.hires && r.hires.total > 0 && (
+                          <span className="text-slate-500">
+                            {" "}
+                            ({r.hires.accepted}a/{r.hires.declined}d
+                            {r.hires.pending > 0
+                              ? `/${r.hires.pending}p`
+                              : ""}
+                            )
+                          </span>
+                        )}
+                      </td>
+
                       <td className="px-3 py-2 text-right align-middle tabular-nums text-slate-200 border-r border-slate-500/20">
                         {r.chScore ?? "—"}
                       </td>
@@ -541,6 +581,7 @@ function SortHeader({
     k === "likes" ||
     k === "recPhotos" ||
     k === "completionWins" ||
+    k === "hires" ||
     k === "chScore" ||
     k === "createdAt"
       ? "desc"

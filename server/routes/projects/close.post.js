@@ -18,7 +18,7 @@
  */
 
 module.exports = (router, ctx) => {
-  const { auth, mysqlQuery, extractLocationTokens } = ctx;
+  const { auth, mysqlQuery, extractLocationTokens, broadcastNotification } = ctx;
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
   const { logger, withRequest } = require("../../lib/logger");
@@ -408,6 +408,7 @@ module.exports = (router, ctx) => {
                  VALUES (?, 'project_closed_local', ?, ?, ?, NOW())`,
                 [row.uid, message, projectId, linkPath]
               );
+              broadcastNotification?.(row.uid, { type: "project_closed_local", message, projectId, linkPath });
             }
             log.info({ projectId, count: areaUserRows.length }, "project_closed_local notifications sent");
           } catch (e) {

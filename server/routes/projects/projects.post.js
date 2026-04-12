@@ -4,6 +4,10 @@
  * Body: { name, type, location, description, propertyType, bedrooms }
  * Returns: 201 { project }
  */
+const {
+  classifyProject,
+} = require("../../lib/ai/projectClassifier");
+
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
   const log = ctx.log || console;
@@ -77,6 +81,25 @@ module.exports = (router, ctx) => {
       const rows = await mysqlQuery(`SELECT * FROM projects WHERE id = ?`, [
         insertedId,
       ]);
+
+      // Project Lighthouse — fire-and-forget classification.
+      // Runs the LLM (or stub) and stores the structured form in
+      // project_classifications. Never blocks the response.
+      classifyProject({
+        mysqlQuery,
+        projectId: insertedId,
+        description: body.description,
+        type: body.type,
+        location: body.location,
+        propertyType: body.propertyType,
+        bedrooms: body.bedrooms,
+        log,
+      }).catch((e) => {
+        log.warn?.("[projects.post] classifyProject threw", {
+          insertedId,
+          error: e?.message || e,
+        });
+      });
 
       return res.status(201).json({ project: rows[0] || null });
     } catch (err) {

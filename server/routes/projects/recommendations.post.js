@@ -30,12 +30,15 @@ module.exports = (router, ctx) => {
     cleanPhone,
     queueCompanyVerification,
     notifyUsers,
+    broadcastNotification,
     path: nodePath,
     UPLOAD_DIR,
     matchByName: ctxMatchByName,
     searchCompanies: ctxSearchCompanies,
     getCompanyProfile: ctxGetCompanyProfile,
   } = ctx;
+
+  const { computeRecommendationSignals } = require("../../lib/ai/recommendationSignaller");
 
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
@@ -324,6 +327,14 @@ module.exports = (router, ctx) => {
           );
         }
 
+        /* ---------- Fire-and-forget: compute recommendation signals ---------- */
+        computeRecommendationSignals({
+          mysqlQuery,
+          recommendationId,
+          comment,
+          log: console,
+        }).catch(() => {});
+
         /* ---------- Auto-like by recommender (unless owner) ---------- */
 
         try {
@@ -443,6 +454,7 @@ module.exports = (router, ctx) => {
                   new Date(), // separate timestamp for the notification
                 ]
               );
+              broadcastNotification?.(ownerUid, { type: "recommendation_new", message, projectId, linkPath });
             } catch (e) {
               console.warn(
                 "[recommendations.post] failed to insert notification into MySQL:",

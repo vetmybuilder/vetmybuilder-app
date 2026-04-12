@@ -57,11 +57,11 @@ const steps = [
     color: "red",
     title: "Post your job",
     tagline: "Takes 2 minutes",
-    description: 'Add a quick brief - type of work, rough location, timescale. Something like "bathroom refit in E4" is enough to get started.',
+    description: "Describe what you need in plain English. We'll automatically break it down  - which trades are involved, complexity level, and an estimated budget range  - so you and your tradespeople are on the same page from day one.",
     details: [
-      "No lengthy forms or complicated sign-ups",
-      "You get a unique shareable invite link instantly",
-      "Your job is private - only people you invite can see it",
+      "Project insights generated instantly from your description",
+      "Estimated budget range based on scope, property, and location",
+      "Matched tradespeople in your area are notified automatically",
       "Edit or close your job at any time",
     ],
   },
@@ -70,13 +70,13 @@ const steps = [
     icon: IconCommunity,
     color: "emerald",
     title: "Gather recommendations",
-    tagline: "From people you trust",
-    description: "Share your invite link with friends, family, neighbours, or local community groups. They submit real recommendations with honest ratings.",
+    tagline: "Verified by your community",
+    description: "Share your invite link with friends, neighbours, or local groups. Every recommendation is cross-checked  - Companies House verification, Google Reviews, and review quality analysis  - so you see the real picture, not just a name.",
     details: [
       "Recommenders share their own first-hand experience",
-      "Ratings cover quality, reliability, communication and price",
-      "Anonymous feedback is never accepted - all real people",
-      "Works in WhatsApp groups, Nextdoor, Facebook, anywhere",
+      "Every tradesperson checked against Companies House automatically",
+      "Google ratings and review counts pulled in for extra confidence",
+      "Review quality scored so generic one-liners don't outweigh detailed feedback",
     ],
   },
   {
@@ -84,13 +84,13 @@ const steps = [
     icon: IconShortlist,
     color: "amber",
     title: "Shortlist & hire",
-    tagline: "With confidence",
-    description: "Compare the recommended tradespeople side by side. See who has been verified against Companies House. Build your shortlist and reach out.",
+    tagline: "Matched to your project",
+    description: "We rank tradespeople by how well they match your specific job  - trade type, location, reputation, and recommendation quality. Compare profiles side by side and hire the right person, not the loudest one.",
     details: [
-      "See full profiles: past jobs, ratings, verified status",
-      "Companies House verification for registered firms",
-      "Shortlist multiple tradespeople and compare quotes",
-      "No commission taken - you deal directly",
+      "Smart matching scores every tradesperson against your project",
+      "Full profiles: past jobs, ratings, Google reviews, verified status",
+      "Real-time notifications when new recommendations arrive",
+      "No commission taken  - you deal directly with your tradesperson",
     ],
   },
 ];
@@ -104,23 +104,31 @@ const colorMap = {
 const faqs = [
   {
     q: "Is VetMyBuilder free to use?",
-    a: "Yes - completely free for homeowners. Always. We don't charge commission, we don't take a cut of any job. We make money through optional tools for tradespeople.",
+    a: "Yes  - completely free for homeowners. Always. We don't charge commission, we don't take a cut of any job. We make money through optional tools for tradespeople.",
+  },
+  {
+    q: "How does VetMyBuilder know which tradespeople to match me with?",
+    a: "When you post a job, we analyse your description to understand the trades involved, complexity, and location. We then match you with tradespeople whose skills and service areas fit your project, ranked by reputation and recommendation quality.",
   },
   {
     q: "What if I don't know many people locally?",
-    a: "You can share your invite link in local Facebook groups, Nextdoor, or community WhatsApp chats. You'd be surprised how many people are happy to share their tradesperson experiences.",
+    a: "You can share your invite link in local Facebook groups, Nextdoor, or community WhatsApp chats. We also notify matching tradespeople in your area automatically  - they can express interest and share their profile with you.",
   },
   {
-    q: "How is this different from Checkatrade or Trustpilot?",
-    a: "Those platforms collect reviews from anyone, including strangers. We collect recommendations from people in your network - people whose opinion you actually trust. It's the difference between a random online review and a tip from your neighbour.",
+    q: "How is this different from review directories?",
+    a: "Most directories rely on reviews from strangers. VetMyBuilder collects recommendations from people you actually know  - neighbours, friends, local community members. Every tradesperson is verified against Companies House and Google Reviews, and we score each recommendation for quality so detailed first-hand accounts carry more weight.",
   },
   {
-    q: "What does 'verified against Companies House' mean?",
-    a: "For tradespeople registered as a limited company or LLP, we automatically check their filing status and company details against the Companies House public register. It adds an extra layer of legitimacy.",
+    q: "What does 'verified' mean on VetMyBuilder?",
+    a: "We automatically check every recommended tradesperson against the Companies House register and pull in their Google Reviews rating. You'll see their filing status, Google score, and review count right on their profile  - no manual vetting needed.",
+  },
+  {
+    q: "How accurate is the budget estimate?",
+    a: "The estimated budget range is generated from your project description, property type, and location. It's a guide to help you plan  - not a quote. Actual costs will depend on the tradesperson's site visit and final scope.",
   },
   {
     q: "Can a tradesperson pay to appear higher in results?",
-    a: "No. We don't accept paid placements or sponsored listings. Ranking is entirely based on the quality and quantity of recommendations from real people.",
+    a: "No. Ranking is based on how well a tradesperson matches your project  - trade type, location, recommendation quality, and verification status. We don't accept paid placements.",
   },
 ];
 
@@ -138,7 +146,7 @@ export default function HowItWorks() {
       <div className="overflow-x-hidden -mt-14">
 
         {/* HERO */}
-        <section className="relative pt-24 pb-16 sm:pt-28 sm:pb-20 overflow-hidden bg-stone-50">
+        <section className="relative pt-6 pb-16 sm:pt-28 sm:pb-20 overflow-hidden bg-stone-50">
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
           </div>
@@ -147,7 +155,7 @@ export default function HowItWorks() {
               {/* Text */}
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-4 py-1.5 text-sm font-bold text-zinc-800 mb-6">
-                  <span>Simple. Honest. Free.</span>
+                  <span>Smart. Honest. Free.</span>
                 </div>
                 <h1 className="text-5xl sm:text-6xl font-black tracking-tight leading-[0.95] text-zinc-900">
                   How{" "}
@@ -155,8 +163,8 @@ export default function HowItWorks() {
                   works
                 </h1>
                 <p className="mt-6 text-xl text-zinc-600 leading-relaxed font-medium">
-                  No directories. No paid reviews. No guesswork. Just trusted recommendations
-                  from real people in your community - in three simple steps.
+                  Post a job and we do the heavy lifting - matching you with the right tradespeople,
+                  verifying their credentials, and surfacing quality recommendations from your community.
                 </p>
                 {!user && (
                   <div className="mt-8">
@@ -256,7 +264,7 @@ export default function HowItWorks() {
                     className={`grid grid-cols-1 lg:grid-cols-2 gap-12 items-center ${isEven ? "lg:flex-row-reverse" : ""}`}
                   >
                     {/* Text side */}
-                    <div className={isEven ? "lg:order-2" : ""}>
+                    <div className={`${isEven ? "lg:order-2" : ""} text-center sm:text-left`}>
                       <div className={`inline-flex h-14 w-14 rounded-full items-center justify-center text-2xl font-black text-white mb-6 ${c.circle}`}>
                         {step.number}
                       </div>

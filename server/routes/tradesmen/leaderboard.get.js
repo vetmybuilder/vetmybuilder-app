@@ -84,6 +84,45 @@ module.exports = (router, ctx) => {
       const where = [];
       const params = [];
 
+      /* ---------------- Always-on filter: hide promoted lead shadows ----------------
+       *
+       * `POST /api/admin/tradesmen/:id/status` (the promotion endpoint)
+       * deliberately keeps the original `lead_*` row around as an audit
+       * shadow, marking it draft/unverified, while creating a new active
+       * row keyed on the real Firebase uid. We don't want those shadows
+       * cluttering the admin leaderboard, but we DO want un-promoted
+       * leads (real triage candidates) to remain visible.
+       *
+       * A lead is treated as a shadow when there's a non-lead row sharing
+       * either the same email OR the same company_name. The email match
+       * is the primary signal (the promotion clones email across), but
+       * some fixtures have NULL email so we fall back to company_name to
+       * avoid leaving emailless shadows visible. False positives (two
+       * unrelated leads with the same company name) cost only a missed
+       * row on this admin screen — admins can still triage them via
+       * other tooling. See server/routes/admin/tradesman.status.post.js.
+       */
+      where.push(`
+        NOT (
+          t.user_id LIKE 'lead\\_%'
+          AND EXISTS (
+            SELECT 1 FROM tradesmen t2
+             WHERE t2.user_id NOT LIKE 'lead\\_%'
+               AND (
+                 (
+                   COALESCE(t2.email, '') <> ''
+                   AND LOWER(t2.email) = LOWER(t.email)
+                 )
+                 OR
+                 (
+                   COALESCE(t2.company_name, '') <> ''
+                   AND LOWER(t2.company_name) = LOWER(t.company_name)
+                 )
+               )
+          )
+        )
+      `);
+
       /* ---------------- Search filters ---------------- */
       if (q) {
         const qLower = q.toLowerCase();
@@ -244,9 +283,25 @@ module.exports = (router, ctx) => {
 
           ${unlockSelect},
 
+          COALESCE(hs.total,    0) AS hires_total,
+          COALESCE(hs.accepted, 0) AS hires_accepted,
+          COALESCE(hs.declined, 0) AS hires_declined,
+          COALESCE(hs.pending,  0) AS hires_pending,
+
           t.created_at,
           t.updated_at
         FROM tradesmen t
+        LEFT JOIN (
+          SELECT
+            tradesmanUserId,
+            COUNT(*)                                           AS total,
+            SUM(status = 'accepted')                            AS accepted,
+            SUM(status = 'declined')                            AS declined,
+            SUM(status IN ('pending','pending_invite'))        AS pending
+          FROM hires
+          WHERE tradesmanUserId IS NOT NULL
+          GROUP BY tradesmanUserId
+        ) hs ON hs.tradesmanUserId = t.user_id
         ${whereSql}
         ORDER BY t.vmb_score DESC, t.updated_at DESC, t.company_name ASC
         LIMIT ${limit} OFFSET ${offset}
@@ -310,6 +365,14 @@ module.exports = (router, ctx) => {
           docs: Number(r.supporting_doc_count || 0),
           likes: Number(r.likes_count || 0),
           wins: Number(r.wins_count || 0),
+
+          hires: {
+            total: Number(r.hires_total || 0),
+            accepted: Number(r.hires_accepted || 0),
+            declined: Number(r.hires_declined || 0),
+            pending: Number(r.hires_pending || 0),
+          },
+
           createdAt: r.created_at,
           updatedAt: r.updated_at,
 

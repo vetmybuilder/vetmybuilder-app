@@ -29,12 +29,9 @@ export class ProjectDetailsPage extends BasePage {
   readonly closeThisJobButton: Locator;
   readonly editProjectButton: Locator;
 
-  readonly estimateValue: Locator;
-  readonly estimateInfoButton: Locator;
-  readonly estimateTooltip: Locator;
-
   readonly topRecommendationsSection: Locator;
   readonly spotlightSection: Locator;
+  readonly projectInsightsCard: Locator;
 
   readonly notificationsButton: Locator;
   readonly projectBadges: Locator;
@@ -50,10 +47,6 @@ export class ProjectDetailsPage extends BasePage {
   readonly unarchiveButton: Locator;
 
   readonly sharedTradesmenStrip: Locator;
-
-  readonly partnerFinanceBanner: Locator;
-  readonly personalLoanButton: Locator;
-  readonly remortgageButton: Locator;
 
   private readonly headerMetaDate: Locator;
   private readonly closeProjectModal: CloseProjectModalComponent;
@@ -79,10 +72,6 @@ export class ProjectDetailsPage extends BasePage {
     this.closeThisJobButton = this.root.getByTestId("btn-close-project");
     this.editProjectButton = this.root.getByTestId("btn-edit");
 
-    this.estimateValue = this.root.getByText(/^£[\d,]+–£[\d,]+$/);
-    this.estimateInfoButton = this.root.getByTestId("job-estimate-info");
-    this.estimateTooltip = this.root.getByTestId("job-estimate-tooltip");
-
     this.projectDetailsHeading = page.getByRole("heading", {
       name: "Project details",
     });
@@ -94,6 +83,7 @@ export class ProjectDetailsPage extends BasePage {
     );
     this.topRecommendationsSection = page.getByTestId("project-shortlist");
     this.spotlightSection = page.getByTestId("spotlight-strip");
+    this.projectInsightsCard = page.getByTestId("project-insights-card");
 
     this.notificationsButton = page.locator(
       'button[aria-label="Notifications (unread)"]:visible',
@@ -110,14 +100,6 @@ export class ProjectDetailsPage extends BasePage {
     this.unarchiveButton = this.root.getByTestId("btn-unarchive");
 
     this.sharedTradesmenStrip = page.getByTestId("shared-tradesmen-strip");
-
-    this.partnerFinanceBanner = page.getByTestId("partner-finance-banner");
-    this.personalLoanButton = this.partnerFinanceBanner.getByRole("button", {
-      name: "Personal loan",
-    });
-    this.remortgageButton = this.partnerFinanceBanner.getByRole("button", {
-      name: "Remortgage",
-    });
 
     this.closeProjectModal = new CloseProjectModalComponent(page);
   }
@@ -301,17 +283,6 @@ export class ProjectDetailsPage extends BasePage {
     await expect(this.root).toContainText(input.propertyType);
     await expect(this.root).toContainText(`${input.bedrooms} bed`);
     await expect(this.root).toContainText(input.locationPick.split(" ")[0]);
-    await expect(this.root).toContainText(input.budget);
-    await expect(this.estimateValue).toBeVisible();
-    await expect(this.estimateInfoButton).toBeVisible();
-    await this.estimateInfoButton.hover();
-    await expect(this.estimateTooltip).toBeVisible();
-    await expect(this.estimateTooltip).toContainText(
-      "Job estimate based on your project details.",
-    );
-    await expect(this.estimateTooltip).toContainText(
-      "This is a guide price and actual quotes may vary depending on site visit, materials and final scope.",
-    );
   }
 
   async hasTopRecommendations(expected: boolean) {
@@ -407,7 +378,7 @@ export class ProjectDetailsPage extends BasePage {
       .first();
 
     await expect(card).toBeVisible({ timeout: 15_000 });
-    await expect(card.getByTestId("shortlist-comment")).toHaveText(recommendation.comment);
+    await expect(card.getByTestId("shortlist-comment")).toContainText(recommendation.comment);
     await expect(card.getByTestId("shortlist-badge-ch")).toBeVisible();
     await expect(card.getByTestId("shortlist-badge-photos")).toBeVisible();
     await expect(card.getByTestId("shortlist-recommender")).toHaveText(
@@ -476,43 +447,28 @@ export class ProjectDetailsPage extends BasePage {
       .click();
   }
 
-  async hasEstimateVisible(): Promise<void> {
-    await expect(this.estimateValue).toBeVisible({ timeout: 15_000 });
+  async expectInsightsVisible(): Promise<void> {
+    // Classification is fire-and-forget after publish - may need a reload
+    await expect
+      .poll(
+        async () => {
+          const visible = await this.projectInsightsCard.isVisible().catch(() => false);
+          if (visible) return true;
+          await this.page.reload({ waitUntil: "domcontentloaded" });
+          await this.page.waitForTimeout(1500);
+          return this.projectInsightsCard.isVisible().catch(() => false);
+        },
+        { timeout: 30_000, intervals: [3000] },
+      )
+      .toBe(true);
   }
 
-  async hasEstimateTooltip(): Promise<void> {
-    await expect(this.estimateInfoButton).toBeVisible({ timeout: 15_000 });
-    await this.estimateInfoButton.hover();
-    await expect(this.estimateTooltip).toBeVisible();
-    await expect(this.estimateTooltip).toContainText(
-      "Job estimate based on your project details.",
-    );
-    await expect(this.estimateTooltip).toContainText(
-      "This is a guide price and actual quotes may vary depending on site visit, materials and final scope.",
-    );
+  async expectInsightsNotVisible(): Promise<void> {
+    await expect(this.projectInsightsCard).not.toBeVisible({ timeout: 5_000 });
   }
 
-  async hasFinanceBanner(): Promise<void> {
-    await expect(this.partnerFinanceBanner).toBeVisible({ timeout: 15_000 });
-  }
-
-  async hasFinanceBannerWithEstimateText(): Promise<void> {
-    await expect(this.partnerFinanceBanner).toContainText(
-      /Your project is estimated at £[\d,]+–£[\d,]+ — how would you like to fund it\?/,
-      { timeout: 15_000 },
-    );
-  }
-
-  async hasFinanceBannerWithGenericText(): Promise<void> {
-    await expect(this.partnerFinanceBanner).toContainText(
-      "Home improvements can be a big investment — how would you like to fund it?",
-      { timeout: 15_000 },
-    );
-  }
-
-  async hasFinanceBannerButtons(): Promise<void> {
-    await expect(this.personalLoanButton).toBeVisible({ timeout: 15_000 });
-    await expect(this.remortgageButton).toBeVisible();
+  async expectInsightsContains(text: string): Promise<void> {
+    await expect(this.projectInsightsCard).toContainText(text, { timeout: 10_000 });
   }
 }
 

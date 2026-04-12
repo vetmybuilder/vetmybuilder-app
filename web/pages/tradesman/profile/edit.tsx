@@ -1,8 +1,9 @@
 import Head from "next/head";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
+import { getCoachingTips } from "@/utils/coachingTips";
 
 import Step1Company, {
   type Step1Form,
@@ -204,6 +205,22 @@ function Inner() {
       cancelled = true;
     };
   }, [api]);
+
+  const tips = useMemo(() => {
+    if (!profile) return [];
+    const socialsArray = parseSocials(profile.social_links_json);
+    return getCoachingTips({
+      photoCount: (profile.photo_urls?.length ?? 0),
+      chStatus: (profile.ch_status as any) ?? null,
+      warrantyMonths: profile.warranty_months ?? null,
+      trades: parseCsv(profile.trade_types),
+      serviceAreas: parseCsv(profile.service_areas),
+      supportingDocCount: 0,
+      websiteUrl: profile.web_url ?? null,
+      socialLinks: socialsArray,
+      offersDiscount: !!profile.offers_discount,
+    });
+  }, [profile]);
 
   if (loading) {
     return (
@@ -478,7 +495,7 @@ function Inner() {
           {/* ── Left sidebar ── */}
           <aside className="shrink-0 lg:sticky lg:top-0 lg:h-screen lg:w-72 xl:w-80 bg-white/85 backdrop-blur-sm border-b border-zinc-200 lg:border-b-0 lg:border-r flex flex-col">
             {/* scrollable top */}
-            <div className="flex-1 overflow-y-auto px-8 py-8">
+            <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-4 sm:py-8">
               <button
                 type="button"
                 onClick={goToProfile}
@@ -552,6 +569,22 @@ function Inner() {
               {err && (
                 <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 whitespace-pre-line">
                   {err}
+                </div>
+              )}
+
+              {tips.length > 0 && (
+                <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+                  <p className="text-sm font-semibold text-amber-900">
+                    Boost your profile — {tips.length} quick win{tips.length === 1 ? "" : "s"}
+                  </p>
+                  <ul className="mt-2 space-y-1">
+                    {tips.map((tip) => (
+                      <li key={tip.key} className="flex items-start gap-2 text-sm text-amber-800">
+                        <span className="mt-0.5 text-amber-500">•</span>
+                        {tip.message}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
 

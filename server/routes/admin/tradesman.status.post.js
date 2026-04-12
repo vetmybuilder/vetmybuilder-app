@@ -15,6 +15,7 @@
  */
 
 const { logger, withRequest } = require("../../lib/logger");
+const { enrichTradesmanWithGoogle } = require("../../lib/ai/googleEnricher");
 
 module.exports = (router, ctx) => {
   const { mysqlQuery, auth, extractLocationTokens } = ctx;
@@ -32,15 +33,6 @@ module.exports = (router, ctx) => {
   }
 
   const isLeadId = (s) => String(s || "").startsWith("lead_");
-
-  // Google Places helper
-  const { lookupBusiness } = (() => {
-    try {
-      return require("../../lib/googlePlaces");
-    } catch {
-      return { lookupBusiness: async () => null };
-    }
-  })();
 
   async function upsertRoleTradesman(uid, log) {
     try {
@@ -195,6 +187,7 @@ module.exports = (router, ctx) => {
   async function enrichTradesman(row, log) {
     if (!row) return row;
 
+    // Skip if already enriched
     if (row.google_place_id && row.google_rating !== null) {
       return row;
     }
@@ -202,60 +195,20 @@ module.exports = (router, ctx) => {
     const name = row.ch_name || row.company_name;
     if (!name) return row;
 
-    const companyNumber = row.company_number || null;
-    const locationHint = getLocationHint(row);
+    await enrichTradesmanWithGoogle({
+      mysqlQuery,
+      userId: row.user_id,
+      companyName: name,
+      locationHint: getLocationHint(row),
+      existingWebUrl: row.web_url || null,
+      log,
+    });
 
-    log.info(
-      { uid: row.user_id, name, locationHint, companyNumber },
-      "Calling Google Places API for enrichment"
-    );
-
-    let place = null;
-    try {
-      place = await lookupBusiness({ name, locationHint, companyNumber });
-    } catch (e) {
-      log.error({ err: e?.message }, "Google lookup failed");
-      return row;
-    }
-
-    if (!place) {
-      log.info("No Google match found");
-      return row;
-    }
-
-    try {
-      await mysqlQuery(
-        `UPDATE tradesmen
-            SET google_place_id = ?,
-                google_rating = ?,
-                google_reviews_count = ?
-          WHERE user_id = ?`,
-        [
-          place.placeId || null,
-          place.rating ?? null,
-          place.userRatingsTotal ?? 0,
-          row.user_id,
-        ]
-      );
-      log.info(
-        {
-          uid: row.user_id,
-          placeId: place.placeId,
-          rating: place.rating,
-          reviews: place.userRatingsTotal,
-        },
-        "Google enrichment saved"
-      );
-    } catch (e) {
-      log.error({ err: e?.message }, "Failed saving google enrichment");
-      return row;
-    }
-
+    // Re-fetch the updated row
     const updated = await mysqlQuery(
       `SELECT * FROM tradesmen WHERE user_id = ? LIMIT 1`,
-      [row.user_id]
+      [row.user_id],
     );
-
     return updated[0] || row;
   }
 

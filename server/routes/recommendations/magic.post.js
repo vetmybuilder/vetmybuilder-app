@@ -36,6 +36,8 @@ module.exports = (router, ctx) => {
     }
   })();
 
+  const { computeRecommendationSignals } = require("../../lib/ai/recommendationSignaller");
+
   // FIXED: previously incorrectly referenced ctxGetCompanyProfile
   const matchByName = ctx.matchByName;
   const searchCompanies = ctx.searchCompanies;
@@ -336,6 +338,14 @@ module.exports = (router, ctx) => {
           locationHint,
           sourceTag: "magic",
         });
+
+        // Fire-and-forget: compute recommendation signals (sentiment, themes, generic_score)
+        computeRecommendationSignals({
+          mysqlQuery,
+          recommendationId,
+          comment,
+          log,
+        }).catch(() => {});
 
         // -------------------------
         //   6) Photos

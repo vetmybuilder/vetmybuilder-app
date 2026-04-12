@@ -116,7 +116,7 @@ export default function ProjectViewPage() {
           <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
           <div className="absolute bottom-0 -left-[30%] w-[70%] h-[60%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
         </div>
-        <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-20 pb-8">
+        <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-4 sm:pt-10 pb-8">
           {vm.loadingUi}
         </div>
       </div>
@@ -152,7 +152,7 @@ export default function ProjectViewPage() {
           <div className="absolute bottom-0 -left-[30%] w-[70%] h-[60%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
         </div>
         <div
-          className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-20"
+          className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-4 sm:pt-10"
           data-testid="project-view-page"
         >
           {viewContent}

@@ -697,3 +697,123 @@ CREATE INDEX idx_hires_homeowner ON hires (homeownerUid);
 CREATE INDEX idx_hires_tradesman ON hires (tradesmanUserId);
 CREATE INDEX idx_hires_status    ON hires (status);
 CREATE INDEX idx_hires_invite_token ON hires (inviteToken);
+
+-- ─────────────────────────────────────────────────────────────────────
+-- Project Lighthouse — AI Phase 2 (Tier 1 schema)
+--
+-- These four tables exist before any AI code is written. They are the
+-- foundation every later AI feature builds on. Capture data now even
+-- when nothing is reading it yet — match_observations in particular is
+-- the gold dataset for the future re-ranker model.
+-- See: project-lighthouse/project-lighthouse-plan.pptx (slide 9)
+-- ─────────────────────────────────────────────────────────────────────
+
+-- Structured representation of a free-text project description, produced
+-- by an LLM call at submission time. Powers the matcher and decision
+-- assistant downstream. The classifier_version column is critical so we
+-- can re-run / A-B test prompt revisions without losing the audit trail.
+CREATE TABLE project_classifications (
+  id                 BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  project_id         INT NOT NULL,
+  classified_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  classifier_version VARCHAR(40) NOT NULL,
+  raw_description    TEXT NOT NULL,
+  -- {type, scope, complexity, urgency, materials, recommended_trades, price_band_estimate, ...}
+  structured         JSON NOT NULL,
+  cost_pence         INT NULL,
+  latency_ms         INT NULL,
+
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  KEY idx_pc_project (project_id),
+  KEY idx_pc_version (classifier_version, classified_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- The single most valuable table in this whole schema. Every time a
+-- builder is shown to a homeowner — recommendations card, jobs list,
+-- search results — we log it here. Every action the homeowner then
+-- takes (clicked, hired, dismissed) becomes a labelled training pair.
+-- This is the dataset every future ranker is trained on. Log generously.
+CREATE TABLE match_observations (
+  id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  project_id          INT NOT NULL,
+  -- The unit being surfaced. At least one of these MUST be set:
+  --   recommendation_id  : when the surface is the Top Recommendations card
+  --                        on the project view (builder is referenced via
+  --                        a company-name string, no uid yet)
+  --   tradesman_user_id  : when the surface knows the tradesman uid directly
+  --                        (jobs list, builder profile click-through, hires)
+  -- Both are set when an auto-match links a recommendation to an onboarded
+  -- tradesman during the hire flow.
+  recommendation_id   INT NULL,
+  tradesman_user_id   VARCHAR(255) NULL,
+  surfaced_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  -- 'top_recommendations' | 'jobs_list' | 'search' | 'builder_profile_visit' | 'hire_created'
+  surface_context     VARCHAR(64) NOT NULL,
+  rank_position       INT NOT NULL,
+  -- Whatever score we showed at the time (deterministic + later learned)
+  match_score         DECIMAL(7,3) NULL,
+  -- 'viewed' | 'clicked' | 'hired' | 'dismissed' | NULL (no action yet)
+  homeowner_action    VARCHAR(32) NULL,
+  homeowner_action_at DATETIME NULL,
+  -- 'accepted' | 'declined' | 'cancelled' | 'completed' | NULL
+  hire_outcome        VARCHAR(32) NULL,
+  hire_outcome_at     DATETIME NULL,
+
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (recommendation_id) REFERENCES recommendations(id) ON DELETE SET NULL,
+  KEY idx_mo_project (project_id),
+  KEY idx_mo_recommendation (recommendation_id),
+  KEY idx_mo_tradesman (tradesman_user_id),
+  KEY idx_mo_surface (surface_context, surfaced_at),
+  KEY idx_mo_outcome (hire_outcome, hire_outcome_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Per-recommendation derived signals: how generic the comment is, what
+-- themes it touches, sentiment score. Feeds the review summariser and
+-- the trust/reputation model. Computed lazily.
+CREATE TABLE recommendation_signals (
+  recommendation_id  INT NOT NULL PRIMARY KEY,
+  word_count         INT NOT NULL,
+  -- 0..1 — how "boilerplate" the comment looks vs distinctive
+  generic_score      DECIMAL(3,2) NULL,
+  -- -1..+1
+  sentiment          DECIMAL(3,2) NULL,
+  -- ["price", "tidiness", "communication", ...]
+  themes             JSON NULL,
+  computed_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  classifier_version VARCHAR(40) NULL,
+
+  FOREIGN KEY (recommendation_id) REFERENCES recommendations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Audit log of every LLM call. Required for cost tracking, prompt
+-- iteration, and (eventually) retraining smaller models from the
+-- larger model's outputs. Hash the prompt so we can dedup expensive
+-- repeat calls without comparing entire bodies.
+CREATE TABLE ai_inference_log (
+  id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  -- 'project_classify' | 'review_summary' | 'profile_coach' | ...
+  feature      VARCHAR(64) NOT NULL,
+  -- 'claude-haiku-4-5-20251001' | 'gpt-4o-mini' | 'llama-3.1-8b-local' ...
+  model        VARCHAR(64) NOT NULL,
+  prompt_hash  CHAR(64) NOT NULL,
+  prompt       TEXT NOT NULL,
+  response     TEXT NOT NULL,
+  cost_pence   INT NULL,
+  latency_ms   INT NULL,
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  KEY idx_ail_feature (feature, created_at),
+  KEY idx_ail_hash (prompt_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE builder_summaries (
+  id                  INT AUTO_INCREMENT PRIMARY KEY,
+  company             VARCHAR(255) NOT NULL,
+  bullets             JSON         NOT NULL,
+  recommendation_count INT         NOT NULL,
+  recommendation_ids  JSON         NOT NULL,
+  classifier_version  VARCHAR(40)  NOT NULL,
+  computed_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_company (company)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -104,6 +104,27 @@ export class ProjectApi {
     return body.token;
   }
 
+  /**
+   * Poll GET /api/projects/:id until a classification appears, then return
+   * the full response body. The classifier runs fire-and-forget on project
+   * creation and writes to project_classifications async. In stub mode
+   * this resolves in < 1 second; the poll is just a safety net.
+   */
+  async waitForClassification(projectId: string | number) {
+    let body: any = null;
+    await expect
+      .poll(
+        async () => {
+          const res = await this.apiClient.get(`/api/projects/${projectId}`);
+          body = await res.json();
+          return body?.classification != null;
+        },
+        { timeout: 10_000, intervals: [500] },
+      )
+      .toBe(true);
+    return body;
+  }
+
   async publishProject(projectId: string | number) {
     const res = await this.apiClient.post(`/api/projects/${projectId}/publish`);
     expect(res.status()).toBe(200);

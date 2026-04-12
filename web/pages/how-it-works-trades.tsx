@@ -56,40 +56,40 @@ const steps = [
     color: "red",
     title: "Build your profile",
     tagline: "Stand out from the crowd",
-    description: "Create a free trade profile showcasing your skills, work photos, certifications, and the discount you can offer. A great profile wins more jobs.",
+    description: "Create a free trade profile showcasing your skills, work photos, and certifications. We'll automatically verify your business against Companies House and pull in your Google Reviews  - so homeowners see your credentials before you even speak.",
     details: [
-      "Upload photos of your completed work — homeowners want to see it",
-      "Choose your trades so we match you to the right jobs",
-      "Get verified against Companies House for extra credibility",
-      "Add your warranty offer and discount range",
+      "Upload photos of your completed work  - homeowners want to see it",
+      "Choose your trades and service areas so we match you to the right jobs",
+      "Automatically verified against Companies House and Google Reviews",
+      "Profile coaching tips help you fill gaps that win more work",
     ],
   },
   {
     number: 2,
     icon: IconJob,
     color: "emerald",
-    title: "Browse & express interest",
-    tagline: "Jobs matched to your trades",
-    description: "Browse local projects posted by homeowners in your area. When you see a job that fits, express interest — the homeowner sees your profile and reaches out.",
+    title: "Get matched to jobs",
+    tagline: "The right jobs find you",
+    description: "We analyse every project posted in your area and score how well it matches your trade, location, and profile. You'll be notified in real time when a matching job goes live  - no browsing required.",
     details: [
-      "Jobs are matched to the trades you've listed",
-      "See the job brief, location, and recommendations",
-      "One-tap interest expression — no lengthy proposals",
-      "Homeowners contact you directly, no middleman",
+      "Jobs scored and ranked by how well they match your skills",
+      "Real-time notifications when a matching project is posted",
+      "See project insights  - trades needed, complexity, timeline",
+      "One-tap interest expression  - no lengthy proposals",
     ],
   },
   {
     number: 3,
     icon: IconDiscount,
     color: "amber",
-    title: "Win work with a great offer",
+    title: "Win work on reputation",
     tagline: "No commission, ever",
-    description: "Your discount range and warranty signal value to homeowners comparing multiple tradespeople. Bigger offers win more work — and we never take a cut.",
+    description: "Homeowners see your verified profile, Google rating, and community recommendations side by side. The better your reputation, the more work you win  - and we never take a cut.",
     details: [
-      "Set a realistic discount range homeowners can count on",
-      "Warranty offerings build trust and differentiate you",
+      "Your Google rating and Companies House status shown automatically",
+      "Community recommendations build your track record over time",
       "We never charge commission on jobs you win",
-      "Build your reputation with every completed project",
+      "Homeowners contact you directly  - no middleman",
     ],
   },
 ];
@@ -103,23 +103,27 @@ const colorMap = {
 const faqs = [
   {
     q: "Is it free to join as a tradesperson?",
-    a: "Yes — creating your profile and browsing jobs is completely free. We offer optional paid tools to help you win more work, but there's no obligation.",
+    a: "Yes  - creating your profile and getting matched to jobs is completely free. We offer optional paid tools to help you win more work, but there's no obligation.",
+  },
+  {
+    q: "How do you match me to the right jobs?",
+    a: "When a homeowner posts a project, we analyse the description to work out which trades are needed. If your trade and service area match, you're notified instantly  - no browsing through irrelevant listings.",
   },
   {
     q: "How does the recommendation system benefit me?",
-    a: "Homeowners post jobs based on recommendations from their network. When you appear on those shortlists, you're already a trusted name — not a cold lead. You start the conversation with credibility.",
+    a: "When homeowners in your area gather recommendations, your name can appear on their shortlist through community word-of-mouth. You start the conversation with credibility  - not as a cold lead.",
   },
   {
     q: "Do you take commission on jobs I win?",
     a: "Never. Once a homeowner contacts you, the relationship is entirely yours. We don't charge commission, don't take a cut, and don't mediate the contract.",
   },
   {
-    q: "What is Companies House verification?",
-    a: "If you're registered as a limited company or LLP, we automatically verify your business details against the public Companies House register. It shows homeowners you're a legitimate, registered business.",
+    q: "What verification do you do automatically?",
+    a: "We check your business against the Companies House register and pull in your Google Reviews rating and review count. It's all automatic  - you don't need to do anything. Homeowners see this on your profile.",
   },
   {
-    q: "Can I appear on jobs outside my area?",
-    a: "Your profile is shown on jobs that match your trades. Location filtering is controlled by the homeowner when they post, so if they're open to tradespeople from further afield, you can appear.",
+    q: "What are profile coaching tips?",
+    a: "We analyse your profile and suggest improvements  - like adding more photos, listing additional trades, or setting a warranty. A stronger profile ranks higher in job matching and wins more homeowner trust.",
   },
 ];
 
@@ -137,7 +141,7 @@ export default function HowItWorksTrades() {
       <div className="overflow-x-hidden -mt-14">
 
         {/* HERO */}
-        <section className="relative pt-24 pb-16 sm:pt-28 sm:pb-20 overflow-hidden bg-stone-50">
+        <section className="relative pt-6 pb-16 sm:pt-28 sm:pb-20 overflow-hidden bg-stone-50">
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
           </div>
@@ -153,8 +157,8 @@ export default function HowItWorksTrades() {
                   <span className="text-red-500">VetMyBuilder</span>
                 </h1>
                 <p className="mt-6 text-xl text-zinc-600 leading-relaxed font-medium">
-                  Get matched to local homeowners who are actively looking for your trades —
-                  backed by real community recommendations. No cold calls, no bidding wars.
+                  We match you to local projects that fit your skills, verify your credentials automatically,
+                  and put you in front of homeowners who are ready to hire. No cold calls, no bidding wars.
                 </p>
                 {!user && (
                   <div className="mt-8">
@@ -238,7 +242,7 @@ export default function HowItWorksTrades() {
                     className={`grid grid-cols-1 lg:grid-cols-2 gap-12 items-center ${isEven ? "lg:flex-row-reverse" : ""}`}
                   >
                     {/* Text side */}
-                    <div className={isEven ? "lg:order-2" : ""}>
+                    <div className={`${isEven ? "lg:order-2" : ""} text-center sm:text-left`}>
                       <div className={`inline-flex h-14 w-14 rounded-full items-center justify-center text-2xl font-black text-white mb-6 ${c.circle}`}>
                         {step.number}
                       </div>

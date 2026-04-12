@@ -3,6 +3,7 @@
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
   const { requireActiveTradesman } = require("../../lib/roles");
+  const { scoreMatch } = require("../../lib/ai/jobMatcher");
 
   const log = ctx.log || console;
   const TAG = "[tradesmen/jobs.get]";
@@ -87,14 +88,90 @@ module.exports = (router, ctx) => {
       );
 
       const total = Number(countRows[0]?.c || 0);
-      const items = rows.map((r) => ({
-        id: r.id,
-        name: r.name,
-        type: r.type,
-        location: r.location,
-        createdAt: r.createdAt,
-        budget: extractBudget(r.description),
-      }));
+
+      // Fetch tradesman's trades + service areas for scoring
+      let tradesmanTrades = [];
+      let tradesmanAreas = [];
+      try {
+        const profileRows = await mysqlQuery(
+          `SELECT trade_types, service_areas FROM tradesmen WHERE user_id = ? LIMIT 1`,
+          [uid],
+        );
+        if (profileRows.length > 0) {
+          tradesmanTrades = String(profileRows[0].trade_types || "").split(",").filter(Boolean);
+          tradesmanAreas = String(profileRows[0].service_areas || "").split(",").filter(Boolean);
+        }
+      } catch (err) {
+        log.warn?.(`${TAG} profile lookup failed`, { uid, error: err?.message });
+      }
+
+      // Batch-fetch classifications for scoring
+      const projectIds = rows.map((r) => r.id);
+      let classificationMap = {};
+      if (projectIds.length > 0) {
+        try {
+          const classRows = await mysqlQuery(
+            `SELECT project_id, structured
+             FROM project_classifications
+             WHERE project_id IN (?)
+             ORDER BY classified_at DESC`,
+            [projectIds],
+          );
+          for (const cr of classRows) {
+            if (!classificationMap[cr.project_id]) {
+              const parsed = typeof cr.structured === "string"
+                ? JSON.parse(cr.structured)
+                : cr.structured;
+              classificationMap[cr.project_id] = parsed;
+            }
+          }
+        } catch (err) {
+          log.warn?.(`${TAG} classification lookup failed`, { error: err?.message });
+        }
+      }
+
+      const items = rows.map((r) => {
+        const classification = classificationMap[r.id] || {};
+        const score = scoreMatch({
+          tradesmanTrades,
+          tradesmanAreas,
+          projectType: r.type || "",
+          projectLocation: r.location || "",
+          recommendedTrades: classification.recommended_trades || [],
+          projectCreatedAt: r.createdAt,
+        });
+        return {
+          id: r.id,
+          name: r.name,
+          type: r.type,
+          location: r.location,
+          createdAt: r.createdAt,
+          budget: extractBudget(r.description),
+          matchScore: score.total,
+        };
+      });
+
+      // Sort by match score DESC, then createdAt DESC
+      items.sort((a, b) => {
+        if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+
+      // Fire-and-forget: log match observations for future re-ranker
+      Promise.resolve().then(async () => {
+        try {
+          for (let i = 0; i < items.length; i++) {
+            await mysqlQuery(
+              `INSERT IGNORE INTO match_observations
+                (project_id, tradesman_user_id, surface_context, rank_position, match_score, surfaced_at)
+              VALUES (?, ?, 'jobs_list', ?, ?, NOW())`,
+              [items[i].id, uid, i + 1, items[i].matchScore],
+            );
+          }
+        } catch {
+          // never block the response
+        }
+      });
 
       log.info?.(`${TAG} success`, { uid, total, returned: items.length });
 

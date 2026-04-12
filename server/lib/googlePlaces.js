@@ -169,6 +169,41 @@ async function lookupBusiness({ name, locationHint, companyNumber }) {
   }
 }
 
+async function getPlaceDetails(placeId, fields = ["website"]) {
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+  if (!apiKey || !placeId) return null;
+
+  if (!fetchFn) {
+    log.warn(`${TAG} fetch() unavailable`);
+    return null;
+  }
+
+  const url = new URL("https://maps.googleapis.com/maps/api/place/details/json");
+  url.searchParams.set("place_id", placeId);
+  url.searchParams.set("fields", fields.join(","));
+  url.searchParams.set("key", apiKey);
+
+  try {
+    const res = await fetchFn(url.toString());
+    if (!res.ok) {
+      log.warn(`${TAG} Place Details HTTP error`, { status: res.status, placeId });
+      return null;
+    }
+
+    const data = await res.json();
+    if (data.status !== "OK") {
+      log.warn(`${TAG} Place Details status`, { status: data.status, placeId });
+      return null;
+    }
+
+    return data.result || null;
+  } catch (e) {
+    log.warn(`${TAG} Place Details failed`, { placeId, error: e?.message });
+    return null;
+  }
+}
+
 module.exports = {
   lookupBusiness,
+  getPlaceDetails,
 };

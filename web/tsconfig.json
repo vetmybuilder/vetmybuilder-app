@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "ignoreDeprecations": "5.0",
     "typeRoots": ["./types", "./node_modules/@types"],
     "target": "ES2021",
     "lib": ["dom", "dom.iterable", "es2021"],

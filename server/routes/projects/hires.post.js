@@ -20,6 +20,9 @@
 
 const { CreateHireSchema } = require("../../lib/validation");
 const { resolveHireContact } = require("../../lib/hireContactResolution");
+const {
+  recordHomeownerAction,
+} = require("../../lib/observability/matchObservations");
 
 const HIRE_EXPIRY_DAYS = 7;
 
@@ -29,7 +32,7 @@ const HIRE_EXPIRY_DAYS = 7;
 const ACTIVE_HIRE_STATUSES = ["pending", "pending_invite", "accepted"];
 
 module.exports = (router, ctx) => {
-  const { auth, mysqlQuery } = ctx;
+  const { auth, mysqlQuery, broadcastNotification } = ctx;
   const log = ctx.log || console;
   const TAG = "[projects/hires.post]";
   const ROUTE = "/projects/:projectId/hires";
@@ -164,12 +167,28 @@ module.exports = (router, ctx) => {
               now,
             ],
           );
+
+          broadcastNotification?.(tradesmanUserId, {
+            type: "hire_received",
+            message: `You've been hired for "${project.name}"`,
+            projectId,
+            linkPath: `/tradesman/projects`,
+          });
         } catch (e) {
           log.warn?.(`${TAG} failed to insert hire_received notification`, {
             error: e?.message || e,
             hireId,
           });
         }
+
+        // Project Lighthouse telemetry — fire-and-forget
+        recordHomeownerAction({
+          mysqlQuery,
+          projectId,
+          tradesmanUserId,
+          action: "hired",
+          log,
+        });
 
         return res.status(201).json({
           ok: true,
@@ -302,12 +321,29 @@ module.exports = (router, ctx) => {
               now,
             ],
           );
+
+          broadcastNotification?.(matchedTradesman.user_id, {
+            type: "hire_received",
+            message: `You've been hired for "${project.name}"`,
+            projectId,
+            linkPath: `/tradesman/projects`,
+          });
         } catch (e) {
           log.warn?.(`${TAG} failed to insert hire_received notification (matched)`, {
             error: e?.message || e,
             hireId,
           });
         }
+
+        // Project Lighthouse telemetry — both ids are known here
+        recordHomeownerAction({
+          mysqlQuery,
+          projectId,
+          recommendationId,
+          tradesmanUserId: matchedTradesman.user_id,
+          action: "hired",
+          log,
+        });
 
         return res.status(201).json({
           ok: true,
@@ -362,6 +398,15 @@ module.exports = (router, ctx) => {
 
       // No in-app notification — the recommendation isn't a user. Email send
       // and admin queue handling happen in later steps of the build.
+
+      // Project Lighthouse telemetry — pending_invite, recommendation only
+      recordHomeownerAction({
+        mysqlQuery,
+        projectId,
+        recommendationId,
+        action: "hired",
+        log,
+      });
 
       return res.status(201).json({
         ok: true,

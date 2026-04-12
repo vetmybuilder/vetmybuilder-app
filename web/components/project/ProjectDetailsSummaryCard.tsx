@@ -80,7 +80,7 @@ export default function ProjectDetailsSummaryCard({
     : "—";
 
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white px-5 py-5 shadow-md">
+    <section className="rounded-2xl border border-zinc-200 bg-gradient-to-br from-white via-stone-50/50 to-zinc-50 px-5 py-5 shadow-md">
       {/* Header */}
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>

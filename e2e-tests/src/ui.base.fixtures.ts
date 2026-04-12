@@ -21,6 +21,7 @@ import AdminTradesmenPage from "./pages/AdminTradesmenPage";
 import AdminRecommendationLeaderboardPage from "./pages/AdminRecommendationLeaderboardPage";
 import TradesmanMyProfilePage from "./pages/TradesmanMyProfilePage";
 import TradesmanEditPage from "./pages/TradesmanEditPage";
+import TradesmanProjectsPage from "./pages/TradesmanProjectsPage";
 import TradesmanRegisterPage from "./pages/TradesmanRegisterPage";
 import TradesmanApi from "./apiHelper/tradesman/TradesmanApi";
 import AdminApi from "./apiHelper/admin/AdminApi";
@@ -52,6 +53,7 @@ type UiFixtures = {
   adminRecommendationLeaderboardPage: AdminRecommendationLeaderboardPage;
   tradesmanMyProfilePage: TradesmanMyProfilePage;
   tradesmanEditPage: TradesmanEditPage;
+  tradesmanProjectsPage: TradesmanProjectsPage;
   tradesmanRegisterPage: TradesmanRegisterPage;
   tradesmanApi: TradesmanApi;
   adminApi: AdminApi;
@@ -173,6 +175,10 @@ export const test = base.extend<UiFixtures, { runtime: Runtime }>({
 
   tradesmanEditPage: async ({ page }, use) => {
     await use(new TradesmanEditPage(page));
+  },
+
+  tradesmanProjectsPage: async ({ page }, use) => {
+    await use(new TradesmanProjectsPage(page));
   },
 
   tradesmanRegisterPage: async ({ page }, use) => {

@@ -154,15 +154,14 @@ export default function MyApp({ Component, pageProps }: AppProps) {
 
   const router = useRouter();
 
-  // Any /admin... route — or the login page accessed via an admin ?next= link —
-  // should use the admin header/layout. router.asPath includes the query string
-  // and is available before router.isReady, making it safe to use here.
-  const isAdminLoginFlow =
-    router.pathname === "/login" &&
-    (router.asPath.includes("next=%2Fadmin%2F") ||
-      router.asPath.includes("next=/admin/"));
-  const isAdminRoute =
-    router.pathname.startsWith("/admin") || isAdminLoginFlow;
+  // Only actual /admin/* routes use the AdminLayout. Previously we also
+  // re-skinned /login when ?next=/admin/... was present, but that decision
+  // depends on the query string which isn't reliably present in the SSR
+  // render of /login — causing a hydration mismatch (and a dev-mode error
+  // overlay) on direct visits. The login page is the same form regardless
+  // of where the user is going next; AdminLayout takes over naturally
+  // after they land on /admin/... post-login.
+  const isAdminRoute = router.pathname.startsWith("/admin");
 
   // Tradesman authenticated pages only — excludes public profile (/tradesman/[id])
   // and login/register which have their own backgrounds

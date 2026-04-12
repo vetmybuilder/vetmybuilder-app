@@ -517,7 +517,7 @@ function Inner() {
 
   return (
     <>
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pt-8 pb-16">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pt-2 sm:pt-8 pb-16">
         {pageContent}
       </div>
     </>

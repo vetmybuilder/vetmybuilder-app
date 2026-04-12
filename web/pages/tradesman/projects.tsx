@@ -1,8 +1,11 @@
 import Head from "next/head";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
+import { getCoachingTips } from "@/utils/coachingTips";
+import type { VendorForScoring } from "@/utils/vendorScoring";
 import TradesmanProjectAccordionRow from "@/components/tradesmen/TradesmanProjectAccordionRow";
 import TradesmanOnly from "@/components/TradesmanOnly";
 
@@ -33,6 +36,7 @@ const BUDGET_OPTIONS: { value: string; label: string }[] = [
 
 export default function TradesmanProjects() {
   const api = useApi();
+  const router = useRouter();
   const { user, loading } = useAuth();
 
   /* ---------- filters ---------- */
@@ -49,6 +53,59 @@ export default function TradesmanProjects() {
 
   // which project row is expanded (accordion)
   const [openId, setOpenId] = useState<number | null>(null);
+
+  // Auto-expand a project from ?open=<id> (e.g. from notification click)
+  useEffect(() => {
+    if (!router.isReady) return;
+    const openParam = Number(router.query.open);
+    if (openParam && items.some((p) => p.id === openParam)) {
+      setOpenId(openParam);
+      // Scroll the row into view after a short delay for the accordion to expand
+      setTimeout(() => {
+        const el = document.querySelector(`[data-project-id="${openParam}"]`);
+        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 300);
+    }
+  }, [router.isReady, router.query.open, items]);
+
+  // ---- coaching tips: fetch tradesman profile ----
+  const [meProfile, setMeProfile] = useState<VendorForScoring | null>(null);
+
+  useEffect(() => {
+    if (!user || loading) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const { data } = await api.get("/api/tradesmen/me");
+        if (cancelled) return;
+        if (data?.profile) {
+          const p = data.profile;
+          const mapped: VendorForScoring = {
+            photoCount: p.photo_count ?? 0,
+            chStatus: p.ch_status ?? null,
+            warrantyMonths: p.warranty_months ?? null,
+            trades: p.trade_types ? String(p.trade_types).split(",").filter(Boolean) : [],
+            serviceAreas: p.service_areas ? String(p.service_areas).split(",").filter(Boolean) : [],
+            supportingDocCount: p.supporting_doc_count ?? 0,
+            websiteUrl: p.web_url ?? null,
+            socialLinks: p.social_links_json ? JSON.parse(p.social_links_json) : [],
+            offersDiscount: !!p.offers_discount,
+          };
+          setMeProfile(mapped);
+        }
+      } catch {
+        // non-critical — coaching tips just won't show
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [user, loading, api]);
+
+  const tips = useMemo(
+    () => (meProfile ? getCoachingTips(meProfile) : []),
+    [meProfile]
+  );
 
   const canQuery = useMemo(() => !!user && !loading, [user, loading]);
 
@@ -146,11 +203,11 @@ export default function TradesmanProjects() {
       </Head>
 
       <div
-        className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6"
+        className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-2 sm:py-6"
         data-testid="tradesman-projects-page"
       >
         {/* Heading + primary actions */}
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-900">
               Jobs list
@@ -171,6 +228,33 @@ export default function TradesmanProjects() {
             </Link>
           </div>
         </div>
+
+        {/* Coaching tips */}
+        {gate === "none" && tips.length > 0 && (
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-amber-900">
+                  Boost your profile — {tips.length} quick win{tips.length === 1 ? "" : "s"}
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {tips.map((tip) => (
+                    <li key={tip.key} className="flex items-start gap-2 text-sm text-amber-800">
+                      <span className="mt-0.5 text-amber-500">•</span>
+                      {tip.message}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <Link
+                href="/tradesman/profile/edit"
+                className="flex-shrink-0 rounded-full bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+              >
+                Edit profile
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* NOT SIGNED IN */}
         {!user && !loading && (
@@ -264,7 +348,7 @@ export default function TradesmanProjects() {
         {/* Accordion list */}
         {user && gate === "none" && !loading && (
           <div
-            className="overflow-hidden rounded-xl border border-gray-200 bg-white"
+            className=""
             data-testid="tradesman-projects-accordion"
           >
             {err && (
@@ -281,14 +365,15 @@ export default function TradesmanProjects() {
 
             {!err &&
               filteredItems.map((p) => (
-                <TradesmanProjectAccordionRow
-                  key={p.id}
-                  project={p}
-                  expanded={openId === p.id}
-                  onToggle={() =>
-                    setOpenId((curr) => (curr === p.id ? null : p.id))
-                  }
-                />
+                <div key={p.id} data-project-id={p.id}>
+                  <TradesmanProjectAccordionRow
+                    project={p}
+                    expanded={openId === p.id}
+                    onToggle={() =>
+                      setOpenId((curr) => (curr === p.id ? null : p.id))
+                    }
+                  />
+                </div>
               ))}
 
             {busy && (

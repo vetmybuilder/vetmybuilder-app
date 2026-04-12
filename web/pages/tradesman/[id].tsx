@@ -1,5 +1,6 @@
 // web/pages/tradesman/[id].tsx
 import Head from "next/head";
+import Toast from "@/components/Toast";
 import { useRouter } from "next/router";
 import StatPill from "@/components/StatPill";
 import { useEffect, useMemo, useState } from "react";
@@ -104,6 +105,7 @@ function Inner() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [favBusy, setFavBusy] = useState(false);
+  const [favToast, setFavToast] = useState<string | null>(null);
   const [showPortfolio, setShowPortfolio] = useState(false);
   const [sharedImages, setSharedImages] = useState<GalleryImage[]>([]);
   const [sharedLoading, setSharedLoading] = useState(false);
@@ -114,7 +116,10 @@ function Inner() {
       (Array.isArray(q.returnTo) ? q.returnTo[0] : q.returnTo) ||
       (Array.isArray(q.from) ? q.from[0] : q.from) || "";
     const s = String(raw || "").trim();
-    return s && s.startsWith("/") ? s : "/projects?tab=completed";
+    const pid = Array.isArray(q.projectId) ? q.projectId[0] : q.projectId;
+    if (s && s.startsWith("/")) return s;
+    if (pid) return `/projects/${pid}`;
+    return "/projects";
   }, [router.query]);
 
   useEffect(() => {
@@ -178,9 +183,11 @@ function Inner() {
       if (!currentlyFav) {
         await api.post(`/api/tradesmen/${encodeURIComponent(builderId)}/favourite`);
         setItem({ ...item, isFavourite: true });
+        setFavToast("Added to favourites");
       } else {
         await api.delete(`/api/tradesmen/${encodeURIComponent(builderId)}/favourite`);
         setItem({ ...item, isFavourite: false });
+        setFavToast("Removed from favourites");
       }
     } catch (e) {
       console.error("Failed to toggle favourite", e);
@@ -195,7 +202,7 @@ function Inner() {
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
         </div>
-        <div className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pt-24 text-sm text-zinc-500">Loading…</div>
+        <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-24 text-sm text-zinc-500">Loading…</div>
       </div>
     );
   }
@@ -261,12 +268,12 @@ function Inner() {
           <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
         </div>
 
-        <div className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pt-24 pb-16 space-y-6">
+        <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-4 sm:pt-10 pb-16 space-y-6">
 
           {/* Back link */}
           <button
             type="button"
-            onClick={() => router.push(backHref)}
+            onClick={() => window.history.length > 1 ? router.back() : router.push(backHref)}
             className="text-sm font-medium text-zinc-500 hover:text-zinc-800 transition-colors"
             data-testid="btn-back-to-projects"
           >
@@ -274,7 +281,7 @@ function Inner() {
           </button>
 
           {/* Header card */}
-          <header className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 px-6 py-6 sm:px-8 sm:py-7">
+          <header className="relative bg-white rounded-3xl shadow-xl shadow-zinc-200/60 px-6 py-6 sm:px-8 sm:py-7">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               {/* Left: avatar + info */}
               <div className="flex items-start gap-4 sm:gap-5">
@@ -356,26 +363,25 @@ function Inner() {
                 </div>
               </div>
 
-              {/* Right: favourite button */}
-              <div className="flex sm:flex-col items-start sm:items-end">
-                <button
-                  type="button"
-                  onClick={toggleFavourite}
-                  disabled={favBusy}
-                  aria-pressed={isFavourite}
-                  className={[
-                    "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold shadow-sm border transition",
-                    isFavourite
-                      ? "bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100"
-                      : "bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50",
-                    favBusy ? "opacity-70 cursor-wait" : "",
-                  ].join(" ")}
-                  data-testid="btn-favourite-tradesman"
-                >
-                  <Heart className={`h-4 w-4 ${isFavourite ? "fill-rose-500 text-rose-500" : ""}`} />
-                  {isFavourite ? "Saved" : "Save to favourites"}
-                </button>
-              </div>
+              {/* Favourite heart — absolute top-right */}
+              <button
+                type="button"
+                onClick={toggleFavourite}
+                disabled={favBusy}
+                aria-pressed={isFavourite}
+                aria-label={isFavourite ? "Remove from favourites" : "Save to favourites"}
+                title={isFavourite ? "Saved to favourites" : "Save to favourites"}
+                className={[
+                  "absolute top-4 right-4 sm:top-6 sm:right-6 inline-flex items-center justify-center h-10 w-10 rounded-full border transition",
+                  isFavourite
+                    ? "bg-rose-50 border-rose-200 hover:bg-rose-100"
+                    : "bg-white border-zinc-200 hover:bg-zinc-50",
+                  favBusy ? "opacity-70 cursor-wait" : "",
+                ].join(" ")}
+                data-testid="btn-favourite-tradesman"
+              >
+                <Heart className={`h-6 w-6 ${isFavourite ? "fill-rose-500 text-rose-500" : "text-zinc-400"}`} />
+              </button>
             </div>
           </header>
 
@@ -524,6 +530,8 @@ function Inner() {
           </div>
         </div>
       </div>
+
+      <Toast message={favToast} onDismiss={() => setFavToast(null)} />
     </>
   );
 }

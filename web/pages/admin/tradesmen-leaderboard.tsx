@@ -28,6 +28,12 @@ type Item = {
 
   likes: number;
   wins: number;
+  hires?: {
+    total: number;
+    accepted: number;
+    declined: number;
+    pending: number;
+  };
   createdAt: string;
   updatedAt: string;
 
@@ -354,7 +360,8 @@ export default function AdminTradesmenLeaderboardPage() {
         return it.urls?.length || 0;
       case "signals":
         return (
-          (it.score ?? 0) * 1e9 +
+          (it.score ?? 0) * 1e12 +
+          (it.hires?.total ?? 0) * 1e9 +
           (it.photos ?? 0) * 1e6 +
           (it.docs ?? 0) * 1e3 +
           (it.likes ?? 0) * 10 +
@@ -718,6 +725,25 @@ export default function AdminTradesmenLeaderboardPage() {
                             <div>Discount: {discountText}</div>
                             <div>Likes: {it.likes}</div>
                             <div>Wins: {it.wins}</div>
+                            <div
+                              title={
+                                it.hires
+                                  ? `${it.hires.accepted} accepted, ${it.hires.declined} declined, ${it.hires.pending} pending`
+                                  : "No hire data"
+                              }
+                            >
+                              Hires: {it.hires?.total ?? 0}
+                              {it.hires && it.hires.total > 0 && (
+                                <span className="text-slate-500">
+                                  {" "}
+                                  ({it.hires.accepted}a / {it.hires.declined}d
+                                  {it.hires.pending > 0
+                                    ? ` / ${it.hires.pending}p`
+                                    : ""}
+                                  )
+                                </span>
+                              )}
+                            </div>
                           </td>
 
                           <td className="px-3 py-2 text-xs text-slate-300">
