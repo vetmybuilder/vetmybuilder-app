@@ -118,11 +118,13 @@ module.exports = (router, ctx) => {
 
         log.info({ uid, approvedPlan: planId }, "Subscription approved");
 
-        return res.json({
+        res.json({
           ok: true,
           uid,
           approvedPlan: planId,
         });
+        ctx.logActivity("admin.subscription.approve", "info", req.user.uid, "Subscription approved");
+        return;
       } catch (e) {
         logger.error(
           {

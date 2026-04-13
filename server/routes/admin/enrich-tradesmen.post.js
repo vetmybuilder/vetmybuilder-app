@@ -52,7 +52,9 @@ module.exports = (router, ctx) => {
         }
 
         log.info({ enriched, skipped, failed, total: rows.length }, "batch enrich complete");
-        return res.json({ ok: true, enriched, skipped, failed });
+        res.json({ ok: true, enriched, skipped, failed });
+        ctx.logActivity("admin.enrich", "info", req.user?.uid || "system", "Tradesmen enrichment run");
+        return;
       } catch (err) {
         logger.error({ route: TAG, err: err?.message }, "batch enrich failed");
         return res.status(500).json({ error: "server_error" });

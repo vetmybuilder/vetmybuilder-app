@@ -482,7 +482,7 @@ module.exports = (router, ctx) => {
         }
 
         // IMPORTANT: we DO NOT return name/email/phone of the recommender here.
-        return res.status(201).json({
+        res.status(201).json({
           ok: true,
           recommendationId,
           resolvedCompany: resolvedCompany || company,
@@ -492,6 +492,8 @@ module.exports = (router, ctx) => {
             source, // "platform" | "magic"
           },
         });
+        ctx.logActivity("rec.create", "info", req.user?.uid || "guest", `Rec for project #${projectId}, company="${company}"`);
+        return;
       } catch (err) {
         console.error("recommendations.post error:", err);
         return res

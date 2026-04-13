@@ -760,6 +760,18 @@ CREATE TABLE builder_summaries (
   computed_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_company (company)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE activity_log (
+  id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  event       VARCHAR(50)   NOT NULL,
+  level       VARCHAR(10)   NOT NULL DEFAULT 'info',
+  actor_uid   VARCHAR(128)  DEFAULT NULL,
+  detail      TEXT          DEFAULT NULL,
+  created_at  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_al_created (created_at),
+  INDEX idx_al_level   (level, created_at),
+  INDEX idx_al_event   (event, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 USE `vetmybuilder_test_s1_4_w1`;
 
 CREATE TABLE IF NOT EXISTS _migrations (
@@ -1521,6 +1533,18 @@ CREATE TABLE builder_summaries (
   classifier_version  VARCHAR(40)  NOT NULL,
   computed_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_company (company)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE activity_log (
+  id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  event       VARCHAR(50)   NOT NULL,
+  level       VARCHAR(10)   NOT NULL DEFAULT 'info',
+  actor_uid   VARCHAR(128)  DEFAULT NULL,
+  detail      TEXT          DEFAULT NULL,
+  created_at  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_al_created (created_at),
+  INDEX idx_al_level   (level, created_at),
+  INDEX idx_al_event   (event, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 USE `vetmybuilder_test_s1_4_w2`;
 
@@ -2284,6 +2308,18 @@ CREATE TABLE builder_summaries (
   computed_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_company (company)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE activity_log (
+  id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  event       VARCHAR(50)   NOT NULL,
+  level       VARCHAR(10)   NOT NULL DEFAULT 'info',
+  actor_uid   VARCHAR(128)  DEFAULT NULL,
+  detail      TEXT          DEFAULT NULL,
+  created_at  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_al_created (created_at),
+  INDEX idx_al_level   (level, created_at),
+  INDEX idx_al_event   (event, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 USE `vetmybuilder_test_s1_4_w3`;
 
 CREATE TABLE IF NOT EXISTS _migrations (
@@ -3046,6 +3082,18 @@ CREATE TABLE builder_summaries (
   computed_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_company (company)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE activity_log (
+  id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  event       VARCHAR(50)   NOT NULL,
+  level       VARCHAR(10)   NOT NULL DEFAULT 'info',
+  actor_uid   VARCHAR(128)  DEFAULT NULL,
+  detail      TEXT          DEFAULT NULL,
+  created_at  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_al_created (created_at),
+  INDEX idx_al_level   (level, created_at),
+  INDEX idx_al_event   (event, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 USE `vetmybuilder_test_s1_4_w4`;
 
 CREATE TABLE IF NOT EXISTS _migrations (
@@ -3807,4 +3855,16 @@ CREATE TABLE builder_summaries (
   classifier_version  VARCHAR(40)  NOT NULL,
   computed_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_company (company)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE activity_log (
+  id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  event       VARCHAR(50)   NOT NULL,
+  level       VARCHAR(10)   NOT NULL DEFAULT 'info',
+  actor_uid   VARCHAR(128)  DEFAULT NULL,
+  detail      TEXT          DEFAULT NULL,
+  created_at  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_al_created (created_at),
+  INDEX idx_al_level   (level, created_at),
+  INDEX idx_al_event   (event, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

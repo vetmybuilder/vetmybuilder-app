@@ -113,7 +113,9 @@ module.exports = (router, ctx) => {
       const rows = await mysqlQuery(`SELECT * FROM projects WHERE id = ?`, [
         id,
       ]);
-      return res.json({ project: rows[0] || null });
+      res.json({ project: rows[0] || null });
+      ctx.logActivity("project.update", "info", req.user.uid, `Project #${id} updated`);
+      return;
     } catch (err) {
       log.error({ err }, "MySQL error updating project");
       return res.status(500).json({ error: "internal_error" });

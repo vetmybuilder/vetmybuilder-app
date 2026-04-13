@@ -195,12 +195,14 @@ module.exports = (router, ctx) => {
 
       log.info({ url, token: link.token }, "Magic link returned");
 
-      return res.json({
+      res.json({
         ok: true,
         url,
         token: link.token,
         projectId,
       });
+      ctx.logActivity("project.magic-link", "info", req.user?.uid, `Magic link created for project #${projectId}`);
+      return;
     } catch (err) {
       log.error({ err }, "Unexpected magic-link error");
       return res.status(500).json({

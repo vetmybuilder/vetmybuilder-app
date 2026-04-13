@@ -85,6 +85,8 @@ module.exports = (router, ctx) => {
       // Project Lighthouse — fire-and-forget classification.
       // Runs the LLM (or stub) and stores the structured form in
       // project_classifications. Never blocks the response.
+      // On completion, broadcasts an SSE event so the frontend can
+      // auto-update the insights card without a page reload.
       classifyProject({
         mysqlQuery,
         projectId: insertedId,
@@ -94,6 +96,14 @@ module.exports = (router, ctx) => {
         propertyType: body.propertyType,
         bedrooms: body.bedrooms,
         log,
+      }).then((classification) => {
+        if (classification && ctx.broadcastNotification) {
+          ctx.broadcastNotification(req.user.uid, {
+            type: "classification_ready",
+            message: "Project insights are ready",
+            projectId: insertedId,
+          });
+        }
       }).catch((e) => {
         log.warn?.("[projects.post] classifyProject threw", {
           insertedId,
@@ -101,7 +111,9 @@ module.exports = (router, ctx) => {
         });
       });
 
-      return res.status(201).json({ project: rows[0] || null });
+      res.status(201).json({ project: rows[0] || null });
+      ctx.logActivity("project.create", "info", req.user.uid, `Project #${insertedId} "${body.name}"`);
+      return;
     } catch (err) {
       log.error?.("[projects.post] error", err);
       return res.status(500).json({ error: "internal_error" });

@@ -141,12 +141,14 @@ module.exports = (router, ctx) => {
           [now(), now(), userId]
         );
 
-        return res.json({
+        res.json({
           ok: true,
           message: "Gold subscription activated",
           userId,
           plan: "gold",
         });
+        ctx.logActivity("admin.subscription", "info", req.user.uid, "Subscription created");
+        return;
       }
 
       // ---------------------------------------------------------
@@ -174,12 +176,14 @@ module.exports = (router, ctx) => {
           [userId, start, expiry, sessionId]
         );
 
-        return res.json({
+        res.json({
           ok: true,
           message: "Spotlight activated",
           userId,
           expires_at: expiry,
         });
+        ctx.logActivity("admin.subscription", "info", req.user.uid, "Subscription created");
+        return;
       }
 
       // ---------------------------------------------------------
@@ -204,12 +208,14 @@ module.exports = (router, ctx) => {
           [userId, projectId, sessionId, now()]
         );
 
-        return res.json({
+        res.json({
           ok: true,
           message: "Contact unlocked for project",
           userId,
           projectId,
         });
+        ctx.logActivity("admin.subscription", "info", req.user.uid, "Subscription created");
+        return;
       }
 
       // ---------------------------------------------------------
@@ -217,18 +223,22 @@ module.exports = (router, ctx) => {
       // ---------------------------------------------------------
       if (plan.id === "free") {
         log.info({ userId }, "Free plan — no admin action");
-        return res.json({
+        res.json({
           ok: true,
           note: "Free plan requires no admin action",
         });
+        ctx.logActivity("admin.subscription", "info", req.user.uid, "Subscription created");
+        return;
       }
 
       // Fallback catch-all
       log.info({ userId, planId }, "Generic plan activation");
-      return res.json({
+      res.json({
         ok: true,
         message: `Plan '${planId}' activated`,
       });
+      ctx.logActivity("admin.subscription", "info", req.user.uid, "Subscription created");
+      return;
     } catch (e) {
       const log = withRequest(req);
       log.error(

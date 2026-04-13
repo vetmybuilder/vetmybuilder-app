@@ -136,7 +136,7 @@ module.exports = (router, ctx) => {
         }
       }
 
-      return res.status(200).json({
+      res.status(200).json({
         ok: true,
         hire: {
           id: hireId,
@@ -146,6 +146,8 @@ module.exports = (router, ctx) => {
           cancelledAt: now.toISOString(),
         },
       });
+      ctx.logActivity("hire.cancel", "info", req.user.uid, `Hire #${hireId} cancelled`);
+      return;
     } catch (err) {
       log.error?.(`${TAG} error`, err);
       return res

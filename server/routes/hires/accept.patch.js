@@ -143,7 +143,7 @@ module.exports = (router, ctx) => {
         log,
       });
 
-      return res.status(200).json({
+      res.status(200).json({
         ok: true,
         hire: {
           id: hireId,
@@ -153,6 +153,8 @@ module.exports = (router, ctx) => {
           respondedAt: now.toISOString(),
         },
       });
+      ctx.logActivity("hire.accept", "info", req.user.uid, `Hire #${hireId} accepted`);
+      return;
     } catch (err) {
       log.error?.(`${TAG} error`, err);
       return res

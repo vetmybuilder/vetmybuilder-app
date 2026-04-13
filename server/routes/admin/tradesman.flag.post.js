@@ -122,15 +122,19 @@ module.exports = (router, ctx) => {
           );
         } catch (e) {
           log.error({ err: e?.message }, "Select-after-insert failed");
-          return res.status(201).json({
+          res.status(201).json({
             ok: true,
             flag: { id: insertedId, user_id: uid, reason, severity },
           });
+          ctx.logActivity("admin.tradesman.flag", "info", req.user.uid, "Tradesman flagged");
+          return;
         }
 
         const flag = flagRows[0] || null;
 
-        return res.status(201).json({ ok: true, flag });
+        res.status(201).json({ ok: true, flag });
+        ctx.logActivity("admin.tradesman.flag", "info", req.user.uid, "Tradesman flagged");
+        return;
       } catch (e) {
         log.error(
           { err: e?.message, stack: e?.stack },

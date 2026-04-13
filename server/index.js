@@ -59,11 +59,18 @@ app.use((req, res, next) => {
 });
 
 /* -------------------- HTTP request logger -------------------- */
+let _reqCounter = 0;
 app.use((req, res, next) => {
   const start = Date.now();
-  const log = withRequest(req);
+  const requestId = `r${(++_reqCounter).toString(36)}-${Date.now().toString(36)}`;
+  req.requestId = requestId;
+  const log = withRequest(req).child({ requestId });
 
   res.on("finish", () => {
+    // Suppress noisy dashboard polling from logs
+    const p = req.originalUrl || req.url || "";
+    if (p.startsWith("/api/admin/dashboard/")) return;
+
     log.info(
       {
         status: res.statusCode,

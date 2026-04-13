@@ -69,12 +69,14 @@ module.exports = (router, ctx) => {
 
       log.info?.(`${TAG} like updated`, { recId, userId, likes, myLike });
 
-      return res.json({
+      res.json({
         ok: true,
         recommendationId: recId,
         likes,
         myLike,
       });
+      ctx.logActivity("rec.like", "info", req.user?.uid || "guest", `Liked rec #${recId}`);
+      return;
     } catch (err) {
       log.error?.(`${TAG} error`, err);
       return res.status(500).json({ error: "Internal error toggling like" });

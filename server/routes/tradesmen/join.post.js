@@ -330,11 +330,13 @@ module.exports = (router, ctx) => {
         log,
       }).catch(() => {});
 
-      return res.status(201).json({
+      res.status(201).json({
         ok: true,
         id: leadId,
         created: true,
       });
+      ctx.logActivity("tradesman.join", "info", "guest", `New tradesman: ${companyName}`);
+      return;
     } catch (e) {
       log.error(`${TAG} failed`, { error: e?.message || e });
       return res.status(500).json({ error: "Failed to save vendor draft" });

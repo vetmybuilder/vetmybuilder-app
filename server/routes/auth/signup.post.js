@@ -82,7 +82,9 @@ module.exports = (router, ctx) => {
 
       log.info({ uid }, "User signup profile ensured");
 
-      return res.json({ ok: true });
+      res.json({ ok: true });
+      ctx.logActivity("auth.signup", "info", uid, `New user: ${email}`);
+      return;
     } catch (err) {
       log.error({ err: err?.message, uid }, "Failed to create signup profile");
       return res.status(500).json({ error: "internal_error" });

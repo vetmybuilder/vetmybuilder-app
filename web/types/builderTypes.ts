@@ -46,6 +46,7 @@ export type Builder = {
   fromCommunity?: 0 | 1;
   project?: { id: number; name: string };
   score?: number;
+  summary?: { bullets: string[]; recommendationCount: number } | null;
   companyVerification?: Verification | null;
 };
 

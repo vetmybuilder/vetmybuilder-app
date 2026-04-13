@@ -307,7 +307,7 @@ module.exports = (router, ctx) => {
         log.warn(`${TAG} notify failed`, { error: e?.message });
       }
 
-      return res.status(201).json({
+      res.status(201).json({
         ok: true,
         share: {
           id: row.id,
@@ -318,6 +318,8 @@ module.exports = (router, ctx) => {
           createdAt: row.created_at,
         },
       });
+      ctx.logActivity("tradesman.share", "info", req.user.uid, `Shared profile on project #${pid}`);
+      return;
     } catch (e) {
       log.error(`${TAG} unexpected`, { error: e?.message, stack: e?.stack });
       return res.status(500).json({ error: "Failed to save share" });

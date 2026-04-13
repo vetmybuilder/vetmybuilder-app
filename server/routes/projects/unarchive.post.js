@@ -44,7 +44,9 @@ module.exports = (router, ctx) => {
         `SELECT * FROM projects WHERE id = ?`,
         [id]
       );
-      return res.json({ project: updatedRows[0] });
+      res.json({ project: updatedRows[0] });
+      ctx.logActivity("project.unarchive", "info", req.user.uid, `Project #${id} unarchived`);
+      return;
     } catch (err) {
       console.error("MySQL update error (unarchive):", err);
       return res.status(500).json({ error: "internal_error" });

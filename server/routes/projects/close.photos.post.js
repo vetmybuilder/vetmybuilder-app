@@ -116,7 +116,9 @@ module.exports = (router, ctx) => {
         const files = Array.isArray(req.files) ? req.files.slice(0, 20) : [];
         if (files.length === 0) {
           log.info("No files uploaded (non-multipart or empty)");
-          return res.json({ ok: true, count: 0 });
+          res.json({ ok: true, count: 0 });
+          ctx.logActivity("project.close.photos", "info", req.user?.uid, `Photos uploaded for project #${projectId}`);
+          return;
         }
 
         const now = new Date().toISOString();
@@ -161,10 +163,12 @@ module.exports = (router, ctx) => {
           "Closure photos uploaded successfully"
         );
 
-        return res.status(201).json({
+        res.status(201).json({
           ok: true,
           count: files.length,
         });
+        ctx.logActivity("project.close.photos", "info", req.user?.uid, `Photos uploaded for project #${projectId}`);
+        return;
       } catch (err) {
         log.error(
           { error: err?.message, stack: err?.stack },

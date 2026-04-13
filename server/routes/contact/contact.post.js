@@ -6,7 +6,7 @@
 
 const { logger, withRequest } = require("../../lib/logger");
 
-module.exports = (router) => {
+module.exports = (router, ctx) => {
   router.post("/contact", async (req, res) => {
     const log = withRequest(req).child({ route: "contact" });
 
@@ -43,7 +43,9 @@ module.exports = (router) => {
       });
 
       log.info({ name, email }, "Contact form email sent");
-      return res.json({ ok: true });
+      res.json({ ok: true });
+      ctx.logActivity("contact.submit", "info", "guest", "Contact form submitted");
+      return;
     } catch (err) {
       log.error({ err: err?.message }, "Failed to send contact email");
       return res.status(500).json({ ok: false, error: "failed to send" });

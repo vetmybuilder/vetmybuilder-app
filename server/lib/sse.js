@@ -1,4 +1,7 @@
 // server/lib/sse.js
+const { logger } = require("./logger");
+const log = logger.child({ module: "sse" });
+
 const clientsByUser = new Map(); // Map<uid, Set<res>>
 
 function sseSend(res, event, payload) {
@@ -10,7 +13,7 @@ function sseSend(res, event, payload) {
  * Push a notification event to all SSE clients for a given user.
  * Safe to call even when no clients are connected — just a no-op.
  */
-function broadcastNotification(uid, payload) {
+function broadcastNotification(uid, payload, logActivity) {
   const set = clientsByUser.get(uid);
   if (!set || !set.size) return;
   const data = {
@@ -21,8 +24,24 @@ function broadcastNotification(uid, payload) {
     createdAt: payload.createdAt || new Date().toISOString(),
   };
   for (const res of set) {
-    try { sseSend(res, "notification", data); } catch {}
+    try {
+      sseSend(res, "notification", data);
+    } catch (err) {
+      log.error({ uid, error: err?.message }, "SSE broadcast write failed");
+      if (logActivity) {
+        logActivity("sse.broadcast.fail", "error", uid, `Broadcast failed: ${err?.message}`);
+      }
+    }
   }
 }
 
-module.exports = { clientsByUser, sseSend, broadcastNotification };
+/** Returns the number of unique users with active SSE connections. */
+function activeSseCount() {
+  let count = 0;
+  for (const set of clientsByUser.values()) {
+    if (set.size > 0) count++;
+  }
+  return count;
+}
+
+module.exports = { clientsByUser, sseSend, broadcastNotification, activeSseCount };

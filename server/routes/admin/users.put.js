@@ -67,7 +67,9 @@ module.exports = (router, ctx) => {
       }
 
       log.info({ uid, role }, "admin updated user");
-      return res.json({ ok: true });
+      res.json({ ok: true });
+      ctx.logActivity("admin.user.update", "info", req.user.uid, `User updated: ${uid}`);
+      return;
     } catch (err) {
       log.error({ err: err?.message, uid }, "admin update user failed");
       return res.status(500).json({ error: "server_error" });

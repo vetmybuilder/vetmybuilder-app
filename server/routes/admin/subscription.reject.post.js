@@ -64,11 +64,13 @@ module.exports = (router, ctx) => {
 
         log.info({ uid, rejectedPlan: pendingPlan }, "Subscription rejected");
 
-        return res.json({
+        res.json({
           ok: true,
           uid,
           rejectedPlan: pendingPlan,
         });
+        ctx.logActivity("admin.subscription.reject", "info", req.user.uid, "Subscription rejected");
+        return;
       } catch (e) {
         logger.error(
           {

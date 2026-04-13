@@ -172,7 +172,9 @@ module.exports = (router, ctx) => {
         }
 
         log.info?.(`${TAG} success`, { recommendationId });
-        return res.json({ ok: true, recommendationId, linkPath });
+        res.json({ ok: true, recommendationId, linkPath });
+        ctx.logActivity("tradesman.interest", "info", req.user.uid, `Expressed interest in project #${projectId}`);
+        return;
       } catch (e) {
         log.error?.(`${TAG} internal error`, { error: e?.message });
         return res.status(500).json({ error: "Failed to share interest" });
