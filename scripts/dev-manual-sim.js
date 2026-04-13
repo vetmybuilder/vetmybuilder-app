@@ -227,7 +227,7 @@ function runScript(script, env = {}) {
         // Friend source on all Elegant recs
         await conn.query("UPDATE recommendations SET source = 'magic' WHERE company LIKE '%Elegant%'");
 
-        // 15 likes per unboosted rec
+        // 15 likes per unboosted rec + CH verification (no hires — test those manually)
         for (const rec of unboosted) {
           for (let v = 0; v < 15; v++) {
             await conn.query(
@@ -236,24 +236,13 @@ function runScript(script, env = {}) {
             ).catch(() => {});
           }
 
-          // 5 accepted hires per rec
-          for (let h = 0; h < 5; h++) {
-            await conn.query(
-              "INSERT IGNORE INTO hires (projectId, homeownerUid, recommendationId, status, hiredAt, respondedAt, expiresAt) VALUES (?, ?, ?, 'accepted', NOW(), NOW(), '2099-12-31')",
-              [rec.projectId, `elegant-boost-hirer-${rec.id}-${h}`, rec.id]
-            ).catch(() => {});
-          }
-        }
-
-        // Add CH verification for each unboosted rec
-        for (const rec of unboosted) {
           await conn.query(
             "INSERT IGNORE INTO company_verifications (recommendationId, status, companyNumber, companyName, score, checkedAt) VALUES (?, 'verified', '12758227', 'ELEGANT BUILDING SERVICES LTD', 95, NOW())",
             [rec.id]
           ).catch(() => {});
         }
 
-        log(`Elegant boost: ${unboosted.length} new recs boosted (15 likes + 5 hires + CH verified each)`);
+        log(`Elegant boost: ${unboosted.length} new recs boosted (15 likes + CH verified each)`);
       } finally {
         await conn.end();
       }

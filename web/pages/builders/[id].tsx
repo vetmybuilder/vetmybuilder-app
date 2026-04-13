@@ -51,6 +51,9 @@ export default function BuilderProfilePage() {
 
   if (redirecting) return null;
 
+  // Guests → 404 (builder profiles require auth)
+  if (!loading && !user) return <NotFound />;
+
   // Builder doesn't exist → render the standard 404 page
   if (notFound) return <NotFound />;
 

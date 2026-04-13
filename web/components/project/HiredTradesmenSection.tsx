@@ -144,7 +144,7 @@ export default function HiredTradesmenSection({
     >
       <div className="mb-3 flex items-center gap-2">
         <Briefcase className="h-5 w-5 text-red-500" />
-        <h2 className="text-xl font-bold text-zinc-900">Hired tradesmen</h2>
+        <h2 className="text-xl font-bold text-zinc-900">Hires</h2>
         <span className="inline-flex items-center justify-center rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-bold text-zinc-700">
           {hires.length}
         </span>
@@ -187,23 +187,31 @@ export default function HiredTradesmenSection({
 
                   <div className="min-w-0 flex-1">
                     <h3
-                      className="truncate text-base font-bold text-zinc-900"
+                      className="truncate text-sm font-bold text-zinc-900"
                       title={hire.displayName}
                     >
                       {hire.displayName}
                     </h3>
-                    <div className="mt-1">
+                    <div className="mt-1 flex items-center gap-2 flex-wrap">
                       <StatusBadge
                         status={hire.status}
                         inviteChannel={hire.inviteChannel}
                       />
+                      <span className="text-[11px] text-zinc-400">
+                        {hire.hiredAt ? new Date(hire.hiredAt).toLocaleDateString("en-GB") : ""}
+                      </span>
                     </div>
 
-                    {hire.tradesmanMessage && (
-                      <p className="mt-2 text-xs italic text-zinc-600">
-                        “{hire.tradesmanMessage}”
+                    {hire.homeownerMessage ? (
+                      <p className="mt-1.5 text-[11px] text-zinc-500 line-clamp-1">
+                        You: &quot;{hire.homeownerMessage}&quot;
                       </p>
-                    )}
+                    ) : null}
+                    {hire.tradesmanMessage ? (
+                      <p className="mt-1 text-[11px] italic text-zinc-500 line-clamp-1">
+                        Reply: &quot;{hire.tradesmanMessage}&quot;
+                      </p>
+                    ) : null}
                   </div>
                 </div>
 
@@ -235,7 +243,7 @@ export default function HiredTradesmenSection({
             type="button"
             onClick={() => setShowAll((v) => !v)}
             data-testid="hired-tradesmen-toggle"
-            className="inline-flex items-center justify-center rounded-full bg-red-500 px-5 py-2 text-sm font-semibold text-white hover:bg-red-600 transition-colors"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-900 hover:text-slate-600 transition-colors"
           >
             {showAll
               ? "View less"

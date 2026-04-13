@@ -221,7 +221,7 @@ function Inner() {
               <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
             </div>
             <div className="relative z-10 w-full max-w-lg px-4 sm:px-0 text-center">
-              <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-10 sm:p-14">
+              <div className="bg-white rounded-3xl shadow-sm p-10 sm:p-14">
                 <p className="text-8xl font-black text-red-500 leading-none mb-4">404</p>
                 <h1 className="text-2xl font-black tracking-tight text-zinc-900 mb-3">
                   Tradesman not found
@@ -262,10 +262,15 @@ function Inner() {
       </Head>
 
       <div className="relative min-h-screen overflow-x-hidden bg-stone-50 -mt-14" data-testid="tradesman-page">
-        {/* Background bands */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
-          <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
+        {/* Full-page background — builder image with dark overlay for readability */}
+        <div className="pointer-events-none fixed inset-0">
+          <img
+            src="https://images.unsplash.com/photo-1621905252507-b35492cc74b4?w=1920&q=80&auto=format"
+            alt=""
+            aria-hidden="true"
+            className="h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-slate-900/15" />
         </div>
 
         <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-4 sm:pt-10 pb-16 space-y-6">
@@ -274,14 +279,14 @@ function Inner() {
           <button
             type="button"
             onClick={() => window.history.length > 1 ? router.back() : router.push(backHref)}
-            className="text-sm font-medium text-zinc-500 hover:text-zinc-800 transition-colors"
+            className="inline-flex items-center rounded-lg bg-black/40 px-3 py-1.5 text-sm font-medium text-white hover:bg-black/60 transition-colors backdrop-blur-sm"
             data-testid="btn-back-to-projects"
           >
             ← Back to projects
           </button>
 
           {/* Header card */}
-          <header className="relative bg-white rounded-3xl shadow-xl shadow-zinc-200/60 px-6 py-6 sm:px-8 sm:py-7">
+          <header className="relative bg-white rounded-3xl shadow-sm px-6 py-6 sm:px-8 sm:py-7">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               {/* Left: avatar + info */}
               <div className="flex items-start gap-4 sm:gap-5">
@@ -401,7 +406,7 @@ function Inner() {
             <div className="space-y-6">
 
               {/* Trades offered */}
-              <section className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-6 sm:p-7" data-testid="tradesman-trades-card">
+              <section className="bg-white rounded-3xl shadow-sm p-6 sm:p-7" data-testid="tradesman-trades-card">
                 <h2 className="text-lg font-black text-zinc-900 mb-4">Trades offered</h2>
                 {trades.length === 0 ? (
                   <p className="text-sm text-zinc-400">No trades listed yet.</p>
@@ -426,7 +431,7 @@ function Inner() {
 
               {/* Shared photos */}
               {sharedLoading ? (
-                <section className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-6" data-testid="tradesman-shared-photos-loading">
+                <section className="bg-white rounded-3xl shadow-sm p-6" data-testid="tradesman-shared-photos-loading">
                   <p className="text-sm text-zinc-400">Loading shared photos…</p>
                 </section>
               ) : (
@@ -439,17 +444,17 @@ function Inner() {
                   <button
                     type="button"
                     onClick={() => setShowPortfolio(true)}
-                    className="text-sm font-bold text-red-500 hover:text-red-600 transition-colors"
+                    className="text-sm font-bold text-white/80 hover:text-white transition-colors"
                     data-testid="btn-view-builder-work"
                   >
-                    View builder's work →
+                    View builder&apos;s work →
                   </button>
                 </div>
               )}
 
               {/* Portfolio gallery */}
               {showPortfolio && galleryImages.length > 0 && (
-                <section className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-6 sm:p-7" data-testid="tradesman-portfolio-card">
+                <section className="bg-white rounded-3xl shadow-sm p-6 sm:p-7" data-testid="tradesman-portfolio-card">
                   <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-black text-zinc-900">Builder portfolio</h2>
                     <button
@@ -466,7 +471,7 @@ function Inner() {
             </div>
 
             {/* Right: contact card */}
-            <aside className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-6 sm:p-7 h-fit" data-testid="tradesman-contact-card">
+            <aside className="bg-white rounded-3xl shadow-sm p-6 sm:p-7 h-fit" data-testid="tradesman-contact-card">
               <h2 className="text-lg font-black text-zinc-900 mb-5">Profile details</h2>
 
               <div className="space-y-6 text-sm">
