@@ -265,7 +265,7 @@ export default function ShortlistSection({
                   >
                     {g.extraCount > 0 && (
                       <span
-                        className="absolute -top-2 right-2 z-20 rounded-full bg-slate-100 text-slate-500 text-[10px] font-semibold leading-none px-2 py-1"
+                        className="absolute -top-2 right-2 z-20 rounded-full bg-slate-100 text-slate-500 text-xs font-semibold leading-none px-2 py-1"
                         title={`${g.extraCount} more recommendation${g.extraCount === 1 ? "" : "s"}`}
                         data-testid="shortlist-stack-count"
                       >
@@ -293,7 +293,7 @@ export default function ShortlistSection({
                                 ? `/builders/${r.id}?projectId=${projectId}`
                                 : `/builders/${r.id}`
                             }
-                            className="font-bold text-sm text-slate-900 hover:underline decoration-slate-300"
+                            className="font-bold text-base sm:text-sm text-slate-900 hover:underline decoration-slate-300"
                             title="Open builder profile"
                           >
                             <span data-testid="shortlist-company-name" aria-label="Company name">
@@ -303,22 +303,22 @@ export default function ShortlistSection({
                         </div>
 
                         {/* Trust signals — inline, pipe-separated */}
-                        <div className="flex items-center gap-1.5 flex-wrap mt-1" data-testid="shortlist-signals">
+                        <div className="flex items-center gap-1.5 flex-wrap mt-1.5" data-testid="shortlist-signals">
                           {googleRating !== undefined && (
                             <>
                               <GoogleRatingChip
                                 rating={googleRating}
                                 count={googleReviewsCount}
                                 placeId={googlePlaceId}
-                                className="text-[11px]"
+                                className="text-sm sm:text-[11px]"
                               />
-                              <span className="text-slate-300 text-[11px]">&middot;</span>
+                              <span className="text-slate-300 text-sm sm:text-[11px]">&middot;</span>
                             </>
                           )}
 
                           {(vStatus === "verified" || vStatus === "ambiguous") ? (
                             <span
-                              className="text-[10px] font-semibold text-white bg-emerald-500 px-1.5 py-0.5 rounded"
+                              className="text-xs sm:text-[10px] font-semibold text-white bg-emerald-500 px-1.5 py-0.5 rounded"
                               data-testid="shortlist-badge-ch"
                               data-status={vStatus}
                             >
@@ -326,7 +326,7 @@ export default function ShortlistSection({
                             </span>
                           ) : (
                             <span
-                              className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded"
+                              className="text-xs sm:text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded"
                               data-testid="shortlist-badge-ch"
                               data-status={vStatus || "unknown"}
                             >
@@ -336,8 +336,8 @@ export default function ShortlistSection({
 
                           {hasPhotos && (
                             <>
-                              <span className="text-slate-300 text-[11px]">&middot;</span>
-                              <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded" data-testid="shortlist-badge-photos">
+                              <span className="text-slate-300 text-sm sm:text-[11px]">&middot;</span>
+                              <span className="text-xs sm:text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded" data-testid="shortlist-badge-photos">
                                 Photos
                               </span>
                             </>
@@ -345,8 +345,8 @@ export default function ShortlistSection({
 
                           {r.fromFriend ? (
                             <>
-                              <span className="text-slate-300 text-[11px]">&middot;</span>
-                              <span className="text-[10px] font-semibold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded" data-testid="shortlist-badge-friend">
+                              <span className="text-slate-300 text-sm sm:text-[11px]">&middot;</span>
+                              <span className="text-xs sm:text-[10px] font-semibold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded" data-testid="shortlist-badge-friend">
                                 Friend
                               </span>
                             </>
@@ -354,14 +354,14 @@ export default function ShortlistSection({
                         </div>
 
                         {r.comment && (
-                          <p className="text-xs text-slate-500 mt-1.5 leading-relaxed line-clamp-3" data-testid="shortlist-comment">
+                          <p className="text-sm sm:text-xs text-slate-500 mt-2 leading-relaxed line-clamp-3" data-testid="shortlist-comment">
                             &ldquo;{r.comment}&rdquo;
                           </p>
                         )}
 
                         <div className="mt-2 flex items-center justify-between">
                           {recommenderText && (
-                            <p className="text-[10px] text-slate-400" aria-label="Recommender" data-testid="shortlist-recommender">
+                            <p className="text-xs sm:text-[10px] text-slate-400" aria-label="Recommender" data-testid="shortlist-recommender">
                               {recommenderText}
                             </p>
                           )}
@@ -374,7 +374,7 @@ export default function ShortlistSection({
                                 onClick={() => onHire(r.id, displayCompanyName || "Tradesman")}
                                 disabled={alreadyHired}
                                 data-testid={`shortlist-hire-${r.id}`}
-                                className={`inline-flex items-center justify-center rounded-lg px-3.5 py-1.5 text-[11px] font-bold transition-colors ${
+                                className={`inline-flex items-center justify-center rounded-lg px-3.5 py-2 text-sm sm:text-[11px] font-bold transition-colors ${
                                   alreadyHired
                                     ? "bg-emerald-100 text-emerald-700 cursor-default"
                                     : "bg-slate-900 text-white hover:bg-slate-800"

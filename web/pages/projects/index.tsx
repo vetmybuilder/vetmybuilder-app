@@ -75,7 +75,6 @@ export default function ProjectsPage() {
     <>
       <Head>
         <title>My Jobs — VetMyBuilder</title>
-        <style>{`body { background: #fafaf9 !important; }`}</style>
       </Head>
       <AuthedOnly>
         <ProjectsGate />
@@ -135,7 +134,7 @@ function ProjectsGate() {
 
   if (status === "redirect") {
     return (
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 text-sm text-zinc-400">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 text-sm text-zinc-400">
         Redirecting…
       </div>
     );
@@ -143,7 +142,7 @@ function ProjectsGate() {
 
   if (status !== "ok") {
     return (
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 text-sm text-zinc-400">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 text-sm text-zinc-400">
         Loading…
       </div>
     );
@@ -446,15 +445,10 @@ function OwnerProjects() {
   const [safetyOpen, setSafetyOpen] = useState(false);
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-stone-50 -mt-14">
-      {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
-        <div className="absolute bottom-0 -left-[30%] w-[70%] h-[60%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
-      </div>
+    <div className="relative min-h-screen overflow-hidden -mt-14">
 
       <div
-        className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pb-12 pt-4 sm:pt-10"
+        className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-12 pt-4 sm:pt-10"
         data-testid="projects-page"
       >
 
@@ -645,7 +639,7 @@ function OwnerProjects() {
 
             {/* Footer */}
             <div className="mt-8 flex items-center justify-between">
-              <p className="text-sm text-zinc-400">
+              <p className="text-sm text-white/80 font-medium drop-shadow">
                 Showing {items.length} of {total} projects
               </p>
               {hasMore ? (

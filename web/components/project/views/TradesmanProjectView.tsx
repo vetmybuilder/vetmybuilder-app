@@ -44,7 +44,7 @@ export default function TradesmanProjectView({ vm }: { vm: VM }) {
         <div className="mb-4">
           <a
             href={backHref}
-            className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-800"
+            className="inline-flex items-center gap-2 mb-3 rounded-xl bg-slate-800/90 backdrop-blur-sm px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition-colors"
           >
             ← Back to projects
           </a>

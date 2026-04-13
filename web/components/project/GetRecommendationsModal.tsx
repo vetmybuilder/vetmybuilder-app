@@ -20,7 +20,7 @@ export interface GetRecommendationsModalProps {
 
 function WhatsappIcon() {
   return (
-    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#25D366]">
+    <div className="flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-[#25D366]">
       <svg
         viewBox="0 0 24 24"
         aria-hidden="true"
@@ -34,7 +34,7 @@ function WhatsappIcon() {
 
 function AppleSmsIcon() {
   return (
-    <div className="flex h-8 w-8 items-center justify-center rounded-2xl bg-[#34C759]">
+    <div className="flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center rounded-2xl bg-[#34C759]">
       <svg
         viewBox="0 0 24 24"
         aria-hidden="true"
@@ -48,7 +48,7 @@ function AppleSmsIcon() {
 
 function EmailIcon() {
   return (
-    <div className="flex h-8 w-8 items-center justify-center rounded-2xl bg-[#2563EB]">
+    <div className="flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center rounded-2xl bg-[#2563EB]">
       <svg
         viewBox="0 0 24 24"
         aria-hidden="true"
@@ -101,16 +101,16 @@ export default function GetRecommendationsModal({
       aria-labelledby="get-recs-title"
       data-testid="get-recs-modal"
     >
-      <div className="mx-4 w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+      <div className="mx-4 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2
               id="get-recs-title"
-              className="text-lg font-semibold tracking-tight text-slate-900"
+              className="text-xl sm:text-lg font-semibold tracking-tight text-slate-900"
             >
               Get recommendations
             </h2>
-            <p className="mt-1 text-sm text-slate-600">
+            <p className="mt-1 text-base sm:text-sm text-slate-600">
               Choose how you’d like to get recommendations for this project.
             </p>
           </div>
@@ -121,24 +121,24 @@ export default function GetRecommendationsModal({
             aria-label="Close"
             data-testid="get-recs-close"
           >
-            <XCircle size={18} />
+            <XCircle size={20} />
           </button>
         </div>
 
         {/* Neighbourhood toggle */}
-        <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-3">
+        <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex-1">
-              <p className="text-sm font-medium text-slate-800">
+              <p className="text-base sm:text-sm font-semibold text-slate-800">
                 Neighbourhood
               </p>
-              <p className="text-xs text-slate-500">
+              <p className="text-sm sm:text-xs text-slate-500 mt-0.5">
                 Ask trusted neighbours and local contacts to recommend
                 tradespeople.
               </p>
               {neighbourhoodLocked && (
                 <p
-                  className="mt-1 text-xs text-amber-600"
+                  className="mt-1 text-sm sm:text-xs text-amber-600"
                   data-testid="neighbourhood-locked-message"
                 >
                   You’ve already shared this project with your neighbourhood.
@@ -151,7 +151,7 @@ export default function GetRecommendationsModal({
                 if (neighbourhoodLocked) return;
                 setNeighbourhoodEnabled((prev) => !prev);
               }}
-              className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition ${
+              className={`inline-flex items-center rounded-full border px-3 py-1.5 text-sm sm:text-xs font-medium transition whitespace-nowrap ${
                 neighbourhoodEnabled && !neighbourhoodLocked
                   ? "border-emerald-400 bg-emerald-50 text-emerald-800"
                   : "border-slate-300 bg-white text-slate-500"
@@ -165,7 +165,7 @@ export default function GetRecommendationsModal({
               disabled={neighbourhoodLocked}
             >
               <span
-                className={`mr-1 inline-block h-2 w-2 rounded-full ${
+                className={`mr-1.5 inline-block h-2 w-2 rounded-full ${
                   neighbourhoodEnabled && !neighbourhoodLocked
                     ? "bg-emerald-500"
                     : "bg-slate-300"
@@ -182,14 +182,14 @@ export default function GetRecommendationsModal({
 
         {/* Channels */}
         <div className="mt-5">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <p className="mb-3 text-sm sm:text-xs font-semibold uppercase tracking-wide text-slate-500">
             Share via
           </p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-3">
             <button
               type="button"
               onClick={() => setSelectedChannel("whatsapp")}
-              className={`flex flex-col items-center justify-center rounded-xl border px-3 py-3 text-xs font-medium transition ${
+              className={`flex flex-col items-center justify-center rounded-xl border px-3 py-4 sm:py-3 text-sm sm:text-xs font-medium transition ${
                 selectedChannel === "whatsapp"
                   ? "border-emerald-500 bg-emerald-50 text-emerald-800"
                   : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
@@ -197,13 +197,13 @@ export default function GetRecommendationsModal({
               data-testid="channel-whatsapp"
             >
               <WhatsappIcon />
-              <span className="mt-1">WhatsApp</span>
+              <span className="mt-2">WhatsApp</span>
             </button>
 
             <button
               type="button"
               onClick={() => setSelectedChannel("sms")}
-              className={`flex flex-col items-center justify-center rounded-xl border px-3 py-3 text-xs font-medium transition ${
+              className={`flex flex-col items-center justify-center rounded-xl border px-3 py-4 sm:py-3 text-sm sm:text-xs font-medium transition ${
                 selectedChannel === "sms"
                   ? "border-sky-500 bg-sky-50 text-sky-800"
                   : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
@@ -211,13 +211,13 @@ export default function GetRecommendationsModal({
               data-testid="channel-sms"
             >
               <AppleSmsIcon />
-              <span className="mt-1">SMS</span>
+              <span className="mt-2">SMS</span>
             </button>
 
             <button
               type="button"
               onClick={() => setSelectedChannel("email")}
-              className={`flex flex-col items-center justify-center rounded-xl border px-3 py-3 text-xs font-medium transition ${
+              className={`flex flex-col items-center justify-center rounded-xl border px-3 py-4 sm:py-3 text-sm sm:text-xs font-medium transition ${
                 selectedChannel === "email"
                   ? "border-red-400 bg-red-50 text-red-800"
                   : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
@@ -225,24 +225,24 @@ export default function GetRecommendationsModal({
               data-testid="channel-email"
             >
               <EmailIcon />
-              <span className="mt-1">Email</span>
+              <span className="mt-2">Email</span>
             </button>
           </div>
         </div>
 
         {/* Footer actions */}
-        <div className="mt-5 flex justify-end gap-2">
+        <div className="mt-6 flex justify-end gap-3">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-base sm:text-sm font-medium text-slate-700 hover:bg-slate-50"
             data-testid="btn-cancel-get-recs"
           >
             Cancel
           </button>
           <button
             type="button"
-            className="rounded-full bg-red-500 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-red-600 disabled:opacity-60"
+            className="rounded-full bg-red-500 px-5 py-2.5 text-base sm:text-sm font-bold text-white shadow-sm hover:bg-red-600 disabled:opacity-60"
             disabled={false}
             data-testid="btn-confirm-get-recs"
             onClick={handleConfirm}

@@ -322,7 +322,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
       {/* Back link — outside the header card */}
       <a
         href={backHref}
-        className="inline-block mb-3 text-sm font-medium text-zinc-400 hover:text-zinc-700 transition-colors"
+        className="inline-flex items-center gap-2 mb-3 rounded-xl bg-slate-800/90 backdrop-blur-sm px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition-colors"
       >
         ← Back to projects
       </a>
@@ -478,29 +478,29 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
             )}
           </div>
 
-          <div className="grid gap-2 text-sm">
+          <div className="grid gap-3 text-sm sm:text-sm">
             {vm.classification.price_band_estimate && (
               <div className="flex gap-2">
-                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wide min-w-[100px] pt-0.5">Est. budget</span>
-                <span className="text-zinc-700 font-semibold">{vm.classification.price_band_estimate}</span>
+                <span className="text-xs sm:text-[11px] font-bold text-zinc-400 uppercase tracking-wide min-w-[90px] pt-0.5">Est. budget</span>
+                <span className="text-base sm:text-sm text-zinc-700 font-semibold">{vm.classification.price_band_estimate}</span>
               </div>
             )}
             {vm.classification.recommended_trades?.length > 0 && (
               <div className="flex gap-2">
-                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wide min-w-[100px] pt-0.5">Trades</span>
-                <span className="text-zinc-600">{vm.classification.recommended_trades.join(", ")}</span>
+                <span className="text-xs sm:text-[11px] font-bold text-zinc-400 uppercase tracking-wide min-w-[90px] pt-0.5">Trades</span>
+                <span className="text-base sm:text-sm text-zinc-600">{vm.classification.recommended_trades.join(", ")}</span>
               </div>
             )}
             {vm.classification.key_concerns?.length > 0 && (
               <div className="flex gap-2">
-                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wide min-w-[100px] pt-0.5">Concerns</span>
-                <span className="text-zinc-600">{vm.classification.key_concerns.join(", ")}</span>
+                <span className="text-xs sm:text-[11px] font-bold text-zinc-400 uppercase tracking-wide min-w-[90px] pt-0.5">Concerns</span>
+                <span className="text-base sm:text-sm text-zinc-600">{vm.classification.key_concerns.join(", ")}</span>
               </div>
             )}
             {vm.classification.summary && (
               <div className="flex gap-2">
-                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wide min-w-[100px] pt-0.5">Summary</span>
-                <span className="text-zinc-600 italic">{vm.classification.summary}</span>
+                <span className="text-xs sm:text-[11px] font-bold text-zinc-400 uppercase tracking-wide min-w-[90px] pt-0.5">Summary</span>
+                <span className="text-base sm:text-sm text-zinc-600 italic">{vm.classification.summary}</span>
               </div>
             )}
           </div>

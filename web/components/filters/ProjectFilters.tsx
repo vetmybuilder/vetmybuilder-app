@@ -139,7 +139,7 @@ export default function ProjectFilters({
   return (
     <div className={["mb-4", className].filter(Boolean).join(" ")}>
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-zinc-400 text-[15px] shrink-0">Filter by</span>
+        <span className="text-white/90 text-[15px] font-medium shrink-0 drop-shadow">Filter by</span>
 
         {/* Type */}
         <Menu label={value.type ? `Type: ${value.type}` : "Type"}>
@@ -194,7 +194,7 @@ export default function ProjectFilters({
         {(value.type || value.status) && (
           <button
             onClick={() => onChange({ type: "", status: "" })}
-            className="ml-1 text-[13px] text-slate-600 hover:text-slate-900 underline"
+            className="ml-1 text-[13px] text-white/80 hover:text-white underline drop-shadow"
           >
             Reset
           </button>

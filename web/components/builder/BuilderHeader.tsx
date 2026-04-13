@@ -26,6 +26,7 @@ type Props = {
   updatedDisplay?: string | null;
   reviewCount?: number;
   photoCount?: number;
+  hireButton?: React.ReactNode;
 };
 
 export default function BuilderHeader({
@@ -44,6 +45,7 @@ export default function BuilderHeader({
   updatedDisplay,
   reviewCount,
   photoCount,
+  hireButton,
 }: Props) {
   const router = useRouter();
 
@@ -58,10 +60,10 @@ export default function BuilderHeader({
         <button
           type="button"
           onClick={() => router.push(`/projects/${builder.project!.id}`)}
-          className="inline-flex items-center gap-2 text-sm font-medium text-zinc-500 hover:text-zinc-800 transition-colors mb-3"
+          className="inline-flex items-center gap-2 mb-3 rounded-xl bg-slate-800/90 backdrop-blur-sm px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition-colors"
         >
           <span aria-hidden>←</span>
-          <span>Back to this project</span>
+          <span>Back to project</span>
         </button>
       )}
 
@@ -155,6 +157,11 @@ export default function BuilderHeader({
                   </span>
                 )}
               </div>
+
+              {/* Hire button — below stats, left-aligned */}
+              {hireButton && (
+                <div className="mt-3">{hireButton}</div>
+              )}
             </div>
           </div>
 

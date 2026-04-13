@@ -30,7 +30,7 @@ export default function NeighbourProjectView({ vm }: { vm: VM }) {
         <div className="mb-3">
           <Link
             href={{ pathname: "/projects", query: { tab: "mine" } }}
-            className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900"
+            className="inline-flex items-center gap-2 mb-3 rounded-xl bg-slate-800/90 backdrop-blur-sm px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition-colors"
             data-testid="link-back-to-projects-neighbour"
           >
             <span aria-hidden>←</span>

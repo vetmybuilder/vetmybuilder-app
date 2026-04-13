@@ -8,16 +8,10 @@ export default function NotFound() {
     <>
       <Head>
         <title>Page not found — VetMyBuilder</title>
-        <style>{`body { background: #fafaf9 !important; }`}</style>
       </Head>
 
       <div className="overflow-x-hidden -mt-14 min-h-screen">
-        <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-stone-50">
-          {/* Background bands */}
-          <div className="pointer-events-none absolute inset-0 overflow-hidden">
-            <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
-            <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
-          </div>
+        <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
 
           <div className="relative z-10 w-full max-w-lg px-4 sm:px-0 text-center">
             {/* Logo */}

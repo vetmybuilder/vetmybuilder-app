@@ -4,7 +4,7 @@ import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useAuth } from "@/utils/auth";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   fetchVmbRatings,
   computeAggregateScore,
@@ -12,7 +12,8 @@ import {
   voteUpRecommendation,
 } from "@/utils/vmb";
 import { GoogleRatingChip } from "@/components/GoogleRatingChip";
-import { chBadgeClass, chIcon, chLabel } from "@/components/ui/vmb";
+import { chLabel } from "@/components/ui/vmb";
+import HireConfirmModal from "@/components/project/HireConfirmModal";
 
 /* ===== Types ===== */
 type Recommendation = {
@@ -81,12 +82,6 @@ function shortlistRecommenderText(r: Recommendation) {
 const ThumbsUpIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
     <path d="M2 10h4v12H2V10zm7.5 12h6.27c1.02 0 1.94-.64 2.29-1.6l2.41-6.52a2 2 0 0 0-1.24-2.55c-.2-.07-.42-.11-.64-.11h-4.6l.62-3.02.02-.23a2 2 0 0 0-.59-1.42L13.2 4 8.9 8.29A3 3 0 0 0 8 10.4V20a2 2 0 0 0 1.5 2z" />
-  </svg>
-);
-
-const CameraIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
-    <path d="M9 3a1 1 0 0 0-.9.56L7.38 5H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V8a3 3 0 0 0-3-3h-2.38l-.72-1.44A1 1 0 0 0 14 3H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM6.5 9.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
   </svg>
 );
 
@@ -176,11 +171,11 @@ function getShortProjectTitle(name?: string | null): string {
   return base;
 }
 
-function pickAvatarColor(name: string): string {
-  const palettes = ["bg-red-500","bg-emerald-500","bg-amber-500","bg-sky-500","bg-violet-500","bg-pink-500","bg-teal-500"];
-  let h = 0;
-  for (let i = 0; i < (name || "").length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
-  return palettes[h % palettes.length];
+function scoreColor(score: number | undefined): string {
+  if (typeof score !== "number" || Number.isNaN(score)) return "bg-slate-400";
+  if (score >= 55) return "bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-emerald-500/25";
+  if (score >= 30) return "bg-gradient-to-br from-amber-500 to-amber-600 shadow-amber-500/25";
+  return "bg-gradient-to-br from-red-500 to-red-600 shadow-red-500/25";
 }
 
 /* ===== Outer page with GATE ===== */
@@ -250,6 +245,10 @@ function ShortlistInner() {
   const [hasPhotos, setHasPhotos] = useState<Record<number, boolean>>({});
   const [recVerification, setRecVerification] = useState<Record<number, Verification>>({});
 
+  const [hireTarget, setHireTarget] = useState<{ recommendationId: number; displayName: string } | null>(null);
+  const [hiredRecommendationIds, setHiredRecommendationIds] = useState<Set<number>>(new Set());
+  const [hiresRefreshKey, setHiresRefreshKey] = useState(0);
+
   const isOwner = !!(user && project && project.ownerUserId === user.uid);
   const canVote = !!user && !!project && !isOwner;
 
@@ -265,6 +264,37 @@ function ShortlistInner() {
     })();
     return () => { alive = false; };
   }, [api, id, router.isReady, authLoading, user]);
+
+  // Fetch existing hires so Hire button renders as "Hired" when applicable
+  useEffect(() => {
+    if (!project?.id || !isOwner) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await api.get(`/api/projects/${project.id}/hires`);
+        if (cancelled) return;
+        const ACTIVE = new Set(["pending", "pending_invite", "accepted"]);
+        const ids = new Set<number>(
+          (Array.isArray(data?.items) ? data.items : [])
+            .filter((h: any) => ACTIVE.has(h?.status))
+            .map((h: any) => h?.recommendationId)
+            .filter((rid: any): rid is number => typeof rid === "number")
+        );
+        setHiredRecommendationIds(ids);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [api, project?.id, isOwner, hiresRefreshKey]);
+
+  const submitHire = useCallback(async (message: string) => {
+    if (!project?.id || !hireTarget) return;
+    await api.post(`/api/projects/${project.id}/hires`, {
+      recommendationId: hireTarget.recommendationId,
+      homeownerMessage: message || undefined,
+    });
+    setHireTarget(null);
+    setHiresRefreshKey((k) => k + 1);
+  }, [api, project?.id, hireTarget]);
 
   async function loadPage(p: number) {
     const pid = Number(Array.isArray(id) ? id[0] : id);
@@ -369,51 +399,47 @@ function ShortlistInner() {
     <>
       <Head>
         <title>{projectTitle ? `Recommendations · ${projectTitle}` : "Recommendations"} — VetMyBuilder</title>
-        <style>{`body { background: #fafaf9 !important; }`}</style>
       </Head>
 
-      <div className="relative min-h-screen overflow-x-hidden bg-stone-50 -mt-14" data-testid="recommendations-page">
-        {/* Background bands */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
-          <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
-        </div>
+      <div className="relative min-h-screen overflow-x-hidden -mt-14" data-testid="recommendations-page">
 
-        <div className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pt-24 pb-16">
+        <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-16 sm:pt-20 pb-16">
 
-          {/* Header */}
-          <div className="mb-8">
-            <Link
-              href={`/projects/${id}`}
-              className="text-sm font-medium text-zinc-400 hover:text-zinc-700 transition-colors"
-            >
-              ← Back
-            </Link>
-            <div className="mt-3 pb-4 border-b-2 border-zinc-900">
+          {/* Back link — on the photo, white with shadow */}
+          <Link
+            href={`/projects/${id}`}
+            className="inline-flex items-center gap-2 mb-4 rounded-xl bg-slate-800/90 backdrop-blur-sm px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition-colors"
+          >
+            ← Back
+          </Link>
+
+          {/* White card wrapping the full content */}
+          <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
+            {/* Header */}
+            <div className="px-5 py-5 sm:px-8 sm:py-6 border-b border-zinc-100">
               <h1
-                className="text-2xl sm:text-3xl font-black tracking-tight text-zinc-900"
+                className="text-xl sm:text-2xl font-black tracking-tight text-zinc-900"
                 data-testid="recommendations-title"
               >
                 All recommendations
-                {projectTitle ? <span className="text-zinc-400 font-bold"> · {projectTitle}</span> : ""}
+                {projectTitle ? <span className="text-zinc-400 font-semibold text-lg"> · {projectTitle}</span> : ""}
               </h1>
               {total > 0 && (
                 <p className="mt-1 text-sm text-zinc-500">{total} recommendation{total !== 1 ? "s" : ""} from neighbours and the community</p>
               )}
             </div>
-          </div>
 
           {/* List */}
           {loading ? (
-            <p className="text-sm text-zinc-500 px-1">Loading…</p>
+            <p className="text-sm text-zinc-500 p-6">Loading…</p>
           ) : err ? (
-            <p className="text-sm text-red-500 px-1">{err}</p>
+            <p className="text-sm text-red-500 p-6">{err}</p>
           ) : groups.length === 0 ? (
-            <p className="text-sm text-zinc-400 py-8">
+            <p className="text-sm text-zinc-400 p-6">
               No builders have yet been recommended.
             </p>
           ) : (
-            <div className="divide-y divide-zinc-200" data-testid="recommendations-list">
+            <div className="divide-y divide-zinc-100" data-testid="recommendations-list">
               {groups.map((g, idx) => {
                 const r = g.top;
                 const votes = g.aggLikes;
@@ -429,24 +455,26 @@ function ShortlistInner() {
                 return (
                   <div
                     key={g.key}
-                    className="relative py-6 animate-slide-in-left"
-                    style={{ animationDelay: `${idx * 0.08}s` }}
+                    className="relative px-5 py-5 sm:px-8 sm:py-6"
                     data-testid="shortlist-group"
                   >
                     {/* Stack count badge */}
                     {g.extraCount > 0 && (
-                      <span className="absolute -top-2 right-0 z-20 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none px-2 py-1 shadow-sm">
+                      <span className="absolute -top-2 right-2 z-20 rounded-full bg-slate-100 text-slate-500 text-xs font-semibold leading-none px-2 py-1">
                         +{g.extraCount} more
                       </span>
                     )}
 
                     <div className="flex gap-3.5">
-                      {/* Avatar */}
+                      {/* VMB Score circle */}
                       <div
-                        className={`flex-shrink-0 h-11 w-11 rounded-full flex items-center justify-center text-sm font-black text-white select-none ${pickAvatarColor(displayCompanyName)}`}
-                        aria-hidden="true"
+                        className={`flex-shrink-0 h-12 w-12 rounded-full flex flex-col items-center justify-center text-white select-none shadow-md ${scoreColor(g.aggScore)}`}
+                        aria-label={`Score: ${typeof g.aggScore === "number" ? g.aggScore : "—"}`}
+                        data-testid="shortlist-score-circle"
                       >
-                        {(displayCompanyName?.[0] ?? "T").toUpperCase()}
+                        <span className="text-base font-extrabold leading-none">
+                          {typeof g.aggScore === "number" ? g.aggScore : "—"}
+                        </span>
                       </div>
 
                       <div className="min-w-0 flex-1">
@@ -481,23 +509,31 @@ function ShortlistInner() {
                         )}
 
                         {/* Badges */}
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${chBadgeClass(vStatus as any)}`}
-                          >
-                            {chIcon(vStatus as any)}
-                            {chLabel(vStatus as any)}
-                          </span>
-                          {r.fromFriend === 1 && (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 text-sky-700 px-2 py-0.5 text-xs font-semibold">
-                              Friend
+                        <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                          {(vStatus === "verified" || vStatus === "ambiguous") ? (
+                            <span className="text-xs font-semibold text-white bg-emerald-500 px-1.5 py-0.5 rounded">
+                              Verified
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                              {chLabel(vStatus as any)}
                             </span>
                           )}
                           {showPhotos && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 text-xs font-semibold">
-                              <CameraIcon className="h-3 w-3" />
-                              Photos
-                            </span>
+                            <>
+                              <span className="text-slate-300 text-xs">&middot;</span>
+                              <span className="text-xs text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                Photos
+                              </span>
+                            </>
+                          )}
+                          {r.fromFriend === 1 && (
+                            <>
+                              <span className="text-slate-300 text-xs">&middot;</span>
+                              <span className="text-xs font-semibold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded">
+                                Friend
+                              </span>
+                            </>
                           )}
                         </div>
 
@@ -505,7 +541,24 @@ function ShortlistInner() {
                         <div className="mt-2 flex items-center justify-between">
                           <span className="text-xs text-zinc-500">{recommender}</span>
 
-                          {!isOwner && (
+                          {isOwner ? (() => {
+                            const alreadyHired = hiredRecommendationIds.has(r.id);
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => setHireTarget({ recommendationId: r.id, displayName: displayCompanyName })}
+                                disabled={alreadyHired}
+                                data-testid={`shortlist-hire-${r.id}`}
+                                className={`inline-flex items-center justify-center rounded-lg px-3.5 py-2 text-sm font-bold transition-colors ${
+                                  alreadyHired
+                                    ? "bg-emerald-100 text-emerald-700 cursor-default"
+                                    : "bg-slate-900 text-white hover:bg-slate-800"
+                                }`}
+                              >
+                                {alreadyHired ? "Hired" : "Hire"}
+                              </button>
+                            );
+                          })() : (
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => voteUpOnce(r)}
@@ -533,19 +586,19 @@ function ShortlistInner() {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-between pt-4">
+                <div className="flex items-center justify-between gap-3 px-5 py-4 sm:px-8 border-t border-zinc-100">
                   <button
-                    className="inline-flex items-center justify-center rounded-full border-2 border-zinc-200 bg-white px-5 py-2 text-sm font-bold text-zinc-700 hover:bg-zinc-50 transition-colors disabled:opacity-40"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-600 hover:bg-zinc-50 transition-colors disabled:opacity-30"
                     disabled={page <= 1}
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                   >
                     ← Prev
                   </button>
-                  <span className="text-sm text-zinc-500">
-                    Page {page} / {totalPages}
+                  <span className="text-sm text-zinc-400 tabular-nums">
+                    {page} / {totalPages}
                   </span>
                   <button
-                    className="inline-flex items-center justify-center rounded-full bg-red-500 px-5 py-2 text-sm font-bold text-white shadow-sm shadow-red-500/25 hover:bg-red-600 transition-colors disabled:opacity-40"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 transition-colors disabled:opacity-30"
                     disabled={page >= totalPages}
                     onClick={() => setPage((p) => p + 1)}
                   >
@@ -555,8 +608,16 @@ function ShortlistInner() {
               )}
             </div>
           )}
+          </div>{/* end white card */}
         </div>
       </div>
+
+      <HireConfirmModal
+        open={hireTarget !== null}
+        targetName={hireTarget?.displayName || ""}
+        onConfirm={submitHire}
+        onClose={() => setHireTarget(null)}
+      />
     </>
   );
 }
