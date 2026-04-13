@@ -3,13 +3,10 @@ import * as React from "react";
 import { ThumbsUpIcon, CameraIcon } from "@/components/ui/Icons";
 import { ScoreChip, chLabel, chBadgeClass, chIcon } from "@/components/ui/vmb";
 import type { Recommendation, Verification } from "@/types/vmb";
-import { useApi } from "@/utils/api";
 import {
   groupRecommendationsByCompany,
   type CompanyGroup,
-  getAggregateVmbForCompany,
   normalizedCompanyKey,
-  type FetchRecsFn,
 } from "@/utils/vmb";
 import { Link as LinkIcon } from "lucide-react";
 import { GoogleRatingChip } from "@/components/GoogleRatingChip";
@@ -19,8 +16,8 @@ function normaliseScore(raw: number | undefined): number | undefined {
   if (typeof raw !== "number" || !Number.isFinite(raw) || raw <= 0) return undefined;
   // If already normalised (from ratings endpoint), pass through
   if (raw > 15) return Math.min(100, Math.round(raw));
-  // Raw score: apply logarithmic curve
-  return Math.min(100, Math.max(0, Math.round(100 * (1 - Math.exp(-raw / 6)))));
+  // Raw score: apply logarithmic curve (divisor=5, matches server)
+  return Math.min(100, Math.max(0, Math.round(100 * (1 - Math.exp(-raw / 5)))));
 }
 
 /* ===== Props (component-local API) ===== */
@@ -75,8 +72,6 @@ export default function ShortlistSection({
   hiredRecommendationIds,
   "data-testid": dataTestId = "project-shortlist",
 }: Props) {
-  const api = useApi();
-
   // 🔹 Single source of truth for grouping + base agg scores
   const groups = React.useMemo(() => {
     const base = groupRecommendationsByCompany(items) as Array<
@@ -101,85 +96,6 @@ export default function ShortlistSection({
     });
   }, [items, recVerification]);
 
-  // 🔹 Canonical aggregate scores from /api/recommendations/ratings
-  const [aggScores, setAggScores] = React.useState<Record<string, number>>({});
-
-  React.useEffect(() => {
-    if (!projectId || items.length === 0) {
-      setAggScores({});
-      return;
-    }
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const ratingsFetcher: FetchRecsFn = async ({
-          projectId,
-          offset = 0,
-          limit = 250,
-        }) => {
-          const { data } = await api.get(
-            `/api/recommendations/ratings?projectId=${projectId}&offset=${offset}&limit=${limit}`,
-          );
-
-          const list =
-            (data?.items || []).map((it: any) => ({
-              id: it.id,
-              company: it.company,
-              score: it.score,
-            })) ?? [];
-
-          const total = Number.isFinite(data?.total)
-            ? (data.total as number)
-            : list.length;
-
-          return { items: list, total };
-        };
-
-        const companyNames = Array.from(
-          new Set(
-            items
-              .map((r) => (r.company || "").trim())
-              .filter((s) => s.length > 0),
-          ),
-        );
-
-        const scores: Record<string, number> = {};
-        const seenKeys = new Set<string>();
-
-        for (const name of companyNames) {
-          const norm = normalizedCompanyKey(name);
-          if (seenKeys.has(norm)) continue;
-          seenKeys.add(norm);
-
-          const agg = await getAggregateVmbForCompany(
-            ratingsFetcher,
-            projectId,
-            name,
-            undefined,
-          );
-
-          if (typeof agg === "number" && !Number.isNaN(agg)) {
-            scores[norm] = agg;
-          }
-        }
-
-        if (!cancelled) {
-          setAggScores(scores);
-        }
-      } catch {
-        if (!cancelled) {
-          // If ratings endpoint fails for any reason, fall back to local scores
-          setAggScores({});
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [api, projectId, items]);
 
   const SHOW_THRESHOLD = 3;
   const shouldShowViewMore =
@@ -305,22 +221,14 @@ export default function ShortlistSection({
                 // 1) canonical agg from ratings endpoint (per company)
                 // 2) fallback to local group aggScore
                 // 3) fallback to top recommendation's raw score
-                const key = normalizedCompanyKey(
-                  displayCompanyName || g.company,
-                );
-                const overrideScore = aggScores[key];
-                const baseScore =
-                  typeof g.aggScore === "number"
-                    ? g.aggScore
-                    : typeof r.score === "number"
-                      ? r.score
-                      : undefined;
-                const scoreToShow = normaliseScore(
-                  typeof overrideScore === "number" &&
-                  !Number.isNaN(overrideScore)
-                    ? overrideScore
-                    : baseScore
-                );
+                // Score comes directly from the recommendations endpoint
+                // (already normalised 0-100 with full scoring data).
+                // g.aggScore = max across recs for this company.
+                const scoreToShow = typeof g.aggScore === "number" && g.aggScore > 0
+                  ? g.aggScore
+                  : typeof r.score === "number"
+                    ? r.score
+                    : undefined;
 
                 // 🔹 Google rating only comes from the verification map (not from ratings)
                 const verAny = ver as any;
@@ -525,10 +433,10 @@ export default function ShortlistSection({
 
 /* ---- helpers ---- */
 
-/** Score-based colour for the circle: green 70+, amber 40-69, red <40, grey if unknown */
+/** Score-based colour for the circle: green 55+, amber 30-54, red <30, grey if unknown */
 function scoreColor(score: number | undefined): string {
   if (typeof score !== "number" || Number.isNaN(score)) return "bg-slate-400";
-  if (score >= 70) return "bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-emerald-500/25";
-  if (score >= 40) return "bg-gradient-to-br from-amber-500 to-amber-600 shadow-amber-500/25";
+  if (score >= 55) return "bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-emerald-500/25";
+  if (score >= 30) return "bg-gradient-to-br from-amber-500 to-amber-600 shadow-amber-500/25";
   return "bg-gradient-to-br from-red-500 to-red-600 shadow-red-500/25";
 }

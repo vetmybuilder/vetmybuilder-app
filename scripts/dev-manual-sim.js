@@ -200,5 +200,67 @@ function runScript(script, env = {}) {
     env: { ...process.env, SIM_MODE: "auto" },
   });
 
+  // Continuously boost any new Elegant recommendations.
+  // The daemon creates recs asynchronously on new projects, so we keep polling.
+  setInterval(async () => {
+    try {
+      const mysql2 = require("mysql2/promise");
+      const conn = await mysql2.createConnection({
+        host: process.env.MYSQL_HOST || process.env.TEST_DB_HOST || "localhost",
+        port: Number(process.env.MYSQL_PORT || process.env.TEST_DB_PORT || 3306),
+        user: process.env.MYSQL_USER || process.env.TEST_DB_USER || "root",
+        password: process.env.MYSQL_PASSWORD || process.env.TEST_DB_PASSWORD || "",
+        database: process.env.MYSQL_DATABASE || process.env.TEST_DB_NAME || "vetmybuilder_test_s1_4_w0",
+      });
+      try {
+        // Find Elegant recs that haven't been boosted yet
+        const [unboosted] = await conn.query(`
+          SELECT r.id, r.projectId FROM recommendations r
+          WHERE r.company LIKE '%Elegant%'
+            AND r.id NOT IN (
+              SELECT DISTINCT CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(userId, '-', 3), '-', -1) AS UNSIGNED)
+              FROM recommendation_votes WHERE userId LIKE 'elegant-boost-%'
+            )
+        `);
+        if (unboosted.length === 0) return;
+
+        // Friend source on all Elegant recs
+        await conn.query("UPDATE recommendations SET source = 'magic' WHERE company LIKE '%Elegant%'");
+
+        // 15 likes per unboosted rec
+        for (const rec of unboosted) {
+          for (let v = 0; v < 15; v++) {
+            await conn.query(
+              "INSERT IGNORE INTO recommendation_votes (recommendationId, userId, value, createdAt, updatedAt) VALUES (?, ?, 1, NOW(), NOW())",
+              [rec.id, `elegant-boost-${rec.id}-${v}`]
+            ).catch(() => {});
+          }
+
+          // 5 accepted hires per rec
+          for (let h = 0; h < 5; h++) {
+            await conn.query(
+              "INSERT IGNORE INTO hires (projectId, homeownerUid, recommendationId, status, hiredAt, respondedAt, expiresAt) VALUES (?, ?, ?, 'accepted', NOW(), NOW(), '2099-12-31')",
+              [rec.projectId, `elegant-boost-hirer-${rec.id}-${h}`, rec.id]
+            ).catch(() => {});
+          }
+        }
+
+        // Add CH verification for each unboosted rec
+        for (const rec of unboosted) {
+          await conn.query(
+            "INSERT IGNORE INTO company_verifications (recommendationId, status, companyNumber, companyName, score, checkedAt) VALUES (?, 'verified', '12758227', 'ELEGANT BUILDING SERVICES LTD', 95, NOW())",
+            [rec.id]
+          ).catch(() => {});
+        }
+
+        log(`Elegant boost: ${unboosted.length} new recs boosted (15 likes + 5 hires + CH verified each)`);
+      } finally {
+        await conn.end();
+      }
+    } catch (e) {
+      log(`Elegant boost error: ${e.message}`);
+    }
+  }, 10_000);
+
   daemon.on("exit", (code) => process.exit(code ?? 0));
 })();

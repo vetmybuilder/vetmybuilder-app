@@ -204,7 +204,7 @@ export function useProjectView() {
       try {
         const r1 = await api.get(
           `/api/projects/${project.id}/recommendations`,
-          { params: { limit: 6 } }
+          { params: { limit: 50 } }
         );
         if (dead) return;
         const list: Recommendation[] =
@@ -215,7 +215,7 @@ export function useProjectView() {
       } catch (e1) {
         try {
           const r2 = await api.get(`/api/recommendations`, {
-            params: { projectId: project.id, limit: 6 },
+            params: { projectId: project.id, limit: 50 },
           });
           if (dead) return;
           const list: Recommendation[] =

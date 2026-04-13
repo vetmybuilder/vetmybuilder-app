@@ -293,6 +293,39 @@ async function seedElegantSpotlight() {
     );
 
     console.log(`  ✓ ${elegantUid} given active spotlight placement`);
+
+    // Boost Elegant's recommendation scores so they show green (70+) in the UI.
+    // Add extra likes from sim neighbours and mark as friend recommendation.
+    const [elegantRecs] = await conn.query(
+      `SELECT id FROM recommendations WHERE company LIKE '%Elegant%'`
+    );
+    for (const rec of elegantRecs) {
+      // Add 8 likes from unique sim voters
+      for (let v = 0; v < 8; v++) {
+        await conn.query(
+          `INSERT IGNORE INTO recommendation_votes (recommendationId, userId, value, createdAt, updatedAt)
+           VALUES (?, ?, 1, NOW(), NOW())`,
+          [rec.id, `sim-voter-elegant-${v}`]
+        ).catch(() => {});
+      }
+
+      // Mark as friend recommendation (stronger trust signal)
+      await conn.query(
+        `UPDATE recommendations SET source = 'magic' WHERE id = ?`,
+        [rec.id]
+      ).catch(() => {});
+    }
+
+    if (elegantRecs.length > 0) {
+      console.log(`  ✓ Boosted ${elegantRecs.length} Elegant recommendation(s) with 8 likes each + friend source`);
+    }
+
+    // Also bump Elegant's photo count in the tradesmen table
+    await conn.query(
+      `UPDATE tradesmen SET photo_count = 10 WHERE user_id = ?`,
+      [elegantUid]
+    ).catch(() => {});
+    console.log(`  ✓ ${elegantUid} photo count set to 10`);
   } finally {
     await conn.end();
   }

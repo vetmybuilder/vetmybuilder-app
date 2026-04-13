@@ -395,8 +395,8 @@ describe("normaliseScore", () => {
 
   it("maps mid raw scores to mid normalised values", () => {
     const n = normaliseScore(6);
-    expect(n).toBeGreaterThan(55);
-    expect(n).toBeLessThan(70);
+    expect(n).toBeGreaterThan(60);
+    expect(n).toBeLessThan(75);
   });
 
   it("maps high raw scores to high normalised values", () => {

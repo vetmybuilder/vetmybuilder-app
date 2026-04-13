@@ -20,6 +20,7 @@ const {
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery, extractLocationTokens } = ctx;
   const log = ctx.log || console;
+  const { computeScore, normaliseScore } = require("../../lib/recommendationScoring");
 
   if (!mysqlQuery) {
     throw new Error("mysqlQuery not attached to ctx (MySQL required)");
@@ -134,7 +135,13 @@ module.exports = (router, ctx) => {
           u.postcodeOutward AS u_outward,
           u.city            AS u_city,
 
-          COALESCE(ph.photoCount, 0) AS photoCount
+          COALESCE(ph.photoCount, 0) AS photoCount,
+          COALESCE(ha.accepted, 0) AS hiresAccepted,
+          COALESCE(ha.declined, 0) AS hiresDeclined,
+          COALESCE(cw.wins, 0) AS wins,
+          COALESCE(cw.wouldAgain, 0) AS wouldAgain,
+          cv.status AS chStatus,
+          cv.score AS chScore
 
         FROM recommendations r
 
@@ -151,6 +158,29 @@ module.exports = (router, ctx) => {
 
         LEFT JOIN users u
                ON u.uid = r.recommenderUserId
+
+        LEFT JOIN (
+          SELECT recommendationId,
+                 SUM(CASE WHEN status = 'accepted' THEN 1 ELSE 0 END) AS accepted,
+                 SUM(CASE WHEN status = 'declined' THEN 1 ELSE 0 END) AS declined
+            FROM hires
+           GROUP BY recommendationId
+        ) ha ON ha.recommendationId = r.id
+
+        LEFT JOIN (
+          SELECT winnerRecommendationId,
+                 COUNT(*) AS wins,
+                 SUM(CASE WHEN wouldUseAgain = 1 THEN 1 ELSE 0 END) AS wouldAgain
+            FROM project_closures
+           WHERE winnerRecommendationId IS NOT NULL
+           GROUP BY winnerRecommendationId
+        ) cw ON cw.winnerRecommendationId = r.id
+
+        LEFT JOIN (
+          SELECT recommendationId, status, score
+            FROM company_verifications cv1
+           WHERE cv1.id = (SELECT MAX(cv2.id) FROM company_verifications cv2 WHERE cv2.recommendationId = cv1.recommendationId)
+        ) cv ON cv.recommendationId = r.id
 
         LEFT JOIN (
           SELECT recommendationId, COUNT(*) AS photoCount
@@ -205,7 +235,17 @@ module.exports = (router, ctx) => {
           fromFriend,
           fromCommunity,
           photoCount: Number(r.photoCount || 0),
-          score: 0,
+          score: normaliseScore(computeScore({
+            fromFriend: fromFriend ? 1 : 0,
+            fromCommunity: fromCommunity ? 1 : 0,
+            likes: Number(r.likes || 0),
+            recPhotos: Number(r.photoCount || 0),
+            hiresAccepted: Number(r.hiresAccepted || 0),
+            hiresDeclined: Number(r.hiresDeclined || 0),
+            wins: Number(r.wins || 0),
+            wouldAgain: Number(r.wouldAgain || 0),
+            ch: r.chStatus ? { status: r.chStatus, score: r.chScore } : null,
+          })),
         };
 
         // Owner-only: expose the company contact email so the hire flow can

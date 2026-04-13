@@ -43,13 +43,12 @@ export function computeAggregateScore(
 ) {
   const numeric = scores
     .map(Number)
-    .filter((n) => Number.isFinite(n)) as number[];
-  const avg = numeric.length
-    ? numeric.reduce((a, b) => a + b, 0) / numeric.length
-    : 0;
-  const crowdBonus = Math.min(1, Math.max(0, count - 1) * 0.2);
-  const agg = Math.max(0, Math.min(5, avg + crowdBonus));
-  return agg;
+    .filter((n) => Number.isFinite(n) && n > 0) as number[];
+  if (numeric.length === 0) return 0;
+  // Scores are already normalised (0-100) from the server.
+  // Take the max across recommendations for the company — the best
+  // evidence should represent the company, not be diluted by averages.
+  return Math.max(...numeric);
 }
 
 /**

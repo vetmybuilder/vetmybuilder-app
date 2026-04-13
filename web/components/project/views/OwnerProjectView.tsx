@@ -25,7 +25,7 @@ import {
   openEmailShare,
 } from "@/utils/shareInvite";
 import SharedTradesmen from "@/components/project/SharedTradesmen";
-import type { Verification } from "@/types/vmb"; // 🔑 CH verification type
+import type { Verification } from "@/types/vmb";
 
 type VM = ReturnType<typeof import("./useProjectView").useProjectView>;
 
@@ -54,14 +54,10 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
     Record<number, boolean>
   >({});
 
-  // 🔑 Companies House verification per recommendation
+  // Companies House verification per recommendation
   const [recVerification, setRecVerification] = React.useState<
     Record<number, Verification>
   >({});
-
-  // 🔹 NEW: shortlist items using aggregated VMB scores (ratings endpoint)
-  const [shortlistItems, setShortlistItems] = React.useState<any[]>([]);
-  const [shortlistTotal, setShortlistTotal] = React.useState<number>(0);
 
   // ===== Hire flow state =====
   const [hireTarget, setHireTarget] = React.useState<{
@@ -96,11 +92,9 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
     setHasSharedNeighbourhood(val === "1");
   }, [project?.id, project?.createdAt]);
 
-  // 🔥🔥 FULL BLOCK REPLACED WITH OPTION A (PHOTO CHECK FIX) 🔥🔥
-  // 🔑 Fetch Companies House + Google verification + photos for each recommendation (Option A)
+  // Fetch Companies House + Google verification + photos for each recommendation
   React.useEffect(() => {
-    const src =
-      (shortlistItems && shortlistItems.length ? shortlistItems : recs) || [];
+    const src = recs || [];
 
     if (!src.length) {
       setRecVerification({});
@@ -150,46 +144,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
     return () => {
       cancelled = true;
     };
-  }, [api, recs, shortlistItems]);
-  // 🔥🔥 END OF OPTION A UPDATE 🔥🔥
-
-  // 🔹 NEW: fetch shortlist *with aggregated VMB scores* from ratings endpoint
-  React.useEffect(() => {
-    if (!project?.id) return;
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const res = await api.get("/api/recommendations/ratings", {
-          params: {
-            projectId: project.id,
-            limit: 6,
-            offset: 0,
-          },
-        } as any);
-
-        const data: any = (res as any)?.data ?? res;
-        const items: any[] = Array.isArray(data?.items) ? data.items : [];
-
-        if (cancelled) return;
-
-        setShortlistItems(items);
-        setShortlistTotal(
-          typeof data?.total === "number" ? data.total : items.length,
-        );
-      } catch {
-        if (cancelled) return;
-        // Fallback to the original project recs if ratings endpoint fails
-        setShortlistItems(recs || []);
-        setShortlistTotal(recTotal);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [api, project?.id, recs, recTotal]);
+  }, [api, recs]);
 
   // Fetch existing hires so we can render the Hire button as "Hired" on
   // recommendations that are currently hired. Only ACTIVE hires (pending,
@@ -298,9 +253,8 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
     }
   };
 
-  // Decide what to feed into ShortlistSection
-  const shortlistData = shortlistItems.length ? shortlistItems : recs || [];
-  const shortlistCount = shortlistItems.length ? shortlistTotal : recTotal;
+  const shortlistData = recs || [];
+  const shortlistCount = recTotal;
 
   // ===== Created vs Updated meta (robust for MySQL DATETIME strings) =====
   const createdAtRaw = (project as any)?.createdAt;
@@ -374,8 +328,8 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
       </a>
 
       {/* Header */}
-      <header className="mb-6 rounded-2xl bg-gradient-to-br from-emerald-100 via-emerald-50 to-green-50 border border-emerald-200 p-4 sm:p-6 shadow-md shadow-emerald-100/40">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+      <header className="relative mb-6 rounded-2xl bg-gradient-to-br from-emerald-100 via-emerald-50 to-green-50 border border-emerald-200 p-4 sm:p-6 shadow-md shadow-emerald-100/40">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between pr-20">
           {/* LEFT: title + meta + badges + primary CTA */}
           <div className="flex-1">
             <div className="flex items-center gap-3">
@@ -428,74 +382,65 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
             </div>
 
             {/* Primary CTA: Share */}
-            <div className="mt-4 space-y-1">
-              <div
-                className="flex flex-wrap gap-2"
-                aria-label="Primary owner actions"
-                data-testid="owner-actions-primary"
-              >
-                {isLive && (
-                  <button
-                    className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-red-500 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-red-600"
-                    onClick={() => setShowGetRecModal(true)}
-                    data-testid="btn-get-recs"
-                  >
-                    <LinkIcon size={18} /> Share
-                  </button>
-                )}
+            {!isClosed && (
+              <div className="mt-4 space-y-1">
+                <div
+                  className="flex flex-wrap gap-2"
+                  aria-label="Primary owner actions"
+                  data-testid="owner-actions-primary"
+                >
+                  {isLive && (
+                    <button
+                      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-slate-800 transition-colors"
+                      onClick={() => setShowGetRecModal(true)}
+                      data-testid="btn-get-recs"
+                    >
+                      <LinkIcon size={14} /> Share
+                    </button>
+                  )}
 
-                {!isLive && !isClosed && (
-                  <button
-                    className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-red-500 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-red-600"
-                    onClick={() => setShowGetRecModal(true)}
-                    data-testid="btn-get-recs-draft"
-                  >
-                    <LinkIcon size={18} /> Share &amp; Publish
-                  </button>
-                )}
-              </div>
+                  {!isLive && (
+                    <button
+                      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-slate-800 transition-colors"
+                      onClick={() => setShowGetRecModal(true)}
+                      data-testid="btn-get-recs-draft"
+                    >
+                      <LinkIcon size={14} /> Share &amp; Publish
+                    </button>
+                  )}
+                </div>
 
-              {!isClosed && (
-                <p className="text-xs text-slate-500 max-w-xl">
+                <p className="text-[11px] text-slate-400 max-w-xl">
                   Share this project to start seeing recommendations and vetted
                   tradespeople.
                 </p>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
-          {/* RIGHT: lifecycle actions + estimate */}
-          <div className="mt-1 flex w-full flex-col items-stretch md:mt-0 md:w-auto md:items-end">
-            <div
-              className="flex flex-wrap justify-start gap-2 md:justify-end"
-              aria-label="Project management actions"
-              data-testid="owner-actions-secondary"
-            >
-              {!isClosed ? (
-                <>
-                  <button
-                    className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-4 py-2 text-xs font-semibold text-zinc-500 shadow-sm hover:bg-zinc-50 hover:text-zinc-700 hover:border-zinc-300 transition-all md:text-sm"
-                    onClick={onCloseProject}
-                    data-testid="btn-close-project"
-                  >
-                    <XCircle size={14} />
-                    <span>Close this Job</span>
-                  </button>
-                </>
-              ) : (
-                isArchived && (
-                  <button
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 md:text-sm"
-                    onClick={onUnarchive}
-                    data-testid="btn-unarchive"
-                  >
-                    <ArchiveIcon size={14} />
-                    <span>Unarchive</span>
-                  </button>
-                )
-              )}
-            </div>
-
+          {/* TOP-RIGHT: close / unarchive */}
+          <div className="absolute top-4 right-4 sm:top-6 sm:right-6" data-testid="owner-actions-secondary">
+            {!isClosed ? (
+              <button
+                className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-semibold text-rose-600 hover:bg-rose-100 hover:border-rose-300 transition-all"
+                onClick={onCloseProject}
+                data-testid="btn-close-project"
+              >
+                <XCircle size={12} />
+                <span>Close Job</span>
+              </button>
+            ) : (
+              isArchived && (
+                <button
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white/80 px-3 py-1.5 text-[11px] font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all backdrop-blur"
+                  onClick={onUnarchive}
+                  data-testid="btn-unarchive"
+                >
+                  <ArchiveIcon size={12} />
+                  <span>Unarchive</span>
+                </button>
+              )
+            )}
           </div>
         </div>
       </header>
@@ -581,12 +526,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
             recHasPhotos={recHasPhotos}
             recVerification={recVerification}
             projectId={project.id}
-            showOwnerShareCta={
-              !isLive &&
-              !isClosed &&
-              !hideShortlistShareCta &&
-              (shortlistData?.length ?? 0) === 0
-            }
+            showOwnerShareCta={false}
             onOwnerShareClick={() => setShowGetRecModal(true)}
             onHire={(recommendationId, displayName) =>
               setHireTarget({ recommendationId, displayName })
