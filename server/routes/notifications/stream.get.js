@@ -1,11 +1,14 @@
-// server/routes/notifications/notifications.stream.get.js
+// server/routes/notifications/stream.get.js
 /**
  * GET /api/notifications/stream
  * Auth: required (Bearer or ?token=…); opens SSE stream
  * Sends: "bootstrap" { unread, latest[] }, then keepalive pings.
  */
+const { logger } = require("../../lib/logger");
+const log = logger.child({ module: "sse-stream" });
+
 module.exports = (router, ctx) => {
-  const { admin, clientsByUser, sseSend, mysqlQuery } = ctx;
+  const { admin, clientsByUser, sseSend, mysqlQuery, logActivity } = ctx;
 
   function parseLimit(v, def = 50, min = 1, max = 500) {
     const n = Number(v);
@@ -58,7 +61,7 @@ module.exports = (router, ctx) => {
         [uid]
       );
     } catch (err) {
-      console.error("Error fetching notifications bootstrap from MySQL:", err);
+      log.error({ uid, error: err?.message }, "Notifications bootstrap fetch failed");
       return res.status(500).json({ error: "internal_error" });
     }
 
@@ -82,6 +85,12 @@ module.exports = (router, ctx) => {
     }
     set.add(res);
 
+    const connectedAt = Date.now();
+    log.info({ uid }, "SSE client connected");
+    if (logActivity) {
+      logActivity("sse.connect", "info", uid, "SSE client connected");
+    }
+
     // Send initial snapshot
     sseSend(res, "bootstrap", { unread, latest });
 
@@ -92,6 +101,11 @@ module.exports = (router, ctx) => {
     req.on("close", () => {
       clearInterval(ping);
       set.delete(res);
+      const duration = Math.round((Date.now() - connectedAt) / 1000);
+      log.info({ uid, durationSec: duration }, "SSE client disconnected");
+      if (logActivity) {
+        logActivity("sse.disconnect", "info", uid, `SSE client disconnected after ${duration}s`);
+      }
     });
   });
 };

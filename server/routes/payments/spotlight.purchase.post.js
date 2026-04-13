@@ -109,7 +109,9 @@ module.exports = (router, ctx) => {
         "Spotlight purchase session created; returning session details"
       );
 
-      return res.json(response);
+      res.json(response);
+      ctx.logActivity("spotlight.purchase", "info", req.user.uid, "Spotlight purchased");
+      return;
     } catch (err) {
       const logErr = err?.message || String(err);
       log.error(

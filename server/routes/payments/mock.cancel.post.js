@@ -46,7 +46,9 @@ module.exports = (router, ctx) => {
       const updated = payments.cancel(sessionId);
 
       log.info({ sessionId }, "Mock session cancelled");
-      return res.status(200).json({ ok: true, session: updated });
+      res.status(200).json({ ok: true, session: updated });
+      ctx.logActivity("payment.cancel", "info", req.user?.uid || "system", "Payment cancelled");
+      return;
     } catch (e) {
       log.error(
         { errMsg: e?.message, stack: e?.stack },

@@ -380,6 +380,7 @@ module.exports = (router, ctx) => {
       );
 
       res.json({ ok: true, project });
+      ctx.logActivity("project.close", "info", req.user.uid, `Project #${projectId}, didGoAhead=${!!didGoAhead}`);
 
       // ---- BACKGROUND: notify local users that a neighbour completed a project ----
       if (project && project.status === "completed" && typeof extractLocationTokens === "function") {

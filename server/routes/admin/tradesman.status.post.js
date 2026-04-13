@@ -299,7 +299,9 @@ module.exports = (router, ctx) => {
             row = await enrichTradesman(row, log);
           }
 
-          return res.json({ ok: true, tradesman: row, promoted: false });
+          res.json({ ok: true, tradesman: row, promoted: false });
+          ctx.logActivity("admin.tradesman.status", "info", req.user.uid, `Tradesman ${srcUid} → ${status}`);
+          return;
         }
 
         // ==========================================================
@@ -340,7 +342,9 @@ module.exports = (router, ctx) => {
 
           log.info({ srcUid, status }, "Updated lead status, not promoted");
 
-          return res.json({ ok: true, tradesman: row, promoted: false });
+          res.json({ ok: true, tradesman: row, promoted: false });
+          ctx.logActivity("admin.tradesman.status", "info", req.user.uid, `Tradesman ${srcUid} → ${status}`);
+          return;
         }
 
         // ==========================================================
@@ -449,12 +453,14 @@ module.exports = (router, ctx) => {
           enriched = await enrichTradesman(enriched, log);
         }
 
-        return res.json({
+        res.json({
           ok: true,
           tradesman: enriched,
           promoted: true,
           assignTo: targetUid,
         });
+        ctx.logActivity("admin.tradesman.status", "info", req.user.uid, `Tradesman ${srcUid} → ${status}`);
+        return;
       } catch (err) {
         log.error({ err: err?.message, stack: err?.stack }, "Unhandled error");
         return res.status(500).json({

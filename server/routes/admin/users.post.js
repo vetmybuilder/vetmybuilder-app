@@ -94,10 +94,12 @@ module.exports = (router, ctx) => {
       }
 
       log.info({ uid, email, role }, "admin created user");
-      return res.status(201).json({
+      res.status(201).json({
         ok: true,
         user: { uid, email, firstName, lastName, location, role },
       });
+      ctx.logActivity("admin.user.create", "info", req.user.uid, `User created: ${email}`);
+      return;
     } catch (err) {
       log.error({ err: err?.message }, "admin create user failed");
       return res.status(500).json({ error: "server_error" });

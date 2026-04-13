@@ -308,7 +308,9 @@ module.exports = (router, ctx) => {
         log.warn("SSE send failed (non-fatal)");
       }
 
-      return res.json(payload);
+      res.json(payload);
+      ctx.logActivity("admin.subscription.cancel", "info", req.user.uid, "Subscription cancelled");
+      return;
     } catch (e) {
       log.error({ err: e?.message, stack: e?.stack }, "Cancel failed");
       return res.status(500).json({

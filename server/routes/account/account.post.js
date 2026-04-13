@@ -142,7 +142,9 @@ module.exports = (router, ctx) => {
       await updateUserLocationMysql(mysqlQuery, uid, location);
       log.info({ uid }, "updated user location tokens");
 
-      return res.json({ ok: true });
+      res.json({ ok: true });
+      ctx.logActivity("account.update", "info", req.user.uid, "Account updated");
+      return;
     } catch (err) {
       logger.error(
         { err: err?.message, uid, body: req.body },

@@ -83,6 +83,7 @@ module.exports = (router, ctx) => {
 
     // Respond to client immediately
     res.json({ project: updated });
+    ctx.logActivity("project.publish", "info", req.user.uid, `Project #${id} → live`);
 
     // ---- BACKGROUND NOTIFICATIONS ----
     // Notify matched tradesmen first — this doesn't depend on location

@@ -61,7 +61,9 @@ module.exports = (router, ctx) => {
         "Profile location updated successfully"
       );
 
-      return res.json({ profile });
+      res.json({ profile });
+      ctx.logActivity("profile.update", "info", req.user.uid, "Profile updated");
+      return;
     } catch (err) {
       log.error(
         {

@@ -35,7 +35,9 @@ module.exports = (router, ctx) => {
         best: result?.best || null,
       });
 
-      return res.json({ ok: true, ...result });
+      res.json({ ok: true, ...result });
+      ctx.logActivity("tradesman.precheck", "info", "guest", `Precheck for ${name}`);
+      return;
     } catch (e) {
       log.error(`${TAG} failed`, { error: e?.message || e });
       return res.status(500).json({ ok: false, error: "server_error" });

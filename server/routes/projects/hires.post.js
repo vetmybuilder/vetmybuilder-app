@@ -190,7 +190,7 @@ module.exports = (router, ctx) => {
           log,
         });
 
-        return res.status(201).json({
+        res.status(201).json({
           ok: true,
           hire: {
             id: hireId,
@@ -203,6 +203,8 @@ module.exports = (router, ctx) => {
             expiresAt: expiresAt.toISOString(),
           },
         });
+        ctx.logActivity("hire.create", "info", req.user.uid, `Hire for project #${projectId}, rec #${null}`);
+        return;
       }
 
       /* ----- Recommendation path ----- */
@@ -345,7 +347,7 @@ module.exports = (router, ctx) => {
           log,
         });
 
-        return res.status(201).json({
+        res.status(201).json({
           ok: true,
           hire: {
             id: hireId,
@@ -358,6 +360,8 @@ module.exports = (router, ctx) => {
             expiresAt: expiresAt.toISOString(),
           },
         });
+        ctx.logActivity("hire.create", "info", req.user.uid, `Hire for project #${projectId}, rec #${recommendationId}`);
+        return;
       }
 
       // Already actively hired this recommendation for this project?
@@ -408,7 +412,7 @@ module.exports = (router, ctx) => {
         log,
       });
 
-      return res.status(201).json({
+      res.status(201).json({
         ok: true,
         hire: {
           id: hireId,
@@ -421,6 +425,8 @@ module.exports = (router, ctx) => {
           expiresAt: expiresAt.toISOString(),
         },
       });
+      ctx.logActivity("hire.create", "info", req.user.uid, `Hire for project #${projectId}, rec #${recommendationId}`);
+      return;
     } catch (err) {
       log.error?.(`${TAG} error`, err);
       return res.status(500).json({ error: "Internal error creating hire" });

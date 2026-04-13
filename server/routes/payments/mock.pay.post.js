@@ -139,7 +139,7 @@ module.exports = (router, ctx) => {
           "Unlock intent stored as pending_admin"
         );
 
-        return res.json({
+        res.json({
           ok: true,
           type: "unlock_contact",
           status: "pending_admin",
@@ -148,6 +148,8 @@ module.exports = (router, ctx) => {
           currency,
           sessionId: sid,
         });
+        ctx.logActivity("payment.complete", "info", req.user?.uid || "system", "Payment completed");
+        return;
       }
 
       // =====================================================================
@@ -182,7 +184,7 @@ module.exports = (router, ctx) => {
 
         log.info({ sid, uid }, "Spotlight purchase recorded as pending_admin");
 
-        return res.json({
+        res.json({
           ok: true,
           type: "spotlight",
           status: "pending_admin",
@@ -190,6 +192,8 @@ module.exports = (router, ctx) => {
           currency,
           sessionId: sid,
         });
+        ctx.logActivity("payment.complete", "info", req.user?.uid || "system", "Payment completed");
+        return;
       }
 
       // =====================================================================
@@ -227,7 +231,7 @@ module.exports = (router, ctx) => {
 
         log.info({ sid, uid, plan }, "Subscription stored as pending_admin");
 
-        return res.json({
+        res.json({
           ok: true,
           type: "subscription",
           plan,
@@ -236,6 +240,8 @@ module.exports = (router, ctx) => {
           currency,
           sessionId: sid,
         });
+        ctx.logActivity("payment.complete", "info", req.user?.uid || "system", "Payment completed");
+        return;
       }
 
       // =====================================================================
@@ -243,12 +249,14 @@ module.exports = (router, ctx) => {
       // =====================================================================
       log.warn({ sid, type, planId }, "Unhandled payment type");
 
-      return res.json({
+      res.json({
         ok: true,
         type: "unknown",
         sessionId: sid,
         note: "Unhandled payment type",
       });
+      ctx.logActivity("payment.complete", "info", req.user?.uid || "system", "Payment completed");
+      return;
     } catch (e) {
       log.error(
         { errMsg: e?.message, stack: e?.stack },

@@ -12,14 +12,7 @@ export default function AdminHeader() {
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [checking, setChecking] = useState(true);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [loginMenuOpen, setLoginMenuOpen] = useState(false);
-
-  // Close menus on route change
-  useEffect(() => {
-    setMenuOpen(false);
-    setLoginMenuOpen(false);
-  }, [router.pathname]);
+  // (dropdown state is declared alongside the pill definitions below)
 
   // Determine if current user is admin (mirror AdminGate logic)
   useEffect(() => {
@@ -91,12 +84,38 @@ export default function AdminHeader() {
     router.replace("/");
   }
 
-  const atTradesmen =
-    router.pathname === "/admin/tradesmen-leaderboard" ||
-    router.pathname === "/admin/tradesmen";
-  const atRecs = router.pathname === "/admin/recommendation-leaderboard";
-  const atVerify = router.pathname === "/admin/verify-company";
-  const atUsers = router.pathname === "/admin/users";
+  const pills: { label: string; href: string; testId: string; active: boolean; dropdown?: { label: string; href: string; testId: string; active: boolean }[] }[] = [
+    {
+      label: "Tradesmen",
+      href: "/admin/tradesmen-leaderboard",
+      testId: "nav-admin-tradesmen",
+      active: router.pathname === "/admin/tradesmen-leaderboard" || router.pathname === "/admin/tradesmen",
+      dropdown: [
+        { label: "Tradesmen leaderboard", href: "/admin/tradesmen-leaderboard", testId: "nav-admin-tradesmen-lb", active: router.pathname === "/admin/tradesmen-leaderboard" || router.pathname === "/admin/tradesmen" },
+        { label: "Verify company", href: "/admin/verify-company", testId: "nav-admin-verify", active: router.pathname === "/admin/verify-company" },
+      ],
+    },
+    {
+      label: "Moderation",
+      href: "/admin/recommendation-leaderboard",
+      testId: "nav-admin-moderation",
+      active: router.pathname === "/admin/recommendation-leaderboard",
+      dropdown: [
+        { label: "Recommendation leaderboard", href: "/admin/recommendation-leaderboard", testId: "nav-admin-recs", active: router.pathname === "/admin/recommendation-leaderboard" },
+      ],
+    },
+    { label: "Dashboard", href: "/admin/dashboard", testId: "nav-admin-dashboard", active: router.pathname === "/admin/dashboard" },
+    { label: "Users", href: "/admin/users", testId: "nav-admin-users", active: router.pathname === "/admin/users" },
+  ];
+
+  const activePill = "bg-violet-600 text-white font-bold shadow-sm";
+  const inactivePill = "bg-slate-900 text-white font-medium hover:bg-slate-800";
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+
+  // Close dropdown on route change
+  useEffect(() => {
+    setOpenDropdown(null);
+  }, [router.pathname]);
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-500/60 bg-slate-700/90 backdrop-blur">
@@ -112,145 +131,70 @@ export default function AdminHeader() {
           </div>
         </Link>
 
-        {/* Right: actions */}
-        <div className="flex items-center gap-2 text-sm">
+        {/* Right: pill navigation */}
+        <nav className="flex items-center gap-1.5 text-sm">
           {!user || !isAdmin ? (
-            // Logged out OR non-admin → dropdown to pick which section to log into
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setLoginMenuOpen((v) => !v)}
-                className="inline-flex items-center rounded-full bg-slate-900 px-4 h-9 text-sm font-medium text-white shadow-sm hover:bg-slate-800"
-                data-testid="btn-admin-login"
-              >
-                Admin login
-                <span
-                  aria-hidden
-                  className={`ml-2 inline-block transition-transform ${
-                    loginMenuOpen ? "rotate-180" : ""
-                  }`}
-                >
-                  ▾
-                </span>
-              </button>
-
-              {loginMenuOpen && (
-                <div
-                  className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-200 bg-white shadow-lg ring-1 ring-black/5 overflow-hidden"
-                  data-testid="admin-login-menu"
-                >
-                  <Link
-                    href="/login?next=/admin/tradesmen-leaderboard"
-                    className="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                    onClick={() => setLoginMenuOpen(false)}
-                    data-testid="login-menu-tradesmen"
-                  >
-                    Tradesmen leaderboard
-                  </Link>
-                  <Link
-                    href="/login?next=/admin/recommendation-leaderboard"
-                    className="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                    onClick={() => setLoginMenuOpen(false)}
-                    data-testid="login-menu-recs"
-                  >
-                    Recommendation leaderboard
-                  </Link>
-                </div>
-              )}
-            </div>
+            <Link
+              href="/login?next=/admin/tradesmen-leaderboard"
+              className={`inline-flex items-center rounded-full px-4 h-9 text-sm ${inactivePill}`}
+              data-testid="btn-admin-login"
+            >
+              Admin login
+            </Link>
           ) : (
-            // Logged in as admin → dropdown menu
-            <div className="relative">
+            <>
+              {pills.map((pill) =>
+                pill.dropdown ? (
+                  <div key={pill.testId} className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setOpenDropdown(openDropdown === pill.testId ? null : pill.testId)}
+                      className={`inline-flex items-center rounded-full px-4 h-9 text-sm ${
+                        pill.active || pill.dropdown.some((d) => d.active) ? activePill : inactivePill
+                      }`}
+                      data-testid={pill.testId}
+                    >
+                      {pill.label}
+                      <span aria-hidden className={`ml-1.5 text-[10px] transition-transform ${openDropdown === pill.testId ? "rotate-180" : ""}`}>▾</span>
+                    </button>
+                    {openDropdown === pill.testId && (
+                      <div className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-200 bg-white shadow-lg ring-1 ring-black/5 overflow-hidden z-50">
+                        {pill.dropdown.map((item) => (
+                          <Link
+                            key={item.testId}
+                            href={item.href}
+                            className={`block px-3 py-2 text-sm ${item.active ? "bg-slate-100 font-semibold text-slate-900" : "text-slate-700 hover:bg-slate-50"}`}
+                            onClick={() => setOpenDropdown(null)}
+                            data-testid={item.testId}
+                          >
+                            {item.label}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <Link
+                    key={pill.testId}
+                    href={pill.href}
+                    className={`inline-flex items-center rounded-full px-4 h-9 text-sm ${pill.active ? activePill : inactivePill}`}
+                    data-testid={pill.testId}
+                  >
+                    {pill.label}
+                  </Link>
+                ),
+              )}
               <button
                 type="button"
-                onClick={() => setMenuOpen((v) => !v)}
-                className="inline-flex items-center rounded-full bg-slate-900 px-4 h-9 text-sm font-medium text-white shadow-sm hover:bg-slate-800"
-                data-testid="btn-admin-menu"
+                onClick={handleLogout}
+                className="inline-flex items-center rounded-full px-4 h-9 text-sm text-rose-400 hover:text-rose-300 hover:bg-slate-800/50"
+                data-testid="btn-admin-logout"
               >
-                Admin menu
-                <span
-                  aria-hidden
-                  className={`ml-2 inline-block transition-transform ${
-                    menuOpen ? "rotate-180" : ""
-                  }`}
-                >
-                  ▾
-                </span>
+                Logout
               </button>
-
-              {menuOpen && (
-                <div
-                  className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-200 bg-white shadow-lg ring-1 ring-black/5 overflow-hidden"
-                  data-testid="admin-menu"
-                >
-                  <Link
-                    href="/admin/tradesmen-leaderboard"
-                    className={`block px-3 py-2 text-sm ${
-                      atTradesmen
-                        ? "bg-slate-100 font-semibold text-slate-900"
-                        : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                    onClick={() => setMenuOpen(false)}
-                    data-testid="menu-admin-tradesmen"
-                  >
-                    Tradesmen leaderboard
-                  </Link>
-
-                  <Link
-                    href="/admin/recommendation-leaderboard"
-                    className={`block px-3 py-2 text-sm ${
-                      atRecs
-                        ? "bg-slate-100 font-semibold text-slate-900"
-                        : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                    onClick={() => setMenuOpen(false)}
-                    data-testid="menu-admin-recs"
-                  >
-                    Recommendation leaderboard
-                  </Link>
-
-                  <Link
-                    href="/admin/users"
-                    className={`block px-3 py-2 text-sm ${
-                      atUsers
-                        ? "bg-slate-100 font-semibold text-slate-900"
-                        : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                    onClick={() => setMenuOpen(false)}
-                    data-testid="menu-admin-users"
-                  >
-                    User management
-                  </Link>
-
-                  <Link
-                    href="/admin/verify-company"
-                    className={`block px-3 py-2 text-sm ${
-                      atVerify
-                        ? "bg-slate-100 font-semibold text-slate-900"
-                        : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                    onClick={() => setMenuOpen(false)}
-                    data-testid="menu-admin-verify-company"
-                  >
-                    Verify company
-                  </Link>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      handleLogout();
-                    }}
-                    className="block w-full px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50"
-                    data-testid="menu-admin-logout"
-                  >
-                    Logout
-                  </button>
-                </div>
-              )}
-            </div>
+            </>
           )}
-        </div>
+        </nav>
       </div>
     </header>
   );

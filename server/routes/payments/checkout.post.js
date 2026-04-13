@@ -154,12 +154,14 @@ module.exports = (router, ctx) => {
         "Checkout session created"
       );
 
-      return res.json({
+      res.json({
         ok: true,
         sessionId: session.id,
         session,
         hosted_url: `${origin}/payments/mock/checkout/${session.id}`,
       });
+      ctx.logActivity("payment.checkout", "info", req.user.uid, "Checkout session created");
+      return;
     } catch (e) {
       log.error(
         { errMsg: e?.message, stack: e?.stack },

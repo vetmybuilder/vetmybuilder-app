@@ -423,7 +423,7 @@ module.exports = (router, ctx) => {
           log.warn(`${TAG} auto-like failed`, { error: e?.message });
         }
 
-        return res.status(201).json({
+        res.status(201).json({
           ok: true,
           recommendationId,
           resolvedCompany,
@@ -433,6 +433,8 @@ module.exports = (router, ctx) => {
             source: "magic",
           },
         });
+        ctx.logActivity("rec.magic-link", "info", req.user?.uid || "guest", "Magic recommendation created");
+        return;
       } catch (err) {
         log.error(`${TAG} fatal`, err);
         return res.status(500).json({

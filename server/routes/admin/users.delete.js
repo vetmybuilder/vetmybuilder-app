@@ -27,7 +27,9 @@ module.exports = (router, ctx) => {
       await mysqlQuery(`DELETE FROM users WHERE uid = ?`, [uid]);
 
       log.info({ uid }, "admin deleted user");
-      return res.json({ ok: true });
+      res.json({ ok: true });
+      ctx.logActivity("admin.user.delete", "info", req.user.uid, `User deleted: ${uid}`);
+      return;
     } catch (err) {
       log.error({ err: err?.message, uid }, "admin delete user failed");
       return res.status(500).json({ error: "server_error" });

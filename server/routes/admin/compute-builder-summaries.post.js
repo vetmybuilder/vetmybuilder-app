@@ -87,7 +87,9 @@ module.exports = (router, ctx) => {
         }
 
         log.info({ computed, skipped, failed }, "builder summaries batch complete");
-        return res.json({ ok: true, computed, skipped, failed });
+        res.json({ ok: true, computed, skipped, failed });
+        ctx.logActivity("admin.compute.summaries", "info", req.user?.uid || "system", "Builder summaries computed");
+        return;
       } catch (err) {
         logger.error({ route: TAG, err: err?.message }, "batch failed");
         return res.status(500).json({ error: "server_error" });

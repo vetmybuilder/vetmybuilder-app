@@ -75,7 +75,9 @@ module.exports = (router, ctx) => {
 
         log.info({ paymentId }, "Spotlight payment rejected");
 
-        return res.json({ ok: true, paymentId });
+        res.json({ ok: true, paymentId });
+        ctx.logActivity("admin.spotlight.reject", "info", req.user.uid, "Spotlight rejected");
+        return;
       } catch (e) {
         logger.error(
           {

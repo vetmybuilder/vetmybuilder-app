@@ -378,7 +378,9 @@ module.exports = (router, ctx) => {
           [uid]
         );
 
-        return res.json({ ok: true, profile: finalRow });
+        res.json({ ok: true, profile: finalRow });
+        ctx.logActivity("tradesman.update", "info", req.user.uid, "Tradesman profile updated");
+        return;
       } catch (e) {
         log.error(`${TAG} db error`, {
           uid,

@@ -94,12 +94,14 @@ module.exports = (router, ctx) => {
           "Spotlight moved to pending_payment"
         );
 
-        return res.json({
+        res.json({
           ok: true,
           status: "pending_payment",
           sessionId,
           updated: result.affectedRows,
         });
+        ctx.logActivity("admin.spotlight.approve", "info", req.user.uid, "Spotlight approved");
+        return;
       } catch (err) {
         logger.error(
           {

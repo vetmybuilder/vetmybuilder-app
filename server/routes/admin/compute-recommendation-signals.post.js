@@ -47,7 +47,9 @@ module.exports = (router, ctx) => {
         }
 
         log.info({ computed, failed, total: rows.length }, "recommendation signals batch complete");
-        return res.json({ ok: true, computed, skipped: 0, failed });
+        res.json({ ok: true, computed, skipped: 0, failed });
+        ctx.logActivity("admin.compute.signals", "info", req.user?.uid || "system", "Recommendation signals computed");
+        return;
       } catch (err) {
         logger.error({ route: TAG, err: err?.message }, "batch failed");
         return res.status(500).json({ error: "server_error" });

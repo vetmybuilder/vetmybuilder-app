@@ -98,11 +98,13 @@ module.exports = (router, ctx) => {
         "Subscription successfully restored to active"
       );
 
-      return res.json({
+      res.json({
         ok: true,
         status: "active",
         plan: "gold",
       });
+      ctx.logActivity("subscription.uncancel", "info", req.user.uid, "Subscription uncancelled");
+      return;
     } catch (e) {
       log.error(
         { error: e?.message, stack: e?.stack },

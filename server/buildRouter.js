@@ -69,6 +69,25 @@ function buildRouter(ctx) {
 
   ctx.notifyUsers = ctx.notifyUsers || (() => {});
 
+  // Activity log — ensure table exists, then wire helper
+  ctx.mysqlQuery(`
+    CREATE TABLE IF NOT EXISTS activity_log (
+      id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      event       VARCHAR(50)   NOT NULL,
+      level       VARCHAR(10)   NOT NULL DEFAULT 'info',
+      actor_uid   VARCHAR(128)  DEFAULT NULL,
+      detail      TEXT          DEFAULT NULL,
+      created_at  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_al_created (created_at),
+      INDEX idx_al_level   (level, created_at),
+      INDEX idx_al_event   (event, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `).catch(() => {});
+  {
+    const { makeLogActivity } = require("./lib/activityLog");
+    ctx.logActivity = ctx.logActivity || makeLogActivity(ctx.mysqlQuery);
+  }
+
   const ensureCompanyVerificationTable = require("./boot/ensureCompanyVerificationTable");
   ensureCompanyVerificationTable();
 
@@ -223,6 +242,9 @@ function buildRouter(ctx) {
   require("./routes/admin/users.post")(router, ctx);
   require("./routes/admin/users.put")(router, ctx);
   require("./routes/admin/users.delete")(router, ctx);
+  require("./routes/admin/dashboard.stats.get")(router, ctx);
+  require("./routes/admin/dashboard.ai-breakdown.get")(router, ctx);
+  require("./routes/admin/dashboard.activity.get")(router, ctx);
 
   return router;
 }

@@ -142,11 +142,13 @@ module.exports = (router, ctx) => {
           "Spotlight purchase recorded successfully"
         );
 
-        return res.json({
+        res.json({
           ok: true,
           paymentId,
           subscription: { planId: "spotlight", status: "pending_admin" },
         });
+        ctx.logActivity("spotlight.oneoff", "info", req.user.uid, "One-off spotlight purchased");
+        return;
       } catch (e) {
         log.error(
           { error: e?.message, stack: e?.stack },

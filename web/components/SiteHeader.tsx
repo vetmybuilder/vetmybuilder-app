@@ -555,7 +555,7 @@ export default function SiteHeader() {
             {/* Center (desktop only) */}
             <div className="flex-1 hidden md:flex items-center justify-center">
               {showProjectTabsInHeader && (
-                <div className="flex items-center justify-center gap-6 sm:gap-10">
+                <div className="flex items-center justify-center gap-3 lg:gap-6 xl:gap-10">
                   {PROJECT_HEADER_TABS.map((t) => {
                     const active = currentProjectsTab === t.key;
                     return (
@@ -567,7 +567,7 @@ export default function SiteHeader() {
                         data-testid={t.testId}
                         onClick={() => handleProjectTabClick(t.key)}
                         className={[
-                          "group relative inline-flex items-center justify-center select-none",
+                          "group relative inline-flex items-center justify-center select-none whitespace-nowrap",
                           "text-[11px] sm:text-xs font-semibold tracking-[0.18em] uppercase",
                           "transition-colors duration-150",
                           active
@@ -620,7 +620,7 @@ export default function SiteHeader() {
                   aria-hidden="true"
                   tabIndex={-1}
                   className={[
-                    "hidden sm:inline-flex items-center justify-center rounded-xl px-4 h-9 text-sm font-semibold",
+                    "hidden sm:inline-flex items-center justify-center rounded-xl px-4 h-9 text-sm font-semibold whitespace-nowrap",
                     "bg-amber-400 text-slate-900 shadow-sm hover:bg-amber-300",
                     "sm:[aria-hidden=false] sm:tabIndex-0",
                   ].join(" ")}

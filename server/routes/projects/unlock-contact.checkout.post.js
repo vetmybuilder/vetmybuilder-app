@@ -125,11 +125,13 @@ module.exports = (router, ctx) => {
           sessionId: session.id,
         });
 
-        return res.json({
+        res.json({
           ok: true,
           sessionId: session.id,
           url: session.hosted_url,
         });
+        ctx.logActivity("contact.unlock", "info", req.user?.uid, `Contact unlock for project #${pid}`);
+        return;
       } catch (e) {
         log.error?.(`${TAG} error`, e);
         return res.status(500).json({

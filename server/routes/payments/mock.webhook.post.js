@@ -186,11 +186,13 @@ module.exports = (router, ctx) => {
 
       log.info({ processedCount: processed.length }, "Webhook completed");
 
-      return res.json({
+      res.json({
         ok: true,
         sessionId,
         processed,
       });
+      ctx.logActivity("payment.webhook", "info", "system", "Payment webhook received");
+      return;
     } catch (e) {
       log.error(
         { error: e?.message, stack: e?.stack },

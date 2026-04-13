@@ -263,11 +263,17 @@ export function useProjectView() {
       ) {
         refreshRecs();
       }
+      // Auto-update insights card when classification completes
+      if (data.projectId === project.id && data.type === "classification_ready") {
+        api.get(`/api/projects/${project.id}`).then(({ data: d }) => {
+          if (d?.classification) setClassification(d.classification);
+        }).catch(() => {});
+      }
     };
 
     window.addEventListener("vmb:notification", onNotif);
     return () => window.removeEventListener("vmb:notification", onNotif);
-  }, [project?.id, isTrades, refreshRecs]);
+  }, [project?.id, isTrades, refreshRecs, api]);
 
   useEffect(() => {
     if (!project?.id) return;

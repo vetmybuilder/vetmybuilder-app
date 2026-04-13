@@ -85,7 +85,9 @@ module.exports = (router, ctx) => {
       }
 
       log.info(`${TAG} upload success`, { uid, fileCount: files.length, storage: isR2Configured ? "r2" : "local" });
-      return res.json({ ok: true, urls });
+      res.json({ ok: true, urls });
+      ctx.logActivity("tradesman.photos", "info", req.user.uid, "Photos uploaded");
+      return;
     } catch (e) {
       log.error(`${TAG} upload failed`, { error: e?.message || e });
       return res.status(500).json({ ok: false, error: "upload_failed" });

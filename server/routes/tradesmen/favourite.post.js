@@ -40,7 +40,9 @@ module.exports = (router, ctx) => {
       );
 
       log.info?.(`${TAG} favourited`, { userId, builderId });
-      return res.status(200).json({ ok: true, favourited: true });
+      res.status(200).json({ ok: true, favourited: true });
+      ctx.logActivity("tradesman.favourite", "info", req.user?.uid || "guest", "Favourited tradesman");
+      return;
     } catch (err) {
       log.error?.(`${TAG} POST error`, { error: err?.message || err });
       return res
@@ -69,7 +71,9 @@ module.exports = (router, ctx) => {
       );
 
       log.info?.(`${TAG} unfavourited`, { userId, builderId });
-      return res.status(200).json({ ok: true, favourited: false });
+      res.status(200).json({ ok: true, favourited: false });
+      ctx.logActivity("tradesman.unfavourite", "info", req.user?.uid || "guest", "Unfavourited tradesman");
+      return;
     } catch (err) {
       log.error?.(`${TAG} DELETE error`, { error: err?.message || err });
       return res

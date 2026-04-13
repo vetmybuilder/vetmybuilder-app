@@ -117,7 +117,7 @@ module.exports = (router, ctx) => {
         "Unlock approved and moved to pending_payment"
       );
 
-      return res.json({
+      res.json({
         ok: true,
         status: "pending_payment",
         buyerUid,
@@ -125,6 +125,8 @@ module.exports = (router, ctx) => {
         updatedUnlocks: r1.affectedRows,
         updatedPayments: r2.affectedRows,
       });
+      ctx.logActivity("admin.unlock", "info", req.user.uid, "Tradesman unlock granted");
+      return;
     } catch (e) {
       log.error({ err: e?.message, stack: e?.stack }, "Error approving unlock");
       return res

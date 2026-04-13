@@ -74,7 +74,9 @@ module.exports = (router, ctx) => {
 
       log.info({ newStatus: project?.status }, "Project archived successfully");
 
-      return res.json({ project });
+      res.json({ project });
+      ctx.logActivity("project.archive", "info", req.user.uid, `Project #${projectId} archived`);
+      return;
     } catch (err) {
       log.error(
         { error: err?.message, stack: err?.stack },
