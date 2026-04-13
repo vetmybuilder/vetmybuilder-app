@@ -69,9 +69,10 @@ function buildRouter(ctx) {
 
   ctx.notifyUsers = ctx.notifyUsers || (() => {});
 
-  // Activity log — ensure table exists, then wire helper
-  ctx.mysqlQuery(`
-    CREATE TABLE IF NOT EXISTS activity_log (
+  // Ensure all tables exist on startup — no-op if already present.
+  // This prevents manual SQL on prod when new tables are added.
+  const ensureTables = [
+    `CREATE TABLE IF NOT EXISTS activity_log (
       id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       event       VARCHAR(50)   NOT NULL,
       level       VARCHAR(10)   NOT NULL DEFAULT 'info',
@@ -81,8 +82,69 @@ function buildRouter(ctx) {
       INDEX idx_al_created (created_at),
       INDEX idx_al_level   (level, created_at),
       INDEX idx_al_event   (event, created_at)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  `).catch(() => {});
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS project_classifications (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      project_id INT NOT NULL,
+      classifier_version VARCHAR(40) NOT NULL,
+      raw_description TEXT,
+      structured JSON,
+      cost_pence DECIMAL(10,4) DEFAULT 0,
+      latency_ms INT DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_pc_project (project_id, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS match_observations (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      project_id INT NOT NULL,
+      recommendation_id INT DEFAULT NULL,
+      tradesman_uid VARCHAR(128) DEFAULT NULL,
+      event VARCHAR(40) NOT NULL,
+      meta JSON,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_mo_project (project_id, created_at),
+      KEY idx_mo_event (event, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS recommendation_signals (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      recommendation_id INT NOT NULL,
+      signal_version VARCHAR(40) NOT NULL,
+      sentiment DECIMAL(5,3) DEFAULT NULL,
+      detail_score DECIMAL(5,3) DEFAULT NULL,
+      generic_score DECIMAL(5,3) DEFAULT NULL,
+      themes JSON,
+      cost_pence DECIMAL(10,4) DEFAULT 0,
+      latency_ms INT DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_rs_rec (recommendation_id, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS ai_inference_log (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      feature VARCHAR(60) NOT NULL,
+      model VARCHAR(60) DEFAULT NULL,
+      prompt_hash CHAR(64) DEFAULT NULL,
+      prompt TEXT,
+      response TEXT,
+      cost_pence DECIMAL(10,4) DEFAULT 0,
+      latency_ms INT DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_ail_feature (feature, created_at),
+      KEY idx_ail_hash (prompt_hash)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS builder_summaries (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      company VARCHAR(255) NOT NULL,
+      bullets JSON NOT NULL,
+      recommendation_count INT NOT NULL,
+      recommendation_ids JSON NOT NULL,
+      classifier_version VARCHAR(40) NOT NULL,
+      computed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_company (company)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  ];
+  for (const sql of ensureTables) {
+    ctx.mysqlQuery(sql).catch(() => {});
+  }
   {
     const { makeLogActivity } = require("./lib/activityLog");
     ctx.logActivity = ctx.logActivity || makeLogActivity(ctx.mysqlQuery);
