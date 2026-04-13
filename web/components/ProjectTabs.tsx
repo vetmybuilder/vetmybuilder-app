@@ -3,7 +3,6 @@ import * as React from "react";
 
 export type ProjectTabKey =
   | "mine"
-  | "archived" // kept in type so URLs & parent can still use it
   | "recommended"
   | "completed"
   | "completedCommunity";
@@ -15,9 +14,8 @@ type Props = {
   orientation?: "horizontal" | "vertical";
 };
 
-// Visible tabs (archived is intentionally missing)
 const tabs: Array<{
-  key: Exclude<ProjectTabKey, "archived">;
+  key: ProjectTabKey;
   label: string;
   color: string; // accent for active underline
   testId: string;

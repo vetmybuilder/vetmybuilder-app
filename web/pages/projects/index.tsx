@@ -38,7 +38,7 @@ function EmptyState({ onNewProject }: { onNewProject: () => void }) {
   );
 }
 
-type Status = "pending" | "live" | "completed" | "archived";
+type Status = "pending" | "live" | "completed";
 
 type Project = {
   id: number;
@@ -50,7 +50,6 @@ type Project = {
   createdAt: string;
   status?: Status;
   completedAt?: string | null;
-  archivedAt?: string | null;
   coverPhotoUrl?: string | null;
   _winnerRecommendationId?: number | string;
   _winnerTradesmanName?: string | null;
@@ -248,7 +247,6 @@ function OwnerProjects() {
 
     const allowed: OwnerTab[] = [
       "mine",
-      "archived",
       "completed",
       "completedCommunity",
       "recommended",
@@ -422,7 +420,6 @@ function OwnerProjects() {
       live: 0,
       pending: 1,
       completed: 2,
-      archived: 3,
     };
     const statusOptions = Array.from(statuses).sort(
       (a, b) => orderMap[a] - orderMap[b],

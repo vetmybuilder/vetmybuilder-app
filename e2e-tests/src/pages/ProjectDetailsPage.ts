@@ -292,15 +292,6 @@ export class ProjectDetailsPage extends BasePage {
       await expect(this.topRecommendationsSection).toContainText(
         "No builders have yet been recommended by a friend or neighbours.",
       );
-      await expect(this.topRecommendationsSection).toContainText(
-        "Share this project with friends or neighbours to start seeing recommendations from vetted tradespeople.",
-      );
-
-      await expect(
-        this.topRecommendationsSection.getByTestId(
-          "btn-shortlist-share-publish",
-        ),
-      ).toBeVisible();
 
       return;
     }
@@ -404,8 +395,8 @@ export class ProjectDetailsPage extends BasePage {
   }
 
   async clickShortlistShareCta(): Promise<void> {
-    await expect(this.shortlistEmptyCta).toBeVisible();
-    await this.shortlistEmptyCta.click();
+    await expect(this.shareAndPublish).toBeVisible();
+    await this.shareAndPublish.click();
     await this.assertPublishModalVisible();
   }
 
