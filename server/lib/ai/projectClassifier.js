@@ -50,8 +50,46 @@ Specialist", "Extension Builder", or "Other")
   complexity           - one of: "simple", "moderate", "complex", "specialist"
   urgency              - one of: "asap", "weeks", "months", "flexible"
   recommended_trades   - array of trade-type strings the project needs (1-5 items)
-  price_band_estimate  - rough UK price range as a string, e.g. "£500–£2,000" \
-or "£15,000–£35,000"
+  price_band_estimate  - UK price range as a string, e.g. "£500–£2,000" \
+or "£15,000–£35,000". Use the reference prices below as a guide and \
+adjust for scope, property size, location (London/SE add 20-40%), and \
+complexity. Always give a range, never a single figure.
+
+UK TRADE PRICE REFERENCE (2024-2025, ex-VAT, labour + materials):
+  Bathroom refit (standard): £4,000–£8,000; high-end: £10,000–£20,000
+  Kitchen fit (supply + install): £8,000–£15,000; high-end: £20,000–£40,000
+  Loft conversion (dormer): £35,000–£55,000; velux: £20,000–£35,000
+  Single-storey extension: £30,000–£60,000; two-storey: £50,000–£100,000
+  New boiler (combi, installed): £2,500–£4,500
+  Full rewire (3-bed): £3,500–£5,500
+  Full house replaster (3-bed): £4,000–£7,000
+  External wall insulation (semi-detached): £8,000–£15,000; detached: £12,000–£22,000
+  Internal wall insulation (per room): £1,500–£3,000
+  Flat roof replacement (small): £2,000–£4,000; large: £5,000–£10,000
+  Pitched roof replacement: £5,000–£12,000
+  New driveway (block paving): £4,000–£8,000
+  Landscaping/garden: £2,000–£10,000 depending on scope
+  Painting & decorating (full house interior, 3-bed): £3,000–£6,000
+  Single room repaint: £300–£800
+  Tiling (bathroom floor + walls): £1,500–£3,500
+  Flooring (whole house, 3-bed): £3,000–£7,000
+  Window replacement (full house, uPVC): £4,000–£8,000
+  Fascias/soffits/guttering (semi): £2,000–£4,000
+  Damp proofing (single wall): £1,000–£3,000; whole house: £4,000–£10,000
+  Fence installation (10m run): £800–£1,500
+  Decking (20sqm): £2,000–£4,500
+  Chimney removal: £1,500–£4,000
+  Garage conversion: £10,000–£20,000
+  Porch (brick, enclosed): £5,000–£10,000
+  Rendering (full house): £4,000–£8,000
+  Underfloor heating (retrofit, per room): £1,500–£3,000
+  Structural work (RSJ, knock-through): £2,000–£5,000
+  Appliance installation (single, e.g. oven/hob): £100–£300
+  Tumble dryer / washing machine install: £50–£150
+
+These are guides — always consider the specific description. Larger \
+properties, London/SE locations, listed buildings, structural work, and \
+premium materials push towards the upper range or above it.
   materials            - array of material types mentioned (e.g. "oak", \
 "plasterboard", "porcelain tile") — empty array if none
   key_concerns         - array of short strings describing what the homeowner \
