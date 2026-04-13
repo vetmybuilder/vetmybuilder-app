@@ -594,7 +594,15 @@ function OwnerProjects() {
                 {loading && [...Array(4)].map((_, i) => <SkeletonCard key={`skc-${i}`} />)}
                 {items.length === 0 && !loading && (
                   <div className="col-span-full" data-testid="projects-empty">
-                    <EmptyState onNewProject={() => router.push("/projects/new")} />
+                    <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm flex flex-col items-center justify-center py-20 px-6 text-center">
+                      <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-zinc-100">
+                        <FolderOpen className="h-10 w-10 text-zinc-400" />
+                      </div>
+                      <h3 className="mb-2 text-lg font-semibold text-zinc-900">No completed projects yet</h3>
+                      <p className="max-w-sm text-sm text-zinc-500">
+                        Projects you mark as complete will appear here.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>

@@ -237,9 +237,11 @@ module.exports = (router, ctx) => {
         const baseParams = [uid];
         const { sql: baseSql, params } = applyWhere(baseParts, baseParams);
 
+        // Show any project the homeowner actively closed via the close modal
+        // (has a project_closures record), plus status=completed (winner selected).
         const statusFilter = `
           (p.status = 'completed'
-           OR (p.status = 'archived' AND pc.didGoAhead = 1))
+           OR (p.status = 'archived' AND pc.projectId IS NOT NULL))
         `.trim();
 
         const completedSql = baseSql
@@ -319,7 +321,7 @@ module.exports = (router, ctx) => {
 
         const statusFilter = `
           (p.status = 'completed'
-           OR (p.status = 'archived' AND pc.didGoAhead = 1))
+           OR (p.status = 'archived' AND pc.projectId IS NOT NULL))
         `.trim();
 
         const completedSql = baseSql
