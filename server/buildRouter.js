@@ -92,7 +92,8 @@ function buildRouter(ctx) {
       cost_pence DECIMAL(10,4) DEFAULT 0,
       latency_ms INT DEFAULT 0,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      KEY idx_pc_project (project_id, created_at)
+      classified_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_pc_project (project_id, classified_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
     `CREATE TABLE IF NOT EXISTS match_observations (
       id INT AUTO_INCREMENT PRIMARY KEY,
