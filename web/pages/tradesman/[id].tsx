@@ -360,6 +360,16 @@ function Inner() {
                       />
                     )}
                   </div>
+
+                  {/* Hire button — inline in header when reached from a project */}
+                  {item.builderId && (
+                    <div className="mt-4">
+                      <HireButton
+                        tradesmanUserId={item.builderId}
+                        displayName={title}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -384,16 +394,6 @@ function Inner() {
               </button>
             </div>
           </header>
-
-          {/* Hire button — only renders when reached from a project context (?projectId=) */}
-          {item.builderId && (
-            <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 px-6 py-5">
-              <HireButton
-                tradesmanUserId={item.builderId}
-                displayName={title}
-              />
-            </div>
-          )}
 
           {/* Main layout */}
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)] gap-6">

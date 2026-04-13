@@ -14,6 +14,15 @@ import {
 import { Link as LinkIcon } from "lucide-react";
 import { GoogleRatingChip } from "@/components/GoogleRatingChip";
 
+/** Normalise raw score (0-~15) to 0-100. Mirrors server-side normaliseScore. */
+function normaliseScore(raw: number | undefined): number | undefined {
+  if (typeof raw !== "number" || !Number.isFinite(raw) || raw <= 0) return undefined;
+  // If already normalised (from ratings endpoint), pass through
+  if (raw > 15) return Math.min(100, Math.round(raw));
+  // Raw score: apply logarithmic curve
+  return Math.min(100, Math.max(0, Math.round(100 * (1 - Math.exp(-raw / 6)))));
+}
+
 /* ===== Props (component-local API) ===== */
 type Props = {
   title?: string;
@@ -255,7 +264,7 @@ export default function ShortlistSection({
         ) : (
           <>
             <ul
-              className="divide-y divide-zinc-200"
+              className="space-y-3"
               aria-label="Top recommendations"
               data-testid="shortlist-list"
             >
@@ -306,11 +315,12 @@ export default function ShortlistSection({
                     : typeof r.score === "number"
                       ? r.score
                       : undefined;
-                const scoreToShow =
+                const scoreToShow = normaliseScore(
                   typeof overrideScore === "number" &&
                   !Number.isNaN(overrideScore)
                     ? overrideScore
-                    : baseScore;
+                    : baseScore
+                );
 
                 // 🔹 Google rating only comes from the verification map (not from ratings)
                 const verAny = ver as any;
@@ -342,12 +352,12 @@ export default function ShortlistSection({
                   <li
                     key={g.key}
                     data-testid="shortlist-group"
-                    className="relative py-5 animate-slide-in-left"
+                    className="relative bg-white rounded-xl border border-slate-100 shadow-sm p-4 animate-slide-in-left"
                     style={{ animationDelay: `${idx * 0.08}s` }}
                   >
                     {g.extraCount > 0 && (
                       <span
-                        className="absolute -top-2 right-0 z-20 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none px-2 py-1 shadow-sm"
+                        className="absolute -top-2 right-2 z-20 rounded-full bg-slate-100 text-slate-500 text-[10px] font-semibold leading-none px-2 py-1"
                         title={`${g.extraCount} more recommendation${g.extraCount === 1 ? "" : "s"}`}
                         data-testid="shortlist-stack-count"
                       >
@@ -356,11 +366,15 @@ export default function ShortlistSection({
                     )}
 
                     <div className="flex gap-3.5">
+                      {/* Score circle */}
                       <div
-                        className={`flex-shrink-0 h-11 w-11 rounded-full flex items-center justify-center text-sm font-black text-white select-none ${pickAvatarColor(displayCompanyName)}`}
-                        aria-hidden="true"
+                        className={`flex-shrink-0 h-12 w-12 rounded-full flex flex-col items-center justify-center text-white select-none shadow-md ${scoreColor(scoreToShow)}`}
+                        aria-label={`Score: ${typeof scoreToShow === "number" ? scoreToShow : "—"}`}
+                        data-testid="shortlist-score-circle"
                       >
-                        {(displayCompanyName?.[0] ?? "T").toUpperCase()}
+                        <span className="text-base font-extrabold leading-none">
+                          {typeof scoreToShow === "number" ? scoreToShow : "—"}
+                        </span>
                       </div>
 
                       <div className="min-w-0 flex-1">
@@ -371,131 +385,118 @@ export default function ShortlistSection({
                                 ? `/builders/${r.id}?projectId=${projectId}`
                                 : `/builders/${r.id}`
                             }
-                            className="font-extrabold text-base text-zinc-900 hover:underline decoration-zinc-300"
+                            className="font-bold text-sm text-slate-900 hover:underline decoration-slate-300"
                             title="Open builder profile"
                           >
                             <span data-testid="shortlist-company-name" aria-label="Company name">
                               {displayCompanyName}
                             </span>
                           </Link>
+                        </div>
 
+                        {/* Trust signals — inline, pipe-separated */}
+                        <div className="flex items-center gap-1.5 flex-wrap mt-1" data-testid="shortlist-signals">
                           {googleRating !== undefined && (
-                            <GoogleRatingChip
-                              rating={googleRating}
-                              count={googleReviewsCount}
-                              placeId={googlePlaceId}
-                              className="text-xs"
-                            />
+                            <>
+                              <GoogleRatingChip
+                                rating={googleRating}
+                                count={googleReviewsCount}
+                                placeId={googlePlaceId}
+                                className="text-[11px]"
+                              />
+                              <span className="text-slate-300 text-[11px]">&middot;</span>
+                            </>
                           )}
+
+                          {(vStatus === "verified" || vStatus === "ambiguous") ? (
+                            <span
+                              className="text-[10px] font-semibold text-white bg-emerald-500 px-1.5 py-0.5 rounded"
+                              data-testid="shortlist-badge-ch"
+                              data-status={vStatus}
+                            >
+                              <span data-testid="shortlist-badge-ch-text">Verified</span>
+                            </span>
+                          ) : (
+                            <span
+                              className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded"
+                              data-testid="shortlist-badge-ch"
+                              data-status={vStatus || "unknown"}
+                            >
+                              <span data-testid="shortlist-badge-ch-text">{vLabel}</span>
+                            </span>
+                          )}
+
+                          {hasPhotos && (
+                            <>
+                              <span className="text-slate-300 text-[11px]">&middot;</span>
+                              <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded" data-testid="shortlist-badge-photos">
+                                Photos
+                              </span>
+                            </>
+                          )}
+
+                          {r.fromFriend ? (
+                            <>
+                              <span className="text-slate-300 text-[11px]">&middot;</span>
+                              <span className="text-[10px] font-semibold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded" data-testid="shortlist-badge-friend">
+                                Friend
+                              </span>
+                            </>
+                          ) : null}
                         </div>
 
                         {r.comment && (
-                          <p className="text-sm text-zinc-600 mt-1.5 leading-relaxed line-clamp-3" data-testid="shortlist-comment">
+                          <p className="text-xs text-slate-500 mt-1.5 leading-relaxed line-clamp-3" data-testid="shortlist-comment">
                             &ldquo;{r.comment}&rdquo;
                           </p>
                         )}
 
-                        <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${chBadgeClass(vStatus as any)}`}
-                            title={`Companies House status${checkedAt ? ` · checked ${new Date(checkedAt).toLocaleString()}` : ""}${g.companyNumber ? ` · ${g.companyNumber}` : ""}`}
-                            aria-label={`Companies House status: ${vLabel}`}
-                            data-testid="shortlist-badge-ch"
-                            data-status={vStatus || "unknown"}
-                          >
-                            {chIcon(vStatus as any)}
-                            <span data-testid="shortlist-badge-ch-text">{vLabel}</span>
-                          </span>
-
-                          {r.fromFriend ? (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 text-sky-700 px-2 py-0.5 text-xs font-semibold" data-testid="shortlist-badge-friend">
-                              Friend
-                            </span>
-                          ) : null}
-
-                          {hasPhotos && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 text-xs font-semibold" title="Includes photos" data-testid="shortlist-badge-photos">
-                              <CameraIcon className="h-3 w-3" />
-                              Photos
-                            </span>
+                        <div className="mt-2 flex items-center justify-between">
+                          {recommenderText && (
+                            <p className="text-[10px] text-slate-400" aria-label="Recommender" data-testid="shortlist-recommender">
+                              {recommenderText}
+                            </p>
                           )}
-                        </div>
-
-                        {recommenderText && (
-                          <p className="mt-2 text-xs text-zinc-500" aria-label="Recommender" data-testid="shortlist-recommender">
-                            {recommenderText}
-                          </p>
-                        )}
 
                           {isOwner && onHire && (() => {
-                            const alreadyHired = hiredRecommendationIds?.has(
-                              r.id,
-                            );
+                            const alreadyHired = hiredRecommendationIds?.has(r.id);
                             return (
-                              <div className="mt-3">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    onHire(r.id, displayCompanyName || "Tradesman")
-                                  }
-                                  disabled={alreadyHired}
-                                  data-testid={`shortlist-hire-${r.id}`}
-                                  className={`inline-flex items-center justify-center rounded-full px-4 py-1.5 text-xs font-bold transition-colors ${
-                                    alreadyHired
-                                      ? "bg-emerald-100 text-emerald-700 cursor-default"
-                                      : "bg-red-500 text-white shadow-sm hover:bg-red-600"
-                                  }`}
-                                >
-                                  {alreadyHired ? "✓ Hired" : "Hire"}
-                                </button>
-                              </div>
+                              <button
+                                type="button"
+                                onClick={() => onHire(r.id, displayCompanyName || "Tradesman")}
+                                disabled={alreadyHired}
+                                data-testid={`shortlist-hire-${r.id}`}
+                                className={`inline-flex items-center justify-center rounded-lg px-3.5 py-1.5 text-[11px] font-bold transition-colors ${
+                                  alreadyHired
+                                    ? "bg-emerald-100 text-emerald-700 cursor-default"
+                                    : "bg-slate-900 text-white hover:bg-slate-800"
+                                }`}
+                              >
+                                {alreadyHired ? "Hired" : "Hire"}
+                              </button>
                             );
                           })()}
 
-                        {!isOwner && (
-                          <div className="ml-3 shrink-0 flex flex-col items-center">
-                            <button
-                              onClick={() => onVoteUp(r.id)}
-                              disabled={
-                                !canVote || hasVoted || votingId === r.id
-                              }
-                              className={`h-9 w-9 rounded-full grid place-items-center border transition
-                                ${
-                                  hasVoted
-                                    ? "bg-red-50 border-red-200 text-red-500 cursor-default"
-                                    : "border-slate-200 hover:bg-slate-50"
-                                }
-                                ${!canVote ? "opacity-60" : ""}`}
-                              title={
-                                !canVote
-                                  ? "Sign in to vote"
-                                  : hasVoted
-                                    ? "You’ve voted"
-                                    : "Vote up"
-                              }
-                              aria-label={
-                                !canVote
-                                  ? "Sign in to vote"
-                                  : hasVoted
-                                    ? "You have voted"
-                                    : "Vote up"
-                              }
-                              data-testid="shortlist-vote-button"
-                            >
-                              <ThumbsUpIcon className="h-4 w-4" />
-                            </button>
-                            <div
-                              className="mt-1 text-xs tabular-nums text-slate-600"
-                              aria-live="polite"
-                              data-testid="shortlist-vote-count"
-                              title={`${g.totalLikes} vote${
-                                g.totalLikes === 1 ? "" : "s"
-                              }`}
-                            >
-                              {g.totalLikes}
+                          {!isOwner && (
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => onVoteUp(r.id)}
+                                disabled={!canVote || hasVoted || votingId === r.id}
+                                className={`h-8 w-8 rounded-full grid place-items-center border transition
+                                  ${hasVoted ? "bg-red-50 border-red-200 text-red-500 cursor-default" : "border-slate-200 hover:bg-slate-50"}
+                                  ${!canVote ? "opacity-60" : ""}`}
+                                title={!canVote ? "Sign in to vote" : hasVoted ? "You’ve voted" : "Vote up"}
+                                aria-label={!canVote ? "Sign in to vote" : hasVoted ? "You have voted" : "Vote up"}
+                                data-testid="shortlist-vote-button"
+                              >
+                                <ThumbsUpIcon className="h-3.5 w-3.5" />
+                              </button>
+                              <span className="text-[11px] tabular-nums text-slate-500" data-testid="shortlist-vote-count">
+                                {g.totalLikes}
+                              </span>
                             </div>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
                     </div>
                   </li>
@@ -506,12 +507,12 @@ export default function ShortlistSection({
             {shouldShowViewMore && (
               <div className="mt-4">
                 <Link
-                  className="inline-flex items-center justify-center rounded-full bg-red-500 px-6 py-2.5 text-sm font-bold text-white shadow-sm shadow-red-500/25 hover:bg-red-600 transition-colors"
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-900 hover:text-slate-600 transition-colors"
                   href={viewMoreHref as string}
                   aria-label="View more recommendations"
                   data-testid="btn-shortlist-view-more"
                 >
-                  View more
+                  View all recommendations &rarr;
                 </Link>
               </div>
             )}
@@ -524,18 +525,10 @@ export default function ShortlistSection({
 
 /* ---- helpers ---- */
 
-function pickAvatarColor(name: string): string {
-  const palettes = [
-    "bg-red-500",
-    "bg-emerald-500",
-    "bg-amber-500",
-    "bg-sky-500",
-    "bg-violet-500",
-    "bg-pink-500",
-    "bg-teal-500",
-  ];
-  let h = 0;
-  for (let i = 0; i < (name || "").length; i++)
-    h = (h * 31 + name.charCodeAt(i)) >>> 0;
-  return palettes[h % palettes.length];
+/** Score-based colour for the circle: green 70+, amber 40-69, red <40, grey if unknown */
+function scoreColor(score: number | undefined): string {
+  if (typeof score !== "number" || Number.isNaN(score)) return "bg-slate-400";
+  if (score >= 70) return "bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-emerald-500/25";
+  if (score >= 40) return "bg-gradient-to-br from-amber-500 to-amber-600 shadow-amber-500/25";
+  return "bg-gradient-to-br from-red-500 to-red-600 shadow-red-500/25";
 }

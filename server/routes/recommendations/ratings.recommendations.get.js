@@ -3,6 +3,7 @@ module.exports = (router, ctx) => {
   const { auth, admin, extractLocationTokens, mysqlQuery } = ctx;
   const log = ctx.log || console;
   const TAG = "[recommendations.ratings.get]";
+  const { normaliseScore } = require("../../lib/recommendationScoring");
 
   if (!mysqlQuery) {
     throw new Error("mysqlQuery not attached to ctx");
@@ -366,7 +367,7 @@ module.exports = (router, ctx) => {
           likes,
           myLike: r.myLike ? 1 : 0,
           rating: r.rating ?? null,
-          score,
+          score: normaliseScore(score),
           chStatus: ch?.status || null,
           chScore: ch?.score ?? null,
           chCompanyName: ch?.companyName || null,
@@ -555,7 +556,7 @@ module.exports = (router, ctx) => {
 
       log.info?.(`${TAG} single rating computed`, { recId, score });
 
-      return res.json({ item: { recommendationId: recId, score } });
+      return res.json({ item: { recommendationId: recId, score: normaliseScore(score) } });
     }
   );
 };

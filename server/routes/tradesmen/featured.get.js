@@ -8,6 +8,7 @@ module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
   const log = ctx.log || console;
   const TAG = "[tradesmen/featured.get]";
+  const { normaliseScore } = require("../../lib/recommendationScoring");
 
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
@@ -356,7 +357,7 @@ module.exports = (router, ctx) => {
               reviews: Number(r.likes_count || 0),
               stars: HARD_STARS,
             },
-            score: Number(r.vmb_score || 0),
+            score: normaliseScore(Number(r.vmb_score || 0)),
 
             // ❌ OLD: leaked service area outward postcodes
             // location: { outward: firstServiceArea(r.service_areas) },

@@ -132,4 +132,24 @@ function ageInDays(createdAt, now = Date.now()) {
   return days > 0 ? days : 0;
 }
 
-module.exports = { computeScore, ageInDays };
+/**
+ * Normalise a raw score to 0-100 for display.
+ * Raw scores typically range from 0 to ~15. We use a curve that
+ * maps this to 0-100 with diminishing returns at the top, so:
+ *   raw 0   → 0
+ *   raw 2   → ~30
+ *   raw 5   → ~55
+ *   raw 8   → ~72
+ *   raw 12  → ~88
+ *   raw 15  → ~95
+ * This prevents bunching at the top while keeping low scores low.
+ */
+function normaliseScore(raw) {
+  if (!Number.isFinite(raw) || raw <= 0) return 0;
+  // Logarithmic curve: 100 * (1 - e^(-raw/6))
+  // At raw=6, score=63. At raw=12, score=86. At raw=15, score=92.
+  const normalised = Math.round(100 * (1 - Math.exp(-raw / 6)));
+  return Math.min(100, Math.max(0, normalised));
+}
+
+module.exports = { computeScore, ageInDays, normaliseScore };
