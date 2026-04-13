@@ -28,6 +28,7 @@ export default function BuilderProfilePage() {
     setScore,
     scoreErr,
     aggPhones,
+    aggEmails,
     aggPhotos,
     aggReviews,
     aggUpdatedAt,
@@ -152,7 +153,7 @@ export default function BuilderProfilePage() {
                   <BuilderPhotos user={user} galleryImages={galleryImages} photos={aggPhotos} />
                 </div>
                 <div className="space-y-6">
-                  <BuilderContactDetails user={user} phones={aggPhones} />
+                  <BuilderContactDetails user={user} phones={aggPhones} emails={aggEmails} />
                 </div>
               </div>
             </div>

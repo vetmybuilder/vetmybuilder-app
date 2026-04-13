@@ -60,6 +60,7 @@ import {
   getPlanLabel,
   formatMemberSince,
 } from "@/utils/tradesmanProfile";
+import { normalizedCompanyKey, getAggregateVmbForCompany } from "@/utils/vmb";
 import { GoogleRatingChip } from "@/components/GoogleRatingChip";
 
 type TradesmanDetail = {
@@ -109,7 +110,7 @@ function Inner() {
   const [showPortfolio, setShowPortfolio] = useState(true);
   const [sharedImages, setSharedImages] = useState<GalleryImage[]>([]);
   const [sharedLoading, setSharedLoading] = useState(false);
-  const [vmbScore, setVmbScore] = useState<number | null>(null);
+  const [projectScore, setProjectScore] = useState<number | null>(null);
 
   const backHref = useMemo(() => {
     const q: any = router.query || {};
@@ -146,26 +147,37 @@ function Inner() {
     return () => { cancelled = true; };
   }, [router.isReady, id, api]);
 
-  // Fetch VMB aggregate score when viewing from a project context
+  // When viewing from a project context, fetch the same project-specific
+  // trust score the builders page uses — so both pages are consistent.
   useEffect(() => {
-    const pid = Array.isArray(router.query.projectId) ? router.query.projectId[0] : router.query.projectId;
-    if (!pid || !item?.builderId) { setVmbScore(null); return; }
+    const rawPid = Array.isArray(router.query.projectId) ? router.query.projectId[0] : router.query.projectId;
+    const pid = Number(rawPid);
+    const companyName = item?.companyName;
+    if (!Number.isFinite(pid) || !companyName) { setProjectScore(null); return; }
     let cancelled = false;
     (async () => {
       try {
-        const res = await api.get(`/api/projects/${pid}/recommendations?limit=50`);
-        const data = (res as any)?.data ?? res;
-        const recs: any[] = Array.isArray(data?.items) ? data.items : [];
-        const match = recs.find((r: any) => r.tradesmanUserId === item.builderId);
-        if (!cancelled && match && typeof match.score === "number") {
-          setVmbScore(match.score);
-        }
+        const agg = await getAggregateVmbForCompany(
+          async ({ projectId, offset = 0, limit = 250 }) => {
+            const res = await api.get(`/api/recommendations/ratings?projectId=${projectId}&offset=${offset}&limit=${limit}`);
+            const data = (res as any)?.data ?? res;
+            const items = (data?.items || []).map((it: any) => ({
+              id: it.id,
+              company: it.company ?? "",
+              score: it.score,
+            }));
+            return { items, total: Number.isFinite(data?.total) ? data.total : items.length };
+          },
+          pid,
+          companyName,
+        );
+        if (!cancelled && typeof agg === "number" && agg > 0) setProjectScore(agg);
       } catch {
-        // score unavailable — silently ignore
+        // score unavailable
       }
     })();
     return () => { cancelled = true; };
-  }, [item?.builderId, router.query.projectId, api]);
+  }, [item?.companyName, router.query.projectId, api]);
 
   useEffect(() => {
     if (!item?.builderId) { setSharedImages([]); return; }
@@ -317,7 +329,7 @@ function Inner() {
                     {item.badges?.companiesHouseVerified && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-700 px-2 sm:px-3 py-0.5 text-[10px] sm:text-xs font-bold">
                         <ShieldCheck className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-                        CH verified
+                        Verified
                       </span>
                     )}
                     {item.badges?.insuranceValid && (
@@ -338,16 +350,6 @@ function Inner() {
 
                   {/* Stats */}
                   <div className="mt-2 sm:mt-3 flex flex-wrap items-center gap-1.5 sm:gap-2">
-                    {/* VMB score circle — shown when viewing from a project */}
-                    {vmbScore != null && (
-                      <div
-                        className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-white select-none shadow-md font-extrabold text-base ${vmbScoreColor(vmbScore)}`}
-                        title={`VMB score: ${vmbScore}`}
-                        data-testid="tradesman-vmb-score"
-                      >
-                        {vmbScore}
-                      </div>
-                    )}
                     <GoogleRatingChip
                       rating={item.stats?.stars}
                       count={item.stats?.reviews}
@@ -371,9 +373,21 @@ function Inner() {
                       label="Photos"
                       value={item.stats?.photos ?? item.gallery?.length ?? 0}
                     />
+                    {(() => {
+                      const displayScore = projectScore ?? (item.score != null && item.score > 0 ? item.score : null);
+                      if (displayScore == null) return null;
+                      return (
+                        <StatPill
+                          testId="tradesman-vmb-score"
+                          icon={<svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-red-500"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>}
+                          label="Trust score"
+                          value={Math.round(displayScore)}
+                        />
+                      );
+                    })()}
                   </div>
 
-                  {/* Hire button — inline in header when reached from a project */}
+                  {/* Hire button */}
                   {item.builderId && (
                     <div className="mt-3 sm:mt-4">
                       <HireButton
@@ -475,6 +489,7 @@ function Inner() {
                   <LightboxGallery images={galleryImages} cols={3} rounded="rounded-xl" />
                 </section>
               )}
+
             </div>
 
             {/* Right: contact card */}

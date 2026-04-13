@@ -457,23 +457,27 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
 
           <div className="flex flex-wrap gap-2 mb-4">
             {vm.classification.type && (
-              <span className="bg-violet-100 text-violet-700 text-xs font-semibold px-3 py-1 rounded-full">
-                {vm.classification.type}
+              <span className="bg-violet-100 text-violet-700 text-xs px-3 py-1 rounded-full">
+                <span className="font-medium opacity-60">Trade · </span>
+                <span className="font-bold">{vm.classification.type}</span>
               </span>
             )}
             {vm.classification.scope && (
-              <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full">
-                {vm.classification.scope.charAt(0).toUpperCase() + vm.classification.scope.slice(1)} scope
+              <span className="bg-blue-100 text-blue-700 text-xs px-3 py-1 rounded-full">
+                <span className="font-medium opacity-60">Scope · </span>
+                <span className="font-bold">{vm.classification.scope.charAt(0).toUpperCase() + vm.classification.scope.slice(1)}</span>
               </span>
             )}
             {vm.classification.complexity && (
-              <span className="bg-amber-100 text-amber-700 text-xs font-semibold px-3 py-1 rounded-full">
-                {vm.classification.complexity.charAt(0).toUpperCase() + vm.classification.complexity.slice(1)}
+              <span className="bg-amber-100 text-amber-700 text-xs px-3 py-1 rounded-full">
+                <span className="font-medium opacity-60">Complexity · </span>
+                <span className="font-bold">{vm.classification.complexity.charAt(0).toUpperCase() + vm.classification.complexity.slice(1)}</span>
               </span>
             )}
             {vm.classification.urgency && (
-              <span className="bg-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-1 rounded-full">
-                {vm.classification.urgency.charAt(0).toUpperCase() + vm.classification.urgency.slice(1)}
+              <span className="bg-emerald-100 text-emerald-700 text-xs px-3 py-1 rounded-full">
+                <span className="font-medium opacity-60">Timing · </span>
+                <span className="font-bold">{vm.classification.urgency.charAt(0).toUpperCase() + vm.classification.urgency.slice(1)}</span>
               </span>
             )}
           </div>
