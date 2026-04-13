@@ -7,6 +7,7 @@ module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
   const { z } = require("zod");
   const { logger, withRequest } = require("../../lib/logger");
+  const { classifyProject } = require("../../lib/ai/projectClassifier");
 
   // Remove full UK postcode → keep only outward code
   const stripFullPostcodes = (s) => {
@@ -113,6 +114,29 @@ module.exports = (router, ctx) => {
       const rows = await mysqlQuery(`SELECT * FROM projects WHERE id = ?`, [
         id,
       ]);
+
+      // Re-classify on update — fire-and-forget, SSE notifies when done
+      classifyProject({
+        mysqlQuery,
+        projectId: id,
+        description: fields.description,
+        type: fields.type,
+        location: fields.location,
+        propertyType: fields.propertyType,
+        bedrooms: fields.bedrooms,
+        log,
+      }).then((classification) => {
+        if (classification && ctx.broadcastNotification) {
+          ctx.broadcastNotification(req.user.uid, {
+            type: "classification_ready",
+            message: "Project insights updated",
+            projectId: id,
+          });
+        }
+      }).catch((e) => {
+        log.warn?.("[project.put] classifyProject threw", { id, error: e?.message || e });
+      });
+
       res.json({ project: rows[0] || null });
       ctx.logActivity("project.update", "info", req.user.uid, `Project #${id} updated`);
       return;
