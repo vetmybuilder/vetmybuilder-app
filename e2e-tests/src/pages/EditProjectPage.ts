@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
-import Project from "../models/Project";
+import Project, { type FlooringAnswers } from "../models/Project";
 import BasePage from "./BasePage";
 import { ensureEndsWithPeriod } from "../utils/formatters";
 
@@ -348,6 +348,79 @@ export class EditProjectPage extends BasePage {
       await expect(this.preview).toContainText(input.extraNotes);
   }
 
+  // ────────────────────────────────────────────────────────────
+  // Dynamic "About the floor" step (only present for flooring work types)
+  // ────────────────────────────────────────────────────────────
+
+  private flooringGroup() {
+    return this.page.getByTestId("dynamic-group-flooring");
+  }
+
+  async assertFlooringDetails(expected: FlooringAnswers) {
+    const group = this.flooringGroup();
+    await expect(group).toBeVisible();
+
+    // Size — verify the active kind radio and the numeric value input
+    const activeKindRadio = group.getByTestId(
+      `field-flooring-size-kind-${expected.size.kind}`,
+    );
+    await expect(activeKindRadio).toBeChecked();
+
+    await expect(group.getByTestId("field-flooring-size-value")).toHaveValue(
+      String(expected.size.value),
+    );
+
+    await expect(group.getByTestId("field-flooring-floor_type")).toHaveValue(
+      expected.floor_type,
+    );
+
+    const removal = group.getByTestId("field-flooring-removal_required");
+    if (expected.removal_required) {
+      await expect(removal).toBeChecked();
+    } else {
+      await expect(removal).not.toBeChecked();
+    }
+
+    if (expected.removal_required && expected.subfloor_condition) {
+      await expect(
+        group.getByTestId("field-flooring-subfloor_condition"),
+      ).toHaveValue(expected.subfloor_condition);
+    } else {
+      // Conditional field should be hidden when removal isn't required
+      await expect(
+        group.getByTestId("field-flooring-subfloor_condition"),
+      ).toHaveCount(0);
+    }
+  }
+
+  async fillFlooringDetails(answers: FlooringAnswers) {
+    const group = this.flooringGroup();
+    await expect(group).toBeVisible();
+
+    await group
+      .getByTestId(`field-flooring-size-kind-${answers.size.kind}-label`)
+      .click();
+    await group
+      .getByTestId("field-flooring-size-value")
+      .fill(String(answers.size.value));
+
+    await group
+      .getByTestId("field-flooring-floor_type")
+      .selectOption(answers.floor_type);
+
+    const removal = group.getByTestId("field-flooring-removal_required");
+    const currentlyChecked = await removal.isChecked();
+    if (!!answers.removal_required !== currentlyChecked) {
+      await removal.click();
+    }
+
+    if (answers.removal_required && answers.subfloor_condition) {
+      await group
+        .getByTestId("field-flooring-subfloor_condition")
+        .selectOption(answers.subfloor_condition);
+    }
+  }
+
   async assertReviewStep(expected: {
     category: string;
     workTypes: string[];
@@ -395,6 +468,7 @@ export class EditProjectPage extends BasePage {
       materials?: string;
       access?: string;
       extraNotes?: string;
+      flooringAnswers?: FlooringAnswers;
     },
   ) {
     const original = project.toCreateInput();
@@ -430,6 +504,16 @@ export class EditProjectPage extends BasePage {
       await this.selectBedrooms(updates.bedrooms);
     }
     await this.next();
+
+    // Dynamic flooring step — present iff the project model carries flooringAnswers.
+    if (original.flooringAnswers) {
+      await this.waitForStep("About the floor");
+      await this.assertFlooringDetails(original.flooringAnswers);
+      if (updates.flooringAnswers) {
+        await this.fillFlooringDetails(updates.flooringAnswers);
+      }
+      await this.next();
+    }
 
     await this.waitForStep("Brief description");
     if (original.extraNotes) {

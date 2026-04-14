@@ -1,5 +1,8 @@
 import { Page, Locator, expect } from "@playwright/test";
-import type { ProjectCreateInput as CreateProjectInput } from "../models/Project";
+import type {
+  ProjectCreateInput as CreateProjectInput,
+  FlooringAnswers,
+} from "../models/Project";
 import { escapeRegExp, ensureEndsWithPeriod } from "../utils/formatters";
 
 export class CreateProjectPage {
@@ -32,9 +35,6 @@ export class CreateProjectPage {
 
     this.mobileMenuButton = page.getByTestId("btn-mobile-menu");
     this.desktopPostJob = page.getByTestId("btn-post-job-header");
-    // Scoped to the mobile menu's testid — getByRole("button", { name: "Post
-    // a Job" }) was too broad and collided with the projects-empty CTA when
-    // the homeowner had no projects yet.
     this.mobilePostJob = page.getByTestId("mobile-menu-post-job");
 
     this.categorySelect = page.getByTestId("field-category");
@@ -99,6 +99,14 @@ export class CreateProjectPage {
     await this.selectBedrooms(input.bedrooms);
     await this.next();
 
+    // Dynamic "About the floor" step only appears for flooring-like work types.
+    // Callers signal this by attaching flooringAnswers to the input.
+    if (input.flooringAnswers) {
+      await this.waitForStep("About the floor");
+      await this.fillFlooringDetails(input.flooringAnswers);
+      await this.next();
+    }
+
     await this.waitForStep("Brief description");
     await this.fillDescriptionStep(input);
     await this.next();
@@ -107,15 +115,14 @@ export class CreateProjectPage {
     await this.assertReviewStep(input);
 
     await this.createBtn.click();
+ 
     await this.page.waitForURL(
-      (url) => {
-        const path = url.pathname;
-        return path.startsWith("/projects/") && path.split("/").length === 3;
-      },
+      (url) => /^\/projects\/\d+\/?$/.test(url.pathname),
       { timeout: 30_000 },
     );
 
-    const projectId = this.page.url().split("/").pop() as string;
+    const { pathname } = new URL(this.page.url());
+    const projectId = pathname.split("/").filter(Boolean).pop() as string;
 
     return projectId;
   }
@@ -158,12 +165,32 @@ export class CreateProjectPage {
     await this.page.getByRole("option", { name: target }).first().click();
   }
 
+  // The UI's dropdown options mix hyphens and en-dashes (see
+  // web/components/forms/DescriptionBuilder.tsx). These helpers let specs
+  // use the "natural" hyphen form and the page object translates to the
+  // exact label the UI renders. Mirrors EditProjectPage.
+  private normalizeTimeframeLabel(label: string) {
+    if (label === "Soon (2-4 weeks)") return "Soon (2–4 weeks)";
+    if (label === "This quarter (1-3 months)")
+      return "This quarter (1–3 months)";
+    return label;
+  }
+
+  private normalizeBudgetLabel(label: string) {
+    if (label === "£5k-£15k") return "£5k–£15k";
+    if (label === "£15k-£30k") return "£15k–£30k";
+    return label;
+  }
+
   private async fillDescriptionStep(input: CreateProjectInput) {
+    const timeframeLabel = this.normalizeTimeframeLabel(input.timeframe);
+    const budgetLabel = this.normalizeBudgetLabel(input.budget);
+
     await this.timeframeBtn.click();
-    await this.page.getByRole("option", { name: input.timeframe }).click();
+    await this.page.getByRole("option", { name: timeframeLabel }).click();
 
     await this.budgetBtn.click();
-    await this.page.getByRole("option", { name: input.budget }).click();
+    await this.page.getByRole("option", { name: budgetLabel }).click();
 
     await this.materialsBtn.click();
     await this.page.getByRole("option", { name: input.materials }).click();
@@ -181,10 +208,10 @@ export class CreateProjectPage {
     await expect(this.preview).toBeVisible();
 
     await expect(this.preview).toContainText(
-      `Timeframe: ${ensureEndsWithPeriod(input.timeframe)}`,
+      `Timeframe: ${ensureEndsWithPeriod(timeframeLabel)}`,
     );
     await expect(this.preview).toContainText(
-      `Budget: ${ensureEndsWithPeriod(input.budget)}`,
+      `Budget: ${ensureEndsWithPeriod(budgetLabel)}`,
     );
     await expect(this.preview).toContainText(
       `Materials: ${ensureEndsWithPeriod(input.materials)}`,
@@ -195,6 +222,38 @@ export class CreateProjectPage {
 
     if (input.extraNotes) {
       await expect(this.preview).toContainText(input.extraNotes);
+    }
+  }
+
+  async fillFlooringDetails(answers: FlooringAnswers) {
+    const group = this.page.getByTestId("dynamic-group-flooring");
+    await expect(group).toBeVisible();
+
+    // Size (either field): click the visible label for m² or rooms, then type the value
+    const sizeBase = "field-flooring-size";
+    await group
+      .getByTestId(`${sizeBase}-kind-${answers.size.kind}-label`)
+      .click();
+    const sizeValue = group.getByTestId(`${sizeBase}-value`);
+    await sizeValue.fill(String(answers.size.value));
+
+    // Floor type (select)
+    await group
+      .getByTestId("field-flooring-floor_type")
+      .selectOption(answers.floor_type);
+
+    // Removal
+    const removalCheckbox = group.getByTestId("field-flooring-removal_required");
+    const currentlyChecked = await removalCheckbox.isChecked();
+    if (!!answers.removal_required !== currentlyChecked) {
+      await removalCheckbox.click();
+    }
+
+    // Subfloor (conditional select, only when removal is required)
+    if (answers.removal_required && answers.subfloor_condition) {
+      await group
+        .getByTestId("field-flooring-subfloor_condition")
+        .selectOption(answers.subfloor_condition);
     }
   }
 
@@ -212,10 +271,10 @@ export class CreateProjectPage {
     await expect(review).toContainText(String(input.bedrooms));
 
     await expect(review).toContainText(
-      `Timeframe: ${ensureEndsWithPeriod(input.timeframe)}`,
+      `Timeframe: ${ensureEndsWithPeriod(this.normalizeTimeframeLabel(input.timeframe))}`,
     );
     await expect(review).toContainText(
-      `Budget: ${ensureEndsWithPeriod(input.budget)}`,
+      `Budget: ${ensureEndsWithPeriod(this.normalizeBudgetLabel(input.budget))}`,
     );
     await expect(review).toContainText(
       `Materials: ${ensureEndsWithPeriod(input.materials)}`,

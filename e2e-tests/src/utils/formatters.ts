@@ -29,3 +29,21 @@ export function stripFullUkPostcodes(input: string): string {
     String(outward).toUpperCase(),
   );
 }
+
+/**
+ * MySQL returns JSON columns either as a parsed object (when the mysql2
+ * driver option is enabled) or as a string. Tests/API helpers should be
+ * tolerant of either shape.
+ */
+export function parseAnswersJson(raw: unknown): Record<string, any> | null {
+  if (raw == null) return null;
+  if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  if (typeof raw === "object") return raw as Record<string, any>;
+  return null;
+}

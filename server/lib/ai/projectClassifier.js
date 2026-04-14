@@ -312,4 +312,10 @@ module.exports = {
   classifyProject,
   CLASSIFIER_VERSION,
   FEATURE,
+  // Exposed for unit testing — not part of the public API. Do not import
+  // these from other server modules.
+  _internal: {
+    buildUserPrompt,
+    flattenAnswersForPrompt,
+  },
 };

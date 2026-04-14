@@ -200,6 +200,9 @@ function FieldRenderer({
           {field.branches.map((branch) => (
             <label
               key={branch.key}
+              // Label is the visible click target — radio input is sr-only.
+              // Tests target this testid so clicks land on the interactable element.
+              data-testid={`${testIdBase}-kind-${branch.key}-label`}
               className={`inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs cursor-pointer ${
                 activeKind === branch.key
                   ? "border-red-400 bg-red-50 text-red-700"
