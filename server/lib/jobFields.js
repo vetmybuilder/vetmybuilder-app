@@ -4,7 +4,62 @@
 // _FILE_VERSION must match the TS file — server logs a warning on startup
 // if they drift (see checkJobFieldsMirror below).
 
-const _FILE_VERSION = 2;
+const _FILE_VERSION = 3;
+
+// ──────────────────────────────────────────────────────────────────
+// Flooring price model — mirror of web/config/jobFields.ts.
+// Not executed server-side today, but kept in sync so future
+// matching/ranking features can consume it without a separate file.
+// ──────────────────────────────────────────────────────────────────
+const FLOORING_RATES = {
+  carpet:           { labour: [8, 12],  material: [10, 30]  },
+  laminate:         { labour: [15, 25], material: [15, 40]  },
+  lvt:              { labour: [20, 35], material: [25, 60]  },
+  engineered_wood:  { labour: [25, 40], material: [40, 90]  },
+  solid_wood:       { labour: [30, 50], material: [50, 150] },
+  tile:             { labour: [40, 60], material: [20, 80]  },
+};
+
+const AVG_ROOM_M2 = 16;
+
+function roundToFifty(n, dir) {
+  const f = dir === "down" ? Math.floor : Math.ceil;
+  return Math.max(0, f(n / 50) * 50);
+}
+
+function flooringPriceModel(answers) {
+  const f = answers && answers.flooring;
+  if (!f || typeof f !== "object") return null;
+
+  let m2 = null;
+  if (f.size && typeof f.size === "object") {
+    const v = Number(f.size.value);
+    if (Number.isFinite(v) && v > 0) {
+      m2 = f.size.kind === "rooms" ? v * AVG_ROOM_M2 : v;
+    }
+  }
+  if (m2 == null || m2 <= 0) return null;
+
+  const rates = FLOORING_RATES[String(f.floor_type || "")];
+  if (!rates) return null;
+
+  let minPerM2 = rates.labour[0] + rates.material[0];
+  let maxPerM2 = rates.labour[1] + rates.material[1];
+
+  if (f.removal_required === true) {
+    minPerM2 += 5;
+    maxPerM2 += 15;
+  }
+  if (f.subfloor_condition === "needs_levelling") {
+    minPerM2 += 15;
+    maxPerM2 += 30;
+  }
+
+  return {
+    min: roundToFifty(minPerM2 * m2, "down"),
+    max: roundToFifty(maxPerM2 * m2, "up"),
+  };
+}
 
 const FLOORING_WORK_TYPES = [
   "Carpet Fitting",
@@ -35,6 +90,7 @@ const JOB_FIELDS = [
     id: "flooring",
     label: "Flooring",
     workTypes: FLOORING_WORK_TYPES,
+    priceModel: flooringPriceModel,
     groups: [
       {
         id: "flooring",

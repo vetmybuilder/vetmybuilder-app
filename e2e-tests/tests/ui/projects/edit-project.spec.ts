@@ -210,4 +210,71 @@ test.describe("Homeowner projects", () => {
 
     await projectApi.hasAnswers(projectId, edited);
   });
+
+  test("price-range badge updates when flooring answers change", async ({
+    projectApi,
+    projectDetailsPage,
+    editProjectPage,
+  }) => {
+    // Start with a big engineered-wood job — produces a high range.
+    const project = Project.aProject()
+      .withRandomDetails({
+        category: "Flooring",
+        workTypes: ["Carpet Fitting"],
+      })
+      .withFlooringAnswers({
+        size: { kind: "m2", value: 50 },
+        floor_type: "engineered_wood",
+      });
+
+    const created = await projectApi.createProject(project.toApiPayload());
+
+    await projectDetailsPage.visit(created.id);
+    // 50 m² engineered wood: (25+40)–(40+90) × 50 = 3,250–6,500
+    await projectDetailsPage.hasPriceRangeBadge({ min: 3250, max: 6500 });
+
+    // Edit to a much cheaper setup: same area but carpet, no extras.
+    await projectDetailsPage.editProject();
+    await editProjectPage.editProjectDetails(project, {
+      flooringAnswers: {
+        size: { kind: "m2", value: 50 },
+        floor_type: "carpet",
+      },
+    });
+
+    // 50 m² carpet: (8+10)–(12+30) × 50 = 900–2,100
+    await projectDetailsPage.hasPriceRangeBadge({ min: 900, max: 2100 });
+  });
+
+  test("price-range badge disappears when the work type is edited to a non-flooring type", async ({
+    projectApi,
+    projectDetailsPage,
+    editProjectPage,
+  }) => {
+    const project = Project.aProject()
+      .withRandomDetails({
+        category: "Flooring",
+        workTypes: ["Carpet Fitting"],
+      })
+      .withFlooringAnswers({
+        size: { kind: "m2", value: 30 },
+        floor_type: "laminate",
+      });
+
+    const created = await projectApi.createProject(project.toApiPayload());
+
+    await projectDetailsPage.visit(created.id);
+    await projectDetailsPage.hasPriceRangeBadge();
+
+    // Switch both category and work type to a non-flooring option. The
+    // edit wizard will drop the flooring step entirely; on save the server
+    // clears answers_json and the badge should no longer render.
+    await projectDetailsPage.editProject();
+    await editProjectPage.editProjectDetails(project, {
+      category: "Appliances",
+      workTypes: ["Tumble Dryer Installation"],
+    });
+
+    await projectDetailsPage.hasNoPriceRangeBadge();
+  });
 });

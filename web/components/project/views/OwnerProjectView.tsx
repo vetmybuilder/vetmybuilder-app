@@ -18,6 +18,8 @@ import { useRouter } from "next/router";
 import GetRecommendationsModal, {
   GetRecommendationsChannel,
 } from "@/components/project/GetRecommendationsModal";
+import PriceRangeBadge from "@/components/project/PriceRangeBadge";
+import { hasVisiblePriceRange } from "@/utils/projectPricing";
 import {
   buildDefaultInviteMessage,
   openWhatsAppShare,
@@ -483,12 +485,19 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
           </div>
 
           <div className="grid gap-3 text-sm sm:text-sm">
-            {vm.classification.price_band_estimate && (
-              <div className="flex gap-2">
-                <span className="text-xs sm:text-[11px] font-bold text-zinc-400 uppercase tracking-wide min-w-[90px] pt-0.5">Est. budget</span>
-                <span className="text-base sm:text-sm text-zinc-700 font-semibold">{vm.classification.price_band_estimate}</span>
-              </div>
-            )}
+            {/* Hide the classifier's freeform budget estimate when the
+                deterministic PriceRangeBadge is going to render — users
+                should only see one price figure per project. */}
+            {vm.classification.price_band_estimate &&
+              !hasVisiblePriceRange(
+                (project as any)?.type,
+                (project as any)?.answers_json,
+              ) && (
+                <div className="flex gap-2">
+                  <span className="text-xs sm:text-[11px] font-bold text-zinc-400 uppercase tracking-wide min-w-[90px] pt-0.5">Est. budget</span>
+                  <span className="text-base sm:text-sm text-zinc-700 font-semibold">{vm.classification.price_band_estimate}</span>
+                </div>
+              )}
             {vm.classification.recommended_trades?.length > 0 && (
               <div className="flex gap-2">
                 <span className="text-xs sm:text-[11px] font-bold text-zinc-400 uppercase tracking-wide min-w-[90px] pt-0.5">Trades</span>
@@ -508,6 +517,11 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
               </div>
             )}
           </div>
+
+          <PriceRangeBadge
+            workType={(project as any)?.type}
+            answers={(project as any)?.answers_json}
+          />
         </div>
       )}
 

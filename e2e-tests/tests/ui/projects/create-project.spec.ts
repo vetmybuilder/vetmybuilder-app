@@ -85,6 +85,10 @@ test.describe("Homeowner projects", () => {
     });
 
     await projectApi.hasAnswers(projectId, project);
+    // 40 m² engineered wood + removal + needs_levelling
+    //   labour (25+5+15)–(40+15+30) = 45–85 + material 40–90
+    //   → per-m² 85–175 × 40 = 3,400–7,000
+    await projectDetailsPage.hasPriceRangeBadge({ min: 3400, max: 7000 });
   });
 
   test("creating a Bathroom Flooring project (cross-category) captures the structured answers", async ({

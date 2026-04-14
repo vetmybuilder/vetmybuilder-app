@@ -2,6 +2,7 @@ import * as React from "react";
 import { useRouter } from "next/router";
 import ProjectDetailsCard from "@/components/project/ProjectDetailsCard";
 import ContactDetailsCard from "@/components/project/ContactDetailsCard";
+import PriceRangeBadge from "@/components/project/PriceRangeBadge";
 
 type VM = ReturnType<typeof import("./useProjectView").useProjectView>;
 
@@ -102,6 +103,11 @@ export default function TradesmanProjectView({ vm }: { vm: VM }) {
               </div>
             )}
           </div>
+
+          <PriceRangeBadge
+            workType={(project as any)?.type}
+            answers={(project as any)?.answers_json}
+          />
         </div>
       )}
 

@@ -9,7 +9,7 @@
 // apply whether the homeowner filed the job under "Flooring", "Bathroom"
 // (Bathroom Flooring), "Kitchen" (Kitchen Flooring), etc.
 
-export const _FILE_VERSION = 2;
+export const _FILE_VERSION = 3;
 
 export type FieldKind = "number" | "select" | "boolean" | "either";
 
@@ -56,12 +56,31 @@ export type FieldGroup = {
   fields: Field[];
 };
 
+/** Typical cost range in GBP produced by a spec's priceModel. */
+export type PriceRange = { min: number; max: number };
+
+/**
+ * Optional deterministic price-range estimator per spec. Runs client-side
+ * against the homeowner's own answers. Return `null` when we can't produce
+ * a meaningful range (missing required inputs).
+ *
+ * Explicitly typed as `any` for answers because the authoritative shape is
+ * the spec itself — implementations should narrow as they consume fields.
+ */
+export type PriceModel = (answers: AnswersShape) => PriceRange | null;
+
 /** A set of structured questions triggered by one of a list of work types. */
 export type Spec = {
   id: string;           // stable identifier, e.g. "flooring"
   label: string;        // human label for debugging / logs
   workTypes: string[];  // a project's primary work type must match one of these
   groups: FieldGroup[];
+  /**
+   * Returns a typical cost range from the homeowner's structured answers.
+   * Deliberately a *range*, not a point estimate — we never want this to
+   * read as a quote.
+   */
+  priceModel?: PriceModel;
 };
 
 // Answer shape is intentionally loose — the authoritative shape is the config.
@@ -72,6 +91,70 @@ export type AnswersShape = Record<string, any>;
 
 // Backward-compat alias — older code still imports CategorySpec.
 export type CategorySpec = Spec;
+
+// ──────────────────────────────────────────────────────────────────
+// Flooring price model
+// ──────────────────────────────────────────────────────────────────
+// Rough UK retail ranges. Treat as ballpark — not a quote. Refine these
+// as you gather real builder quotes / look at completed-project data.
+const FLOORING_RATES: Record<
+  string,
+  { labour: [number, number]; material: [number, number] }
+> = {
+  carpet:           { labour: [8, 12],  material: [10, 30]  },
+  laminate:         { labour: [15, 25], material: [15, 40]  },
+  lvt:              { labour: [20, 35], material: [25, 60]  },
+  engineered_wood:  { labour: [25, 40], material: [40, 90]  },
+  solid_wood:       { labour: [30, 50], material: [50, 150] },
+  tile:             { labour: [40, 60], material: [20, 80]  },
+};
+
+/** m² per room when the user picked "rooms" instead of m² — conservative UK avg. */
+const AVG_ROOM_M2 = 16;
+
+/** Round both ends of a range outwards to the nearest £50 so totals read cleanly. */
+function roundToFifty(n: number, dir: "down" | "up"): number {
+  const f = dir === "down" ? Math.floor : Math.ceil;
+  return Math.max(0, f(n / 50) * 50);
+}
+
+const flooringPriceModel: PriceModel = (answers) => {
+  const f = answers?.flooring;
+  if (!f || typeof f !== "object") return null;
+
+  // Resolve area in m². Either the user entered m² directly, or rooms → convert.
+  let m2: number | null = null;
+  if (f.size && typeof f.size === "object") {
+    const v = Number(f.size.value);
+    if (Number.isFinite(v) && v > 0) {
+      m2 = f.size.kind === "rooms" ? v * AVG_ROOM_M2 : v;
+    }
+  }
+  if (m2 == null || m2 <= 0) return null;
+
+  const rates = FLOORING_RATES[String(f.floor_type || "")];
+  if (!rates) return null;
+
+  let minPerM2 = rates.labour[0] + rates.material[0];
+  let maxPerM2 = rates.labour[1] + rates.material[1];
+
+  // Removal surcharge
+  if (f.removal_required === true) {
+    minPerM2 += 5;
+    maxPerM2 += 15;
+  }
+
+  // Subfloor levelling surcharge (only meaningful if removal required)
+  if (f.subfloor_condition === "needs_levelling") {
+    minPerM2 += 15;
+    maxPerM2 += 30;
+  }
+
+  return {
+    min: roundToFifty(minPerM2 * m2, "down"),
+    max: roundToFifty(maxPerM2 * m2, "up"),
+  };
+};
 
 const FLOORING_WORK_TYPES = [
   // Flooring category
@@ -106,6 +189,7 @@ export const JOB_FIELDS: Spec[] = [
     id: "flooring",
     label: "Flooring",
     workTypes: FLOORING_WORK_TYPES,
+    priceModel: flooringPriceModel,
     groups: [
       {
         id: "flooring",

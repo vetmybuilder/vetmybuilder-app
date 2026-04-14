@@ -316,6 +316,40 @@ export class ProjectDetailsPage extends BasePage {
     );
   }
 
+  /**
+   * Asserts the "Typical cost range" badge renders. Pass `expected` to also
+   * verify the exact min/max (useful when editing should change the range).
+   *
+   * The badge sits inside the Project Insights card, which only appears
+   * after the async classifier finishes — allow a generous timeout so
+   * the test isn't flaky in CI.
+   */
+  async hasPriceRangeBadge(expected?: { min: number; max: number }) {
+    const badge = this.page.getByTestId("price-range-badge");
+    await expect(badge).toBeVisible({ timeout: 15_000 });
+    await expect(badge).toContainText("Typical cost range");
+    await expect(badge).toContainText(/ballpark, not a quote/i);
+
+    const value = this.page.getByTestId("price-range-value");
+    if (expected) {
+      const format = (n: number) => `£${n.toLocaleString("en-GB")}`;
+      await expect(value).toHaveText(
+        `${format(expected.min)}–${format(expected.max)}`,
+      );
+    } else {
+      await expect(value).toContainText(/£\d[\d,]*–£\d[\d,]*/);
+    }
+  }
+
+  /**
+   * Asserts the Project Insights card does NOT contain a price-range badge.
+   * Used to verify the badge disappears when the project's work type no
+   * longer matches a spec (e.g. after editing from Flooring to Appliances).
+   */
+  async hasNoPriceRangeBadge() {
+    await expect(this.page.getByTestId("price-range-badge")).toHaveCount(0);
+  }
+
   async publish(options?: PublishOptions) {
     await expect(this.shareAndPublish).toBeVisible();
     await this.shareAndPublish.click();
