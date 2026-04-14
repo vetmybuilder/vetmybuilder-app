@@ -409,13 +409,16 @@ export default function NewProject() {
                     key={s.key}
                     role="region"
                     aria-labelledby={titleId}
-                    className="w-full shrink-0 px-6 py-6 sm:px-10 sm:py-10"
+                    className="w-full shrink-0 px-6 py-6 sm:px-10 sm:py-10 min-h-[28rem] sm:min-h-[32rem]"
                   >
-                    <h2 id={titleId} className="text-xl font-black text-zinc-900">
+                    <h2
+                      id={titleId}
+                      className="max-w-3xl mx-auto text-xl font-black text-zinc-900"
+                    >
                       {s.title}
                     </h2>
 
-                    <div className="mt-5 grid max-w-3xl gap-4">
+                    <div className="mt-5 grid max-w-3xl mx-auto gap-4">
                       {/* Category */}
                       {s.key === "category" && (
                         <SearchableSelect
@@ -616,14 +619,17 @@ export default function NewProject() {
                     </div>
 
                     {err && idx === step && (
-                      <p className="mt-3 text-sm text-red-500 font-medium" role="alert">
+                      <p
+                        className="mt-3 max-w-3xl mx-auto text-sm text-red-500 font-medium"
+                        role="alert"
+                      >
                         {err}
                       </p>
                     )}
 
                     {/* Navigation buttons – only from step 1 onwards */}
                     {idx === step && step > 0 && (
-                      <div className="mt-10 flex items-center justify-center gap-4">
+                      <div className="mt-10 flex max-w-3xl mx-auto items-center justify-center gap-4">
                         <button
                           type="button"
                           onClick={back}

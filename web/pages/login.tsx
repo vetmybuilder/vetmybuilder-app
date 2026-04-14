@@ -215,7 +215,9 @@ export default function Login() {
                 </p>
               </div>
 
-              {!isAdminFlow && !isVendorFlow && (
+              {/* OAuth buttons: shown for homeowners AND tradespeople,
+                  hidden for admin flow (admins sign in via password only). */}
+              {!isAdminFlow && (
                 <>
                   <div className="grid gap-3">
                     <OAuthSignInButton

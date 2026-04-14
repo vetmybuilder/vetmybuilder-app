@@ -125,6 +125,40 @@ test.describe("Homeowner projects", () => {
     await projectApi.hasAnswers(projectId, project);
   });
 
+  test("creating an Insulation project captures the structured answers and shows a cost range", async ({
+    createProjectPage,
+    projectDetailsPage,
+    projectApi,
+  }, testInfo) => {
+    const isMobile = testInfo.project.name.startsWith("ui-mobile-");
+    test.setTimeout(isMobile ? 240_000 : 180_000);
+
+    const project = Project.aProject()
+      .withRandomDetails({
+        category: "Insulation",
+        workTypes: ["Loft Insulation"],
+        locationQuery: "E4",
+        locationPick: "E4 0BQ",
+        propertyType: "Detached",
+        bedrooms: 3,
+        timeframe: "Urgent (1-2 weeks)",
+        budget: "£5k-£15k",
+        materials: "Supplied by tradesman",
+        access: "Easy access",
+        extraNotes: "Upgrading loft insulation to meet current standards.",
+      })
+      .withInsulationAnswers({ area_m2: 60, current_state: "thin" });
+
+    const projectId = await createProjectPage.createProject(
+      project.toCreateInput(),
+      isMobile,
+    );
+
+    await projectApi.hasAnswers(projectId, project);
+    // 60 m² loft @ £15-£30/m² = £900–£1,800
+    await projectDetailsPage.hasPriceRangeBadge({ min: 900, max: 1800 });
+  });
+
   test("a non-flooring work type skips the dynamic step and stores no answers", async ({
     createProjectPage,
     projectApi,

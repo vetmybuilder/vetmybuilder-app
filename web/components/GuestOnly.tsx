@@ -27,6 +27,16 @@ export default function GuestOnly({
     // in — a visible flash.
     if (profileComplete === null) return;
 
+    // Users on the tradesman area (register, login) are in the middle of
+    // a vendor signup flow — they legitimately have no homeowner profile
+    // AND their role check may still say "user" (the tradesman profile
+    // hasn't been created yet). The tradesman page owns its own
+    // navigation — GuestOnly must not race it.
+    const onTradesmanArea =
+      typeof window !== "undefined" &&
+      window.location.pathname.startsWith("/tradesman/");
+    if (onTradesmanArea) return;
+
     // Mid-signup users (Firebase-authed but no homeowner profile yet) go
     // straight to the post-OAuth completion page.
     if (profileComplete === false) {

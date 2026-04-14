@@ -22,7 +22,22 @@ describe("jobFields.getSpecForSelection", () => {
     expect(getSpecForSelection(["Kitchen Flooring"])?.id).toBe("flooring");
   });
 
-  it("returns null for a non-flooring work type", () => {
+  it("returns the insulation spec for an Insulation-category work type", () => {
+    expect(getSpecForSelection(["Loft Insulation"])?.id).toBe("insulation");
+    expect(getSpecForSelection(["Cavity Wall Insulation"])?.id).toBe(
+      "insulation",
+    );
+  });
+
+  it("returns the insulation spec for cross-category insulation work types", () => {
+    // Bedroom Insulation Upgrade is under Bedroom; Roof Insulation under Roofing.
+    expect(getSpecForSelection(["Bedroom Insulation Upgrade"])?.id).toBe(
+      "insulation",
+    );
+    expect(getSpecForSelection(["Roof Insulation"])?.id).toBe("insulation");
+  });
+
+  it("returns null for a work type that doesn't match any spec", () => {
     expect(getSpecForSelection(["Tumble Dryer Installation"])).toBeNull();
     expect(getSpecForSelection(["Wet Room Installation"])).toBeNull();
   });
@@ -31,6 +46,9 @@ describe("jobFields.getSpecForSelection", () => {
     expect(
       getSpecForSelection(["Unknown Work", "Bathroom Flooring"])?.id,
     ).toBe("flooring");
+    expect(
+      getSpecForSelection(["Unknown Work", "Loft Insulation"])?.id,
+    ).toBe("insulation");
   });
 
   it("returns null for empty / null / undefined input", () => {
@@ -120,5 +138,46 @@ describe("jobFields.validateAnswers", () => {
     expect(
       validateAnswers({ _version: 1, unknown_group: { foo: "bar" } }),
     ).toEqual({ ok: true });
+  });
+
+  // ── insulation spec ─────────────────────────────────────
+
+  it("accepts a valid insulation answers object", () => {
+    expect(
+      validateAnswers({
+        _version: 1,
+        insulation: { area_m2: 60, current_state: "none" },
+      }),
+    ).toEqual({ ok: true });
+  });
+
+  it("accepts an empty insulation object (all fields are optional)", () => {
+    expect(
+      validateAnswers({ _version: 1, insulation: {} }),
+    ).toEqual({ ok: true });
+  });
+
+  it("rejects an invalid insulation current_state value", () => {
+    const r = validateAnswers({
+      _version: 1,
+      insulation: { current_state: "bogus" },
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors[0].path).toBe("insulation.current_state");
+      expect(r.errors[0].message).toMatch(/must be one of/);
+    }
+  });
+
+  it("rejects a non-numeric insulation area_m2", () => {
+    const r = validateAnswers({
+      _version: 1,
+      insulation: { area_m2: "sixty" },
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors[0].path).toBe("insulation.area_m2");
+      expect(r.errors[0].message).toMatch(/number/);
+    }
   });
 });

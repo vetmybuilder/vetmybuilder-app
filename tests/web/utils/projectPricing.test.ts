@@ -1,15 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 
-// Hoisted mock — each test sets the flag it needs.
-vi.mock("../../../web/utils/featureFlags", () => ({
-  isProjectPriceRangeEnabled: vi.fn(() => true),
-}));
-
-import {
-  computeProjectPriceRange,
-  hasVisiblePriceRange,
-} from "../../../web/utils/projectPricing";
-import { isProjectPriceRangeEnabled } from "../../../web/utils/featureFlags";
+import { computeProjectPriceRange } from "../../../web/utils/projectPricing";
 
 const flooringAnswers = {
   _version: 1,
@@ -58,42 +49,28 @@ describe("computeProjectPriceRange", () => {
       }),
     ).toBeNull();
   });
+});
 
-  // The flag MUST NOT gate computeProjectPriceRange — that's the whole
-  // reason hasVisiblePriceRange exists as a separate predicate.
-  it("does NOT gate on the feature flag", () => {
-    (isProjectPriceRangeEnabled as any).mockReturnValue(false);
-    const range = computeProjectPriceRange("Carpet Fitting", flooringAnswers);
+describe("computeProjectPriceRange — insulation (requires context.workType)", () => {
+  it("returns a range for Loft Insulation with area", () => {
+    const range = computeProjectPriceRange("Loft Insulation", {
+      _version: 1,
+      insulation: { area_m2: 40 },
+    });
     expect(range).not.toBeNull();
-  });
-});
-
-describe("hasVisiblePriceRange", () => {
-  beforeEach(() => {
-    (isProjectPriceRangeEnabled as any).mockReturnValue(true);
+    expect(range!.min).toBeLessThanOrEqual(range!.max);
   });
 
-  it("is true when flag is on and a range is computable", () => {
-    expect(hasVisiblePriceRange("Carpet Fitting", flooringAnswers)).toBe(true);
-  });
-
-  it("is false when the feature flag is off", () => {
-    (isProjectPriceRangeEnabled as any).mockReturnValue(false);
-    expect(hasVisiblePriceRange("Carpet Fitting", flooringAnswers)).toBe(false);
-  });
-
-  it("is false for a non-spec work type", () => {
+  it("returns null for an ambiguous insulation work type", () => {
+    // Garage Insulation is one of the spec's workTypes but has no
+    // deterministic rate mapping — computeProjectPriceRange should return
+    // null so the AI's fallback estimate keeps rendering.
     expect(
-      hasVisiblePriceRange("Tumble Dryer Installation", flooringAnswers),
-    ).toBe(false);
-  });
-
-  it("is false when answers don't produce a range", () => {
-    expect(
-      hasVisiblePriceRange("Carpet Fitting", {
+      computeProjectPriceRange("Garage Insulation", {
         _version: 1,
-        flooring: { floor_type: "carpet" },
+        insulation: { area_m2: 40 },
       }),
-    ).toBe(false);
+    ).toBeNull();
   });
 });
+

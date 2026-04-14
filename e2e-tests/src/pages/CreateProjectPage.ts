@@ -2,6 +2,7 @@ import { Page, Locator, expect } from "@playwright/test";
 import type {
   ProjectCreateInput as CreateProjectInput,
   FlooringAnswers,
+  InsulationAnswers,
 } from "../models/Project";
 import { escapeRegExp, ensureEndsWithPeriod } from "../utils/formatters";
 
@@ -99,11 +100,17 @@ export class CreateProjectPage {
     await this.selectBedrooms(input.bedrooms);
     await this.next();
 
-    // Dynamic "About the floor" step only appears for flooring-like work types.
-    // Callers signal this by attaching flooringAnswers to the input.
+    // Dynamic step — only appears when the work type triggers a spec.
+    // The step title comes from the spec's first group. Callers signal
+    // which spec is in play by attaching the matching *Answers field
+    // to their input.
     if (input.flooringAnswers) {
       await this.waitForStep("About the floor");
       await this.fillFlooringDetails(input.flooringAnswers);
+      await this.next();
+    } else if (input.insulationAnswers) {
+      await this.waitForStep("About the insulation job");
+      await this.fillInsulationDetails(input.insulationAnswers);
       await this.next();
     }
 
@@ -254,6 +261,27 @@ export class CreateProjectPage {
       await group
         .getByTestId("field-flooring-subfloor_condition")
         .selectOption(answers.subfloor_condition);
+    }
+  }
+
+  /**
+   * Drive the dynamic "About the insulation job" step that appears for
+   * insulation work types (see web/config/jobFields.ts).
+   */
+  async fillInsulationDetails(answers: InsulationAnswers) {
+    const group = this.page.getByTestId("dynamic-group-insulation");
+    await expect(group).toBeVisible();
+
+    if (typeof answers.area_m2 === "number") {
+      await group
+        .getByTestId("field-insulation-area_m2")
+        .fill(String(answers.area_m2));
+    }
+
+    if (answers.current_state) {
+      await group
+        .getByTestId("field-insulation-current_state")
+        .selectOption(answers.current_state);
     }
   }
 

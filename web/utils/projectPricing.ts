@@ -9,7 +9,6 @@ import {
   getSpecForSelection,
   type PriceRange,
 } from "@/config/jobFields";
-import { isProjectPriceRangeEnabled } from "./featureFlags";
 
 function parseAnswersJson(raw: unknown): Record<string, any> | null {
   if (raw == null) return null;
@@ -31,8 +30,8 @@ function parseAnswersJson(raw: unknown): Record<string, any> | null {
  * - the priceModel can't produce a range from the given answers
  *   (e.g. required input missing).
  *
- * This function does NOT check the feature flag — use
- * `hasVisiblePriceRange` for "would this actually render on screen" checks.
+ * This function does NOT check the feature flag — the PriceRangeBadge
+ * component applies that gate itself.
  */
 export function computeProjectPriceRange(
   workType?: string | null,
@@ -43,18 +42,5 @@ export function computeProjectPriceRange(
   if (!spec?.priceModel) return null;
   const parsed = parseAnswersJson(answers);
   if (!parsed) return null;
-  return spec.priceModel(parsed);
-}
-
-/**
- * Whether the deterministic price-range badge will render on the project
- * page for these inputs. When true, views should hide the classifier's
- * freeform `price_band_estimate` line so the user sees one clear estimate.
- */
-export function hasVisiblePriceRange(
-  workType?: string | null,
-  answers?: unknown,
-): boolean {
-  if (!isProjectPriceRangeEnabled()) return false;
-  return computeProjectPriceRange(workType, answers) !== null;
+  return spec.priceModel(parsed, { workType });
 }

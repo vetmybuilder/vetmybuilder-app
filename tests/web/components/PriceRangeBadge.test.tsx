@@ -82,12 +82,79 @@ describe("<PriceRangeBadge />", () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it("includes the ballpark-not-a-quote caveat copy", () => {
+  it("includes the 'based on your job details' caveat for deterministic ranges", () => {
     render(
       <PriceRangeBadge workType="Carpet Fitting" answers={flooringAnswers} />,
     );
     expect(
-      screen.getByText(/ballpark, not a quote/i),
+      screen.getByText(/based on your job details/i),
     ).toBeInTheDocument();
+    expect(screen.getByText(/ballpark, not a quote/i)).toBeInTheDocument();
+  });
+
+  describe("AI fallback", () => {
+    it("renders the classifier's price_band_estimate when no deterministic range is available", () => {
+      render(
+        <PriceRangeBadge
+          workType="Tumble Dryer Installation" // non-spec work type
+          answers={null}
+          fallback="£1,695-£2,895"
+        />,
+      );
+      expect(screen.getByTestId("price-range-badge")).toBeInTheDocument();
+      expect(screen.getByTestId("price-range-value")).toHaveTextContent(
+        "£1,695-£2,895",
+      );
+    });
+
+    it("uses the AI-source caveat copy when rendering the fallback", () => {
+      render(
+        <PriceRangeBadge
+          workType="Tumble Dryer Installation"
+          answers={null}
+          fallback="£1,200-£2,000"
+        />,
+      );
+      expect(screen.getByText(/ai reading of your description/i)).toBeInTheDocument();
+    });
+
+    it("prefers the deterministic range over the fallback when both are present", () => {
+      render(
+        <PriceRangeBadge
+          workType="Carpet Fitting"
+          answers={flooringAnswers}
+          fallback="£9,999-£99,999"
+        />,
+      );
+      // The deterministic value wins — fallback string must not appear
+      expect(screen.getByTestId("price-range-value").textContent).toMatch(
+        /£\d[\d,]*–£\d[\d,]*/,
+      );
+      expect(
+        screen.queryByText(/£9,999-£99,999/),
+      ).not.toBeInTheDocument();
+    });
+
+    it("renders nothing when neither deterministic range nor fallback is available", () => {
+      const { container } = render(
+        <PriceRangeBadge
+          workType="Tumble Dryer Installation"
+          answers={null}
+          fallback={null}
+        />,
+      );
+      expect(container.firstChild).toBeNull();
+    });
+
+    it("treats an empty/whitespace fallback string as no fallback", () => {
+      const { container } = render(
+        <PriceRangeBadge
+          workType="Tumble Dryer Installation"
+          answers={null}
+          fallback="   "
+        />,
+      );
+      expect(container.firstChild).toBeNull();
+    });
   });
 });

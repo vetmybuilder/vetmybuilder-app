@@ -343,11 +343,27 @@ export class ProjectDetailsPage extends BasePage {
 
   /**
    * Asserts the Project Insights card does NOT contain a price-range badge.
-   * Used to verify the badge disappears when the project's work type no
-   * longer matches a spec (e.g. after editing from Flooring to Appliances).
+   * Used by tests that create a project with no spec match and no AI
+   * classification (so neither badge source is available).
    */
   async hasNoPriceRangeBadge() {
     await expect(this.page.getByTestId("price-range-badge")).toHaveCount(0);
+  }
+
+  /**
+   * Asserts the deterministic price-range is NOT shown. The badge itself
+   * may still be visible with the AI-fallback caveat — we don't care —
+   * but it must NOT claim to be "Based on your job details" (the
+   * deterministic source caveat).
+   *
+   * Use this when verifying that editing a project's work type to a
+   * non-spec type stops the spec-driven range, without racing against
+   * the fire-and-forget AI classifier re-running on the updated project.
+   */
+  async hasNoDeterministicPriceRangeBadge() {
+    const badge = this.page.getByTestId("price-range-badge");
+    if ((await badge.count()) === 0) return;
+    await expect(badge).not.toContainText("Based on your job details");
   }
 
   async publish(options?: PublishOptions) {

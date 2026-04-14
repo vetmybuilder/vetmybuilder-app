@@ -35,6 +35,22 @@ export function useRole(): { role: Role; loading: boolean } {
     if (fetched.current) return;
     fetched.current = true;
 
+    // One-shot signal from the tradesman register flow. Survives the
+    // window.location.replace AND any post-reload races where SiteHeader's
+    // stale in-flight GET writes "0" back to vmb:isTradesman. Read and
+    // clear it here so the next render round uses the normal fast path.
+    try {
+      if (sessionStorage.getItem("vmb:justRegisteredTradesman") === "1") {
+        sessionStorage.removeItem("vmb:justRegisteredTradesman");
+        sessionStorage.setItem("vmb:isTradesman", "1");
+        setRole("tradesman");
+        setLoading(false);
+        return;
+      }
+    } catch {
+      /* sessionStorage unavailable */
+    }
+
     // Fast path: SiteHeader may have already resolved the role
     try {
       const cached = sessionStorage.getItem("vmb:isTradesman");

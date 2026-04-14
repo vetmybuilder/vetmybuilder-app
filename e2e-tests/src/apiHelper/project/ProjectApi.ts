@@ -171,17 +171,23 @@ export class ProjectApi {
     expect(parseAnswersJson(fetched.answers_json)).toBeNull();
   }
 
+  /**
+   * Takes a valid Project + a raw malformed answers fragment keyed by group
+   * id (e.g. `{ flooring: {...} }`, `{ insulation: {...} }`). The helper
+   * assembles the full payload so specs stay focused on what they're
+   * testing — the bad shape + the expected error path.
+   */
   async rejectsCreateWithInvalidAnswers(
     project: Project,
     opts: {
-      badFlooringAnswers: Record<string, any>;
+      badAnswers: Record<string, Record<string, any>>;
       path: string;
       message?: RegExp;
     },
   ) {
     const payload = {
       ...project.toApiPayload(),
-      answers: { _version: 1, flooring: opts.badFlooringAnswers },
+      answers: { _version: 1, ...opts.badAnswers },
     };
 
     const { status, body } = await this.createProjectRaw(payload);

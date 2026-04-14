@@ -139,6 +139,21 @@ describe("buildUserPrompt", () => {
     expect(descIdx).toBeGreaterThan(answersIdx);
   });
 
+  it("renders insulation answers in the structured block too", () => {
+    const prompt = buildUserPrompt({
+      ...baseInput,
+      type: "Loft Insulation",
+      answers: {
+        _version: 1,
+        insulation: { area_m2: 60, current_state: "none" },
+      },
+    });
+
+    expect(prompt).toContain("Structured homeowner answers:");
+    expect(prompt).toContain("- insulation.area_m2: 60");
+    expect(prompt).toContain("- insulation.current_state: none");
+  });
+
   it("still includes form-field context lines alongside structured answers", () => {
     const prompt = buildUserPrompt({
       ...baseInput,

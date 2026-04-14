@@ -4,7 +4,7 @@
 // _FILE_VERSION must match the TS file — server logs a warning on startup
 // if they drift (see checkJobFieldsMirror below).
 
-const _FILE_VERSION = 3;
+const _FILE_VERSION = 6;
 
 // ──────────────────────────────────────────────────────────────────
 // Flooring price model — mirror of web/config/jobFields.ts.
@@ -60,6 +60,60 @@ function flooringPriceModel(answers) {
     max: roundToFifty(maxPerM2 * m2, "up"),
   };
 }
+
+// Rough UK all-in rates (£/m²). Mirror of web/config/jobFields.ts.
+const INSULATION_RATE_BY_KIND = {
+  cavity_wall: [18, 30],
+  solid_wall_external: [100, 200],
+  solid_wall_internal: [40, 100],
+  loft: [15, 30],
+  underfloor: [25, 50],
+};
+
+const INSULATION_KIND_BY_WORK_TYPE = {
+  "Cavity Wall Insulation": "cavity_wall",
+  "External Wall Insulation": "solid_wall_external",
+  "Internal Wall Insulation": "solid_wall_internal",
+  "Loft Insulation": "loft",
+  "Room-in-Roof Insulation": "loft",
+  "Roof Insulation": "loft",
+  "Floor Insulation": "underfloor",
+  "Underfloor Insulation": "underfloor",
+};
+
+function insulationPriceModel(answers, context) {
+  const insulation = answers && answers.insulation;
+  if (!insulation || typeof insulation !== "object") return null;
+
+  const area = Number(insulation.area_m2);
+  if (!Number.isFinite(area) || area <= 0) return null;
+
+  const kind = context && context.workType
+    ? INSULATION_KIND_BY_WORK_TYPE[context.workType]
+    : null;
+  if (!kind) return null;
+
+  const rate = INSULATION_RATE_BY_KIND[kind];
+  if (!rate) return null;
+
+  return {
+    min: roundToFifty(rate[0] * area, "down"),
+    max: roundToFifty(rate[1] * area, "up"),
+  };
+}
+
+const INSULATION_WORK_TYPES = [
+  "Cavity Wall Insulation",
+  "External Wall Insulation",
+  "Floor Insulation",
+  "Garage Insulation",
+  "Internal Wall Insulation",
+  "Loft Insulation",
+  "Room-in-Roof Insulation",
+  "Underfloor Insulation",
+  "Bedroom Insulation Upgrade",
+  "Roof Insulation",
+];
 
 const FLOORING_WORK_TYPES = [
   "Carpet Fitting",
@@ -129,6 +183,36 @@ const JOB_FIELDS = [
               { value: "unknown", label: "Not sure" },
               { value: "level", label: "Level and sound" },
               { value: "needs_levelling", label: "Needs levelling" },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "insulation",
+    label: "Insulation",
+    workTypes: INSULATION_WORK_TYPES,
+    priceModel: insulationPriceModel,
+    groups: [
+      {
+        id: "insulation",
+        title: "About the insulation job",
+        fields: [
+          {
+            key: "area_m2",
+            kind: "number",
+            label: "Approximate area",
+            unit: "m2",
+          },
+          {
+            key: "current_state",
+            kind: "select",
+            label: "Current state",
+            options: [
+              { value: "none", label: "None currently" },
+              { value: "thin", label: "Some, but inadequate" },
+              { value: "unknown", label: "Not sure" },
             ],
           },
         ],

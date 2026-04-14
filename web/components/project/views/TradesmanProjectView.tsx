@@ -107,6 +107,7 @@ export default function TradesmanProjectView({ vm }: { vm: VM }) {
           <PriceRangeBadge
             workType={(project as any)?.type}
             answers={(project as any)?.answers_json}
+            fallback={vm.classification?.price_band_estimate}
           />
         </div>
       )}

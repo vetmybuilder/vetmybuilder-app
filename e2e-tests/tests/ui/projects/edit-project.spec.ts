@@ -246,7 +246,7 @@ test.describe("Homeowner projects", () => {
     await projectDetailsPage.hasPriceRangeBadge({ min: 900, max: 2100 });
   });
 
-  test("price-range badge disappears when the work type is edited to a non-flooring type", async ({
+  test("deterministic price-range stops showing when the work type is edited to a non-flooring type", async ({
     projectApi,
     projectDetailsPage,
     editProjectPage,
@@ -266,15 +266,19 @@ test.describe("Homeowner projects", () => {
     await projectDetailsPage.visit(created.id);
     await projectDetailsPage.hasPriceRangeBadge();
 
-    // Switch both category and work type to a non-flooring option. The
-    // edit wizard will drop the flooring step entirely; on save the server
-    // clears answers_json and the badge should no longer render.
     await projectDetailsPage.editProject();
     await editProjectPage.editProjectDetails(project, {
       category: "Appliances",
       workTypes: ["Tumble Dryer Installation"],
     });
 
-    await projectDetailsPage.hasNoPriceRangeBadge();
+    // Backend state: structured answers cleared.
+    await projectApi.hasNoAnswers(created.id);
+
+    // UI: the deterministic range is gone. The badge may still render with
+    // the AI-fallback caveat once the classifier re-runs on the updated
+    // project — that's fine, we only care that it no longer claims to be
+    // derived from the homeowner's (now empty) structured answers.
+    await projectDetailsPage.hasNoDeterministicPriceRangeBadge();
   });
 });

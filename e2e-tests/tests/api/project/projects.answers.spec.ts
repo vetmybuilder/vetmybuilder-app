@@ -31,7 +31,7 @@ test.describe("Projects — structured answers (Flooring)", () => {
     });
 
     await projectApi.rejectsCreateWithInvalidAnswers(project, {
-      badFlooringAnswers: { floor_type: "carpet" },
+      badAnswers: { flooring: { floor_type: "carpet" } },
       path: "flooring.size",
     });
   });
@@ -45,9 +45,11 @@ test.describe("Projects — structured answers (Flooring)", () => {
     });
 
     await projectApi.rejectsCreateWithInvalidAnswers(project, {
-      badFlooringAnswers: {
-        size: { kind: "m2", value: 10 },
-        floor_type: "bogus_material",
+      badAnswers: {
+        flooring: {
+          size: { kind: "m2", value: 10 },
+          floor_type: "bogus_material",
+        },
       },
       path: "flooring.floor_type",
       message: /must be one of/,
@@ -61,10 +63,12 @@ test.describe("Projects — structured answers (Flooring)", () => {
     });
 
     await projectApi.rejectsCreateWithInvalidAnswers(project, {
-      badFlooringAnswers: {
-        size: { kind: "rooms", value: 2 },
-        floor_type: "carpet",
-        removal_required: "yes",
+      badAnswers: {
+        flooring: {
+          size: { kind: "rooms", value: 2 },
+          floor_type: "carpet",
+          removal_required: "yes",
+        },
       },
       path: "flooring.removal_required",
       message: /boolean/,
@@ -120,5 +124,50 @@ test.describe("Projects — structured answers (Flooring)", () => {
     });
 
     await projectApi.hasAnswers(created.id, project);
+  });
+});
+
+test.describe("Projects — structured answers (Insulation)", () => {
+  test("persists valid insulation answers on create and returns them on GET", async ({
+    projectApi,
+  }) => {
+    const project = Project.aProject()
+      .withRandomDetails({
+        category: "Insulation",
+        workTypes: ["Loft Insulation"],
+      })
+      .withInsulationAnswers({ area_m2: 60, current_state: "none" });
+
+    const created = await projectApi.createProject(project.toApiPayload());
+    await projectApi.hasAnswers(created.id, project);
+  });
+
+  test("persists an empty insulation answer set (all fields optional)", async ({
+    projectApi,
+  }) => {
+    const project = Project.aProject()
+      .withRandomDetails({
+        category: "Insulation",
+        workTypes: ["Cavity Wall Insulation"],
+      })
+      .withInsulationAnswers({});
+
+    const created = await projectApi.createProject(project.toApiPayload());
+    await projectApi.hasAnswers(created.id, project);
+  });
+
+  test("rejects POST with an invalid current_state value", async ({
+    projectApi,
+  }) => {
+    const project = Project.aProject().withRandomDetails({
+      category: "Insulation",
+      workTypes: ["Loft Insulation"],
+    });
+
+    await projectApi.rejectsCreateWithInvalidAnswers(project, {
+      badAnswers: { insulation: { current_state: "bogus_state" } },
+      path: "insulation.current_state",
+      message: /must be one of/,
+    });
   });
 });

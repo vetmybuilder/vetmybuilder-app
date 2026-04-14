@@ -18,6 +18,7 @@ export type ProjectCreateInput = {
 
   /** Only present when the work type triggers a dynamic-fields spec. */
   flooringAnswers?: FlooringAnswers;
+  insulationAnswers?: InsulationAnswers;
 };
 
 export type ApiProjectPayload = {
@@ -34,6 +35,7 @@ export type ApiProjectPayload = {
 export type AnswersPayload = {
   _version: 1;
   flooring?: FlooringAnswers;
+  insulation?: InsulationAnswers;
 };
 
 export type FlooringAnswers = {
@@ -41,6 +43,11 @@ export type FlooringAnswers = {
   floor_type: "carpet" | "lvt" | "engineered_wood" | "laminate" | "solid_wood" | "tile";
   removal_required?: boolean;
   subfloor_condition?: "unknown" | "level" | "needs_levelling";
+};
+
+export type InsulationAnswers = {
+  area_m2?: number;
+  current_state?: "none" | "thin" | "unknown";
 };
 
 function normalize(s: string) {
@@ -84,6 +91,7 @@ export default class Project {
 
   /** Category-specific structured answers, if any. */
   flooringAnswers?: FlooringAnswers;
+  insulationAnswers?: InsulationAnswers;
 
   static aProject(): Project {
     return new Project();
@@ -144,6 +152,17 @@ export default class Project {
     return this;
   }
 
+  /**
+   * Attach structured insulation answers. All fields are optional — the
+   * insulation spec has no required fields because the work type already
+   * identifies what's being insulated. Tests can pass partial overrides
+   * or an empty object to signal "user filled no details".
+   */
+  withInsulationAnswers(overrides?: Partial<InsulationAnswers>): Project {
+    this.insulationAnswers = { ...(overrides || {}) } as InsulationAnswers;
+    return this;
+  }
+
   withLocation(location: { query: string; pick: string } | string): Project {
     if (typeof location === "string") {
       const v = normalize(location);
@@ -181,13 +200,17 @@ export default class Project {
       access: this.access,
       extraNotes: this.extraNotes,
       flooringAnswers: this.flooringAnswers,
+      insulationAnswers: this.insulationAnswers,
     };
   }
 
   /** Full structured answers payload, or undefined when none have been set. */
   toAnswersPayload(): AnswersPayload | undefined {
-    if (!this.flooringAnswers) return undefined;
-    return { _version: 1, flooring: this.flooringAnswers };
+    if (!this.flooringAnswers && !this.insulationAnswers) return undefined;
+    const out: AnswersPayload = { _version: 1 };
+    if (this.flooringAnswers) out.flooring = this.flooringAnswers;
+    if (this.insulationAnswers) out.insulation = this.insulationAnswers;
+    return out;
   }
 
   expectedDescriptionPreview(): string {
