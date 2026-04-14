@@ -22,7 +22,7 @@ test.describe("Tradesman registration — Step 4 (account)", () => {
       tradesman.requiredPassword,
     );
     await tradesmanRegisterPage.submitStep4();
-    await expect(page).toHaveURL(/\/tradesman\/projects/);
+    await tradesmanRegisterPage.expectLandedOnTradesmanProjects();
   });
 
   test("rejects a weak password with the strong-password error", async ({

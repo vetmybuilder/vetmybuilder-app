@@ -144,7 +144,7 @@ test.describe("Homeowner projects", () => {
         timeframe: "Urgent (1-2 weeks)",
         budget: "£5k-£15k",
         materials: "Supplied by tradesman",
-        access: "Easy access",
+        access: "Side access available",
         extraNotes: "Upgrading loft insulation to meet current standards.",
       })
       .withInsulationAnswers({ area_m2: 60, current_state: "thin" });

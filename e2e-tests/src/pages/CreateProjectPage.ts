@@ -163,7 +163,11 @@ export class CreateProjectPage {
 
   private async selectPropertyType(propertyType: string) {
     await this.propertyTypeBtn.click();
-    await this.page.getByRole("option", { name: propertyType }).click();
+    // `exact: true` — "Detached" would otherwise also match "Semi-Detached"
+    // and "End of Terrace" etc. would be ambiguous.
+    await this.page
+      .getByRole("option", { name: propertyType, exact: true })
+      .click();
   }
 
   private async selectBedrooms(bedrooms: number) {
@@ -193,20 +197,32 @@ export class CreateProjectPage {
     const timeframeLabel = this.normalizeTimeframeLabel(input.timeframe);
     const budgetLabel = this.normalizeBudgetLabel(input.budget);
 
+    // Cap timeouts on option picks so a bad label fails in 5s
+    // rather than retrying for the full test timeout.
+    const pickOption = async (label: string) => {
+      const option = this.page.getByRole("option", { name: label });
+      await expect(option).toBeVisible({ timeout: 5000 });
+      await option.click();
+    };
+
     await this.timeframeBtn.click();
-    await this.page.getByRole("option", { name: timeframeLabel }).click();
+    await pickOption(timeframeLabel);
 
     await this.budgetBtn.click();
-    await this.page.getByRole("option", { name: budgetLabel }).click();
+    await pickOption(budgetLabel);
 
     await this.materialsBtn.click();
-    await this.page.getByRole("option", { name: input.materials }).click();
+    await pickOption(input.materials);
 
-    await this.accessWrap
-      .getByRole("button", {
-        name: new RegExp(escapeRegExp(input.access), "i"),
-      })
-      .click();
+    // Cap the click timeout — otherwise a caller passing an access chip
+    // that doesn't exist in the current category's set (the DescriptionBuilder
+    // renders different chip sets per category) will silently retry for the
+    // full test timeout, producing a 3-minute hang instead of a fast failure.
+    const accessButton = this.accessWrap.getByRole("button", {
+      name: new RegExp(escapeRegExp(input.access), "i"),
+    });
+    await expect(accessButton).toBeVisible({ timeout: 5000 });
+    await accessButton.click();
 
     if (input.extraNotes) {
       await this.notesInput.fill(input.extraNotes);
