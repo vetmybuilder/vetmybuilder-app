@@ -44,7 +44,7 @@ export default function TradesmanProjectView({ vm }: { vm: VM }) {
         <div className="mb-4">
           <a
             href={backHref}
-            className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-800"
+            className="inline-flex items-center gap-2 mb-3 rounded-xl bg-slate-800/90 backdrop-blur-sm px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition-colors"
           >
             ← Back to projects
           </a>
@@ -63,18 +63,21 @@ export default function TradesmanProjectView({ vm }: { vm: VM }) {
 
           <div className="flex flex-wrap gap-2 mb-4">
             {vm.classification.type && (
-              <span className="bg-violet-100 text-violet-700 text-xs font-semibold px-3 py-1 rounded-full">
-                {vm.classification.type}
+              <span className="bg-violet-100 text-violet-700 text-xs px-3 py-1 rounded-full">
+                <span className="font-medium opacity-60">Trade · </span>
+                <span className="font-bold">{vm.classification.type}</span>
               </span>
             )}
             {vm.classification.complexity && (
-              <span className="bg-amber-100 text-amber-700 text-xs font-semibold px-3 py-1 rounded-full">
-                {vm.classification.complexity.charAt(0).toUpperCase() + vm.classification.complexity.slice(1)}
+              <span className="bg-amber-100 text-amber-700 text-xs px-3 py-1 rounded-full">
+                <span className="font-medium opacity-60">Complexity · </span>
+                <span className="font-bold">{vm.classification.complexity.charAt(0).toUpperCase() + vm.classification.complexity.slice(1)}</span>
               </span>
             )}
             {vm.classification.urgency && (
-              <span className="bg-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-1 rounded-full">
-                {vm.classification.urgency.charAt(0).toUpperCase() + vm.classification.urgency.slice(1)}
+              <span className="bg-emerald-100 text-emerald-700 text-xs px-3 py-1 rounded-full">
+                <span className="font-medium opacity-60">Timing · </span>
+                <span className="font-bold">{vm.classification.urgency.charAt(0).toUpperCase() + vm.classification.urgency.slice(1)}</span>
               </span>
             )}
           </div>

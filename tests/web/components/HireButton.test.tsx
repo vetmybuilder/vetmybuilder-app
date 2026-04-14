@@ -89,7 +89,7 @@ describe("<HireButton />", () => {
 
     const btn = await screen.findByTestId("hire-button");
     expect(btn).toBeEnabled();
-    expect(btn).toHaveTextContent(/Hire this tradesperson/i);
+    expect(btn).toHaveTextContent(/Hire/i);
   });
 
   it("[recommendation] renders 'Hired' (disabled) when this recommendation is already hired", async () => {
@@ -133,7 +133,7 @@ describe("<HireButton />", () => {
 
     const btn = await screen.findByTestId("hire-button");
     expect(btn).toBeEnabled();
-    expect(btn).toHaveTextContent(/Hire this tradesperson/i);
+    expect(btn).toHaveTextContent(/Hire/i);
   });
 
   it("[recommendation] clicking Hire opens the modal and POSTs with recommendationId", async () => {
@@ -217,7 +217,7 @@ describe("<HireButton />", () => {
 
     const btn = await screen.findByTestId("hire-button");
     expect(btn).toBeEnabled();
-    expect(btn).toHaveTextContent(/Hire this tradesperson/i);
+    expect(btn).toHaveTextContent(/Hire/i);
   });
 
   it("[tradesman] renders 'Hired' (disabled) when this tradesman is already hired", async () => {

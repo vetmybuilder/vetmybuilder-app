@@ -73,7 +73,7 @@ export default function CompletedGallery() {
           {projectId != null && (
             <Link
               href={`/projects/${projectId}`}
-              className="btn"
+              className="inline-flex items-center gap-2 mb-3 rounded-xl bg-slate-800/90 backdrop-blur-sm px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition-colors"
               data-testid="btn-back-project"
             >
               Back to project

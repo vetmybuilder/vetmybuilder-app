@@ -147,7 +147,7 @@ function Inner() {
           <button
             type="button"
             onClick={onBackToProjects}
-            className="text-sm font-medium text-zinc-500 hover:text-zinc-800 transition-colors"
+            className="inline-flex items-center gap-2 mb-3 rounded-xl bg-slate-800/90 backdrop-blur-sm px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition-colors"
             data-testid="btn-back-to-projects"
           >
             ← Back to projects

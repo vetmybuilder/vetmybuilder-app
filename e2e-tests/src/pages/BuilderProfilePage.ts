@@ -29,7 +29,7 @@ export class BuilderProfilePage extends BasePage {
       .or(page.locator('[data-testid="shared-profile-photos-section"]'));
     this.voteUpButton = page.getByTestId("btn-vote-up");
     this.backToProjectLink = page.getByRole("button", {
-      name: "Back to this project",
+      name: "Back to project",
     });
     this.googleRatingChip = page.getByTestId("builder-google-rating");
   }

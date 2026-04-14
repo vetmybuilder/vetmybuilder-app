@@ -3,6 +3,7 @@ module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
   const log = ctx.log || console;
   const TAG = "[tradesmen/tradesman.get]";
+  const { normaliseScore } = require("../../lib/recommendationScoring");
   const ROUTE = "/tradesmen/:publicId";
 
   if (!mysqlQuery) {
@@ -291,7 +292,7 @@ module.exports = (router, ctx) => {
               : null,
         },
 
-        score: Number(row.vmb_score ?? 0),
+        score: normaliseScore(Number(row.vmb_score ?? 0)),
         location: { outward },
 
         phone: row.phone || null,

@@ -67,52 +67,53 @@ export default function FavouriteTradesmenSection() {
     <section
       aria-label="Favourite tradesmen"
       data-testid="favourites-tradesmen-section"
-      className="mt-4"
     >
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="text-base sm:text-lg font-semibold tracking-tight">
+      <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6">
+        <h2 className="text-lg font-bold tracking-tight text-zinc-900 mb-4">
           Favourite builders
         </h2>
+
+        {loading && (
+          <p className="text-sm text-zinc-500" data-testid="favourites-loading">
+            Loading favourites&hellip;
+          </p>
+        )}
+
+        {error && !loading && (
+          <p className="text-sm text-rose-600" data-testid="favourites-error">
+            {error}
+          </p>
+        )}
+
+        {!loading && !error && items.length === 0 && (
+          <p className="text-sm text-zinc-500" data-testid="favourites-empty">
+            You haven&apos;t saved any builders yet. Tap the &ldquo;Save to
+            favourites&rdquo; button on a builder profile to see them here.
+          </p>
+        )}
+
+        {!loading && !error && items.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {items.map((t) => (
+              <div
+                key={t.builderId}
+                data-testid="favourite-tradesman-card"
+                className="h-full"
+              >
+                <FeaturedSimpleCard
+                  name={t.companyName || t.displayName}
+                  img={t.avatarUrl || null}
+                  onClick={() =>
+                    router.push(
+                      `/tradesman/${encodeURIComponent(t.publicId || t.builderId)}`
+                    )
+                  }
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-
-      {loading && (
-        <p className="text-sm text-slate-500" data-testid="favourites-loading">
-          Loading favourites…
-        </p>
-      )}
-
-      {error && !loading && (
-        <p className="text-sm text-rose-600" data-testid="favourites-error">
-          {error}
-        </p>
-      )}
-
-      {!loading && !error && items.length === 0 && (
-        <p className="text-sm text-slate-500" data-testid="favourites-empty">
-          You haven’t saved any builders yet. Tap the “Save to favourites”
-          button on a builder profile to see them here.
-        </p>
-      )}
-
-      {!loading && !error && items.length > 0 && (
-        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {items.map((t) => (
-            <div
-              key={t.builderId}
-              data-testid="favourite-tradesman-card"
-              className="h-full"
-            >
-              <FeaturedSimpleCard
-                name={t.companyName || t.displayName}
-                img={t.avatarUrl || null}
-                onClick={() =>
-                  router.push(`/tradesman/${encodeURIComponent(t.publicId || t.builderId)}`)
-                }
-              />
-            </div>
-          ))}
-        </div>
-      )}
     </section>
   );
 }

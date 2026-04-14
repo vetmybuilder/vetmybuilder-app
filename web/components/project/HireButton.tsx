@@ -112,14 +112,14 @@ export default function HireButton({
         onClick={() => setOpen(true)}
         disabled={alreadyHired}
         data-testid="hire-button"
-        className={`inline-flex items-center justify-center gap-1.5 rounded-full px-5 py-2.5 text-sm font-bold transition-colors ${
+        className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-bold transition-colors ${
           alreadyHired
             ? "bg-emerald-100 text-emerald-700 cursor-default"
-            : "bg-red-500 text-white shadow-sm hover:bg-red-600"
+            : "bg-green-600 text-white shadow-sm hover:bg-green-700"
         }`}
       >
-        <CheckCircle2 className="h-4 w-4" />
-        {alreadyHired ? "Hired" : "Hire this tradesperson"}
+        <CheckCircle2 className="h-3.5 w-3.5" />
+        {alreadyHired ? "Hired" : "Hire"}
       </button>
 
       <HireConfirmModal

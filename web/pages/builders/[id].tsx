@@ -28,6 +28,7 @@ export default function BuilderProfilePage() {
     setScore,
     scoreErr,
     aggPhones,
+    aggEmails,
     aggPhotos,
     aggReviews,
     aggUpdatedAt,
@@ -50,6 +51,9 @@ export default function BuilderProfilePage() {
   });
 
   if (redirecting) return null;
+
+  // Guests → 404 (builder profiles require auth)
+  if (!loading && !user) return <NotFound />;
 
   // Builder doesn't exist → render the standard 404 page
   if (notFound) return <NotFound />;
@@ -82,13 +86,7 @@ export default function BuilderProfilePage() {
 
   return (
     <>
-      <style>{`body { background: #fafaf9 !important; }`}</style>
-      <div className="relative min-h-screen overflow-x-hidden bg-stone-50 -mt-14">
-        {/* Background bands */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
-          <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
-        </div>
+      <div className="relative min-h-screen overflow-x-hidden -mt-14">
 
         <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-4 sm:pt-10 pb-16">
           {loading ? (
@@ -117,17 +115,15 @@ export default function BuilderProfilePage() {
                 updatedDisplay={updatedDisplay}
                 reviewCount={aggReviews.length}
                 photoCount={aggPhotos.length}
+                hireButton={
+                  builder?.id && user ? (
+                    <HireButton
+                      recommendationId={Number(builder.id)}
+                      displayName={companyName}
+                    />
+                  ) : undefined
+                }
               />
-
-              {/* Hire button — only renders when reached from a project context (?projectId=) */}
-              {builder?.id && user && (
-                <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 px-6 py-5">
-                  <HireButton
-                    recommendationId={Number(builder.id)}
-                    displayName={companyName}
-                  />
-                </div>
-              )}
 
               {/* Builder AI summary */}
               {builder?.summary && (
@@ -157,7 +153,7 @@ export default function BuilderProfilePage() {
                   <BuilderPhotos user={user} galleryImages={galleryImages} photos={aggPhotos} />
                 </div>
                 <div className="space-y-6">
-                  <BuilderContactDetails user={user} phones={aggPhones} />
+                  <BuilderContactDetails user={user} phones={aggPhones} emails={aggEmails} />
                 </div>
               </div>
             </div>

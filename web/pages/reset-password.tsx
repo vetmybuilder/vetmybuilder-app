@@ -78,14 +78,9 @@ export default function ResetPassword() {
     <>
       <Head>
         <title>Set new password • VetMyBuilder</title>
-        <style>{`body { background: #fafaf9 !important; }`}</style>
       </Head>
       <div className="overflow-x-hidden -mt-14 min-h-screen">
-        <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-stone-50 px-4 py-24">
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
-            <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
-          </div>
+        <div className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 py-24">
           <div className="relative z-10 w-full max-w-md">
             {content}
           </div>

@@ -8,8 +8,7 @@ import { authedApiForUid } from "../../../src/api/services/client";
 import { AuthApi } from "../../../src/apiHelper/auth/AuthApi";
 
 test.describe("Projects list tabs", () => {
-  // Close via API (not UI modal) to avoid slowMo overhead exhausting the 60s test timeout.
-  test("closed project (didGoAhead: false) appears in the archived tab", async ({
+  test("closed project (didGoAhead: false) appears in the completed tab", async ({
     apiClient,
     homeownerProjectsPage,
   }) => {
@@ -26,8 +25,8 @@ test.describe("Projects list tabs", () => {
     });
     expect(closeRes.status()).toBe(200);
 
-    await homeownerProjectsPage.page.goto("/projects?tab=archived");
-    await homeownerProjectsPage.hasStatus(project.id, /archived/i);
+    await homeownerProjectsPage.gotoTab("completed");
+    await homeownerProjectsPage.hasCompletedCard(project.id);
   });
 
   test("completed project (didGoAhead: true) appears in the completed tab", async ({

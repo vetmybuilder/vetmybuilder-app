@@ -6,81 +6,75 @@ import SkeletonLine from "./SkeletonLine";
 type Props = {
   user: any;
   phones: string[];
+  emails?: string[];
 };
 
-export default function BuilderContactDetails({ user, phones }: Props) {
+function ContactRow({
+  label,
+  value,
+  render,
+  testId,
+}: {
+  label: string;
+  value?: string | null;
+  render?: (v: string) => React.ReactNode;
+  testId?: string;
+}) {
   return (
-    <section
-      className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-6 sm:p-7"
+    <div className="flex flex-col gap-0.5" data-testid={testId}>
+      <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">{label}</span>
+      <div className="text-base font-semibold text-zinc-700">
+        {value ? (
+          render ? render(value) : value
+        ) : (
+          <span className="text-zinc-300 font-normal">Not provided</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function BuilderContactDetails({ user, phones, emails = [] }: Props) {
+  const primaryPhone = phones[0] ?? null;
+  const primaryEmail = emails[0] ?? null;
+
+  return (
+    <aside
+      className="bg-white rounded-2xl sm:rounded-3xl shadow-sm p-4 sm:p-7 h-fit"
       aria-label="Contact details"
       data-testid="contact-details-card"
     >
-      <h2 className="text-lg font-black text-zinc-900 mb-4">
+      <h2 className="text-base sm:text-lg font-black text-zinc-900 mb-3 sm:mb-5">
         Profile details
       </h2>
 
       {user ? (
-        <div className="space-y-6 text-sm text-slate-800">
+        <div className="space-y-4 sm:space-y-6">
           <section data-testid="builder-contact-details-section">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
+            <h3 className="hidden sm:block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-3">
               Contact details
             </h3>
-
-            <div className="space-y-4">
-              {/* Phone */}
-              <div data-testid="builder-phone">
-                <span className="text-[11px] uppercase tracking-wide text-slate-500 block">
-                  Phone
-                </span>
-
-                {(() => {
-                  const uniquePhones = [...new Set(phones)];
-                  const primary = uniquePhones[0] || null;
-                  const secondary = uniquePhones.slice(1);
-
-                  return (
-                    <>
-                      {primary ? (
-                        <div className="mt-0.5 flex items-center gap-2">
-                          <a
-                            href={`tel:${primary}`}
-                            className="text-sm text-emerald-700 tabular-nums hover:underline"
-                          >
-                            {primary}
-                          </a>
-                          <span className="rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-medium uppercase tracking-wide px-2 py-0.5">
-                            Primary
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="mt-0.5 block text-sm text-slate-400">
-                          Not provided
-                        </span>
-                      )}
-
-                      {secondary.length > 0 && (
-                        <ul className="mt-2 space-y-1">
-                          {secondary.map((p, i) => (
-                            <li key={`${p}-${i}`}>
-                              <div className="flex items-center gap-2 text-xs">
-                                <a
-                                  href={`tel:${p}`}
-                                  className="text-slate-700 tabular-nums hover:underline"
-                                >
-                                  {p}
-                                </a>
-                                <span className="rounded-full bg-slate-100 text-slate-600 text-[10px] font-medium uppercase tracking-wide px-2 py-0.5">
-                                  Secondary
-                                </span>
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
+            <div className="space-y-3 sm:space-y-4">
+              <ContactRow
+                label="Phone"
+                value={primaryPhone}
+                testId="builder-phone"
+                render={(v) => (
+                  <a href={`tel:${v}`} className="text-red-500 hover:underline font-semibold break-all">
+                    {v}
+                  </a>
+                )}
+              />
+              <ContactRow
+                label="Email"
+                value={primaryEmail}
+                testId="builder-email"
+                render={(v) => (
+                  <a href={`mailto:${v}`} className="text-red-500 break-all hover:underline font-semibold">
+                    {v}
+                  </a>
+                )}
+              />
             </div>
           </section>
         </div>
@@ -88,14 +82,16 @@ export default function BuilderContactDetails({ user, phones }: Props) {
         <BlurUnlock previewCount={0} label="contact details">
           <div className="space-y-4" aria-hidden>
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Phone
-              </div>
+              <div className="text-xs font-bold uppercase tracking-wider text-zinc-400">Phone</div>
               <SkeletonLine className="mt-1 h-4 w-32" />
+            </div>
+            <div>
+              <div className="text-xs font-bold uppercase tracking-wider text-zinc-400">Email</div>
+              <SkeletonLine className="mt-1 h-4 w-40" />
             </div>
           </div>
         </BlurUnlock>
       )}
-    </section>
+    </aside>
   );
 }

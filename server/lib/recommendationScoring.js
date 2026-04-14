@@ -132,4 +132,24 @@ function ageInDays(createdAt, now = Date.now()) {
   return days > 0 ? days : 0;
 }
 
-module.exports = { computeScore, ageInDays };
+/**
+ * Normalise a raw score to 0-100 for display.
+ * Raw scores from the v1 formula range from 0 to ~8, v2 up to ~15.
+ * Curve calibrated so:
+ *   raw 0   → 0
+ *   raw 2   → ~28
+ *   raw 4   → ~49
+ *   raw 5   → ~57    (decent builder, amber)
+ *   raw 7   → ~69    (good builder, upper amber)
+ *   raw 8   → ~74    (strong builder, green)
+ *   raw 10  → ~81    (very strong, green)
+ *   raw 15  → ~92    (exceptional, green)
+ */
+function normaliseScore(raw) {
+  if (!Number.isFinite(raw) || raw <= 0) return 0;
+  // Logarithmic curve with divisor 5 — balances v1 and v2 ranges
+  const normalised = Math.round(100 * (1 - Math.exp(-raw / 5)));
+  return Math.min(100, Math.max(0, normalised));
+}
+
+module.exports = { computeScore, ageInDays, normaliseScore };

@@ -154,7 +154,7 @@ function FeaturedListInner() {
       <button
         type="button"
         onClick={handleBack}
-        className="mb-3 text-xs font-medium text-slate-500 hover:text-slate-700"
+        className="inline-flex items-center gap-2 mb-3 rounded-xl bg-slate-800/90 backdrop-blur-sm px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition-colors"
       >
         ← Back to projects
       </button>

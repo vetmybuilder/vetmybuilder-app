@@ -3,6 +3,7 @@ module.exports = (router, ctx) => {
   const { auth, admin, extractLocationTokens, mysqlQuery } = ctx;
   const log = ctx.log || console;
   const TAG = "[recommendations.ratings.get]";
+  const { normaliseScore, computeScore: computeScoreV2 } = require("../../lib/recommendationScoring");
 
   if (!mysqlQuery) {
     throw new Error("mysqlQuery not attached to ctx");
@@ -70,6 +71,20 @@ module.exports = (router, ctx) => {
       [recId]
     );
     return Number(rows?.[0]?.c || 0);
+  }
+
+  async function hiresCountFor(recId) {
+    const rows = await mysqlQuery(
+      `SELECT
+         SUM(CASE WHEN status = 'accepted' THEN 1 ELSE 0 END) AS accepted,
+         SUM(CASE WHEN status = 'declined' THEN 1 ELSE 0 END) AS declined
+       FROM hires WHERE recommendationId = ?`,
+      [recId]
+    );
+    return {
+      accepted: Number(rows?.[0]?.accepted || 0),
+      declined: Number(rows?.[0]?.declined || 0),
+    };
   }
 
   async function closuresWonCount(recId) {
@@ -178,9 +193,8 @@ module.exports = (router, ctx) => {
     }
   }
 
-  // ---------- scoring ----------
+  // ---------- scoring (delegates to shared v2 module) ----------
   function computeScore({
-    isRecommended,
     fromFriend,
     fromCommunity,
     likes,
@@ -190,25 +204,16 @@ module.exports = (router, ctx) => {
     wouldAgain,
     ch,
   }) {
-    let s = 0;
-    s += isRecommended ? 1.0 : 0;
-    if (fromFriend) s += 0.2;
-    if (fromCommunity) s += 0.4;
-    s += Math.min(4, Math.log2(1 + wins)) * 0.8;
-    s += Math.min(4, Math.log2(1 + likes)) * 0.5;
-    if (recPhotos > 0) s += Math.min(3, Math.log2(1 + recPhotos)) * 0.35;
-    if (completionPhotos > 0)
-      s += Math.min(3, Math.log2(1 + completionPhotos)) * 0.25;
-    s += wouldAgain * 0.7;
-
-    if (ch) {
-      const st = String(ch.status || "").toLowerCase();
-      if (st === "verified") s += 0.6;
-      else if (st === "ambiguous") s += 0.15;
-      if (Number.isFinite(ch.score))
-        s += Math.min(0.5, (Number(ch.score) / 100) * 0.5);
-    }
-    return Math.round(s * 20) / 20;
+    return computeScoreV2({
+      fromFriend: fromFriend ? 1 : 0,
+      fromCommunity: fromCommunity ? 1 : 0,
+      likes,
+      wins,
+      recPhotos,
+      completionPhotos,
+      wouldAgain,
+      ch,
+    });
   }
 
   // ============================================================
@@ -337,9 +342,9 @@ module.exports = (router, ctx) => {
         const wouldAgainNew = await completionWouldAgainCount(r.id);
 
         const ch = await companyVerification(r.id);
+        const hires = await hiresCountFor(r.id);
 
         const score = computeScore({
-          isRecommended: 1,
           fromFriend:
             String(r.source || "platform").toLowerCase() === "magic" ? 1 : 0,
           fromCommunity: communityMatch(r),
@@ -349,6 +354,8 @@ module.exports = (router, ctx) => {
           completionPhotos: compPhotos,
           wouldAgain: wouldAgainLegacy + wouldAgainNew,
           ch,
+          hiresAccepted: hires.accepted,
+          hiresDeclined: hires.declined,
         });
 
         return {
@@ -366,7 +373,7 @@ module.exports = (router, ctx) => {
           likes,
           myLike: r.myLike ? 1 : 0,
           rating: r.rating ?? null,
-          score,
+          score: normaliseScore(score),
           chStatus: ch?.status || null,
           chScore: ch?.score ?? null,
           chCompanyName: ch?.companyName || null,
@@ -540,8 +547,9 @@ module.exports = (router, ctx) => {
         );
       }
 
+      const hires = await hiresCountFor(recId);
+
       const score = computeScore({
-        isRecommended: 1,
         fromFriend:
           String(row.source || "platform").toLowerCase() === "magic" ? 1 : 0,
         fromCommunity,
@@ -551,11 +559,13 @@ module.exports = (router, ctx) => {
         completionPhotos: compPhotos,
         wouldAgain: wouldAgainLegacy + wouldAgainNew,
         ch,
+        hiresAccepted: hires.accepted,
+        hiresDeclined: hires.declined,
       });
 
       log.info?.(`${TAG} single rating computed`, { recId, score });
 
-      return res.json({ item: { recommendationId: recId, score } });
+      return res.json({ item: { recommendationId: recId, score: normaliseScore(score) } });
     }
   );
 };

@@ -8,6 +8,7 @@ import { describe, it, expect } from "vitest";
 import {
   computeScore,
   ageInDays,
+  normaliseScore,
 } from "../../server/lib/recommendationScoring";
 
 // Score is rounded to 0.05, so use a tight tolerance for sanity checks.
@@ -372,5 +373,40 @@ describe("ageInDays", () => {
 
   it("accepts a Date-like createdAt (number, ms timestamp)", () => {
     expect(ageInDays(FIXED_NOW - 86_400_000, FIXED_NOW)).toBeCloseTo(1, 5);
+  });
+});
+
+describe("normaliseScore", () => {
+  it("returns 0 for zero or negative raw scores", () => {
+    expect(normaliseScore(0)).toBe(0);
+    expect(normaliseScore(-1)).toBe(0);
+  });
+
+  it("returns 0 for non-finite values", () => {
+    expect(normaliseScore(NaN)).toBe(0);
+    expect(normaliseScore(Infinity)).toBe(0);
+  });
+
+  it("maps low raw scores to low normalised values", () => {
+    const n = normaliseScore(1);
+    expect(n).toBeGreaterThan(10);
+    expect(n).toBeLessThan(25);
+  });
+
+  it("maps mid raw scores to mid normalised values", () => {
+    const n = normaliseScore(6);
+    expect(n).toBeGreaterThan(60);
+    expect(n).toBeLessThan(75);
+  });
+
+  it("maps high raw scores to high normalised values", () => {
+    const n = normaliseScore(12);
+    expect(n).toBeGreaterThan(80);
+    expect(n).toBeLessThanOrEqual(100);
+  });
+
+  it("never exceeds 100", () => {
+    expect(normaliseScore(50)).toBeLessThanOrEqual(100);
+    expect(normaliseScore(100)).toBeLessThanOrEqual(100);
   });
 });

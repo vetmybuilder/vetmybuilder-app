@@ -427,23 +427,17 @@ function EditProjectInner() {
   return (
     <>
       <Head>
-        <style>{`body { background: #fafaf9 !important; }`}</style>
       </Head>
       <div
-        className="relative min-h-screen overflow-hidden bg-stone-50"
+        className="relative min-h-screen overflow-hidden"
         data-testid="project-edit-page"
         aria-label="Edit Project Page"
       >
-        {/* Background blobs */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
-          <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
-        </div>
 
         <div className="relative z-10 mx-auto max-w-2xl px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
           <div
-            className="mb-6 flex items-center justify-between"
+            className="mb-6 flex items-center justify-between rounded-2xl bg-white/80 backdrop-blur px-4 py-3 shadow-sm"
             data-testid="project-edit-header"
           >
             <div>
@@ -464,7 +458,7 @@ function EditProjectInner() {
               href={`/projects/${id}`}
               data-testid="btn-back"
               aria-label="Back to project"
-              className="flex items-center gap-2 text-sm font-medium text-zinc-500 hover:text-zinc-900 transition-colors"
+              className="inline-flex items-center gap-2 rounded-xl bg-slate-800/90 backdrop-blur-sm px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition-colors"
             >
               <span className="text-lg">←</span>
               Back

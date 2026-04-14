@@ -203,18 +203,19 @@ export default function ManageAccount() {
     <AuthedOnly>
       <Head>
         <title>Manage account — VetMyBuilder</title>
-        <style>{`body { background: #fafaf9 !important; }`}</style>
       </Head>
 
       <div className="overflow-x-hidden -mt-14 min-h-screen">
-        <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-stone-50 py-24">
-          {/* Background bands matching homepage hero */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
-            <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
-          </div>
+        <div className="relative min-h-screen flex items-center justify-center overflow-hidden py-24">
 
           <div className="relative z-10 w-full max-w-lg px-4 sm:px-0">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="inline-flex items-center gap-2 mb-4 rounded-xl bg-slate-800/90 backdrop-blur-sm px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition-colors"
+            >
+              ← Back
+            </button>
             <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-8 sm:p-10">
               <div className="mb-8">
                 <h1 className="text-3xl font-black tracking-tight text-zinc-900">
