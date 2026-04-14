@@ -427,6 +427,7 @@ function EditProjectInner() {
   return (
     <>
       <Head>
+        <title>Edit Project — VetMyBuilder</title>
       </Head>
       <div
         className="relative min-h-screen overflow-hidden"
