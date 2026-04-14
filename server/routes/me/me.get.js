@@ -3,7 +3,13 @@
  * GET /api/me
  * Auth: required.
  * Response:
- *  { uid, email, firstName, lastName, username, locationRaw, postcodeOutward, displayName, initials }
+ *  { uid, email, firstName, lastName, username, locationRaw, postcodeOutward, displayName, initials, isTradesman }
+ *
+ * `isTradesman` is true iff a row exists in `tradesmen` for this uid. The
+ * client uses this alongside `postcodeOutward` to decide `profileComplete`:
+ * a tradesman-only account (no homeowner postcode) must still be treated
+ * as profile-complete, otherwise homeowner-gating logic in AuthedOnly /
+ * GuestOnly / SiteHeader will keep bouncing them to /signup/complete.
  */
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery, touchUserMw } = ctx;
@@ -14,17 +20,24 @@ module.exports = (router, ctx) => {
     const uid = req.user.uid;
 
     let row = {};
+    let isTradesman = false;
     try {
       const rows = await mysqlQuery(
         `
-        SELECT uid, email, firstName, lastName, username, locationRaw, postcodeOutward
-        FROM users
-        WHERE uid = ?
+        SELECT u.uid, u.email, u.firstName, u.lastName, u.username,
+               u.locationRaw, u.postcodeOutward,
+               (t.user_id IS NOT NULL) AS isTradesman
+        FROM users u
+        LEFT JOIN tradesmen t ON t.user_id = u.uid
+        WHERE u.uid = ?
         LIMIT 1
         `,
         [uid],
       );
       row = rows[0] || {};
+      // MySQL returns a 0/1 int for the boolean expression above; normalise
+      // to a native bool for the JSON response.
+      isTradesman = !!Number(row.isTradesman ?? 0);
     } catch (err) {
       log.error(
         { errMsg: err?.message, stack: err?.stack, uid },
@@ -122,6 +135,7 @@ module.exports = (router, ctx) => {
       username,
       locationRaw: row.locationRaw ?? null,
       postcodeOutward: row.postcodeOutward ?? null,
+      isTradesman,
       displayName,
       initials,
     });

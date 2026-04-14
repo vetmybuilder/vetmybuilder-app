@@ -25,7 +25,21 @@ export default function TradesmanOnly({
     }
 
     if (role !== "tradesman") {
-      router.replace("/projects");
+      // Mid-signup SSO tradesman: they're authed but their PUT
+      // /api/tradesmen/me hasn't landed yet, so useRole still reports
+      // "user". Sending them to /projects here would cascade through
+      // AuthedOnly to the homeowner /signup/complete — not what the
+      // user intended. Route them back to finish the tradesman flow.
+      let midTradesmanSignup = false;
+      try {
+        midTradesmanSignup =
+          sessionStorage.getItem("vmb:tradesmanSignupInProgress") === "1";
+      } catch {}
+      if (midTradesmanSignup) {
+        router.replace("/tradesman/signup/complete");
+      } else {
+        router.replace("/projects");
+      }
     }
   }, [authLoading, roleLoading, user, role, router]);
 

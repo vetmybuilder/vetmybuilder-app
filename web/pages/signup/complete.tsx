@@ -32,7 +32,19 @@ export default function SignupComplete() {
     if (authLoading) return;
     if (!user) {
       router.replace("/login");
+      return;
     }
+    // If this user is mid-way through a tradesman signup, they ended up
+    // here because some other gate bounced them — deflect to the
+    // tradesman onboarding wizard so we don't ask a tradesperson to fill
+    // in a homeowner postcode.
+    try {
+      if (
+        sessionStorage.getItem("vmb:tradesmanSignupInProgress") === "1"
+      ) {
+        router.replace("/tradesman/signup/complete");
+      }
+    } catch {}
   }, [authLoading, user, router]);
 
   // Prefill the postcode if /api/me already has one (e.g. user landed here
