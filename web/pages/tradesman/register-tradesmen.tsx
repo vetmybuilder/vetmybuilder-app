@@ -2,6 +2,7 @@
 
 import Head from "next/head";
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/router";
 import { Check } from "lucide-react";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
@@ -36,6 +37,7 @@ type Doc = { name: string; size: number; type: string };
 
 export default function TradesmanRegisterV2Page() {
   const api = useApi();
+  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 
   // IMPORTANT: while on this page, block global auth redirects
@@ -452,8 +454,34 @@ export default function TradesmanRegisterV2Page() {
         sessionStorage.setItem("vmb:returnTo", "/tradesman/projects");
       } catch {}
 
-      // User is already logged in via Firebase → just send them to dashboard
-      window.location.replace("/tradesman/projects");
+      // Prime the role cache for the upcoming full-page reload.
+      //
+      // Subtle race: SiteHeader's own /api/tradesmen/me GET fires earlier,
+      // when the Firebase user first appears. On mobile-webkit that GET
+      // can resolve AFTER the one below completes but BEFORE the page
+      // actually unloads — its success handler writes back to
+      // vmb:isTradesman, clobbering our "1" with the stale "0" it saw
+      // pre-PUT. When the new page then reads the fast path, useRole
+      // returns "user", TradesmanOnly bounces to /projects, and
+      // AuthedOnly finishes the redirect to /signup/complete.
+      //
+      // Fix: also set a distinct one-shot flag that useRole consults
+      // first. It survives SiteHeader's write because it's a different
+      // key, and useRole clears it after honouring it.
+      try {
+        sessionStorage.setItem("vmb:justRegisteredTradesman", "1");
+        sessionStorage.setItem("vmb:isTradesman", "1");
+        const company = form.companyName;
+        if (company) {
+          sessionStorage.setItem("vmb:tradesCo", String(company));
+        }
+      } catch {}
+
+      // Use Next's router.replace for the post-register redirect.
+      // mobile-webkit has been observed to silently swallow
+      // window.location changes made from the tail of an async handler
+      // while the page is being unmounted by parent gates.
+      router.replace("/tradesman/projects");
     } catch (e: any) {
       const msg =
         e?.response?.data?.error ||

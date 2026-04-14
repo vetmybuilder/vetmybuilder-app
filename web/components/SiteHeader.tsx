@@ -173,9 +173,22 @@ export default function SiteHeader() {
   const [company, setCompany] = useState<string | null>(null);
   const [roleChecked, setRoleChecked] = useState(false);
 
-  // Seed from sessionStorage on client to avoid blink on subsequent loads
+  // Seed from sessionStorage on client to avoid blink on subsequent loads.
+  // Honour the one-shot `vmb:justRegisteredTradesman` flag set by the
+  // tradesman register flow so we don't render the homeowner variant
+  // while an earlier in-flight GET's stale "0" is still in the cache.
   useEffect(() => {
     try {
+      const justRegistered =
+        sessionStorage.getItem("vmb:justRegisteredTradesman") === "1";
+      if (justRegistered) {
+        setIsTrades(true);
+        setCompany(sessionStorage.getItem("vmb:tradesCo") || null);
+        setRoleChecked(true);
+        // don't remove the flag here — useRole owns the one-shot lifecycle
+        return;
+      }
+
       const cached = sessionStorage.getItem("vmb:isTradesman");
       if (cached !== null) {
         setIsTrades(cached === "1");

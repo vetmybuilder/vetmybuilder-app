@@ -147,6 +147,7 @@ async function classifyProject({
   location,
   propertyType,
   bedrooms,
+  answers,
   log = console,
 }) {
   if (!mysqlQuery) return null;
@@ -161,6 +162,7 @@ async function classifyProject({
     location,
     propertyType,
     bedrooms,
+    answers,
   });
 
   let result;
@@ -229,18 +231,54 @@ function buildUserPrompt({
   location,
   propertyType,
   bedrooms,
+  answers,
 }) {
   const lines = ["Classify the following home-improvement project:", ""];
   if (type) lines.push(`Form-selected type: ${type}`);
   if (propertyType) lines.push(`Property type: ${propertyType}`);
   if (Number.isFinite(Number(bedrooms))) lines.push(`Bedrooms: ${bedrooms}`);
   if (location) lines.push(`Location: ${location}`);
+
+  // Structured answers (category-specific). The homeowner filled these in
+  // directly, so they're more reliable than anything parsed from description.
+  if (answers && typeof answers === "object") {
+    const flat = flattenAnswersForPrompt(answers);
+    if (flat.length) {
+      lines.push("");
+      lines.push("Structured homeowner answers:");
+      for (const entry of flat) lines.push(`- ${entry}`);
+    }
+  }
+
   lines.push("");
   lines.push("Free-text description:");
   lines.push(description);
   lines.push("");
   lines.push("Return JSON only.");
   return lines.join("\n");
+}
+
+function flattenAnswersForPrompt(answers) {
+  const out = [];
+  for (const [groupId, group] of Object.entries(answers)) {
+    if (groupId === "_version" || !group || typeof group !== "object") continue;
+    for (const [key, value] of Object.entries(group)) {
+      if (value === undefined || value === null || value === "") continue;
+      if (
+        typeof value === "object" &&
+        typeof value.kind === "string" &&
+        "value" in value
+      ) {
+        // "either" field → "size: 42 m2" or "size: 3 rooms"
+        out.push(`${groupId}.${key}: ${value.value} ${value.kind}`);
+      } else if (typeof value === "boolean") {
+        out.push(`${groupId}.${key}: ${value ? "yes" : "no"}`);
+      } else {
+        out.push(`${groupId}.${key}: ${value}`);
+      }
+    }
+  }
+  return out;
 }
 
 function parseJsonResponse(raw, log) {
@@ -274,4 +312,10 @@ module.exports = {
   classifyProject,
   CLASSIFIER_VERSION,
   FEATURE,
+  // Exposed for unit testing — not part of the public API. Do not import
+  // these from other server modules.
+  _internal: {
+    buildUserPrompt,
+    flattenAnswersForPrompt,
+  },
 };

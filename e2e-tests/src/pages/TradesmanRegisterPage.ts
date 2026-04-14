@@ -127,6 +127,23 @@ export class TradesmanRegisterPage extends BasePage {
   }
 
   /**
+   * Waits for the post-register redirect to land on /tradesman/projects
+   * AND for the page's root testid to be visible. The whole chain
+   * (Firebase createUser → photo upload → PUT /api/tradesmen/me →
+   * router.replace → Next.js page mount) can take several seconds on
+   * a cold worker, so a generous timeout is preferable to a short URL
+   * poll that flakes under CI load.
+   */
+  async expectLandedOnTradesmanProjects() {
+    await expect(this.page).toHaveURL(/\/tradesman\/projects/, {
+      timeout: 30_000,
+    });
+    await expect(
+      this.page.getByTestId("tradesman-projects-page"),
+    ).toBeVisible({ timeout: 30_000 });
+  }
+
+  /**
    * Assert that the Step 4 password checklist is showing a given rule
    * as either passing (green / emerald) or failing (zinc).
    */

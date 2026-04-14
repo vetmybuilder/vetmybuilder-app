@@ -1,5 +1,9 @@
 import { Page, Locator, expect } from "@playwright/test";
-import type { ProjectCreateInput as CreateProjectInput } from "../models/Project";
+import type {
+  ProjectCreateInput as CreateProjectInput,
+  FlooringAnswers,
+  InsulationAnswers,
+} from "../models/Project";
 import { escapeRegExp, ensureEndsWithPeriod } from "../utils/formatters";
 
 export class CreateProjectPage {
@@ -32,9 +36,6 @@ export class CreateProjectPage {
 
     this.mobileMenuButton = page.getByTestId("btn-mobile-menu");
     this.desktopPostJob = page.getByTestId("btn-post-job-header");
-    // Scoped to the mobile menu's testid — getByRole("button", { name: "Post
-    // a Job" }) was too broad and collided with the projects-empty CTA when
-    // the homeowner had no projects yet.
     this.mobilePostJob = page.getByTestId("mobile-menu-post-job");
 
     this.categorySelect = page.getByTestId("field-category");
@@ -99,6 +100,20 @@ export class CreateProjectPage {
     await this.selectBedrooms(input.bedrooms);
     await this.next();
 
+    // Dynamic step — only appears when the work type triggers a spec.
+    // The step title comes from the spec's first group. Callers signal
+    // which spec is in play by attaching the matching *Answers field
+    // to their input.
+    if (input.flooringAnswers) {
+      await this.waitForStep("About the floor");
+      await this.fillFlooringDetails(input.flooringAnswers);
+      await this.next();
+    } else if (input.insulationAnswers) {
+      await this.waitForStep("About the insulation job");
+      await this.fillInsulationDetails(input.insulationAnswers);
+      await this.next();
+    }
+
     await this.waitForStep("Brief description");
     await this.fillDescriptionStep(input);
     await this.next();
@@ -107,15 +122,14 @@ export class CreateProjectPage {
     await this.assertReviewStep(input);
 
     await this.createBtn.click();
+ 
     await this.page.waitForURL(
-      (url) => {
-        const path = url.pathname;
-        return path.startsWith("/projects/") && path.split("/").length === 3;
-      },
+      (url) => /^\/projects\/\d+\/?$/.test(url.pathname),
       { timeout: 30_000 },
     );
 
-    const projectId = this.page.url().split("/").pop() as string;
+    const { pathname } = new URL(this.page.url());
+    const projectId = pathname.split("/").filter(Boolean).pop() as string;
 
     return projectId;
   }
@@ -149,7 +163,11 @@ export class CreateProjectPage {
 
   private async selectPropertyType(propertyType: string) {
     await this.propertyTypeBtn.click();
-    await this.page.getByRole("option", { name: propertyType }).click();
+    // `exact: true` — "Detached" would otherwise also match "Semi-Detached"
+    // and "End of Terrace" etc. would be ambiguous.
+    await this.page
+      .getByRole("option", { name: propertyType, exact: true })
+      .click();
   }
 
   private async selectBedrooms(bedrooms: number) {
@@ -158,21 +176,53 @@ export class CreateProjectPage {
     await this.page.getByRole("option", { name: target }).first().click();
   }
 
+  // The UI's dropdown options mix hyphens and en-dashes (see
+  // web/components/forms/DescriptionBuilder.tsx). These helpers let specs
+  // use the "natural" hyphen form and the page object translates to the
+  // exact label the UI renders. Mirrors EditProjectPage.
+  private normalizeTimeframeLabel(label: string) {
+    if (label === "Soon (2-4 weeks)") return "Soon (2–4 weeks)";
+    if (label === "This quarter (1-3 months)")
+      return "This quarter (1–3 months)";
+    return label;
+  }
+
+  private normalizeBudgetLabel(label: string) {
+    if (label === "£5k-£15k") return "£5k–£15k";
+    if (label === "£15k-£30k") return "£15k–£30k";
+    return label;
+  }
+
   private async fillDescriptionStep(input: CreateProjectInput) {
+    const timeframeLabel = this.normalizeTimeframeLabel(input.timeframe);
+    const budgetLabel = this.normalizeBudgetLabel(input.budget);
+
+    // Cap timeouts on option picks so a bad label fails in 5s
+    // rather than retrying for the full test timeout.
+    const pickOption = async (label: string) => {
+      const option = this.page.getByRole("option", { name: label });
+      await expect(option).toBeVisible({ timeout: 5000 });
+      await option.click();
+    };
+
     await this.timeframeBtn.click();
-    await this.page.getByRole("option", { name: input.timeframe }).click();
+    await pickOption(timeframeLabel);
 
     await this.budgetBtn.click();
-    await this.page.getByRole("option", { name: input.budget }).click();
+    await pickOption(budgetLabel);
 
     await this.materialsBtn.click();
-    await this.page.getByRole("option", { name: input.materials }).click();
+    await pickOption(input.materials);
 
-    await this.accessWrap
-      .getByRole("button", {
-        name: new RegExp(escapeRegExp(input.access), "i"),
-      })
-      .click();
+    // Cap the click timeout — otherwise a caller passing an access chip
+    // that doesn't exist in the current category's set (the DescriptionBuilder
+    // renders different chip sets per category) will silently retry for the
+    // full test timeout, producing a 3-minute hang instead of a fast failure.
+    const accessButton = this.accessWrap.getByRole("button", {
+      name: new RegExp(escapeRegExp(input.access), "i"),
+    });
+    await expect(accessButton).toBeVisible({ timeout: 5000 });
+    await accessButton.click();
 
     if (input.extraNotes) {
       await this.notesInput.fill(input.extraNotes);
@@ -181,10 +231,10 @@ export class CreateProjectPage {
     await expect(this.preview).toBeVisible();
 
     await expect(this.preview).toContainText(
-      `Timeframe: ${ensureEndsWithPeriod(input.timeframe)}`,
+      `Timeframe: ${ensureEndsWithPeriod(timeframeLabel)}`,
     );
     await expect(this.preview).toContainText(
-      `Budget: ${ensureEndsWithPeriod(input.budget)}`,
+      `Budget: ${ensureEndsWithPeriod(budgetLabel)}`,
     );
     await expect(this.preview).toContainText(
       `Materials: ${ensureEndsWithPeriod(input.materials)}`,
@@ -195,6 +245,59 @@ export class CreateProjectPage {
 
     if (input.extraNotes) {
       await expect(this.preview).toContainText(input.extraNotes);
+    }
+  }
+
+  async fillFlooringDetails(answers: FlooringAnswers) {
+    const group = this.page.getByTestId("dynamic-group-flooring");
+    await expect(group).toBeVisible();
+
+    // Size (either field): click the visible label for m² or rooms, then type the value
+    const sizeBase = "field-flooring-size";
+    await group
+      .getByTestId(`${sizeBase}-kind-${answers.size.kind}-label`)
+      .click();
+    const sizeValue = group.getByTestId(`${sizeBase}-value`);
+    await sizeValue.fill(String(answers.size.value));
+
+    // Floor type (select)
+    await group
+      .getByTestId("field-flooring-floor_type")
+      .selectOption(answers.floor_type);
+
+    // Removal
+    const removalCheckbox = group.getByTestId("field-flooring-removal_required");
+    const currentlyChecked = await removalCheckbox.isChecked();
+    if (!!answers.removal_required !== currentlyChecked) {
+      await removalCheckbox.click();
+    }
+
+    // Subfloor (conditional select, only when removal is required)
+    if (answers.removal_required && answers.subfloor_condition) {
+      await group
+        .getByTestId("field-flooring-subfloor_condition")
+        .selectOption(answers.subfloor_condition);
+    }
+  }
+
+  /**
+   * Drive the dynamic "About the insulation job" step that appears for
+   * insulation work types (see web/config/jobFields.ts).
+   */
+  async fillInsulationDetails(answers: InsulationAnswers) {
+    const group = this.page.getByTestId("dynamic-group-insulation");
+    await expect(group).toBeVisible();
+
+    if (typeof answers.area_m2 === "number") {
+      await group
+        .getByTestId("field-insulation-area_m2")
+        .fill(String(answers.area_m2));
+    }
+
+    if (answers.current_state) {
+      await group
+        .getByTestId("field-insulation-current_state")
+        .selectOption(answers.current_state);
     }
   }
 
@@ -212,10 +315,10 @@ export class CreateProjectPage {
     await expect(review).toContainText(String(input.bedrooms));
 
     await expect(review).toContainText(
-      `Timeframe: ${ensureEndsWithPeriod(input.timeframe)}`,
+      `Timeframe: ${ensureEndsWithPeriod(this.normalizeTimeframeLabel(input.timeframe))}`,
     );
     await expect(review).toContainText(
-      `Budget: ${ensureEndsWithPeriod(input.budget)}`,
+      `Budget: ${ensureEndsWithPeriod(this.normalizeBudgetLabel(input.budget))}`,
     );
     await expect(review).toContainText(
       `Materials: ${ensureEndsWithPeriod(input.materials)}`,

@@ -15,6 +15,10 @@ export type ProjectCreateInput = {
   materials: string; // must match UI options
   access: string; // must match chip label
   extraNotes?: string;
+
+  /** Only present when the work type triggers a dynamic-fields spec. */
+  flooringAnswers?: FlooringAnswers;
+  insulationAnswers?: InsulationAnswers;
 };
 
 export type ApiProjectPayload = {
@@ -24,6 +28,26 @@ export type ApiProjectPayload = {
   description: string;
   propertyType: string;
   bedrooms: number;
+  answers?: AnswersPayload;
+};
+
+/** Structured homeowner answers — mirrors the shape written to projects.answers_json. */
+export type AnswersPayload = {
+  _version: 1;
+  flooring?: FlooringAnswers;
+  insulation?: InsulationAnswers;
+};
+
+export type FlooringAnswers = {
+  size: { kind: "m2" | "rooms"; value: number };
+  floor_type: "carpet" | "lvt" | "engineered_wood" | "laminate" | "solid_wood" | "tile";
+  removal_required?: boolean;
+  subfloor_condition?: "unknown" | "level" | "needs_levelling";
+};
+
+export type InsulationAnswers = {
+  area_m2?: number;
+  current_state?: "none" | "thin" | "unknown";
 };
 
 function normalize(s: string) {
@@ -65,6 +89,10 @@ export default class Project {
   access!: string;
   extraNotes?: string;
 
+  /** Category-specific structured answers, if any. */
+  flooringAnswers?: FlooringAnswers;
+  insulationAnswers?: InsulationAnswers;
+
   static aProject(): Project {
     return new Project();
   }
@@ -104,6 +132,37 @@ export default class Project {
     return this;
   }
 
+  /**
+   * Attach structured flooring answers. Only `size` and `floor_type` have
+   * defaults because those are the two required fields. The optional
+   * `removal_required` / `subfloor_condition` are omitted unless the caller
+   * explicitly sets them — mirroring what the UI actually persists when the
+   * user doesn't interact with the optional controls (a boolean the user
+   * never touched is stored as absent, not as `false`).
+   */
+  withFlooringAnswers(overrides?: Partial<FlooringAnswers>): Project {
+    const defaults: Pick<FlooringAnswers, "size" | "floor_type"> = {
+      size: { kind: "m2", value: 50 },
+      floor_type: "engineered_wood",
+    };
+    this.flooringAnswers = {
+      ...defaults,
+      ...(overrides || {}),
+    } as FlooringAnswers;
+    return this;
+  }
+
+  /**
+   * Attach structured insulation answers. All fields are optional — the
+   * insulation spec has no required fields because the work type already
+   * identifies what's being insulated. Tests can pass partial overrides
+   * or an empty object to signal "user filled no details".
+   */
+  withInsulationAnswers(overrides?: Partial<InsulationAnswers>): Project {
+    this.insulationAnswers = { ...(overrides || {}) } as InsulationAnswers;
+    return this;
+  }
+
   withLocation(location: { query: string; pick: string } | string): Project {
     if (typeof location === "string") {
       const v = normalize(location);
@@ -140,7 +199,18 @@ export default class Project {
       materials: this.materials,
       access: this.access,
       extraNotes: this.extraNotes,
+      flooringAnswers: this.flooringAnswers,
+      insulationAnswers: this.insulationAnswers,
     };
+  }
+
+  /** Full structured answers payload, or undefined when none have been set. */
+  toAnswersPayload(): AnswersPayload | undefined {
+    if (!this.flooringAnswers && !this.insulationAnswers) return undefined;
+    const out: AnswersPayload = { _version: 1 };
+    if (this.flooringAnswers) out.flooring = this.flooringAnswers;
+    if (this.insulationAnswers) out.insulation = this.insulationAnswers;
+    return out;
   }
 
   expectedDescriptionPreview(): string {
@@ -157,13 +227,15 @@ export default class Project {
   }
 
   /**
-   * API payload (kept for API tests)
+   * API payload (kept for API tests). Includes `answers` only when structured
+   * answers have been attached via withFlooringAnswers(); omitted otherwise so
+   * non-Flooring tests exercise the no-answers path unchanged.
    */
   toApiPayload(): ApiProjectPayload {
     const input = this.toCreateInput();
     const primaryType = normalize(input.workTypes?.[0] || input.category || "");
 
-    return {
+    const payload: ApiProjectPayload = {
       name: buildAutoNameSimple(
         primaryType,
         input.locationPick,
@@ -177,9 +249,26 @@ export default class Project {
         ? Number(input.bedrooms)
         : 0,
     };
+
+    const answers = this.toAnswersPayload();
+    if (answers) payload.answers = answers;
+
+    return payload;
   }
 
   toPayload(): ApiProjectPayload {
     return this.toApiPayload();
+  }
+
+  /**
+   * Update-safe payload for PUT /api/projects/:id. Omits `location` because
+   * the server rejects location changes with 400 and also strips full UK
+   * postcodes on write, so re-sending the raw model location would look
+   * like a change even when it isn't. The PUT endpoint supports partial
+   * updates, so omitted fields just keep their stored values.
+   */
+  toApiUpdatePayload(): Omit<ApiProjectPayload, "location"> {
+    const { location: _ignored, ...rest } = this.toApiPayload();
+    return rest;
   }
 }

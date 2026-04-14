@@ -11,6 +11,10 @@ import { PROJECT_TYPES, type ProjectTypeCategory } from "@/types/projectTypes";
 import BedroomsSelect from "@/components/forms/BedroomsSelect";
 import DescriptionBuilder from "@/components/forms/DescriptionBuilder";
 import ProgressBar from "@/components/ProgressBar";
+import DynamicFieldGroup, {
+  validateGroup,
+} from "@/components/forms/DynamicFieldGroup";
+import { getSpecForSelection, type AnswersShape } from "@/config/jobFields";
 
 /* ===== Outer page: auth + gate (prevents flicker) ===== */
 export default function EditProjectPage() {
@@ -124,6 +128,8 @@ type FormShape = {
   description: string;
   propertyType: string;
   bedrooms: number;
+
+  answers: AnswersShape;
 };
 
 function EditProjectInner() {
@@ -175,6 +181,20 @@ function EditProjectInner() {
           inferredCategory = bucket?.category ?? null;
         }
 
+        // answers_json may come back as a parsed object or a JSON string
+        // depending on the MySQL driver config. Normalise to an object.
+        let loadedAnswers: AnswersShape = { _version: 1 };
+        const rawAnswers = (p as any)?.answers_json;
+        if (rawAnswers && typeof rawAnswers === "string") {
+          try {
+            loadedAnswers = JSON.parse(rawAnswers) || loadedAnswers;
+          } catch {
+            /* keep default */
+          }
+        } else if (rawAnswers && typeof rawAnswers === "object") {
+          loadedAnswers = rawAnswers;
+        }
+
         const initialForm: FormShape = {
           category: inferredCategory,
           selectedTypes: primaryType ? [primaryType] : [],
@@ -184,6 +204,7 @@ function EditProjectInner() {
           description: p.description ?? "",
           propertyType: p.propertyType ?? "",
           bedrooms: Number(p.bedrooms ?? 0),
+          answers: loadedAnswers,
         };
 
         setForm(initialForm);
@@ -224,21 +245,33 @@ function EditProjectInner() {
     return [...bucket.types].sort((a, b) => a.localeCompare(b));
   }, [form?.category]);
 
-  const STEPS = useMemo(
-    () =>
-      [
-        { key: "category", title: "Category" as const },
-        { key: "subtypes", title: "Type of work" as const },
-        { key: "location", title: "Location" as const },
-        { key: "propertyType", title: "Property type" as const },
-        { key: "bedrooms", title: "Number of rooms" as const },
-        { key: "description", title: "Brief description" as const },
-        { key: "review", title: "Review & save" as const },
-      ] as const,
-    [],
+  const categorySpec = useMemo(
+    () => getSpecForSelection(form?.selectedTypes ?? null),
+    [form?.selectedTypes],
   );
-  type StepKey = (typeof STEPS)[number]["key"];
+
+  const STEPS = useMemo(() => {
+    const base: Array<{ key: string; title: string }> = [
+      { key: "category", title: "Category" },
+      { key: "subtypes", title: "Type of work" },
+      { key: "location", title: "Location" },
+      { key: "propertyType", title: "Property type" },
+      { key: "bedrooms", title: "Number of rooms" },
+    ];
+    const details = categorySpec
+      ? [{ key: "details", title: categorySpec.groups[0].title }]
+      : [];
+    return [
+      ...base,
+      ...details,
+      { key: "description", title: "Brief description" },
+      { key: "review", title: "Review & save" },
+    ];
+  }, [categorySpec]);
+  type StepKey = string;
   const maxStep = STEPS.length - 1;
+
+  const [answerErrors, setAnswerErrors] = useState<Record<string, string>>({});
 
   const set = <K extends keyof FormShape>(k: K, v: FormShape[K]) =>
     setForm((prev) => (prev ? { ...prev, [k]: v } : prev));
@@ -248,6 +281,14 @@ function EditProjectInner() {
     const picked = form.selectedTypes.length > 0;
     const otherOk = form.otherEnabled && form.otherText.trim().length >= 2;
     return picked || otherOk;
+  }
+
+  function detailsStepErrors(): Record<string, string> {
+    if (!categorySpec || !form) return {};
+    return categorySpec.groups.reduce<Record<string, string>>(
+      (acc, g) => Object.assign(acc, validateGroup(g, form.answers)),
+      {},
+    );
   }
 
   function isStepValid(idx: number): boolean {
@@ -260,7 +301,8 @@ function EditProjectInner() {
         !!form.location.trim() &&
         !!form.propertyType.trim() &&
         Number(form.bedrooms) >= 0 &&
-        String(form.description).trim().length >= 2
+        String(form.description).trim().length >= 2 &&
+        Object.keys(detailsStepErrors()).length === 0
       );
     }
     switch (k) {
@@ -270,9 +312,11 @@ function EditProjectInner() {
         return hasAnySubtype();
       case "location":
       case "propertyType":
-        return !!String(form[k]).trim();
+        return !!String(form[k as "location" | "propertyType"]).trim();
       case "bedrooms":
         return String(form.bedrooms) !== "" && Number(form.bedrooms) >= 0;
+      case "details":
+        return Object.keys(detailsStepErrors()).length === 0;
       case "description":
         return String(form.description).trim().length >= 2;
       default:
@@ -295,6 +339,10 @@ function EditProjectInner() {
         form.propertyType,
       );
 
+      const hasAnswers =
+        !!categorySpec &&
+        Object.keys(form.answers).some((k) => k !== "_version");
+
       const payload = {
         name: autoName,
         type: primaryType,
@@ -302,6 +350,9 @@ function EditProjectInner() {
         description: normalize(form.description || ""),
         propertyType: form.propertyType,
         bedrooms: Number(form.bedrooms) || 0,
+        // Always send `answers` so the server can overwrite (including clearing
+        // when the category no longer has a spec). undefined would be ignored.
+        answers: hasAnswers ? form.answers : null,
       };
 
       const { data } = await api.put(`/api/projects/${id}`, payload);
@@ -327,7 +378,18 @@ function EditProjectInner() {
   };
 
   const next = () => {
-    if (step < maxStep && isStepValid(step)) {
+    if (step >= maxStep) return;
+
+    if (STEPS[step].key === "details") {
+      const errs = detailsStepErrors();
+      if (Object.keys(errs).length > 0) {
+        setAnswerErrors(errs);
+        return;
+      }
+      setAnswerErrors({});
+    }
+
+    if (isStepValid(step)) {
       moveFocusOffStep();
       setFormErr(null);
       setStep((s) => s + 1);
@@ -435,7 +497,7 @@ function EditProjectInner() {
         aria-label="Edit Project Page"
       >
 
-        <div className="relative z-10 mx-auto max-w-2xl px-4 sm:px-6 lg:px-8 py-8">
+        <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
           <div
             className="mb-6 flex items-center justify-between rounded-2xl bg-white/80 backdrop-blur px-4 py-3 shadow-sm"
@@ -493,13 +555,16 @@ function EditProjectInner() {
                     aria-labelledby={titleId}
                     aria-hidden={active ? undefined : true}
                     {...(!active ? ({ inert: "" } as any) : {})}
-                    className="w-full shrink-0 px-6 py-6 sm:px-10 sm:py-10"
+                    className="w-full shrink-0 px-6 py-6 sm:px-10 sm:py-10 min-h-[28rem] sm:min-h-[32rem]"
                   >
-                    <h2 id={titleId} className="text-xl font-black text-zinc-900">
+                    <h2
+                      id={titleId}
+                      className="max-w-3xl mx-auto text-xl font-black text-zinc-900"
+                    >
                       {s.title}
                     </h2>
 
-                <div className="mt-5 grid max-w-3xl gap-4">
+                <div className="mt-5 grid max-w-3xl mx-auto gap-4">
                   {s.key === "category" && (
                     <Select
                       id={ids.category}
@@ -638,6 +703,22 @@ function EditProjectInner() {
                     />
                   )}
 
+                  {s.key === "details" && categorySpec && (
+                    <div className="space-y-6">
+                      {categorySpec.groups.map((g) => (
+                        <DynamicFieldGroup
+                          key={g.id}
+                          group={g}
+                          value={form.answers}
+                          onChange={(nextAnswers) =>
+                            set("answers", nextAnswers)
+                          }
+                          errors={answerErrors}
+                        />
+                      ))}
+                    </div>
+                  )}
+
                   {s.key === "description" && (
                     <DescriptionBuilder
                       value={form.description}
@@ -701,7 +782,7 @@ function EditProjectInner() {
 
                 {formErr && active && (
                   <p
-                    className="mt-3 text-sm text-red-500 font-medium"
+                    className="mt-3 max-w-3xl mx-auto text-sm text-red-500 font-medium"
                     role="alert"
                     data-testid="edit-error"
                   >
@@ -710,7 +791,7 @@ function EditProjectInner() {
                 )}
 
                 {active && (
-                  <div className="mt-10 flex items-center justify-center gap-4">
+                  <div className="mt-10 flex max-w-3xl mx-auto items-center justify-center gap-4">
                     <button
                       type="button"
                       onClick={back}

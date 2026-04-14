@@ -316,6 +316,56 @@ export class ProjectDetailsPage extends BasePage {
     );
   }
 
+  /**
+   * Asserts the "Typical cost range" badge renders. Pass `expected` to also
+   * verify the exact min/max (useful when editing should change the range).
+   *
+   * The badge sits inside the Project Insights card, which only appears
+   * after the async classifier finishes — allow a generous timeout so
+   * the test isn't flaky in CI.
+   */
+  async hasPriceRangeBadge(expected?: { min: number; max: number }) {
+    const badge = this.page.getByTestId("price-range-badge");
+    await expect(badge).toBeVisible({ timeout: 15_000 });
+    await expect(badge).toContainText("Typical cost range");
+    await expect(badge).toContainText(/ballpark, not a quote/i);
+
+    const value = this.page.getByTestId("price-range-value");
+    if (expected) {
+      const format = (n: number) => `£${n.toLocaleString("en-GB")}`;
+      await expect(value).toHaveText(
+        `${format(expected.min)}–${format(expected.max)}`,
+      );
+    } else {
+      await expect(value).toContainText(/£\d[\d,]*–£\d[\d,]*/);
+    }
+  }
+
+  /**
+   * Asserts the Project Insights card does NOT contain a price-range badge.
+   * Used by tests that create a project with no spec match and no AI
+   * classification (so neither badge source is available).
+   */
+  async hasNoPriceRangeBadge() {
+    await expect(this.page.getByTestId("price-range-badge")).toHaveCount(0);
+  }
+
+  /**
+   * Asserts the deterministic price-range is NOT shown. The badge itself
+   * may still be visible with the AI-fallback caveat — we don't care —
+   * but it must NOT claim to be "Based on your job details" (the
+   * deterministic source caveat).
+   *
+   * Use this when verifying that editing a project's work type to a
+   * non-spec type stops the spec-driven range, without racing against
+   * the fire-and-forget AI classifier re-running on the updated project.
+   */
+  async hasNoDeterministicPriceRangeBadge() {
+    const badge = this.page.getByTestId("price-range-badge");
+    if ((await badge.count()) === 0) return;
+    await expect(badge).not.toContainText("Based on your job details");
+  }
+
   async publish(options?: PublishOptions) {
     await expect(this.shareAndPublish).toBeVisible();
     await this.shareAndPublish.click();

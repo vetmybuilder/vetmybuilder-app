@@ -8,6 +8,7 @@ module.exports = (router, ctx) => {
   const { z } = require("zod");
   const { logger, withRequest } = require("../../lib/logger");
   const { classifyProject } = require("../../lib/ai/projectClassifier");
+  const { validateAnswers } = require("../../lib/jobFields");
 
   // Remove full UK postcode → keep only outward code
   const stripFullPostcodes = (s) => {
@@ -88,6 +89,28 @@ module.exports = (router, ctx) => {
       return res.status(400).json({ error: "invalid_payload" });
     }
 
+    // answers_json: overwrite if body explicitly sets it, otherwise keep current.
+    const hasAnswersInBody = Object.prototype.hasOwnProperty.call(
+      req.body || {},
+      "answers",
+    );
+    let nextAnswers;
+    if (hasAnswersInBody) {
+      nextAnswers = req.body.answers ?? null;
+    } else {
+      const raw = current.answers_json;
+      nextAnswers = typeof raw === "string" ? JSON.parse(raw) : raw ?? null;
+    }
+
+    const answersCheck = validateAnswers(nextAnswers);
+    if (!answersCheck.ok) {
+      log.warn({ errors: answersCheck.errors }, "invalid answers");
+      return res
+        .status(400)
+        .json({ error: "invalid_answers", details: answersCheck.errors });
+    }
+    const answersJson = nextAnswers ? JSON.stringify(nextAnswers) : null;
+
     // MySQL-friendly timestamp
     const now = new Date().toISOString().slice(0, 19).replace("T", " ");
 
@@ -96,7 +119,7 @@ module.exports = (router, ctx) => {
       await mysqlQuery(
         `
         UPDATE projects SET
-          name = ?, type = ?, location = ?, description = ?, propertyType = ?, bedrooms = ?, updatedAt = ?
+          name = ?, type = ?, location = ?, description = ?, answers_json = ?, propertyType = ?, bedrooms = ?, updatedAt = ?
         WHERE id = ?
       `,
         [
@@ -104,6 +127,7 @@ module.exports = (router, ctx) => {
           fields.type,
           fields.location,
           fields.description,
+          answersJson,
           fields.propertyType,
           fields.bedrooms,
           now,
@@ -124,6 +148,7 @@ module.exports = (router, ctx) => {
         location: fields.location,
         propertyType: fields.propertyType,
         bedrooms: fields.bedrooms,
+        answers: nextAnswers,
         log,
       }).then((classification) => {
         if (classification && ctx.broadcastNotification) {

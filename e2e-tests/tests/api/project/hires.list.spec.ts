@@ -4,6 +4,7 @@ import Recommendation from "../../../src/models/Recommendation";
 import { authedApiForUid } from "../../../src/api/services/client";
 import { setupTradesmanProfile } from "../../../src/apiHelper/tradesman/setupTradesmanProfile";
 import HireApi from "../../../src/apiHelper/project/HireApi";
+import { uniq } from "../../../src/utils/formatters";
 
 test.describe("GET /api/projects/:projectId/hires", () => {
   async function liveProjectForOwner(apiClient: any): Promise<number> {
@@ -80,11 +81,13 @@ test.describe("GET /api/projects/:projectId/hires", () => {
     hireApi,
   }) => {
     const projectId = await liveProjectForOwner(apiClient);
+    const uniqueCompany = `Invite Path Co ${uniq("hires-list")} Ltd`;
 
     const recRes = await apiClient.post(
       `/api/projects/${projectId}/recommendations`,
       Recommendation.aRecommendation()
         .withRandomDetails()
+        .withCompany(uniqueCompany)
         .withCompanyEmail("hello@example.test")
         .toPayload(),
     );

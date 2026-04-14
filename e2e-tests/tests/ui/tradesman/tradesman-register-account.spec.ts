@@ -1,14 +1,3 @@
-// e2e-tests/tests/ui/tradesman/tradesman-register-account.spec.ts
-//
-// Covers Step 4 of the tradesman-registration wizard:
-//   - Successful end-to-end registration with a strong password
-//   - Strong-password client-side validation rejects weak passwords
-//   - Password checklist surfaces and updates as the user types
-//   - Confirm-password mismatch is rejected
-//
-// Each test starts from a fresh guest state, walks Steps 1 → 3 via the page
-// object's walkToAccountStep helper, and then asserts behaviour on Step 4.
-
 import { test, expect } from "../../../src/ui.fixtures";
 import Tradesman from "../../../src/models/tradesman";
 import { mockPostcodesIo } from "../../../src/helpers/PostcodesIoMock";
@@ -33,9 +22,7 @@ test.describe("Tradesman registration — Step 4 (account)", () => {
       tradesman.requiredPassword,
     );
     await tradesmanRegisterPage.submitStep4();
-
-    await page.waitForURL(/\/tradesman\/projects/, { timeout: 30_000 });
-    await expect(page).toHaveURL(/\/tradesman\/projects/);
+    await tradesmanRegisterPage.expectLandedOnTradesmanProjects();
   });
 
   test("rejects a weak password with the strong-password error", async ({

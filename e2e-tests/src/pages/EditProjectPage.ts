@@ -1,5 +1,8 @@
 import { expect, type Locator, type Page } from "@playwright/test";
-import Project from "../models/Project";
+import Project, {
+  type FlooringAnswers,
+  type InsulationAnswers,
+} from "../models/Project";
 import BasePage from "./BasePage";
 import { ensureEndsWithPeriod } from "../utils/formatters";
 
@@ -125,12 +128,28 @@ export class EditProjectPage extends BasePage {
           return { ok: true, reason: "ok" };
         },
         {
-          timeout: 30000,
-          intervals: [200, 300, 500, 800, 1200],
+          timeout: 10000,
+          intervals: [200, 300, 500, 800],
           message: `Expected wizard step "${title}" to be the active step.`,
         },
       )
       .toEqual({ ok: true, reason: "ok" });
+  }
+
+  /**
+   * Returns the title of the current active step, or empty string if none.
+   * Used when the caller needs to branch on what the wizard is actually
+   * showing right now — e.g. whether a dynamic spec step is present after
+   * the work type changed.
+   */
+  private async currentStepTitle(): Promise<string> {
+    await this.waitForWizard();
+    const heading = this.activeStep().getByRole("heading").first();
+    try {
+      return (await heading.textContent({ timeout: 2000 }))?.trim() || "";
+    } catch {
+      return "";
+    }
   }
 
   async next() {
@@ -238,20 +257,26 @@ export class EditProjectPage extends BasePage {
   }
 
   async setWorkTypes(originalTypes: string[], nextTypes: string[]) {
+    // Uncheck the originals. Click the label rather than the input — bigger
+    // tap target, works reliably across desktop/mobile.
     for (const t of originalTypes) {
-      const checkbox = this.subtypesWrap
-        .locator("label", { hasText: t })
-        .locator('input[type="checkbox"]');
-
-      if (await checkbox.isChecked()) await checkbox.uncheck();
+      const label = this.subtypesWrap.locator("label", { hasText: t });
+      const checkbox = label.locator('input[type="checkbox"]');
+      if (await checkbox.isChecked()) {
+        await label.click();
+        await expect(checkbox).not.toBeChecked({ timeout: 5000 });
+      }
     }
 
+    // Check the new ones. After clicking, explicitly wait for the checkbox
+    // state to update before moving on. This prevents races on mobile-webkit
+    // where the subsequent Next button check can read a stale (disabled)
+    // state before React's setState has flushed.
     for (const t of nextTypes) {
-      const checkbox = this.subtypesWrap
-        .locator("label", { hasText: t })
-        .locator('input[type="checkbox"]');
-
-      await checkbox.check();
+      const label = this.subtypesWrap.locator("label", { hasText: t });
+      const checkbox = label.locator('input[type="checkbox"]');
+      await label.click();
+      await expect(checkbox).toBeChecked({ timeout: 5000 });
     }
   }
 
@@ -348,6 +373,121 @@ export class EditProjectPage extends BasePage {
       await expect(this.preview).toContainText(input.extraNotes);
   }
 
+  // ────────────────────────────────────────────────────────────
+  // Dynamic "About the floor" step (only present for flooring work types)
+  // ────────────────────────────────────────────────────────────
+
+  private flooringGroup() {
+    return this.page.getByTestId("dynamic-group-flooring");
+  }
+
+  async assertFlooringDetails(expected: FlooringAnswers) {
+    const group = this.flooringGroup();
+    await expect(group).toBeVisible();
+
+    // Size — verify the active kind radio and the numeric value input
+    const activeKindRadio = group.getByTestId(
+      `field-flooring-size-kind-${expected.size.kind}`,
+    );
+    await expect(activeKindRadio).toBeChecked();
+
+    await expect(group.getByTestId("field-flooring-size-value")).toHaveValue(
+      String(expected.size.value),
+    );
+
+    await expect(group.getByTestId("field-flooring-floor_type")).toHaveValue(
+      expected.floor_type,
+    );
+
+    const removal = group.getByTestId("field-flooring-removal_required");
+    if (expected.removal_required) {
+      await expect(removal).toBeChecked();
+    } else {
+      await expect(removal).not.toBeChecked();
+    }
+
+    if (expected.removal_required && expected.subfloor_condition) {
+      await expect(
+        group.getByTestId("field-flooring-subfloor_condition"),
+      ).toHaveValue(expected.subfloor_condition);
+    } else {
+      // Conditional field should be hidden when removal isn't required
+      await expect(
+        group.getByTestId("field-flooring-subfloor_condition"),
+      ).toHaveCount(0);
+    }
+  }
+
+  async fillFlooringDetails(answers: FlooringAnswers) {
+    const group = this.flooringGroup();
+    await expect(group).toBeVisible();
+
+    await group
+      .getByTestId(`field-flooring-size-kind-${answers.size.kind}-label`)
+      .click();
+    await group
+      .getByTestId("field-flooring-size-value")
+      .fill(String(answers.size.value));
+
+    await group
+      .getByTestId("field-flooring-floor_type")
+      .selectOption(answers.floor_type);
+
+    const removal = group.getByTestId("field-flooring-removal_required");
+    const currentlyChecked = await removal.isChecked();
+    if (!!answers.removal_required !== currentlyChecked) {
+      await removal.click();
+    }
+
+    if (answers.removal_required && answers.subfloor_condition) {
+      await group
+        .getByTestId("field-flooring-subfloor_condition")
+        .selectOption(answers.subfloor_condition);
+    }
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // Dynamic "About the insulation job" step
+  // ────────────────────────────────────────────────────────────
+
+  private insulationGroup() {
+    return this.page.getByTestId("dynamic-group-insulation");
+  }
+
+  async assertInsulationDetails(expected: InsulationAnswers) {
+    const group = this.insulationGroup();
+    await expect(group).toBeVisible();
+
+    if (typeof expected.area_m2 === "number") {
+      await expect(
+        group.getByTestId("field-insulation-area_m2"),
+      ).toHaveValue(String(expected.area_m2));
+    }
+
+    if (expected.current_state) {
+      await expect(
+        group.getByTestId("field-insulation-current_state"),
+      ).toHaveValue(expected.current_state);
+    }
+  }
+
+  async fillInsulationDetails(answers: InsulationAnswers) {
+    const group = this.insulationGroup();
+    await expect(group).toBeVisible();
+
+    if (typeof answers.area_m2 === "number") {
+      await group
+        .getByTestId("field-insulation-area_m2")
+        .fill(String(answers.area_m2));
+    }
+
+    if (answers.current_state) {
+      await group
+        .getByTestId("field-insulation-current_state")
+        .selectOption(answers.current_state);
+    }
+  }
+
   async assertReviewStep(expected: {
     category: string;
     workTypes: string[];
@@ -395,21 +535,37 @@ export class EditProjectPage extends BasePage {
       materials?: string;
       access?: string;
       extraNotes?: string;
+      flooringAnswers?: FlooringAnswers;
+      insulationAnswers?: InsulationAnswers;
     },
   ) {
     const original = project.toCreateInput();
+    const categoryChanged =
+      !!updates.category && updates.category !== original.category;
 
     await this.waitForWizard();
 
     await this.waitForStep("Category");
     await this.assertCategorySelected(original.category);
-    if (updates.category) await this.selectCategory(updates.category);
-    await this.next();
+    if (updates.category) {
+      // Edit page's category Select auto-advances to Type of work on change
+      // AND clears the previously-selected subtypes — don't call next()
+      // ourselves or the button will be disabled mid-transition.
+      await this.selectCategory(updates.category);
+      await this.waitForStep("Type of work");
+    } else {
+      await this.next();
+      await this.waitForStep("Type of work");
+    }
 
-    await this.waitForStep("Type of work");
-    await this.assertWorkTypesChecked(original.workTypes);
+    // When the category changed, the old subtypes were cleared by the page;
+    // skip the "still checked" assertion and don't try to uncheck them.
+    if (!categoryChanged) {
+      await this.assertWorkTypesChecked(original.workTypes);
+    }
     if (updates.workTypes?.length) {
-      await this.setWorkTypes(original.workTypes, updates.workTypes);
+      const typesToUncheck = categoryChanged ? [] : original.workTypes;
+      await this.setWorkTypes(typesToUncheck, updates.workTypes);
     }
     await this.next();
 
@@ -430,6 +586,30 @@ export class EditProjectPage extends BasePage {
       await this.selectBedrooms(updates.bedrooms);
     }
     await this.next();
+
+    // Dynamic step — may or may not be present after the edit, depending
+    // on whether the (possibly updated) work type still matches a spec.
+    // Detect by the current step's heading rather than assuming.
+    const afterBedroomsTitle = await this.currentStepTitle();
+    if (/about the floor/i.test(afterBedroomsTitle)) {
+      if (original.flooringAnswers) {
+        await this.assertFlooringDetails(original.flooringAnswers);
+      }
+      if (updates.flooringAnswers) {
+        await this.fillFlooringDetails(updates.flooringAnswers);
+      }
+      await this.next();
+    } else if (/about the insulation/i.test(afterBedroomsTitle)) {
+      if (original.insulationAnswers) {
+        await this.assertInsulationDetails(original.insulationAnswers);
+      }
+      if (updates.insulationAnswers) {
+        await this.fillInsulationDetails(updates.insulationAnswers);
+      }
+      await this.next();
+    }
+    // Otherwise the work type was edited to a non-spec one — fall straight
+    // through to the Brief description step below.
 
     await this.waitForStep("Brief description");
     if (original.extraNotes) {

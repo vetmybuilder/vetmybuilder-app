@@ -7,6 +7,7 @@
 const {
   classifyProject,
 } = require("../../lib/ai/projectClassifier");
+const { validateAnswers } = require("../../lib/jobFields");
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
@@ -27,6 +28,7 @@ module.exports = (router, ctx) => {
     description: z.string().min(2).max(2000),
     propertyType: z.string().min(2).max(80),
     bedrooms: z.coerce.number().int().min(0).max(20),
+    answers: z.record(z.any()).optional(),
   });
 
   router.post("/projects", auth, async (req, res) => {
@@ -43,27 +45,37 @@ module.exports = (router, ctx) => {
         description: req.body?.description,
         propertyType: req.body?.propertyType,
         bedrooms: req.body?.bedrooms,
+        answers: req.body?.answers,
       });
     } catch {
       log.warn?.("[projects.post] invalid payload");
       return res.status(400).json({ error: "Invalid payload" });
     }
 
+    const answersCheck = validateAnswers(body.answers);
+    if (!answersCheck.ok) {
+      log.warn?.({ errors: answersCheck.errors }, "[projects.post] invalid answers");
+      return res.status(400).json({ error: "invalid_answers", details: answersCheck.errors });
+    }
+
     // MySQL-friendly timestamp
     const now = new Date().toISOString().slice(0, 19).replace("T", " ");
 
     try {
+      const answersJson = body.answers ? JSON.stringify(body.answers) : null;
+
       const result = await mysqlQuery(
         `
         INSERT INTO projects
-          (name, type, location, description, propertyType, bedrooms, status, createdAt, updatedAt, ownerUserId)
-        VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
+          (name, type, location, description, answers_json, propertyType, bedrooms, status, createdAt, updatedAt, ownerUserId)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
       `,
         [
           body.name,
           body.type,
           body.location,
           body.description,
+          answersJson,
           body.propertyType,
           body.bedrooms,
           now,
@@ -95,6 +107,7 @@ module.exports = (router, ctx) => {
         location: body.location,
         propertyType: body.propertyType,
         bedrooms: body.bedrooms,
+        answers: body.answers,
         log,
       }).then((classification) => {
         if (classification && ctx.broadcastNotification) {
