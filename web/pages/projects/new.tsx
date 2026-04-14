@@ -11,6 +11,10 @@ import BedroomsSelect from "@/components/forms/BedroomsSelect";
 import DescriptionBuilder from "@/components/forms/DescriptionBuilder";
 import SearchableSelect from "@/components/forms/SearchableSelect";
 import ProgressBar from "@/components/ProgressBar";
+import DynamicFieldGroup, {
+  validateGroup,
+} from "@/components/forms/DynamicFieldGroup";
+import { getSpecForSelection, type AnswersShape } from "@/config/jobFields";
 
 /* ===== Constants & helpers ===== */
 
@@ -54,6 +58,10 @@ type FormShape = {
   description: string;
   propertyType: string;
   bedrooms: number;
+
+  // Structured, category-specific answers. Shape is `{ _version, [groupId]: {...} }`
+  // — see web/config/jobFields.ts. Empty object when the category has no spec.
+  answers: AnswersShape;
 };
 
 export default function NewProject() {
@@ -92,11 +100,19 @@ export default function NewProject() {
     description: "",
     propertyType: "",
     bedrooms: 0,
+
+    answers: { _version: 1 },
   });
 
   const [step, setStep] = useState(0);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Per-field errors for the dynamic "details" step, keyed by `${groupId}.${fieldKey}`.
+  const [answerErrors, setAnswerErrors] = useState<Record<string, string>>({});
+
+  // Reset structured answers only when the matched spec changes — NOT when the
+  // selection changes within the same spec (user toggling work types mid-flow).
+  // See categorySpec.id below.
 
   /* ===== Scroll to top *after* step content is rendered ===== */
   useEffect(() => {
@@ -137,15 +153,37 @@ export default function NewProject() {
 
   /* ===== Steps ===== */
 
-  const STEPS = [
-    { key: "category", title: "Choose category" },
-    { key: "subtypes", title: "Type of work" },
-    { key: "location", title: "Location" },
-    { key: "propertyType", title: "Property type" },
-    { key: "bedrooms", title: "Bedrooms" },
-    { key: "description", title: "Brief description" },
-    { key: "review", title: "Review & create" },
-  ] as const;
+  // "details" step is injected only when a selected work type matches a spec.
+  // All other work types keep the existing flow untouched.
+  const categorySpec = useMemo(
+    () => getSpecForSelection(form.selectedTypes),
+    [form.selectedTypes],
+  );
+
+  useEffect(() => {
+    setForm((prev) => ({ ...prev, answers: { _version: 1 } }));
+    setAnswerErrors({});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categorySpec?.id]);
+
+  const STEPS = useMemo(() => {
+    const base: Array<{ key: string; title: string }> = [
+      { key: "category", title: "Choose category" },
+      { key: "subtypes", title: "Type of work" },
+      { key: "location", title: "Location" },
+      { key: "propertyType", title: "Property type" },
+      { key: "bedrooms", title: "Bedrooms" },
+    ];
+    const details = categorySpec
+      ? [{ key: "details", title: categorySpec.groups[0].title }]
+      : [];
+    return [
+      ...base,
+      ...details,
+      { key: "description", title: "Brief description" },
+      { key: "review", title: "Review & create" },
+    ];
+  }, [categorySpec]);
 
   const maxStep = STEPS.length - 1;
 
@@ -153,6 +191,14 @@ export default function NewProject() {
     const picked = form.selectedTypes.length > 0;
     const otherOk = form.otherEnabled && form.otherText.trim().length >= 2;
     return picked || otherOk;
+  }
+
+  function detailsStepErrors(): Record<string, string> {
+    if (!categorySpec) return {};
+    return categorySpec.groups.reduce<Record<string, string>>(
+      (acc, g) => Object.assign(acc, validateGroup(g, form.answers)),
+      {},
+    );
   }
 
   function isStepValid(idx: number): boolean {
@@ -164,9 +210,11 @@ export default function NewProject() {
         return hasAnySubtype();
       case "location":
       case "propertyType":
-        return !!String(form[key]).trim();
+        return !!String(form[key as "location" | "propertyType"]).trim();
       case "bedrooms":
         return Number(form.bedrooms) >= 0;
+      case "details":
+        return Object.keys(detailsStepErrors()).length === 0;
       case "description":
         return form.description.trim().length >= 2;
       case "review":
@@ -175,7 +223,8 @@ export default function NewProject() {
           hasAnySubtype() &&
           !!form.location.trim() &&
           !!form.propertyType.trim() &&
-          String(form.description).trim().length >= 2
+          String(form.description).trim().length >= 2 &&
+          Object.keys(detailsStepErrors()).length === 0
         );
       default:
         return true;
@@ -192,7 +241,18 @@ export default function NewProject() {
   };
 
   const next = () => {
-    if (step < maxStep && isStepValid(step)) {
+    if (step >= maxStep) return;
+
+    if (STEPS[step].key === "details") {
+      const errs = detailsStepErrors();
+      if (Object.keys(errs).length > 0) {
+        setAnswerErrors(errs);
+        return;
+      }
+      setAnswerErrors({});
+    }
+
+    if (isStepValid(step)) {
       shouldScrollRef.current = true;
       setErr(null);
       setStep((s) => s + 1);
@@ -235,6 +295,10 @@ export default function NewProject() {
         form.propertyType,
       );
 
+      const hasAnswers =
+        categorySpec &&
+        Object.keys(form.answers).some((k) => k !== "_version");
+
       const payload = {
         name: autoName,
         type: primaryType,
@@ -242,6 +306,7 @@ export default function NewProject() {
         description: normalize((form.description || "") + descExtras),
         propertyType: form.propertyType,
         bedrooms: Number(form.bedrooms) || 0,
+        ...(hasAnswers ? { answers: form.answers } : {}),
       };
 
       const { data } = await api.post("/api/projects", payload);
@@ -482,6 +547,23 @@ export default function NewProject() {
                             set("bedrooms", n);
                           }}
                         />
+                      )}
+
+                      {/* Category-specific dynamic fields */}
+                      {s.key === "details" && categorySpec && (
+                        <div className="space-y-6">
+                          {categorySpec.groups.map((g) => (
+                            <DynamicFieldGroup
+                              key={g.id}
+                              group={g}
+                              value={form.answers}
+                              onChange={(nextAnswers) =>
+                                set("answers", nextAnswers)
+                              }
+                              errors={answerErrors}
+                            />
+                          ))}
+                        </div>
                       )}
 
                       {/* Description */}

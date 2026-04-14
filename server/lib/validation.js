@@ -9,6 +9,9 @@ const ProjectSchema = z.object({
   description: z.string().min(2).max(2000),
   propertyType: z.string().min(2).max(80),
   bedrooms: z.number().int().min(0).max(20),
+  // Category-specific structured answers. Shape is validated separately
+  // against server/lib/jobFields.js to keep schema-awareness out of Zod.
+  answers: z.record(z.any()).optional(),
 });
 
 const RecSchema = z
