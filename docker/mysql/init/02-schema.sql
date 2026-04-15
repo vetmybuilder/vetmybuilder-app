@@ -3873,3 +3873,10 @@ CREATE TABLE activity_log (
   INDEX idx_al_level   (level, created_at),
   INDEX idx_al_event   (event, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE google_places_cache (
+  cache_key  CHAR(64)  NOT NULL PRIMARY KEY,
+  payload    JSON      NULL,
+  fetched_at DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_fetched_at (fetched_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

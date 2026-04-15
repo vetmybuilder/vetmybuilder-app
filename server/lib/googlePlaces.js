@@ -3,6 +3,13 @@
 // Helper used by recommendations/verification.get.js
 // to look up a business in Google Places by name (+ optional location hint).
 
+const { isExternalServicesMocked } = require("./externalServices");
+const gpCache = require("./googlePlacesCache");
+const {
+  syntheticGooglePlace,
+  syntheticPlaceDetails,
+} = require("./mocks/syntheticExternal");
+
 const TAG = "[googlePlaces]";
 
 // -------------------------------------
@@ -69,6 +76,20 @@ function namesRoughlyMatch(a, b) {
 // Main Google Places Lookup
 // -------------------------------------
 async function lookupBusiness({ name, locationHint, companyNumber }) {
+  // Hard kill-switch — never fire a billable Places request when the
+  // process is in mocked-services mode (e2e CI / tests). Return a
+  // deterministic synthetic result so the UI still renders rating /
+  // verification badges instead of a blank "no data" state.
+  if (isExternalServicesMocked()) {
+    const synth = syntheticGooglePlace({ name });
+    log.info(`${TAG} mocked — synthetic Google place`, {
+      name,
+      placeId: synth?.placeId,
+      rating: synth?.rating,
+    });
+    return synth;
+  }
+
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   if (!apiKey) {
     log.warn(`${TAG} GOOGLE_PLACES_API_KEY not set – skipping Google lookup`);
@@ -94,6 +115,19 @@ async function lookupBusiness({ name, locationHint, companyNumber }) {
 
   const query = [trimmedName, trimmedHint].filter(Boolean).join(" ");
 
+  // Cache lookup. Hits skip the (billable) Google call entirely. A
+  // negative-cached entry (payload === null) means we previously asked
+  // and Google returned nothing for the same key — don't re-bill.
+  const cacheArgs = { name: trimmedName, locationHint: trimmedHint };
+  const cached = await gpCache.getCached("lookupBusiness", cacheArgs);
+  if (cached.hit) {
+    log.info(`${TAG} cache hit`, {
+      query,
+      negative: cached.payload === null,
+    });
+    return cached.payload;
+  }
+
   const url = new URL(
     "https://maps.googleapis.com/maps/api/place/textsearch/json"
   );
@@ -102,6 +136,14 @@ async function lookupBusiness({ name, locationHint, companyNumber }) {
 
   log.info(`${TAG} lookupBusiness`, { query, companyNumber });
 
+  // Helper: any code path that decides "no usable result" should still
+  // negative-cache so the next caller doesn't re-bill us for the same
+  // miss. HTTP/network errors are NOT cached — we want to retry those.
+  const negativeCache = async () => {
+    await gpCache.setCached("lookupBusiness", cacheArgs, null);
+    return null;
+  };
+
   try {
     const res = await fetchFn(url.toString());
     if (!res.ok) {
@@ -109,6 +151,8 @@ async function lookupBusiness({ name, locationHint, companyNumber }) {
         status: res.status,
         query,
       });
+      // Transient HTTP failure — don't poison the cache with a negative
+      // entry; let the next caller retry.
       return null;
     }
 
@@ -123,10 +167,10 @@ async function lookupBusiness({ name, locationHint, companyNumber }) {
     }
 
     const results = Array.isArray(data.results) ? data.results : [];
-    if (!results.length) return null;
+    if (!results.length) return await negativeCache();
 
     const best = results[0];
-    if (!best || !best.place_id) return null;
+    if (!best || !best.place_id) return await negativeCache();
 
     const googleName = typeof best.name === "string" ? best.name.trim() : "";
 
@@ -137,7 +181,7 @@ async function lookupBusiness({ name, locationHint, companyNumber }) {
         googleName,
         placeId: best.place_id,
       });
-      return null;
+      return await negativeCache();
     }
 
     const out = {
@@ -159,6 +203,7 @@ async function lookupBusiness({ name, locationHint, companyNumber }) {
       query,
     });
 
+    await gpCache.setCached("lookupBusiness", cacheArgs, out);
     return out;
   } catch (e) {
     log.warn(`${TAG} Google Places lookup failed`, {
@@ -170,12 +215,27 @@ async function lookupBusiness({ name, locationHint, companyNumber }) {
 }
 
 async function getPlaceDetails(placeId, fields = ["website"]) {
+  if (isExternalServicesMocked()) {
+    return syntheticPlaceDetails({ placeId, fields });
+  }
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   if (!apiKey || !placeId) return null;
 
   if (!fetchFn) {
     log.warn(`${TAG} fetch() unavailable`);
     return null;
+  }
+
+  // Cache key includes fields — different field sets are different SKUs
+  // and may return different shapes, so we don't want to share entries.
+  const cacheArgs = { placeId, fields: [...fields].sort() };
+  const cached = await gpCache.getCached("getPlaceDetails", cacheArgs);
+  if (cached.hit) {
+    log.info(`${TAG} details cache hit`, {
+      placeId,
+      negative: cached.payload === null,
+    });
+    return cached.payload;
   }
 
   const url = new URL("https://maps.googleapis.com/maps/api/place/details/json");
@@ -187,16 +247,21 @@ async function getPlaceDetails(placeId, fields = ["website"]) {
     const res = await fetchFn(url.toString());
     if (!res.ok) {
       log.warn(`${TAG} Place Details HTTP error`, { status: res.status, placeId });
+      // Transient HTTP failure — leave the cache alone.
       return null;
     }
 
     const data = await res.json();
     if (data.status !== "OK") {
       log.warn(`${TAG} Place Details status`, { status: data.status, placeId });
+      // Definitive "no" from Google → negative-cache.
+      await gpCache.setCached("getPlaceDetails", cacheArgs, null);
       return null;
     }
 
-    return data.result || null;
+    const result = data.result || null;
+    await gpCache.setCached("getPlaceDetails", cacheArgs, result);
+    return result;
   } catch (e) {
     log.warn(`${TAG} Place Details failed`, { placeId, error: e?.message });
     return null;

@@ -3,6 +3,7 @@
 // Node 18+ (global fetch). If older, install undici and swap global fetch.
 
 const dns = require("dns").promises;
+const { isExternalServicesMocked } = require("./externalServices");
 
 // ---- tiny utils ------------------------------------------------------------
 const extractText = (html, limit = 20000) =>
@@ -281,6 +282,19 @@ async function verifyWebPresence(
   socialLinks,
   { vendorName, companyNumber, timeoutMs } = {}
 ) {
+  // Hard kill-switch — never DNS-resolve or fetch arbitrary third-party
+  // websites from a process flagged as mocked-services. Returns the same
+  // shape callers expect with verified=false so the row is saved without
+  // fanning out to the public internet.
+  if (isExternalServicesMocked()) {
+    return {
+      verified: false,
+      website: undefined,
+      socials: [],
+      mocked: true,
+    };
+  }
+
   const socials = Array.isArray(socialLinks)
     ? socialLinks
     : typeof socialLinks === "string"

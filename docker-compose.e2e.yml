@@ -72,6 +72,11 @@ services:
       MYSQL_USER: "root"
       MYSQL_PASSWORD: "root"
       MYSQL_DATABASE: "vetmybuilder_test_s1_4_w0"
+      # E2E cost guard — never let test runs hit billable external APIs.
+      MOCK_EXTERNAL_SERVICES: "1"
+      GOOGLE_PLACES_API_KEY: ""
+      ANTHROPIC_API_KEY: ""
+      CH_KEY: ""
     ports:
       - "3100:3100"
     healthcheck:
@@ -111,6 +116,11 @@ services:
       MYSQL_USER: "root"
       MYSQL_PASSWORD: "root"
       MYSQL_DATABASE: "vetmybuilder_test_s1_4_w1"
+      # E2E cost guard — never let test runs hit billable external APIs.
+      MOCK_EXTERNAL_SERVICES: "1"
+      GOOGLE_PLACES_API_KEY: ""
+      ANTHROPIC_API_KEY: ""
+      CH_KEY: ""
     ports:
       - "3101:3101"
     healthcheck:
@@ -150,6 +160,11 @@ services:
       MYSQL_USER: "root"
       MYSQL_PASSWORD: "root"
       MYSQL_DATABASE: "vetmybuilder_test_s1_4_w2"
+      # E2E cost guard — never let test runs hit billable external APIs.
+      MOCK_EXTERNAL_SERVICES: "1"
+      GOOGLE_PLACES_API_KEY: ""
+      ANTHROPIC_API_KEY: ""
+      CH_KEY: ""
     ports:
       - "3102:3102"
     healthcheck:
@@ -189,6 +204,11 @@ services:
       MYSQL_USER: "root"
       MYSQL_PASSWORD: "root"
       MYSQL_DATABASE: "vetmybuilder_test_s1_4_w3"
+      # E2E cost guard — never let test runs hit billable external APIs.
+      MOCK_EXTERNAL_SERVICES: "1"
+      GOOGLE_PLACES_API_KEY: ""
+      ANTHROPIC_API_KEY: ""
+      CH_KEY: ""
     ports:
       - "3103:3103"
     healthcheck:
@@ -228,6 +248,11 @@ services:
       MYSQL_USER: "root"
       MYSQL_PASSWORD: "root"
       MYSQL_DATABASE: "vetmybuilder_test_s1_4_w4"
+      # E2E cost guard — never let test runs hit billable external APIs.
+      MOCK_EXTERNAL_SERVICES: "1"
+      GOOGLE_PLACES_API_KEY: ""
+      ANTHROPIC_API_KEY: ""
+      CH_KEY: ""
     ports:
       - "3104:3104"
     healthcheck:
