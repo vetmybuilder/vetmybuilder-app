@@ -39,34 +39,39 @@ export default function NeighbourProjectView({ vm }: { vm: VM }) {
         </div>
       )}
 
-      {/* Shared project details card */}
-      <section className="mb-6">
-        <ProjectDetailsSummaryCard
-          project={summaryProject}
-          ctaBlock={
-            <>
-              <h3 className="text-sm font-semibold text-slate-900">
-                Recommend a tradesperson
-              </h3>
-              <p className="mt-1 text-sm text-slate-600 max-w-xl">
-                If you know a great tradesperson for this kind of work, you can
-                share their details with the homeowner. Your recommendation
-                helps them find trusted people faster.
-              </p>
-
-              <div className="mt-3">
-                <Link
-                  href={`/projects/${project.id}/recommend`}
-                  className="inline-flex items-center gap-2 rounded-full bg-red-500 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-red-600"
-                  data-testid="btn-neighbour-recommend"
-                >
+      {/* Outer translucent card so the global Layout builder image
+          doesn't bleed through the project details when a guest /
+          neighbour is viewing. Mirrors the legal-page treatment. */}
+      <div className="bg-white/95 backdrop-blur rounded-3xl shadow-xl p-4 sm:p-6">
+        {/* Shared project details card */}
+        <section>
+          <ProjectDetailsSummaryCard
+            project={summaryProject}
+            ctaBlock={
+              <>
+                <h3 className="text-sm font-semibold text-slate-900">
                   Recommend a tradesperson
-                </Link>
-              </div>
-            </>
-          }
-        />
-      </section>
+                </h3>
+                <p className="mt-1 text-sm text-slate-600 max-w-xl">
+                  If you know a great tradesperson for this kind of work, you
+                  can share their details with the homeowner. Your
+                  recommendation helps them find trusted people faster.
+                </p>
+
+                <div className="mt-3">
+                  <Link
+                    href={`/projects/${project.id}/recommend`}
+                    className="inline-flex items-center gap-2 rounded-full bg-red-500 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-red-600"
+                    data-testid="btn-neighbour-recommend"
+                  >
+                    Recommend a tradesperson
+                  </Link>
+                </div>
+              </>
+            }
+          />
+        </section>
+      </div>
     </>
   );
 }

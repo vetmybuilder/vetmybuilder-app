@@ -29,9 +29,14 @@ export function GoogleRatingChip({
   const isMockPlaceId =
     typeof placeId === "string" && placeId.startsWith("MOCK_");
 
+  // Use Google's universal "Maps URL scheme" format - works on desktop,
+  // iOS Safari (Maps app), and Android (Google Maps app). The older
+  // `?q=place_id:XXX` format is interpreted on iOS as a literal text
+  // search and produces "No results found on Google Maps".
+  // https://developers.google.com/maps/documentation/urls/get-started
   const href =
     placeId && !isMockPlaceId
-      ? `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(
+      ? `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${encodeURIComponent(
           placeId
         )}`
       : null;
