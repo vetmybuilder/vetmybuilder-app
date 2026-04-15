@@ -11,6 +11,22 @@ if (process.env.TEST_ENV === "e2e" || process.env.CI) {
   process.exit(0);
 }
 
+// HARD PRODUCTION GUARD - see scripts/simulate.js for the full incident
+// note. This wrapper is invoked by `npm run dev:manual` and must never
+// run on a production VM. Refuses to start if NODE_ENV=production unless
+// an awkward magic-string override is set.
+if (process.env.NODE_ENV === "production") {
+  const FORCE_OVERRIDE = "yes-i-really-want-to-burn-money-on-prod";
+  if (process.env.VMB_FORCE_SIM_IN_PROD !== FORCE_OVERRIDE) {
+    console.error(
+      "[dev-manual-sim] REFUSING TO RUN: NODE_ENV=production. This script " +
+      "starts the local-dev simulator, which creates fake tradesmen and " +
+      "fires paid Google Places API calls. It must never run on prod.",
+    );
+    process.exit(1);
+  }
+}
+
 const HEALTH_URL = "http://localhost:3100/health";
 const POLL_INTERVAL_MS = 2000;
 const MAX_WAIT_MS = 120_000;

@@ -3,6 +3,45 @@
 
 require("dotenv").config({ path: require("path").resolve(__dirname, "../.env") });
 
+// =========================================================================
+// HARD PRODUCTION GUARD
+// =========================================================================
+// April 2026: this script ran on production for ~10 days under PM2 as
+// `sim-daemon`, generating ~£100 of Google Places API spend by repeatedly
+// creating fake tradesmen and triggering the enrichment pipeline. Without
+// this guard, anyone who sets SIM_PROD=1 (or installs the script under
+// PM2 with `pm2 startup`) can do it again. Refuse to run on prod under
+// almost any circumstance.
+//
+// To override (you almost certainly should not):
+//   1. NODE_ENV must not be 'production'                          OR
+//   2. VMB_FORCE_SIM_IN_PROD must equal the magic string below
+// The magic string is intentionally awkward to type so it can't be set
+// by mistake and is impossible to confuse with a normal config value.
+// =========================================================================
+const FORCE_OVERRIDE = "yes-i-really-want-to-burn-money-on-prod";
+
+if (process.env.NODE_ENV === "production") {
+  if (process.env.VMB_FORCE_SIM_IN_PROD !== FORCE_OVERRIDE) {
+    console.error(
+      "[simulate] REFUSING TO RUN: NODE_ENV=production. The simulator " +
+      "creates fake tradesmen and triggers paid Google Places API calls " +
+      "for each. If you genuinely need this on prod, set " +
+      `VMB_FORCE_SIM_IN_PROD=${FORCE_OVERRIDE} (you almost certainly do not).`,
+    );
+    process.exit(1);
+  }
+  console.warn(
+    "[simulate] WARNING: running on NODE_ENV=production with override " +
+    "VMB_FORCE_SIM_IN_PROD set. This will create real database rows and " +
+    "fire real billable Google Places API calls. You have ~10 seconds to " +
+    "Ctrl+C if this was a mistake.",
+  );
+  // Pause so a fat-fingered prod run is interruptible.
+  // eslint-disable-next-line no-undef
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10_000);
+}
+
 const SIM_PROD = process.env.SIM_PROD === "1";
 
 if (!SIM_PROD) {
