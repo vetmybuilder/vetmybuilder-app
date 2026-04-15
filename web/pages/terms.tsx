@@ -1,176 +1,229 @@
 // web/pages/terms.tsx
-import Head from "next/head";
-import Link from "next/link";
+import LegalPageLayout, {
+  type LegalSection,
+} from "@/components/LegalPageLayout";
 
-const sections = [
+// ---------------------------------------------------------------------------
+// Terms of Service - UK-law-governed. Operating entity: Connect2Find Ltd
+// (trading as VetMyBuilder).
+//
+// [REVIEW] items before launch:
+// - Registered office address
+// - Company number
+// - Confirm £250 liability cap (or raise) - £100 may be unenforceable as
+//   "unfair" under the Consumer Rights Act 2015 for a paid homeowner
+//   service. For a currently-free service, £250 is a defensible figure;
+//   revisit when paid features launch.
+// - Confirm ADR / ODR stance if/when payments are added.
+//
+// Must be solicitor-reviewed before publishing, especially:
+// - Section 7 (Tradesperson verification) - DMCC exposure
+// - Section 9 (Limitation of liability) - CRA 2015 fairness test
+// - Section 6 (User content licence) - scope and sublicensing
+// ---------------------------------------------------------------------------
+
+const sections: LegalSection[] = [
   {
-    title: "Acceptance of terms",
-    content: `By accessing or using VetMyBuilder (the "Platform") at vetmybuilder.com, you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, do not use the Platform.
+    title: "Acceptance of these Terms",
+    content: `By accessing or using VetMyBuilder (the "Platform") at vetmybuilder.com, you agree to be bound by these Terms of Service ("Terms"). If you do not agree, please do not use the Platform.
 
-These Terms form a legally binding agreement between you and Connect2Find Ltd (trading as VetMyBuilder), a company registered in England and Wales. We may update these Terms from time to time; continued use of the Platform constitutes acceptance of any changes.`,
+These Terms form a legally binding agreement between you and Connect2Find Ltd ("we", "us", "our"), a company registered in England and Wales, trading as VetMyBuilder.
+
+We may update these Terms from time to time. Where changes materially affect your rights, we will notify you by email or by a banner on the Platform. The "Last updated" date at the top of this page tells you when the current version took effect.`,
   },
   {
-    title: "What VetMyBuilder does",
-    content: `VetMyBuilder is a community platform that connects UK homeowners with tradespeople through community-sourced recommendations. We allow homeowners to:
-- Post job listings and generate shareable invite links
-- Collect recommendations from their personal and community network
-- View tradesperson profiles and verification status
-- Build shortlists of preferred tradespeople
+    title: "Who can use the Platform",
+    content: `You must be at least 18 years old and a resident of the United Kingdom to use VetMyBuilder as a homeowner.
 
-We are a technology platform, not a builder-finding or contracting service. We do not employ tradespeople, guarantee their work, or take any commission on jobs arranged through the platform.`,
+Tradespeople must be operating legally in the United Kingdom (sole trader, partnership, LLP or limited company) and must hold any licences or registrations required for the trades they offer.
+
+By using the Platform you confirm you meet these requirements and that the information you give us is accurate, current, and complete. If any of that changes, update your profile promptly.`,
   },
   {
-    title: "Eligibility",
-    content: `You must be at least 18 years old and a resident of the United Kingdom to use VetMyBuilder as a homeowner. Tradespeople must be operating legally in the United Kingdom.
+    title: "What VetMyBuilder is (and isn't)",
+    content: `VetMyBuilder is a **technology platform** that connects UK homeowners with tradespeople through community-sourced recommendations. We let homeowners:
+- Post jobs and generate shareable invite links for their personal network
+- Collect recommendations from neighbours and community contacts
+- View tradesperson profiles, verification status, and ranking
+- Build shortlists and express interest in working together
 
-By using the Platform, you represent and warrant that you meet these requirements and that the information you provide is accurate and complete.`,
+**We are an intermediary only.** We are not a party to any contract between you and a tradesperson (or between you and a homeowner). We do not:
+- Employ tradespeople
+- Guarantee the quality, timeliness, or safety of any work
+- Provide construction, building, or home improvement services ourselves
+- Hold your money or act as your agent in the contract
+- Take responsibility for disputes between users
+
+You are responsible for evaluating any tradesperson before engaging them, including your own due diligence on insurance, qualifications, and references.`,
   },
   {
     title: "Your account",
-    content: `You are responsible for maintaining the security of your account credentials and for all activity that occurs under your account. You must notify us immediately at hello@vetmybuilder.com of any unauthorised access.
+    content: `You are responsible for:
+- The accuracy of the information in your account
+- Keeping your credentials secure
+- All activity that happens through your account
 
-You must not create an account using false information, impersonate another person, or create multiple accounts for abusive purposes. We reserve the right to suspend or terminate accounts that violate these Terms.`,
+Notify us immediately at hello@vetmybuilder.com if you suspect unauthorised access.
+
+You must not:
+- Create an account using false information, a pseudonym intended to deceive, or someone else's identity
+- Create multiple accounts to evade bans, inflate recommendations, or otherwise abuse the Platform
+- Share your credentials with anyone else
+
+We may suspend or terminate accounts that breach these Terms or our <a href="/acceptable-use">Acceptable Use Policy</a>.`,
   },
   {
-    title: "User content",
-    content: `You retain ownership of any content you submit to the Platform ("User Content"), including job descriptions, recommendations, ratings, and profile information.
+    title: "Your content",
+    content: `You keep ownership of anything you upload or submit to the Platform - job descriptions, recommendations, profile info, photos ("User Content").
 
-By submitting User Content, you grant VetMyBuilder a non-exclusive, royalty-free, worldwide licence to use, store, display, and distribute that content as necessary to operate the Platform.
+By submitting User Content, you grant Connect2Find Ltd a non-exclusive, royalty-free, worldwide licence to host, store, display, reproduce, and distribute that content **as necessary to operate the Platform** and to describe or promote the Platform in our own marketing (for example, anonymised examples of the service in action).
 
-You are solely responsible for your User Content. You must not submit content that is:
-- False, misleading, or fraudulent
-- Defamatory, abusive, or harassing
-- In breach of any third party's rights
-- Related to services you did not personally receive or witness
-- Incentivised or paid for by a tradesperson`,
+You agree that:
+- Your User Content is accurate, honest, and your own work (or that you have the rights to share it)
+- You will not submit recommendations about tradespeople you have no personal or community-sourced experience of
+- You will not accept payment, discounts, or benefits in exchange for leaving a recommendation
+- You will not upload photos containing identifiable children
+- Photos you upload do not contain anyone who hasn't agreed to appear in them, and do not reveal someone else's home address or other private information
+
+We may remove User Content that we reasonably believe breaches these rules or our <a href="/acceptable-use">Acceptable Use Policy</a>, without notice.`,
   },
   {
-    title: "Prohibited uses",
-    content: `You must not use VetMyBuilder to:
-- Scrape, crawl, or systematically extract data
-- Attempt to reverse engineer or compromise our systems
-- Post fake or misleading recommendations
-- Solicit other users for services outside the Platform
-- Circumvent any access controls or security measures
-- Use the Platform in any way that violates applicable law`,
+    title: "Acceptable use",
+    content: `You must not use the Platform to:
+- Scrape, crawl, or systematically extract data (including via automated agents)
+- Reverse engineer, decompile, or otherwise attempt to compromise our systems
+- Post fake, paid-for, or otherwise dishonest recommendations
+- Solicit users to transact outside the Platform for the purpose of evading our moderation or fee structure
+- Circumvent any access controls, rate limits, or security measures
+- Use the Platform in a way that breaks the law or infringes on anyone's rights
+
+Our full <a href="/acceptable-use">Acceptable Use Policy</a> has the detail. Breaches can result in content removal, account suspension, or account termination.`,
   },
   {
-    title: "Tradespeople and verification",
-    content: `Companies House verification indicates only that a company is registered with Companies House and its filing status. It is not an endorsement of a tradesperson's skill, reliability, insurance status, or suitability for any job.
+    title: "Tradespeople: Verified badge and Companies House data",
+    content: `We show a "Verified" badge on tradesperson profiles that match a real Companies House record and a real Google Places business listing with sufficient confidence. We also display their Google rating and review count where available.
 
-VetMyBuilder does not carry out background checks, qualification checks, or insurance verification. Homeowners are responsible for conducting their own due diligence before engaging any tradesperson.`,
+**What Verified means:**
+- A company of that name exists on the UK Companies House register and is at least in an "active" filing state at the time of the last check
+- A business listing on Google Maps matches the same company name and location
+
+**What Verified does NOT mean:**
+- That the tradesperson is insured, qualified, or suitable for any specific job
+- That their work is of any particular quality
+- That VetMyBuilder endorses them
+
+We have a dedicated <a href="/verified">What does Verified mean?</a> page explaining this in more detail.
+
+We do not carry out background checks, DBS checks, qualification checks, or insurance verification. Homeowners are expected to carry out their own due diligence before engaging any tradesperson.`,
+  },
+  {
+    title: "Recommendations and ranking",
+    content: `Our recommendation system is community-sourced. Recommendations are submitted by real users. We take active steps to detect and remove fake or paid-for recommendations, but we cannot guarantee the honesty of every entry.
+
+Where we order tradespeople or recommendations on a page, we disclose the main parameters that determine that order. See our <a href="/ranking">Ranking Transparency</a> page.
+
+We do not currently accept payment for ranking or promotion. If that changes, any sponsored or promoted placement will be clearly labelled as such.`,
   },
   {
     title: "Disclaimers",
-    content: `The Platform is provided on an "as is" and "as available" basis. We make no warranties, express or implied, including fitness for a particular purpose or uninterrupted availability.
+    content: `The Platform is provided on an "as is" and "as available" basis. We don't promise it will always be available, error-free, or uninterrupted.
 
-We do not warrant the accuracy, completeness, or reliability of any recommendations, ratings, or other User Content submitted by third parties.
+We make no warranties about:
+- The accuracy or completeness of any User Content, including recommendations, ratings, or profile data
+- The suitability, availability, or honesty of any tradesperson or homeowner
+- The outcome of any job arranged via the Platform
 
-VetMyBuilder is not a party to any agreement between a homeowner and a tradesperson. We are not responsible for the quality of work performed, disputes, damages, or losses arising from any such engagement.`,
+Nothing in this section limits your rights as a consumer under the Consumer Rights Act 2015 or any other law that cannot be excluded by contract.`,
   },
   {
     title: "Limitation of liability",
-    content: `To the fullest extent permitted by law, Connect2Find Ltd's liability to you for any claim arising from these Terms or your use of the Platform shall not exceed £100.
+    content: `To the fullest extent permitted by law, Connect2Find Ltd's total liability to you, arising out of or in connection with these Terms or the Platform, shall not exceed £250 in aggregate.
 
-We shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or goodwill, arising from your use of or inability to use the Platform.
+We are not liable for any:
+- Indirect, incidental, special, or consequential losses
+- Loss of profit, business, opportunity, or goodwill
+- Loss or corruption of data (beyond our obligation to take reasonable security measures)
+- Damages arising from the acts or omissions of other users, including any tradesperson engaged via the Platform
 
-Nothing in these Terms limits our liability for death or personal injury caused by our negligence, fraud, or any liability that cannot be excluded by English law.`,
+Nothing in these Terms limits our liability for:
+- Death or personal injury caused by our negligence
+- Fraud or fraudulent misrepresentation
+- Any other liability that cannot lawfully be limited under English law
+- Breach of any of your non-excludable rights under the Consumer Rights Act 2015`,
+  },
+  {
+    title: "Reporting and takedown",
+    content: `If you see content on the Platform that you believe breaches these Terms, our <a href="/acceptable-use">Acceptable Use Policy</a>, or the law, use the in-product "Report" button or email us at hello@vetmybuilder.com.
+
+We aim to review reports within 48 hours. Our full process is described on the <a href="/moderation">Content Moderation Policy</a> page.`,
   },
   {
     title: "Intellectual property",
-    content: `All content, design, code, and materials on the Platform (excluding User Content) are owned by or licensed to Connect2Find Ltd (trading as VetMyBuilder) and are protected by copyright, trademark, and other intellectual property laws.
+    content: `All code, design, branding, text and other materials on the Platform (excluding User Content) are owned by or licensed to Connect2Find Ltd and are protected by UK and international intellectual property laws.
 
-You may not copy, reproduce, distribute, or create derivative works from our materials without our express written permission.`,
+You may not copy, modify, distribute, republish, or create derivative works from our materials without our prior written permission, except as strictly necessary to view and use the Platform as intended.
+
+Some data is displayed under licence from third parties:
+- Companies House data is Crown copyright, reused under the Companies House Open Government Licence.
+- Google Maps / Places data is shown subject to Google's own terms and attribution requirements.`,
   },
   {
-    title: "Governing law",
-    content: `These Terms are governed by English law. Any disputes arising from these Terms or your use of the Platform shall be subject to the exclusive jurisdiction of the courts of England and Wales.`,
+    title: "Termination",
+    content: `You can close your account at any time. Email us at hello@vetmybuilder.com and we will process it within 14 days (see our <a href="/privacy">Privacy Policy</a> for what happens to your data after closure).
+
+We may suspend or terminate your access, with or without notice, if:
+- You breach these Terms
+- We are required to do so by law
+- Your account is inactive for an extended period (12+ months) and we have notified you
+
+On termination, sections of these Terms that by their nature should survive (for example, intellectual property, limitation of liability, and governing law) continue to apply.`,
+  },
+  {
+    title: "Governing law and jurisdiction",
+    content: `These Terms and any dispute arising out of or in connection with them are governed by the laws of England and Wales.
+
+The courts of England and Wales have exclusive jurisdiction over any such dispute, except that if you are a consumer you may have the right to bring a claim in the courts of the country in which you reside.`,
   },
   {
     title: "Contact",
-    content: `If you have questions about these Terms, please contact us at hello@vetmybuilder.com or write to: Connect2Find Ltd (trading as VetMyBuilder), London, United Kingdom.`,
+    content: `Questions about these Terms? Contact us:
+- Email: hello@vetmybuilder.com
+- Post: Connect2Find Ltd (trading as VetMyBuilder), London, United Kingdom [REVIEW: add full registered office]
+
+Company number: [REVIEW: add Companies House number]`,
   },
 ];
 
+const summary = (
+  <>
+    <h2 className="text-lg font-black text-zinc-900 mb-2">
+      The plain English summary
+    </h2>
+    <p className="text-zinc-600 text-sm leading-relaxed">
+      VetMyBuilder is a free platform that helps you find trusted tradespeople
+      through community recommendations. We&apos;re the introducer - we&apos;re
+      not the builder, we&apos;re not a party to the contract you make with the
+      tradesperson, and we&apos;re not responsible for the quality of their
+      work. Please be honest when leaving recommendations. You keep ownership
+      of what you upload, but we need a licence to display it. UK law
+      governs.
+    </p>
+  </>
+);
+
 export default function Terms() {
   return (
-    <>
-      <Head>
-        <title>Terms of Service — VetMyBuilder</title>
-        <meta name="description" content="VetMyBuilder terms of service — the rules for using our platform." />
-        <style>{`body { background: #fafaf9 !important; }`}</style>
-      </Head>
-
-      <div className="overflow-x-hidden -mt-14">
-
-        {/* HERO */}
-        <section className="relative pt-6 pb-12 sm:pt-28 overflow-hidden bg-stone-50">
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
-          </div>
-          <div className="relative z-10 mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-            <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-4 py-1.5 text-sm font-bold text-zinc-800 mb-6">
-              Last updated: 2 April 2026
-            </div>
-            <h1 className="text-5xl sm:text-6xl font-black tracking-tight text-zinc-900 leading-[0.95]">
-              Terms of <span className="text-red-500">Service</span>
-            </h1>
-            <p className="mt-6 text-xl text-zinc-600 leading-relaxed font-medium max-w-2xl">
-              Please read these terms carefully. They govern your use of VetMyBuilder and set out your rights and obligations.
-            </p>
-          </div>
-        </section>
-
-        {/* CONTENT */}
-        <section className="bg-white py-16">
-          <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-
-            {/* Quick summary banner */}
-            <div className="bg-emerald-50 rounded-3xl p-6 mb-10 border border-emerald-100">
-              <h2 className="text-lg font-black text-zinc-900 mb-2">The plain English summary</h2>
-              <p className="text-zinc-600 text-sm leading-relaxed">
-                VetMyBuilder is a free platform that helps you collect trusted recommendations. We&apos;re not responsible for
-                the quality of any builder&apos;s work. Please be honest when submitting recommendations — fake reviews
-                are not allowed. You keep ownership of your content, but we need to be able to show it on the platform.
-              </p>
-            </div>
-
-            <div className="space-y-10">
-              {sections.map((section, i) => (
-                <div key={i} className="border-b border-zinc-100 pb-10 last:border-0 last:pb-0">
-                  <h2 className="text-2xl font-black text-zinc-900 mb-4">{i + 1}. {section.title}</h2>
-                  <div className="text-zinc-600 leading-relaxed space-y-3">
-                    {section.content.split("\n\n").map((para, j) => (
-                      <div key={j}>
-                        {para.startsWith("- ") ? (
-                          <ul className="list-disc list-inside space-y-1 ml-2">
-                            {para.split("\n").map((line, k) => (
-                              <li key={k}>{line.replace(/^- /, "")}</li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p>{para}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-14 bg-stone-50 rounded-3xl p-8 text-center">
-              <h3 className="text-xl font-black text-zinc-900 mb-3">Questions about these terms?</h3>
-              <p className="text-zinc-600 mb-4">We&apos;re always happy to clarify.</p>
-              <Link
-                href="/contact"
-                className="inline-flex items-center justify-center rounded-full bg-red-500 px-6 py-3 text-sm font-bold text-white hover:scale-[1.02] transition-all"
-              >
-                Contact us
-              </Link>
-            </div>
-          </div>
-        </section>
-      </div>
-    </>
+    <LegalPageLayout
+      title="Terms of"
+      titleAccent="Service"
+      subtitle="The rules for using VetMyBuilder. Please read carefully - they form a legal agreement between you and us."
+      lastUpdated="15 April 2026"
+      metaDescription="VetMyBuilder terms of service under UK law - your rights, our obligations, and how the platform works."
+      sections={sections}
+      summary={summary}
+      numbered
+      footerCtaHref="/contact"
+      footerCtaLabel="Contact us"
+    />
   );
 }

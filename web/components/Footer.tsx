@@ -16,9 +16,9 @@ export default function Footer() {
   }, [user]);
 
   // Tradespeople links:
-  // - Not logged in → Register + Login
-  // - Homeowner logged in → hide section entirely
-  // - Tradesman logged in → Profile + My Jobs
+  // - Not logged in -> Register + Login
+  // - Homeowner logged in -> hide section entirely
+  // - Tradesman logged in -> Profile + My Jobs
   const tradesLinks = user && isTrades
     ? [
         { label: "Your Profile", href: "/tradesman/profile" },
@@ -29,12 +29,12 @@ export default function Footer() {
         { label: "Register", href: "/tradesman/register-tradesmen" },
         { label: "Login", href: "/tradesman/login" },
       ]
-    : null; // homeowner logged in — hide tradespeople section
+    : null; // homeowner logged in - hide tradespeople section
 
   return (
     <footer className="bg-zinc-900">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 lg:gap-12">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 lg:gap-12">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2.5">
@@ -74,7 +74,7 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Tradespeople — hidden for logged-in homeowners */}
+          {/* Tradespeople - hidden for logged-in homeowners */}
           {tradesLinks && (
             <div>
               <h4 className="font-bold text-white mb-4">Tradespeople</h4>
@@ -93,14 +93,35 @@ export default function Footer() {
             </div>
           )}
 
-          {/* Legal */}
+          {/* Policies */}
           <div>
-            <h4 className="font-bold text-white mb-4">Legal</h4>
+            <h4 className="font-bold text-white mb-4">Policies</h4>
             <ul className="space-y-3">
               {[
                 { label: "Privacy Policy", href: "/privacy" },
                 { label: "Terms of Service", href: "/terms" },
+                { label: "Cookie Policy", href: "/cookies" },
+                { label: "All policies", href: "/legal" },
+              ].map((item) => (
+                <li key={item.label}>
+                  <Link
+                    href={item.href}
+                    className="text-sm text-zinc-400 hover:text-white transition-colors"
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Support */}
+          <div>
+            <h4 className="font-bold text-white mb-4">Support</h4>
+            <ul className="space-y-3">
+              {[
                 { label: "Contact", href: "/contact" },
+                { label: "Complaints", href: "/complaints" },
               ].map((item) => (
                 <li key={item.label}>
                   <Link
