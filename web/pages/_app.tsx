@@ -7,6 +7,7 @@ import * as React from "react";
 import { useRouter } from "next/router";
 import AdminLayout from "@/components/AdminLayout";
 import TradesmanLayout from "@/components/TradesmanLayout";
+import CrossTabLogoutWatcher from "@/components/CrossTabLogoutWatcher";
 
 // ✅ IMPORTANT: adjust this import path to where your initFirebase() file actually is.
 // Example candidates:
@@ -178,6 +179,10 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     <AuthProvider>
       {/* Bootstrap GSID + pageview tracking */}
       <AppBootstrap />
+
+      {/* Cross-tab logout: redirect to homepage when the user logs out
+          in another tab and the current path is privately-scoped. */}
+      <CrossTabLogoutWatcher />
 
       {isAdminRoute ? (
         <AdminLayout>
