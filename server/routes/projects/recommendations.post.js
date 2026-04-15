@@ -2,6 +2,10 @@
 
 const { optional } = require("zod");
 const { uploadToR2, isR2Configured } = require("../../lib/r2");
+const {
+  processBuffer,
+  processFile,
+} = require("../../lib/imageSanitiser");
 
 /**
  * POST /api/projects/:id/recommendations
@@ -371,22 +375,50 @@ module.exports = (router, ctx) => {
 
           for (const f of files) {
             let filePath;
+            let storedMime = f.mimetype;
+            let storedSize = f.size ?? f.buffer?.length ?? 0;
 
             if (isR2Configured) {
               try {
-                filePath = await uploadToR2({
+                // HEIC -> JPEG + EXIF strip before upload.
+                const p = await processBuffer({
                   buffer: f.buffer,
                   mimetype: f.mimetype,
                   originalname: f.originalname,
+                });
+                filePath = await uploadToR2({
+                  buffer: p.buffer,
+                  mimetype: p.mimetype,
+                  originalname: p.originalname,
                   folder: "recommendations",
                 });
+                storedMime = p.mimetype;
+                storedSize = p.buffer?.length ?? storedSize;
               } catch (e) {
                 console.warn("[recommendations.post] R2 upload failed:", e?.message || e);
                 continue;
               }
             } else {
+              let fPath = f.path;
+              if (fPath) {
+                try {
+                  const p = await processFile({
+                    filePath: fPath,
+                    mimetype: f.mimetype,
+                    originalname: f.originalname,
+                    filename: f.filename,
+                  });
+                  fPath = p.filePath;
+                  storedMime = p.mimetype;
+                } catch (e) {
+                  console.warn(
+                    "[recommendations.post] processFile failed:",
+                    e?.message || e,
+                  );
+                }
+              }
               const rel = path
-                .relative(UPLOAD_DIR, f.path)
+                .relative(UPLOAD_DIR, fPath)
                 .split(path.sep)
                 .join("/");
               filePath = `/uploads/${rel}`;
@@ -396,8 +428,8 @@ module.exports = (router, ctx) => {
             params.push(
               recommendationId,
               filePath,
-              f.mimetype,
-              f.size ?? f.buffer?.length ?? 0,
+              storedMime,
+              storedSize,
               now
             );
           }

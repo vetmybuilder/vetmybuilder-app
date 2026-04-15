@@ -126,7 +126,26 @@ export async function uiLoginAsUid({
     userId,
   );
 
-  await page.goto(uiBase, { waitUntil: "domcontentloaded" });
+  // Race-tolerant navigation: a preceding logout() leaves a redirect
+  // from /logout -> /?signedOut=1 in flight. On slow mobile-webkit CI,
+  // that redirect can fire AFTER our goto has started, producing
+  // "Navigation to '/' is interrupted by another navigation to
+  // '/?signedOut=1'". Catch that one specific error and retry once -
+  // the retry lands cleanly because the redirect has settled by then.
+  async function gotoBaseOnce() {
+    return page.goto(uiBase, { waitUntil: "domcontentloaded" });
+  }
+  try {
+    await gotoBaseOnce();
+  } catch (err: unknown) {
+    const msg = String((err as Error)?.message || err || "");
+    if (msg.includes("interrupted by another navigation")) {
+      await page.waitForLoadState("domcontentloaded").catch(() => {});
+      await gotoBaseOnce();
+    } else {
+      throw err;
+    }
+  }
 
   await page.waitForFunction(
     () => {

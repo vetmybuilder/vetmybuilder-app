@@ -92,9 +92,15 @@ export default function TradesmanSsoOnboardingPage() {
   // user to /signup/complete (the homeowner completion page) or to
   // /projects (homeowner dashboard) when they click around the site before
   // finishing. Cleared once PUT /api/tradesmen/me succeeds.
+  //
+  // Also clear vmb:oauthIntent here - it's a one-shot routing flag set
+  // by OAuthSignInButton and consumed by login.tsx. Once we land here
+  // it has done its job. Cleared in the destination (not in login.tsx)
+  // to avoid a re-render race that overwrites the intended redirect.
   useEffect(() => {
     try {
       sessionStorage.setItem("vmb:tradesmanSignupInProgress", "1");
+      sessionStorage.removeItem("vmb:oauthIntent");
     } catch {}
   }, []);
 

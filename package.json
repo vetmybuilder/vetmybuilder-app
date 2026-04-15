@@ -51,6 +51,7 @@
     "express": "^4.19.2",
     "firebase": "^12.3.0",
     "fuse.js": "^7.1.0",
+    "heic-convert": "^2.1.0",
     "lucide-react": "^0.554.0",
     "multer": "^2.0.2",
     "mysql2": "^3.15.3",
@@ -62,6 +63,7 @@
     "react-dom": "18.3.1",
     "remove-accents": "^0.5.0",
     "resend": "^6.10.0",
+    "sharp": "^0.34.5",
     "swiper": "^12.0.3",
     "talisman": "^1.1.4",
     "zod": "^3.23.8"

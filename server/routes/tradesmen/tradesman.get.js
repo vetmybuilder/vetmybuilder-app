@@ -282,10 +282,13 @@ module.exports = (router, ctx) => {
         stats: {
           completed: Number(row.wins_count || 0),
           photos: Number(row.photo_count || photoUrls.length || 0),
-          reviews:
-            googleReviewsCount && Number.isFinite(googleReviewsCount)
-              ? googleReviewsCount
-              : Number(row.likes_count || 0),
+          // `reviews` is the platform's community Likes count, NOT
+          // Google reviews. Previously this fell back to
+          // `googleReviewsCount` when present, which caused the public
+          // profile to show "10 Likes" when it actually meant "10
+          // Google reviews" - misleading under DMCC 2024 / CAP Code.
+          // Google data has its own dedicated fields below.
+          reviews: Number(row.likes_count || 0),
           stars:
             googleRating !== null && Number.isFinite(googleRating)
               ? googleRating

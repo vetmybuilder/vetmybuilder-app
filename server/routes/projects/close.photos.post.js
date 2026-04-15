@@ -11,6 +11,10 @@ module.exports = (router, ctx) => {
   const { auth, upload, mysqlQuery } = ctx;
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
   const { uploadToR2, isR2Configured } = require("../../lib/r2");
+  const {
+    processBuffer,
+    processFile,
+  } = require("../../lib/imageSanitiser");
   const multer = require("multer");
   const r2Upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 20 } });
 
@@ -129,21 +133,56 @@ module.exports = (router, ctx) => {
         try {
           for (const f of files) {
             let filePath;
+            let storedMime = f.mimetype || null;
+            let storedSize = f.size ?? f.buffer?.length ?? null;
+
             if (isR2Configured) {
               try {
-                filePath = await uploadToR2({ buffer: f.buffer, mimetype: f.mimetype, originalname: f.originalname, folder: "closures" });
+                // Normalise (transcode HEIC -> JPEG, strip EXIF / GPS)
+                // before the image leaves our process.
+                const p = await processBuffer({
+                  buffer: f.buffer,
+                  mimetype: f.mimetype,
+                  originalname: f.originalname,
+                });
+                filePath = await uploadToR2({
+                  buffer: p.buffer,
+                  mimetype: p.mimetype,
+                  originalname: p.originalname,
+                  folder: "closures",
+                });
+                storedMime = p.mimetype;
+                storedSize = p.buffer?.length ?? storedSize;
               } catch (e) {
                 log.error({ error: e?.message }, "R2 upload failed for closure photo");
                 continue;
               }
             } else {
               filePath = f.filename || f.key || f.originalname || "";
+              if (f.path) {
+                try {
+                  const p = await processFile({
+                    filePath: f.path,
+                    mimetype: f.mimetype,
+                    originalname: f.originalname,
+                    filename: f.filename,
+                  });
+                  // If HEIC was transcoded, filename / mimetype change.
+                  filePath = p.filename || filePath;
+                  storedMime = p.mimetype;
+                } catch (e) {
+                  log.warn(
+                    { error: e?.message, filePath },
+                    "processFile failed for closure photo",
+                  );
+                }
+              }
             }
             await mysqlQuery(
               `INSERT INTO project_closure_photos
                  (projectId, filePath, mime, sizeBytes, createdAt)
                VALUES (?, ?, ?, ?, ?)`,
-              [projectId, filePath, f.mimetype || null, f.size ?? f.buffer?.length ?? null, now]
+              [projectId, filePath, storedMime, storedSize, now]
             );
           }
         } catch (err) {

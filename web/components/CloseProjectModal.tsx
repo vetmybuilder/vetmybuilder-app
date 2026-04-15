@@ -79,6 +79,9 @@ export default function CloseProjectModal({
   const [selectedWinnerKey, setSelectedWinnerKey] = useState<string>("");
 
   const [files, setFiles] = useState<File[]>([]);
+  // Tracks the photo-upload consent checkbox (Acceptable Use Policy).
+  // Submit is blocked when files are present but consent is not given.
+  const [photoConsent, setPhotoConsent] = useState(false);
   const MAX_FILES = 20;
 
   // Reset when closing
@@ -92,6 +95,7 @@ export default function CloseProjectModal({
       setRecsLoading(false);
       setSelectedWinnerKey("");
       setFiles([]);
+      setPhotoConsent(false);
     }
   }, [open]);
 
@@ -533,6 +537,7 @@ export default function CloseProjectModal({
                   onChange={setFiles}
                   maxFiles={MAX_FILES}
                   maxSizeMB={10}
+                  onConsentChange={setPhotoConsent}
                 />
               </div>
             </div>
@@ -551,9 +556,14 @@ export default function CloseProjectModal({
           <button
             type="submit"
             className="inline-flex items-center justify-center rounded-full bg-red-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:bg-red-600 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
-            disabled={busy}
+            disabled={busy || (files.length > 0 && !photoConsent)}
             aria-busy={busy}
             data-testid="btn-confirm-close"
+            title={
+              files.length > 0 && !photoConsent
+                ? "Please confirm the photo upload consent before continuing."
+                : undefined
+            }
           >
             {busy ? "Saving…" : "Close project"}
           </button>

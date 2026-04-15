@@ -49,6 +49,9 @@ export default function RecommendViaMagicLink() {
   });
   const [lockIdentity, setLockIdentity] = useState(false);
   const [photos, setPhotos] = useState<File[]>([]);
+  // Photo consent (Acceptable Use Policy) - submit blocked when photos
+  // are attached but consent not granted.
+  const [photoConsent, setPhotoConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -61,10 +64,12 @@ export default function RecommendViaMagicLink() {
 
   const commentTooShort = form.comment.trim().length < 10;
   const nameRequired = !lockIdentity; // if identity is locked, name is provided by account
+  const photoConsentMissing = photos.length > 0 && !photoConsent;
   const formInvalid =
     (nameRequired && !form.name.trim()) ||
     !form.company.trim() ||
-    commentTooShort;
+    commentTooShort ||
+    photoConsentMissing;
 
   // Prefill from account when logged in; lock identity
   useEffect(() => {
@@ -392,10 +397,35 @@ export default function RecommendViaMagicLink() {
                 name="photos"
                 type="file"
                 multiple
-                accept="image/png,image/jpeg,image/webp,image/gif"
+                accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
                 className="input"
                 onChange={onPickPhotos}
               />
+
+              {photos.length > 0 && (
+                <label className="mt-2 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 cursor-pointer hover:bg-slate-100 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={photoConsent}
+                    onChange={(e) => setPhotoConsent(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-red-500 focus:ring-red-400"
+                  />
+                  <span className="leading-snug">
+                    I confirm I have the right to share these photos. Anyone
+                    clearly visible has agreed, and the photos do not contain
+                    children or reveal someone else&apos;s home address. (
+                    <a
+                      href="/acceptable-use"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline hover:text-red-600"
+                    >
+                      Acceptable Use Policy
+                    </a>
+                    )
+                  </span>
+                </label>
+              )}
 
               <label htmlFor={ids.comment} className="text-sm">
                 Comment (min 10 characters)

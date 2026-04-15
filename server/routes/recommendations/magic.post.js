@@ -9,6 +9,10 @@
 module.exports = (router, ctx) => {
   const { db, admin, notifyUsers, mysqlQuery } = ctx;
   const { uploadToR2, isR2Configured } = require("../../lib/r2");
+  const {
+    processBuffer,
+    processFile,
+  } = require("../../lib/imageSanitiser");
   const log = ctx.log || console;
   const TAG = "[recommendations/magic.post]";
 
@@ -109,7 +113,8 @@ module.exports = (router, ctx) => {
       });
     })();
     return multer({ storage, limits: { fileSize: 8 * 1024 * 1024, files: 8 }, fileFilter: (_req, file, cb) => {
-      const ok = /^image\/(jpeg|png|webp|gif)$/i.test(file.mimetype);
+      // HEIC / HEIF accepted - imageSanitiser transcodes to JPEG.
+      const ok = /^image\/(jpeg|png|webp|gif|heic|heif)$/i.test(file.mimetype);
       cb(ok ? null : new Error("Only images are allowed"), ok);
     }});
   })();
@@ -359,18 +364,43 @@ module.exports = (router, ctx) => {
 
           for (const f of files) {
             let filePath;
+            let storedMime = f.mimetype;
+            let storedSize = f.size ?? f.buffer?.length ?? 0;
+
             if (isR2Configured) {
               try {
-                filePath = await uploadToR2({ buffer: f.buffer, mimetype: f.mimetype, originalname: f.originalname, folder: "recommendations" });
+                const p = await processBuffer({
+                  buffer: f.buffer,
+                  mimetype: f.mimetype,
+                  originalname: f.originalname,
+                });
+                filePath = await uploadToR2({ buffer: p.buffer, mimetype: p.mimetype, originalname: p.originalname, folder: "recommendations" });
+                storedMime = p.mimetype;
+                storedSize = p.buffer?.length ?? storedSize;
               } catch (e) {
                 log.warn(`${TAG} R2 upload failed`, { error: e?.message });
                 continue;
               }
             } else {
-              const rel = path.relative(UPLOAD_DIR, f.path).split(path.sep).join("/");
+              let fPath = f.path;
+              if (fPath) {
+                try {
+                  const p = await processFile({
+                    filePath: fPath,
+                    mimetype: f.mimetype,
+                    originalname: f.originalname,
+                    filename: f.filename,
+                  });
+                  fPath = p.filePath;
+                  storedMime = p.mimetype;
+                } catch (e) {
+                  log.warn(`${TAG} processFile failed`, { error: e?.message });
+                }
+              }
+              const rel = path.relative(UPLOAD_DIR, fPath).split(path.sep).join("/");
               filePath = `/uploads/${rel}`;
             }
-            await mysqlQuery(stmt, [recommendationId, filePath, f.mimetype, f.size ?? f.buffer?.length ?? 0, now]);
+            await mysqlQuery(stmt, [recommendationId, filePath, storedMime, storedSize, now]);
           }
 
           log.info(`${TAG} photos stored`, { count: files.length });

@@ -7,6 +7,10 @@
 
 const path = require("node:path");
 const { uploadToR2, isR2Configured } = require("../../lib/r2");
+const {
+  processBuffer,
+  processFile,
+} = require("../../lib/imageSanitiser");
 
 module.exports = (router, ctx) => {
   const {
@@ -201,15 +205,52 @@ module.exports = (router, ctx) => {
         if (isR2Configured) {
           photos = (await Promise.all(req.files.map(async (f) => {
             try {
-              const url = await uploadToR2({ buffer: f.buffer, mimetype: f.mimetype, originalname: f.originalname, folder: "shares" });
-              return { name: f.originalname || "", type: f.mimetype || "", size: f.buffer?.length ?? 0, url, absoluteUrl: url };
+              const p = await processBuffer({
+                buffer: f.buffer,
+                mimetype: f.mimetype,
+                originalname: f.originalname,
+              });
+              const url = await uploadToR2({ buffer: p.buffer, mimetype: p.mimetype, originalname: p.originalname, folder: "shares" });
+              return {
+                name: p.originalname || "",
+                type: p.mimetype || "",
+                size: p.buffer?.length ?? f.buffer?.length ?? 0,
+                url,
+                absoluteUrl: url,
+              };
             } catch (e) {
               log.warn(`${TAG} R2 upload failed`, { error: e?.message });
               return null;
             }
           }))).filter(Boolean);
         } else {
-          photos = filesToPhotos(req.files);
+          // Normalise each file on disk (HEIC -> JPEG, EXIF stripped)
+          // then map to the photo payload shape. Capture the possibly-
+          // renamed filename so URLs point to the right file.
+          const processed = await Promise.all(
+            req.files.map(async (f) => {
+              if (!f.path) return f;
+              try {
+                const p = await processFile({
+                  filePath: f.path,
+                  mimetype: f.mimetype,
+                  originalname: f.originalname,
+                  filename: f.filename,
+                });
+                return {
+                  ...f,
+                  path: p.filePath,
+                  filename: p.filename,
+                  mimetype: p.mimetype,
+                  originalname: p.originalname,
+                };
+              } catch (e) {
+                log.warn(`${TAG} processFile failed`, { error: e?.message });
+                return f;
+              }
+            }),
+          );
+          photos = filesToPhotos(processed);
         }
       } else if (Array.isArray(req.body?.photos)) {
         photos = (req.body.photos || []).map((p) => {
