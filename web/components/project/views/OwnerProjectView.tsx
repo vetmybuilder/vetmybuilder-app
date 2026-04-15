@@ -329,98 +329,16 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
       </a>
 
       {/* Header */}
-      <header className="relative mb-6 rounded-2xl bg-gradient-to-br from-emerald-100 via-emerald-50 to-green-50 border border-emerald-200 p-4 sm:p-6 shadow-md shadow-emerald-100/40">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between pr-20">
-          {/* LEFT: title + meta + badges + primary CTA */}
-          <div className="flex-1">
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-slate-400">
-                {metaLabel} {metaText}
-              </span>
-            </div>
-            <h1 className="mt-1 flex items-center gap-2 text-2xl font-semibold tracking-tight">
-              {headerTitle}
-              <StatusBadge value={project.status} />
-              {!isClosed && (
-                <NextLink
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-slate-600 shadow-sm hover:bg-slate-50"
-                  href={`/projects/${project.id}/edit`}
-                  aria-label="Edit project"
-                  title="Edit project"
-                  data-testid="btn-edit"
-                >
-                  <SquarePen size={16} />
-                </NextLink>
-              )}
-            </h1>
-            <div
-              className="mt-3 flex flex-wrap gap-2"
-              role="list"
-              aria-label="Project attributes"
-              data-testid="project-badges"
-            >
-              <span
-                role="listitem"
-                className="badge gray"
-                data-testid="badge-location"
-              >
-                {project.location}
-              </span>
-              <span
-                role="listitem"
-                className="badge orange capitalize"
-                data-testid="badge-property"
-              >
-                {project.propertyType}
-              </span>
-              <span
-                role="listitem"
-                className="badge green"
-                data-testid="badge-bedrooms"
-              >
-                {project.bedrooms} bed
-              </span>
-            </div>
-
-            {/* Primary CTA: Share */}
-            {!isClosed && (
-              <div className="mt-4 space-y-1">
-                <div
-                  className="flex flex-wrap gap-2"
-                  aria-label="Primary owner actions"
-                  data-testid="owner-actions-primary"
-                >
-                  {isLive && (
-                    <button
-                      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-slate-800 transition-colors"
-                      onClick={() => setShowGetRecModal(true)}
-                      data-testid="btn-get-recs"
-                    >
-                      <LinkIcon size={14} /> Share
-                    </button>
-                  )}
-
-                  {!isLive && (
-                    <button
-                      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-slate-800 transition-colors"
-                      onClick={() => setShowGetRecModal(true)}
-                      data-testid="btn-get-recs-draft"
-                    >
-                      <LinkIcon size={14} /> Share &amp; Publish
-                    </button>
-                  )}
-                </div>
-
-                <p className="text-[11px] text-slate-400 max-w-xl">
-                  Share this project to start seeing recommendations and vetted
-                  tradespeople.
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* TOP-RIGHT: close / unarchive */}
-          <div className="absolute top-4 right-4 sm:top-6 sm:right-6" data-testid="owner-actions-secondary">
+      <header className="mb-6 rounded-2xl bg-gradient-to-br from-emerald-100 via-emerald-50 to-green-50 border border-emerald-200 p-4 sm:p-6 shadow-md shadow-emerald-100/40">
+        {/* TOP ROW: meta date on the left, secondary actions on the
+            right. Replaces the previous absolute-positioned Close Job
+            which on mobile overlapped the title and made the layout
+            feel cluttered. */}
+        <div className="flex items-start justify-between gap-3 mb-2">
+          <span className="text-xs text-slate-400">
+            {metaLabel} {metaText}
+          </span>
+          <div data-testid="owner-actions-secondary">
             {!isClosed ? (
               <button
                 className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-semibold text-rose-600 hover:bg-rose-100 hover:border-rose-300 transition-all"
@@ -444,6 +362,93 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
             )}
           </div>
         </div>
+
+        {/* TITLE: full-width line on its own so it can wrap freely.
+            Status badge + edit icon sit in a separate row below so a
+            long title doesn't push them onto a confusing tail line. */}
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {headerTitle}
+        </h1>
+
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <StatusBadge value={project.status} />
+          {!isClosed && (
+            <NextLink
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-slate-600 shadow-sm hover:bg-slate-50"
+              href={`/projects/${project.id}/edit`}
+              aria-label="Edit project"
+              title="Edit project"
+              data-testid="btn-edit"
+            >
+              <SquarePen size={16} />
+            </NextLink>
+          )}
+        </div>
+
+        <div
+          className="mt-3 flex flex-wrap gap-2"
+          role="list"
+          aria-label="Project attributes"
+          data-testid="project-badges"
+        >
+          <span
+            role="listitem"
+            className="badge gray"
+            data-testid="badge-location"
+          >
+            {project.location}
+          </span>
+          <span
+            role="listitem"
+            className="badge orange capitalize"
+            data-testid="badge-property"
+          >
+            {project.propertyType}
+          </span>
+          <span
+            role="listitem"
+            className="badge green"
+            data-testid="badge-bedrooms"
+          >
+            {project.bedrooms} bed
+          </span>
+        </div>
+
+        {/* Primary CTA: Share */}
+        {!isClosed && (
+          <div className="mt-4 space-y-1">
+            <div
+              className="flex flex-wrap gap-2"
+              aria-label="Primary owner actions"
+              data-testid="owner-actions-primary"
+            >
+              {isLive && (
+                <button
+                  className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-slate-800 transition-colors"
+                  onClick={() => setShowGetRecModal(true)}
+                  data-testid="btn-get-recs"
+                >
+                  <LinkIcon size={14} /> Share
+                </button>
+              )}
+
+              {!isLive && (
+                <button
+                  className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-slate-800 transition-colors"
+                  onClick={() => setShowGetRecModal(true)}
+                  data-testid="btn-get-recs-draft"
+                >
+                  <LinkIcon size={14} /> Share &amp; Publish
+                </button>
+              )}
+            </div>
+
+            <p className="text-[11px] text-slate-400 max-w-xl">
+              Share this project to start seeing recommendations and vetted
+              tradespeople.
+            </p>
+          </div>
+        )}
       </header>
 
       {/* === Project Insights (AI classification) === */}
