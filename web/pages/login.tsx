@@ -18,6 +18,15 @@ export default function Login() {
 
   const submittingRef = useRef(false);
 
+  // Once we've fired any redirect from the auto-redirect useEffect we
+  // mark this true so re-renders (e.g. role/profile state changes that
+  // happen after router.replace is queued but before the navigation
+  // completes) don't fire a SECOND, conflicting redirect that overrides
+  // the first. Without this, e.g. a tradesman-intent redirect to
+  // /tradesman/signup/complete was being clobbered by the homeowner
+  // /signup/complete branch on the next render.
+  const redirectFiredRef = useRef(false);
+
   const nextRaw = useMemo(() => {
     if (!router.isReady) return "";
     const n = router.query.next;
@@ -72,6 +81,7 @@ export default function Login() {
     if (!user) return;
     if (submittingRef.current) return;
     if (roleErrorMsg) return;
+    if (redirectFiredRef.current) return;
 
     // Wait until /api/me has resolved so we know whether the user has
     // finished homeowner signup. Without this gate, a mid-signup user would
@@ -94,9 +104,11 @@ export default function Login() {
       oauthIntent = sessionStorage.getItem("vmb:oauthIntent");
     } catch {}
     if (oauthIntent === "tradesman") {
-      try {
-        sessionStorage.removeItem("vmb:oauthIntent");
-      } catch {}
+      // Don't clear vmb:oauthIntent here - the destination page owns
+      // the flag's lifecycle. Clearing it here causes a re-render race
+      // where the next useEffect tick sees the empty flag and falls
+      // through to the homeowner /signup/complete branch.
+      redirectFiredRef.current = true;
       if (role === "tradesman") {
         router.replace("/tradesman/projects");
       } else {
@@ -106,6 +118,7 @@ export default function Login() {
     }
 
     if (profileComplete === false) {
+      redirectFiredRef.current = true;
       router.replace("/signup/complete");
       return;
     }
@@ -115,6 +128,7 @@ export default function Login() {
         ? new URLSearchParams(window.location.search).get("next")
         : null;
     if (nextParam && nextParam.startsWith("/")) {
+      redirectFiredRef.current = true;
       router.replace(nextParam);
       return;
     }
@@ -129,10 +143,12 @@ export default function Login() {
       if (stashedReturnTo) sessionStorage.removeItem("vmb:oauthReturnTo");
     } catch {}
     if (stashedReturnTo && stashedReturnTo.startsWith("/")) {
+      redirectFiredRef.current = true;
       router.replace(stashedReturnTo);
       return;
     }
 
+    redirectFiredRef.current = true;
     if (role === "tradesman") {
       router.replace("/tradesman/projects");
     } else {

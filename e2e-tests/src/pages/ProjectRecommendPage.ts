@@ -104,6 +104,13 @@ export class ProjectRecommendPage extends BasePage {
         .first()
         .waitFor({ state: "visible", timeout: 5_000 })
         .catch(() => {});
+      // Photo Acceptable Use Policy consent - the FileGridUploader
+      // renders a checkbox below the grid once any file is attached,
+      // and the submit button is disabled until it's ticked.
+      await this.page
+        .getByTestId("photo-consent-checkbox")
+        .check({ timeout: 5_000 })
+        .catch(() => {});
     }
 
     await this.companyInput.fill(fields.company);
@@ -151,6 +158,13 @@ export class ProjectRecommendPage extends BasePage {
         .getByRole("button", { name: /Remove/i })
         .first()
         .waitFor({ state: "visible", timeout: 5_000 })
+        .catch(() => {});
+      // Photo Acceptable Use Policy consent - the FileGridUploader
+      // renders a checkbox below the grid once any file is attached,
+      // and the submit button is disabled until it's ticked.
+      await this.page
+        .getByTestId("photo-consent-checkbox")
+        .check({ timeout: 5_000 })
         .catch(() => {});
     }
 
