@@ -79,6 +79,32 @@ export default function Login() {
     // /signup/complete kicked in — a visible flash.
     if (profileComplete === null) return;
 
+    // Tradesman-intent OAuth flow. The OAuthSignInButton stashes
+    // "vmb:oauthIntent" before opening the provider popup; we read it here
+    // once /api/me has resolved so role is known too. Decision tree:
+    //   - already a tradesman        → /tradesman/projects
+    //   - not yet a tradesman        → /tradesman/signup/complete
+    //     (this page collects the minimum tradesman profile fields and
+    //      then bounces to /tradesman/projects)
+    // Homeowner completion is irrelevant in this branch — a signed-in
+    // user who intends to be a tradesman does not need a homeowner profile
+    // to proceed.
+    let oauthIntent: string | null = null;
+    try {
+      oauthIntent = sessionStorage.getItem("vmb:oauthIntent");
+    } catch {}
+    if (oauthIntent === "tradesman") {
+      try {
+        sessionStorage.removeItem("vmb:oauthIntent");
+      } catch {}
+      if (role === "tradesman") {
+        router.replace("/tradesman/projects");
+      } else {
+        router.replace("/tradesman/signup/complete");
+      }
+      return;
+    }
+
     if (profileComplete === false) {
       router.replace("/signup/complete");
       return;
@@ -223,12 +249,14 @@ export default function Login() {
                     <OAuthSignInButton
                       provider="google"
                       returnTo={nextRaw && nextRaw.startsWith("/") ? nextRaw : undefined}
+                      intent={isVendorFlow ? "tradesman" : "homeowner"}
                       onError={(msg) => setErr(msg)}
                     />
                     {process.env.NEXT_PUBLIC_FACEBOOK_LOGIN === "1" && (
                       <OAuthSignInButton
                         provider="facebook"
                         returnTo={nextRaw && nextRaw.startsWith("/") ? nextRaw : undefined}
+                        intent={isVendorFlow ? "tradesman" : "homeowner"}
                         onError={(msg) => setErr(msg)}
                       />
                     )}

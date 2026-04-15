@@ -206,7 +206,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           username: me.username ?? null,
         }),
       );
-      setProfileComplete(!!me.postcodeOutward);
+      // A tradesman-only account legitimately has no homeowner postcode.
+      // Treat them as profile-complete so the homeowner-gating logic in
+      // AuthedOnly / GuestOnly / SiteHeader doesn't bounce them to
+      // /signup/complete on reload.
+      setProfileComplete(!!me.postcodeOutward || !!me.isTradesman);
     } catch {
       // non-fatal — caller can retry
     }
@@ -272,7 +276,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             if (!alive) return;
             setUser(merged);
-            setProfileComplete(!!me.postcodeOutward);
+            // See refreshProfile() above — a tradesman-only account is
+            // legitimately profile-complete despite having no homeowner
+            // postcode.
+            setProfileComplete(!!me.postcodeOutward || !!me.isTradesman);
 
             // Routing decisions based on profileComplete are owned by the
             // route wrappers (GuestOnly for /signup, /login etc., and

@@ -22,11 +22,19 @@ export function GoogleRatingChip({
   // Round to nearest whole star, clamp 0–5
   const fullStars = Math.max(0, Math.min(5, Math.round(r)));
 
-  const href = placeId
-    ? `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(
-        placeId
-      )}`
-    : null;
+  // Mock place IDs (issued by server/lib/mocks/syntheticExternal.js when
+  // MOCK_EXTERNAL_SERVICES=1) start "MOCK_" and don't resolve on Google
+  // Maps. Render the chip without a deep-link in that case so dev/e2e
+  // sessions don't show broken outbound links.
+  const isMockPlaceId =
+    typeof placeId === "string" && placeId.startsWith("MOCK_");
+
+  const href =
+    placeId && !isMockPlaceId
+      ? `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(
+          placeId
+        )}`
+      : null;
 
   const stars = (
     <span

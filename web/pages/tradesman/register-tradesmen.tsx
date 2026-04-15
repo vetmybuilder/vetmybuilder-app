@@ -319,11 +319,16 @@ export default function TradesmanRegisterV2Page() {
       websites: Array.from(new Set([...websites, ...socials])),
     };
 
+    // Persist the snapshot synchronously, then kick off the Companies
+    // House precheck WITHOUT awaiting it. The server's PUT /api/tradesmen/me
+    // (called from Step 4 / onCreateAccount) re-runs the same lookup
+    // when companyNumber is empty, so we don't lose any data by not
+    // blocking here. Awaiting was making the Step 3 → Step 4 transition
+    // hang for >15s on mobile-webkit in CI when CH was slow.
     try {
-      await precheckCH();
       sessionStorage.setItem(DRAFT_KEY, JSON.stringify(snapshot));
-      setOkMsg("Saved.");
     } catch {}
+    void precheckCH().then(() => setOkMsg("Saved."));
     setStep(4);
   };
 

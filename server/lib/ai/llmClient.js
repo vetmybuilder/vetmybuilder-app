@@ -30,6 +30,7 @@
 //     budgeting; not for invoice reconciliation.
 
 const crypto = require("crypto");
+const { isExternalServicesMocked } = require("../externalServices");
 
 const TAG = "[llm-client]";
 
@@ -53,10 +54,12 @@ const MAX_LOGGED_RESPONSE_CHARS = 8000;
  * Resolve the active mode at call time.
  */
 function resolveMode() {
+  // Global kill-switch (set in e2e CI / dev) trumps every other signal so
+  // we can NEVER bill Anthropic from a test run, even if someone sets
+  // LLM_MODE=real by mistake.
+  if (isExternalServicesMocked()) return "stub";
   const explicit = String(process.env.LLM_MODE || "").trim().toLowerCase();
   if (explicit === "stub" || explicit === "real") return explicit;
-  // Tests always force stub regardless of env. Vitest/Node test runner sets NODE_ENV.
-  if (process.env.NODE_ENV === "test") return "stub";
   if (process.env.ANTHROPIC_API_KEY) return "real";
   return "stub";
 }

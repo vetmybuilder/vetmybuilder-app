@@ -11,6 +11,11 @@ const jaroWinkler =
 const dice =
   require("talisman/metrics/dice").default || require("talisman/metrics/dice");
 
+const { isExternalServicesMocked } = require("./externalServices");
+const {
+  syntheticCompaniesHouseMatch,
+} = require("./mocks/syntheticExternal");
+
 const TAG = "[CH]";
 
 // -------------------------------------------------------
@@ -78,6 +83,18 @@ function sleep(ms) {
 }
 
 async function chFetch(pathname, { method = "GET", signal } = {}) {
+  // Hard kill-switch — never call Companies House from a process flagged
+  // as mocked-services (e2e CI / tests). Return an empty payload that
+  // mimics "no result" so callers degrade gracefully (no companyNumber,
+  // no chStatus). See server/lib/externalServices.js.
+  if (isExternalServicesMocked()) {
+    log.info(`${TAG} mocked — skipping fetch ${pathname}`);
+    if (pathname.includes("/search/companies")) {
+      return { items: [] };
+    }
+    return null;
+  }
+
   const base = getBaseUrl();
   const url = `${base}${pathname}`;
 
@@ -458,6 +475,21 @@ async function matchByName({ name, locationHint }) {
     name,
     hint: locationHint || "",
   });
+
+  // Mocked-services mode (e2e CI / dev with MOCK_EXTERNAL_SERVICES=1):
+  // return a synthetic verified match so the UI shows the green
+  // "verified" badge in tests instead of a "no match" / "checking…"
+  // chip. The chFetch() guard below is now belt-and-braces for any
+  // exotic call site that bypasses matchByName.
+  if (isExternalServicesMocked()) {
+    const synth = syntheticCompaniesHouseMatch({ name });
+    log.info(`${TAG} mocked — synthetic CH match`, {
+      name,
+      verdict: synth.verdict,
+      number: synth.best?.number,
+    });
+    return synth;
+  }
 
   const variants = buildQueryVariants(name);
 

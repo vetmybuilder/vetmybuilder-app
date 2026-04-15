@@ -10,6 +10,7 @@ vi.mock("../../../web/utils/oauthSignIn", () => ({
 
 import OAuthSignInButton, {
   RETURN_TO_KEY,
+  INTENT_KEY,
 } from "../../../web/components/forms/OAuthSignInButton";
 import { signInWithProvider } from "../../../web/utils/oauthSignIn";
 
@@ -116,6 +117,36 @@ describe("<OAuthSignInButton />", () => {
     fireEvent.click(screen.getByTestId("facebook-signin-button"));
 
     await waitFor(() => expect(onError).toHaveBeenCalledWith("Network error"));
+  });
+
+  it("stashes intent='tradesman' in sessionStorage before starting the popup", async () => {
+    mockedSignIn.mockImplementationOnce(async () => {
+      // Post-auth routing in login.tsx reads this flag to decide whether
+      // to send a no-profile user to /tradesman/signup/complete instead
+      // of the homeowner /signup/complete page.
+      expect(sessionStorage.getItem(INTENT_KEY)).toBe("tradesman");
+      return { ok: true, credential: { user: { getIdToken: vi.fn() } } };
+    });
+
+    render(<OAuthSignInButton provider="google" intent="tradesman" />);
+    fireEvent.click(screen.getByTestId("google-signin-button"));
+
+    await waitFor(() => expect(mockedSignIn).toHaveBeenCalledTimes(1));
+  });
+
+  it("clears any stale intent when intent='homeowner' (or unset)", async () => {
+    // Pre-seed a stale tradesman intent from a previous sign-in attempt.
+    sessionStorage.setItem(INTENT_KEY, "tradesman");
+
+    mockedSignIn.mockImplementationOnce(async () => {
+      expect(sessionStorage.getItem(INTENT_KEY)).toBeNull();
+      return { ok: true, credential: { user: { getIdToken: vi.fn() } } };
+    });
+
+    render(<OAuthSignInButton provider="google" intent="homeowner" />);
+    fireEvent.click(screen.getByTestId("google-signin-button"));
+
+    await waitFor(() => expect(mockedSignIn).toHaveBeenCalledTimes(1));
   });
 
   it("disables the button while the popup is open", async () => {

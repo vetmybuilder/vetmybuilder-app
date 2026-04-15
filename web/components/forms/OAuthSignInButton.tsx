@@ -21,6 +21,14 @@ type Props = {
   provider: OAuthProviderName;
   label?: string;
   returnTo?: string;
+  /**
+   * Declares which kind of account the user intends to sign up as.
+   * When set to "tradesman", post-auth routing sends users without an
+   * existing tradesman profile to /tradesman/signup/complete (the minimal
+   * tradesman onboarding page). When omitted / "homeowner", the existing
+   * homeowner-completion flow is used.
+   */
+  intent?: "homeowner" | "tradesman";
   onError?: (message: string) => void;
 };
 
@@ -31,6 +39,12 @@ type Props = {
 // redirect. This key is only ever written by this button and read by GuestOnly,
 // login.tsx, and /signup/complete.
 export const RETURN_TO_KEY = "vmb:oauthReturnTo";
+
+// Stashed before the OAuth popup opens. Read by the post-auth redirect logic
+// in login.tsx to decide whether a user without an existing tradesman profile
+// should be sent to /tradesman/signup/complete instead of the homeowner
+// completion page.
+export const INTENT_KEY = "vmb:oauthIntent";
 
 const PROVIDER_LABELS: Record<OAuthProviderName, string> = {
   google: "Continue with Google",
@@ -81,6 +95,7 @@ export default function OAuthSignInButton({
   provider,
   label,
   returnTo,
+  intent,
   onError,
 }: Props) {
   const [loading, setLoading] = useState(false);
@@ -93,6 +108,15 @@ export default function OAuthSignInButton({
           sessionStorage.setItem(RETURN_TO_KEY, returnTo);
         } catch {}
       }
+      try {
+        if (intent === "tradesman") {
+          sessionStorage.setItem(INTENT_KEY, "tradesman");
+        } else {
+          // Clear any stale intent so a previous tradesman attempt doesn't
+          // leak into a later homeowner sign-in on the same tab.
+          sessionStorage.removeItem(INTENT_KEY);
+        }
+      } catch {}
       const result = await signInWithProvider(provider);
       // On success, the credential has been issued and Firebase's
       // onIdTokenChanged listener will fire on the parent window — auth.tsx
