@@ -87,6 +87,8 @@ type TradesmanDetail = {
   createdAt?: string | null;
   isFavourite?: boolean | 0 | 1;
   googlePlaceId?: string | null;
+  googleRating?: number | null;
+  googleReviewsCount?: number | null;
 };
 
 export default function TradesmanViewPage() {
@@ -352,7 +354,7 @@ function Inner() {
                   <div className="mt-2 sm:mt-3 flex flex-wrap items-center gap-1.5 sm:gap-2">
                     <GoogleRatingChip
                       rating={item.stats?.stars}
-                      count={item.stats?.reviews}
+                      count={item.googleReviewsCount}
                       placeId={item.googlePlaceId || undefined}
                     />
                     <StatPill
