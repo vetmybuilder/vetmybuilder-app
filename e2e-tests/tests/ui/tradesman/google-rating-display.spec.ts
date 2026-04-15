@@ -11,8 +11,9 @@ test.describe("Google rating chip on builder profile", () => {
     const project = await projectApi.createLiveProject(
       Project.aProject().withRandomDetails().toApiPayload(),
     );
-
-    const rec = Recommendation.aRecommendation().withRandomDetails();
+    const rec = Recommendation.aRecommendation()
+      .withRandomDetails()
+      .withCompany(`NoGoogle Co ${Date.now()} Ltd`);
     const { recommendationId } =
       await recommendationApi.createRecommendation(
         project.id,

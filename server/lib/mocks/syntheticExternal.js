@@ -34,6 +34,9 @@ function pickInt(buf, offset, min, max) {
 // ------------------------------------------------------------------
 function syntheticGooglePlace({ name }) {
   if (!name) return null;
+  // Escape hatch: names containing the marker NoGoogle return null —
+  // useful for tests that need to assert the "no rating chip" path.
+  if (/nogoogle|no-google/i.test(name)) return null;
   const buf = nameHash(name);
   // Rating in [3.8, 4.9] (one decimal). Most builders cluster high.
   const ratingTenths = pickInt(buf, 0, 38, 49);
