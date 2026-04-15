@@ -354,4 +354,19 @@ console.log(
 /* -------------------- Start server -------------------- */
 app.listen(PORT, "0.0.0.0", () => {
   logger.info({ port: PORT }, "server started");
+
+  // Production sentinel: warn loudly if simulator data is found in the
+  // live DB. See server/lib/simDataSentinel.js for the incident note.
+  // Fire-and-forget - we don't want a transient DB blip at boot to kill
+  // the process or block healthchecks.
+  try {
+    const { checkProdForSimData } = require("./lib/simDataSentinel");
+    const mysql = require("./lib/mysql");
+    checkProdForSimData({ mysqlQuery: mysql.query, log: logger }).catch(() => {});
+  } catch (e) {
+    logger.warn(
+      { error: e?.message || String(e) },
+      "sim-sentinel could not start",
+    );
+  }
 });
