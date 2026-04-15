@@ -93,6 +93,9 @@ export default function AdminTradesmenLeaderboardPage() {
   const [err, setErr] = useState<string | null>(null);
   const [mutatingUid, setMutatingUid] = useState<string | null>(null);
   const [menuUid, setMenuUid] = useState<string | null>(null);
+  // Per-modal spotlight duration (days). Defaults to 30 each time the
+  // modal opens. Stored at top-level so the dropdown can be controlled.
+  const [spotlightDays, setSpotlightDays] = useState<number>(30);
 
   const [confirmCancelUid, setConfirmCancelUid] = useState<string | null>(null);
 
@@ -106,6 +109,12 @@ export default function AdminTradesmenLeaderboardPage() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, []);
+
+  // Reset the spotlight-days dropdown each time a different modal opens
+  // (or the modal closes) so it always starts at the 30-day default.
+  useEffect(() => {
+    setSpotlightDays(30);
+  }, [menuUid]);
 
   const queryString = useMemo(() => {
     const p = new URLSearchParams();
@@ -248,6 +257,34 @@ export default function AdminTradesmenLeaderboardPage() {
       await load();
     } catch (e: any) {
       setErr(e?.response?.data?.error || "Failed to reject unlock");
+    } finally {
+      setMutatingUid(null);
+      setMenuUid(null);
+    }
+  }
+
+  /* ========= Spotlight (admin grant - no payment) ========= */
+  async function grantSpotlight(uid: string, days: number) {
+    setMutatingUid(uid);
+    try {
+      await api.post(`/api/admin/tradesmen/${uid}/spotlight/grant`, { days });
+      await load();
+    } catch (e: any) {
+      setErr(e?.response?.data?.error || "Failed to grant spotlight");
+    } finally {
+      setMutatingUid(null);
+      setMenuUid(null);
+    }
+  }
+
+  async function revokeSpotlight(uid: string) {
+    if (!window.confirm("Revoke admin-granted spotlight for this tradesperson?")) return;
+    setMutatingUid(uid);
+    try {
+      await api.post(`/api/admin/tradesmen/${uid}/spotlight/revoke`, {});
+      await load();
+    } catch (e: any) {
+      setErr(e?.response?.data?.error || "Failed to revoke spotlight");
     } finally {
       setMutatingUid(null);
       setMenuUid(null);
@@ -899,6 +936,39 @@ export default function AdminTradesmenLeaderboardPage() {
                   <div className="space-y-1.5">
                     {btn("Approve one-off unlock", () => { approveUnlock(it.userId); setMenuUid(null); }, "success", pending === 0)}
                     {btn("Reject one-off unlock", () => { rejectUnlock(it.userId); setMenuUid(null); }, "danger", pending === 0)}
+                  </div>
+                </div>
+
+                {/* Spotlight (admin grant - no payment required) */}
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">
+                    Spotlight
+                    {it.spotlightActive && (
+                      <span className="ml-1 text-amber-500 normal-case">
+                        (active{it.spotlightExpiresAt ? `, expires ${new Date(it.spotlightExpiresAt).toLocaleDateString("en-GB")}` : ""})
+                      </span>
+                    )}
+                  </p>
+                  <div className="flex items-center gap-2 mb-2">
+                    <label className="text-[11px] font-semibold text-slate-500" htmlFor="spotlight-days">
+                      Duration:
+                    </label>
+                    <select
+                      id="spotlight-days"
+                      value={spotlightDays}
+                      onChange={(e) => setSpotlightDays(Number(e.target.value))}
+                      className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700"
+                    >
+                      <option value={7}>7 days</option>
+                      <option value={14}>14 days</option>
+                      <option value={30}>30 days</option>
+                      <option value={60}>60 days</option>
+                      <option value={90}>90 days</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    {btn(`Grant spotlight (${spotlightDays} days)`, () => { grantSpotlight(it.userId, spotlightDays); }, "success")}
+                    {btn("Revoke admin spotlight", () => { revokeSpotlight(it.userId); }, "danger", !it.spotlightActive)}
                   </div>
                 </div>
 

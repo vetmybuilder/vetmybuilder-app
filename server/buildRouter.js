@@ -295,6 +295,8 @@ function buildRouter(ctx) {
   require("./routes/admin/recommendation-leaderboard.get")(router, ctx);
   require("./routes/admin/spotlight.approve.post")(router, ctx);
   require("./routes/admin/spotlight.reject.post")(router, ctx);
+  // Admin grant/revoke (no payment required - editorial spotlight)
+  require("./routes/admin/spotlight.grant.post")(router, ctx);
   require("./routes/admin/pending-payments.get")(router, ctx);
   require("./routes/admin/subscription.approve.post")(router, ctx);
   require("./routes/admin/subscription.reject.post")(router, ctx);
