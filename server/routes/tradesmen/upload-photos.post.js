@@ -3,6 +3,10 @@ const path = require("node:path");
 const fs = require("node:fs");
 const multer = require("multer");
 const { uploadToR2, isR2Configured } = require("../../lib/r2");
+const {
+  processBuffer,
+  processFile,
+} = require("../../lib/imageSanitiser");
 
 module.exports = (router, ctx) => {
   const { auth, UPLOAD_DIR } = ctx;
@@ -37,7 +41,9 @@ module.exports = (router, ctx) => {
   const memoryStorage = multer.memoryStorage();
 
   const fileFilter = (_req, file, cb) => {
-    const ok = /^image\/(jpeg|png|webp|gif)$/i.test(file.mimetype);
+    // HEIC / HEIF accepted because Apple devices default to it -
+    // server/lib/imageSanitiser.js transcodes them to JPEG on arrival.
+    const ok = /^image\/(jpeg|png|webp|gif|heic|heif)$/i.test(file.mimetype);
     if (!ok) log.warn(`${TAG} rejected file: invalid mime`, { mimetype: file.mimetype });
     cb(ok ? null : new Error("Only images are allowed"), ok);
   };
@@ -68,20 +74,45 @@ module.exports = (router, ctx) => {
       let urls;
 
       if (isR2Configured) {
-        // Upload each file to R2
-        urls = await Promise.all(
+        // Normalise (transcode HEIC -> JPEG, strip EXIF / GPS) BEFORE
+        // the image leaves our process. See lib/imageSanitiser.js.
+        const processed = await Promise.all(
           files.map((f) =>
-            uploadToR2({
+            processBuffer({
               buffer: f.buffer,
               mimetype: f.mimetype,
               originalname: f.originalname,
+            }),
+          ),
+        );
+        urls = await Promise.all(
+          processed.map((p) =>
+            uploadToR2({
+              buffer: p.buffer,
+              mimetype: p.mimetype,
+              originalname: p.originalname,
               folder: "tradesmen",
             })
           )
         );
       } else {
-        // Local disk — return relative URLs as before
-        urls = files.map((f) => `/uploads/tradesmen/${f.filename}`);
+        // Local disk: multer has written each file to disk; normalise
+        // in place (HEIC is replaced by a .jpg file, EXIF stripped).
+        // Use the returned filename because a HEIC upload now ends up
+        // on disk as .jpg.
+        const processed = await Promise.all(
+          files.map((f) =>
+            processFile({
+              filePath: f.path,
+              mimetype: f.mimetype,
+              originalname: f.originalname,
+              filename: f.filename,
+            }),
+          ),
+        );
+        urls = processed.map(
+          (p) => `/uploads/tradesmen/${p.filename}`,
+        );
       }
 
       log.info(`${TAG} upload success`, { uid, fileCount: files.length, storage: isR2Configured ? "r2" : "local" });
