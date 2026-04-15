@@ -593,7 +593,10 @@ CREATE TABLE trade_shares (
       photos_json TEXT NOT NULL,
       message TEXT NOT NULL,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(project_id, tradesman_uid)
+      UNIQUE(project_id, tradesman_uid),
+      CONSTRAINT fk_trade_shares_tradesman
+        FOREIGN KEY (tradesman_uid) REFERENCES tradesmen (user_id)
+        ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE tradesmen_photos (
