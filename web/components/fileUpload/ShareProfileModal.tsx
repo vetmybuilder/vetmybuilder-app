@@ -27,13 +27,15 @@ export default function ShareProfileModal({
   const [files, setFiles] = React.useState<File[]>([]);
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
-  const canSubmit = files.length > 0 && !busy;
+  const [photoConsent, setPhotoConsent] = React.useState(false);
+  const canSubmit = files.length > 0 && !busy && photoConsent;
 
   React.useEffect(() => {
     if (!open) {
       setFiles([]);
       setBusy(false);
       setErr(null);
+      setPhotoConsent(false);
     }
   }, [open]);
 
@@ -123,6 +125,7 @@ export default function ShareProfileModal({
               setErr(null);
               setFiles(next);
             }}
+            onConsentChange={setPhotoConsent}
             maxFiles={maxFiles}
             maxSizeMB={maxSizeMB}
           />

@@ -45,6 +45,9 @@ export default function Step2Trades({
 }: Props) {
   const [query, setQuery] = useState("");
   const [bucket, setBucket] = useState<string>("");
+  // Photo consent (Acceptable Use Policy) - blocks Continue when photos
+  // are attached but consent has not been given.
+  const [photoConsent, setPhotoConsent] = useState(false);
 
   // Auto-select the first available photo when no profile picture is chosen yet
   useEffect(() => {
@@ -300,6 +303,7 @@ export default function Step2Trades({
               : undefined
           }
           onProfilePictureKeyChange={onProfilePictureKeyChange}
+          onConsentChange={setPhotoConsent}
         />
       </div>
 
@@ -318,8 +322,14 @@ export default function Step2Trades({
           Back
         </button>
         <button
-          className="inline-flex items-center gap-2 rounded-full bg-red-500 px-6 py-2.5 text-sm font-bold text-white shadow-sm shadow-red-500/25 hover:bg-red-600 transition-colors"
+          className="inline-flex items-center gap-2 rounded-full bg-red-500 px-6 py-2.5 text-sm font-bold text-white shadow-sm shadow-red-500/25 hover:bg-red-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
           data-testid="btn-continue"
+          disabled={workPhotos.length > 0 && !photoConsent}
+          title={
+            workPhotos.length > 0 && !photoConsent
+              ? "Please confirm the photo upload consent before continuing."
+              : undefined
+          }
         >
           Continue
           <ArrowRight className="h-4 w-4" />

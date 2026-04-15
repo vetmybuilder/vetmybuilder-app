@@ -8,6 +8,14 @@ type Props = {
   // Profile picture selection (optional)
   profilePictureKey?: string | null;
   onProfilePictureKeyChange?: (key: string | null) => void;
+  // Photo upload consent (Acceptable Use Policy requirement).
+  // When at least one file is present the checkbox renders beneath the
+  // grid; parent forms receive the boolean via `onConsentChange` and
+  // should disable their submit button until it's true. Set
+  // `requireConsent={false}` to suppress the checkbox for internal
+  // flows that don't need it.
+  requireConsent?: boolean;
+  onConsentChange?: (consented: boolean) => void;
 };
 
 /**
@@ -33,9 +41,28 @@ export default function FileGridUploader({
   maxSizeMB = 10,
   profilePictureKey,
   onProfilePictureKeyChange,
+  requireConsent = true,
+  onConsentChange,
 }: Props) {
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [consented, setConsented] = React.useState(false);
+
+  // Reset consent whenever the file list empties out (e.g. user
+  // removed every file). If the user then adds new files they must
+  // re-confirm.
+  React.useEffect(() => {
+    if (files.length === 0 && consented) {
+      setConsented(false);
+      onConsentChange?.(false);
+    }
+    // Notify parent on mount / when files go from 0 to >0 so the
+    // parent's submit-gate reflects the current unchecked state.
+    if (files.length > 0 && requireConsent) {
+      onConsentChange?.(consented);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [files.length, consented, requireConsent]);
 
   const handlePick = () => inputRef.current?.click();
 
@@ -234,6 +261,40 @@ export default function FileGridUploader({
               HEIC files will be converted to JPEG when you upload. Preview is
               not shown because browsers can&apos;t display HEIC directly.
             </p>
+          )}
+
+          {requireConsent && (
+            <label
+              className="mt-4 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 cursor-pointer hover:bg-slate-100 transition-colors"
+              data-testid="photo-consent-checkbox-wrapper"
+            >
+              <input
+                type="checkbox"
+                checked={consented}
+                onChange={(e) => {
+                  const next = e.target.checked;
+                  setConsented(next);
+                  onConsentChange?.(next);
+                }}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-red-500 focus:ring-red-400"
+                aria-describedby="photo-consent-copy"
+                data-testid="photo-consent-checkbox"
+              />
+              <span id="photo-consent-copy" className="leading-snug">
+                I confirm I have the right to share these photos. Anyone
+                clearly visible has agreed, and the photos do not contain
+                children or reveal someone else&apos;s home address. (
+                <a
+                  href="/acceptable-use"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline hover:text-red-600"
+                >
+                  Acceptable Use Policy
+                </a>
+                )
+              </span>
+            </label>
           )}
         </>
       )}

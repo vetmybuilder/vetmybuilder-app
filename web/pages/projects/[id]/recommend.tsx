@@ -95,6 +95,9 @@ export default function RecommendOnPlatform() {
   const [pageError, setPageError] = useState<string | null>(null);
 
   const [photos, setPhotos] = useState<File[]>([]);
+  // Photo consent (Acceptable Use Policy) - submit blocked when photos
+  // are attached but consent not granted.
+  const [photoConsent, setPhotoConsent] = useState(false);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -623,6 +626,7 @@ export default function RecommendOnPlatform() {
                     onChange={setPhotos}
                     maxFiles={8}
                     maxSizeMB={10}
+                    onConsentChange={setPhotoConsent}
                   />
                 </div>
 
@@ -644,8 +648,13 @@ export default function RecommendOnPlatform() {
 
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || (photos.length > 0 && !photoConsent)}
                   className="w-full inline-flex items-center justify-center rounded-full bg-red-500 px-8 py-4 text-base font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100"
+                  title={
+                    photos.length > 0 && !photoConsent
+                      ? "Please confirm the photo upload consent before submitting."
+                      : undefined
+                  }
                 >
                   {submitting ? "Sending…" : "Submit recommendation"}
                 </button>

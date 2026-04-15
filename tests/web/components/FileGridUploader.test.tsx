@@ -127,4 +127,90 @@ describe("<FileGridUploader />", () => {
       expect(screen.queryByText("Profile")).not.toBeInTheDocument();
     });
   });
+
+  describe("photo upload consent (Acceptable Use Policy)", () => {
+    it("does NOT show the consent checkbox when there are no files", () => {
+      render(<FileGridUploader files={[]} onChange={vi.fn()} />);
+      expect(
+        screen.queryByTestId("photo-consent-checkbox"),
+      ).not.toBeInTheDocument();
+    });
+
+    it("shows the consent checkbox when at least one file is attached", () => {
+      render(
+        <FileGridUploader files={[makeFile("a.jpg")]} onChange={vi.fn()} />,
+      );
+      expect(
+        screen.getByTestId("photo-consent-checkbox"),
+      ).toBeInTheDocument();
+    });
+
+    it("does not show the checkbox when requireConsent is false", () => {
+      render(
+        <FileGridUploader
+          files={[makeFile("a.jpg")]}
+          onChange={vi.fn()}
+          requireConsent={false}
+        />,
+      );
+      expect(
+        screen.queryByTestId("photo-consent-checkbox"),
+      ).not.toBeInTheDocument();
+    });
+
+    it("emits onConsentChange(true) when the box is ticked", () => {
+      const onConsentChange = vi.fn();
+      render(
+        <FileGridUploader
+          files={[makeFile("a.jpg")]}
+          onChange={vi.fn()}
+          onConsentChange={onConsentChange}
+        />,
+      );
+      // Initial state: unchecked, parent notified false (or no call yet).
+      fireEvent.click(screen.getByTestId("photo-consent-checkbox"));
+      expect(onConsentChange).toHaveBeenLastCalledWith(true);
+    });
+
+    it("links to the Acceptable Use Policy", () => {
+      render(
+        <FileGridUploader files={[makeFile("a.jpg")]} onChange={vi.fn()} />,
+      );
+      const link = screen.getByRole("link", { name: /acceptable use policy/i });
+      expect(link).toHaveAttribute("href", "/acceptable-use");
+    });
+  });
+
+  describe("HEIC handling", () => {
+    it("shows a placeholder tile instead of <img> for HEIC files", () => {
+      const heic = new File(["data"], "IMG_1234.HEIC", {
+        type: "image/heic",
+      });
+      render(<FileGridUploader files={[heic]} onChange={vi.fn()} />);
+      // No img with the heic file name
+      expect(screen.queryByAltText("IMG_1234.HEIC")).not.toBeInTheDocument();
+      // Placeholder tile present
+      expect(screen.getByText("HEIC")).toBeInTheDocument();
+      expect(screen.getByText(/converted on upload/i)).toBeInTheDocument();
+    });
+
+    it("shows the 'HEIC will be converted' hint when a HEIC is selected", () => {
+      const heic = new File(["data"], "IMG_1234.HEIC", {
+        type: "image/heic",
+      });
+      render(<FileGridUploader files={[heic]} onChange={vi.fn()} />);
+      expect(
+        screen.getByText(/HEIC files will be converted to JPEG/i),
+      ).toBeInTheDocument();
+    });
+
+    it("does NOT show the HEIC hint when all files are standard images", () => {
+      render(
+        <FileGridUploader files={[makeFile("a.jpg")]} onChange={vi.fn()} />,
+      );
+      expect(
+        screen.queryByText(/HEIC files will be converted to JPEG/i),
+      ).not.toBeInTheDocument();
+    });
+  });
 });
