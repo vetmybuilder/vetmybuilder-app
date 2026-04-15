@@ -85,13 +85,11 @@ export class TradesmanSignupCompletePage {
   }
 
   async submitStep3(): Promise<void> {
-    // Step 3's primary button is a form submit — click the "Finish sign up"
-    // CTA. We locate by visible text because Step3Offers doesn't expose a
-    // dedicated testid on its primary button.
-    await this.page
-      .getByRole("button", { name: /finish sign up/i })
-      .first()
-      .click();
+    // Step 3's primary button reuses Step3Offers' `btn-continue` testid
+    // (label is overridden to "Finish sign up" via the primaryLabel prop).
+    // The button is scoped to step-3 to disambiguate from step-2's
+    // continue button if either is briefly mounted during a transition.
+    await this.step3.getByTestId("btn-continue").click();
   }
 }
 

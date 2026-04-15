@@ -328,35 +328,12 @@ export default function TradesmanSsoOnboardingPage() {
     setStep(3);
   };
 
-  // Companies House pre-check — same behaviour as register-tradesmen.tsx.
-  const precheckCH = useCallback(async () => {
-    try {
-      const name = form.companyName?.trim();
-      if (!name) return;
-      const postcode = form.serviceAreas?.[0] || "";
-      const { data } = await api.post("/api/tradesmen/precheck", {
-        name,
-        postcode,
-      });
-      if (data?.ok) {
-        const best = data.best || data.company;
-        set("companyNumber", best?.number || null);
-        set("chStatus", (data.verdict || best?.status || null) as any);
-        if (best?.number) setOkMsg("Company verified with Companies House.");
-      }
-    } catch (e: any) {
-      console.warn(
-        "[tradesman/signup/complete] precheckCH failed:",
-        e?.message || e,
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, form.companyName, form.serviceAreas, set]);
-
   // Step 3 submit: the terminal action in this flow. We skip the
   // password-creation step from register-tradesmen.tsx because the user
-  // is already Firebase-authed via Google. We still go through the same
-  // save path (CH precheck, photo upload, PUT /api/tradesmen/me, score).
+  // is already Firebase-authed via Google. No client-side Companies
+  // House precheck here — PUT /api/tradesmen/me runs its own CH lookup
+  // server-side, and keeping the check on the critical path made this
+  // click occasionally wait 20s+ in CI.
   const onFinishSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setErr(null);
@@ -364,9 +341,6 @@ export default function TradesmanSsoOnboardingPage() {
     setBusy(true);
 
     try {
-      // Fire the CH check but don't block saving on failure.
-      await precheckCH();
-
       const auth = initFirebase();
       const idToken = await auth.currentUser?.getIdToken(true);
       if (!idToken) {
