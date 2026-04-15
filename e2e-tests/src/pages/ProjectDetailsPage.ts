@@ -168,8 +168,13 @@ export class ProjectDetailsPage extends BasePage {
           return { ok: false, reason: "waiting for details controls" };
         },
         {
-          timeout: 45_000,
-          intervals: [200, 300, 500, 800, 1200],
+          // Bumped from 45s to 90s for mobile-webkit on docker CI: the
+          // page mounts via a chain of async data fetches (project +
+          // role + recommendations) and on a constrained webkit worker
+          // 45s isn't always enough. Chromium passes in <5s so the
+          // higher ceiling is invisible there.
+          timeout: 90_000,
+          intervals: [200, 300, 500, 800, 1200, 2000],
           message:
             "Project details page did not become ready (project-view-page rendered but details controls never appeared).",
         },
