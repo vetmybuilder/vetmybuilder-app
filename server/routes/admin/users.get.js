@@ -50,7 +50,7 @@ module.exports = (router, ctx) => {
            u.uid, u.email, u.firstName, u.lastName,
            u.locationRaw, u.postcodeOutward, u.createdAt,
            COALESCE(ur.role, 'user') AS role,
-           t.company_name, t.trade_types, t.service_areas, t.status AS tradesmanStatus
+           t.company_name, t.contact_name, t.trade_types, t.service_areas, t.status AS tradesmanStatus
          FROM users u
          LEFT JOIN user_roles ur ON ur.uid = u.uid
          LEFT JOIN tradesmen t ON t.user_id = u.uid
@@ -63,9 +63,15 @@ module.exports = (router, ctx) => {
       const items = rows.map((r) => ({
         uid: r.uid,
         email: r.email,
-        firstName: r.firstName,
-        lastName: r.lastName,
-        location: r.postcodeOutward || r.locationRaw || null,
+        firstName: r.firstName || r.contact_name || r.company_name || null,
+        lastName: r.lastName || null,
+        location: r.postcodeOutward || r.locationRaw || (() => {
+          if (!r.service_areas) return null;
+          const areas = String(r.service_areas).split(",").map(s => s.trim()).filter(Boolean);
+          if (areas.length === 0) return null;
+          if (areas.length === 1) return areas[0];
+          return `${areas[0]} +${areas.length - 1} more`;
+        })(),
         role: r.role === "admin" ? "admin" : r.company_name ? "tradesman" : "user",
         createdAt: r.createdAt,
         tradesman: r.company_name

@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import AuthedOnly from "@/components/AuthedOnly";
 import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
+import LocationField from "@/components/forms/LocationField";
+import { TRADE_TYPES } from "@/types/tradeTypes";
 
 /* ========= Types ========= */
 type User = {
@@ -83,6 +85,10 @@ export default function AdminUsersPage() {
 
   /* --- modal state --- */
   const [modalOpen, setModalOpen] = useState(false);
+  const [areaQuery, setAreaQuery] = useState("");
+  const [tradesOpen, setTradesOpen] = useState(false);
+  const [tradesQuery, setTradesQuery] = useState("");
+  const [tradesBucket, setTradesBucket] = useState("");
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [form, setForm] = useState<ModalUser>({ ...emptyForm });
   const [saving, setSaving] = useState(false);
@@ -128,12 +134,17 @@ export default function AdminUsersPage() {
   function openCreate() {
     setEditingUser(null);
     setForm({ ...emptyForm });
+    setAreaQuery("");
+    setTradesOpen(false);
     setSaveError("");
     setModalOpen(true);
   }
 
-  function openEdit(u: User) {
+  function openEdit(u: any) {
     setEditingUser(u);
+    setAreaQuery("");
+    setTradesOpen(false);
+    const t = u.tradesman || {};
     setForm({
       uid: u.uid,
       email: u.email,
@@ -142,10 +153,10 @@ export default function AdminUsersPage() {
       lastName: u.lastName,
       role: u.role,
       location: u.location || "",
-      companyName: u.companyName || "",
-      trades: u.trades || "",
-      areas: u.areas || "",
-      status: u.status || "draft",
+      companyName: t.companyName || u.companyName || "",
+      trades: t.tradeTypes || u.trades || "",
+      areas: t.serviceAreas || u.areas || "",
+      status: t.status || u.status || "draft",
     });
     setSaveError("");
     setModalOpen(true);
@@ -357,9 +368,10 @@ export default function AdminUsersPage() {
 
       {/* ========== Create / Edit modal ========== */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 p-4">
+          <div className="flex min-h-full items-start justify-center py-8">
           <div
-            className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-slate-700 bg-slate-800 p-6 shadow-2xl"
+            className="w-full max-w-lg rounded-xl border border-slate-700 bg-slate-800 p-6 shadow-2xl"
             data-testid="user-modal"
           >
             <h2 className="mb-4 text-lg font-bold text-white">
@@ -453,17 +465,28 @@ export default function AdminUsersPage() {
                 </div>
               </div>
 
-              {/* location */}
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-300">Location</label>
-                <input
-                  type="text"
-                  value={form.location}
-                  onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-                  data-testid="user-modal-location"
-                />
-              </div>
+              {/* location — homeowner/admin only, tradespeople use service areas */}
+              {form.role !== "tradesman" && (
+                <div data-testid="user-modal-location">
+                  <label className="mb-1 block text-sm font-medium text-slate-300">Location</label>
+                  <div className="[&_input]:bg-slate-900 [&_input]:text-white [&_input]:border-slate-600 [&_input]:placeholder-slate-500 [&_label]:hidden [&_.input]:bg-slate-900 [&_.input]:text-white [&_.input]:border-slate-600">
+                    <LocationField
+                      label=""
+                      reasonText=""
+                      placeholder="e.g. E4, N17, Chingford"
+                      value={form.location}
+                      onChange={(val, meta) => {
+                        if (meta) {
+                          const token = (meta as any).outward || (meta as any).sector || (meta as any).postcode || val;
+                          setForm((f) => ({ ...f, location: token || val }));
+                        } else {
+                          setForm((f) => ({ ...f, location: val }));
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* tradesman-only fields */}
               {form.role === "tradesman" && (
@@ -478,27 +501,147 @@ export default function AdminUsersPage() {
                       data-testid="user-modal-company"
                     />
                   </div>
-                  <div>
+                  <div data-testid="user-modal-trades">
                     <label className="mb-1 block text-sm font-medium text-slate-300">Trade types</label>
-                    <input
-                      type="text"
-                      value={form.trades}
-                      onChange={(e) => setForm((f) => ({ ...f, trades: e.target.value }))}
-                      placeholder="e.g. Plumber, Electrician"
-                      className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none"
-                      data-testid="user-modal-trades"
-                    />
+                    <button
+                      type="button"
+                      onClick={() => { setTradesOpen((v) => !v); setTradesQuery(""); setTradesBucket(""); }}
+                      className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-left text-slate-400 hover:border-slate-500 focus:border-blue-500 focus:outline-none"
+                    >
+                      {form.trades
+                        ? <span className="text-white">{form.trades.split(",").filter(Boolean).length} trade{form.trades.split(",").filter(Boolean).length !== 1 ? "s" : ""} selected</span>
+                        : "Select trades..."}
+                    </button>
+                    {form.trades && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {form.trades.split(",").map((s: string) => s.trim()).filter(Boolean).map((trade: string) => (
+                          <span key={trade} className="inline-flex items-center gap-1 rounded-full bg-slate-700 px-2.5 py-1 text-xs text-slate-200">
+                            {trade}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = form.trades.split(",").map((s: string) => s.trim()).filter((s: string) => s && s !== trade).join(",");
+                                setForm((f) => ({ ...f, trades: next }));
+                              }}
+                              className="ml-0.5 text-slate-400 hover:text-white"
+                              aria-label={`Remove ${trade}`}
+                            >
+                              x
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {tradesOpen && (() => {
+                      const active = TRADE_TYPES.filter((t) => t.active !== false);
+                      const buckets = [...new Set(active.map((t) => t.buckets || "").filter(Boolean))];
+                      const q = tradesQuery.trim().toLowerCase();
+                      const filtered = active.filter((t) => {
+                        if (tradesBucket && (t.buckets || "") !== tradesBucket) return false;
+                        if (!q) return true;
+                        if (t.label.toLowerCase().includes(q)) return true;
+                        return (t.synonyms || []).some((s) => s.toLowerCase().includes(q));
+                      });
+                      const selectedSet = new Set(form.trades.split(",").map((s: string) => s.trim()).filter(Boolean));
+                      return (
+                        <div className="mt-2 rounded-lg border border-slate-600 bg-slate-800 p-3 space-y-2">
+                          <input
+                            type="search"
+                            className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none"
+                            placeholder="Search trades..."
+                            value={tradesQuery}
+                            onChange={(e) => setTradesQuery(e.target.value)}
+                          />
+                          <div className="flex flex-wrap gap-1">
+                            <button type="button" onClick={() => setTradesBucket("")}
+                              className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${!tradesBucket ? "bg-blue-600 text-white" : "bg-slate-700 text-slate-400 hover:bg-slate-600"}`}>
+                              All
+                            </button>
+                            {buckets.map((b) => (
+                              <button key={b} type="button" onClick={() => setTradesBucket(b === tradesBucket ? "" : b)}
+                                className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${tradesBucket === b ? "bg-blue-600 text-white" : "bg-slate-700 text-slate-400 hover:bg-slate-600"}`}>
+                                {b}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="max-h-48 overflow-y-auto">
+                            <div className="flex flex-wrap gap-1.5">
+                              {filtered.length === 0 ? (
+                                <p className="text-xs text-slate-500">No matches{q ? ` for "${q}"` : ""}.</p>
+                              ) : filtered.map((t) => {
+                                const sel = selectedSet.has(t.label);
+                                return (
+                                  <button key={t.label} type="button"
+                                    onClick={() => {
+                                      const current = [...selectedSet];
+                                      const next = sel ? current.filter((s) => s !== t.label) : [...current, t.label];
+                                      setForm((f) => ({ ...f, trades: next.join(",") }));
+                                    }}
+                                    className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${sel ? "bg-blue-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600"}`}>
+                                    {t.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
-                  <div>
+                  <div data-testid="user-modal-areas">
                     <label className="mb-1 block text-sm font-medium text-slate-300">Service areas</label>
-                    <input
-                      type="text"
-                      value={form.areas}
-                      onChange={(e) => setForm((f) => ({ ...f, areas: e.target.value }))}
-                      placeholder="e.g. E4, E17"
-                      className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none"
-                      data-testid="user-modal-areas"
-                    />
+                    <div className="[&_input]:bg-slate-900 [&_input]:text-white [&_input]:border-slate-600 [&_input]:placeholder-slate-500 [&_label]:hidden [&_.input]:bg-slate-900 [&_.input]:text-white [&_.input]:border-slate-600">
+                      <LocationField
+                        label=""
+                        reasonText=""
+                        placeholder="Type a postcode or place..."
+                        value={areaQuery}
+                        onChange={(val, meta) => {
+                          setAreaQuery(val || "");
+                          if (meta) {
+                            const token = (meta as any).outward || (meta as any).sector || (meta as any).postcode || "";
+                            if (token) {
+                              const normalised = token.toUpperCase().trim();
+                              const current = form.areas ? form.areas.split(",").map((s: string) => s.trim()).filter(Boolean) : [];
+                              if (!current.includes(normalised)) {
+                                setForm((f) => ({
+                                  ...f,
+                                  areas: [...current, normalised].join(","),
+                                }));
+                              }
+                            }
+                            setAreaQuery("");
+                          }
+                        }}
+                      />
+                    </div>
+                    {form.areas && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {form.areas.split(",").map((s: string) => s.trim()).filter(Boolean).map((area: string) => (
+                          <span
+                            key={area}
+                            className="inline-flex items-center gap-1 rounded-full bg-slate-700 px-2.5 py-1 text-xs text-slate-200"
+                          >
+                            {area}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = form.areas
+                                  .split(",")
+                                  .map((s: string) => s.trim())
+                                  .filter((s: string) => s && s !== area)
+                                  .join(",");
+                                setForm((f) => ({ ...f, areas: next }));
+                              }}
+                              className="ml-0.5 text-slate-400 hover:text-white"
+                              aria-label={`Remove ${area}`}
+                            >
+                              x
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="mb-1 block text-sm font-medium text-slate-300">Status</label>
@@ -535,6 +678,7 @@ export default function AdminUsersPage() {
                 </button>
               </div>
             </form>
+          </div>
           </div>
         </div>
       )}

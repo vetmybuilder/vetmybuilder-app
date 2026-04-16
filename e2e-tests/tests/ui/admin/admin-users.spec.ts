@@ -7,6 +7,7 @@ const ADMIN_EMAIL = process.env.E2E_ADMIN_USER_EMAIL!;
 const ADMIN_PASSWORD = process.env.E2E_ADMIN_USER_PASSWORD!;
 
 test.describe("Admin user management", () => {
+  // TODO: remove once per-worker admin UIDs are implemented (see TODO.md).
   test.describe.configure({ mode: "serial" });
 
   test.beforeEach(async ({ runtime, request }) => {
@@ -49,7 +50,7 @@ test.describe("Admin user management", () => {
       password: "Passw0rd!",
       firstName: "UI",
       lastName: "Homeowner",
-      location: "E4",
+      location: "E4 6ST",
       role: "Homeowner",
     });
 
@@ -75,7 +76,7 @@ test.describe("Admin user management", () => {
       role: "Tradesman",
       companyName: `UI Test Co ${Date.now()}`,
       tradeTypes: "Plumber",
-      serviceAreas: "E4",
+      serviceAreas: "E4 6ST",
     });
 
     await adminUsersPage.assertUserInTable(email);
