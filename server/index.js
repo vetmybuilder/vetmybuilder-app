@@ -357,11 +357,9 @@ app.response.json = function friendlyJson(body) {
     typeof body === "object" &&
     typeof body.error === "string" &&
     !body.message &&
-    this.statusCode >= 400
+    FRIENDLY_MESSAGES[body.error]
   ) {
-    body.message =
-      FRIENDLY_MESSAGES[body.error] ||
-      "Something went wrong. Please try again.";
+    body.message = FRIENDLY_MESSAGES[body.error];
   }
   return originalJson.call(this, body);
 };

@@ -211,9 +211,12 @@ test.describe("POST /api/projects/:projectId/hires", () => {
   }) => {
     const projectId = await liveProjectForOwner(apiClient);
 
+    const rec = Recommendation.aRecommendation()
+      .withRandomDetails()
+      .withCompany(`NoMatch Manual Hire Co ${Date.now()}`);
     const recRes = await apiClient.post(
       `/api/projects/${projectId}/recommendations`,
-      Recommendation.aRecommendation().withRandomDetails().toPayload(),
+      rec.toPayload(),
     );
     expect(recRes.status()).toBe(201);
     const { recommendationId } = await recRes.json();
