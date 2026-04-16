@@ -25,9 +25,12 @@ module.exports = (router, ctx) => {
         params.push(like, like, like, like);
       }
 
-      if (roleFilter && ["user", "tradesman", "admin"].includes(roleFilter)) {
-        wh.push(`ur.role = ?`);
-        params.push(roleFilter);
+      if (roleFilter === "admin") {
+        wh.push(`ur.role = 'admin'`);
+      } else if (roleFilter === "tradesman") {
+        wh.push(`t.company_name IS NOT NULL`);
+      } else if (roleFilter === "user") {
+        wh.push(`(ur.role IS NULL OR ur.role != 'admin') AND t.company_name IS NULL`);
       }
 
       const whereSql = wh.length > 0 ? `WHERE ${wh.join(" AND ")}` : "";
@@ -63,7 +66,7 @@ module.exports = (router, ctx) => {
         firstName: r.firstName,
         lastName: r.lastName,
         location: r.postcodeOutward || r.locationRaw || null,
-        role: r.role || "user",
+        role: r.role === "admin" ? "admin" : r.company_name ? "tradesman" : "user",
         createdAt: r.createdAt,
         tradesman: r.company_name
           ? {

@@ -1,4 +1,5 @@
 import { test, expect } from "../../../src/fixtures";
+import Tradesman from "../../../src/models/tradesman";
 
 test.describe("Admin user management API", () => {
   test("POST creates a homeowner and GET returns them", async ({
@@ -106,5 +107,50 @@ test.describe("Admin user management API", () => {
       email: "incomplete@test.com",
     });
     expect(res.status()).toBe(400);
+  });
+
+  test("self-registered tradesperson appears in users list with role tradesman", async ({
+    apiClient,
+    adminApiClient,
+  }) => {
+    const tradesman = Tradesman.aTradesman().withRandomDetails();
+    await apiClient.put("/api/tradesmen/me", tradesman.toPayload());
+
+    const listRes = await adminApiClient.get(
+      `/api/admin/users?q=${encodeURIComponent(tradesman.companyName)}`,
+    );
+    expect(listRes.status()).toBe(200);
+    const list = await listRes.json();
+    const found = list.items.find((u: any) => u.tradesman?.companyName === tradesman.companyName);
+    expect(found).toBeTruthy();
+    expect(found.role).toBe("tradesman");
+  });
+
+  test("role filter tradesman includes self-registered tradespeople", async ({
+    apiClient,
+    adminApiClient,
+  }) => {
+    const tradesman = Tradesman.aTradesman().withRandomDetails();
+    await apiClient.put("/api/tradesmen/me", tradesman.toPayload());
+
+    const listRes = await adminApiClient.get("/api/admin/users?role=tradesman");
+    expect(listRes.status()).toBe(200);
+    const list = await listRes.json();
+    const found = list.items.find((u: any) => u.tradesman?.companyName === tradesman.companyName);
+    expect(found).toBeTruthy();
+  });
+
+  test("role filter user excludes tradespeople", async ({
+    apiClient,
+    adminApiClient,
+  }) => {
+    const tradesman = Tradesman.aTradesman().withRandomDetails();
+    await apiClient.put("/api/tradesmen/me", tradesman.toPayload());
+
+    const listRes = await adminApiClient.get("/api/admin/users?role=user");
+    expect(listRes.status()).toBe(200);
+    const list = await listRes.json();
+    const found = list.items.find((u: any) => u.tradesman?.companyName === tradesman.companyName);
+    expect(found).toBeFalsy();
   });
 });
