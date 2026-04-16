@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import ReportModal from "@/components/ReportModal";
 
 export type GalleryImage = {
   id: string | number;
@@ -22,6 +23,7 @@ export default function LightboxGallery({
 }: Props) {
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
+  const [reportPhotoId, setReportPhotoId] = useState<string | number | null>(null);
   const gridCols = useMemo(() => {
     switch (cols) {
       case 5:
@@ -104,17 +106,29 @@ export default function LightboxGallery({
             <span className="text-sm text-zinc-400">
               {index + 1} / {images.length}
             </span>
-            <button
-              ref={closeBtnRef}
-              onClick={() => setOpen(false)}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-white/10 hover:bg-white/20 px-4 py-2 text-sm font-semibold text-white transition-colors focus:outline-none"
-              aria-label="Close"
-            >
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setReportPhotoId(images[index].id)}
+                className="inline-flex items-center justify-center gap-1.5 rounded-full bg-white/10 hover:bg-white/20 px-3 py-2 text-xs font-medium text-zinc-400 hover:text-white transition-colors focus:outline-none"
+                aria-label="Report this photo"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2z" />
+                </svg>
+                Report
+              </button>
+              <button
+                ref={closeBtnRef}
+                onClick={() => setOpen(false)}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-white/10 hover:bg-white/20 px-4 py-2 text-sm font-semibold text-white transition-colors focus:outline-none"
+                aria-label="Close"
+              >
               <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
                 <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
               </svg>
               Close
             </button>
+            </div>
           </div>
 
           {/* Image area — click backdrop to close */}
@@ -156,6 +170,14 @@ export default function LightboxGallery({
             )}
           </div>
         </div>
+      )}
+
+      {reportPhotoId !== null && (
+        <ReportModal
+          targetType="photo"
+          targetId={reportPhotoId}
+          onClose={() => setReportPhotoId(null)}
+        />
       )}
     </>
   );

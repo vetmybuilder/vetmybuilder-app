@@ -80,9 +80,11 @@ test.describe("Homeowner registration", () => {
     await registerPage.lastName.fill(account.lastName);
     await registerPage.username.fill(account.username);
     await registerPage.location.fill(account.location);
+    await registerPage.location.press("Escape");
     await registerPage.email.fill(account.requiredEmail);
     await registerPage.password.fill(account.requiredPassword);
     await registerPage.confirmPassword.fill(account.requiredPassword);
+    await registerPage.agreeToTerms();
     await registerPage.submitButton.click();
     await expect(registerPage.errorAlert.first()).toContainText(
       "That username is already taken.",

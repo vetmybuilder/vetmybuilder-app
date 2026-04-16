@@ -1,5 +1,6 @@
 import Link from "next/link";
 import * as React from "react";
+import ReportModal from "@/components/ReportModal";
 import { ThumbsUpIcon, CameraIcon } from "@/components/ui/Icons";
 import { ScoreChip, chLabel, chBadgeClass, chIcon } from "@/components/ui/vmb";
 import type { Recommendation, Verification } from "@/types/vmb";
@@ -72,6 +73,8 @@ export default function ShortlistSection({
   hiredRecommendationIds,
   "data-testid": dataTestId = "project-shortlist",
 }: Props) {
+  const [reportTarget, setReportTarget] = React.useState<number | null>(null);
+
   // 🔹 Single source of truth for grouping + base agg scores
   const groups = React.useMemo(() => {
     const base = groupRecommendationsByCompany(items) as Array<
@@ -404,6 +407,15 @@ export default function ShortlistSection({
                               </span>
                             </div>
                           )}
+
+                          <button
+                            onClick={() => setReportTarget(r.id)}
+                            className="text-[10px] text-slate-300 hover:text-red-400 transition-colors"
+                            title="Report this recommendation"
+                            data-testid="btn-report-recommendation"
+                          >
+                            Report
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -427,6 +439,14 @@ export default function ShortlistSection({
           </>
         )}
       </div>
+
+      {reportTarget !== null && (
+        <ReportModal
+          targetType="recommendation"
+          targetId={reportTarget}
+          onClose={() => setReportTarget(null)}
+        />
+      )}
     </aside>
   );
 }

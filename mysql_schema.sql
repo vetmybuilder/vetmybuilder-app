@@ -812,6 +812,21 @@ CREATE TABLE ai_inference_log (
   KEY idx_ail_hash (prompt_hash)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE reports (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  reporter_uid VARCHAR(128) NOT NULL,
+  target_type ENUM('profile','recommendation','photo') NOT NULL,
+  target_id VARCHAR(255) NOT NULL,
+  category ENUM('abuse','spam','fake_review','inappropriate_image','other') NOT NULL,
+  detail TEXT DEFAULT NULL,
+  status ENUM('open','reviewed','dismissed') NOT NULL DEFAULT 'open',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  resolved_at DATETIME DEFAULT NULL,
+  resolved_by VARCHAR(128) DEFAULT NULL,
+  KEY idx_reports_status (status, created_at),
+  KEY idx_reports_target (target_type, target_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE builder_summaries (
   id                  INT AUTO_INCREMENT PRIMARY KEY,
   company             VARCHAR(255) NOT NULL,

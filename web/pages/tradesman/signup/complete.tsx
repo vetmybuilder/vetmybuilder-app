@@ -701,6 +701,7 @@ export default function TradesmanSsoOnboardingPage() {
                   okMsg={okMsg}
                   err={err}
                   primaryLabel="Finish sign up"
+                  showTermsCheckbox
                 />
               )}
             </div>

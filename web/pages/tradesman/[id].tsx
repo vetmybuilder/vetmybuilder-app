@@ -1,6 +1,7 @@
 // web/pages/tradesman/[id].tsx
 import Head from "next/head";
 import Toast from "@/components/Toast";
+import ReportModal from "@/components/ReportModal";
 import { useRouter } from "next/router";
 import StatPill from "@/components/StatPill";
 import { useEffect, useMemo, useState } from "react";
@@ -111,6 +112,7 @@ function Inner() {
   const [err, setErr] = useState<string | null>(null);
   const [favBusy, setFavBusy] = useState(false);
   const [favToast, setFavToast] = useState<string | null>(null);
+  const [showReport, setShowReport] = useState(false);
   const [showPortfolio, setShowPortfolio] = useState(true);
   const [sharedImages, setSharedImages] = useState<GalleryImage[]>([]);
   const [sharedLoading, setSharedLoading] = useState(false);
@@ -589,11 +591,30 @@ function Inner() {
                   )}
                 </section>
               </div>
+
+              {/* Report link */}
+              <button
+                onClick={() => setShowReport(true)}
+                className="mt-4 flex items-center gap-1.5 text-xs text-zinc-400 hover:text-red-500 transition-colors"
+                data-testid="btn-report-profile"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2z" />
+                </svg>
+                Report this profile
+              </button>
             </aside>
           </div>
         </div>
       </div>
 
+      {showReport && item.builderId && (
+        <ReportModal
+          targetType="profile"
+          targetId={item.builderId}
+          onClose={() => setShowReport(false)}
+        />
+      )}
       <Toast message={favToast} onDismiss={() => setFavToast(null)} />
     </>
   );

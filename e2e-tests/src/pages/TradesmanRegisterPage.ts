@@ -122,7 +122,12 @@ export class TradesmanRegisterPage extends BasePage {
     await this.confirmPasswordInput.fill(password);
   }
 
+  async agreeToTerms(): Promise<void> {
+    await this.page.getByTestId("agree-terms").locator("input[type='checkbox']").check();
+  }
+
   async submitStep4() {
+    await this.agreeToTerms();
     await this.createAccountButton.click();
   }
 

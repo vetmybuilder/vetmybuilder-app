@@ -1,6 +1,7 @@
 // web/pages/builders/[id].tsx
 import { useState } from "react";
 import Toast from "@/components/Toast";
+import ReportModal from "@/components/ReportModal";
 import { useRouter } from "next/router";
 import type { GalleryImage } from "@/components/LightboxGallery";
 import BuilderHeader from "@/components/builder/BuilderHeader";
@@ -40,6 +41,7 @@ export default function BuilderProfilePage() {
   } = useBuilderProfile(id);
 
   const [toast, setToast] = useState<string | null>(null);
+  const [showReport, setShowReport] = useState(false);
 
   const { voting, voteUpOnce } = useBuilderVoting({
     builder,
@@ -154,12 +156,31 @@ export default function BuilderProfilePage() {
                 </div>
                 <div className="space-y-6">
                   <BuilderContactDetails user={user} phones={aggPhones} emails={aggEmails} />
+                  {user && (
+                    <button
+                      onClick={() => setShowReport(true)}
+                      className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-red-500 transition-colors"
+                      data-testid="btn-report-profile"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2z" />
+                      </svg>
+                      Report this profile
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
           ) : null}
         </div>
       </div>
+      {showReport && builder?.id && (
+        <ReportModal
+          targetType="profile"
+          targetId={builder.id}
+          onClose={() => setShowReport(false)}
+        />
+      )}
       <Toast message={toast} onDismiss={() => setToast(null)} />
     </>
   );

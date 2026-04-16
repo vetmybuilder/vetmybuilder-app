@@ -134,7 +134,12 @@ export class RegisterPage {
     await this.fill(account.toRegisterInput());
   }
 
+  async agreeToTerms(): Promise<void> {
+    await this.page.getByTestId("agree-terms").locator("input[type='checkbox']").check();
+  }
+
   async submit(): Promise<void> {
+    await this.agreeToTerms();
     await expect(this.submitButton).toBeVisible();
     await expect(this.submitButton).toBeEnabled();
     await this.submitButton.click();

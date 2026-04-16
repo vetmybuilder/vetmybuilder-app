@@ -1,5 +1,7 @@
 // web/components/Layout.tsx
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import CookieConsent from "react-cookie-consent";
 import SiteHeader from "@/components/SiteHeader";
 
 const BG_IMAGES = [
@@ -65,6 +67,32 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <main id="main" className="pt-14" data-testid="main-content">
         {children}
       </main>
+
+      <CookieConsent
+        location="bottom"
+        cookieName="vmb_cookie_consent"
+        expires={365}
+        buttonText="Got it"
+        style={{
+          background: "#1e293b",
+          padding: "12px 20px",
+          alignItems: "center",
+          fontSize: "13px",
+        }}
+        buttonStyle={{
+          background: "#ef4444",
+          color: "#fff",
+          borderRadius: "9999px",
+          padding: "8px 24px",
+          fontWeight: "700",
+          fontSize: "13px",
+        }}
+      >
+        We use cookies to keep you signed in and make the site work. No tracking, no ads.{" "}
+        <Link href="/cookies" className="underline text-red-300 hover:text-red-200">
+          Cookie policy
+        </Link>
+      </CookieConsent>
     </>
   );
 }
