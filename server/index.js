@@ -338,6 +338,34 @@ const router = buildRouter({
 
 app.use("/api", router);
 
+// Friendly error messages. Intercepts outgoing JSON responses that have
+// a bare error code (e.g. { error: "internal_error" }) but no human-
+// readable `message` field, and adds one. This covers all 80+ routes
+// that return generic error codes without changing each one individually.
+const FRIENDLY_MESSAGES = {
+  internal_error: "Something went wrong. Please try again or contact support if this keeps happening.",
+  server_error: "Something went wrong on our end. Please try again.",
+  create_failed: "We couldn't complete that action right now. Please try again.",
+  upload_failed: "The upload didn't work. Please check your file and try again.",
+  store_failed: "We couldn't save that right now. Please try again.",
+  unexpected_failure: "Something unexpected happened. Please try again.",
+};
+const originalJson = app.response.json;
+app.response.json = function friendlyJson(body) {
+  if (
+    body &&
+    typeof body === "object" &&
+    typeof body.error === "string" &&
+    !body.message &&
+    this.statusCode >= 400
+  ) {
+    body.message =
+      FRIENDLY_MESSAGES[body.error] ||
+      "Something went wrong. Please try again.";
+  }
+  return originalJson.call(this, body);
+};
+
 logger.info(
   {
     port: PORT,
