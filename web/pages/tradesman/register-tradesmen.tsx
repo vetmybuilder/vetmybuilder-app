@@ -26,6 +26,10 @@ import {
   normalizeX,
   normalizeYouTube,
 } from "@/utils/socialLinks";
+import {
+  buildReviewLinksPayload,
+  type ReviewPlatformId,
+} from "@/utils/reviewLinks";
 import { ensureEmailAvailable } from "@/utils/email";
 import { isStrongPassword } from "@/components/forms/PasswordChecklist";
 
@@ -69,6 +73,14 @@ export default function TradesmanRegisterV2Page() {
       x: "",
       youtube: "",
       linkedin: "",
+    },
+    reviewLinks: {
+      trustpilot: "",
+      bark: "",
+      mybuilder: "",
+      checkatrade: "",
+      houzz: "",
+      yell: "",
     },
     tradeTypes: [] as string[],
     workPhotos: [] as File[], // File objects from uploader
@@ -143,6 +155,10 @@ export default function TradesmanRegisterV2Page() {
               ? restDraft.websites[0] || ""
               : p.website,
           socials: { ...p.socials, ...(restDraft.socials || {}) },
+          reviewLinks: {
+            ...p.reviewLinks,
+            ...(restDraft.reviewLinks || {}),
+          },
           // workPhotos intentionally NOT restored – Files can't be serialized
         };
       });
@@ -424,6 +440,13 @@ export default function TradesmanRegisterV2Page() {
         profilePictureUrl = photoUrls[idx] ?? null;
       }
 
+      // External-review payload: drops blank/invalid entries server-side too.
+      const reviewLinks = buildReviewLinksPayload(
+        (Object.keys(form.reviewLinks || {}) as ReviewPlatformId[]).map(
+          (id) => ({ platform: id, url: form.reviewLinks?.[id] || "" }),
+        ),
+      );
+
       const payload = {
         companyName: form.companyName,
         contactName: form.contactName,
@@ -433,6 +456,7 @@ export default function TradesmanRegisterV2Page() {
         serviceAreas: form.serviceAreas,
         website: form.website || "",
         socialLinks: socials,
+        reviewLinks,
         photoCount: photoUrls.length || (form.workPhotos || []).length,
         photoUrls,
         supportingDocCount: (form.docs || []).length,

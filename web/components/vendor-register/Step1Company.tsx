@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   Building2, User, Phone, Mail, Globe, MapPin,
   ChevronDown, ChevronUp, ArrowRight, KeyRound,
@@ -15,6 +15,11 @@ import {
   normalizeX,
   normalizeYouTube,
 } from "@/utils/socialLinks";
+import {
+  REVIEW_PLATFORMS,
+  normalizeReviewLink,
+  type ReviewPlatformId,
+} from "@/utils/reviewLinks";
 
 export type Step1Form = {
   companyName: string;
@@ -30,6 +35,16 @@ export type Step1Form = {
     x: string;
     youtube: string;
     linkedin: string;
+  };
+  // External review-platform links keyed by platform id. Empty string =
+  // not provided. Server validates per platform on save.
+  reviewLinks: {
+    trustpilot: string;
+    bark: string;
+    mybuilder: string;
+    checkatrade: string;
+    houzz: string;
+    yell: string;
   };
 };
 
@@ -92,8 +107,22 @@ export default function Step1Company({
   betaCodeError,
 }: Props) {
   const [socialsOpen, setSocialsOpen] = useState(false);
+  const [reviewsOpen, setReviewsOpen] = useState(false);
 
   const filledSocials = Object.values(form.socials).filter(Boolean).length;
+  const filledReviews = form.reviewLinks
+    ? Object.values(form.reviewLinks).filter(Boolean).length
+    : 0;
+  const reviewLinksDirty: Partial<Record<ReviewPlatformId, string>> = (
+    form.reviewLinks || {}
+  ) as Record<ReviewPlatformId, string>;
+  // Per-platform inline error: set to the platform id when the user
+  // typed a URL that didn't match the expected domain. Cleared on next
+  // edit. Doesn't block submit (server validates again) but warns the
+  // tradesperson before they progress.
+  const [reviewLinkErrors, setReviewLinkErrors] = React.useState<
+    Partial<Record<ReviewPlatformId, string>>
+  >({});
 
   return (
     <form
@@ -361,7 +390,7 @@ export default function Step1Company({
           </button>
 
           {socialsOpen && (
-            <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4 grid gap-3 sm:grid-cols-2" data-testid="socials-grid">
               {([
                 {
                   id: "ig", key: "instagram" as const, label: "Instagram",
@@ -425,6 +454,118 @@ export default function Step1Company({
                   />
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+
+        {/* External review-platform links - collapsible.
+            Tradesperson supplies their own profile URL per platform;
+            we display as plain text link on the public profile.
+            See web/utils/reviewLinks.ts for normalisation rules and
+            DMCC-safe display constraints. */}
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => setReviewsOpen(!reviewsOpen)}
+            className="w-full flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-4 py-3 text-left hover:border-zinc-300 transition-colors"
+            data-testid="btn-toggle-review-links"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="text-sm font-medium text-zinc-700">
+                External review profiles
+              </span>
+              <span className="text-xs text-zinc-400">(optional)</span>
+              {filledReviews > 0 && (
+                <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-xs font-semibold">
+                  {filledReviews} added
+                </span>
+              )}
+            </div>
+            {reviewsOpen ? (
+              <ChevronUp className="h-4 w-4 text-zinc-400" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-zinc-400" />
+            )}
+          </button>
+
+          {reviewsOpen && (
+            <div
+              className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4 grid gap-3 sm:grid-cols-2"
+              data-testid="review-links-grid"
+            >
+              {REVIEW_PLATFORMS.map((p) => {
+                const value = reviewLinksDirty[p.id] ?? "";
+                const errorKey = reviewLinkErrors[p.id];
+                return (
+                  <div
+                    key={p.id}
+                    data-testid={`review-link-${p.id}`}
+                    className="flex flex-col gap-1"
+                  >
+                    <div
+                      className={`flex items-center gap-3 rounded-xl border bg-white px-3 py-2.5 transition-colors focus-within:border-red-300 focus-within:ring-2 focus-within:ring-red-400/20 ${
+                        errorKey
+                          ? "border-rose-300"
+                          : "border-zinc-200 hover:border-zinc-300"
+                      }`}
+                    >
+                      <span className="name shrink-0 w-28 text-sm font-medium text-zinc-500">
+                        {p.label}
+                      </span>
+                      <input
+                        id={`review-${p.id}`}
+                        className="flex-1 border-0 bg-transparent text-sm placeholder:text-zinc-300 focus:outline-none min-w-0"
+                        placeholder={p.placeholder}
+                        value={value}
+                        data-testid={`input-review-${p.id}`}
+                        onChange={(e) => {
+                          set("reviewLinks", {
+                            ...form.reviewLinks,
+                            [p.id]: e.target.value,
+                          });
+                          if (errorKey) {
+                            setReviewLinkErrors({
+                              ...reviewLinkErrors,
+                              [p.id]: undefined,
+                            });
+                          }
+                        }}
+                        onBlur={() => {
+                          const raw = form.reviewLinks?.[p.id] || "";
+                          if (!raw) return;
+                          const norm = normalizeReviewLink(p.id, raw);
+                          if (norm) {
+                            // Persist canonicalised form
+                            set("reviewLinks", {
+                              ...form.reviewLinks,
+                              [p.id]: norm,
+                            });
+                          } else {
+                            setReviewLinkErrors({
+                              ...reviewLinkErrors,
+                              [p.id]: `Must be a ${p.label} URL`,
+                            });
+                          }
+                        }}
+                      />
+                    </div>
+                    {errorKey && (
+                      <p
+                        className="text-xs text-rose-600 pl-1"
+                        role="alert"
+                        data-testid={`error-review-${p.id}`}
+                      >
+                        {errorKey}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+              <p className="text-[11px] text-zinc-400 sm:col-span-2">
+                We display these as plain text links on your profile so
+                homeowners can verify your reviews on the source. We
+                don&apos;t copy ratings or review counts across.
+              </p>
             </div>
           )}
         </div>

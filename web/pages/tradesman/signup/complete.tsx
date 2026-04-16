@@ -34,6 +34,10 @@ import {
   normalizeX,
   normalizeYouTube,
 } from "@/utils/socialLinks";
+import {
+  buildReviewLinksPayload,
+  type ReviewPlatformId,
+} from "@/utils/reviewLinks";
 
 // Keep the drafting key separate from the password-flow register page so
 // a half-finished SSO signup doesn't collide with a half-finished
@@ -64,6 +68,14 @@ export default function TradesmanSsoOnboardingPage() {
       x: "",
       youtube: "",
       linkedin: "",
+    },
+    reviewLinks: {
+      trustpilot: "",
+      bark: "",
+      mybuilder: "",
+      checkatrade: "",
+      houzz: "",
+      yell: "",
     },
     tradeTypes: [] as string[],
     workPhotos: [] as File[],
@@ -194,6 +206,10 @@ export default function TradesmanSsoOnboardingPage() {
               ? rest.websites[0] || ""
               : p.website,
           socials: { ...p.socials, ...(rest.socials || {}) },
+          reviewLinks: {
+            ...p.reviewLinks,
+            ...(rest.reviewLinks || {}),
+          },
         };
       });
       setWebsiteInput(
@@ -410,6 +426,12 @@ export default function TradesmanSsoOnboardingPage() {
         profilePictureUrl = photoUrls[idx] ?? null;
       }
 
+      const reviewLinks = buildReviewLinksPayload(
+        (Object.keys(form.reviewLinks || {}) as ReviewPlatformId[]).map(
+          (id) => ({ platform: id, url: form.reviewLinks?.[id] || "" }),
+        ),
+      );
+
       const payload = {
         companyName: form.companyName,
         contactName: form.contactName,
@@ -419,6 +441,7 @@ export default function TradesmanSsoOnboardingPage() {
         serviceAreas: form.serviceAreas,
         website: form.website || "",
         socialLinks: socials,
+        reviewLinks,
         photoCount: photoUrls.length || (form.workPhotos || []).length,
         photoUrls,
         supportingDocCount: (form.docs || []).length,
