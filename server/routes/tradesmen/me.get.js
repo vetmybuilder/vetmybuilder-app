@@ -65,6 +65,7 @@ module.exports = (router, ctx) => {
           web_verified,
           web_url,
           social_links_json,
+          review_links_json,
           photo_count,
           supporting_doc_count,
           discount_min_percent,
