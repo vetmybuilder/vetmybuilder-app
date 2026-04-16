@@ -292,6 +292,22 @@ module.exports = (router, ctx) => {
 
       // ---------- DB transaction ----------
       try {
+        // Ensure the users table has a row for this uid. Every
+        // authenticated person should appear in users regardless of
+        // role (homeowner vs tradesperson). Without this, tradespeople
+        // who registered via the email/password wizard were invisible
+        // in the admin User Management page because they only had a
+        // tradesmen row.
+        await run(
+          `
+          INSERT INTO users (uid, email, createdAt)
+          VALUES (?, ?, NOW())
+          ON DUPLICATE KEY UPDATE
+            email = COALESCE(VALUES(email), email)
+          `,
+          [uid, email],
+        );
+
         // UPSERT main row
         await run(
           `

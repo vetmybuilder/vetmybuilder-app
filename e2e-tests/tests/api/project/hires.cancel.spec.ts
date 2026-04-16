@@ -46,9 +46,12 @@ test.describe("PATCH /api/hires/:id/cancel", () => {
       Project.aProject().withRandomDetails().toApiPayload(),
     );
 
+    const rec = Recommendation.aRecommendation()
+      .withRandomDetails()
+      .withCompany(`NoMatch Cancel Co ${Date.now()}`);
     const recRes = await apiClient.post(
       `/api/projects/${project.id}/recommendations`,
-      Recommendation.aRecommendation().withRandomDetails().toPayload(),
+      rec.toPayload(),
     );
     const { recommendationId } = await recRes.json();
 
