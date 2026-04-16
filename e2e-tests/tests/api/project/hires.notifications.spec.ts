@@ -150,9 +150,12 @@ test.describe("Hire notifications", () => {
       Project.aProject().withRandomDetails().toApiPayload(),
     );
 
+    const recModel = Recommendation.aRecommendation()
+      .withRandomDetails()
+      .withCompany(`NoMatch Notify Co ${Date.now()}`);
     const rec = await projectRecommendationApi.createRecommendation(
       project.id,
-      Recommendation.aRecommendation().withRandomDetails().toPayload(),
+      recModel.toPayload(),
     );
 
     const hire = await hireApi.createHire(project.id, {
