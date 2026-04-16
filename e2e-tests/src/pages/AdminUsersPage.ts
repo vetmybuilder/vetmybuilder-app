@@ -16,8 +16,8 @@ export class AdminUsersPage {
   readonly modalLastName: Locator;
   readonly modalLocation: Locator;
   readonly modalCompanyName: Locator;
-  readonly modalTradeTypes: Locator;
-  readonly modalServiceAreas: Locator;
+  readonly modalTradesContainer: Locator;
+  readonly modalAreasContainer: Locator;
   readonly modalSubmit: Locator;
   readonly modalCancel: Locator;
   readonly modalError: Locator;
@@ -38,8 +38,8 @@ export class AdminUsersPage {
     this.modalLastName = page.getByTestId("user-modal-lastname");
     this.modalLocation = page.getByTestId("user-modal-location");
     this.modalCompanyName = page.getByTestId("user-modal-company");
-    this.modalTradeTypes = page.getByTestId("user-modal-trades");
-    this.modalServiceAreas = page.getByTestId("user-modal-areas");
+    this.modalTradesContainer = page.getByTestId("user-modal-trades");
+    this.modalAreasContainer = page.getByTestId("user-modal-areas");
     this.modalSubmit = page.getByTestId("user-modal-submit");
     this.modalCancel = page.getByTestId("user-modal-cancel");
     this.modalError = page.getByTestId("user-modal-error");
@@ -55,6 +55,34 @@ export class AdminUsersPage {
 
   async selectRole(role: "Homeowner" | "Tradesman" | "Admin") {
     await this.page.getByTestId(`role-toggle-${role.toLowerCase()}`).click();
+  }
+
+  async selectTrade(label: string) {
+    const container = this.modalTradesContainer;
+    // Open the picker if it's not already open
+    const picker = container.locator("input[type='search']");
+    if (!(await picker.isVisible().catch(() => false))) {
+      await container.getByRole("button").first().click();
+    }
+    await this.page
+      .getByRole("button", { name: label, exact: true })
+      .first()
+      .click();
+  }
+
+  async addServiceArea(postcode: string) {
+    const input = this.modalAreasContainer.locator("input");
+    const chipsBefore = await this.modalAreasContainer.locator("[aria-label^='Remove']").count();
+    await input.fill(postcode);
+    await input.press("Enter");
+    await expect(this.modalAreasContainer.locator("[aria-label^='Remove']")).toHaveCount(chipsBefore + 1, { timeout: 5_000 });
+  }
+
+  async fillLocation(value: string) {
+    const input = this.modalLocation.locator("input");
+    await input.fill(value);
+    await input.press("Enter");
+    await this.page.waitForTimeout(1_000);
   }
 
   async createUser(input: {
@@ -75,10 +103,18 @@ export class AdminUsersPage {
     await this.modalPassword.fill(input.password);
     await this.modalFirstName.fill(input.firstName);
     await this.modalLastName.fill(input.lastName);
-    if (input.location) await this.modalLocation.fill(input.location);
+    if (input.location) await this.fillLocation(input.location);
     if (input.companyName) await this.modalCompanyName.fill(input.companyName);
-    if (input.tradeTypes) await this.modalTradeTypes.fill(input.tradeTypes);
-    if (input.serviceAreas) await this.modalServiceAreas.fill(input.serviceAreas);
+    if (input.tradeTypes) {
+      for (const trade of input.tradeTypes.split(",").map((s) => s.trim())) {
+        await this.selectTrade(trade);
+      }
+    }
+    if (input.serviceAreas) {
+      for (const area of input.serviceAreas.split(",").map((s) => s.trim())) {
+        await this.addServiceArea(area);
+      }
+    }
     await this.modalSubmit.click();
     await expect(this.modal).not.toBeVisible({ timeout: 10_000 });
   }
