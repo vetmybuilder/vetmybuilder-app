@@ -3,6 +3,8 @@ import path from "path";
 
 const chance = new Chance();
 
+export type ReviewLinkInput = { platform: string; url: string };
+
 export type TradesmanInput = {
   companyName: string;
   contactName?: string;
@@ -11,10 +13,9 @@ export type TradesmanInput = {
   tradeTypes?: string;
   serviceAreas?: string;
   website?: string;
-
-  // supported by PUT /api/tradesmen/me via body.photoUrls
   photoUrls?: string[];
   profilePictureUrl?: string | null;
+  reviewLinks?: ReviewLinkInput[];
 };
 
 // POST /api/tradesmen/join (no auth)
@@ -57,6 +58,7 @@ export default class Tradesman {
 
   photoUrls?: string[];
   profilePictureUrl?: string | null;
+  reviewLinks?: ReviewLinkInput[];
 
   // Registration-only fields used by the /tradesman/register-tradesmen wizard.
   // Not part of any API payload.
@@ -152,6 +154,11 @@ export default class Tradesman {
     return this;
   }
 
+  withReviewLinks(links: ReviewLinkInput[]): Tradesman {
+    this.reviewLinks = links;
+    return this;
+  }
+
   withPhotoUrls(urls: string[]): Tradesman {
     this.photoUrls = Array.isArray(urls)
       ? urls.filter(Boolean).map(String)
@@ -237,6 +244,7 @@ export default class Tradesman {
     if (this.photoUrls?.length) out.photoUrls = this.photoUrls;
     if (this.profilePictureUrl !== undefined)
       out.profilePictureUrl = this.profilePictureUrl;
+    if (this.reviewLinks?.length) out.reviewLinks = this.reviewLinks;
 
     return out;
   }

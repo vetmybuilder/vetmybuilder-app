@@ -113,11 +113,37 @@ export function tradesmenClient(core: ApiCore) {
     }
   }
 
+  async function getTradesmanUserId(): Promise<string> {
+    const res = await getTradesmanMe();
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    return String(body.profile.user_id);
+  }
+
+  async function getStoredReviewLinks(): Promise<Array<{ platform: string; url: string }>> {
+    const res = await getTradesmanMe();
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    const raw = body?.profile?.review_links_json;
+    if (!raw) return [];
+    return typeof raw === "string" ? JSON.parse(raw) : raw;
+  }
+
+  async function expectReviewLinks(expected: Array<{ platform: string; url: string }>) {
+    const stored = await getStoredReviewLinks();
+    expect(stored).toEqual(expected);
+  }
+
   return {
     // tradesmen
     getTradesmanMe,
     getTradesmanMeUnauthed,
+    getTradesmanUserId,
     joinTradesmanDraft,
+
+    // review links
+    getStoredReviewLinks,
+    expectReviewLinks,
 
     // favourites
     addFavouriteTradesman,
