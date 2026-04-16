@@ -165,6 +165,54 @@ module.exports = (router, ctx) => {
       const website = (body.website || "").trim() || null;
       const socialLinks = JSON.stringify(toArr(body.socialLinks));
 
+      // External review-platform links (Trustpilot / Bark / etc.). The
+      // tradesperson supplies a public profile URL per platform; we
+      // validate the URL is on an expected host for the declared
+      // platform and reject anything that doesn't match. The client
+      // (web/utils/reviewLinks.ts) does the same check up-front; doing
+      // it again server-side guards against a bad actor POSTing
+      // arbitrary URLs by hand.
+      const REVIEW_PLATFORM_DOMAINS = {
+        trustpilot: ["trustpilot.com", "uk.trustpilot.com"],
+        bark: ["bark.com"],
+        mybuilder: ["mybuilder.com"],
+        checkatrade: ["checkatrade.com"],
+        houzz: ["houzz.co.uk", "houzz.com"],
+        yell: ["yell.com"],
+      };
+      const normaliseReviewLink = (platform, rawUrl) => {
+        const allowed = REVIEW_PLATFORM_DOMAINS[platform];
+        if (!allowed) return null;
+        let v = String(rawUrl || "").trim();
+        if (!v) return null;
+        if (!/^https?:\/\//i.test(v)) v = "https://" + v;
+        let parsed;
+        try {
+          parsed = new URL(v);
+        } catch {
+          return null;
+        }
+        parsed.protocol = "https:";
+        const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
+        const ok = allowed.some((d) => {
+          const dn = d.toLowerCase().replace(/^www\./, "");
+          return host === dn || host.endsWith("." + dn);
+        });
+        return ok ? parsed.toString() : null;
+      };
+      const reviewLinksRaw = Array.isArray(body.reviewLinks) ? body.reviewLinks : [];
+      const reviewLinksClean = [];
+      for (const e of reviewLinksRaw) {
+        if (!e || typeof e !== "object") continue;
+        if (typeof e.platform !== "string" || typeof e.url !== "string") continue;
+        const cleanUrl = normaliseReviewLink(e.platform, e.url);
+        if (!cleanUrl) continue;
+        reviewLinksClean.push({ platform: e.platform, url: cleanUrl });
+      }
+      const reviewLinks = reviewLinksClean.length
+        ? JSON.stringify(reviewLinksClean)
+        : null;
+
       const photoUrls = toPhotoArray(body);
       const photoCount =
         (photoUrls && photoUrls.length) || int(body.photoCount, 0);
@@ -250,7 +298,7 @@ module.exports = (router, ctx) => {
           INSERT INTO tradesmen (
             user_id, company_name, contact_name, phone, email,
             trade_types, service_areas,
-            web_verified, web_url, social_links_json,
+            web_verified, web_url, social_links_json, review_links_json,
             offers_discount, warranty_months, photo_count, supporting_doc_count,
             discount_min_percent, discount_max_percent,
             company_number, ch_status, ch_name, ch_checked_at, ch_match_score,
@@ -258,7 +306,7 @@ module.exports = (router, ctx) => {
           ) VALUES (
             ?, ?, ?, ?, ?,
             ?, ?,
-            0, ?, ?,
+            0, ?, ?, ?,
             ?, ?, ?, ?,
             ?, ?,
             ?, ?, ?, ?, ?,
@@ -273,6 +321,7 @@ module.exports = (router, ctx) => {
             service_areas       = VALUES(service_areas),
             web_url             = VALUES(web_url),
             social_links_json   = VALUES(social_links_json),
+            review_links_json   = VALUES(review_links_json),
             offers_discount     = VALUES(offers_discount),
             warranty_months     = VALUES(warranty_months),
             photo_count         = VALUES(photo_count),
@@ -296,6 +345,7 @@ module.exports = (router, ctx) => {
             serviceAreas,
             website,
             socialLinks,
+            reviewLinks,
             offersDiscount,
             warrantyMonths,
             photoCount,

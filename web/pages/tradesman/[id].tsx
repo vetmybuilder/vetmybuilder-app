@@ -8,6 +8,7 @@ import type { ReactNode } from "react";
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import LightboxGallery, { type GalleryImage } from "@/components/LightboxGallery";
+import { platformLabelFor } from "@/utils/reviewLinks";
 import {
   CheckCircle2, ShieldCheck, Heart,
   Hammer, Home, PaintBucket, Layers, Wrench, Bath, Building2,
@@ -89,6 +90,7 @@ type TradesmanDetail = {
   googlePlaceId?: string | null;
   googleRating?: number | null;
   googleReviewsCount?: number | null;
+  reviewLinks?: Array<{ platform: string; url: string }>;
 };
 
 export default function TradesmanViewPage() {
@@ -519,6 +521,38 @@ function Inner() {
                     <ContactRow label="Company no" value={item.companyNumber} dataTestId="tradesman-company-number" />
                   </div>
                 </section>
+
+                {/* External review profiles - tradesperson-supplied
+                    plain-text links to their own profiles on Trustpilot,
+                    Bark, MyBuilder, Checkatrade, Houzz, Yell. We do NOT
+                    replicate the platforms' brand visuals or display
+                    star counts; that's their UI's job. The link text is
+                    "View on <Platform>" so the homeowner clicks through
+                    and forms their own opinion at the source. */}
+                {Array.isArray(item.reviewLinks) && item.reviewLinks.length > 0 && (
+                  <section data-testid="tradesman-review-links-section">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-3">
+                      External reviews
+                    </h3>
+                    <ul className="space-y-2">
+                      {item.reviewLinks.map((entry) => (
+                        <li
+                          key={`${entry.platform}-${entry.url}`}
+                          data-testid={`tradesman-review-link-${entry.platform}`}
+                        >
+                          <a
+                            href={entry.url}
+                            target="_blank"
+                            rel="noopener noreferrer nofollow"
+                            className="text-red-500 hover:underline font-semibold text-sm"
+                          >
+                            View on {platformLabelFor(entry)} →
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
 
                 {/* Discounts & warranty */}
                 <section data-testid="tradesman-extras">

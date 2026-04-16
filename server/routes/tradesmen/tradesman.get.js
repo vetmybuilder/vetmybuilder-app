@@ -43,6 +43,30 @@ module.exports = (router, ctx) => {
     return [];
   };
 
+  // External review-platform links - stored as JSON array of
+  // { platform: string, url: string } objects. We pass these through
+  // to the client as-is so the React side can render the right label
+  // per platform.
+  const parseReviewLinks = (json) => {
+    if (!json) return [];
+    try {
+      const v = JSON.parse(json);
+      if (!Array.isArray(v)) return [];
+      return v
+        .filter(
+          (e) =>
+            e &&
+            typeof e === "object" &&
+            typeof e.platform === "string" &&
+            typeof e.url === "string" &&
+            e.url.length > 0,
+        )
+        .map((e) => ({ platform: String(e.platform), url: String(e.url) }));
+    } catch (_) {
+      return [];
+    }
+  };
+
   const normaliseTier = (row) => {
     const raw =
       (row?.plan || row?.purchased_plan || row?.subscription_status || "free") +
@@ -302,6 +326,7 @@ module.exports = (router, ctx) => {
         email: row.email || null,
         website: row.web_url || null,
         socials: parseSocials(row.social_links_json),
+        reviewLinks: parseReviewLinks(row.review_links_json),
         companyNumber: row.company_number || null,
         badge: row.vmb_badge || null,
         offersDiscount: !!row.offers_discount,

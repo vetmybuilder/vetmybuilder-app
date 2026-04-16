@@ -290,6 +290,7 @@ CREATE TABLE tradesmen (
   discount_min_percent INTEGER DEFAULT 0,
   discount_max_percent INTEGER DEFAULT 0,
   social_links_json TEXT,
+  review_links_json TEXT NULL,
   likes_count INTEGER DEFAULT 0,
   wins_count INTEGER DEFAULT 0,
 

@@ -22,6 +22,9 @@ export default function SignupComplete() {
   const { user, loading: authLoading, refreshProfile } = useAuth();
 
   const [location, setLocation] = useState("");
+  const [betaCode, setBetaCode] = useState("");
+  const [betaRequired, setBetaRequired] = useState(false);
+  const [betaCodeErr, setBetaCodeErr] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -46,6 +49,13 @@ export default function SignupComplete() {
       }
     } catch {}
   }, [authLoading, user, router]);
+
+  useEffect(() => {
+    api
+      .get("/api/auth/beta-status")
+      .then((res) => setBetaRequired(!!res.data?.required))
+      .catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Prefill the postcode if /api/me already has one (e.g. user landed here
   // by mistake) and bounce them out if onboarding is already complete.
@@ -89,11 +99,34 @@ export default function SignupComplete() {
     e.preventDefault();
     setErr(null);
     setFieldErrors({});
+    setBetaCodeErr(null);
 
     if (!location.trim()) {
       setFieldErrors({ location: "Postcode or city is required." });
       setErr("Please enter your postcode or city.");
       return;
+    }
+
+    if (betaRequired) {
+      const code = (betaCode || "").trim();
+      if (!code) {
+        setBetaCodeErr("Beta access code is required.");
+        setErr("Please enter your beta access code.");
+        return;
+      }
+      try {
+        await api.post("/api/auth/check-email", {
+          email: user?.email || "",
+          betaCode: code,
+        });
+      } catch (ex: any) {
+        const errCode = ex?.response?.data?.error || "";
+        if (errCode === "invalid_beta_code") {
+          setBetaCodeErr("Invalid beta access code.");
+          setErr("Invalid beta access code.");
+          return;
+        }
+      }
     }
 
     setLoading(true);
@@ -157,6 +190,42 @@ export default function SignupComplete() {
               aria-label="Complete profile form"
               data-testid="signup-complete-form"
             >
+              {betaRequired && (
+                <div>
+                  <label
+                    htmlFor="beta-code"
+                    className="block text-sm font-semibold text-zinc-700 mb-1"
+                  >
+                    Beta access code <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="beta-code"
+                    type="text"
+                    value={betaCode}
+                    onChange={(e) => {
+                      setBetaCode(e.target.value);
+                      if (betaCodeErr) setBetaCodeErr(null);
+                    }}
+                    placeholder="Enter your beta access code"
+                    className={`w-full rounded-2xl border-2 px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:outline-none transition-colors ${
+                      betaCodeErr
+                        ? "border-red-400 focus:border-red-400"
+                        : "border-zinc-200 focus:border-red-400"
+                    }`}
+                    data-testid="input-beta-code"
+                  />
+                  {betaCodeErr && (
+                    <p
+                      className="mt-1 text-sm font-medium text-red-500"
+                      role="alert"
+                      data-testid="beta-code-error"
+                    >
+                      {betaCodeErr}
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div>
                 <LocationField
                   id="complete-loc"

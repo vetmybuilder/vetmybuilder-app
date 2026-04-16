@@ -20,6 +20,10 @@ import {
   normalizeX,
   normalizeYouTube,
 } from "@/utils/socialLinks";
+import {
+  buildReviewLinksPayload,
+  type ReviewPlatformId,
+} from "@/utils/reviewLinks";
 
 type Step = 1 | 2 | 3;
 type Doc = { name: string; size: number; type: string };
@@ -39,6 +43,7 @@ type RawProfile = {
 
   web_url?: string | null;
   social_links_json?: string | null;
+  review_links_json?: string | null;
 
   discount_min_percent?: number | null;
   discount_max_percent?: number | null;
@@ -71,6 +76,14 @@ type FormState = {
     x: string;
     youtube: string;
     linkedin: string;
+  };
+  reviewLinks: {
+    trustpilot: string;
+    bark: string;
+    mybuilder: string;
+    checkatrade: string;
+    houzz: string;
+    yell: string;
   };
   tradeTypes: string[];
   workPhotos: File[];
@@ -139,6 +152,35 @@ function Inner() {
 
         const socials = splitSocials(socialsArray);
 
+        // Hydrate review-platform links from the persisted JSON. Format:
+        // [{ platform: 'trustpilot', url: '...' }, ...]
+        const reviewLinksMap: FormState["reviewLinks"] = {
+          trustpilot: "",
+          bark: "",
+          mybuilder: "",
+          checkatrade: "",
+          houzz: "",
+          yell: "",
+        };
+        try {
+          const parsed = JSON.parse(p.review_links_json || "[]");
+          if (Array.isArray(parsed)) {
+            for (const e of parsed) {
+              if (
+                e &&
+                typeof e === "object" &&
+                typeof e.platform === "string" &&
+                typeof e.url === "string" &&
+                e.platform in reviewLinksMap
+              ) {
+                (reviewLinksMap as Record<string, string>)[e.platform] = e.url;
+              }
+            }
+          }
+        } catch {
+          /* swallow - default to empty */
+        }
+
         const discountMin =
           Number(p.discount_min_percent ?? p.offers_discount ?? 0) || 0;
         const discountMax =
@@ -175,6 +217,7 @@ function Inner() {
           serviceAreas,
           website,
           socials,
+          reviewLinks: reviewLinksMap,
           tradeTypes: parseCsv(p.trade_types),
           workPhotos: [],
           discountMin,
@@ -410,6 +453,12 @@ function Inner() {
         }
       }
 
+      const reviewLinks = buildReviewLinksPayload(
+        (Object.keys(form.reviewLinks || {}) as ReviewPlatformId[]).map(
+          (id) => ({ platform: id, url: form.reviewLinks?.[id] || "" }),
+        ),
+      );
+
       const payload = {
         companyName: form.companyName,
         contactName: form.contactName,
@@ -419,6 +468,7 @@ function Inner() {
         serviceAreas: form.serviceAreas,
         website: form.website || "",
         socialLinks: socials,
+        reviewLinks,
         photoCount: photoUrls.length,
         photoUrls,
         supportingDocCount: (form.docs || []).length,
