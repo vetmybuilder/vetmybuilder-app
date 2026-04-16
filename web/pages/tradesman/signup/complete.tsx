@@ -50,7 +50,7 @@ type Doc = { name: string; size: number; type: string };
 export default function TradesmanSsoOnboardingPage() {
   const api = useApi();
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, profileComplete } = useAuth();
 
   const [step, setStep] = useState<Step>(1);
 
@@ -98,7 +98,6 @@ export default function TradesmanSsoOnboardingPage() {
   const [err, setErr] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [hydrating, setHydrating] = useState(true);
-  const [existingHomeowner, setExistingHomeowner] = useState(false);
 
   // Advertise to the rest of the app that this user is mid-way through a
   // tradesman signup. Route wrappers read this flag to avoid bouncing the
@@ -140,18 +139,9 @@ export default function TradesmanSsoOnboardingPage() {
         }
       } catch {
         // Non-fatal
+      } finally {
+        if (alive) setHydrating(false);
       }
-
-      try {
-        const { data: meData } = await api.get("/api/me");
-        if (!alive) return;
-        if (meData?.postcodeOutward) {
-          setExistingHomeowner(true);
-        }
-      } catch {
-        // Non-fatal
-      }
-
     })();
 
     return () => {
@@ -505,7 +495,11 @@ export default function TradesmanSsoOnboardingPage() {
 
   if (authLoading || hydrating) return null;
 
-  if (existingHomeowner) {
+  // profileComplete is true when the user has a homeowner postcode OR is
+  // already a tradesman. The tradesman case is already handled above (redirect
+  // to /tradesman/projects). So if we get here and profileComplete is true,
+  // the user is an existing homeowner trying to create a second role — block it.
+  if (profileComplete === true) {
     return (
       <>
         <Head>
