@@ -50,7 +50,7 @@ type Doc = { name: string; size: number; type: string };
 export default function TradesmanSsoOnboardingPage() {
   const api = useApi();
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, profileComplete } = useAuth();
 
   const [step, setStep] = useState<Step>(1);
 
@@ -138,7 +138,7 @@ export default function TradesmanSsoOnboardingPage() {
           return;
         }
       } catch {
-        // Non-fatal — user can still fill the form.
+        // Non-fatal
       } finally {
         if (alive) setHydrating(false);
       }
@@ -494,6 +494,50 @@ export default function TradesmanSsoOnboardingPage() {
   ];
 
   if (authLoading || hydrating) return null;
+
+  // profileComplete is true when the user has a homeowner postcode OR is
+  // already a tradesman. The tradesman case is already handled above (redirect
+  // to /tradesman/projects). So if we get here and profileComplete is true,
+  // the user is an existing homeowner trying to create a second role — block it.
+  if (profileComplete === true) {
+    return (
+      <>
+        <Head>
+          <title>Cannot register as tradesperson - VetMyBuilder</title>
+          <style>{`body { background: #fafaf9 !important; }`}</style>
+        </Head>
+        <div className="min-h-screen bg-stone-50 py-16">
+          <div className="mx-auto max-w-md px-4">
+            <div
+              className="rounded-3xl bg-white p-8 shadow-xl shadow-zinc-200/60 sm:p-10 text-center"
+              data-testid="existing-homeowner-block"
+            >
+              <h1 className="text-2xl font-black tracking-tight text-zinc-900 mb-3">
+                Account already exists
+              </h1>
+              <p className="text-sm text-zinc-600 leading-relaxed mb-6">
+                You already have a homeowner account with this email. To
+                register as a tradesperson, please use a different Google
+                account or contact us at{" "}
+                <a
+                  href="mailto:hello@vetmybuilder.com"
+                  className="text-red-500 hover:underline font-semibold"
+                >
+                  hello@vetmybuilder.com
+                </a>.
+              </p>
+              <a
+                href="/"
+                className="inline-flex items-center justify-center rounded-full bg-red-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:scale-[1.02] transition-all"
+              >
+                Back to home
+              </a>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

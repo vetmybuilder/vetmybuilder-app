@@ -87,7 +87,10 @@ module.exports = (router, ctx) => {
       const insertedId = result.insertId;
       if (!insertedId) {
         log.error?.("[projects.post] insert failed: no insertId");
-        return res.status(500).json({ error: "internal_error" });
+        return res.status(500).json({
+          error: "create_failed",
+          message: "We couldn't create your project right now. Please try again.",
+        });
       }
 
       const rows = await mysqlQuery(`SELECT * FROM projects WHERE id = ?`, [
@@ -129,7 +132,10 @@ module.exports = (router, ctx) => {
       return;
     } catch (err) {
       log.error?.("[projects.post] error", err);
-      return res.status(500).json({ error: "internal_error" });
+      return res.status(500).json({
+        error: "create_failed",
+        message: "We couldn't create your project right now. Please try again or contact support if this keeps happening.",
+      });
     }
   });
 };
