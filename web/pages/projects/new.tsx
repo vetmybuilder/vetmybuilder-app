@@ -382,7 +382,7 @@ export default function NewProject() {
             <button
               type="button"
               onClick={() => router.push("/projects")}
-              className="flex items-center gap-2 text-sm font-medium text-zinc-600 hover:text-zinc-900 transition-colors"
+              className="hidden sm:flex items-center gap-2 text-sm font-medium text-zinc-600 hover:text-zinc-900 transition-colors"
               data-testid="btn-back-to-projects"
             >
               <span className="text-lg">←</span>

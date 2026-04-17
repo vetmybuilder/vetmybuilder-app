@@ -113,11 +113,22 @@ export default function MobileMenu({
 
       {/* Panel */}
       <div
-        className="absolute inset-0 bg-slate-700 text-white flex flex-col w-screen h-[100dvh]"
+        className="absolute inset-0 text-white flex flex-col w-screen h-[100dvh]"
         style={safeAreaStyle}
       >
-        {/* Top bar */}
-        <div className="h-14 px-4 flex items-center justify-between border-b border-white/10 shrink-0">
+        {/* Builder background below header */}
+        <div className="absolute inset-0 top-14">
+          <img
+            src="https://images.unsplash.com/photo-1621905252507-b35492cc74b4?w=800&q=80&auto=format"
+            alt=""
+            className="h-full w-full object-cover object-top"
+            aria-hidden="true"
+          />
+          <div className="absolute inset-0 bg-slate-900/70" />
+        </div>
+
+        {/* Top bar — solid dark background */}
+        <div className="relative z-10 h-14 px-4 flex items-center justify-between border-b border-white/10 shrink-0 bg-slate-700">
           <button
             type="button"
             onClick={() => {
@@ -150,7 +161,7 @@ export default function MobileMenu({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-6 pt-10 pb-6">
+        <div className="relative z-10 flex-1 overflow-y-auto px-6 pt-10 pb-6 flex flex-col">
           {isAuthed && (
             <div
               className="mb-8 text-white/90 text-sm tracking-wide"
@@ -243,19 +254,11 @@ export default function MobileMenu({
             </>
           )}
 
-          {/* Guest welcome (branded hero section) */}
+          {/* Guest welcome */}
           {!isAuthed && (
-            <div className="flex flex-col items-center justify-center text-center mt-16 px-6">
-              <div className="mb-6">
-                <h2 className="text-4xl font-light tracking-wide bg-gradient-to-r from-indigo-400 via-sky-300 to-emerald-400 bg-clip-text text-transparent">
-                  VetMyBuilder
-                </h2>
-              </div>
-
-              <p className="text-white/70 text-base leading-relaxed max-w-sm">
-                Connect homeowners and trusted trades.
-                <br />
-                Build better projects together.
+            <div className="flex flex-col items-center justify-center text-center flex-1 px-6">
+              <p className="text-white text-2xl font-light italic leading-relaxed max-w-sm drop-shadow-lg tracking-wide">
+                Find a tradesperson you can trust, recommended by friends and backed by real local reviews.
               </p>
             </div>
           )}
@@ -292,7 +295,7 @@ export default function MobileMenu({
         </div>
 
         {/* Bottom actions */}
-        <div className="sticky bottom-0 left-0 right-0 border-t border-white/10 shrink-0">
+        <div className="relative z-10 sticky bottom-0 left-0 right-0 border-t border-white/10 shrink-0">
           <div className={`grid ${isAuthed && isTrades ? "grid-cols-1" : "grid-cols-2"}`}>
             {isAuthed ? (
               <>

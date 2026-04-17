@@ -410,7 +410,7 @@ function ShortlistInner() {
           {/* Back link — on the photo, white with shadow */}
           <Link
             href={`/projects/${id}`}
-            className="inline-flex items-center gap-2 mb-4 rounded-xl bg-slate-800/90 backdrop-blur-sm px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition-colors"
+            className="hidden sm:inline-flex items-center gap-2 mb-4 rounded-xl bg-slate-800/90 backdrop-blur-sm px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition-colors"
           >
             ← Back
           </Link>

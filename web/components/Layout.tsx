@@ -2,7 +2,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import CookieConsent from "react-cookie-consent";
+import dynamic from "next/dynamic";
 import SiteHeader from "@/components/SiteHeader";
+
+const AddToHomeScreenToast = dynamic(
+  () => import("@/components/AddToHomeScreenToast"),
+  { ssr: false },
+);
 
 const BG_IMAGES = [
   "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?w=1920&q=80&auto=format",
@@ -100,6 +106,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </Link>
       </CookieConsent>
 
+      <AddToHomeScreenToast />
     </>
   );
 }

@@ -13,7 +13,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return arr;
 }
 
-export default function PushPrompt({ onComplete }: { onComplete: () => void }) {
+export default function PushPrompt({ onComplete, isTradesman = false }: { onComplete: () => void; isTradesman?: boolean }) {
   const api = useApi();
   const [busy, setBusy] = useState(false);
 
@@ -81,8 +81,9 @@ export default function PushPrompt({ onComplete }: { onComplete: () => void }) {
         <h2 className="text-xl font-bold text-zinc-900">Stay in the loop</h2>
 
         <p className="mt-2 text-sm text-zinc-500 leading-relaxed">
-          Get notified when builders respond, neighbours recommend, or new
-          projects match your area. You can change this anytime in settings.
+          {isTradesman
+            ? "Get notified when homeowners post jobs in your area, when you're recommended, or when you receive a hire request. You can change this anytime in settings."
+            : "Get notified when builders respond, neighbours recommend, or new projects match your area. You can change this anytime in settings."}
         </p>
 
         <div className="mt-6 flex flex-col gap-3">

@@ -806,17 +806,6 @@ export default function SiteHeader() {
             <div className="flex md:hidden items-center gap-2">
               {displayUser && <NotificationsBell />}
 
-              {displayUser && !isTrades && (
-                <InitialsBadge
-                  initials={initials}
-                  testId="account-initials-badge-mobile"
-                  onClick={() => {
-                    setOpenMenu((m) => (m === "account" ? null : "account"));
-                    setMobileOpen(false);
-                  }}
-                />
-              )}
-
               <button
                 type="button"
                 aria-label="Open navigation menu"

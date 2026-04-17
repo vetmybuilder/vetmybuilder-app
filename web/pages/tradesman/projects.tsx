@@ -398,7 +398,7 @@ export default function TradesmanProjects() {
       </>
 
       {showPushPrompt && (
-        <PushPrompt onComplete={() => setShowPushPrompt(false)} />
+        <PushPrompt onComplete={() => setShowPushPrompt(false)} isTradesman />
       )}
     </TradesmanOnly>
   );
