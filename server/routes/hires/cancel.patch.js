@@ -17,6 +17,7 @@
 
 const { CancelHireSchema } = require("../../lib/validation");
 const { sendPushToUser } = require("../../lib/pushSender");
+const analytics = require("../../lib/analytics");
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery, broadcastNotification } = ctx;
@@ -157,6 +158,7 @@ module.exports = (router, ctx) => {
           cancelledAt: now.toISOString(),
         },
       });
+      analytics.trackHireCancelled(req.user?.uid, { hireId, projectId: hire.projectId, reason: cancelReason ?? null });
       ctx.logActivity("hire.cancel", "info", req.user.uid, `Hire #${hireId} cancelled`);
       return;
     } catch (err) {

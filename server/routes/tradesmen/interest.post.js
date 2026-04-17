@@ -2,6 +2,7 @@
 
 const { enrichMessage } = require("../../lib/ai/enrichNotificationMessage");
 const { sendPushToUser } = require("../../lib/pushSender");
+const analytics = require("../../lib/analytics");
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery, requireTradesman = null, sseSend = null } = ctx;
@@ -193,6 +194,7 @@ module.exports = (router, ctx) => {
 
         log.info?.(`${TAG} success`, { recommendationId });
         res.json({ ok: true, recommendationId, linkPath });
+        analytics.trackInterestExpressed(req.user?.uid, { projectId, companyName: companyName || null });
         ctx.logActivity("tradesman.interest", "info", req.user.uid, `Expressed interest in project #${projectId}`);
         return;
       } catch (e) {

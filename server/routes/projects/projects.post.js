@@ -8,6 +8,7 @@ const {
   classifyProject,
 } = require("../../lib/ai/projectClassifier");
 const { validateAnswers } = require("../../lib/jobFields");
+const analytics = require("../../lib/analytics");
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
@@ -128,6 +129,7 @@ module.exports = (router, ctx) => {
       });
 
       res.status(201).json({ project: rows[0] || null });
+      analytics.trackProjectCreated(req.user?.uid, { projectId: insertedId, type: body.type, location: body.location });
       ctx.logActivity("project.create", "info", req.user.uid, `Project #${insertedId} "${body.name}"`);
       return;
     } catch (err) {

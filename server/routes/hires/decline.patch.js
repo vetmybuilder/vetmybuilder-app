@@ -18,6 +18,7 @@ const {
 } = require("../../lib/observability/matchObservations");
 const { enrichMessage } = require("../../lib/ai/enrichNotificationMessage");
 const { sendPushToUser } = require("../../lib/pushSender");
+const analytics = require("../../lib/analytics");
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery, broadcastNotification } = ctx;
@@ -175,6 +176,7 @@ module.exports = (router, ctx) => {
           respondedAt: now.toISOString(),
         },
       });
+      analytics.trackHireDeclined(req.user?.uid, { hireId, projectId: hire.projectId });
       ctx.logActivity("hire.decline", "info", req.user.uid, `Hire #${hireId} declined`);
       return;
     } catch (err) {

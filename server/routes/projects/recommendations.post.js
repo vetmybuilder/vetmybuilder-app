@@ -3,6 +3,7 @@
 const { optional } = require("zod");
 const { uploadToR2, isR2Configured } = require("../../lib/r2");
 const { sendPushToUser } = require("../../lib/pushSender");
+const analytics = require("../../lib/analytics");
 const {
   processBuffer,
   processFile,
@@ -547,6 +548,7 @@ module.exports = (router, ctx) => {
             source, // "platform" | "magic"
           },
         });
+        analytics.trackRecommendationMade(req.user?.uid, { projectId, company: resolvedCompany || company, source });
         ctx.logActivity("rec.create", "info", req.user?.uid || "guest", `Rec for project #${projectId}, company="${company}"`);
         return;
       } catch (err) {

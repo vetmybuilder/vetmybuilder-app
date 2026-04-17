@@ -13,6 +13,7 @@
  * - notifies local users (by postcode / city) + prior recommenders in area
  */
 const { sendPushToUser } = require("../../lib/pushSender");
+const analytics = require("../../lib/analytics");
 
 module.exports = (router, ctx) => {
   const { db, auth, extractLocationTokens, notifyUsers, mysqlQuery, broadcastNotification } = ctx;
@@ -85,6 +86,7 @@ module.exports = (router, ctx) => {
 
     // Respond to client immediately
     res.json({ project: updated });
+    analytics.trackProjectPublished(req.user?.uid, { projectId: id, type: updated.type, location: updated.location });
     ctx.logActivity("project.publish", "info", req.user.uid, `Project #${id} → live`);
 
     // ---- BACKGROUND NOTIFICATIONS ----

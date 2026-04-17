@@ -9,6 +9,7 @@ const path = require("node:path");
 const { uploadToR2, isR2Configured } = require("../../lib/r2");
 const { enrichMessage } = require("../../lib/ai/enrichNotificationMessage");
 const { sendPushToUser } = require("../../lib/pushSender");
+const analytics = require("../../lib/analytics");
 const {
   processBuffer,
   processFile,
@@ -377,6 +378,7 @@ module.exports = (router, ctx) => {
           createdAt: row.created_at,
         },
       });
+      analytics.trackProfileShared(req.user?.uid, { projectId: pid, companyName });
       ctx.logActivity("tradesman.share", "info", req.user.uid, `Shared profile on project #${pid}`);
       return;
     } catch (e) {

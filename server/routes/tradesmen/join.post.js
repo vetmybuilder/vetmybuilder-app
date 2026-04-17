@@ -5,6 +5,8 @@
  * Saves a draft vendor (user_id = lead_*), runs CH match + web check,
  * and computes VMB score on the 0.0–10.0 scale.
  */
+const analytics = require("../../lib/analytics");
+
 module.exports = (router, ctx) => {
   const { enrichTradesmanWithGoogle } = require("../../lib/ai/googleEnricher");
   const { mysqlQuery, matchByName, extractLocationTokens } = ctx;
@@ -335,6 +337,7 @@ module.exports = (router, ctx) => {
         id: leadId,
         created: true,
       });
+      analytics.trackTradesmanJoined(req.user?.uid, { companyName, tradeTypes: trade_types });
       ctx.logActivity("tradesman.join", "info", "guest", `New tradesman: ${companyName}`);
       return;
     } catch (e) {

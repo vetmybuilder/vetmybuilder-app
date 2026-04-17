@@ -25,6 +25,7 @@ const {
 } = require("../../lib/observability/matchObservations");
 const { enrichMessage } = require("../../lib/ai/enrichNotificationMessage");
 const { sendPushToUser } = require("../../lib/pushSender");
+const analytics = require("../../lib/analytics");
 
 const HIRE_EXPIRY_DAYS = 7;
 
@@ -223,6 +224,7 @@ module.exports = (router, ctx) => {
             expiresAt: expiresAt.toISOString(),
           },
         });
+        analytics.trackHireSent(req.user?.uid, { projectId, tradesmanId: tradesmanUserId, channel: "platform" });
         ctx.logActivity("hire.create", "info", req.user.uid, `Hire for project #${projectId}, rec #${null}`);
         return;
       }
@@ -398,6 +400,7 @@ module.exports = (router, ctx) => {
             expiresAt: expiresAt.toISOString(),
           },
         });
+        analytics.trackHireSent(req.user?.uid, { projectId, tradesmanId: matchedTradesman.user_id, channel: "platform" });
         ctx.logActivity("hire.create", "info", req.user.uid, `Hire for project #${projectId}, rec #${recommendationId}`);
         return;
       }
@@ -463,6 +466,7 @@ module.exports = (router, ctx) => {
           expiresAt: expiresAt.toISOString(),
         },
       });
+      analytics.trackHireSent(req.user?.uid, { projectId, tradesmanId: null, channel: contact.channel });
       ctx.logActivity("hire.create", "info", req.user.uid, `Hire for project #${projectId}, rec #${recommendationId}`);
       return;
     } catch (err) {

@@ -18,6 +18,7 @@
  */
 
 const { sendPushToUser } = require("../../lib/pushSender");
+const analytics = require("../../lib/analytics");
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery, extractLocationTokens, broadcastNotification } = ctx;
@@ -382,6 +383,7 @@ module.exports = (router, ctx) => {
       );
 
       res.json({ ok: true, project });
+      analytics.trackProjectClosed(req.user?.uid, { projectId });
       ctx.logActivity("project.close", "info", req.user.uid, `Project #${projectId}, didGoAhead=${!!didGoAhead}`);
 
       // ---- BACKGROUND: notify local users that a neighbour completed a project ----

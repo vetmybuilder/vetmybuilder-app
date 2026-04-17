@@ -1,5 +1,6 @@
 // server/routes/reports/reports.post.js
 const { logger, withRequest } = require("../../lib/logger");
+const analytics = require("../../lib/analytics");
 
 const VALID_TARGET_TYPES = ["profile", "recommendation", "photo"];
 const VALID_CATEGORIES = ["abuse", "spam", "fake_review", "inappropriate_image", "other"];
@@ -41,6 +42,7 @@ module.exports = (router, ctx) => {
       );
 
       log.info({ targetType, targetId, category }, "report created");
+      analytics.trackReportCreated(req.user?.uid, { targetType, targetId: String(targetId), category });
       ctx.logActivity("report.created", "info", uid, `${category} report on ${targetType} #${targetId}`);
       return res.status(201).json({ ok: true });
     } catch (err) {

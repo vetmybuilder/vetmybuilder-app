@@ -18,6 +18,7 @@
 
 const { updateUserLocationMysql } = require("../../lib/location");
 const { logger, withRequest } = require("../../lib/logger");
+const analytics = require("../../lib/analytics");
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery, admin } = ctx;
@@ -83,6 +84,7 @@ module.exports = (router, ctx) => {
       log.info({ uid }, "User signup profile ensured");
 
       res.json({ ok: true });
+      analytics.trackSignup(uid, { method: "firebase", role: "homeowner", email });
       ctx.logActivity("auth.signup", "info", uid, `New user: ${email}`);
       return;
     } catch (err) {
