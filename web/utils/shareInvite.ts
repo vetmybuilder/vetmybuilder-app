@@ -35,8 +35,13 @@ export function buildDefaultInviteMessage(opts: {
 export function openWhatsAppShare(message: string) {
   if (typeof window === "undefined") return;
   const encoded = encodeURIComponent(message);
-  const url = `https://wa.me/?text=${encoded}`;
-  window.open(url, "_blank", "noopener,noreferrer");
+  // Use whatsapp:// on mobile for reliable deep linking (wa.me + window.open
+  // fails in iOS standalone/PWA mode). Fall back to wa.me for desktop.
+  if (isIOS() || /android/i.test(navigator.userAgent)) {
+    window.location.href = `whatsapp://send?text=${encoded}`;
+  } else {
+    window.open(`https://wa.me/?text=${encoded}`, "_blank", "noopener,noreferrer");
+  }
 }
 
 /** Open SMS / iMessage composer */
