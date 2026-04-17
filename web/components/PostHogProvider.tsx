@@ -22,7 +22,7 @@ export default function PostHogProvider({ children }: { children: React.ReactNod
     posthog.init(POSTHOG_KEY, {
       api_host: POSTHOG_HOST,
       person_profiles: "identified_only",
-      capture_pageview: false, // we handle this manually on route change
+      capture_pageview: true, // captures initial page load; routeChangeComplete handles SPA navigations
       capture_pageleave: true,
       autocapture: true,
       session_recording: {
