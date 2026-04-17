@@ -18,14 +18,14 @@ export function buildDefaultInviteMessage(opts: {
   const { projectName, location, inviteUrl } = opts;
 
   const projectBit = projectName
-    ? `about my project "${projectName}"`
-    : "about some work on my home";
-  const locationBit = location ? ` in ${location}` : "";
+    ? `for my "${projectName}" project`
+    : "for some work on my home";
+  const locationBit = location ? ` in the ${location} area` : "";
 
   return [
-    `Hi! I’m using VetMyBuilder to find trusted tradespeople ${projectBit}${locationBit}.`,
+    `Hey! I’m looking for a good tradesperson ${projectBit}${locationBit}.`,
     "",
-    "Do you know anyone you’d recommend?",
+    "Know anyone you’d recommend? You can add them here:",
     "",
     inviteUrl,
   ].join("\n");
