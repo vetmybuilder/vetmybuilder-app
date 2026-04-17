@@ -1,5 +1,8 @@
 // server/routes/tradesmen/interest.post.js
 
+const { enrichMessage } = require("../../lib/ai/enrichNotificationMessage");
+const { sendPushToUser } = require("../../lib/pushSender");
+
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery, requireTradesman = null, sseSend = null } = ctx;
   const log = ctx.log || console;
@@ -137,11 +140,18 @@ module.exports = (router, ctx) => {
           throw e;
         }
 
-        const msg =
+        const templateMsg =
           `${
             companyName || "A local tradesperson"
           } is interested in your project.` +
           (note ? `\n\nMessage: ${note}` : "");
+
+        const msg = await enrichMessage({
+          type: "tradesman_interest",
+          templateMessage: templateMsg,
+          context: { companyName: companyName || "A local tradesperson", projectName: proj.name },
+          mysqlQuery,
+        });
 
         await mysqlQuery(
           `
@@ -170,6 +180,16 @@ module.exports = (router, ctx) => {
         } catch (e) {
           log.warn?.(`${TAG} SSE failed`, { error: e?.message });
         }
+
+        sendPushToUser({
+          uid: String(proj.owner_uid),
+          type: "tradesman_interest",
+          title: "VetMyBuilder",
+          body: msg,
+          linkPath,
+          mysqlQuery,
+          logActivity: ctx.logActivity,
+        });
 
         log.info?.(`${TAG} success`, { recommendationId });
         res.json({ ok: true, recommendationId, linkPath });

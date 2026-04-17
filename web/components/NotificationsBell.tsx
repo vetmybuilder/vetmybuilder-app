@@ -198,16 +198,35 @@ export default function NotificationsBell() {
     };
   }, [user, authToken, sseBase]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // CLEAR ALL: mark everything read on server then clear list locally
-  async function clearAll() {
-    if (busy || items.length === 0) return;
+  // MARK ALL READ: set readAt on every notification, keep the list visible
+  async function markAllRead() {
+    if (busy || unread === 0) return;
     setBusy(true);
     try {
       await api.post("/api/notifications/read-all");
       setUnread(0);
-      setItems([]); // remove all notifications from the panel
+      setItems((prev) =>
+        prev.map((i) =>
+          i.readAt ? i : { ...i, readAt: new Date().toISOString() },
+        ),
+      );
     } finally {
       setBusy(false);
+    }
+  }
+
+  // DISMISS: remove a single notification entirely
+  async function dismissNotification(e: React.MouseEvent, n: NotifItem) {
+    e.stopPropagation();
+    const wasUnread = !n.readAt;
+    setItems((prev) => prev.filter((i) => i.id !== n.id));
+    if (wasUnread) setUnread((u) => Math.max(0, u - 1));
+    if (n.id > 0) {
+      try {
+        await api.delete(`/api/notifications/${n.id}`);
+      } catch {
+        /* ignore */
+      }
     }
   }
 
@@ -246,14 +265,12 @@ export default function NotificationsBell() {
     }
   }
 
-  const showDot = unread > 0; // big red dot on the bell
-
   return (
     <div className="relative">
       <button
         ref={btnRef}
         type="button"
-        aria-label={showDot ? "Notifications (unread)" : "Notifications"}
+        aria-label={unread > 0 ? "Notifications (unread)" : "Notifications"}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
@@ -274,12 +291,14 @@ export default function NotificationsBell() {
           />
         </svg>
 
-        {/* Big red dot indicator (no number) */}
-        {showDot && (
+        {/* Numeric unread badge */}
+        {unread > 0 && (
           <span
             aria-hidden
-            className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-rose-600 ring-2 ring-white shadow"
-          />
+            className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white"
+          >
+            {unread > 99 ? "99+" : unread}
+          </span>
         )}
       </button>
 
@@ -307,12 +326,20 @@ export default function NotificationsBell() {
               </div>
 
               <div className="flex items-center gap-2">
+                <Link
+                  href="/account/notifications"
+                  onClick={() => setOpen(false)}
+                  className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  Settings
+                </Link>
+
                 <button
                   className="text-xs rounded-md px-2 py-1 ring-1 ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
-                  onClick={clearAll}
-                  disabled={busy || items.length === 0}
+                  onClick={markAllRead}
+                  disabled={busy || unread === 0}
                 >
-                  Clear all
+                  Mark all as read
                 </button>
 
                 <button
@@ -338,15 +365,25 @@ export default function NotificationsBell() {
                     <button
                       key={`${n.id}-${n.createdAt}`}
                       role="menuitem"
-                      className={`w-full text-left px-4 py-4 hover:bg-gray-50 transition ${
+                      className={`group relative w-full text-left px-4 py-4 hover:bg-gray-50 transition ${
                         isUnread
                           ? "bg-amber-50/80 border-l-4 border-amber-500"
                           : ""
                       }`}
                       onClick={() => onClickItem(n)}
                     >
+                      <span
+                        role="button"
+                        aria-label="Dismiss notification"
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity rounded-full p-1 hover:bg-gray-200 text-gray-400 hover:text-gray-600"
+                        onClick={(e) => dismissNotification(e, n)}
+                      >
+                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                          <path d="M18 6L6 18M6 6l12 12" />
+                        </svg>
+                      </span>
                       <div
-                        className={`text-sm leading-6 ${
+                        className={`text-sm leading-6 pr-6 ${
                           isUnread
                             ? "text-gray-900 font-semibold"
                             : "text-gray-900"

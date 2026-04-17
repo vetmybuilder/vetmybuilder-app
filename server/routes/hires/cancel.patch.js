@@ -16,6 +16,7 @@
 // Terminal statuses (declined, cancelled, expired) → 409 HIRE_NOT_CANCELLABLE.
 
 const { CancelHireSchema } = require("../../lib/validation");
+const { sendPushToUser } = require("../../lib/pushSender");
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery, broadcastNotification } = ctx;
@@ -127,6 +128,16 @@ module.exports = (router, ctx) => {
             message: `${ownerFirstName} cancelled the hire for "${projectName}"`,
             projectId: hire.projectId,
             linkPath: `/tradesman/projects`,
+          });
+
+          sendPushToUser({
+            uid: hire.tradesmanUserId,
+            type: "hire_cancelled",
+            title: "VetMyBuilder",
+            body: `${ownerFirstName} cancelled the hire for "${projectName}"`,
+            linkPath: `/tradesman/projects`,
+            mysqlQuery,
+            logActivity: ctx.logActivity,
           });
         } catch (e) {
           log.warn?.(`${TAG} failed to insert hire_cancelled notification`, {

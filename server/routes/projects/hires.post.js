@@ -23,6 +23,8 @@ const { resolveHireContact } = require("../../lib/hireContactResolution");
 const {
   recordHomeownerAction,
 } = require("../../lib/observability/matchObservations");
+const { enrichMessage } = require("../../lib/ai/enrichNotificationMessage");
+const { sendPushToUser } = require("../../lib/pushSender");
 
 const HIRE_EXPIRY_DAYS = 7;
 
@@ -154,6 +156,14 @@ module.exports = (router, ctx) => {
 
         // In-app notification to the tradesman
         try {
+          const templateMessage = `You've been hired for "${project.name}"`;
+          const message = await enrichMessage({
+            type: "hire_received",
+            templateMessage,
+            context: { projectName: project.name },
+            mysqlQuery,
+          });
+
           await mysqlQuery(
             `INSERT INTO notifications
                (userId, type, message, projectId, linkPath, createdAt)
@@ -161,7 +171,7 @@ module.exports = (router, ctx) => {
             [
               tradesmanUserId,
               "hire_received",
-              `You've been hired for "${project.name}"`,
+              message,
               projectId,
               `/tradesman/projects`,
               now,
@@ -170,9 +180,19 @@ module.exports = (router, ctx) => {
 
           broadcastNotification?.(tradesmanUserId, {
             type: "hire_received",
-            message: `You've been hired for "${project.name}"`,
+            message,
             projectId,
             linkPath: `/tradesman/projects`,
+          });
+
+          sendPushToUser({
+            uid: tradesmanUserId,
+            type: "hire_received",
+            title: "VetMyBuilder",
+            body: message,
+            linkPath: `/tradesman/projects`,
+            mysqlQuery,
+            logActivity: ctx.logActivity,
           });
         } catch (e) {
           log.warn?.(`${TAG} failed to insert hire_received notification`, {
@@ -310,6 +330,14 @@ module.exports = (router, ctx) => {
 
         // In-app notification to the matched tradesman
         try {
+          const templateMessage = `You've been hired for "${project.name}"`;
+          const message = await enrichMessage({
+            type: "hire_received",
+            templateMessage,
+            context: { projectName: project.name },
+            mysqlQuery,
+          });
+
           await mysqlQuery(
             `INSERT INTO notifications
                (userId, type, message, projectId, linkPath, createdAt)
@@ -317,7 +345,7 @@ module.exports = (router, ctx) => {
             [
               matchedTradesman.user_id,
               "hire_received",
-              `You've been hired for "${project.name}"`,
+              message,
               projectId,
               `/tradesman/projects`,
               now,
@@ -326,9 +354,19 @@ module.exports = (router, ctx) => {
 
           broadcastNotification?.(matchedTradesman.user_id, {
             type: "hire_received",
-            message: `You've been hired for "${project.name}"`,
+            message,
             projectId,
             linkPath: `/tradesman/projects`,
+          });
+
+          sendPushToUser({
+            uid: matchedTradesman.user_id,
+            type: "hire_received",
+            title: "VetMyBuilder",
+            body: message,
+            linkPath: `/tradesman/projects`,
+            mysqlQuery,
+            logActivity: ctx.logActivity,
           });
         } catch (e) {
           log.warn?.(`${TAG} failed to insert hire_received notification (matched)`, {

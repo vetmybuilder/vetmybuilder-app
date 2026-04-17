@@ -51,6 +51,15 @@ export class NotificationsApi {
     const { items } = await this.list();
     return items.find((n) => n.type === type) || null;
   }
+
+  /**
+   * Returns all notifications of the given type. Useful for asserting
+   * deduplication — e.g. "only one notification of this type exists".
+   */
+  async findAllByType(type: string): Promise<NotificationItem[]> {
+    const { items } = await this.list();
+    return items.filter((n) => n.type === type);
+  }
 }
 
 export default NotificationsApi;

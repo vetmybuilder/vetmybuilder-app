@@ -2,6 +2,7 @@
 
 const { optional } = require("zod");
 const { uploadToR2, isR2Configured } = require("../../lib/r2");
+const { sendPushToUser } = require("../../lib/pushSender");
 const {
   processBuffer,
   processFile,
@@ -43,6 +44,7 @@ module.exports = (router, ctx) => {
   } = ctx;
 
   const { computeRecommendationSignals } = require("../../lib/ai/recommendationSignaller");
+  const { matchAndNotifyTradesman } = require("../../lib/matchRecommendationToTradesman");
 
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
@@ -487,6 +489,16 @@ module.exports = (router, ctx) => {
                 ]
               );
               broadcastNotification?.(ownerUid, { type: "recommendation_new", message, projectId, linkPath });
+
+              sendPushToUser({
+                uid: ownerUid,
+                type: "recommendation_new",
+                title: "VetMyBuilder",
+                body: message,
+                linkPath,
+                mysqlQuery,
+                logActivity: ctx.logActivity,
+              });
             } catch (e) {
               console.warn(
                 "[recommendations.post] failed to insert notification into MySQL:",
@@ -512,6 +524,17 @@ module.exports = (router, ctx) => {
             e?.message || e
           );
         }
+
+        /* ---------- Fire-and-forget: notify matched tradesman ---------- */
+
+        matchAndNotifyTradesman({
+          mysqlQuery,
+          broadcastNotification,
+          logActivity: ctx.logActivity,
+          companyName: resolvedCompany || company,
+          projectId,
+          projectLocation: projectLocationHint || undefined,
+        }).catch(() => {});
 
         // IMPORTANT: we DO NOT return name/email/phone of the recommender here.
         res.status(201).json({

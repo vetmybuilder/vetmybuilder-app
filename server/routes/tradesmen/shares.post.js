@@ -7,6 +7,8 @@
 
 const path = require("node:path");
 const { uploadToR2, isR2Configured } = require("../../lib/r2");
+const { enrichMessage } = require("../../lib/ai/enrichNotificationMessage");
+const { sendPushToUser } = require("../../lib/pushSender");
 const {
   processBuffer,
   processFile,
@@ -127,6 +129,16 @@ module.exports = (router, ctx) => {
         [userId, type, message, projectId, linkPath || null, new Date()]
       );
       broadcastNotification?.(userId, { type, message, projectId, linkPath });
+
+      sendPushToUser({
+        uid: userId,
+        type,
+        title: "VetMyBuilder",
+        body: message,
+        linkPath,
+        mysqlQuery,
+        logActivity: ctx.logActivity,
+      });
     } catch (err) {
       log.warn(`${TAG} notification insert failed`, { error: err?.message });
     }
@@ -185,7 +197,13 @@ module.exports = (router, ctx) => {
         "A tradesman";
 
       const projectName = project.name || "your project";
-      const notifMessage = `${companyName} is interested in your ${projectName} and has shared their profile.`;
+      const templateNotifMessage = `${companyName} is interested in your ${projectName} and has shared their profile.`;
+      const notifMessage = await enrichMessage({
+        type: "tradesman_shared_profile",
+        templateMessage: templateNotifMessage,
+        context: { companyName, projectName },
+        mysqlQuery,
+      });
 
       // Check existing share
       const existingRows = await mysqlQuery(

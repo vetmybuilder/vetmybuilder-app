@@ -51,6 +51,8 @@ module.exports = (router, ctx) => {
         [id]
       );
 
+      ctx.logActivity?.("notification.read", "info", req.user.uid, `Notification #${id} read`);
+
       log.info({ id }, "Notification marked as read");
       return res.json({ ok: true });
     } catch (err) {

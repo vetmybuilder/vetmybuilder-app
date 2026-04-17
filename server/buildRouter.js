@@ -146,6 +146,21 @@ function buildRouter(ctx) {
       KEY idx_reports_status (status, created_at),
       KEY idx_reports_target (target_type, target_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS notification_preferences (
+      uid VARCHAR(128) NOT NULL,
+      category VARCHAR(50) NOT NULL,
+      push_enabled TINYINT NOT NULL DEFAULT 1,
+      PRIMARY KEY (uid, category)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      uid VARCHAR(128) NOT NULL,
+      endpoint TEXT NOT NULL,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_push_uid (uid)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
     `CREATE TABLE IF NOT EXISTS builder_summaries (
       id INT AUTO_INCREMENT PRIMARY KEY,
       company VARCHAR(255) NOT NULL,
@@ -211,6 +226,13 @@ function buildRouter(ctx) {
   require("./routes/notifications/notifications.get")(router, ctx);
   require("./routes/notifications/notification.read.post")(router, ctx);
   require("./routes/notifications/read-all.post")(router, ctx);
+  require("./routes/notifications/notification.delete")(router, ctx);
+  require("./routes/notifications/preferences.get")(router, ctx);
+  require("./routes/notifications/preferences.put")(router, ctx);
+
+  // ---------------- Push ----------------
+  require("./routes/push/subscribe.post")(router, ctx);
+  require("./routes/push/unsubscribe.post")(router, ctx);
 
   // ---------------- Account / Profile / Me ----------------
   require("./routes/accounts/account.get")(router, ctx);

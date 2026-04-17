@@ -12,6 +12,8 @@
  * - sets status='live', returns { project }
  * - notifies local users (by postcode / city) + prior recommenders in area
  */
+const { sendPushToUser } = require("../../lib/pushSender");
+
 module.exports = (router, ctx) => {
   const { db, auth, extractLocationTokens, notifyUsers, mysqlQuery, broadcastNotification } = ctx;
   const log = ctx.log || console;
@@ -209,6 +211,17 @@ module.exports = (router, ctx) => {
             [uid, "project_live_local", message, id, linkPath, createdAt]
           );
           broadcastNotification?.(uid, { type: "project_live_local", message, projectId: id, linkPath });
+
+          sendPushToUser({
+            uid,
+            type: "project_live_local",
+            title: "VetMyBuilder",
+            body: message,
+            linkPath,
+            mysqlQuery,
+            logActivity: ctx.logActivity,
+          });
+
           inserted++;
         }
         log.info?.("[projects.publish] notifications inserted", {

@@ -17,6 +17,8 @@
  *  }
  */
 
+const { sendPushToUser } = require("../../lib/pushSender");
+
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery, extractLocationTokens, broadcastNotification } = ctx;
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
@@ -410,6 +412,16 @@ module.exports = (router, ctx) => {
                 [row.uid, message, projectId, linkPath]
               );
               broadcastNotification?.(row.uid, { type: "project_closed_local", message, projectId, linkPath });
+
+              sendPushToUser({
+                uid: row.uid,
+                type: "project_closed_local",
+                title: "VetMyBuilder",
+                body: message,
+                linkPath,
+                mysqlQuery,
+                logActivity: ctx.logActivity,
+              });
             }
             log.info({ projectId, count: areaUserRows.length }, "project_closed_local notifications sent");
           } catch (e) {

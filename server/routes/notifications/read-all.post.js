@@ -24,6 +24,8 @@ module.exports = (router, ctx) => {
         [req.user.uid]
       );
 
+      ctx.logActivity?.("notification.read_all", "info", req.user.uid, `All notifications marked read for ${req.user.uid}`);
+
       log.info(
         {
           uid: req.user.uid,

@@ -31,6 +31,7 @@ module.exports = (router, ctx) => {
         `SELECT id, type, message, projectId, linkPath, createdAt, readAt
            FROM notifications
           WHERE userId = ?
+            AND createdAt > DATE_SUB(NOW(), INTERVAL 30 DAY)
           ORDER BY createdAt DESC
           LIMIT ${limit}`,
         [uid]
@@ -40,7 +41,8 @@ module.exports = (router, ctx) => {
         `SELECT COUNT(*) AS c
            FROM notifications
           WHERE userId = ?
-            AND readAt IS NULL`,
+            AND readAt IS NULL
+            AND createdAt > DATE_SUB(NOW(), INTERVAL 30 DAY)`,
         [uid]
       );
 

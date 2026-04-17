@@ -1,5 +1,6 @@
 // server/lib/ai/notifyMatchedTradesmen.js
 const { scoreMatch } = require("./jobMatcher");
+const { sendPushToUser } = require("../pushSender");
 
 /**
  * Notify tradesmen whose trades/areas match a newly-published project.
@@ -94,6 +95,16 @@ async function notifyMatchedTradesmen({
             linkPath,
           });
         }
+
+        sendPushToUser({
+          uid: t.user_id,
+          type: "project_match",
+          title: "VetMyBuilder",
+          body: message,
+          linkPath,
+          mysqlQuery,
+        });
+
         notified += 1;
       } catch (err) {
         log.warn?.(`${TAG} notification insert failed`, {

@@ -16,6 +16,8 @@ const { RespondHireSchema } = require("../../lib/validation");
 const {
   recordHireOutcome,
 } = require("../../lib/observability/matchObservations");
+const { enrichMessage } = require("../../lib/ai/enrichNotificationMessage");
+const { sendPushToUser } = require("../../lib/pushSender");
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery, broadcastNotification } = ctx;
@@ -108,6 +110,14 @@ module.exports = (router, ctx) => {
           tradesmanRows[0]?.contact_name ||
           "A tradesperson";
 
+        const templateMessage = `${tradesmanName} declined your hire request for "${projectName}"`;
+        const message = await enrichMessage({
+          type: "hire_declined",
+          templateMessage,
+          context: { tradesmanName, projectName },
+          mysqlQuery,
+        });
+
         await mysqlQuery(
           `INSERT INTO notifications
              (userId, type, message, projectId, linkPath, createdAt)
@@ -115,7 +125,7 @@ module.exports = (router, ctx) => {
           [
             hire.homeownerUid,
             "hire_declined",
-            `${tradesmanName} declined your hire request for "${projectName}"`,
+            message,
             hire.projectId,
             `/projects/${hire.projectId}`,
             now,
@@ -124,9 +134,19 @@ module.exports = (router, ctx) => {
 
         broadcastNotification?.(hire.homeownerUid, {
           type: "hire_declined",
-          message: `${tradesmanName} declined your hire request for "${projectName}"`,
+          message,
           projectId: hire.projectId,
           linkPath: `/projects/${hire.projectId}`,
+        });
+
+        sendPushToUser({
+          uid: hire.homeownerUid,
+          type: "hire_declined",
+          title: "VetMyBuilder",
+          body: message,
+          linkPath: `/projects/${hire.projectId}`,
+          mysqlQuery,
+          logActivity: ctx.logActivity,
         });
       } catch (e) {
         log.warn?.(`${TAG} failed to insert hire_declined notification`, {
