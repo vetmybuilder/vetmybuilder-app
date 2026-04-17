@@ -66,9 +66,11 @@ export default function AdminProjectsPage() {
     debounceRef.current = setTimeout(() => fetchProjects(), 300);
   }
 
-  async function deleteProject(id: number, name: string) {
-    if (!confirm(`Delete project "${name}" and all its data? This cannot be undone.`)) return;
+  const [confirmDelete, setConfirmDelete] = useState<{ id: number; name: string } | null>(null);
+
+  async function deleteProject(id: number) {
     setDeleting(id);
+    setConfirmDelete(null);
     try {
       await api.delete(`/api/admin/projects/${id}`);
       await fetchProjects();
@@ -172,13 +174,31 @@ export default function AdminProjectsPage() {
                           >
                             View
                           </Link>
-                          <button
-                            onClick={() => deleteProject(p.id, p.name)}
-                            disabled={deleting === p.id}
-                            className="text-red-400 hover:text-red-300 text-xs font-semibold ml-3 disabled:opacity-50"
-                          >
-                            {deleting === p.id ? "..." : "Delete"}
-                          </button>
+                          {confirmDelete?.id === p.id ? (
+                            <span className="ml-3 inline-flex items-center gap-2">
+                              <span className="text-xs text-slate-400">Sure?</span>
+                              <button
+                                onClick={() => deleteProject(p.id)}
+                                className="text-red-400 hover:text-red-300 text-xs font-bold"
+                              >
+                                Yes
+                              </button>
+                              <button
+                                onClick={() => setConfirmDelete(null)}
+                                className="text-slate-400 hover:text-slate-300 text-xs font-semibold"
+                              >
+                                No
+                              </button>
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => setConfirmDelete({ id: p.id, name: p.name })}
+                              disabled={deleting === p.id}
+                              className="text-red-400 hover:text-red-300 text-xs font-semibold ml-3 disabled:opacity-50"
+                            >
+                              {deleting === p.id ? "..." : "Delete"}
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
