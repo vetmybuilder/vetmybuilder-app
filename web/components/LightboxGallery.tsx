@@ -112,7 +112,7 @@ export default function LightboxGallery({
                 className="inline-flex items-center justify-center gap-1.5 rounded-full bg-white/10 hover:bg-white/20 px-3 py-2 text-xs font-medium text-zinc-400 hover:text-white transition-colors focus:outline-none"
                 aria-label="Report this photo"
               >
-                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="h-3.5 w-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2z" />
                 </svg>
                 Report

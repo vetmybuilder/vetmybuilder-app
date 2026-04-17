@@ -427,6 +427,17 @@ function Inner() {
             </div>
           </header>
 
+          <button
+            onClick={() => setShowReport(true)}
+            className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-red-500 transition-colors"
+            data-testid="btn-report-profile"
+          >
+            <svg className="h-3.5 w-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2z" />
+            </svg>
+            Report this profile
+          </button>
+
           {/* Main layout */}
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)] gap-3 sm:gap-6">
             {/* Left: trades + photos + portfolio */}
@@ -592,17 +603,6 @@ function Inner() {
                 </section>
               </div>
 
-              {/* Report link */}
-              <button
-                onClick={() => setShowReport(true)}
-                className="mt-4 flex items-center gap-1.5 text-xs text-zinc-400 hover:text-red-500 transition-colors"
-                data-testid="btn-report-profile"
-              >
-                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2z" />
-                </svg>
-                Report this profile
-              </button>
             </aside>
           </div>
         </div>
