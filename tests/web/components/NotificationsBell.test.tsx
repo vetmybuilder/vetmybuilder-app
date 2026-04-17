@@ -82,13 +82,13 @@ describe("<NotificationsBell />", () => {
     // Open menu
     fireEvent.click(btn);
 
-    // Menu visible with Clear all button
+    // Menu visible with Mark all as read button
     const markAll = await screen.findByRole("button", {
-      name: /clear all/i,
+      name: /mark all as read/i,
     });
     expect(markAll).toBeEnabled();
 
-    // Click "Clear all" -> POST called and button disabled
+    // Click "Mark all as read" -> POST called and button disabled
     fireEvent.click(markAll);
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith("/api/notifications/read-all");
@@ -141,7 +141,7 @@ describe("<NotificationsBell />", () => {
       await screen.findByText(/you’re all caught up\./i)
     ).toBeInTheDocument();
     const markAll = await screen.findByRole("button", {
-      name: /clear all/i,
+      name: /mark all as read/i,
     });
     expect(markAll).toBeDisabled();
   });
