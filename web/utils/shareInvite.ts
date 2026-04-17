@@ -19,11 +19,11 @@ export function buildDefaultInviteMessage(opts: {
 
   const projectBit = projectName
     ? `for ${projectName} work`
-    : "for some work on my home";
-  const locationBit = location ? ` in the ${location} area or surroundings` : "";
+    : "for some work";
+  const locationBit = location ? ` (in the ${location} area or surroundings)` : "";
 
   return [
-    `Hey! I need a trustworthy tradesperson ${projectBit}${locationBit}. If you know anyone good, could you recommend them here as the more people who vouch for them on the platform, the easier it is for me to hire with confidence:`,
+    `Hey! I need a trustworthy tradesperson ${projectBit} I'm getting done. If you know anyone good${locationBit}, could you recommend them here as the more people who vouch for them on the platform, the easier it is for me to hire with confidence:`,
     "",
     inviteUrl,
   ].join("\n");
