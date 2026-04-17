@@ -8,6 +8,7 @@ import { useRouter } from "next/router";
 import AdminLayout from "@/components/AdminLayout";
 import TradesmanLayout from "@/components/TradesmanLayout";
 import CrossTabLogoutWatcher from "@/components/CrossTabLogoutWatcher";
+import PostHogProvider from "@/components/PostHogProvider";
 
 // ✅ IMPORTANT: adjust this import path to where your initFirebase() file actually is.
 // Example candidates:
@@ -177,6 +178,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
 
   return (
     <AuthProvider>
+      <PostHogProvider>
       {/* Bootstrap GSID + pageview tracking */}
       <AppBootstrap />
 
@@ -200,6 +202,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
 
       {/* Global modal portal target (for SignUpGate, etc.) */}
       <div id="modal-root" />
+      </PostHogProvider>
     </AuthProvider>
   );
 }

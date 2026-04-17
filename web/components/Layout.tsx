@@ -100,7 +100,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           fontSize: "13px",
         }}
       >
-        We use cookies to keep you signed in and make the site work. No tracking, no ads.{" "}
+        We use cookies to keep you signed in and improve the site. By continuing, you accept analytics cookies.{" "}
         <Link href="/cookies" className="underline text-red-300 hover:text-red-200">
           Cookie policy
         </Link>
