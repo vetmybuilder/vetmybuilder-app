@@ -104,6 +104,7 @@ export default function AdminHeader() {
         { label: "Recommendation leaderboard", href: "/admin/recommendation-leaderboard", testId: "nav-admin-recs", active: router.pathname === "/admin/recommendation-leaderboard" },
       ],
     },
+    { label: "Projects", href: "/admin/projects", testId: "nav-admin-projects", active: router.pathname === "/admin/projects" },
     { label: "Dashboard", href: "/admin/dashboard", testId: "nav-admin-dashboard", active: router.pathname === "/admin/dashboard" },
     { label: "Users", href: "/admin/users", testId: "nav-admin-users", active: router.pathname === "/admin/users" },
   ];

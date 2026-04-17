@@ -324,6 +324,7 @@ function buildRouter(ctx) {
   require("./routes/payments/mock.webhook.post")(router, ctx);
 
   // ---------------- Admin ----------------
+  require("./routes/admin/projects.get")(router, ctx);
   require("./routes/admin/tradesmen.get")(router, ctx);
   require("./routes/admin/tradesman.status.post")(router, ctx);
   require("./routes/admin/tradesman.flag.post")(router, ctx);
