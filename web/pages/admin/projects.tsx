@@ -36,6 +36,7 @@ export default function AdminProjectsPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
+  const [deleting, setDeleting] = useState<number | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchProjects = useCallback(async () => {
@@ -63,6 +64,16 @@ export default function AdminProjectsPage() {
     setOffset(0);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => fetchProjects(), 300);
+  }
+
+  async function deleteProject(id: number, name: string) {
+    if (!confirm(`Delete project "${name}" and all its data? This cannot be undone.`)) return;
+    setDeleting(id);
+    try {
+      await api.delete(`/api/admin/projects/${id}`);
+      await fetchProjects();
+    } catch {}
+    setDeleting(null);
   }
 
   if (forbidden) {
@@ -161,6 +172,13 @@ export default function AdminProjectsPage() {
                           >
                             View
                           </Link>
+                          <button
+                            onClick={() => deleteProject(p.id, p.name)}
+                            disabled={deleting === p.id}
+                            className="text-red-400 hover:text-red-300 text-xs font-semibold ml-3 disabled:opacity-50"
+                          >
+                            {deleting === p.id ? "..." : "Delete"}
+                          </button>
                         </td>
                       </tr>
                     ))}
