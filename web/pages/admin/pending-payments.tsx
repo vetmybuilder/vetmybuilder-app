@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import AuthedOnly from "@/components/AuthedOnly";
+import AdminRefreshButton from "@/components/admin/AdminRefreshButton";
 import { useApi } from "@/utils/api";
 
 type PendingPayment = {
@@ -63,7 +64,7 @@ function AdminPendingPayments() {
   const [items, setItems] = useState<PendingPayment[]>([]);
   const [loading, setLoading] = useState(false);
 
-  async function load() {
+  const load = useCallback(async function load() {
     setLoading(true);
     try {
       const { data } = await api.get("/api/admin/pending-payments");
@@ -73,11 +74,11 @@ function AdminPendingPayments() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [api]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   async function approve(id: number, type: PendingPayment["type"]) {
     try {
@@ -107,9 +108,12 @@ function AdminPendingPayments() {
 
   return (
     <div className="p-6">
-      <h1 className="mb-5 text-xl font-semibold tracking-tight">
-        Pending One-Off Payments
-      </h1>
+      <div className="flex items-center gap-3 mb-5">
+        <h1 className="text-xl font-semibold tracking-tight">
+          Pending One-Off Payments
+        </h1>
+        <AdminRefreshButton onRefresh={load} />
+      </div>
 
       {loading && (
         <div className="mb-3 text-slate-600 text-sm">Loading pending…</div>

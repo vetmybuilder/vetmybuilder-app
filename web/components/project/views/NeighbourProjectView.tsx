@@ -25,7 +25,7 @@ export default function NeighbourProjectView({ vm }: { vm: VM }) {
 
   return (
     <>
-      {/* Back to projects — ONLY SHOW IF LOGGED IN */}
+      {/* Back to Jobs — ONLY SHOW IF LOGGED IN */}
       {user && (
         <div className="mb-3">
           <Link
@@ -34,7 +34,7 @@ export default function NeighbourProjectView({ vm }: { vm: VM }) {
             data-testid="link-back-to-projects-neighbour"
           >
             <span aria-hidden>←</span>
-            <span>Back to projects</span>
+            <span>Back to Jobs</span>
           </Link>
         </div>
       )}

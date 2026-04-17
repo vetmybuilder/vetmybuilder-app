@@ -65,8 +65,8 @@ export function formatMemberSince(createdAt?: string | null): string | null {
   if (!createdAt) return null;
   const d = new Date(createdAt);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString("en-GB", {
+  return `Member since ${d.toLocaleDateString("en-GB", {
     month: "long",
     year: "numeric",
-  });
+  })}`;
 }

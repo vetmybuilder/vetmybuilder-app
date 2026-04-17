@@ -1,6 +1,7 @@
 import Head from "next/head";
 import { useCallback, useEffect, useRef, useState } from "react";
 import AuthedOnly from "@/components/AuthedOnly";
+import AdminRefreshButton from "@/components/admin/AdminRefreshButton";
 import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 import LocationField from "@/components/forms/LocationField";
@@ -243,7 +244,10 @@ export default function AdminUsersPage() {
           {!forbidden && (<>
           {/* title row */}
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-bold text-white">User Management</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-white">User Management</h1>
+              <AdminRefreshButton onRefresh={fetchUsers} />
+            </div>
             <button
               type="button"
               onClick={openCreate}

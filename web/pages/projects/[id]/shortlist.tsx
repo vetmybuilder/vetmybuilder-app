@@ -14,6 +14,7 @@ import {
 import { GoogleRatingChip } from "@/components/GoogleRatingChip";
 import { chLabel } from "@/components/ui/vmb";
 import HireConfirmModal from "@/components/project/HireConfirmModal";
+import ReportModal from "@/components/ReportModal";
 
 /* ===== Types ===== */
 type Recommendation = {
@@ -246,6 +247,7 @@ function ShortlistInner() {
   const [recVerification, setRecVerification] = useState<Record<number, Verification>>({});
 
   const [hireTarget, setHireTarget] = useState<{ recommendationId: number; displayName: string } | null>(null);
+  const [reportTarget, setReportTarget] = useState<number | null>(null);
   const [hiredRecommendationIds, setHiredRecommendationIds] = useState<Set<number>>(new Set());
   const [hiresRefreshKey, setHiresRefreshKey] = useState(0);
 
@@ -538,9 +540,9 @@ function ShortlistInner() {
                         </div>
 
                         {/* Footer */}
-                        <div className="mt-2 flex items-center justify-between">
-                          <span className="text-xs text-zinc-500">{recommender}</span>
+                        <p className="mt-2 text-xs text-zinc-500">{recommender}</p>
 
+                        <div className="mt-2 flex items-center justify-between">
                           {isOwner ? (() => {
                             const alreadyHired = hiredRecommendationIds.has(r.id);
                             return (
@@ -577,6 +579,19 @@ function ShortlistInner() {
                               </span>
                             </div>
                           )}
+                        </div>
+
+                        <div className="flex justify-end mt-1">
+                          <button
+                            onClick={() => setReportTarget(r.id)}
+                            className="flex items-center gap-1 text-[10px] text-zinc-300 hover:text-red-500 transition-colors"
+                            data-testid="btn-report-recommendation"
+                          >
+                            <svg className="h-3 w-3 text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2z" />
+                            </svg>
+                            Report
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -618,6 +633,14 @@ function ShortlistInner() {
         onConfirm={submitHire}
         onClose={() => setHireTarget(null)}
       />
+
+      {reportTarget !== null && (
+        <ReportModal
+          targetType="recommendation"
+          targetId={reportTarget}
+          onClose={() => setReportTarget(null)}
+        />
+      )}
     </>
   );
 }

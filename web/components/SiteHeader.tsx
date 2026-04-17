@@ -378,14 +378,6 @@ export default function SiteHeader() {
                 {/* Logged-in homeowner: Projects button + account menu */}
                 {displayUser && !isTrades && (
                   <>
-                    <Link
-                      href="/projects"
-                      className="hidden sm:inline-flex items-center gap-1.5 justify-center rounded-xl px-3 h-9 text-sm font-medium bg-amber-400 text-slate-900 shadow-sm hover:bg-amber-300"
-                      data-testid="btn-home-projects"
-                    >
-                      <span>Projects</span>
-                      <span className="ml-1.5 text-base leading-none" aria-hidden="true">↗</span>
-                    </Link>
                     <div className="relative hidden sm:block" data-testid="account-menu-wrapper">
                       <button
                         ref={btnAccountRef}
@@ -485,7 +477,7 @@ export default function SiteHeader() {
                 <button
                   type="button"
                   aria-label="Open navigation menu"
-                  className="inline-flex sm:hidden h-9 w-9 items-center justify-center rounded-full border border-gray-300 bg-white shadow-sm"
+                  className="inline-flex sm:hidden h-9 w-9 items-center justify-center rounded-lg bg-zinc-100 hover:bg-zinc-200 transition-colors"
                   onClick={() => setMobileOpen(true)}
                   data-testid="btn-mobile-menu"
                 >
@@ -828,7 +820,7 @@ export default function SiteHeader() {
               <button
                 type="button"
                 aria-label="Open navigation menu"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-300 bg-white shadow-sm"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-100 hover:bg-zinc-200 transition-colors"
                 onClick={() => setMobileOpen(true)}
                 data-testid="btn-mobile-menu"
               >

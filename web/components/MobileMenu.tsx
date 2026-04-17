@@ -128,11 +128,13 @@ export default function MobileMenu({
             aria-label="Go home"
             data-testid="mobile-menu-home"
           >
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/10">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-red-500">
               <Home className="h-5 w-5 text-white" />
             </span>
-            <span className="text-sm font-semibold tracking-wide">
-              VetMyBuilder
+            <span className="text-lg font-black tracking-tight">
+              <span className="text-white">Vet</span>
+              <span className="text-red-400">My</span>
+              <span className="text-white">Builder</span>
             </span>
           </button>
 
@@ -140,7 +142,7 @@ export default function MobileMenu({
             type="button"
             aria-label="Close menu"
             onClick={onClose}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/10 hover:bg-white/15"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 hover:bg-white/15 transition-colors"
             data-testid="mobile-menu-close"
           >
             <X className="h-5 w-5 text-white" />

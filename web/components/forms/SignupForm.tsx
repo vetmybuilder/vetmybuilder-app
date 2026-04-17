@@ -250,6 +250,9 @@ export default function SignupForm() {
       try {
         sessionStorage.setItem("vmb:returnTo", target);
         sessionStorage.setItem("vmb:didLoginRedirect", String(Date.now()));
+        if ("Notification" in window && !localStorage.getItem("vmb:pushSetupShown")) {
+          sessionStorage.setItem("vmb:showPushPrompt", "1");
+        }
       } catch {}
 
       router.replace(target);
@@ -285,7 +288,6 @@ export default function SignupForm() {
       } else {
         setErr(raw || "Registration failed");
       }
-    } finally {
       setLoading(false);
     }
   };

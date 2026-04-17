@@ -110,7 +110,7 @@ export default function BuilderHeader({
                 ) : null}
                 {updatedDisplay && (
                   <span className="text-xs text-zinc-400">
-                    Member since {new Date(updatedDisplay).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                    Member since {new Date(updatedDisplay).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
                   </span>
                 )}
               </div>

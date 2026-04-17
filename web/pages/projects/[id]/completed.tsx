@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import LightboxGallery, {
   type GalleryImage,
 } from "@/components/LightboxGallery";
+import ReportModal from "@/components/ReportModal";
 
 type Photo = {
   id: number;
@@ -54,6 +55,7 @@ function Inner() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [showReport, setShowReport] = useState(false);
 
   useEffect(() => {
     if (!router.isReady || authLoading || !user || !projectId) return;
@@ -104,45 +106,17 @@ function Inner() {
   }, [photos]);
 
   const onBackToProjects = () => {
-    // Don’t use router.back(): it can return to the completed tab without query state,
-    // which means the completed list doesn’t re-fetch correctly and cards show missing winner labels.
-    // Instead, navigate explicitly to the completed tab (preserve sort/order/page if present).
-    const q = router.query || {};
-
-    const sort =
-      typeof q.sort === "string" && q.sort.trim() ? q.sort.trim() : "createdAt";
-    const order =
-      typeof q.order === "string" && q.order.trim() ? q.order.trim() : "desc";
-    const page =
-      typeof q.page === "string" && q.page.trim() ? q.page.trim() : "1";
-    const pageSize =
-      typeof q.pageSize === "string" && q.pageSize.trim()
-        ? q.pageSize.trim()
-        : "12";
-
-    router.push({
-      pathname: "/projects",
-      query: {
-        tab: "completed",
-        sort,
-        order,
-        page,
-        pageSize,
-      },
-    });
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/projects");
+    }
   };
 
   return (
     <>
-      <style>{`body { background: #fafaf9 !important; }`}</style>
-      <div className="relative min-h-screen overflow-x-hidden bg-stone-50 -mt-14" data-testid="completed-gallery-page">
-        {/* Background bands */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
-          <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
-        </div>
-
-        <div className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pt-24 pb-16 space-y-6">
+      <div className="relative min-h-screen overflow-x-hidden -mt-14" data-testid="completed-gallery-page">
+        <div className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pt-20 pb-16 space-y-6">
           {/* Back */}
           <button
             type="button"
@@ -150,7 +124,7 @@ function Inner() {
             className="inline-flex items-center gap-2 mb-3 rounded-xl bg-slate-800/90 backdrop-blur-sm px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition-colors"
             data-testid="btn-back-to-projects"
           >
-            ← Back to projects
+            ← Back to Jobs
           </button>
 
           {/* Header card */}
@@ -159,7 +133,7 @@ function Inner() {
               Completed project photos
             </h1>
             <p className="mt-1 text-sm text-zinc-500" data-testid="completed-gallery-subtitle">
-              Photos uploaded when the project was marked as completed.
+              See the finished work from this project.
             </p>
           </header>
 
@@ -202,7 +176,28 @@ function Inner() {
                   No photos have been uploaded yet.
                 </p>
               )}
+
+              <div className="flex justify-end mt-4">
+                <button
+                  onClick={() => setShowReport(true)}
+                  className="flex items-center gap-1 text-[10px] text-zinc-300 hover:text-red-500 transition-colors"
+                  data-testid="btn-report-photos"
+                >
+                  <svg className="h-3 w-3 text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2z" />
+                  </svg>
+                  Report
+                </button>
+              </div>
             </section>
+          )}
+
+          {showReport && projectId && (
+            <ReportModal
+              targetType="photo"
+              targetId={`project-${projectId}-completed`}
+              onClose={() => setShowReport(false)}
+            />
           )}
         </div>
       </div>

@@ -17,11 +17,11 @@ export default function SafetyVerificationCard() {
           </div>
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-slate-900">
-              Safety &amp; verification on VetMyBuilder
+              Safety &amp; verification
             </h2>
             <p className="mt-1 text-xs text-slate-500">
-              We combine official checks with community signals to help you feel
-              confident about who you invite to your home.
+              We combine official checks with community signals to help you
+              hire with confidence.
             </p>
           </div>
         </div>
@@ -35,9 +35,9 @@ export default function SafetyVerificationCard() {
             </span>
           </dt>
           <dd>
-            <span className="font-semibold">Companies House checks.</span> Where
-            possible, we match tradesmen to a registered company and show when
-            that match is verified.
+            <span className="font-semibold">Verified businesses.</span> We
+            check tradespeople against official UK business registers and show
+            a verified badge when we confirm a match.
           </dd>
         </div>
 
@@ -48,9 +48,10 @@ export default function SafetyVerificationCard() {
             </span>
           </dt>
           <dd>
-            <span className="font-semibold">VMB score &amp; badges.</span>{" "}
-            Profiles are ranked using signals like photos, completed projects,
-            documents and web presence – not just who paid the most.
+            <span className="font-semibold">Trust score.</span> Every
+            tradesperson is scored based on real signals: neighbour
+            recommendations, completed work, photos, and responsiveness -
+            not who pays the most.
           </dd>
         </div>
 

@@ -150,6 +150,11 @@ export default function SignupComplete() {
         if (stored && stored.startsWith("/")) target = stored;
         sessionStorage.removeItem("vmb:oauthReturnTo");
       } catch {}
+      try {
+        if ("Notification" in window && !localStorage.getItem("vmb:pushSetupShown")) {
+          sessionStorage.setItem("vmb:showPushPrompt", "1");
+        }
+      } catch {}
       router.replace(target);
     } catch (e: any) {
       const status = e?.response?.status;
@@ -161,7 +166,6 @@ export default function SignupComplete() {
       } else {
         setErr(body?.message || "Could not save your profile. Please try again.");
       }
-    } finally {
       setLoading(false);
     }
   }

@@ -147,6 +147,7 @@ module.exports = (router, ctx) => {
           t.wins_count,
           t.photo_count,
           t.likes_count,
+          t.trade_types,
           t.status,
           f.createdAt AS fav_created_at
         FROM favourite_tradesmen f
@@ -204,6 +205,7 @@ module.exports = (router, ctx) => {
           photos: Number(photosCount || 0),
           reviews: Number(r.likes_count || 0),
         },
+        tradeTypes: r.trade_types || null,
         isFavourite: true,
       };
     });

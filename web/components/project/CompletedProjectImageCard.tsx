@@ -10,6 +10,7 @@ type Props = {
   type?: string; // for type-based fallback
   hasGallery: boolean;
   fallbackImageUrl?: string | null;
+  tradesmanPublicId?: string;
 };
 
 const GENERIC_FALLBACK =
@@ -50,6 +51,7 @@ export default function CompletedProjectImageCard({
   type,
   hasGallery,
   fallbackImageUrl,
+  tradesmanPublicId,
 }: Props) {
   const api = useApi();
   const [url, setUrl] = React.useState<string | null>(null);
@@ -85,12 +87,14 @@ export default function CompletedProjectImageCard({
     };
   }, [api, id, hasGallery, fallbackImageUrl, type]);
 
-  const href = `/projects/${id}/completed`;
+  const href = tradesmanPublicId
+    ? `/tradesman/${encodeURIComponent(tradesmanPublicId)}`
+    : `/projects/${id}/completed`;
 
   return (
     <Link
       href={href}
-      aria-label={`Open completed gallery for ${name}`}
+      aria-label={tradesmanPublicId ? `View tradesman profile` : `Open completed gallery for ${name}`}
       className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-2xl"
       data-testid={`thumb-link-${id}`}
     >

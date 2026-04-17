@@ -1,6 +1,7 @@
 import Head from "next/head";
 import { useCallback, useEffect, useState } from "react";
 import AuthedOnly from "@/components/AuthedOnly";
+import AdminRefreshButton from "@/components/admin/AdminRefreshButton";
 import { useApi } from "@/utils/api";
 
 type Report = {
@@ -81,7 +82,10 @@ export default function AdminReportsPage() {
       </Head>
       <div className="min-h-screen bg-slate-900 text-white px-4 pt-20 pb-12">
         <div className="mx-auto max-w-5xl">
-          <h1 className="text-2xl font-bold mb-6">Reports</h1>
+          <div className="flex items-center gap-3 mb-6">
+            <h1 className="text-2xl font-bold">Reports</h1>
+            <AdminRefreshButton onRefresh={fetchReports} />
+          </div>
 
           <div className="flex gap-2 mb-6">
             {["open", "reviewed", "dismissed", "all"].map((s) => (

@@ -2,6 +2,7 @@ import Head from "next/head";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import AuthedOnly from "@/components/AuthedOnly";
+import AdminRefreshButton from "@/components/admin/AdminRefreshButton";
 import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 
@@ -128,6 +129,10 @@ export default function AdminDashboard() {
     if (range && user && !authLoading) fetchAll(range);
   }, [range, user, authLoading, fetchAll]);
 
+  const handleRefresh = useCallback(() => {
+    if (rangeRef.current) return fetchRef.current(rangeRef.current);
+  }, []);
+
   // Poll every 5s using refs to avoid teardown/recreate
   useEffect(() => {
     if (!range || !user || authLoading) return;
@@ -147,7 +152,10 @@ export default function AdminDashboard() {
         {/* Title + range picker */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Dashboard</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900">Dashboard</h1>
+              <AdminRefreshButton onRefresh={handleRefresh} />
+            </div>
             <p className="text-sm text-slate-500">Operational overview and cost tracking</p>
           </div>
           <div className="flex gap-1">

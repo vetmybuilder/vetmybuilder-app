@@ -1,8 +1,9 @@
 import Head from "next/head";
 import AuthedOnly from "@/components/AuthedOnly";
+import AdminRefreshButton from "@/components/admin/AdminRefreshButton";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 /* ========= Types ========= */
 type Row = {
@@ -77,33 +78,27 @@ function AdminLeaderboardInner() {
     {}
   );
 
-  useEffect(() => {
-    let alive = true;
+  const fetchLeaderboard = useCallback(async () => {
     if (authLoading || !user) return;
-
     setLoading(true);
     setErr(null);
-
-    api
-      .get("/api/admin/recommendation-leaderboard")
-      .then(({ data }) => {
-        if (!alive) return;
-        const items: Row[] = Array.isArray(data?.items) ? data.items : [];
-        setRows(items);
-      })
-      .catch((e: any) => {
-        if (!alive) return;
-        const status = e?.response?.status ?? e?.status;
-        if (status === 403) setForbidden(true);
-        else setErr(e?.response?.data?.error || e?.message || "Failed");
-        setRows([]);
-      })
-      .finally(() => alive && setLoading(false));
-
-    return () => {
-      alive = false;
-    };
+    try {
+      const { data } = await api.get("/api/admin/recommendation-leaderboard");
+      const items: Row[] = Array.isArray(data?.items) ? data.items : [];
+      setRows(items);
+    } catch (e: any) {
+      const status = e?.response?.status ?? e?.status;
+      if (status === 403) setForbidden(true);
+      else setErr(e?.response?.data?.error || e?.message || "Failed");
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
   }, [api, authLoading, user]);
+
+  useEffect(() => {
+    fetchLeaderboard();
+  }, [fetchLeaderboard]);
 
   // 🔹 Fetch canonical scores from /api/recommendations/ratings per project
   useEffect(() => {
@@ -261,9 +256,12 @@ function AdminLeaderboardInner() {
 
       <div className="px-4 pt-6 pb-10 w-full max-w-none">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-bold text-white">
-            Recommendation Leaderboard
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold text-white">
+              Recommendation Leaderboard
+            </h1>
+            <AdminRefreshButton onRefresh={fetchLeaderboard} />
+          </div>
           <p className="text-sm text-slate-300">
             Global · Canonical VMB score from recommendations, wins and photos
           </p>

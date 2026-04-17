@@ -1,4 +1,5 @@
 import * as React from "react";
+import Link from "next/link";
 import StatusBadge from "@/components/StatusBadge";
 
 type Status = "pending" | "live" | "completed" | "archived";

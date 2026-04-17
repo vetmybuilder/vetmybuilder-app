@@ -215,7 +215,7 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>VetMyBuilder - Find a tradesperson you actually trust</title>
+        <title>VetMyBuilder</title>
         <meta name="description" content="Community-powered tradesperson vetting for UK homeowners. Post a job, gather recommendations, hire with confidence." />
         {/* Override body background to cream so the header gap area blends in */}
         <style>{`body { background: #fafaf9 !important; }`}</style>
@@ -303,16 +303,25 @@ export default function Home() {
                     className="inline-flex items-center justify-center gap-2 rounded-full bg-red-500 px-8 py-4 text-lg font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/30 hover:scale-[1.02] transition-all"
                     data-testid="hero-cta"
                   >
-                    {isTrades ? "View available jobs" : "Start your project"}
+                    {isTrades ? "View available jobs" : "Post a job"}
                     <IconArrowRight className="h-5 w-5" />
                   </Link>
-                  <button
-                    type="button"
-                    onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}
-                    className="inline-flex items-center justify-center gap-2 rounded-full bg-zinc-100 px-8 py-4 text-lg font-bold text-zinc-900 hover:bg-zinc-200 transition-colors"
-                  >
-                    See how it works
-                  </button>
+                  {user && !isTrades ? (
+                    <Link
+                      href="/projects"
+                      className="inline-flex items-center justify-center gap-2 rounded-full bg-zinc-100 px-8 py-4 text-lg font-bold text-zinc-900 hover:bg-zinc-200 transition-colors"
+                    >
+                      My Projects
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}
+                      className="inline-flex items-center justify-center gap-2 rounded-full bg-zinc-100 px-8 py-4 text-lg font-bold text-zinc-900 hover:bg-zinc-200 transition-colors"
+                    >
+                      See how it works
+                    </button>
+                  )}
                 </div>
 
                 {/* Social proof */}

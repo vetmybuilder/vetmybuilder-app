@@ -8,6 +8,7 @@ import { getCoachingTips } from "@/utils/coachingTips";
 import type { VendorForScoring } from "@/utils/vendorScoring";
 import TradesmanProjectAccordionRow from "@/components/tradesmen/TradesmanProjectAccordionRow";
 import TradesmanOnly from "@/components/TradesmanOnly";
+import PushPrompt from "@/components/PushPrompt";
 
 type Project = {
   id: number;
@@ -49,6 +50,16 @@ export default function TradesmanProjects() {
   const [items, setItems] = useState<Project[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [showPushPrompt, setShowPushPrompt] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem("vmb:showPushPrompt") === "1") {
+        sessionStorage.removeItem("vmb:showPushPrompt");
+        setShowPushPrompt(true);
+      }
+    } catch {}
+  }, []);
   const [gate, setGate] = useState<"none" | "notActive" | "noProfile">("none");
 
   // which project row is expanded (accordion)
@@ -385,6 +396,10 @@ export default function TradesmanProjects() {
         )}
       </div>
       </>
+
+      {showPushPrompt && (
+        <PushPrompt onComplete={() => setShowPushPrompt(false)} />
+      )}
     </TradesmanOnly>
   );
 }

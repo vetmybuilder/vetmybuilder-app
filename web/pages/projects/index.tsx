@@ -1,5 +1,6 @@
 // web/pages/projects/index.tsx
 import Head from "next/head";
+import Link from "next/link";
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -14,6 +15,7 @@ import ProjectFilters, {
   type ProjectFiltersValue,
 } from "@/components/filters/ProjectFilters";
 import FavouriteTradesmenSection from "@/components/tradesmen/FavouriteTradesmenSection";
+import PushPrompt from "@/components/PushPrompt";
 import { Home, Heart, FolderOpen, Shield, Building2, Star, Lightbulb, ChevronDown, ChevronUp, Plus, CheckCircle2 } from "lucide-react";
 
 
@@ -239,6 +241,17 @@ function OwnerProjects() {
 
   // ---- Tab derived from URL (single source of truth) ----
   const [tab, setTab] = useState<OwnerTab>("mine");
+  const [showPushPrompt, setShowPushPrompt] = useState(false);
+
+  // Show push prompt after signup (flag set by signup forms)
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem("vmb:showPushPrompt") === "1") {
+        sessionStorage.removeItem("vmb:showPushPrompt");
+        setShowPushPrompt(true);
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -468,8 +481,8 @@ function OwnerProjects() {
                   <Shield className="h-5 w-5 text-emerald-600" />
                 </div>
                 <div>
-                  <h2 className="font-semibold text-zinc-900">Safety &amp; verification on VetMyBuilder</h2>
-                  <p className="text-sm text-zinc-500">We combine official checks with community signals to help you feel confident</p>
+                  <h2 className="font-semibold text-zinc-900">Safety &amp; verification</h2>
+                  <p className="text-sm text-zinc-500">We combine official checks with community signals to help you hire with confidence.</p>
                 </div>
               </div>
               {safetyOpen
@@ -485,8 +498,8 @@ function OwnerProjects() {
                     <Building2 className="h-4 w-4 text-zinc-500" />
                   </div>
                   <div>
-                    <p className="font-medium text-zinc-900">Companies House checks</p>
-                    <p className="text-sm text-zinc-500">Where possible, we match tradesmen to a registered company and show when that match is verified.</p>
+                    <p className="font-medium text-zinc-900">Verified businesses</p>
+                    <p className="text-sm text-zinc-500">We check tradespeople against official UK business registers and show a verified badge when we confirm a match.</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
@@ -494,8 +507,8 @@ function OwnerProjects() {
                     <Star className="h-4 w-4 text-amber-500" />
                   </div>
                   <div>
-                    <p className="font-medium text-zinc-900">VMB score &amp; badges</p>
-                    <p className="text-sm text-zinc-500">Profiles are ranked using signals like photos, completed projects, documents and web presence — not just who paid the most.</p>
+                    <p className="font-medium text-zinc-900">Trust score</p>
+                    <p className="text-sm text-zinc-500">Every tradesperson is scored based on real signals: neighbour recommendations, completed work, photos, and responsiveness - not who pays the most.</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
@@ -610,15 +623,17 @@ function OwnerProjects() {
               >
                 {items.map((p) => (
                   <div className="contents" key={p.id}>
-                    <ProjectImageCard
-                      id={p.id}
-                      status={p.status}
-                      imageUrl={
-                        p.coverPhotoUrl ||
-                        "https://cdn.home-designing.com/wp-content/uploads/2024/08/Graceful-Mid-Century-Modern-Living-Rooms.jpg"
-                      }
-                      name={p.name}
-                    />
+                    <Link href={`/projects/${p.id}`} className="block hover:shadow-md transition-shadow rounded-3xl">
+                      <ProjectImageCard
+                        id={p.id}
+                        status={p.status}
+                        imageUrl={
+                          p.coverPhotoUrl ||
+                          "https://cdn.home-designing.com/wp-content/uploads/2024/08/Graceful-Mid-Century-Modern-Living-Rooms.jpg"
+                        }
+                        name={p.name}
+                      />
+                    </Link>
                     <ProjectInfoCard
                       id={p.id}
                       name={p.name}
@@ -668,6 +683,10 @@ function OwnerProjects() {
           </div>
         )}
       </div>
+
+      {showPushPrompt && (
+        <PushPrompt onComplete={() => setShowPushPrompt(false)} />
+      )}
     </div>
   );
 }

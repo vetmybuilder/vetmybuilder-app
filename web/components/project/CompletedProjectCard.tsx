@@ -47,6 +47,7 @@ export default function CompletedProjectCard(props: Props) {
         name={name}
         hasGallery={hasGallery}
         fallbackImageUrl={coverPhotoUrl ?? undefined}
+        tradesmanPublicId={tradesmanPublicId ?? undefined}
       />
 
       <CompletedProjectInfoCard

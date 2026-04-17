@@ -1,6 +1,7 @@
 import Head from "next/head";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import AuthedOnly from "@/components/AuthedOnly";
+import AdminRefreshButton from "@/components/admin/AdminRefreshButton";
 import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 import Link from "next/link";
@@ -144,7 +145,7 @@ export default function AdminTradesmenLeaderboardPage() {
     offset,
   ]);
 
-  async function load() {
+  const load = useCallback(async function load() {
     setLoading(true);
     setErr(null);
     setForbidden(false);
@@ -162,7 +163,7 @@ export default function AdminTradesmenLeaderboardPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [api, queryString]);
 
   useEffect(() => {
     if (user) load();
@@ -447,9 +448,12 @@ export default function AdminTradesmenLeaderboardPage() {
         <div data-testid="admin-leaderboard-page" className="min-h-screen">
           <div className="px-4 pt-6 pb-10 w-full max-w-none">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <h1 className="text-xl font-bold text-white">
-              Tradesmen Leaderboard
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-bold text-white">
+                Tradesmen Leaderboard
+              </h1>
+              <AdminRefreshButton onRefresh={load} />
+            </div>
           </div>
 
           {forbidden && (

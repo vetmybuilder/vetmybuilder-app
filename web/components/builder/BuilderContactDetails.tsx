@@ -7,6 +7,7 @@ type Props = {
   user: any;
   phones: string[];
   emails?: string[];
+  onReport?: () => void;
 };
 
 function ContactRow({
@@ -34,7 +35,7 @@ function ContactRow({
   );
 }
 
-export default function BuilderContactDetails({ user, phones, emails = [] }: Props) {
+export default function BuilderContactDetails({ user, phones, emails = [], onReport }: Props) {
   const primaryPhone = phones[0] ?? null;
   const primaryEmail = emails[0] ?? null;
 
@@ -77,6 +78,19 @@ export default function BuilderContactDetails({ user, phones, emails = [] }: Pro
               />
             </div>
           </section>
+
+          {onReport && (
+            <button
+              onClick={onReport}
+              className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-red-500 transition-colors pt-4 border-t border-zinc-100"
+              data-testid="btn-report-profile"
+            >
+              <svg className="h-3.5 w-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2z" />
+              </svg>
+              Report this profile
+            </button>
+          )}
         </div>
       ) : (
         <BlurUnlock previewCount={0} label="contact details">

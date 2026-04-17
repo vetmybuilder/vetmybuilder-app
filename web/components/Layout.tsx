@@ -3,8 +3,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import CookieConsent from "react-cookie-consent";
 import SiteHeader from "@/components/SiteHeader";
-import PushPrompt from "@/components/PushPrompt";
-import { useAuth } from "@/utils/auth";
 
 const BG_IMAGES = [
   "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?w=1920&q=80&auto=format",
@@ -16,12 +14,9 @@ const BG_IMAGES = [
 let sessionBg: string | null = null;
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
-
   // Start with no URL so SSR and client hydration are identical (no mismatch)
   const [bgUrl, setBgUrl] = useState<string>("");
   const [loaded, setLoaded] = useState(false);
-  const [showPushPrompt, setShowPushPrompt] = useState(false);
 
   useEffect(() => {
     // Pick once and reuse for the whole session
@@ -30,16 +25,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     }
     setBgUrl(sessionBg);
   }, []);
-
-  useEffect(() => {
-    if (
-      user &&
-      "Notification" in window &&
-      !localStorage.getItem("vmb:pushSetupShown")
-    ) {
-      setShowPushPrompt(true);
-    }
-  }, [user]);
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
@@ -115,9 +100,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </Link>
       </CookieConsent>
 
-      {showPushPrompt && (
-        <PushPrompt onComplete={() => setShowPushPrompt(false)} />
-      )}
     </>
   );
 }

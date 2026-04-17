@@ -475,6 +475,11 @@ export default function TradesmanSsoOnboardingPage() {
         }
       } catch {}
 
+      try {
+        if ("Notification" in window && !localStorage.getItem("vmb:pushSetupShown")) {
+          sessionStorage.setItem("vmb:showPushPrompt", "1");
+        }
+      } catch {}
       router.replace("/tradesman/projects");
     } catch (ex: any) {
       const msg =
@@ -482,7 +487,6 @@ export default function TradesmanSsoOnboardingPage() {
         ex?.message ||
         "Failed to finish signing up.";
       setErr(msg);
-    } finally {
       setBusy(false);
     }
   };

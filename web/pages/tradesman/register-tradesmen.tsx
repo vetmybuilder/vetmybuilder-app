@@ -510,6 +510,11 @@ export default function TradesmanRegisterV2Page() {
       // mobile-webkit has been observed to silently swallow
       // window.location changes made from the tail of an async handler
       // while the page is being unmounted by parent gates.
+      try {
+        if ("Notification" in window && !localStorage.getItem("vmb:pushSetupShown")) {
+          sessionStorage.setItem("vmb:showPushPrompt", "1");
+        }
+      } catch {}
       router.replace("/tradesman/projects");
     } catch (e: any) {
       const msg =
@@ -518,7 +523,6 @@ export default function TradesmanRegisterV2Page() {
         "Failed to create your account.";
       console.error("[register-tradesmen] create/save failed:", msg);
       setErr(msg);
-    } finally {
       setBusy(false);
     }
   };
@@ -538,7 +542,7 @@ export default function TradesmanRegisterV2Page() {
         <style>{`body { background: #fafaf9 !important; }`}</style>
       </Head>
 
-      <div className="relative min-h-screen overflow-hidden bg-stone-50">
+      <div className="relative min-h-screen overflow-hidden bg-stone-50 -mt-14 pt-14">
         {/* Background bands */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
