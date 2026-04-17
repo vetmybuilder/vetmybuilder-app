@@ -1,6 +1,7 @@
 // web/pages/how-it-works-trades.tsx
 import Head from "next/head";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/utils/auth";
 
 function IconProfile(props: React.SVGProps<SVGSVGElement>) {
@@ -129,6 +130,13 @@ const faqs = [
 
 export default function HowItWorksTrades() {
   const { user } = useAuth();
+  const [isTradesman, setIsTradesman] = useState(false);
+
+  useEffect(() => {
+    try {
+      setIsTradesman(sessionStorage.getItem("vmb:isTradesman") === "1");
+    } catch {}
+  }, []);
 
   return (
     <>
@@ -294,19 +302,39 @@ export default function HowItWorksTrades() {
         {/* CTA */}
         <section className="bg-zinc-900 py-20 sm:py-24">
           <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 text-center">
-            <h2 className="text-4xl sm:text-5xl font-black text-white mb-6">
-              Ready to start winning work?
-            </h2>
-            <p className="text-xl text-zinc-400 mb-10">
-              Free to join. No commission. No bidding wars.
-            </p>
-            <Link
-              href={user ? "/tradesman/jobs" : "/tradesman/register-tradesmen"}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-red-500 px-10 py-5 text-lg font-bold text-white hover:scale-[1.02] hover:shadow-xl transition-all"
-            >
-              {user ? "Browse jobs" : "Create your free profile"}
-              <IconArrowRight className="h-5 w-5" />
-            </Link>
+            {user && !isTradesman ? (
+              <>
+                <h2 className="text-4xl sm:text-5xl font-black text-white mb-6">
+                  Ready to find your builder?
+                </h2>
+                <p className="text-xl text-zinc-400 mb-10">
+                  Post a job and let trusted tradespeople come to you.
+                </p>
+                <Link
+                  href="/projects/new"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-red-500 px-10 py-5 text-lg font-bold text-white hover:scale-[1.02] hover:shadow-xl transition-all"
+                >
+                  Post a job
+                  <IconArrowRight className="h-5 w-5" />
+                </Link>
+              </>
+            ) : (
+              <>
+                <h2 className="text-4xl sm:text-5xl font-black text-white mb-6">
+                  Ready to start winning work?
+                </h2>
+                <p className="text-xl text-zinc-400 mb-10">
+                  Free to join. No commission. No bidding wars.
+                </p>
+                <Link
+                  href={user && isTradesman ? "/tradesman/projects" : "/tradesman/register-tradesmen"}
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-red-500 px-10 py-5 text-lg font-bold text-white hover:scale-[1.02] hover:shadow-xl transition-all"
+                >
+                  {user && isTradesman ? "Browse jobs" : "Create your free profile"}
+                  <IconArrowRight className="h-5 w-5" />
+                </Link>
+              </>
+            )}
           </div>
         </section>
       </div>
