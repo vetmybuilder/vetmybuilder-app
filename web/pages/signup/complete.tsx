@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from "react";
 import Head from "next/head";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
@@ -25,6 +26,7 @@ export default function SignupComplete() {
   const [betaCode, setBetaCode] = useState("");
   const [betaRequired, setBetaRequired] = useState(false);
   const [betaCodeErr, setBetaCodeErr] = useState<string | null>(null);
+  const [agreedTerms, setAgreedTerms] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -256,6 +258,21 @@ export default function SignupComplete() {
                 )}
               </div>
 
+              <label className="flex items-start gap-2.5 cursor-pointer" data-testid="agree-terms">
+                <input
+                  type="checkbox"
+                  checked={agreedTerms}
+                  onChange={(e) => setAgreedTerms(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-red-500 focus:ring-red-500"
+                />
+                <span className="text-xs text-zinc-500 leading-relaxed">
+                  By signing up, I agree to the{" "}
+                  <Link href="/terms" target="_blank" className="text-red-500 hover:underline">Terms of Use</Link>
+                  {" "}and{" "}
+                  <Link href="/acceptable-use" target="_blank" className="text-red-500 hover:underline">Acceptable Use Policy</Link>.
+                </span>
+              </label>
+
               {err && (
                 <p
                   className="text-sm font-medium text-red-500"
@@ -268,7 +285,7 @@ export default function SignupComplete() {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !agreedTerms}
                 className="mt-2 w-full inline-flex items-center justify-center rounded-full bg-red-500 px-8 py-4 text-base font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 data-testid="btn-signup-complete"
               >

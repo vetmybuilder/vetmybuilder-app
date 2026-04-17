@@ -132,6 +132,20 @@ function buildRouter(ctx) {
       KEY idx_ail_feature (feature, created_at),
       KEY idx_ail_hash (prompt_hash)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS reports (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      reporter_uid VARCHAR(128) NOT NULL,
+      target_type ENUM('profile','recommendation','photo') NOT NULL,
+      target_id VARCHAR(255) NOT NULL,
+      category ENUM('abuse','spam','fake_review','inappropriate_image','other') NOT NULL,
+      detail TEXT DEFAULT NULL,
+      status ENUM('open','reviewed','dismissed') NOT NULL DEFAULT 'open',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      resolved_at DATETIME DEFAULT NULL,
+      resolved_by VARCHAR(128) DEFAULT NULL,
+      KEY idx_reports_status (status, created_at),
+      KEY idx_reports_target (target_type, target_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
     `CREATE TABLE IF NOT EXISTS builder_summaries (
       id INT AUTO_INCREMENT PRIMARY KEY,
       company VARCHAR(255) NOT NULL,
@@ -225,6 +239,9 @@ function buildRouter(ctx) {
   require("./routes/projects/recommendations.get")(router, ctx);
   require("./routes/projects/recommendations.post")(router, ctx);
 
+  // ---------------- Reports ----------------
+  require("./routes/reports/reports.post")(router, ctx);
+
   // ---------------- Hires ----------------
   require("./routes/projects/hires.post")(router, ctx);
   require("./routes/projects/hires.get")(router, ctx);
@@ -310,6 +327,8 @@ function buildRouter(ctx) {
   require("./routes/admin/dashboard.stats.get")(router, ctx);
   require("./routes/admin/dashboard.ai-breakdown.get")(router, ctx);
   require("./routes/admin/dashboard.activity.get")(router, ctx);
+  require("./routes/admin/reports.get")(router, ctx);
+  require("./routes/admin/reports.resolve.patch")(router, ctx);
 
   return router;
 }

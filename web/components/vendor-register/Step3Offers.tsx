@@ -1,5 +1,6 @@
 // web/components/vendor-register/Step3Offers.tsx
-import React from "react";
+import React, { useState } from "react";
+import Link from "next/link";
 import { Tag, ShieldCheck, FileText, ArrowRight, ArrowLeft } from "lucide-react";
 
 type Props = {
@@ -16,6 +17,7 @@ type Props = {
   okMsg?: string | null;
   err?: string | null;
   primaryLabel?: string;
+  showTermsCheckbox?: boolean;
 };
 
 const MAX_DISCOUNT = 25;
@@ -38,7 +40,10 @@ export default function Step3Offers({
   okMsg,
   err,
   primaryLabel = "Next",
+  showTermsCheckbox = false,
 }: Props) {
+  const [agreedTerms, setAgreedTerms] = useState(false);
+
   return (
     <form
       className="bg-white rounded-2xl shadow-lg shadow-zinc-200/60 p-7 sm:p-9 space-y-8"
@@ -235,6 +240,23 @@ export default function Step3Offers({
         <p className="text-sm text-red-600 font-medium" role="alert" data-testid="join-error">{err}</p>
       )}
 
+      {showTermsCheckbox && (
+        <label className="flex items-start gap-2.5 cursor-pointer" data-testid="agree-terms">
+          <input
+            type="checkbox"
+            checked={agreedTerms}
+            onChange={(e) => setAgreedTerms(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-red-500 focus:ring-red-500"
+          />
+          <span className="text-xs text-zinc-500 leading-relaxed">
+            By signing up, I agree to the{" "}
+            <Link href="/terms" target="_blank" className="text-red-500 hover:underline">Terms of Use</Link>
+            {" "}and{" "}
+            <Link href="/acceptable-use" target="_blank" className="text-red-500 hover:underline">Acceptable Use Policy</Link>.
+          </span>
+        </label>
+      )}
+
       <div className="flex items-center justify-between border-t border-zinc-100 pt-6">
         <button
           type="button"
@@ -247,7 +269,7 @@ export default function Step3Offers({
         </button>
         <button
           className="inline-flex items-center gap-2 rounded-full bg-red-500 px-6 py-2.5 text-sm font-bold text-white shadow-sm shadow-red-500/25 hover:bg-red-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-          disabled={busy}
+          disabled={busy || (showTermsCheckbox && !agreedTerms)}
           data-testid="btn-continue"
         >
           {busy ? "Saving…" : primaryLabel}

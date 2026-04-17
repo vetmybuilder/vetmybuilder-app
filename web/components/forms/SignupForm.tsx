@@ -74,6 +74,7 @@ export default function SignupForm() {
   });
 
   const [betaRequired, setBetaRequired] = useState(false);
+  const [agreedTerms, setAgreedTerms] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(false);
@@ -426,6 +427,21 @@ export default function SignupForm() {
         />
       )}
 
+      <label className="flex items-start gap-2.5 cursor-pointer" data-testid="agree-terms">
+        <input
+          type="checkbox"
+          checked={agreedTerms}
+          onChange={(e) => setAgreedTerms(e.target.checked)}
+          className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-red-500 focus:ring-red-500"
+        />
+        <span className="text-xs text-zinc-500 leading-relaxed">
+          By signing up, I agree to the{" "}
+          <Link href="/terms" target="_blank" className="text-red-500 hover:underline">Terms of Use</Link>
+          {" "}and{" "}
+          <Link href="/acceptable-use" target="_blank" className="text-red-500 hover:underline">Acceptable Use Policy</Link>.
+        </span>
+      </label>
+
       {err && (
         <p className="text-red-500 text-sm font-medium" role="alert" data-testid="register-error">
           {err}
@@ -435,7 +451,7 @@ export default function SignupForm() {
       <button
         className="w-full inline-flex items-center justify-center rounded-full bg-red-500 px-8 py-4 text-base font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
         type="submit"
-        disabled={loading}
+        disabled={loading || !agreedTerms}
       >
         {loading ? "Creating…" : "Create account"}
       </button>

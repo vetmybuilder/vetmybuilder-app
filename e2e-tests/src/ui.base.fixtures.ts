@@ -87,10 +87,18 @@ export const test = base.extend<UiFixtures, { runtime: Runtime }>({
   // routes /api|uploads/* to the correct API shard, keeping all browser Axios
   // calls on the same origin and avoiding Authorization-header stripping.
   context: async ({ browser, contextOptions, runtime }, use) => {
+    const url = new URL(runtime.webBaseUrl);
     const ctx = await browser.newContext({
       ...contextOptions,
       baseURL: runtime.webBaseUrl,
     });
+    // Pre-set cookie consent so the banner never appears in any test
+    await ctx.addCookies([{
+      name: "vmb_cookie_consent",
+      value: "true",
+      domain: url.hostname,
+      path: "/",
+    }]);
     await use(ctx);
     await ctx.close().catch(() => {});
   },

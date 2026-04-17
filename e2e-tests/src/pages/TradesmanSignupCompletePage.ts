@@ -101,11 +101,16 @@ export class TradesmanSignupCompletePage {
     await expect(this.step3).toBeVisible({ timeout: 15_000 });
   }
 
+  async agreeToTerms(): Promise<void> {
+    await this.page.getByTestId("agree-terms").locator("input[type='checkbox']").check();
+  }
+
   async submitStep3(): Promise<void> {
     // Step 3's primary button reuses Step3Offers' `btn-continue` testid
     // (label is overridden to "Finish sign up" via the primaryLabel prop).
     // The button is scoped to step-3 to disambiguate from step-2's
     // continue button if either is briefly mounted during a transition.
+    await this.agreeToTerms();
     await this.step3.getByTestId("btn-continue").click();
   }
 }
