@@ -391,7 +391,7 @@ export default function RecommendOnPlatform() {
                   Recommend a tradesperson
                 </h1>
                 <p className="mt-2 text-sm text-zinc-500">
-                  For &ldquo;{project.name}&rdquo; in {project.location}
+                  For &ldquo;{project.name}&rdquo;
                 </p>
               </div>
 
