@@ -33,14 +33,6 @@ When a new homeowner completes signup with a postcode, they won't see any notifi
 
 **Fix:** On homeowner signup completion, query for live (published, not closed) projects within the user's area from the last 30 days. For each matching project, insert a notification (e.g. "A neighbour near you is looking for a Plumber — see if you can recommend someone"). Skip the user's own projects. Cap at ~5 notifications to avoid overwhelming a new user.
 
-## Update cookie policy and sub-processors page for PostHog
-
-PostHog analytics was added (both client-side `posthog-js` and server-side `posthog-node`). The cookie policy page and sub-processors page need updating to disclose PostHog as a data processor and describe the cookies/local storage it sets.
-
-## Wire analytics event tracking into components
-
-Server-side PostHog helpers exist (`server/lib/analytics.js`) but aren't wired into most routes yet. Frontend typed helpers exist (`web/utils/analytics.ts`) but aren't called from components. Wire `trackSignup`, `trackProjectCreated`, `trackProjectPublished`, `trackRecommendationMade`, `trackHireSent`, etc. into their respective flows.
-
 ## PostHog reverse proxy
 
 PostHog requests are blocked by Brave and other ad-blocking browsers. Route PostHog requests through the vetmybuilder.com domain (e.g. `/ingest/*` → `eu.i.posthog.com`) to avoid tracker blocking. Can be done via Next.js rewrites or an Express proxy route.
