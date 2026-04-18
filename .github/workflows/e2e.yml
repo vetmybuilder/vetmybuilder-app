@@ -37,12 +37,15 @@ jobs:
             args: "tests/ui/account tests/ui/projects tests/ui/tradesman --project=ui-desktop-chromium --shard=2/2"
             timeout: "120000"
           - id: 3
-            args: "tests/ui/account tests/ui/projects tests/ui/tradesman --project=ui-mobile-webkit-iphone --shard=1/2"
-            timeout: "180000"
+            args: "tests/ui/account tests/ui/projects tests/ui/tradesman --project=ui-mobile-webkit-iphone --shard=1/3"
+            timeout: "120000"
           - id: 4
-            args: "tests/ui/account tests/ui/projects tests/ui/tradesman --project=ui-mobile-webkit-iphone --shard=2/2"
-            timeout: "180000"
+            args: "tests/ui/account tests/ui/projects tests/ui/tradesman --project=ui-mobile-webkit-iphone --shard=2/3"
+            timeout: "120000"
           - id: 5
+            args: "tests/ui/account tests/ui/projects tests/ui/tradesman --project=ui-mobile-webkit-iphone --shard=3/3"
+            timeout: "120000"
+          - id: 6
             args: "tests/ui/admin --project=ui-desktop-chromium"
             timeout: "120000"
 

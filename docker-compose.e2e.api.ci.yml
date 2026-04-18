@@ -58,6 +58,7 @@ services:
     environment:
       DOCKER: "1"
       TEST_ENV: "e2e"
+      LOG_LEVEL: "warn"
       SQLITE_ENABLED: "0"
       FIREBASE_AUTH_EMULATOR_HOST: "firebase:9099"
       NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: "firebase:9099"
@@ -100,6 +101,7 @@ services:
     environment:
       DOCKER: "1"
       TEST_ENV: "e2e"
+      LOG_LEVEL: "warn"
       SQLITE_ENABLED: "0"
       FIREBASE_AUTH_EMULATOR_HOST: "firebase:9099"
       NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: "firebase:9099"
@@ -142,6 +144,7 @@ services:
     environment:
       DOCKER: "1"
       TEST_ENV: "e2e"
+      LOG_LEVEL: "warn"
       SQLITE_ENABLED: "0"
       FIREBASE_AUTH_EMULATOR_HOST: "firebase:9099"
       NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: "firebase:9099"
@@ -184,6 +187,7 @@ services:
     environment:
       DOCKER: "1"
       TEST_ENV: "e2e"
+      LOG_LEVEL: "warn"
       SQLITE_ENABLED: "0"
       FIREBASE_AUTH_EMULATOR_HOST: "firebase:9099"
       NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: "firebase:9099"
