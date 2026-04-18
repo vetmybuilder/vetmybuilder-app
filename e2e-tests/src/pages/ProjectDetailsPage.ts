@@ -400,7 +400,12 @@ export class ProjectDetailsPage extends BasePage {
 
     await expect(this.page).toHaveURL(`/projects/${projectId}`, { timeout: 20_000 });
     await this.waitUntilReady();
-    await expect(this.projectDetailsHeading).toBeVisible({ timeout: 15_000 });
+
+    // The neighbour view uses the project type as the hero heading (not "Project details")
+    const heroHeading = this.page.getByRole("heading", { name: input.workTypes[0] });
+    const detailsHeading = this.projectDetailsHeading;
+    await expect(heroHeading.or(detailsHeading).first()).toBeVisible({ timeout: 15_000 });
+
     await expect(this.projectBadges).toContainText(input.workTypes[0]);
     await expect(this.projectBadges).toContainText(location);
     await expect(this.projectBadges).toContainText(input.propertyType);
