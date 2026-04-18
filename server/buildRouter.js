@@ -14,6 +14,12 @@ function buildRouter(ctx) {
 
   // ---- Hydrate ctx with defaults so routes can rely on them ----
 
+  // Provide Pino logger so routes don't fall back to console
+  if (!ctx.log) {
+    const { logger } = require("./lib/logger");
+    ctx.log = logger;
+  }
+
   // Trades role guard
   ctx.requireTradesman = ctx.requireTradesman || requireTradesman(ctx);
 
