@@ -118,6 +118,10 @@ export default function OAuthSignInButton({
         }
       } catch {}
       const result = await signInWithProvider(provider);
+      if (result.ok) {
+        const { trackLogin } = await import("@/utils/analytics");
+        trackLogin("google");
+      }
       // On success, the credential has been issued and Firebase's
       // onIdTokenChanged listener will fire on the parent window — auth.tsx
       // takes it from there. We just suppress the cancel-by-user case so

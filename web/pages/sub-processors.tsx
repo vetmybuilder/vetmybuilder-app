@@ -39,6 +39,13 @@ This page is the full list. It's kept up to date as we add or remove providers. 
 - Legal transfer mechanism: not applicable - UK-to-UK
 - Terms: <a href="https://developer.company-information.service.gov.uk/terms-of-service" target="_blank" rel="noreferrer">developer.company-information.service.gov.uk/terms-of-service</a>
 
+**PostHog Inc.**
+- What it does: product analytics — tracks page views, feature usage, and user journeys to help us improve the platform
+- What data it sees: anonymous visitor ID, pages visited, clicks, device type, browser, rough location (city-level from IP). Does not receive passwords, payment details, or form input
+- Where: EU (Frankfurt)
+- Legal transfer mechanism: UK Addendum to EU SCCs
+- Privacy policy: <a href="https://posthog.com/privacy" target="_blank" rel="noreferrer">posthog.com/privacy</a>
+
 **AI inference** (third-party provider, US)
 - What it does: classifies project descriptions and generates short summaries to help match homeowners with relevant tradespeople
 - What data it sees: the project description, recommendation text, or tradesperson profile text we send for classification. We do not send identifiers, contact details, or account IDs alongside it.
@@ -74,7 +81,7 @@ export default function SubProcessors() {
       title="Sub-"
       titleAccent="processors"
       subtitle="Every third party that processes your personal data on our behalf. Updated whenever the list changes."
-      lastUpdated="15 April 2026"
+      lastUpdated="18 April 2026"
       metaDescription="The full list of sub-processors that handle VetMyBuilder user data."
       sections={sections}
     />

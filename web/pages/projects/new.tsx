@@ -8,6 +8,7 @@ import Select from "@/components/forms/Select";
 import { PROJECT_TYPES, type ProjectTypeCategory } from "@/types/projectTypes";
 import LocationField from "@/components/forms/LocationField";
 import BedroomsSelect from "@/components/forms/BedroomsSelect";
+import { trackProjectCreated } from "@/utils/analytics";
 import DescriptionBuilder from "@/components/forms/DescriptionBuilder";
 import SearchableSelect from "@/components/forms/SearchableSelect";
 import ProgressBar from "@/components/ProgressBar";
@@ -310,6 +311,7 @@ export default function NewProject() {
       };
 
       const { data } = await api.post("/api/projects", payload);
+      trackProjectCreated(data.project.id, payload.type);
       router.replace(`/projects/${data.project.id}`);
     } catch (e: any) {
       setErr(e?.response?.data?.error || "Failed to create");

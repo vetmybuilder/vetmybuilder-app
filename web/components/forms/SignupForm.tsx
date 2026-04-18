@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useApi } from "@/utils/api";
+import { trackSignup } from "@/utils/analytics";
 import { initFirebase } from "@/utils/firebase";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { useAuth } from "@/utils/auth";
@@ -244,6 +245,7 @@ export default function SignupForm() {
       // /api/account had a chance to upsert the postcode) and bounce the
       // brand-new user back to /signup/complete.
       await refreshProfile();
+      trackSignup("email", "homeowner");
 
       const target = nextPath || "/projects";
 

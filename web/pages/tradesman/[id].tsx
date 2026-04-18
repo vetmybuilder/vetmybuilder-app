@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
+import { trackBuilderProfileViewed, trackBuilderFavourited } from "@/utils/analytics";
 import LightboxGallery, { type GalleryImage } from "@/components/LightboxGallery";
 import { platformLabelFor } from "@/utils/reviewLinks";
 import {
@@ -140,7 +141,10 @@ function Inner() {
         const res = await api.get(`/api/tradesmen/${id}`);
         const data = (res as any)?.data ?? res;
         if (!data?.item) throw new Error("Not found");
-        if (!cancelled) setItem(data.item as TradesmanDetail);
+        if (!cancelled) {
+          setItem(data.item as TradesmanDetail);
+          trackBuilderProfileViewed(String(id));
+        }
       } catch (e: any) {
         if (!cancelled) {
           const status = e?.response?.status;
@@ -222,6 +226,7 @@ function Inner() {
     try {
       if (!currentlyFav) {
         await api.post(`/api/tradesmen/${encodeURIComponent(builderId)}/favourite`);
+        trackBuilderFavourited(builderId);
         setItem({ ...item, isFavourite: true });
         setFavToast("Added to favourites");
       } else {

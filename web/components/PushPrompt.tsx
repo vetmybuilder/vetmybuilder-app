@@ -1,6 +1,7 @@
 // web/components/PushPrompt.tsx
 import { useState } from "react";
 import { useApi } from "@/utils/api";
+import { trackPushEnabled, trackPushSkipped } from "@/utils/analytics";
 
 const LS_KEY = "vmb:pushSetupShown";
 
@@ -55,6 +56,7 @@ export default function PushPrompt({ onComplete, isTradesman = false }: { onComp
         local_activity: false,
         project_matches: true,
       });
+      trackPushEnabled();
     } catch {
       // If anything fails, still dismiss so we don't nag
     }
@@ -98,7 +100,7 @@ export default function PushPrompt({ onComplete, isTradesman = false }: { onComp
 
           <button
             type="button"
-            onClick={dismiss}
+            onClick={() => { trackPushSkipped(); dismiss(); }}
             disabled={busy}
             className="w-full rounded-full px-6 py-3 text-sm font-semibold text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50 transition-colors"
           >

@@ -8,6 +8,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { useAuth } from "@/utils/auth";
 import { useRole } from "@/utils/useRole";
+import { trackLogin } from "@/utils/analytics";
 import OAuthSignInButton from "@/components/forms/OAuthSignInButton";
 
 export default function Login() {
@@ -174,6 +175,7 @@ export default function Login() {
       }
 
       const credential = await signInWithEmailAndPassword(auth, email, password);
+      trackLogin("email");
       const token = await credential.user.getIdToken();
 
       const isVendorFlowAtSubmit =

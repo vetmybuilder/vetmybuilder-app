@@ -3,20 +3,6 @@ import LegalPageLayout, {
   type LegalSection,
 } from "@/components/LegalPageLayout";
 
-// ---------------------------------------------------------------------------
-// Cookie Policy - PECR + UK GDPR compliant.
-//
-// Current state (April 2026): VetMyBuilder uses ONLY strictly-necessary
-// cookies and localStorage keys. No analytics. No marketing pixels. That
-// means we do NOT need a consent banner today - strictly-necessary storage
-// is exempt under reg 6(4) PECR.
-//
-// IMPORTANT: if Google Analytics, Meta Pixel, or any other tracker is
-// added in future, THIS PAGE must be updated AND a consent banner must be
-// rolled out BEFORE the tracker goes live. Do not ship non-essential
-// tracking until consent UI is in place.
-// ---------------------------------------------------------------------------
-
 const sections: LegalSection[] = [
   {
     title: "What cookies and local storage are",
@@ -24,11 +10,11 @@ const sections: LegalSection[] = [
 
 UK law (the Privacy and Electronic Communications Regulations, or "PECR") treats both the same way: if the data is "strictly necessary" to deliver the service you asked for, we can use it without asking. For anything else, we have to get your consent first.
 
-VetMyBuilder currently uses **only strictly necessary** storage. That means we don't need to show you a consent banner today. If that ever changes, we'll ask first.`,
+VetMyBuilder uses strictly necessary storage and analytics cookies. We show a consent banner before setting analytics cookies.`,
   },
   {
-    title: "What we store, and why",
-    content: `All of the items below are strictly necessary - they keep you signed in, route you to the right area, and prevent you from seeing broken pages. None of them track you, profile you, or share data with any third party.
+    title: "Strictly necessary storage",
+    content: `These keep you signed in and the platform working. They cannot be switched off.
 
 **Firebase Authentication**
 - Purpose: keeps you signed in between visits
@@ -45,29 +31,55 @@ VetMyBuilder currently uses **only strictly necessary** storage. That means we d
 - Expiry: cleared when you close the tab
 - Category: strictly necessary
 
-If you want the technical detail - exact key names, expiries and code locations - we keep an internal audit record and will share it on request to hello@vetmybuilder.com.`,
+**Cookie consent preference** (\`vmb_cookie_consent\`)
+- Purpose: remembers that you accepted analytics cookies so we don't ask again
+- Expiry: 1 year
+- Category: strictly necessary
+
+**Home screen prompt** (\`vmb:homeScreenPromptShown\`)
+- Purpose: remembers that you dismissed the "Add to home screen" prompt
+- Expiry: persists until cleared
+- Category: strictly necessary`,
   },
   {
-    title: "Analytics, advertising and tracking",
-    content: `We do **not** currently use:
-- Google Analytics, Mixpanel, PostHog, or any other behavioural analytics
-- Facebook / Meta pixel, Google Ads conversion tags, LinkedIn Insight, or any advertising pixel
-- Cross-site tracking, fingerprinting, or session replay
+    title: "Analytics cookies",
+    content: `We use **PostHog** to understand how people use VetMyBuilder — which pages are visited, which features are used, and where people get stuck. This helps us improve the product.
 
-If we add any of these in future, we will show you a consent banner before they run, and only set the relevant cookies if you opt in. You'll always be able to withdraw consent by re-opening your cookie preferences.`,
+PostHog analytics cookies are only set **after you accept** via the cookie consent banner. If you decline or ignore the banner, no analytics cookies are set.
+
+**What PostHog stores:**
+- A unique anonymous identifier (\`distinct_id\`) to distinguish visitors
+- Session replay data (page views, clicks, scrolls) — no keystrokes or form input are recorded
+- Device type, browser, and rough location (city-level from IP, not precise)
+
+**What PostHog does NOT do:**
+- Does not track you across other websites
+- Does not sell or share your data with advertisers
+- Does not record passwords, payment details, or form input
+
+PostHog is hosted in the EU (Frankfurt). Data is retained for 12 months.
+
+Privacy policy: <a href="https://posthog.com/privacy" target="_blank" rel="noreferrer">posthog.com/privacy</a>`,
+  },
+  {
+    title: "No advertising or cross-site tracking",
+    content: `We do **not** use:
+- Facebook / Meta pixel, Google Ads conversion tags, LinkedIn Insight, or any advertising pixel
+- Cross-site tracking or fingerprinting
+- Session replay that captures keystrokes or sensitive input`,
   },
   {
     title: "How to manage cookies",
     content: `You can clear or block cookies at any time through your browser settings. Instructions for the main browsers:
-- Chrome: Settings -> Privacy and security -> Cookies and other site data
-- Safari: Settings -> Privacy
-- Firefox: Settings -> Privacy & Security
+- Chrome: Settings → Privacy and security → Cookies and other site data
+- Safari: Settings → Privacy
+- Firefox: Settings → Privacy & Security
 
-Blocking strictly-necessary cookies will break the Platform - you won't be able to stay signed in. That's the trade-off: if you block them, certain features simply won't work.`,
+Blocking strictly-necessary cookies will break the Platform — you won't be able to stay signed in. Blocking analytics cookies will simply stop PostHog from collecting usage data; the platform will work normally.`,
   },
   {
     title: "Changes",
-    content: `If this policy changes - most notably if we introduce a non-essential cookie - we will update the "Last updated" date at the top of the page and, where required by law, ask for your consent before the change takes effect.`,
+    content: `If this policy changes — most notably if we introduce a new category of cookie — we will update the "Last updated" date at the top of the page and, where required by law, ask for your consent before the change takes effect.`,
   },
   {
     title: "Contact",
@@ -81,7 +93,7 @@ export default function Cookies() {
       title="Cookie"
       titleAccent="Policy"
       subtitle="A short, honest explanation of what we store in your browser, and why."
-      lastUpdated="15 April 2026"
+      lastUpdated="18 April 2026"
       metaDescription="What cookies and local storage VetMyBuilder uses, and your choices."
       sections={sections}
     />

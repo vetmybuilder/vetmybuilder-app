@@ -1,6 +1,7 @@
 // web/components/ReportModal.tsx
 import { useState } from "react";
 import { useApi } from "@/utils/api";
+import { trackReportSubmitted } from "@/utils/analytics";
 
 type TargetType = "profile" | "recommendation" | "photo";
 
@@ -40,6 +41,7 @@ export default function ReportModal({ targetType, targetId, onClose }: Props) {
         category,
         detail: detail.trim() || undefined,
       });
+      trackReportSubmitted(targetType, category);
       setSubmitted(true);
     } catch (err: any) {
       const code = err?.response?.data?.error;

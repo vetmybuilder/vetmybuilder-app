@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/utils/auth";
 import FileGridUploader from "@/components/fileUpload/FileGridUploader";
+import { trackRecommendationMade } from "@/utils/analytics";
 
 type Project = {
   id: number;
@@ -282,6 +283,7 @@ export default function RecommendOnPlatform() {
 
       if (!recommendationId) throw new Error("Could not save recommendation");
 
+      trackRecommendationMade(Number(id), form.company);
       trackAnonymousRecommendation(recommendationId);
       setNotice("Thanks! Your recommendation has been submitted.");
       setTimeout(() => successRef.current?.focus(), 0);
