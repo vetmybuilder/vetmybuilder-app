@@ -15,7 +15,7 @@ const TAG = "[googlePlaces]";
 // -------------------------------------
 // Logger (module-level)
 // -------------------------------------
-const QUIET = (process.env.LOG_LEVEL || "info") === "warn" || (process.env.LOG_LEVEL || "info") === "error";
+const QUIET = ["warn", "error", "fatal", "silent"].includes(process.env.LOG_LEVEL || "info");
 const log = {
   info: (...a) => { if (!QUIET) console.log(...a); },
   warn: (...a) => console.warn(...a),
