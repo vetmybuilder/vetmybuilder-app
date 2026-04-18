@@ -347,7 +347,7 @@ export default function RecommendOnPlatform() {
 
         <div className="relative z-10 mx-auto max-w-2xl px-4 sm:px-6 lg:px-8 pt-20 pb-10">
 
-          {!isProjectUnavailable && allowed === null && (
+          {!isProjectUnavailable && !project && (
             <div
               className="bg-white/95 backdrop-blur rounded-3xl shadow-xl p-8 text-center"
               data-testid="recommend-loading"
