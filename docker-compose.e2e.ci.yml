@@ -59,6 +59,7 @@ services:
     environment:
       DOCKER: "1"
       TEST_ENV: "e2e"
+      LOG_LEVEL: "error"
       SQLITE_ENABLED: "0"
       FIREBASE_AUTH_EMULATOR_HOST: "firebase:9099"
       NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: "firebase:9099"
@@ -93,7 +94,7 @@ services:
     env_file:
       - path: ./web/.env.local
         required: false
-    command: sh -lc "cd web && npx next dev -H 0.0.0.0 -p 3000"
+    command: sh -lc "cd web && npx next dev -H 0.0.0.0 -p 3000 2>&1 | grep -v '^ \|GET \|POST \|PUT \|DELETE \|PATCH \|Compiled\|Compiling'"
     restart: unless-stopped
     depends_on:
       firebase:

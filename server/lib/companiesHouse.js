@@ -21,8 +21,9 @@ const TAG = "[CH]";
 // -------------------------------------------------------
 // Local logger (module-level). Routes may wrap calls with ctx.log.
 // -------------------------------------------------------
+const QUIET = ["warn", "error", "fatal", "silent"].includes(process.env.LOG_LEVEL || "info");
 const log = {
-  info: (...a) => console.log(...a),
+  info: (...a) => { if (!QUIET) console.log(...a); },
   warn: (...a) => console.warn(...a),
   error: (...a) => console.error(...a),
 };

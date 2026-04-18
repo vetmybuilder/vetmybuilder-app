@@ -9,6 +9,7 @@ type ApiResponse = {
 type ApiClient = {
   post: (path: string, payload?: any) => Promise<ApiResponse>;
   get: (path: string) => Promise<ApiResponse>;
+  del?: (path: string) => Promise<ApiResponse>;
 };
 
 /**
@@ -146,6 +147,46 @@ export class AdminApi {
     const row = await this.findRecommendationInLeaderboard(recommendationId);
     expect(typeof row.score).toBe("number");
     return row.score;
+  }
+
+  // ─── Admin projects ───────────────────────────────────────────────
+
+  async getProjects(query?: string): Promise<{ items: any[]; total: number }> {
+    const qs = query ? `?${query}` : "";
+    const res = await this.apiClient.get(`/api/admin/projects${qs}`);
+    expect(res.status()).toBe(200);
+    return res.json();
+  }
+
+  async deleteProject(projectId: number): Promise<void> {
+    if (!this.apiClient.del) throw new Error("ApiClient missing del method");
+    const res = await this.apiClient.del(`/api/admin/projects/${projectId}`);
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+  }
+
+  async expectProjectNotInList(projectId: number): Promise<void> {
+    const { items } = await this.getProjects();
+    const found = items.find((p) => p.id === projectId);
+    expect(found, `Project ${projectId} should not appear in admin list`).toBeFalsy();
+  }
+
+  async expectProjectInList(projectId: number): Promise<any> {
+    const { items } = await this.getProjects();
+    const found = items.find((p) => p.id === projectId);
+    expect(found, `Project ${projectId} should appear in admin list`).toBeTruthy();
+    return found;
+  }
+
+  // ─── Admin user delete ────────────────────────────────────────────
+
+  async deleteUser(uid: string): Promise<void> {
+    if (!this.apiClient.del) throw new Error("ApiClient missing del method");
+    const res = await this.apiClient.del(`/api/admin/users/${uid}`);
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
   }
 }
 

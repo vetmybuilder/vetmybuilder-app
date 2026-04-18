@@ -24,9 +24,7 @@ test.describe("GET /api/notifications/preferences", () => {
 
 test.describe("PUT /api/notifications/preferences", () => {
   test("updates a preference", async ({ apiClient }) => {
-    const putRes = await apiClient.put("/api/notifications/preferences", {
-      data: { hire_updates: false },
-    });
+    const putRes = await apiClient.put("/api/notifications/preferences", { hire_updates: false });
     expect(putRes.status()).toBe(200);
     const putBody = await putRes.json();
     expect(putBody.ok).toBe(true);
@@ -42,9 +40,7 @@ test.describe("PUT /api/notifications/preferences", () => {
   });
 
   test("rejects invalid category", async ({ apiClient }) => {
-    const res = await apiClient.put("/api/notifications/preferences", {
-      data: { invalid_category: true },
-    });
+    const res = await apiClient.put("/api/notifications/preferences", { invalid_category: true });
     expect(res.status()).toBe(400);
     const body = await res.json();
     expect(body.error).toBe("invalid_categories");

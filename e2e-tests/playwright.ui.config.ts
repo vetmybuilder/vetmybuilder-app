@@ -50,8 +50,8 @@ export default defineConfig({
   // Browser Axios uses relative /api paths, so requests always go to the same
   // origin (the proxy), keeping the Authorization header intact.
   workers: process.env.PW_WORKERS ? Number(process.env.PW_WORKERS) : 2,
-  timeout: Number(process.env.PW_TIMEOUT ?? 90_000),
-  retries: 2,
+  timeout: Number(process.env.PW_TIMEOUT ?? 60_000),
+  retries: 1,
   reporter: [["list"], ["html", { open: "never" }]],
 
   ...(SHOULD_START_WEB_SERVER
@@ -72,7 +72,7 @@ export default defineConfig({
     headless: isHeadless(),
     storageState: undefined,
     contextOptions: { serviceWorkers: "block" },
-    launchOptions: { slowMo: process.env.CI ? 0 : 150 },
+    launchOptions: { slowMo: 0 },
     trace: "retain-on-failure",
     video: "retain-on-failure",
     screenshot: "only-on-failure",
@@ -87,7 +87,6 @@ export default defineConfig({
         baseURL: BASE_URL,
         viewport: null,
         launchOptions: {
-          slowMo: process.env.CI ? 0 : 150,
           args: [
             windowSizeArg(DESKTOP_VIEWPORT.width, DESKTOP_VIEWPORT.height),
           ],
@@ -98,6 +97,7 @@ export default defineConfig({
       name: "ui-mobile-webkit-iphone",
       testMatch: /tests\/ui\//,
       testIgnore: /tests\/ui\/admin\//,
+      timeout: 90_000,
       use: {
         ...devices["iPhone 14"],
         browserName: "webkit",
