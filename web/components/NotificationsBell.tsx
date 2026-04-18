@@ -126,7 +126,6 @@ export default function NotificationsBell() {
         const url = `${sseBase}/api/notifications/stream?limit=${NOTIF_LIMIT}&token=${encodeURIComponent(
           token,
         )}`;
-        console.log("[SSE-DEBUG] connecting to", url.slice(0, 80));
         const es = new EventSource(url);
         esRef.current = es;
 
@@ -183,8 +182,11 @@ export default function NotificationsBell() {
           }
         });
 
-        // Let EventSource auto-reconnect on errors — don't close it
-        es.onerror = () => {};
+        // Close on error to prevent infinite reconnect loops (e.g. 401 for guests)
+        es.onerror = () => {
+          es.close();
+          esRef.current = null;
+        };
       } catch {
         /* ignore */
       }
