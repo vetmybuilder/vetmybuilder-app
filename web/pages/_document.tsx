@@ -11,8 +11,9 @@ export default function Document() {
         <link rel="preconnect" href="https://plus.unsplash.com" />
         {/* PWA manifest + home screen icon */}
         <link rel="manifest" href="/manifest.json" />
+        <link rel="icon" href="/icon-192.png" type="image/png" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="VetMyBuilder" />
       </Head>

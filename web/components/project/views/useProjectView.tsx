@@ -197,7 +197,8 @@ export function useProjectView() {
   const refreshRecs = useCallback(() => setRecsRefreshKey((k) => k + 1), []);
 
   useEffect(() => {
-    if (!project?.id || isTrades) return;
+    // Guests (no user) can't fetch recommendations — skip to avoid 401/404
+    if (!project?.id || isTrades || !user) return;
     let dead = false;
     const go = async () => {
       setRecsErr(null);
