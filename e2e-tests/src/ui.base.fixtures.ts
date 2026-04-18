@@ -105,6 +105,10 @@ export const test = base.extend<UiFixtures, { runtime: Runtime }>({
       domain: url.hostname,
       path: "/",
     }]);
+    // Suppress the "Add to home screen" toast in all tests
+    await ctx.addInitScript(() => {
+      localStorage.setItem("vmb:homeScreenPromptShown", "1");
+    });
     await use(ctx);
     await ctx.close().catch(() => {});
   },

@@ -65,38 +65,38 @@ test.describe("Project publish journey", () => {
     await projectDetailsPage.hasHomeownerProjectDetails(created.id, project);
   });
 
-  // test("neighbour cannot view project if in different location", async ({
-  //   accountApi,
-  //   projectApi,
-  //   loginPage,
-  //   projectsPage,
-  //   page,
-  // }) => {
-  //   // Owner in E4
-  //   const owner = Account.anAccount().withRandomDetails().withLocation("E4");
-  //   await accountApi.createAccount(owner.toApiPayload());
+  test("neighbour in a different area does not see the project in their community tab", async ({
+    request,
+    runtime,
+    projectApi,
+    loginPage,
+    homeownerProjectsPage,
+  }) => {
+    const password = "Passw0rd!";
 
-  //   const project = Project.aProject()
-  //     .withRandomDetails()
-  //     .withLocation("E4");
+    // Project in E4
+    const project = Project.aProject().withRandomDetails({ locationQuery: "E4", locationPick: "E4" });
+    const created = await projectApi.createProject(project.toApiPayload());
+    await projectApi.publishProject(created.id);
 
-  //   const created = await projectApi.createProject(project.toApiPayload());
-  //   await projectApi.publishProject(created.id);
+    // Close the project so it appears in the completed/community tab
+    await projectApi.closeProject(created.id, { didGoAhead: false, reasons: ["budget"] });
 
-  //   // Neighbour in different location
-  //   const neighbour = Account.anAccount()
-  //     .withRandomDetails()
-  //     .withLocation("SW1");
+    // Neighbour in SW1 — different area
+    const neighbour = Account.anAccount()
+      .withRandomDetails()
+      .withLocation("SW1")
+      .withEmail(`far-neighbour+${Date.now()}@test.com`)
+      .withPassword(password);
 
-  //   await accountApi.createAccount(neighbour.toApiPayload());
+    const neighbourAuth = await createAuthUser(neighbour.email!, neighbour.password!);
+    const neighbourClient = await authedApiForUid(request, runtime.apiBaseUrl, neighbourAuth.uid);
+    await AuthApi.signup(neighbourClient, neighbour);
 
-  //   await loginPage.login(neighbour);
+    await loginPage.loginExpectSuccess(neighbour.email!, neighbour.password!);
+    await homeownerProjectsPage.gotoTab("completedCommunity");
 
-  //   await projectsPage.goto();
-
-  //   // Project should not appear
-  //   await expect(
-  //     projectsPage.projectCard(created.id)
-  //   ).not.toBeVisible();
-  // });
+    // Project should not appear for a neighbour in a different area
+    await homeownerProjectsPage.hasNoCompletedCard(created.id);
+  });
 });

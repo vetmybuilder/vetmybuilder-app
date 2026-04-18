@@ -2,7 +2,6 @@ import { test, expect } from "../../../src/ui.fixtures";
 import Account from "../../../src/models/Account";
 import {
   createAuthUser,
-  deleteAuthUserByEmail,
 } from "../../../src/helpers/FirebaseSeed";
 
 test.describe("Homeowner registration", () => {
@@ -19,9 +18,7 @@ test.describe("Homeowner registration", () => {
     await homeownerProjectsPage.expectVisible();
     await homeownerProjectsPage.assertSafetyVerificationCardVisible();
     await homeownerProjectsPage.assertFiltersVisible();
-    await expect(siteHeader.initialsBadge(account.initials)).toBeVisible({
-      timeout: 15_000,
-    });
+    await siteHeader.assertInitials(account.initials);
   });
 
   test("shows validation errors when submitting blank registration form", async ({

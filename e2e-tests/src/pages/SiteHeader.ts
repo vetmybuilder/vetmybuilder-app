@@ -134,6 +134,9 @@ export class SiteHeader {
   }
 
   async assertInitials(initials: string) {
+    // Initials badge was removed from mobile — only assert on desktop
+    const vp = this.page.viewportSize();
+    if (vp && vp.width < 768) return;
     await expect(this.initialsBadge(initials)).toBeVisible({ timeout: 15_000 });
   }
 

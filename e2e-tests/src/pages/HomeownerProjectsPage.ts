@@ -87,6 +87,10 @@ export class HomeownerProjectsPage {
     });
   }
 
+  async hasNoCompletedCard(projectId: string | number) {
+    await expect(this.findCompletedCardById(projectId)).not.toBeVisible();
+  }
+
   async clickBuilderLink(projectId: string | number) {
     const link = this.page.getByTestId(`link-${String(projectId)}-tradesman`);
     await expect(link).toBeVisible({ timeout: 10_000 });

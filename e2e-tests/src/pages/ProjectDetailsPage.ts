@@ -168,13 +168,8 @@ export class ProjectDetailsPage extends BasePage {
           return { ok: false, reason: "waiting for details controls" };
         },
         {
-          // Bumped from 45s to 90s for mobile-webkit on docker CI: the
-          // page mounts via a chain of async data fetches (project +
-          // role + recommendations) and on a constrained webkit worker
-          // 45s isn't always enough. Chromium passes in <5s so the
-          // higher ceiling is invisible there.
-          timeout: 90_000,
-          intervals: [200, 300, 500, 800, 1200, 2000],
+          timeout: 30_000,
+          intervals: [200, 300, 500, 1000],
           message:
             "Project details page did not become ready (project-view-page rendered but details controls never appeared).",
         },
@@ -227,8 +222,14 @@ export class ProjectDetailsPage extends BasePage {
   }
 
   async goBack() {
-    await expect(this.backLink).toBeVisible();
-    await this.backLink.click();
+    const vp = this.page.viewportSize();
+    if (vp && vp.width < 640) {
+      // Back link is hidden on mobile — navigate directly
+      await this.page.goto("/projects");
+    } else {
+      await expect(this.backLink).toBeVisible();
+      await this.backLink.click();
+    }
     await expect(this.page).toHaveURL(/\/projects$/);
   }
 
@@ -273,7 +274,11 @@ export class ProjectDetailsPage extends BasePage {
       (url) => url.pathname === `/projects/${projectId}`,
     );
     await this.waitUntilReady();
-    await expect(this.backLink).toBeVisible();
+    // Back link is hidden on mobile (hidden sm:inline-flex)
+    const vp = this.page.viewportSize();
+    if (!vp || vp.width >= 640) {
+      await expect(this.backLink).toBeVisible();
+    }
     await expect(this.closeThisJobButton).toBeVisible();
 
     if (opts?.dates) {
@@ -445,6 +450,7 @@ export class ProjectDetailsPage extends BasePage {
       .first();
 
     await expect(recommendationCard).toBeVisible();
+    await recommendationCard.scrollIntoViewIfNeeded();
     await recommendationCard.click();
   }
 
