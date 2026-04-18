@@ -86,9 +86,9 @@ test.describe("Report button presence and submission", () => {
       Recommendation.aRecommendation().withRandomDetails().toPayload(),
     );
 
-    await page.goto(`/projects/${project.id}`);
+    await page.goto(`/projects/${project.id}/shortlist`);
 
-    await expect(page.getByTestId("project-shortlist")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("recommendations-list")).toBeVisible({ timeout: 15_000 });
 
     const reportLink = page.getByTestId("btn-report-recommendation").first();
     await expect(reportLink).toBeVisible();
