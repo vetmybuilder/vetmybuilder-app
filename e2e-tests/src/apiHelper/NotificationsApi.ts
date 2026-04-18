@@ -12,6 +12,8 @@ type ApiResponse = {
 
 type ApiClient = {
   get: (path: string) => Promise<ApiResponse>;
+  post: (path: string, data?: any) => Promise<ApiResponse>;
+  del: (path: string) => Promise<ApiResponse>;
 };
 
 export type NotificationItem = {
@@ -59,6 +61,84 @@ export class NotificationsApi {
   async findAllByType(type: string): Promise<NotificationItem[]> {
     const { items } = await this.list();
     return items.filter((n) => n.type === type);
+  }
+
+  // ─── Mutations ────────────────────────────────────────────────────
+
+  async markAsRead(id: number): Promise<void> {
+    const res = await this.apiClient.post(`/api/notifications/${id}/read`);
+    expect(res.status(), `Mark notification ${id} as read`).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+  }
+
+  async dismiss(id: number): Promise<void> {
+    const res = await this.apiClient.del(`/api/notifications/${id}`);
+    expect(res.status(), `Dismiss notification ${id}`).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+  }
+
+  // ─── Assertions ───────────────────────────────────────────────────
+
+  async expectUnreadCount(expected: number): Promise<void> {
+    const { unread } = await this.list();
+    expect(unread, `Expected ${expected} unread notifications`).toBe(expected);
+  }
+
+  async expectNotificationExists(id: number): Promise<NotificationItem> {
+    const { items } = await this.list();
+    const found = items.find((n) => n.id === id);
+    expect(found, `Notification ${id} should exist`).toBeTruthy();
+    return found!;
+  }
+
+  async expectNotificationGone(id: number): Promise<void> {
+    const { items } = await this.list();
+    const found = items.find((n) => n.id === id);
+    expect(found, `Notification ${id} should not exist`).toBeFalsy();
+  }
+
+  async expectNotificationRead(id: number): Promise<void> {
+    const n = await this.expectNotificationExists(id);
+    expect(n.readAt, `Notification ${id} should have a readAt timestamp`).toBeTruthy();
+  }
+
+  async expectNotificationUnread(id: number): Promise<void> {
+    const n = await this.expectNotificationExists(id);
+    expect(n.readAt, `Notification ${id} should not have a readAt timestamp`).toBeNull();
+  }
+
+  /**
+   * Polls until a notification of the given type appears, or times out.
+   * Useful for fire-and-forget notifications that involve async work (LLM enrichment, etc.).
+   */
+  async waitForType(
+    type: string,
+    { timeoutMs = 10_000, intervalMs = 500 } = {},
+  ): Promise<NotificationItem> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const found = await this.findLatestByType(type);
+      if (found) return found;
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+    throw new Error(`Notification of type "${type}" did not appear within ${timeoutMs}ms`);
+  }
+
+  /**
+   * Polls until a notification of the given type appears, then waits a settle
+   * period and returns the final count. Used for dedup assertions.
+   */
+  async waitAndCountByType(
+    type: string,
+    { waitMs = 10_000, settleMs = 2_000, intervalMs = 500 } = {},
+  ): Promise<NotificationItem[]> {
+    // First wait for at least one to appear
+    await this.waitForType(type, { timeoutMs: waitMs, intervalMs });
+    // Then settle to let any duplicates arrive
+    await new Promise((r) => setTimeout(r, settleMs));
+    return this.findAllByType(type);
   }
 }
 

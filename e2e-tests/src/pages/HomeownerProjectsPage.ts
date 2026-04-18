@@ -36,14 +36,14 @@ export class HomeownerProjectsPage {
 
     this.safetyAccordion = page.getByTestId("projects-safety-card");
     this.safetyHeading = page.getByRole("heading", {
-      name: /Safety & verification on VetMyBuilder/i,
+      name: /Safety & verification/i,
     });
     this.safetyDescription = page.getByText(
       /We combine official checks with community signals/i,
     );
 
-    this.companiesHouseRow = page.getByText(/Companies House checks\./i);
-    this.vmbScoreRow = page.getByText(/VMB score & badges\./i);
+    this.companiesHouseRow = page.getByText(/Verified businesses/i);
+    this.vmbScoreRow = page.getByText(/Trust score/i);
     this.tipRow = page.getByText(/Always ask for a written quote/i);
 
     this.filterByLabel = page.getByText(/^Filter by$/i);
@@ -230,6 +230,41 @@ export class HomeownerProjectsPage {
 
   async hasNoProject(projectId: string | number) {
     await expect(this.findProjectCardById(projectId)).not.toBeVisible();
+  }
+
+  // ─── Favourites tab ───────────────────────────────────────────────
+
+  private get favouritesSection(): Locator {
+    return this.page.getByTestId("favourites-tradesmen-section");
+  }
+
+  private get favouritesEmpty(): Locator {
+    return this.page.getByTestId("favourites-empty");
+  }
+
+  private get favouriteCards(): Locator {
+    return this.page.getByTestId("favourite-tradesman-card");
+  }
+
+  async expectFavouritesEmpty() {
+    await expect(this.favouritesSection).toBeVisible({ timeout: 15_000 });
+    await expect(this.favouritesEmpty).toBeVisible();
+    await expect(this.favouritesEmpty).toContainText("haven't saved any builders");
+  }
+
+  async expectFavouriteCardVisible(companyName: string) {
+    await expect(this.favouritesSection).toBeVisible({ timeout: 15_000 });
+    const card = this.favouriteCards.filter({ hasText: companyName }).first();
+    await expect(card).toBeVisible({ timeout: 15_000 });
+  }
+
+  async clickFirstFavouriteCard() {
+    await expect(this.favouriteCards.first()).toBeVisible({ timeout: 15_000 });
+    await this.favouriteCards.first().click();
+  }
+
+  async expectNavigatedToTradesmanProfile() {
+    await expect(this.page).toHaveURL(/\/tradesman\//, { timeout: 15_000 });
   }
 }
 

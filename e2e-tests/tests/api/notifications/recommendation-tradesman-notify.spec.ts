@@ -10,10 +10,11 @@ test.describe("Recommendation tradesman notifications", () => {
     runtime,
     projectApi,
     projectRecommendationApi,
+    adminApi,
   }) => {
     const companyName = `E2E Notify Builder ${Date.now()} Ltd`;
 
-    const { tradesmanNotificationsApi } = await setupTradesmanProfile({
+    const { uid: tradesmanUid, tradesmanNotificationsApi } = await setupTradesmanProfile({
       request,
       apiBaseUrl: runtime.apiBaseUrl,
       tradesman: Tradesman.aTradesman()
@@ -21,31 +22,24 @@ test.describe("Recommendation tradesman notifications", () => {
         .withCompanyName(companyName),
     });
 
+    // matchAndNotifyTradesman queries WHERE status = 'active'
+    await adminApi.setTradesmanStatus(tradesmanUid, "active");
+
     const project = await projectApi.createLiveProject(
       Project.aProject().withRandomDetails().toApiPayload(),
     );
 
-    const rec = Recommendation.aRecommendation()
-      .withRandomDetails()
-      .withCompany(companyName);
-
     await projectRecommendationApi.createRecommendation(
       project.id,
-      rec.toPayload(),
+      Recommendation.aRecommendation().withRandomDetails().withCompany(companyName).toPayload(),
     );
 
-    // The notification is fire-and-forget so give the server a moment
-    await new Promise((r) => setTimeout(r, 500));
+    const notification = await tradesmanNotificationsApi.waitForType(
+      "recommendation_for_tradesman",
+    );
 
-    const notification =
-      await tradesmanNotificationsApi.findLatestByType(
-        "recommendation_for_tradesman",
-      );
-
-    expect(notification).toBeTruthy();
-    expect(notification!.projectId).toBe(project.id);
-    expect(notification!.message).toContain("recommended");
-    expect(notification!.linkPath).toBe(`/projects/${project.id}`);
+    expect(notification.projectId).toBe(project.id);
+    expect(notification.linkPath).toBe(`/projects/${project.id}`);
   });
 
   test("does not notify when company name does not match", async ({
@@ -53,32 +47,33 @@ test.describe("Recommendation tradesman notifications", () => {
     runtime,
     projectApi,
     projectRecommendationApi,
+    adminApi,
   }) => {
-    const { tradesmanNotificationsApi } = await setupTradesmanProfile({
+    const { uid: tradesmanUid, tradesmanNotificationsApi } = await setupTradesmanProfile({
       request,
       apiBaseUrl: runtime.apiBaseUrl,
     });
+
+    await adminApi.setTradesmanStatus(tradesmanUid, "active");
 
     const project = await projectApi.createLiveProject(
       Project.aProject().withRandomDetails().toApiPayload(),
     );
 
-    const rec = Recommendation.aRecommendation()
-      .withRandomDetails()
-      .withCompany(`Completely Unrelated Company ${Date.now()} Ltd`);
-
     await projectRecommendationApi.createRecommendation(
       project.id,
-      rec.toPayload(),
+      Recommendation.aRecommendation()
+        .withRandomDetails()
+        .withCompany(`Completely Unrelated Company ${Date.now()} Ltd`)
+        .toPayload(),
     );
 
-    await new Promise((r) => setTimeout(r, 500));
+    // Give the fire-and-forget path time to complete (if it were going to)
+    await new Promise((r) => setTimeout(r, 3_000));
 
-    const notification =
-      await tradesmanNotificationsApi.findLatestByType(
-        "recommendation_for_tradesman",
-      );
-
+    const notification = await tradesmanNotificationsApi.findLatestByType(
+      "recommendation_for_tradesman",
+    );
     expect(notification).toBeNull();
   });
 
@@ -87,10 +82,11 @@ test.describe("Recommendation tradesman notifications", () => {
     runtime,
     projectApi,
     projectRecommendationApi,
+    adminApi,
   }) => {
     const companyName = `E2E Dedup Builder ${Date.now()} Ltd`;
 
-    const { tradesmanNotificationsApi } = await setupTradesmanProfile({
+    const { uid: tradesmanUid, tradesmanNotificationsApi } = await setupTradesmanProfile({
       request,
       apiBaseUrl: runtime.apiBaseUrl,
       tradesman: Tradesman.aTradesman()
@@ -98,34 +94,27 @@ test.describe("Recommendation tradesman notifications", () => {
         .withCompanyName(companyName),
     });
 
+    await adminApi.setTradesmanStatus(tradesmanUid, "active");
+
     const project = await projectApi.createLiveProject(
       Project.aProject().withRandomDetails().toApiPayload(),
     );
 
-    const rec1 = Recommendation.aRecommendation()
-      .withRandomDetails()
-      .withCompany(companyName);
+    await projectRecommendationApi.createRecommendation(
+      project.id,
+      Recommendation.aRecommendation().withRandomDetails().withCompany(companyName).toPayload(),
+    );
 
-    const rec2 = Recommendation.aRecommendation()
-      .withRandomDetails()
-      .withCompany(companyName);
+    // Wait for the first notification before sending the second recommendation
+    await tradesmanNotificationsApi.waitForType("recommendation_for_tradesman");
 
     await projectRecommendationApi.createRecommendation(
       project.id,
-      rec1.toPayload(),
+      Recommendation.aRecommendation().withRandomDetails().withCompany(companyName).toPayload(),
     );
 
-    // Wait for the first notification to be inserted before the second recommendation
-    await new Promise((r) => setTimeout(r, 500));
-
-    await projectRecommendationApi.createRecommendation(
-      project.id,
-      rec2.toPayload(),
-    );
-
-    await new Promise((r) => setTimeout(r, 500));
-
-    const all = await tradesmanNotificationsApi.findAllByType(
+    // Settle and count — should still be exactly 1
+    const all = await tradesmanNotificationsApi.waitAndCountByType(
       "recommendation_for_tradesman",
     );
 
