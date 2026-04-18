@@ -102,7 +102,6 @@ export default function RecommendOnPlatform() {
     phone: "",
     company: "",
     companyEmail: "",
-    hireAgain: "yes" as "yes" | "no",
     comment: "",
   });
   const [lockIdentity, setLockIdentity] = useState(false);
@@ -253,7 +252,7 @@ export default function RecommendOnPlatform() {
     setSubmitting(true);
 
     try {
-      const rating = form.hireAgain === "yes" ? 5 : 1;
+      const rating = 5;
       let recommendationId: number | undefined;
 
       if (photos.length > 0) {
@@ -287,11 +286,9 @@ export default function RecommendOnPlatform() {
       setNotice("Thanks! Your recommendation has been submitted.");
       setTimeout(() => successRef.current?.focus(), 0);
 
-      if (form.hireAgain === "yes") {
-        try {
-          await api.post(`/api/recommendations/${recommendationId}/like`);
-        } catch {}
-      }
+      try {
+        await api.post(`/api/recommendations/${recommendationId}/like`);
+      } catch {}
 
       setTimeout(() => {
         if (!user) {
@@ -504,20 +501,6 @@ export default function RecommendOnPlatform() {
                     aria-describedby={fieldErrors.phone ? "recommend-phone-error" : undefined}
                   />
                   <FieldError id="recommend-phone-error" message={fieldErrors.phone} />
-                </div>
-
-                <div>
-                  <label htmlFor="recommend-hire-again" className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      id="recommend-hire-again"
-                      data-testid="recommend-hire-again"
-                      type="checkbox"
-                      checked={form.hireAgain === "yes"}
-                      onChange={(e) => set("hireAgain", e.target.checked ? "yes" : "no")}
-                      className="h-5 w-5 accent-red-500"
-                    />
-                    <span className="text-sm font-bold text-zinc-900">Yes, I would hire them again</span>
-                  </label>
                 </div>
 
                 <div>
