@@ -95,8 +95,6 @@ export default function RecommendOnPlatform() {
   const [pageError, setPageError] = useState<string | null>(null);
 
   const [photos, setPhotos] = useState<File[]>([]);
-  // Photo consent (Acceptable Use Policy) - submit blocked when photos
-  // are attached but consent not granted.
   const [photoConsent, setPhotoConsent] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -112,7 +110,6 @@ export default function RecommendOnPlatform() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [notice, setNotice] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  // null = still checking, true = allowed, false = redirecting away
   const [allowed, setAllowed] = useState<boolean | null>(null);
 
   const successRef = useRef<HTMLDivElement>(null);
@@ -134,18 +131,15 @@ export default function RecommendOnPlatform() {
     })();
   }, [api, id]);
 
-  // Gate: only set allowed=true once we've confirmed the user can see the form
   useEffect(() => {
     if (authLoading || loading || !project) return;
 
-    // Owner → redirect
     if (user && project.ownerUserId === user.uid) {
       router.replace(`/projects/${project.id}`);
       return;
     }
 
     if (user) {
-      // Tradesman → redirect
       (async () => {
         try {
           const { data } = await api.get("/api/tradesmen/me");
@@ -157,7 +151,6 @@ export default function RecommendOnPlatform() {
         setAllowed(true);
       })();
     } else {
-      // Guest → allowed
       setAllowed(true);
     }
   }, [authLoading, loading, user, project, api, router]);
@@ -169,13 +162,9 @@ export default function RecommendOnPlatform() {
       (async () => {
         try {
           const me = await api.get("/api/me");
-
           const email: string = me?.data?.email ?? me?.data?.user?.email ?? "";
-          const first: string =
-            me?.data?.firstName ?? me?.data?.user?.firstName ?? "";
-          const last: string =
-            me?.data?.lastName ?? me?.data?.user?.lastName ?? "";
-
+          const first: string = me?.data?.firstName ?? me?.data?.user?.firstName ?? "";
+          const last: string = me?.data?.lastName ?? me?.data?.user?.lastName ?? "";
           const fullName = [first, last].filter(Boolean).join(" ");
 
           setForm((f) => ({
@@ -195,7 +184,6 @@ export default function RecommendOnPlatform() {
 
   const set = (key: string, value: any) => {
     setForm((prev) => ({ ...prev, [key]: value }));
-    // Clear that field's error as the user edits it
     if (fieldErrors[key as FieldKey]) {
       setFieldErrors((prev) => {
         const next = { ...prev };
@@ -207,39 +195,16 @@ export default function RecommendOnPlatform() {
 
   const validate = (): FieldErrors => {
     const errs: FieldErrors = {};
-
-    if (!form.name.trim()) {
-      errs.name = "Please enter your name.";
-    }
-
-    if (form.email.trim() && !isValidEmail(form.email)) {
-      errs.email = "Please enter a valid email address.";
-    }
-
-    if (!form.company.trim()) {
-      errs.company = "Please enter the company name.";
-    }
-
-    if (form.companyEmail.trim() && !isValidEmail(form.companyEmail)) {
-      errs.companyEmail = "Please enter a valid email address.";
-    }
-
-    if (form.comment.trim().length < 10) {
-      errs.comment = "Comment should be at least 10 characters.";
-    }
-
+    if (!form.name.trim()) errs.name = "Please enter your name.";
+    if (form.email.trim() && !isValidEmail(form.email)) errs.email = "Please enter a valid email address.";
+    if (!form.company.trim()) errs.company = "Please enter the company name.";
+    if (form.companyEmail.trim() && !isValidEmail(form.companyEmail)) errs.companyEmail = "Please enter a valid email address.";
+    if (form.comment.trim().length < 10) errs.comment = "Comment should be at least 10 characters.";
     return errs;
   };
 
   const focusFirstError = (errs: FieldErrors) => {
-    const order: FieldKey[] = [
-      "name",
-      "email",
-      "company",
-      "companyEmail",
-      "phone",
-      "comment",
-    ];
+    const order: FieldKey[] = ["name", "email", "company", "companyEmail", "phone", "comment"];
     const first = order.find((k) => errs[k]);
     if (!first) return;
     const el = document.getElementById(`recommend-${kebab(first)}`);
@@ -253,7 +218,6 @@ export default function RecommendOnPlatform() {
 
   const trackAnonymousRecommendation = (recommendationId: number) => {
     if (user || !project) return;
-
     const entry: AnonymousRecommendationTracking = {
       recommendationId,
       projectId: project.id,
@@ -263,20 +227,10 @@ export default function RecommendOnPlatform() {
       email: form.email.trim() || undefined,
       company: form.company.trim(),
     };
-
     try {
       const raw = localStorage.getItem(ANON_RECOMMENDATIONS_KEY);
-      const existing: AnonymousRecommendationTracking[] = raw
-        ? JSON.parse(raw)
-        : [];
-
-      const next = [
-        entry,
-        ...existing.filter(
-          (item) => item.recommendationId !== entry.recommendationId,
-        ),
-      ].slice(0, 20);
-
+      const existing: AnonymousRecommendationTracking[] = raw ? JSON.parse(raw) : [];
+      const next = [entry, ...existing.filter((item) => item.recommendationId !== entry.recommendationId)].slice(0, 20);
       localStorage.setItem(ANON_RECOMMENDATIONS_KEY, JSON.stringify(next));
       sessionStorage.setItem("vmb:returnTo", `/projects/${project.id}`);
     } catch {}
@@ -300,7 +254,6 @@ export default function RecommendOnPlatform() {
 
     try {
       const rating = form.hireAgain === "yes" ? 5 : 1;
-
       let recommendationId: number | undefined;
 
       if (photos.length > 0) {
@@ -313,11 +266,7 @@ export default function RecommendOnPlatform() {
         fd.set("rating", String(rating));
         fd.set("comment", form.comment);
         photos.forEach((file) => fd.append("photos", file));
-
-        const { data } = await api.post(
-          `/api/projects/${id}/recommendations`,
-          fd,
-        );
+        const { data } = await api.post(`/api/projects/${id}/recommendations`, fd);
         recommendationId = data?.recommendationId;
       } else {
         const { data } = await api.post(`/api/projects/${id}/recommendations`, {
@@ -332,12 +281,9 @@ export default function RecommendOnPlatform() {
         recommendationId = data?.recommendationId;
       }
 
-      if (!recommendationId) {
-        throw new Error("Could not save recommendation");
-      }
+      if (!recommendationId) throw new Error("Could not save recommendation");
 
       trackAnonymousRecommendation(recommendationId);
-
       setNotice("Thanks! Your recommendation has been submitted.");
       setTimeout(() => successRef.current?.focus(), 0);
 
@@ -355,22 +301,14 @@ export default function RecommendOnPlatform() {
         }
       }, 500);
     } catch (e: any) {
-      // If the API returned Zod validation issues, map them back to field errors.
       const issues: any[] | undefined = e?.response?.data?.issues;
       if (Array.isArray(issues) && issues.length > 0) {
         const apiErrs: FieldErrors = {};
         for (const issue of issues) {
           const path = Array.isArray(issue?.path) ? issue.path[0] : null;
           if (typeof path !== "string") continue;
-          const friendly =
-            issue?.message === "Invalid email"
-              ? "Please enter a valid email address."
-              : issue?.message || "Invalid value.";
-          if (
-            ["name", "email", "phone", "company", "companyEmail", "comment"].includes(
-              path,
-            )
-          ) {
+          const friendly = issue?.message === "Invalid email" ? "Please enter a valid email address." : issue?.message || "Invalid value.";
+          if (["name", "email", "phone", "company", "companyEmail", "comment"].includes(path)) {
             apiErrs[path as FieldKey] = friendly;
           }
         }
@@ -380,73 +318,60 @@ export default function RecommendOnPlatform() {
           return;
         }
       }
-
-      // Fallback: top-level error banner
-      setFormError(
-        e?.response?.data?.error ||
-          e?.message ||
-          "Failed to submit recommendation",
-      );
+      setFormError(e?.response?.data?.error || e?.message || "Failed to submit recommendation");
       setTimeout(() => errorRef.current?.focus(), 0);
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Decide what kind of friendly screen to show when the project fetch
-  // failed. The server returns 401 for projects that don't exist or aren't
-  // visible to the current viewer (live + non-archived), and 404 for ids
-  // that genuinely don't match anything. Either way, the user experience
-  // should be a clear "this project isn't available" card — not a blank
-  // page or a raw HTTP error.
   const isProjectUnavailable = !loading && !!pageError && !project;
 
   return (
     <>
       <Head>
         <title>Recommend a tradesperson — VetMyBuilder</title>
-        <style>{`body { background: #fafaf9 !important; }`}</style>
       </Head>
 
-      <div className="relative min-h-screen overflow-hidden bg-stone-50 -mt-14">
-        {/* Background bands — always rendered so the page never flashes blank,
-            including during loading and on the error/unavailable state. */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
-          <div className="absolute bottom-0 -left-[30%] w-[70%] h-[60%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
+      <div className="relative min-h-screen overflow-x-hidden -mt-14">
+        {/* Builder background — matches the project detail page */}
+        <div className="absolute inset-0">
+          <img
+            src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=1600&q=80&auto=format"
+            alt=""
+            className="h-full w-full object-cover"
+            aria-hidden="true"
+          />
+          <div className="absolute inset-0 bg-stone-900/60" />
         </div>
 
         <div className="relative z-10 mx-auto max-w-2xl px-4 sm:px-6 lg:px-8 pt-20 pb-10">
 
-          {/* Loading state — gate is still resolving and we don't know yet
-              whether we'll show the form or an error card. */}
           {!isProjectUnavailable && allowed === null && (
             <div
-              className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 px-8 py-12 text-center"
+              className="bg-white/95 backdrop-blur rounded-3xl shadow-xl p-8 text-center"
               data-testid="recommend-loading"
             >
               <p className="text-sm font-medium text-zinc-500">Loading…</p>
             </div>
           )}
 
-          {/* Project unavailable (404 / 401 / network error). Show a clear
-              card explaining the situation rather than a blank page. */}
           {isProjectUnavailable && (
             <div
-              className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 px-8 py-10 text-center"
+              className="bg-white/95 backdrop-blur rounded-3xl shadow-xl p-8 sm:p-10 text-center"
               data-testid="recommend-project-unavailable"
             >
               <div className="mx-auto mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-2xl">
                 🔒
               </div>
               <h1 className="text-2xl font-black tracking-tight text-zinc-900">
-                This project isn't accepting recommendations
+                This project isn&apos;t accepting recommendations
               </h1>
               <p className="mt-3 text-sm text-zinc-500">
                 The project may have been closed, archived, or might not exist.
                 Double-check the link from the person who shared it with you.
               </p>
-              <div className="mt-6 flex items-center justify-center gap-3">
+              <div className="mt-6">
                 <a
                   href="/"
                   className="inline-flex items-center justify-center rounded-full bg-red-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] transition-all"
@@ -458,33 +383,27 @@ export default function RecommendOnPlatform() {
             </div>
           )}
 
-          {/* Page header card — happy path only. */}
           {allowed === true && project && (
-            <div className="mb-6 bg-white rounded-3xl shadow-xl shadow-zinc-200/60 px-8 py-6">
-              <h1 className="text-3xl font-black tracking-tight text-zinc-900">
-                Recommend for "{project.name}"
-              </h1>
-              <p className="mt-1 text-sm text-zinc-500">
-                Project location: {project.location}
-              </p>
-            </div>
-          )}
+            <div className="bg-white/95 backdrop-blur rounded-3xl shadow-xl p-6 sm:p-8 md:p-10">
+              {/* Header */}
+              <div className="mb-8">
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-zinc-900">
+                  Recommend a tradesperson
+                </h1>
+                <p className="mt-2 text-sm text-zinc-500">
+                  For &ldquo;{project.name}&rdquo; in {project.location}
+                </p>
+              </div>
 
-          {allowed === true && project && (
-            <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 px-8 py-8">
               {formError && (
                 <div className="mb-5">
-                  <Banner kind="error" focusRef={errorRef}>
-                    {formError}
-                  </Banner>
+                  <Banner kind="error" focusRef={errorRef}>{formError}</Banner>
                 </div>
               )}
 
               {notice && (
                 <div className="mb-5">
-                  <Banner kind="success" focusRef={successRef}>
-                    {notice}
-                  </Banner>
+                  <Banner kind="success" focusRef={successRef}>{notice}</Banner>
                 </div>
               )}
 
@@ -492,12 +411,7 @@ export default function RecommendOnPlatform() {
                 <div className="mb-5">
                   <Banner kind="info">
                     You can submit without an account — or{" "}
-                    <a
-                      href="/signup"
-                      className="font-bold underline hover:text-amber-900"
-                    >
-                      sign up
-                    </a>{" "}
+                    <a href="/signup" className="font-bold underline hover:text-amber-900">sign up</a>{" "}
                     later to track your recommendations.
                   </Banner>
                 </div>
@@ -505,9 +419,7 @@ export default function RecommendOnPlatform() {
 
               <form onSubmit={submit} noValidate className="space-y-5">
                 <div>
-                  <label htmlFor="recommend-name" className={labelClass}>
-                    Your name
-                  </label>
+                  <label htmlFor="recommend-name" className={labelClass}>Your name</label>
                   <input
                     id="recommend-name"
                     data-testid="recommend-name"
@@ -540,9 +452,7 @@ export default function RecommendOnPlatform() {
                 </div>
 
                 <div>
-                  <label htmlFor="recommend-company" className={labelClass}>
-                    Company name
-                  </label>
+                  <label htmlFor="recommend-company" className={labelClass}>Company name</label>
                   <input
                     id="recommend-company"
                     data-testid="recommend-company"
@@ -597,23 +507,16 @@ export default function RecommendOnPlatform() {
                 </div>
 
                 <div>
-                  <label
-                    htmlFor="recommend-hire-again"
-                    className="flex items-center gap-3 cursor-pointer"
-                  >
+                  <label htmlFor="recommend-hire-again" className="flex items-center gap-3 cursor-pointer">
                     <input
                       id="recommend-hire-again"
                       data-testid="recommend-hire-again"
                       type="checkbox"
                       checked={form.hireAgain === "yes"}
-                      onChange={(e) =>
-                        set("hireAgain", e.target.checked ? "yes" : "no")
-                      }
+                      onChange={(e) => set("hireAgain", e.target.checked ? "yes" : "no")}
                       className="h-5 w-5 accent-red-500"
                     />
-                    <span className="text-sm font-bold text-zinc-900">
-                      Yes, I would hire them again
-                    </span>
+                    <span className="text-sm font-bold text-zinc-900">Yes, I would hire them again</span>
                   </label>
                 </div>
 
@@ -650,11 +553,7 @@ export default function RecommendOnPlatform() {
                   type="submit"
                   disabled={submitting || (photos.length > 0 && !photoConsent)}
                   className="w-full inline-flex items-center justify-center rounded-full bg-red-500 px-8 py-4 text-base font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100"
-                  title={
-                    photos.length > 0 && !photoConsent
-                      ? "Please confirm the photo upload consent before submitting."
-                      : undefined
-                  }
+                  title={photos.length > 0 && !photoConsent ? "Please confirm the photo upload consent before submitting." : undefined}
                 >
                   {submitting ? "Sending…" : "Submit recommendation"}
                 </button>
