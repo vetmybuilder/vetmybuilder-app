@@ -2,34 +2,35 @@ import { test, expect } from "../../../src/fixtures";
 import Project from "../../../src/models/Project";
 
 test.describe("Pipeline auto-surface on project publish", () => {
-  // Skip in CI: auto-surface is fire-and-forget after res.json() and the async
-  // insert doesn't reliably complete in Docker. Covered by unit tests instead.
-  test.skip("approved pipeline entry appears as recommendation when project is published with matching trade and location", async ({
+  test("pipeline recommendation with source=pipeline is returned by the recommendations API", async ({
     projectApi,
     pipelineApi,
+    apiClient,
   }) => {
-    await pipelineApi.insertEntry({
-      companyName: "E2E Pipeline Plumbing Ltd",
-      tradeTypes: "plumber",
-      serviceAreas: "E4",
-      googleRating: 4.5,
-      googleReviewsCount: 30,
-      vettingScore: 80,
-      status: "approved",
-      phone: "07700 900100",
-    });
-
+    // Create a project (no need to publish — we insert the rec directly)
     const project = Project.aProject().withRandomDetails({
       category: "Plumbing",
       workTypes: ["Bathroom Plumbing"],
       locationQuery: "E4",
       locationPick: "E4 0BQ",
     });
-    const published = await projectApi.createProject(project.toApiPayload(), {
-      publish: true,
-    });
+    const created = await projectApi.createProject(project.toApiPayload());
 
-    await pipelineApi.expectPipelineRecInDb(published.id, "E2E Pipeline Plumbing Ltd");
+    // Insert a pipeline recommendation directly (simulates what auto-surface does)
+    await pipelineApi.insertPipelineRecommendation(created.id, "E2E Pipeline Plumbing Ltd");
+
+    // Verify the API returns it with source=pipeline
+    const res = await apiClient.get(
+      `/api/projects/${created.id}/recommendations?limit=50`,
+    );
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    const items = body.items ?? [];
+    const rec = items.find(
+      (r: any) => r.source === "pipeline" && r.company === "E2E Pipeline Plumbing Ltd",
+    );
+    expect(rec, "Pipeline rec should appear in recommendations API").toBeTruthy();
+    expect(rec.comment).toContain("Vetted local business");
   });
 
   test("pending pipeline entry is not surfaced on publish", async ({
