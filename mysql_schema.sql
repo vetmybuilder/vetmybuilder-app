@@ -45,6 +45,7 @@ CREATE TABLE recommendations (
   comment           TEXT,
   isAnonymous       INTEGER DEFAULT 0, source VARCHAR(50) DEFAULT 'magic', phone TEXT,
   companyEmail      TEXT NULL,
+  linked_tradesman_uid VARCHAR(255) NULL,
 
   FOREIGN KEY(projectId) REFERENCES projects(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -825,6 +826,33 @@ CREATE TABLE reports (
   resolved_by VARCHAR(128) DEFAULT NULL,
   KEY idx_reports_status (status, created_at),
   KEY idx_reports_target (target_type, target_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE tradesperson_pipeline (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  company_name VARCHAR(255) NOT NULL,
+  trade_types VARCHAR(255) NULL,
+  service_areas VARCHAR(255) NULL,
+  google_place_id VARCHAR(255) NULL,
+  google_rating DECIMAL(3,2) NULL,
+  google_reviews_count INT NULL,
+  company_number VARCHAR(20) NULL,
+  ch_status VARCHAR(50) NULL,
+  ch_name VARCHAR(255) NULL,
+  phone VARCHAR(50) NULL,
+  email VARCHAR(255) NULL,
+  website TEXT NULL,
+  ai_review_summary TEXT NULL,
+  vetting_score INT DEFAULT 0,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending',
+  discovered_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  reviewed_at DATETIME NULL,
+  claimed_by VARCHAR(255) NULL,
+  INDEX idx_pipeline_status (status),
+  INDEX idx_pipeline_trade_types (trade_types),
+  INDEX idx_pipeline_service_areas (service_areas),
+  UNIQUE INDEX idx_pipeline_google_place_id (google_place_id),
+  INDEX idx_pipeline_company_number (company_number)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE notification_preferences (

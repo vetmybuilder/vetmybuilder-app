@@ -15,6 +15,8 @@ import ProjectRecommendationApi from "./apiHelper/project/ProjectRecommendationA
 import HireApi from "./apiHelper/project/HireApi";
 import AdminApi from "./apiHelper/admin/AdminApi";
 import NotificationsApi from "./apiHelper/NotificationsApi";
+import PipelineApi from "./apiHelper/pipeline/PipelineApi";
+import TradesmanApi from "./apiHelper/tradesman/TradesmanApi";
 
 type Runtime = ReturnType<typeof getRuntime>;
 type ApiClient = ReturnType<typeof api>;
@@ -27,6 +29,8 @@ type TestFixtures = {
   hireApi: HireApi;
   adminApi: AdminApi;
   notificationsApi: NotificationsApi;
+  pipelineApi: PipelineApi;
+  tradesmanApi: TradesmanApi;
 };
 
 type WorkerFixtures = {
@@ -155,6 +159,14 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   notificationsApi: async ({ apiClient }, use) => {
     await use(new NotificationsApi(apiClient));
+  },
+
+  pipelineApi: async ({ adminApiClient, runtime }, use) => {
+    await use(new PipelineApi(adminApiClient, runtime.dbName));
+  },
+
+  tradesmanApi: async ({ request, runtime }, use) => {
+    await use(new TradesmanApi(request, runtime.apiBaseUrl));
   },
 });
 

@@ -4,6 +4,7 @@ import { AccountApi } from "./apiHelper/account/AccountApi";
 import { ProjectApi } from "./apiHelper/project/ProjectApi";
 import { RecommendationApi } from "./apiHelper/project/ProjectRecommendationApi";
 import { BasePage } from "./pages/BasePage";
+import PipelineApi from "./apiHelper/pipeline/PipelineApi";
 
 type ApiClient = ReturnType<typeof api>;
 
@@ -30,6 +31,7 @@ export const test = uiBaseTest.extend<{
   projectApi: ProjectApi;
   accountApi: AccountApi;
   recommendationApi: RecommendationApi;
+  pipelineApi: PipelineApi;
   basePage: BasePage;
 }>({
   login: [
@@ -104,6 +106,10 @@ export const test = uiBaseTest.extend<{
 
   recommendationApi: async ({ apiClient }, use) => {
     await use(new RecommendationApi(apiClient));
+  },
+
+  pipelineApi: async ({ adminApiClient, runtime }, use) => {
+    await use(new PipelineApi(adminApiClient, runtime.dbName));
   },
 });
 

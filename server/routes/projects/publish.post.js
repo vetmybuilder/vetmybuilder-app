@@ -19,6 +19,7 @@ module.exports = (router, ctx) => {
   const { db, auth, extractLocationTokens, notifyUsers, mysqlQuery, broadcastNotification } = ctx;
   const log = ctx.log || console;
   const { notifyMatchedTradesmen } = require("../../lib/ai/notifyMatchedTradesmen");
+  const { surfacePipelineTradespeople } = require("../../lib/surfacePipelineTradespeople");
 
   router.post("/projects/:id/publish", auth, async (req, res) => {
     const id = Number(req.params.id);
@@ -104,6 +105,19 @@ module.exports = (router, ctx) => {
       log,
     }).catch((err) => {
       log.warn?.("[projects.publish] notifyMatchedTradesmen error", err);
+    });
+
+    log.info?.("[projects.publish] calling surfacePipelineTradespeople", { id, type: updated.type, location: updated.location });
+    surfacePipelineTradespeople({
+      mysqlQuery,
+      projectId: id,
+      projectType: updated.type,
+      projectName: updated.name,
+      projectLocation: updated.location,
+      broadcastNotification,
+      logActivity: ctx.logActivity,
+    }).catch((err) => {
+      log.warn?.("[projects.publish] surfacePipelineTradespeople error", { err: err?.message, stack: err?.stack });
     });
 
     try {

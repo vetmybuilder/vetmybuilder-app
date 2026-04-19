@@ -177,6 +177,32 @@ function buildRouter(ctx) {
       computed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       UNIQUE KEY uq_company (company)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS tradesperson_pipeline (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      company_name VARCHAR(255) NOT NULL,
+      trade_types VARCHAR(255) NULL,
+      service_areas VARCHAR(255) NULL,
+      google_place_id VARCHAR(255) NULL,
+      google_rating DECIMAL(3,2) NULL,
+      google_reviews_count INT NULL,
+      company_number VARCHAR(20) NULL,
+      ch_status VARCHAR(50) NULL,
+      ch_name VARCHAR(255) NULL,
+      phone VARCHAR(50) NULL,
+      email VARCHAR(255) NULL,
+      website TEXT NULL,
+      ai_review_summary TEXT NULL,
+      vetting_score INT DEFAULT 0,
+      status VARCHAR(20) NOT NULL DEFAULT 'pending',
+      discovered_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      reviewed_at DATETIME NULL,
+      claimed_by VARCHAR(255) NULL,
+      INDEX idx_pipeline_status (status),
+      INDEX idx_pipeline_trade_types (trade_types),
+      INDEX idx_pipeline_service_areas (service_areas),
+      UNIQUE INDEX idx_pipeline_google_place_id (google_place_id),
+      INDEX idx_pipeline_company_number (company_number)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
   ];
   for (const sql of ensureTables) {
     ctx.mysqlQuery(sql).catch(() => {});
@@ -359,6 +385,9 @@ function buildRouter(ctx) {
   require("./routes/admin/dashboard.activity.get")(router, ctx);
   require("./routes/admin/reports.get")(router, ctx);
   require("./routes/admin/reports.resolve.patch")(router, ctx);
+  require("./routes/admin/trades-pipeline.get")(router, ctx);
+  require("./routes/admin/trades-pipeline.patch")(router, ctx);
+  require("./routes/admin/trades-pipeline-discover")(router, ctx);
 
   return router;
 }

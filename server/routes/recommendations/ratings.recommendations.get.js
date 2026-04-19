@@ -374,6 +374,7 @@ module.exports = (router, ctx) => {
           myLike: r.myLike ? 1 : 0,
           rating: r.rating ?? null,
           score: normaliseScore(score),
+          source: r.source || null,
           chStatus: ch?.status || null,
           chScore: ch?.score ?? null,
           chCompanyName: ch?.companyName || null,

@@ -124,6 +124,7 @@ module.exports = (router, ctx) => {
           r.isAnonymous,
           r.company,
           r.companyEmail,
+          r.phone,
           r.comment,
           r.rating,
 
@@ -248,10 +249,15 @@ module.exports = (router, ctx) => {
           })),
         };
 
+        if (r.source) item.source = r.source;
+
         // Owner-only: expose the company contact email so the hire flow can
         // send invitations directly. Non-owners never see tradesman PII.
         if (isOwner) {
           item.companyEmail = r.companyEmail || null;
+          if (r.source === "pipeline") {
+            item.phone = r.phone || null;
+          }
         }
 
         return item;

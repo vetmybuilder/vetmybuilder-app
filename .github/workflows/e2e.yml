@@ -72,7 +72,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/.buildx-cache
-          key: docker-e2e-ui-${{ runner.os }}-${{ hashFiles('Dockerfile', 'Dockerfile.e2e', 'e2e-tests/package-lock.json', 'package-lock.json') }}
+          key: docker-e2e-ui-${{ runner.os }}-${{ hashFiles('Dockerfile', 'Dockerfile.e2e', 'e2e-tests/package-lock.json', 'package-lock.json', 'server/**', 'web/**', 'e2e-tests/src/**', 'e2e-tests/tests/**') }}
           restore-keys: docker-e2e-ui-${{ runner.os }}-
 
       - name: Build Docker images
@@ -126,7 +126,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/.buildx-cache
-          key: docker-e2e-api-${{ runner.os }}-${{ hashFiles('Dockerfile', 'Dockerfile.e2e', 'e2e-tests/package-lock.json', 'package-lock.json') }}
+          key: docker-e2e-api-${{ runner.os }}-${{ hashFiles('Dockerfile', 'Dockerfile.e2e', 'e2e-tests/package-lock.json', 'package-lock.json', 'server/**', 'web/**', 'e2e-tests/src/**', 'e2e-tests/tests/**') }}
           restore-keys: docker-e2e-api-${{ runner.os }}-
 
       - name: Build Docker images

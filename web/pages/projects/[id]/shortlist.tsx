@@ -22,6 +22,7 @@ type Recommendation = {
   name: string | null;
   email: string | null;
   phone?: string | null;
+  companyEmail?: string | null;
   company: string;
   comment: string | null;
   isAnonymous: 0 | 1;
@@ -32,6 +33,8 @@ type Recommendation = {
   fromCommunity?: 0 | 1;
   rating?: number | null;
   score?: number;
+  source?: string | null;
+  linked_tradesman_uid?: string | null;
   companyVerification?: Verification | null;
 };
 
@@ -482,16 +485,25 @@ function ShortlistInner() {
                       <div className="min-w-0 flex-1">
                         {/* Name + Google row */}
                         <div className="flex items-center gap-3 flex-wrap">
-                          <Link
-                            href={
-                              id
-                                ? `/builders/${r.id}?projectId=${id}`
-                                : `/builders/${r.id}`
-                            }
-                            className="font-extrabold text-base text-zinc-900 hover:underline decoration-zinc-300"
-                          >
-                            {displayCompanyName}
-                          </Link>
+                          {r.source === "pipeline" && r.linked_tradesman_uid ? (
+                            <Link
+                              href={`/tradesman/${r.linked_tradesman_uid}`}
+                              className="font-extrabold text-base text-zinc-900 hover:underline decoration-zinc-300"
+                            >
+                              {displayCompanyName}
+                            </Link>
+                          ) : (
+                            <Link
+                              href={
+                                id
+                                  ? `/builders/${r.id}?projectId=${id}`
+                                  : `/builders/${r.id}`
+                              }
+                              className="font-extrabold text-base text-zinc-900 hover:underline decoration-zinc-300"
+                            >
+                              {displayCompanyName}
+                            </Link>
+                          )}
 
                           {googleRating !== undefined && (
                             <GoogleRatingChip
@@ -502,6 +514,22 @@ function ShortlistInner() {
                             />
                           )}
                         </div>
+
+                        {/* Pipeline: contact details */}
+                        {r.source === "pipeline" && (r.phone || r.companyEmail) && (
+                          <div className="mt-2 flex items-center gap-3 text-sm">
+                            {r.phone && (
+                              <a href={`tel:${r.phone}`} className="text-red-500 font-semibold hover:underline">
+                                {r.phone}
+                              </a>
+                            )}
+                            {r.companyEmail && (
+                              <a href={`mailto:${r.companyEmail}`} className="text-red-500 font-semibold hover:underline">
+                                {r.companyEmail}
+                              </a>
+                            )}
+                          </div>
+                        )}
 
                         {/* Comment */}
                         {r.comment && (
@@ -540,10 +568,18 @@ function ShortlistInner() {
                         </div>
 
                         {/* Footer */}
-                        <p className="mt-2 text-xs text-zinc-500">{recommender}</p>
+                        {r.source === "pipeline" ? (
+                          <div className="flex items-center gap-2 text-xs text-emerald-600 font-semibold mt-2" data-testid="shortlist-recommender">
+                            <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+                              Vetted local business
+                            </span>
+                          </div>
+                        ) : (
+                          <p className="mt-2 text-xs text-zinc-500" data-testid="shortlist-recommender">{recommender}</p>
+                        )}
 
                         <div className="mt-2 flex items-center justify-between">
-                          {isOwner ? (() => {
+                          {r.source === "pipeline" ? null : isOwner ? (() => {
                             const alreadyHired = hiredRecommendationIds.has(r.id);
                             return (
                               <button

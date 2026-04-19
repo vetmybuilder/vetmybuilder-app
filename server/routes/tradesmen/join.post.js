@@ -6,6 +6,7 @@
  * and computes VMB score on the 0.0–10.0 scale.
  */
 const analytics = require("../../lib/analytics");
+const { claimPipelineEntry } = require("../../lib/claimPipelineEntry");
 
 module.exports = (router, ctx) => {
   const { enrichTradesmanWithGoogle } = require("../../lib/ai/googleEnricher");
@@ -286,6 +287,14 @@ module.exports = (router, ctx) => {
           wins_count,
         ]
       );
+
+      // Fire-and-forget: claim pipeline entry if this company matches
+      claimPipelineEntry({
+        mysqlQuery,
+        uid: leadId,
+        companyName,
+        companyNumber: company_number || null,
+      }).catch(() => {});
 
       // photos
       await mysqlQuery(
