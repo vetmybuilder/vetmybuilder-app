@@ -331,6 +331,45 @@ async function seedElegantSpotlight() {
   }
 }
 
+async function seedPipelineEntries() {
+  const mysql2 = require("mysql2/promise");
+  const elegantUid = BOT_UIDS.builders[5];
+
+  const conn = await mysql2.createConnection({
+    host: process.env.MYSQL_HOST || process.env.TEST_DB_HOST || "localhost",
+    port: Number(process.env.MYSQL_PORT || process.env.TEST_DB_PORT || 3306),
+    user: process.env.MYSQL_USER || process.env.TEST_DB_USER || "root",
+    password: process.env.MYSQL_PASSWORD || process.env.TEST_DB_PASSWORD || "",
+    database:
+      process.env.MYSQL_DATABASE ||
+      process.env.TEST_DB_NAME ||
+      "vetmybuilder_test_s1_4_w0",
+  });
+
+  try {
+    // Insert Elegant as an approved + claimed pipeline entry (simulates discovery → signup → auto-link)
+    await conn.query(
+      `INSERT IGNORE INTO tradesperson_pipeline
+         (company_name, trade_types, service_areas, google_rating, google_reviews_count,
+          vetting_score, status, claimed_by, discovered_at)
+       VALUES ('Elegant Building Services', 'General Builder,New Build,Extension Builder,Painter / Decorator,Bathroom Fitter,Flooring Specialist,Tiler,Plasterer,External Wall Insulation,Handyman,Roofer', 'E4,E17,N17', 4.8, 167, 90, 'approved', ?, NOW())`,
+      [elegantUid],
+    );
+
+    // Insert an unclaimed pipeline entry (simulates a discovered business not yet on VMB)
+    await conn.query(
+      `INSERT IGNORE INTO tradesperson_pipeline
+         (company_name, trade_types, service_areas, google_rating, google_reviews_count,
+          vetting_score, status, phone, discovered_at)
+       VALUES ('E4 Home Renovations Ltd', 'General Builder,Kitchen Fitter,External Wall Insulation,Bathroom Fitter,Plasterer', 'E4', 4.5, 42, 75, 'approved', '07700 900456', NOW())`,
+    );
+
+    console.log("  ✓ Pipeline entries seeded (1 claimed by Elegant, 1 unclaimed)");
+  } finally {
+    await conn.end();
+  }
+}
+
 /**
  * Seed a single completed project fixture by index.
  * Updates state.completedProjectsSeedCount and writes state.
@@ -435,6 +474,7 @@ async function seed() {
   await seedBuilders(adminUid);
   await seedNeighbours();
   await seedElegantSpotlight();
+  await seedPipelineEntries();
 
   const state = readState();
   state.seeded = true;

@@ -125,6 +125,7 @@ module.exports = (router, ctx) => {
           r.company,
           r.companyEmail,
           r.phone,
+          r.linked_tradesman_uid,
           r.comment,
           r.rating,
 
@@ -142,7 +143,8 @@ module.exports = (router, ctx) => {
           COALESCE(cw.wins, 0) AS wins,
           COALESCE(cw.wouldAgain, 0) AS wouldAgain,
           cv.status AS chStatus,
-          cv.score AS chScore
+          cv.score AS chScore,
+          t_linked.public_id AS t_linked_public_id
 
         FROM recommendations r
 
@@ -188,6 +190,8 @@ module.exports = (router, ctx) => {
             FROM recommendation_photos
            GROUP BY recommendationId
         ) ph ON ph.recommendationId = r.id
+
+        LEFT JOIN tradesmen t_linked ON t_linked.user_id = r.linked_tradesman_uid
 
         WHERE r.projectId = ?
         ORDER BY r.createdAt DESC
@@ -257,6 +261,8 @@ module.exports = (router, ctx) => {
           item.companyEmail = r.companyEmail || null;
           if (r.source === "pipeline") {
             item.phone = r.phone || null;
+            item.linked_tradesman_uid = r.linked_tradesman_uid || null;
+            item.tradesmanPublicId = r.t_linked_public_id || null;
           }
         }
 

@@ -246,9 +246,7 @@ export default function ShortlistSection({
                 // Recommender relation: generic text only
                 let recommenderText = "";
 
-                if (r.source === "pipeline") {
-                  recommenderText = "";
-                } else if (r.fromFriend) {
+                if (r.fromFriend) {
                   recommenderText = "Recommended via your friend.";
                 } else {
                   const createdDate = r.createdAt
@@ -361,20 +359,14 @@ export default function ShortlistSection({
                           </p>
                         )}
 
-                        {r.source === "pipeline" ? (
-                          <div className="flex items-center gap-2 text-xs text-emerald-600 font-semibold mt-2" data-testid="shortlist-recommender">
-                            <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
-                              Vetted local business
-                            </span>
-                          </div>
-                        ) : recommenderText ? (
+                        {recommenderText ? (
                           <p className="mt-2 text-xs sm:text-[10px] text-slate-400" aria-label="Recommender" data-testid="shortlist-recommender">
                             {recommenderText}
                           </p>
                         ) : null}
 
                         <div className="mt-2 flex items-center justify-between">
-                          {r.source === "pipeline" ? null : isOwner && onHire && (() => {
+                          {isOwner && onHire && (() => {
                             const alreadyHired = hiredRecommendationIds?.has(r.id);
                             return (
                               <button
