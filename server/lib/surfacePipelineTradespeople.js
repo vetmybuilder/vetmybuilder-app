@@ -63,7 +63,7 @@ async function surfacePipelineTradespeople({
 
     const candidates = await mysqlQuery(
       `SELECT tp.id, tp.company_name, tp.email, tp.phone, tp.website,
-              tp.google_rating, tp.google_reviews_count, tp.company_number
+              tp.google_rating, tp.google_reviews_count, tp.company_number, tp.claimed_by
          FROM tradesperson_pipeline tp
         WHERE tp.status = 'approved'
           AND tp.vetting_score >= ?
@@ -76,7 +76,8 @@ async function surfacePipelineTradespeople({
 
     if (!candidates.length) { log.debug("no pipeline matches"); return; }
 
-    // Dedup against existing recs
+    // Dedup against ALL existing recs — don't surface a pipeline entry if the same company
+    // already has a community recommendation on this project
     const existingRecs = await mysqlQuery(
       "SELECT company FROM recommendations WHERE projectId = ?", [projectId],
     );
@@ -97,9 +98,9 @@ async function surfacePipelineTradespeople({
 
       await mysqlQuery(
         `INSERT INTO recommendations
-           (projectId, recommenderUserId, createdAt, name, company, companyEmail, phone, rating, comment, isAnonymous, source)
-         VALUES (?, NULL, ?, 'VetMyBuilder', ?, ?, ?, 5, ?, 0, 'pipeline')`,
-        [projectId, createdAt, c.company_name, c.email || null, c.phone || null, comment],
+           (projectId, recommenderUserId, createdAt, name, company, companyEmail, phone, rating, comment, isAnonymous, source, linked_tradesman_uid)
+         VALUES (?, NULL, ?, 'VetMyBuilder', ?, ?, ?, ?, ?, 0, 'pipeline', ?)`,
+        [projectId, createdAt, c.company_name, c.email || null, c.phone || null, Math.round(Number(c.google_rating) || 5), comment, c.claimed_by || null],
       );
 
       if (ownerUid) {

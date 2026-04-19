@@ -23,6 +23,7 @@ export type Recommendation = {
   myLike?: 0 | 1; // I’ve voted
   score?: number; // VMB score
   source?: string | null; // "magic", "platform", "pipeline"
+  linked_tradesman_uid?: string | null;
   tradesmanPublicId?: string | null; // set when the recommended company is a registered tradesman
 };
 

@@ -30,6 +30,34 @@ test.describe("Pipeline recommendations via API", () => {
     expect(rec.comment).toContain("Vetted local business");
   });
 
+  test("pipeline recommendation includes linked_tradesman_uid field", async ({
+    projectApi,
+    pipelineApi,
+    apiClient,
+  }) => {
+    const project = Project.aProject().withRandomDetails({
+      category: "Plumbing",
+      workTypes: ["Bathroom Plumbing"],
+      locationQuery: "E4",
+      locationPick: "E4 0BQ",
+    });
+    const created = await projectApi.createProject(project.toApiPayload());
+
+    await pipelineApi.insertPipelineRecommendation(created.id, "E2E Linked Test Ltd");
+
+    const res = await apiClient.get(
+      `/api/projects/${created.id}/recommendations?limit=50`,
+    );
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    const items = body.items ?? [];
+    const rec = items.find(
+      (r: any) => r.source === "pipeline" && r.company === "E2E Linked Test Ltd",
+    );
+    expect(rec, "Pipeline rec should appear").toBeTruthy();
+    expect(rec).toHaveProperty("linked_tradesman_uid");
+  });
+
   test("pipeline recommendation does not appear when none are inserted", async ({
     projectApi,
     apiClient,

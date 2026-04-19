@@ -5,6 +5,8 @@
 // GET  /api/admin/trades-pipeline/discover/stream    — SSE progress for a job
 
 const { normaliseCompanyName } = require("../../lib/matchRecommendationToTradesman");
+const { isExternalServicesMocked } = require("../../lib/externalServices");
+const { syntheticGooglePlace } = require("../../lib/mocks/syntheticExternal");
 
 // In-memory job store (sufficient for single-server admin tool)
 const jobs = new Map();
@@ -86,7 +88,7 @@ module.exports = (router, ctx) => {
     }
 
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-    if (!apiKey) {
+    if (!apiKey && !isExternalServicesMocked()) {
       return res.status(500).json({ error: "GOOGLE_PLACES_API_KEY not configured on server" });
     }
 
@@ -205,18 +207,37 @@ async function runDiscovery(job, trades, areas, apiKey, mysqlQuery, log) {
         total: totalSearches,
       });
 
-      // Google Places text search
+      // Google Places text search (mocked in dev/test)
       let results = [];
-      try {
-        const query = `${trade} near ${area}`;
-        const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${apiKey}`;
-        const resp = await fetch(url);
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const data = await resp.json();
-        results = data.results || [];
-      } catch (err) {
-        emit("progress", { message: `  Failed to search "${trade}" in ${area}: ${err.message}`, level: "warn" });
-        continue;
+      if (isExternalServicesMocked()) {
+        // Generate 3 synthetic results per trade/area
+        const mockNames = [
+          `${trade} Pro Services ${area}`,
+          `${area} ${trade} Specialists Ltd`,
+          `Premier ${trade} Solutions ${area}`,
+        ];
+        results = mockNames.map((name) => {
+          const mock = syntheticGooglePlace({ name });
+          return {
+            name,
+            place_id: mock?.placeId || `MOCK_${Date.now()}`,
+            rating: mock?.rating || 4.5,
+            user_ratings_total: mock?.reviewCount || 25,
+          };
+        });
+        emit("progress", { message: `  [MOCK] Generated ${results.length} synthetic results for ${trade} in ${area}`, level: "skip" });
+      } else {
+        try {
+          const query = `${trade} near ${area}`;
+          const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${apiKey}`;
+          const resp = await fetch(url);
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const data = await resp.json();
+          results = data.results || [];
+        } catch (err) {
+          emit("progress", { message: `  Failed to search "${trade}" in ${area}: ${err.message}`, level: "warn" });
+          continue;
+        }
       }
 
       totalSearched += results.length;
@@ -279,18 +300,23 @@ async function runDiscovery(job, trades, areas, apiKey, mysqlQuery, log) {
         const chPart = chVerified ? 20 : 0;
         const vettingScore = Math.round(ratingPart + reviewPart + chPart);
 
-        // Place details (phone, website)
+        // Place details (phone, website) — mocked in dev/test
         let phone = null;
         let website = null;
-        try {
-          const detailUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=formatted_phone_number,website&key=${apiKey}`;
-          const detailResp = await fetch(detailUrl);
-          if (detailResp.ok) {
-            const detailData = await detailResp.json();
-            phone = detailData.result?.formatted_phone_number || null;
-            website = detailData.result?.website || null;
-          }
-        } catch { /* non-fatal */ }
+        if (isExternalServicesMocked()) {
+          phone = "07700 900" + String(Math.floor(Math.random() * 900) + 100);
+          website = null;
+        } else {
+          try {
+            const detailUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=formatted_phone_number,website&key=${apiKey}`;
+            const detailResp = await fetch(detailUrl);
+            if (detailResp.ok) {
+              const detailData = await detailResp.json();
+              phone = detailData.result?.formatted_phone_number || null;
+              website = detailData.result?.website || null;
+            }
+          } catch { /* non-fatal */ }
+        }
 
         // Insert
         await mysqlQuery(

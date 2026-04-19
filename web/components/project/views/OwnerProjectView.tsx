@@ -26,6 +26,7 @@ import {
   openEmailShare,
 } from "@/utils/shareInvite";
 import SharedTradesmen from "@/components/project/SharedTradesmen";
+import VettedBusinessesStrip from "@/components/project/VettedBusinessesStrip";
 import type { Verification } from "@/types/vmb";
 
 type VM = ReturnType<typeof import("./useProjectView").useProjectView>;
@@ -254,8 +255,11 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
     }
   };
 
-  const shortlistData = recs || [];
-  const shortlistCount = recTotal;
+  const allRecs = recs || [];
+  const pipelineRecs = allRecs.filter((r) => r.source === "pipeline");
+  const communityRecs = allRecs.filter((r) => r.source !== "pipeline");
+  const shortlistData = communityRecs;
+  const shortlistCount = recTotal - pipelineRecs.length;
 
   // ===== Created vs Updated meta (robust for MySQL DATETIME strings) =====
   const createdAtRaw = (project as any)?.createdAt;
@@ -522,6 +526,12 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
 
       {/* === Shared tradesmen strip (profiles shared directly to this project) === */}
       <SharedTradesmen projectId={project.id} />
+
+      {/* === Vetted businesses strip (pipeline recs) === */}
+      <VettedBusinessesStrip
+        items={pipelineRecs}
+        projectId={project.id}
+      />
 
       {/* === Two-column: Top recs (left) • Spotlight (right) === */}
       <ScrollReveal>

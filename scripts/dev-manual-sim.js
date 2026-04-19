@@ -240,8 +240,8 @@ function runScript(script, env = {}) {
         `);
         if (unboosted.length === 0) return;
 
-        // Friend source on all Elegant recs
-        await conn.query("UPDATE recommendations SET source = 'magic' WHERE company LIKE '%Elegant%'");
+        // Friend source on all Elegant recs (but preserve pipeline recs)
+        await conn.query("UPDATE recommendations SET source = 'magic' WHERE company LIKE '%Elegant%' AND source != 'pipeline'");
 
         // 15 likes per unboosted rec + CH verification (no hires — test those manually)
         for (const rec of unboosted) {
