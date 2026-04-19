@@ -19,6 +19,7 @@
  */
 const { updateUserLocationMysql } = require("../../lib/location");
 const { logger, withRequest } = require("../../lib/logger");
+const { notifyNewSignupOfLocalProjects } = require("../../lib/notifyNewSignupOfLocalProjects");
 
 const MAX_USERNAME_SUFFIX_TRIES = 100;
 
@@ -113,6 +114,15 @@ module.exports = (router, ctx) => {
 
       const email = req.user.email ?? null;
 
+      // Check if user has any notifications — zero means first-time signup.
+      // We can't check if the user row exists because /api/auth/signup
+      // may have already created it before /api/account runs.
+      const notifRows = await mysqlQuery(
+        `SELECT COUNT(*) AS c FROM notifications WHERE userId = ?`,
+        [uid],
+      );
+      const isNewUser = Number(notifRows[0]?.c || 0) === 0;
+
       await mysqlQuery(
         `
         INSERT INTO users (
@@ -144,6 +154,18 @@ module.exports = (router, ctx) => {
 
       res.json({ ok: true });
       ctx.logActivity("account.update", "info", req.user.uid, "Account updated");
+
+      // Fire-and-forget: notify new users about live projects in their area
+      if (isNewUser && location) {
+        notifyNewSignupOfLocalProjects({
+          mysqlQuery,
+          broadcastNotification: ctx.broadcastNotification,
+          logActivity: ctx.logActivity,
+          uid,
+          location,
+        }).catch(() => {});
+      }
+
       return;
     } catch (err) {
       logger.error(

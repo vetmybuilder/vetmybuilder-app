@@ -137,12 +137,12 @@ export default function NotificationSettings() {
       </Head>
 
       <div className="overflow-x-hidden -mt-14 min-h-screen">
-        <div className="relative min-h-screen flex items-center justify-center overflow-hidden py-24">
+        <div className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16 pb-10 sm:py-24">
           <div className="relative z-10 w-full max-w-lg px-4 sm:px-0">
             <button
               type="button"
               onClick={() => router.back()}
-              className="inline-flex items-center gap-2 mb-4 rounded-xl bg-slate-800/90 backdrop-blur-sm px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition-colors"
+              className="hidden sm:inline-flex items-center gap-2 mb-4 rounded-xl bg-slate-800/90 backdrop-blur-sm px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition-colors"
             >
               ← Back
             </button>

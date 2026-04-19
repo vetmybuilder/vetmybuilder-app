@@ -19,6 +19,7 @@
 const { updateUserLocationMysql } = require("../../lib/location");
 const { logger, withRequest } = require("../../lib/logger");
 const analytics = require("../../lib/analytics");
+const { notifyNewSignupOfLocalProjects } = require("../../lib/notifyNewSignupOfLocalProjects");
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery, admin } = ctx;
@@ -86,6 +87,18 @@ module.exports = (router, ctx) => {
       res.json({ ok: true });
       analytics.trackSignup(uid, { method: "firebase", role: "homeowner", email });
       ctx.logActivity("auth.signup", "info", uid, `New user: ${email}`);
+
+      // Fire-and-forget: notify about live projects in their area
+      if (location) {
+        notifyNewSignupOfLocalProjects({
+          mysqlQuery,
+          broadcastNotification: ctx.broadcastNotification,
+          logActivity: ctx.logActivity,
+          uid,
+          location,
+        }).catch(() => {});
+      }
+
       return;
     } catch (err) {
       log.error({ err: err?.message, uid }, "Failed to create signup profile");

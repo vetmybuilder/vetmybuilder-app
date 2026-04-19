@@ -34,7 +34,7 @@ export class ProjectRecommendPage extends BasePage {
   constructor(page: Page) {
     super(page);
 
-    this.heading = page.getByRole("heading", { name: /Recommend for/i });
+    this.heading = page.getByRole("heading", { name: /Recommend a tradesperson/i });
     this.nameInput = page.getByLabel("Your name");
     this.emailInput = page.getByLabel("Your email (optional)");
     this.companyInput = page.getByLabel("Company name");
