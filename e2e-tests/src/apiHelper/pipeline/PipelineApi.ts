@@ -262,23 +262,29 @@ export class PipelineApi {
       .toBe(true);
   }
 
-  /** Assert a pipeline recommendation's linked_tradesman_uid in the DB. */
+  /** Assert a pipeline recommendation's linked_tradesman_uid in the DB. Polls to handle fire-and-forget async claim. */
   async expectRecLinkedToTradesman(
     companyName: string,
   ): Promise<void> {
-    const conn = await this.connectDb();
-    const [rows] = await conn.query(
-      "SELECT linked_tradesman_uid FROM recommendations WHERE source = 'pipeline' AND company = ?",
-      [companyName],
-    );
-    await conn.end();
-
-    const rec = (rows as any[])[0];
-    expect(rec, `Pipeline rec for "${companyName}" should exist in DB`).toBeTruthy();
-    expect(
-      rec.linked_tradesman_uid,
-      `Pipeline rec for "${companyName}" should be linked to a tradesman`,
-    ).toBeTruthy();
+    await expect
+      .poll(
+        async () => {
+          const conn = await this.connectDb();
+          const [rows] = await conn.query(
+            "SELECT linked_tradesman_uid FROM recommendations WHERE source = 'pipeline' AND company = ?",
+            [companyName],
+          );
+          await conn.end();
+          const rec = (rows as any[])[0];
+          return rec?.linked_tradesman_uid != null;
+        },
+        {
+          message: `Pipeline rec for "${companyName}" should be linked to a tradesman`,
+          timeout: 10_000,
+          intervals: [500, 1000, 2000],
+        },
+      )
+      .toBe(true);
   }
 
   // ─── Private ──────────────────────────────────────────────────
