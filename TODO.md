@@ -27,12 +27,6 @@ The admin UI e2e tests (`tradesmen-leaderboard.spec.ts`, `recommendation-leaderb
 
 **Fix:** give each test its own unique admin UID (generated per-worker like the regular test user UIDs) so tests can run in parallel without data races, and a single failure doesn't block the rest of the suite.
 
-## Notify new signups about existing local projects
-
-When a new homeowner completes signup with a postcode, they won't see any notifications about projects already posted in their area. This matters because a homeowner may share their project link to the neighbourhood, and people who sign up after that should still hear about nearby projects.
-
-**Fix:** On homeowner signup completion, query for live (published, not closed) projects within the user's area from the last 30 days. For each matching project, insert a notification (e.g. "A neighbour near you is looking for a Plumber — see if you can recommend someone"). Skip the user's own projects. Cap at ~5 notifications to avoid overwhelming a new user.
-
 ## PostHog reverse proxy
 
 PostHog requests are blocked by Brave and other ad-blocking browsers. Route PostHog requests through the vetmybuilder.com domain (e.g. `/ingest/*` → `eu.i.posthog.com`) to avoid tracker blocking. Can be done via Next.js rewrites or an Express proxy route.
