@@ -1,4 +1,5 @@
 // server/routes/tradesmen/me.put.js
+const { claimPipelineEntry } = require("../../lib/claimPipelineEntry");
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
@@ -438,6 +439,14 @@ module.exports = (router, ctx) => {
           companyNumber,
           chStatus,
         });
+
+        // Fire-and-forget: claim pipeline entry if this company matches
+        claimPipelineEntry({
+          mysqlQuery: run,
+          uid,
+          companyName: companyName,
+          companyNumber: companyNumber || null,
+        }).catch(() => {});
 
         const finalRow = await queryOne(
           `SELECT * FROM tradesmen WHERE user_id = ?`,
