@@ -650,6 +650,57 @@ export default function TradesPipelinePage() {
                                     )}
                                   </div>
 
+                                  {/* Quick-check links */}
+                                  <div className="pt-2">
+                                    <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Verify on registers</p>
+                                    <div className="flex flex-wrap gap-2">
+                                      <a
+                                        href={`https://www.gassaferegister.co.uk/find-an-engineer-or-check-the-register/check-a-business/?business_name=${encodeURIComponent(entry.company_name)}`}
+                                        target="_blank" rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="rounded-lg border border-slate-600 bg-slate-700 px-3 py-1 text-xs font-medium text-slate-300 hover:bg-slate-600 hover:text-white transition-colors"
+                                      >Gas Safe</a>
+                                      <a
+                                        href={`https://www.niceic.com/find-a-tradesperson/?keyword=${encodeURIComponent(entry.company_name)}`}
+                                        target="_blank" rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="rounded-lg border border-slate-600 bg-slate-700 px-3 py-1 text-xs font-medium text-slate-300 hover:bg-slate-600 hover:text-white transition-colors"
+                                      >NICEIC</a>
+                                      <a
+                                        href={`https://www.trustmark.org.uk/find-a-tradesperson?keyword=${encodeURIComponent(entry.company_name)}`}
+                                        target="_blank" rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="rounded-lg border border-slate-600 bg-slate-700 px-3 py-1 text-xs font-medium text-slate-300 hover:bg-slate-600 hover:text-white transition-colors"
+                                      >TrustMark</a>
+                                      <a
+                                        href={`https://www.google.com/search?q=${encodeURIComponent(entry.company_name + " site:checkatrade.com")}`}
+                                        target="_blank" rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="rounded-lg border border-slate-600 bg-slate-700 px-3 py-1 text-xs font-medium text-slate-300 hover:bg-slate-600 hover:text-white transition-colors"
+                                      >Checkatrade</a>
+                                      <a
+                                        href={`https://www.fmb.org.uk/find-a-builder.html?keywords=${encodeURIComponent(entry.company_name)}`}
+                                        target="_blank" rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="rounded-lg border border-slate-600 bg-slate-700 px-3 py-1 text-xs font-medium text-slate-300 hover:bg-slate-600 hover:text-white transition-colors"
+                                      >FMB</a>
+                                      <a
+                                        href={`https://www.napit.org.uk/consumer/member-search.aspx?keyword=${encodeURIComponent(entry.company_name)}`}
+                                        target="_blank" rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="rounded-lg border border-slate-600 bg-slate-700 px-3 py-1 text-xs font-medium text-slate-300 hover:bg-slate-600 hover:text-white transition-colors"
+                                      >NAPIT</a>
+                                      {entry.company_name && (
+                                        <a
+                                          href={`https://www.google.com/search?q=${encodeURIComponent(entry.company_name + " reviews")}`}
+                                          target="_blank" rel="noopener noreferrer"
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="rounded-lg border border-slate-600 bg-slate-700 px-3 py-1 text-xs font-medium text-slate-300 hover:bg-slate-600 hover:text-white transition-colors"
+                                        >Google Reviews</a>
+                                      )}
+                                    </div>
+                                  </div>
+
                                   {entry.status === "pending" && (
                                     <div className="flex items-center gap-3 pt-2">
                                       <button
