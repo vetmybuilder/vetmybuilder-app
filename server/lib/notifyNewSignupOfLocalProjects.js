@@ -42,8 +42,11 @@ async function notifyNewSignupOfLocalProjects({
       projectParams.push(tokens.full);
     }
     if (tokens.outward) {
-      projectWhereParts.push("UPPER(p.location) = ?");
-      projectParams.push(tokens.outward);
+      const { getBoroughCodes } = require("./boroughPostcodes");
+      for (const code of getBoroughCodes(tokens.outward)) {
+        projectWhereParts.push("UPPER(p.location) = ?");
+        projectParams.push(code);
+      }
     }
     if (tokens.sector) {
       projectWhereParts.push("UPPER(p.location) LIKE ?");

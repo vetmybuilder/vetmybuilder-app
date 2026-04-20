@@ -1,6 +1,7 @@
 // server/lib/surfacePipelineTradespeople.js
 const { normaliseCompanyName } = require("./matchRecommendationToTradesman");
 const { extractLocationTokens } = require("./location");
+const { getBoroughCodes } = require("./boroughPostcodes");
 const { logger } = require("./logger");
 
 const MAX_PIPELINE_RECS = 3;
@@ -61,6 +62,12 @@ async function surfacePipelineTradespeople({
     const tradeParams = tradeList.map((t) => `%${t}%`);
     log.debug({ tradeList, outward }, "trade matching params");
 
+    // Expand to all postcodes in the same borough (e.g. E4 → E4, E10, E11, E17)
+    const boroughCodes = getBoroughCodes(outward);
+    const areaConditions = boroughCodes.map(() => "tp.service_areas LIKE ?").join(" OR ");
+    const areaParams = boroughCodes.map((code) => `%${code}%`);
+    log.debug({ outward, boroughCodes }, "borough-level area matching");
+
     const candidates = await mysqlQuery(
       `SELECT tp.id, tp.company_name, tp.email, tp.phone, tp.website,
               tp.google_rating, tp.google_reviews_count, tp.company_number, tp.claimed_by
@@ -68,10 +75,10 @@ async function surfacePipelineTradespeople({
         WHERE tp.status = 'approved'
           AND tp.vetting_score >= ?
           AND (${tradeConditions})
-          AND tp.service_areas LIKE ?
+          AND (${areaConditions})
         ORDER BY tp.vetting_score DESC
         LIMIT ${MAX_PIPELINE_RECS}`,
-      [MIN_VETTING_SCORE, ...tradeParams, `%${outward}%`],
+      [MIN_VETTING_SCORE, ...tradeParams, ...areaParams],
     );
 
     if (!candidates.length) { log.debug("no pipeline matches"); return; }
