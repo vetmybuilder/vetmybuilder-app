@@ -308,15 +308,21 @@ function DiscoveryPanel({ api, onComplete }: { api: ReturnType<typeof useApi>; o
       {/* ── Trade types (searchable with buckets) ── */}
       <div>
         <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">
-          Trade types {selectedTrades.length > 0 && (
-            <span className="ml-1 rounded-full bg-blue-500 px-2 py-0.5 text-xs font-bold text-white">
-              {selectedTrades.length}
-            </span>
-          )}
+          Trade types
           {selectedTrades.length > 0 && (
             <button onClick={() => setSelectedTrades([])} className="ml-2 text-xs text-slate-500 hover:text-red-400">Clear all</button>
           )}
         </label>
+        {selectedTrades.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {selectedTrades.map((t) => (
+              <span key={t} className="inline-flex items-center gap-1 rounded-full bg-blue-600/20 border border-blue-500/30 px-2.5 py-1 text-xs font-semibold text-blue-300">
+                {t}
+                <button onClick={() => setSelectedTrades((prev) => prev.filter((x) => x !== t))} className="hover:text-white ml-0.5">&times;</button>
+              </span>
+            ))}
+          </div>
+        )}
 
         <input
           type="search"
@@ -430,6 +436,7 @@ export default function TradesPipelinePage() {
   const limit = 50;
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("pending");
+  const [tradeFilter, setTradeFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -442,6 +449,7 @@ export default function TradesPipelinePage() {
       const params = new URLSearchParams();
       if (q) params.set("q", q);
       if (statusFilter) params.set("status", statusFilter);
+      if (tradeFilter) params.set("trade", tradeFilter);
       params.set("limit", String(limit));
       params.set("offset", String(offset));
 
@@ -452,7 +460,7 @@ export default function TradesPipelinePage() {
       if (err?.response?.status === 403) setForbidden(true);
     }
     setLoading(false);
-  }, [api, q, statusFilter, offset]);
+  }, [api, q, statusFilter, tradeFilter, offset]);
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
 
@@ -505,11 +513,18 @@ export default function TradesPipelinePage() {
           <div className="flex flex-col sm:flex-row gap-3 mb-6">
             <input
               type="text"
-              placeholder="Search by company name..."
+              placeholder="Search by company name or trade..."
               value={q}
               onChange={(e) => onSearchChange(e.target.value)}
               className="flex-1 rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none"
               data-testid="pipeline-search"
+            />
+            <input
+              type="text"
+              placeholder="Filter by trade..."
+              value={tradeFilter}
+              onChange={(e) => { setTradeFilter(e.target.value); setOffset(0); }}
+              className="w-48 rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none"
             />
             <select
               value={statusFilter}

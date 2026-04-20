@@ -22,37 +22,37 @@ export const TRADE_TYPES: TradeType[] = [
     buckets: "Interiors",
     popularity: 85,
   },
-  { label: "Bricklayer", buckets: "Structure", popularity: 70 },
+  { label: "Bricklayer", synonyms: ["Brickwork", "Blockwork", "Pointing", "Repointing"], buckets: "Structure", popularity: 70 },
   {
     label: "Roofer",
     synonyms: ["Roofing"],
     buckets: "Exterior",
     popularity: 80,
   },
-  { label: "Plasterer", buckets: "Interiors", popularity: 75 },
+  { label: "Plasterer", synonyms: ["Plastering", "Rendering", "Skimming"], buckets: "Interiors", popularity: 75 },
   {
     label: "Painter / Decorator",
     synonyms: ["Decorator"],
     buckets: "Finishes",
     popularity: 88,
   },
-  { label: "Plumber", buckets: "Plumbing", popularity: 90 },
-  { label: "Electrician", buckets: "Electrical", popularity: 95 },
+  { label: "Plumber", synonyms: ["Plumbing", "Bathroom", "Leak", "Pipes", "Boiler", "Radiator", "Tap"], buckets: "Plumbing", popularity: 90 },
+  { label: "Electrician", synonyms: ["Electrical", "Rewire", "Lighting", "Sockets", "Fuse Board", "Consumer Unit"], buckets: "Electrical", popularity: 95 },
   {
     label: "Gas Engineer",
-    synonyms: ["Gas Safe"],
+    synonyms: ["Gas Safe", "Gas", "Heating", "Boiler"],
     buckets: "Heating",
     popularity: 82,
   },
-  { label: "Tiler", buckets: "Finishes", popularity: 68 },
+  { label: "Tiler", synonyms: ["Tiling", "Bathroom", "Kitchen", "Splashback", "Floor Tiles", "Wall Tiles"], buckets: "Finishes", popularity: 68 },
   {
     label: "Flooring Specialist",
     synonyms: ["Floor Fitter"],
     buckets: "Finishes",
     popularity: 70,
   },
-  { label: "Kitchen Fitter", buckets: "Interiors", popularity: 78 },
-  { label: "Bathroom Fitter", buckets: "Interiors", popularity: 78 },
+  { label: "Kitchen Fitter", synonyms: ["Kitchen", "Kitchen Installation", "Kitchen Remodel", "Worktops", "Units"], buckets: "Interiors", popularity: 78 },
+  { label: "Bathroom Fitter", synonyms: ["Bathroom", "Bathroom Installation", "Bathroom Remodel", "Shower", "Wet Room", "En-Suite"], buckets: "Interiors", popularity: 78 },
   {
     label: "Window / Door Fitter",
     synonyms: ["UPVC", "Aluminium Windows", "Doors"],
@@ -69,10 +69,10 @@ export const TRADE_TYPES: TradeType[] = [
   { label: "New Build", buckets: "Structure", popularity: 50 },
 
   // --- Exterior & groundwork ---
-  { label: "Landscaper", buckets: "Exterior", popularity: 76 },
-  { label: "Driveways / Paving", buckets: "Exterior", popularity: 66 },
-  { label: "Fencing", buckets: "Exterior", popularity: 64 },
-  { label: "Decking", buckets: "Exterior", popularity: 58 },
+  { label: "Landscaper", synonyms: ["Landscaping", "Garden", "Garden Design", "Turf", "Planting"], buckets: "Exterior", popularity: 76 },
+  { label: "Driveways / Paving", synonyms: ["Driveway", "Patio", "Block Paving", "Tarmac", "Resin"], buckets: "Exterior", popularity: 66 },
+  { label: "Fencing", synonyms: ["Fence", "Garden Fence", "Boundary"], buckets: "Exterior", popularity: 64 },
+  { label: "Decking", synonyms: ["Deck", "Composite Decking", "Timber Decking"], buckets: "Exterior", popularity: 58 },
   {
     label: "Garden Rooms / Offices",
     synonyms: ["Outbuildings"],
@@ -88,8 +88,8 @@ export const TRADE_TYPES: TradeType[] = [
   { label: "Asbestos Removal", buckets: "Specialist", popularity: 20 },
 
   // --- Heating, cooling, renewables ---
-  { label: "Heating Engineer", buckets: "Heating", popularity: 80 },
-  { label: "Boiler Installer", buckets: "Heating", popularity: 78 },
+  { label: "Heating Engineer", synonyms: ["Heating", "Central Heating", "Radiators", "Underfloor"], buckets: "Heating", popularity: 80 },
+  { label: "Boiler Installer", synonyms: ["Boiler", "Boiler Replacement", "Combi Boiler"], buckets: "Heating", popularity: 78 },
   { label: "Air Conditioning", buckets: "HVAC", popularity: 52 },
   {
     label: "Heat Pumps",
@@ -117,7 +117,7 @@ export const TRADE_TYPES: TradeType[] = [
   { label: "Cavity Wall Insulation", buckets: "Insulation", popularity: 45 },
   { label: "Loft Insulation", buckets: "Insulation", popularity: 58 },
   { label: "Roof Insulation", buckets: "Insulation", popularity: 44 },
-  { label: "Damp Proofing", buckets: "Specialist", popularity: 56 },
+  { label: "Damp Proofing", synonyms: ["Damp", "Rising Damp", "Condensation", "Mould"], buckets: "Specialist", popularity: 56 },
   { label: "Timber Treatment", buckets: "Specialist", popularity: 34 },
 
   // --- Interiors & finishes (extra) ---
@@ -133,7 +133,7 @@ export const TRADE_TYPES: TradeType[] = [
   { label: "Sash Window Specialist", buckets: "Exterior", popularity: 26 },
   { label: "Shutters / Blinds", buckets: "Finishes", popularity: 30 },
   { label: "Curtains / Soft Furnishings", buckets: "Finishes", popularity: 22 },
-  { label: "Carpet Fitter", buckets: "Finishes", popularity: 48 },
+  { label: "Carpet Fitter", synonyms: ["Carpet", "Carpeting", "Bedroom"], buckets: "Finishes", popularity: 48 },
   { label: "Vinyl / LVT Fitter", buckets: "Finishes", popularity: 45 },
   { label: "Wood Floor Sanding", buckets: "Finishes", popularity: 33 },
   { label: "Stone Worktops", buckets: "Interiors", popularity: 25 },
@@ -150,7 +150,7 @@ export const TRADE_TYPES: TradeType[] = [
   { label: "Sprinklers", buckets: "Specialist", popularity: 18 },
   { label: "Swimming Pools", buckets: "Specialist", popularity: 12 },
   { label: "Sauna / Steam", buckets: "Specialist", popularity: 10 },
-  { label: "Handyman", buckets: "General", popularity: 70 },
+  { label: "Handyman", synonyms: ["Odd Jobs", "Repairs", "Maintenance", "DIY"], buckets: "General", popularity: 70 },
   { label: "Cleaning (Builders Clean)", buckets: "Support", popularity: 36 },
   { label: "Waste Removal / Skip Hire", buckets: "Support", popularity: 46 },
 
