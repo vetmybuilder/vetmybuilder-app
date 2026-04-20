@@ -56,6 +56,7 @@ type FormShape = {
   otherText: string;
 
   location: string;
+  locationDisplay: string;
   description: string;
   propertyType: string;
   bedrooms: number;
@@ -98,6 +99,7 @@ export default function NewProject() {
     otherText: "",
 
     location: "",
+    locationDisplay: "",
     description: "",
     propertyType: "",
     bedrooms: 0,
@@ -522,8 +524,11 @@ export default function NewProject() {
                           id={ids.location}
                           label="Location"
                           value={form.location}
-                          onChange={(v) => {
+                          onChange={(v, meta) => {
                             set("location", v.toUpperCase());
+                          }}
+                          onDisplayChange={(display) => {
+                            set("locationDisplay", display);
                           }}
                           dataTestId="field-location"
                         />
@@ -602,7 +607,7 @@ export default function NewProject() {
                               ].join(", ") || "—"
                             }
                           />
-                          <ReviewRow label="Location" value={form.location} />
+                          <ReviewRow label="Location" value={form.locationDisplay || form.location} />
                           <ReviewRow
                             label="Property type"
                             value={form.propertyType}
