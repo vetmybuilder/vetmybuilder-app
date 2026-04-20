@@ -7,7 +7,7 @@ import { authedApiForUid } from "../../../src/api/services/client";
 import { AuthApi } from "../../../src/apiHelper/auth/AuthApi";
 
 test.describe("Shortlist interactions", () => {
-  test("empty shortlist shows share CTA that opens the share modal", async ({
+   test("share button opens the share modal", async ({
     projectApi,
     projectDetailsPage,
   }) => {
@@ -15,7 +15,7 @@ test.describe("Shortlist interactions", () => {
     const created = await projectApi.createProject(project.toApiPayload());
 
     await projectDetailsPage.visit(created.id);
-    await projectDetailsPage.clickShortlistShareCta();
+    await projectDetailsPage.openShareModal();
     await projectDetailsPage.publishModal.close();
   });
 

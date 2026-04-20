@@ -70,6 +70,7 @@ test.describe("POST /api/projects/:id/magic-link", () => {
 
   test("400 project must be live before generating magic link", async ({
     apiClient,
+    projectApi,
   }) => {
     const projectRes = await apiClient.post(
       "/api/projects",
@@ -78,6 +79,9 @@ test.describe("POST /api/projects/:id/magic-link", () => {
     expect(projectRes.status()).toBe(201);
 
     const { project } = await projectRes.json();
+
+    // Close the project (archived = not live) so magic-link request is rejected
+    await projectApi.closeProject(project.id, { didGoAhead: false });
 
     const res = await apiClient.post(`/api/projects/${project.id}/magic-link`);
 

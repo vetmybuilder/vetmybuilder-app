@@ -169,7 +169,7 @@ export default function CloseProjectModal({
               });
             }
           } catch {
-            // ignore – we’ll still try to load shares below
+            // ignore - we'll still try to load shares below
           }
         }
 
@@ -276,7 +276,7 @@ export default function CloseProjectModal({
         }
       }
 
-      // Send a payload with alias keys too, so parent/server mapping can’t drop it.
+      // Send a payload with alias keys too, so parent/server mapping can't drop it.
       const payload: ClosePayload & Record<string, any> = {
         didGoAhead,
         reasons: didGoAhead ? [] : reasons,
@@ -311,7 +311,7 @@ export default function CloseProjectModal({
             headers: { "Content-Type": "multipart/form-data" },
           });
         } catch {
-          // non-blocking – project is already closed
+          // non-blocking - project is already closed
         }
       }
 
@@ -339,34 +339,25 @@ export default function CloseProjectModal({
       data-testid="close-project-modal"
     >
       <div
-        className="absolute inset-0 bg-black/50"
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-backdrop-in"
         onClick={onClose}
         aria-hidden="true"
       />
       <form
         onSubmit={handleSubmit}
-        className="relative z-10 w-[92vw] max-w-2xl rounded-3xl bg-white p-6 sm:p-8 shadow-2xl shadow-zinc-200/80"
+        className="relative z-10 w-[92vw] max-w-2xl rounded-3xl bg-white shadow-2xl shadow-zinc-200/80 overflow-hidden animate-modal-in"
       >
-        <div className="mb-6 flex items-start justify-between gap-3">
+        <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-5 text-white">
           <h2
             id="close-project-title"
-            className="text-xl font-black tracking-tight text-zinc-900"
+            className="text-lg font-bold tracking-tight"
             data-testid="close-project-title"
           >
-            Close project{projectName ? `: ${projectName}` : ""}
+            Close job{projectName ? `: ${projectName}` : ""}
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close modal"
-            className="text-zinc-400 hover:text-zinc-900 text-xl leading-none transition-colors"
-            data-testid="close-project-x"
-          >
-            ×
-          </button>
         </div>
 
-        <div className="space-y-5">
+        <div className="p-6 sm:p-8 space-y-5">
           {/* Did it go ahead? */}
           <div className="flex items-center gap-3">
             <input
@@ -542,31 +533,30 @@ export default function CloseProjectModal({
               </div>
             </div>
           )}
-        </div>
-
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            type="button"
-            className="inline-flex items-center justify-center rounded-full border-2 border-zinc-200 bg-white px-6 py-3 text-sm font-bold text-zinc-700 hover:bg-zinc-50 transition-all"
-            onClick={onClose}
-            data-testid="btn-cancel-close"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="inline-flex items-center justify-center rounded-full bg-red-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:bg-red-600 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
-            disabled={busy || (files.length > 0 && !photoConsent)}
-            aria-busy={busy}
-            data-testid="btn-confirm-close"
-            title={
-              files.length > 0 && !photoConsent
-                ? "Please confirm the photo upload consent before continuing."
-                : undefined
-            }
-          >
-            {busy ? "Saving…" : "Close project"}
-          </button>
+          <div className="mt-6 pt-5 border-t border-zinc-100 flex gap-3">
+            <button
+              type="button"
+              className="flex-1 inline-flex items-center justify-center rounded-full border-2 border-zinc-200 bg-white px-6 py-3 text-sm font-bold text-zinc-600 hover:bg-zinc-50 transition-all"
+              onClick={onClose}
+              data-testid="btn-cancel-close"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex-1 inline-flex items-center justify-center rounded-full bg-red-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:bg-red-600 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+              disabled={busy || (files.length > 0 && !photoConsent)}
+              aria-busy={busy}
+              data-testid="btn-confirm-close"
+              title={
+                files.length > 0 && !photoConsent
+                  ? "Please confirm the photo upload consent before continuing."
+                  : undefined
+              }
+            >
+              {busy ? "Saving..." : "Close job"}
+            </button>
+          </div>
         </div>
       </form>
     </div>

@@ -26,7 +26,7 @@ test.describe("POST /api/projects", () => {
     // API stores outward code only
     expect(created.location).toBe(project.locationQuery);
 
-    expect(created.status).toBe("pending");
+    expect(created.status).toBe("live");
 
     expect(created.createdAt).toBeTruthy();
 

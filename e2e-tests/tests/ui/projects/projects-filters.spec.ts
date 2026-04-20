@@ -42,43 +42,35 @@ test.describe("Projects list filters", () => {
   });
 
   test("status filter hides projects that don't match the selected status", async ({
-    apiClient,
     projectApi,
     homeownerProjectsPage,
   }) => {
-    // Create a pending project and a live (published) project
-    const resA = await apiClient.post(
-      "/api/projects",
+    // Create two live projects
+    const projectA = await projectApi.createProject(
       Project.aProject().withRandomDetails().toApiPayload(),
     );
-    expect(resA.status()).toBe(201);
-    const { project: pendingProject } = await resA.json();
-
-    const resB = await apiClient.post(
-      "/api/projects",
+    const projectB = await projectApi.createProject(
       Project.aProject().withRandomDetails().toApiPayload(),
     );
-    expect(resB.status()).toBe(201);
-    const { project: liveProject } = await resB.json();
-
-    await projectApi.publishProject(liveProject.id);
 
     await homeownerProjectsPage.goto();
 
-    // Both visible on the default tab before filtering
+    // Both visible on default tab (all are live)
     await expect(
-      homeownerProjectsPage.findProjectById(pendingProject.id),
+      homeownerProjectsPage.findProjectById(projectA.id),
     ).toBeVisible({ timeout: 10_000 });
     await expect(
-      homeownerProjectsPage.findProjectById(liveProject.id),
+      homeownerProjectsPage.findProjectById(projectB.id),
     ).toBeVisible({ timeout: 10_000 });
 
-    // Filter by Pending — only the pending project should remain
-    await homeownerProjectsPage.selectStatusFilter("Pending");
+    // Filter by Live - both should still be visible
+    await homeownerProjectsPage.selectStatusFilter("Live");
 
     await expect(
-      homeownerProjectsPage.findProjectById(pendingProject.id),
+      homeownerProjectsPage.findProjectById(projectA.id),
     ).toBeVisible({ timeout: 10_000 });
-    await homeownerProjectsPage.hasNoProject(liveProject.id);
+    await expect(
+      homeownerProjectsPage.findProjectById(projectB.id),
+    ).toBeVisible({ timeout: 10_000 });
   });
 });

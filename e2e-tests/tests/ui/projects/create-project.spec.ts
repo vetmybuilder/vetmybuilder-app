@@ -33,7 +33,7 @@ test.describe("Homeowner projects", () => {
     );
 
     await projectDetailsPage.hasProjectDetails(projectId, project, {
-      status: "Pending",
+      status: "Live",
       dates: { createdAt: new Date() },
     });
 
@@ -80,7 +80,7 @@ test.describe("Homeowner projects", () => {
     );
 
     await projectDetailsPage.hasProjectDetails(projectId, project, {
-      status: "Pending",
+      status: "Live",
       dates: { createdAt: new Date() },
     });
 

@@ -3,7 +3,7 @@ import Project from "../../../src/models/Project";
 import { authedApiForUid } from "../../../src/api/services/client";
 
 test.describe("POST /api/projects/:id/publish", () => {
-  test("owner can publish a pending project and publishing is idempotent", async ({
+  test("project is live after creation and publish is idempotent", async ({
     apiClient,
   }) => {
     const createRes = await apiClient.post(
@@ -14,6 +14,7 @@ test.describe("POST /api/projects/:id/publish", () => {
 
     const { project: created } = await createRes.json();
     const projectId = created.id;
+    expect(created.status).toBe("live");
 
     const publishRes = await apiClient.post(
       `/api/projects/${projectId}/publish`,
@@ -24,16 +25,6 @@ test.describe("POST /api/projects/:id/publish", () => {
     const { project: published } = await publishRes.json();
     expect(published.id).toBe(projectId);
     expect(published.status).toBe("live");
-
-    const publishAgainRes = await apiClient.post(
-      `/api/projects/${projectId}/publish`,
-      {},
-    );
-    expect(publishAgainRes.status()).toBe(200);
-
-    const { project: publishedAgain } = await publishAgainRes.json();
-    expect(publishedAgain.id).toBe(projectId);
-    expect(publishedAgain.status).toBe("live");
   });
 
   test("400 if id is invalid", async ({ apiClient }) => {

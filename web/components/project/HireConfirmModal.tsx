@@ -8,13 +8,13 @@
 // points (both POST /api/projects/:id/hires under the hood).
 
 import * as React from "react";
-import { X, CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 
 type Props = {
   open: boolean;
   /** Display name of who's being hired (e.g. "Elegant Building Services"). */
   targetName: string;
-  /** Async submit handler — receives the optional homeowner message. */
+  /** Async submit handler - receives the optional homeowner message. */
   onConfirm: (message: string) => Promise<void>;
   onClose: () => void;
 };
@@ -56,37 +56,27 @@ export default function HireConfirmModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-backdrop-in"
       role="dialog"
       aria-modal="true"
       aria-labelledby="hire-confirm-title"
       data-testid="hire-confirm-modal"
     >
-      <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
-        <div className="mb-4 flex items-start justify-between gap-3">
+      <div className="w-full max-w-md rounded-3xl bg-white shadow-xl overflow-hidden animate-modal-in">
+        <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-5 text-white">
           <h2
             id="hire-confirm-title"
-            className="text-xl font-black text-zinc-900"
+            className="text-lg font-bold tracking-tight"
           >
             Hire {targetName}?
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={submitting}
-            aria-label="Close"
-            className="rounded-full p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-50"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <p className="mt-1 text-sm text-red-100">
+            They'll be notified immediately. Verified tradespeople usually respond
+            within 24 hours, but availability is limited - act fast.
+          </p>
         </div>
 
-        <p className="text-sm text-zinc-600">
-          They'll be notified immediately. Verified tradespeople usually respond
-          within 24 hours, but availability is limited — act fast.
-        </p>
-
-        <div className="mt-4">
+        <div className="px-6 py-5">
           <label
             htmlFor="hire-message"
             className="block text-xs font-bold text-zinc-700"
@@ -104,38 +94,38 @@ export default function HireConfirmModal({
             placeholder="Hi! I'd like to hire you for my project..."
             className="mt-1 w-full rounded-xl border-2 border-zinc-200 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-red-400 focus:outline-none transition-colors"
           />
-        </div>
 
-        {error && (
-          <p
-            role="alert"
-            data-testid="hire-confirm-error"
-            className="mt-3 text-xs font-semibold text-red-600"
-          >
-            {error}
-          </p>
-        )}
+          {error && (
+            <p
+              role="alert"
+              data-testid="hire-confirm-error"
+              className="mt-3 text-xs font-semibold text-red-600"
+            >
+              {error}
+            </p>
+          )}
 
-        <div className="mt-5 flex gap-2">
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={submitting}
-            data-testid="hire-confirm-submit"
-            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full bg-red-500 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-red-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            <CheckCircle2 className="h-4 w-4" />
-            {submitting ? "Sending…" : `Confirm hire`}
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={submitting}
-            data-testid="hire-confirm-cancel"
-            className="inline-flex items-center justify-center rounded-full bg-white border-2 border-zinc-200 px-5 py-3 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 transition-colors disabled:opacity-60"
-          >
-            Cancel
-          </button>
+          <div className="border-t border-zinc-100 pt-5 mt-6 flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              data-testid="hire-confirm-cancel"
+              className="inline-flex flex-1 items-center justify-center rounded-full bg-white border-2 border-zinc-200 px-5 py-3 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 transition-colors disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirm}
+              disabled={submitting}
+              data-testid="hire-confirm-submit"
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full bg-red-500 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-red-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              {submitting ? "Sending…" : `Confirm hire`}
+            </button>
+          </div>
         </div>
       </div>
     </div>

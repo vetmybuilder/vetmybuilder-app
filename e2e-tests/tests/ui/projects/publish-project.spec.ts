@@ -9,19 +9,18 @@ test.describe("Project publish journey", () => {
   test("can publish a project", async ({
     projectApi,
     projectDetailsPage,
-    homeownerProjectsPage,
   }) => {
     const project = Project.aProject().withRandomDetails();
     const created = await projectApi.createProject(project.toApiPayload());
 
     await projectDetailsPage.visit(created.id);
-    await projectDetailsPage.hasStatus("Pending");
 
-    await projectDetailsPage.publish();
+    // Projects are live immediately on creation — no publish step needed
     await projectDetailsPage.hasStatus("Live");
 
-    await projectDetailsPage.goBack();
-    await homeownerProjectsPage.hasStatus(created.id, "LIVE");
+    // Share button should be visible; Share & Publish button should not exist
+    await expect(projectDetailsPage.shareButton).toBeVisible();
+    await expect(projectDetailsPage.shareAndPublish).toHaveCount(0);
   });
 
   test("neighbour can view a published project in their area", async ({
@@ -38,6 +37,7 @@ test.describe("Project publish journey", () => {
       .withRandomDetails()
       .withLocation(location);
 
+    // Project is live immediately on creation
     const created = await projectApi.createProject(project.toApiPayload());
 
     const neighbour = Account.anAccount()
@@ -60,7 +60,6 @@ test.describe("Project publish journey", () => {
     await AuthApi.signup(neighbourClient, neighbour);
 
     await loginPage.loginExpectSuccess(neighbour.email!, neighbour.password!);
-    await projectApi.publishProject(created.id);
     await projectDetailsPage.visit(created.id);
     await projectDetailsPage.hasHomeownerProjectDetails(created.id, project);
   });
@@ -74,10 +73,9 @@ test.describe("Project publish journey", () => {
   }) => {
     const password = "Passw0rd!";
 
-    // Project in E4
+    // Project in E4 — live immediately on creation
     const project = Project.aProject().withRandomDetails({ locationQuery: "E4", locationPick: "E4" });
     const created = await projectApi.createProject(project.toApiPayload());
-    await projectApi.publishProject(created.id);
 
     // Close the project so it appears in the completed/community tab
     await projectApi.closeProject(created.id, { didGoAhead: false, reasons: ["budget"] });

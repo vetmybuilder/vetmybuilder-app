@@ -145,6 +145,7 @@ test.describe("POST /api/recommendations/magic/:token", () => {
 
   test("cannot submit magic recommendation when project is not live", async ({
     apiClient,
+    projectApi,
     request,
     runtime,
   }) => {
@@ -153,6 +154,9 @@ test.describe("POST /api/recommendations/magic/:token", () => {
       Project.aProject().withRandomDetails().toPayload()
     );
     const { project } = await projectRes.json();
+
+    // Close the project (archived = not live) so magic-link request is rejected
+    await projectApi.closeProject(project.id, { didGoAhead: false });
 
     const magicRes = await apiClient.post(
       `/api/projects/${project.id}/magic-link`

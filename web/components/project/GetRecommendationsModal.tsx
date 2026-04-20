@@ -7,13 +7,8 @@ export interface GetRecommendationsModalProps {
   open: boolean;
   onClose: () => void;
   onConfirm?: (opts: {
-    neighbourhood: boolean;
     channel: GetRecommendationsChannel;
   }) => void;
-  /** When true, neighbourhood sharing is disabled (already used) */
-  neighbourhoodLocked?: boolean;
-  /** If project is already live, primary button should just say "Share" */
-  alreadyLive?: boolean;
 }
 
 // Simple brand-style icons (SVG) -------------------------
@@ -66,32 +61,24 @@ export default function GetRecommendationsModal({
   open,
   onClose,
   onConfirm,
-  neighbourhoodLocked = false,
-  alreadyLive = false,
 }: GetRecommendationsModalProps) {
-  const [neighbourhoodEnabled, setNeighbourhoodEnabled] = React.useState(true);
   const [selectedChannel, setSelectedChannel] =
     React.useState<GetRecommendationsChannel>(null);
 
   // Reset state whenever the modal is reopened
   React.useEffect(() => {
     if (open) {
-      // If locked, force neighbourhood off and disabled
-      setNeighbourhoodEnabled(!neighbourhoodLocked);
       setSelectedChannel(null);
     }
-  }, [open, neighbourhoodLocked]);
+  }, [open]);
 
   if (!open) return null;
 
   const handleConfirm = () => {
     onConfirm?.({
-      neighbourhood: !neighbourhoodLocked && neighbourhoodEnabled,
       channel: selectedChannel,
     });
   };
-
-  const primaryLabel = alreadyLive ? "Share" : "Share & Publish";
 
   return (
     <div
@@ -101,98 +88,43 @@ export default function GetRecommendationsModal({
       aria-labelledby="get-recs-title"
       data-testid="get-recs-modal"
     >
-      <div className="mx-4 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2
-              id="get-recs-title"
-              className="text-xl sm:text-lg font-semibold tracking-tight text-slate-900"
-            >
-              Get recommendations
-            </h2>
-            <p className="mt-1 text-base sm:text-sm text-slate-600">
-              Choose how you’d like to get recommendations for this project.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-            aria-label="Close"
-            data-testid="get-recs-close"
-          >
-            <XCircle size={20} />
-          </button>
-        </div>
-
-        {/* Neighbourhood toggle */}
-        <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex-1">
-              <p className="text-base sm:text-sm font-semibold text-slate-800">
-                Neighbourhood
+      <div className="mx-4 w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl shadow-zinc-200/60 animate-modal-in">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-5 text-white">
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 id="get-recs-title" className="text-lg font-bold tracking-tight">
+                Share with someone you know
+              </h2>
+              <p className="mt-1 text-sm text-red-100">
+                Know someone who might recommend a good tradesperson? Send them your job directly.
               </p>
-              <p className="text-sm sm:text-xs text-slate-500 mt-0.5">
-                Ask trusted neighbours and local contacts to recommend
-                tradespeople.
-              </p>
-              {neighbourhoodLocked && (
-                <p
-                  className="mt-1 text-sm sm:text-xs text-amber-600"
-                  data-testid="neighbourhood-locked-message"
-                >
-                  You’ve already shared this project with your neighbourhood.
-                </p>
-              )}
             </div>
             <button
               type="button"
-              onClick={() => {
-                if (neighbourhoodLocked) return;
-                setNeighbourhoodEnabled((prev) => !prev);
-              }}
-              className={`inline-flex items-center rounded-full border px-3 py-1.5 text-sm sm:text-xs font-medium transition whitespace-nowrap ${
-                neighbourhoodEnabled && !neighbourhoodLocked
-                  ? "border-emerald-400 bg-emerald-50 text-emerald-800"
-                  : "border-slate-300 bg-white text-slate-500"
-              } ${
-                neighbourhoodLocked
-                  ? "opacity-60 cursor-not-allowed"
-                  : "cursor-pointer"
-              }`}
-              data-testid="toggle-neighbourhood"
-              aria-pressed={neighbourhoodEnabled && !neighbourhoodLocked}
-              disabled={neighbourhoodLocked}
+              onClick={onClose}
+              className="rounded-full p-1 text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+              aria-label="Close"
+              data-testid="get-recs-close"
             >
-              <span
-                className={`mr-1.5 inline-block h-2 w-2 rounded-full ${
-                  neighbourhoodEnabled && !neighbourhoodLocked
-                    ? "bg-emerald-500"
-                    : "bg-slate-300"
-                }`}
-              />
-              {neighbourhoodLocked
-                ? "Disabled"
-                : neighbourhoodEnabled
-                ? "Enabled"
-                : "Disabled"}
+              <XCircle size={22} />
             </button>
           </div>
         </div>
 
-        {/* Channels */}
-        <div className="mt-5">
-          <p className="mb-3 text-sm sm:text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Share via
+        <div className="px-6 py-5">
+          {/* Channels */}
+          <p className="mb-3 text-xs font-bold uppercase tracking-wider text-zinc-400">
+            Choose how to share
           </p>
           <div className="grid grid-cols-3 gap-3">
             <button
               type="button"
               onClick={() => setSelectedChannel("whatsapp")}
-              className={`flex flex-col items-center justify-center rounded-xl border px-3 py-4 sm:py-3 text-sm sm:text-xs font-medium transition ${
+              className={`flex flex-col items-center justify-center rounded-2xl border-2 px-3 py-4 text-sm font-semibold transition-all ${
                 selectedChannel === "whatsapp"
-                  ? "border-emerald-500 bg-emerald-50 text-emerald-800"
-                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  ? "border-[#25D366] bg-emerald-50 text-emerald-800 shadow-sm scale-[1.02]"
+                  : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
               }`}
               data-testid="channel-whatsapp"
             >
@@ -203,10 +135,10 @@ export default function GetRecommendationsModal({
             <button
               type="button"
               onClick={() => setSelectedChannel("sms")}
-              className={`flex flex-col items-center justify-center rounded-xl border px-3 py-4 sm:py-3 text-sm sm:text-xs font-medium transition ${
+              className={`flex flex-col items-center justify-center rounded-2xl border-2 px-3 py-4 text-sm font-semibold transition-all ${
                 selectedChannel === "sms"
-                  ? "border-sky-500 bg-sky-50 text-sky-800"
-                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  ? "border-[#34C759] bg-green-50 text-green-800 shadow-sm scale-[1.02]"
+                  : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
               }`}
               data-testid="channel-sms"
             >
@@ -217,10 +149,10 @@ export default function GetRecommendationsModal({
             <button
               type="button"
               onClick={() => setSelectedChannel("email")}
-              className={`flex flex-col items-center justify-center rounded-xl border px-3 py-4 sm:py-3 text-sm sm:text-xs font-medium transition ${
+              className={`flex flex-col items-center justify-center rounded-2xl border-2 px-3 py-4 text-sm font-semibold transition-all ${
                 selectedChannel === "email"
-                  ? "border-red-400 bg-red-50 text-red-800"
-                  : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
+                  ? "border-blue-500 bg-blue-50 text-blue-800 shadow-sm scale-[1.02]"
+                  : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
               }`}
               data-testid="channel-email"
             >
@@ -228,27 +160,27 @@ export default function GetRecommendationsModal({
               <span className="mt-2">Email</span>
             </button>
           </div>
-        </div>
 
-        {/* Footer actions */}
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-base sm:text-sm font-medium text-slate-700 hover:bg-slate-50"
-            data-testid="btn-cancel-get-recs"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="rounded-full bg-red-500 px-5 py-2.5 text-base sm:text-sm font-bold text-white shadow-sm hover:bg-red-600 disabled:opacity-60"
-            disabled={false}
-            data-testid="btn-confirm-get-recs"
-            onClick={handleConfirm}
-          >
-            {primaryLabel}
-          </button>
+          {/* Footer actions */}
+          <div className="mt-6 flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-full border-2 border-zinc-200 bg-white px-4 py-3 text-sm font-bold text-zinc-600 hover:bg-zinc-50 transition-colors"
+              data-testid="btn-cancel-get-recs"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="flex-1 rounded-full bg-red-500 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:bg-red-600 hover:shadow-xl transition-all disabled:opacity-60"
+              disabled={!selectedChannel}
+              data-testid="btn-confirm-get-recs"
+              onClick={handleConfirm}
+            >
+              Share
+            </button>
+          </div>
         </div>
       </div>
     </div>
