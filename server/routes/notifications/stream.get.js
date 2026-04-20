@@ -44,10 +44,12 @@ module.exports = (router, ctx) => {
     try {
       const unreadRows = await mysqlQuery(
         `SELECT COUNT(*) AS c
-           FROM notifications
-          WHERE userId = ?
-            AND readAt IS NULL`,
-        [uid]
+           FROM notifications n
+           LEFT JOIN projects p ON p.id = n.projectId
+          WHERE n.userId = ?
+            AND n.readAt IS NULL
+            AND NOT (p.ownerUserId = ? AND p.status IN ('completed', 'archived'))`,
+        [uid, uid]
       );
       unread = unreadRows[0]?.c || 0;
 

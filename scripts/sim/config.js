@@ -73,9 +73,10 @@ const DAEMON_TIMING = {
     ? [300_000, 420_000, 540_000, 720_000, 900_000, 180_000]
     : [ 60_000,  75_000,  90_000, 120_000, 150_000,  20_000],
 
-  // Delay before the first completed project is seeded (quick start)
-  completedProjectFirstDelayMin: _prod ? 20_000 :  5_000,
-  completedProjectFirstDelayMax: _prod ? 40_000 : 10_000,
+  // Delay before the first completed project is seeded
+  // 60-90s locally to give users time to log in before notifications fire
+  completedProjectFirstDelayMin: _prod ? 20_000 : 60_000,
+  completedProjectFirstDelayMax: _prod ? 40_000 : 90_000,
 
   // Delay between subsequent completed projects
   completedProjectDelayMin: _prod ? 3 * 60_000 : 30_000,

@@ -150,13 +150,23 @@ module.exports = (router, ctx) => {
         bedrooms: fields.bedrooms,
         answers: nextAnswers,
         log,
-      }).then((classification) => {
-        if (classification && ctx.broadcastNotification) {
-          ctx.broadcastNotification(req.user.uid, {
-            type: "classification_ready",
-            message: "Project insights updated",
-            projectId: id,
-          });
+      }).then(async (classification) => {
+        if (classification) {
+          try {
+            await mysqlQuery(
+              `INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
+               VALUES (?, 'classification_ready', 'Project insights updated', ?, ?, NOW())`,
+              [req.user.uid, id, `/projects/${id}`],
+            );
+          } catch {}
+          if (ctx.broadcastNotification) {
+            ctx.broadcastNotification(req.user.uid, {
+              type: "classification_ready",
+              message: "Project insights updated",
+              projectId: id,
+              linkPath: `/projects/${id}`,
+            });
+          }
         }
       }).catch((e) => {
         log.warn?.("[project.put] classifyProject threw", { id, error: e?.message || e });

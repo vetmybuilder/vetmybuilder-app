@@ -31,7 +31,7 @@ export class SiteHeader {
   readonly accountMenuButton: Locator;
   readonly accountMenu: Locator;
 
-  readonly menuEditAccount: Locator;
+  readonly menuManageAccount: Locator;
 
   readonly btnMobileMenu: Locator;
   readonly mobileMenu: Locator;
@@ -76,7 +76,7 @@ export class SiteHeader {
     this.accountMenuButton = page.getByTestId("account-menu-button");
     this.accountMenu = page.getByTestId("account-menu");
 
-    this.menuEditAccount = page.getByRole("menuitem", { name: "Edit account" });
+    this.menuManageAccount = page.getByRole("menuitem", { name: "Manage account" });
 
     this.btnMobileMenu = page.getByTestId("btn-mobile-menu");
     this.mobileMenu = page.getByTestId("mobile-menu");
@@ -128,8 +128,8 @@ export class SiteHeader {
     }
 
     await this.openAccountMenu();
-    await expect(this.menuEditAccount).toBeVisible();
-    await this.menuEditAccount.click();
+    await expect(this.menuManageAccount).toBeVisible();
+    await this.menuManageAccount.click();
     await expect(this.page).toHaveURL("/account", { timeout: 15_000 });
   }
 
