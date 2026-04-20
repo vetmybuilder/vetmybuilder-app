@@ -59,7 +59,8 @@ function renderBellLoggedIn({
     user: { getIdToken: vi.fn().mockResolvedValue(undefined) }, // no SSE in tests
     loading: false,
   });
-  api.get.mockResolvedValue({ data: { items, unread } });
+  // The component fetches ?grouped=1 which expects { groups, ungrouped, unread }
+  api.get.mockResolvedValue({ data: { groups: [], ungrouped: items, unread } });
   api.post.mockResolvedValue({ data: {} });
 
   return render(<NotificationsBell />);
@@ -119,9 +120,7 @@ describe("<NotificationsBell />", () => {
     fireEvent.click(btn);
 
     // Click the item
-    const item = await screen.findByRole("menuitem", {
-      name: /builder invited to your project/i,
-    });
+    const item = await screen.findByText(/builder invited to your project/i);
     fireEvent.click(item);
 
     // Marks read + navigates
@@ -138,7 +137,7 @@ describe("<NotificationsBell />", () => {
     fireEvent.click(btn);
 
     expect(
-      await screen.findByText(/you’re all caught up\./i)
+      await screen.findByText(/you.re all caught up/i)
     ).toBeInTheDocument();
     const markAll = await screen.findByRole("button", {
       name: /mark all as read/i,

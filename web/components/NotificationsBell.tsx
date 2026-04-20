@@ -442,7 +442,7 @@ export default function NotificationsBell() {
                 </div>
               ))}
               {groups.length === 0 && ungrouped.length === 0 && (
-                <p className="py-8 text-center text-sm text-zinc-400">You&apos;re all caught up.</p>
+                <p className="py-8 text-center text-sm text-zinc-400">You're all caught up.</p>
               )}
             </div>
           </div>
