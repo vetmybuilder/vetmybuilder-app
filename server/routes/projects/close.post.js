@@ -404,9 +404,14 @@ module.exports = (router, ctx) => {
             const locTokens = extractLocationTokens(project.location);
             const whereParts = [];
             const areaParams = [];
+            const { getBoroughCodes } = require("../../lib/boroughPostcodes");
             if (locTokens.full)    { whereParts.push("u.postcode = ?");        areaParams.push(locTokens.full); }
             if (locTokens.sector)  { whereParts.push("u.postcodeSector = ?");  areaParams.push(locTokens.sector); }
-            if (locTokens.outward) { whereParts.push("u.postcodeOutward = ?"); areaParams.push(locTokens.outward); }
+            if (locTokens.outward) {
+              for (const code of getBoroughCodes(locTokens.outward)) {
+                whereParts.push("u.postcodeOutward = ?"); areaParams.push(code);
+              }
+            }
             if (locTokens.city)    { whereParts.push("LOWER(u.city) = ?");     areaParams.push(String(locTokens.city).toLowerCase()); }
             if (!whereParts.length) return;
 

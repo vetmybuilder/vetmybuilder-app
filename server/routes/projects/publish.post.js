@@ -20,6 +20,7 @@ module.exports = (router, ctx) => {
   const log = ctx.log || console;
   const { notifyMatchedTradesmen } = require("../../lib/ai/notifyMatchedTradesmen");
   const { surfacePipelineTradespeople } = require("../../lib/surfacePipelineTradespeople");
+  const { getBoroughCodes } = require("../../lib/boroughPostcodes");
 
   router.post("/projects/:id/publish", auth, async (req, res) => {
     const id = Number(req.params.id);
@@ -136,8 +137,12 @@ module.exports = (router, ctx) => {
         areaParams.push(locTokens.sector);
       }
       if (locTokens.outward) {
-        whereParts.push("u.postcodeOutward = ?");
-        areaParams.push(locTokens.outward);
+        // Expand to all postcodes in the same borough
+        const boroughCodes = getBoroughCodes(locTokens.outward);
+        for (const code of boroughCodes) {
+          whereParts.push("u.postcodeOutward = ?");
+          areaParams.push(code);
+        }
       }
       if (locTokens.city) {
         whereParts.push("LOWER(u.city) = ?");
