@@ -140,6 +140,28 @@ export class NotificationsApi {
     await new Promise((r) => setTimeout(r, settleMs));
     return this.findAllByType(type);
   }
+
+  async listGrouped(): Promise<{ groups: any[]; ungrouped: any[]; unread: number }> {
+    const res = await this.apiClient.get(`/api/notifications?grouped=1`);
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(Array.isArray(body.groups)).toBe(true);
+    expect(typeof body.unread).toBe("number");
+    return body;
+  }
+
+  async expectGroupForProject(projectId: number): Promise<any> {
+    const { groups } = await this.listGrouped();
+    const group = groups.find((g: any) => g.projectId === projectId);
+    expect(group, `Expected notification group for project ${projectId}`).toBeTruthy();
+    return group;
+  }
+
+  async expectNoGroupForProject(projectId: number): Promise<void> {
+    const { groups } = await this.listGrouped();
+    const group = groups.find((g: any) => g.projectId === projectId);
+    expect(group, `Expected no notification group for project ${projectId}`).toBeFalsy();
+  }
 }
 
 export default NotificationsApi;

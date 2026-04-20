@@ -15,6 +15,17 @@ type NotifItem = {
   readAt?: string | null;
 };
 
+type NotifGroup = {
+  projectId: number;
+  projectName: string;
+  projectStatus: string;
+  unread: number;
+  total: number;
+  latest: string;
+  summary: Record<string, number>;
+  items: NotifItem[];
+};
+
 // How many notifications we keep client-side and ask the server for
 const NOTIF_LIMIT = 200;
 
@@ -41,6 +52,9 @@ export default function NotificationsBell() {
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<NotifItem[]>([]);
   const [busy, setBusy] = useState(false);
+  const [groups, setGroups] = useState<NotifGroup[]>([]);
+  const [ungrouped, setUngrouped] = useState<NotifItem[]>([]);
+  const [expandedProjectId, setExpandedProjectId] = useState<number | null>(null);
   // SSE must bypass the Next.js rewrite proxy (which buffers SSE streams).
   // In dev, the web runs on :3000 and API on :3100. Detect and connect directly.
   const sseBase = (() => {
@@ -79,13 +93,17 @@ export default function NotificationsBell() {
 
   async function refreshList() {
     try {
-      // Ask the API for more than the old default of 50
-      const { data } = await api.get(`/api/notifications?limit=${NOTIF_LIMIT}`);
-      setItems((prev) => dedupeAndSort([...(data.items || []), ...prev]));
+      const { data } = await api.get(`/api/notifications?grouped=1`);
+      setGroups(data.groups || []);
+      setUngrouped(data.ungrouped || []);
       setUnread(data.unread || 0);
-    } catch {
-      /* ignore */
-    }
+      // Also update flat items for SSE merge compatibility
+      const allItems: NotifItem[] = [
+        ...(data.groups || []).flatMap((g: NotifGroup) => g.items || []),
+        ...(data.ungrouped || []),
+      ];
+      setItems(dedupeAndSort(allItems));
+    } catch {}
   }
 
   useEffect(() => {
@@ -129,57 +147,23 @@ export default function NotificationsBell() {
         const es = new EventSource(url);
         esRef.current = es;
 
-        es.addEventListener("bootstrap", (ev: MessageEvent) => {
-          try {
-            const payload = JSON.parse(ev.data);
-            if (cancelled) return;
-            setUnread(payload.unread ?? 0);
-            // Merge latest with what we already have (in case fetch already ran)
-            setItems((prev) =>
-              dedupeAndSort([...(payload.latest ?? []), ...prev]),
-            );
-          } catch {
-            /* ignore */
-          }
+        es.addEventListener("bootstrap", (_ev: MessageEvent) => {
+          if (cancelled) return;
+          refreshList();
         });
 
         es.addEventListener("notification", (ev: MessageEvent) => {
           if (cancelled) return;
           setUnread((u) => u + 1);
 
-          // Try to use the event data directly (avoids an extra API call)
+          // Broadcast to other components (e.g. rec list auto-refresh)
           try {
             const n = JSON.parse(ev.data);
+            window.dispatchEvent(new CustomEvent("vmb:notification", { detail: n }));
+          } catch {}
 
-            // Broadcast to other components (e.g. rec list auto-refresh)
-            try {
-              window.dispatchEvent(new CustomEvent("vmb:notification", { detail: n }));
-            } catch {}
-
-            if (n?.message) {
-              setItems((prev) =>
-                dedupeAndSort([
-                  {
-                    id: -(Date.now()),
-                    type: n.type || "info",
-                    message: n.message,
-                    projectId: n.projectId ?? null,
-                    linkPath: n.linkPath ?? null,
-                    createdAt: n.createdAt || new Date().toISOString(),
-                    readAt: null,
-                  },
-                  ...prev,
-                ]),
-              );
-            }
-          } catch {
-            // Fallback: refresh from API
-            if (refreshTimer.current) window.clearTimeout(refreshTimer.current);
-            refreshTimer.current = window.setTimeout(() => {
-              refreshList();
-              refreshTimer.current = null;
-            }, 250);
-          }
+          // Re-fetch grouped data
+          refreshList();
         });
 
         // Close on error to prevent infinite reconnect loops (e.g. 401 for guests)
@@ -207,11 +191,7 @@ export default function NotificationsBell() {
     try {
       await api.post("/api/notifications/read-all");
       setUnread(0);
-      setItems((prev) =>
-        prev.map((i) =>
-          i.readAt ? i : { ...i, readAt: new Date().toISOString() },
-        ),
-      );
+      await refreshList();
     } finally {
       setBusy(false);
     }
@@ -267,6 +247,55 @@ export default function NotificationsBell() {
     }
   }
 
+  function timeAgo(dateStr: string): string {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
+  }
+
+  function summaryText(summary: Record<string, number>): string {
+    const parts: string[] = [];
+    const rec = summary.recommendation_new || 0;
+    if (rec > 0) parts.push(`${rec} new rec${rec > 1 ? "s" : ""}`);
+    const shared = summary.tradesman_shared_profile || 0;
+    if (shared > 0) parts.push(`${shared} builder${shared > 1 ? "s" : ""} shared`);
+    const hires = (summary.hire_received || 0) + (summary.hire_accepted || 0) + (summary.hire_declined || 0);
+    if (hires > 0) parts.push(`${hires} hire update${hires > 1 ? "s" : ""}`);
+    const interest = summary.tradesman_interest || 0;
+    if (interest > 0) parts.push(`${interest} interested`);
+    const match = summary.project_match || 0;
+    if (match > 0) parts.push(`${match} match${match > 1 ? "es" : ""}`);
+    return parts.join(" · ") || "Activity";
+  }
+
+  async function handleMarkGroupRead(group: NotifGroup) {
+    setBusy(true);
+    const unreadIds = group.items.filter((n) => !n.readAt).map((n) => n.id);
+    for (const id of unreadIds) {
+      try { await api.post(`/api/notifications/${id}/read`); } catch {}
+    }
+    await refreshList();
+    setBusy(false);
+  }
+
+  function handleItemClick(n: NotifItem) {
+    onClickItem(n);
+  }
+
+  function handleDismiss(id: number) {
+    const n = items.find((i) => i.id === id);
+    if (n) {
+      const syntheticEvent = { stopPropagation: () => {} } as React.MouseEvent;
+      dismissNotification(syntheticEvent, n);
+      refreshList();
+    }
+  }
+
   return (
     <div className="relative">
       <button
@@ -293,14 +322,9 @@ export default function NotificationsBell() {
           />
         </svg>
 
-        {/* Numeric unread badge */}
+        {/* Red dot badge */}
         {unread > 0 && (
-          <span
-            aria-hidden
-            className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white"
-          >
-            {unread > 99 ? "99+" : unread}
-          </span>
+          <span aria-hidden className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-red-500" />
         )}
       </button>
 
@@ -324,18 +348,10 @@ export default function NotificationsBell() {
           >
             <div className="flex items-center justify-between px-3 py-3 border-b border-gray-100">
               <div className="text-sm font-semibold text-gray-900">
-                {items.length} Notifications
+                Notifications
               </div>
 
               <div className="flex items-center gap-2">
-                <Link
-                  href="/account/notifications"
-                  onClick={() => setOpen(false)}
-                  className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
-                >
-                  Settings
-                </Link>
-
                 <button
                   className="text-xs rounded-md px-2 py-1 ring-1 ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
                   onClick={markAllRead}
@@ -355,50 +371,78 @@ export default function NotificationsBell() {
             </div>
 
             <div className="overflow-auto max-h-[calc(70vh-56px)] sm:max-h-96 divide-y divide-gray-100">
-              {items.length === 0 ? (
-                <div className="px-4 py-8 text-sm text-gray-500 text-center">
-                  You’re all caught up.
-                </div>
-              ) : (
-                items.map((n) => {
-                  const isUnread = !n.readAt;
-
-                  return (
+              {/* Grouped project summaries */}
+              {groups.map((g) => {
+                const isExpanded = expandedProjectId === g.projectId;
+                return (
+                  <div key={g.projectId} className="border-b border-zinc-100 last:border-b-0">
                     <button
-                      key={`${n.id}-${n.createdAt}`}
-                      role="menuitem"
-                      className={`group relative w-full text-left px-4 py-4 hover:bg-gray-50 transition ${
-                        isUnread
-                          ? "bg-amber-50/80 border-l-4 border-amber-500"
-                          : ""
+                      type="button"
+                      onClick={() => setExpandedProjectId(isExpanded ? null : g.projectId)}
+                      className={`w-full text-left px-4 py-3 transition-colors hover:bg-zinc-50 ${
+                        g.unread > 0 ? "bg-amber-50/80 border-l-4 border-amber-500" : ""
                       }`}
-                      onClick={() => onClickItem(n)}
                     >
-                      <span
-                        role="button"
-                        aria-label="Dismiss notification"
-                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity rounded-full p-1 hover:bg-gray-200 text-gray-400 hover:text-gray-600"
-                        onClick={(e) => dismissNotification(e, n)}
-                      >
-                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                          <path d="M18 6L6 18M6 6l12 12" />
-                        </svg>
-                      </span>
-                      <div
-                        className={`text-sm leading-6 pr-6 ${
-                          isUnread
-                            ? "text-gray-900 font-semibold"
-                            : "text-gray-900"
-                        }`}
-                      >
-                        {n.message}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-bold text-zinc-900 truncate pr-2">{g.projectName}</span>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {g.unread > 0 && (
+                            <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white">{g.unread}</span>
+                          )}
+                          <span className={`text-zinc-400 text-xs transition-transform ${isExpanded ? "rotate-180" : ""}`}>▼</span>
+                        </div>
                       </div>
-                      <div className="mt-1 text-xs text-gray-500">
-                        {new Date(n.createdAt).toLocaleString()}
-                      </div>
+                      <p className="text-xs text-zinc-500 mt-0.5 line-clamp-1">{summaryText(g.summary)}</p>
+                      <p className="text-[10px] text-zinc-400 mt-0.5">Latest: {timeAgo(g.latest)}</p>
                     </button>
-                  );
-                })
+                    {isExpanded && (
+                      <div className="bg-zinc-50/50">
+                        {g.items.map((n) => (
+                          <div
+                            key={n.id}
+                            onClick={() => handleItemClick(n)}
+                            className={`group flex items-start gap-2 px-4 py-2 pl-6 cursor-pointer border-b border-zinc-100/50 last:border-b-0 hover:bg-zinc-100/50 ${
+                              !n.readAt ? "font-medium" : ""
+                            }`}
+                          >
+                            <span className={`mt-1.5 h-2 w-2 flex-shrink-0 rounded-full ${!n.readAt ? "bg-amber-500" : "bg-zinc-300"}`} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-zinc-700 truncate">{n.message}</p>
+                              <p className="text-[10px] text-zinc-400">{timeAgo(n.createdAt)}</p>
+                            </div>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDismiss(n.id); }}
+                              className="opacity-0 group-hover:opacity-100 text-zinc-400 hover:text-red-500 text-xs px-1"
+                              aria-label="Dismiss"
+                            >×</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {ungrouped.map((n) => (
+                <div
+                  key={n.id}
+                  onClick={() => handleItemClick(n)}
+                  className={`group flex items-start gap-2 px-4 py-3 cursor-pointer border-b border-zinc-100 last:border-b-0 hover:bg-zinc-50 ${
+                    !n.readAt ? "bg-amber-50/80 border-l-4 border-amber-500 font-medium" : ""
+                  }`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-zinc-700">{n.message}</p>
+                    <p className="text-[10px] text-zinc-400 mt-0.5">{timeAgo(n.createdAt)}</p>
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDismiss(n.id); }}
+                    className="opacity-0 group-hover:opacity-100 text-zinc-400 hover:text-red-500 text-xs px-1"
+                    aria-label="Dismiss"
+                  >×</button>
+                </div>
+              ))}
+              {groups.length === 0 && ungrouped.length === 0 && (
+                <p className="py-8 text-center text-sm text-zinc-400">You're all caught up.</p>
               )}
             </div>
           </div>

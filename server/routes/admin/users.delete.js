@@ -23,11 +23,22 @@ module.exports = (router, ctx) => {
       }
 
       // Clean up all related data — try/catch each so missing tables don't block deletion
+      // Delete all referencing rows before projects — order matters for FK constraints
+      const projectSubquery = `(SELECT id FROM projects WHERE ownerUserId = ?)`;
       const cleanup = [
-        `DELETE FROM recommendations WHERE projectId IN (SELECT id FROM projects WHERE ownerUserId = ?)`,
-        `DELETE FROM hires WHERE projectId IN (SELECT id FROM projects WHERE ownerUserId = ?)`,
-        `DELETE FROM projects WHERE ownerUserId = ?`,
         `DELETE FROM notifications WHERE userId = ?`,
+        `DELETE FROM notifications WHERE projectId IN ${projectSubquery}`,
+        `DELETE FROM project_classifications WHERE project_id IN ${projectSubquery}`,
+        `DELETE FROM match_observations WHERE project_id IN ${projectSubquery}`,
+        `DELETE FROM project_closure_photos WHERE projectId IN ${projectSubquery}`,
+        `DELETE FROM project_closures WHERE projectId IN ${projectSubquery}`,
+        `DELETE FROM recommendation_links WHERE projectId IN ${projectSubquery}`,
+        `DELETE FROM recommendation_votes WHERE recommendationId IN (SELECT id FROM recommendations WHERE projectId IN ${projectSubquery})`,
+        `DELETE FROM company_verifications WHERE recommendationId IN (SELECT id FROM recommendations WHERE projectId IN ${projectSubquery})`,
+        `DELETE FROM recommendations WHERE projectId IN ${projectSubquery}`,
+        `DELETE FROM hires WHERE projectId IN ${projectSubquery}`,
+        `DELETE FROM favourites WHERE projectId IN ${projectSubquery}`,
+        `DELETE FROM projects WHERE ownerUserId = ?`,
         `DELETE FROM push_subscriptions WHERE uid = ?`,
         `DELETE FROM notification_preferences WHERE uid = ?`,
         `DELETE FROM favourite_tradesmen WHERE userId = ?`,

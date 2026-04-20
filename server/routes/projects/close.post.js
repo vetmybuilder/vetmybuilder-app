@@ -264,6 +264,17 @@ module.exports = (router, ctx) => {
         });
       }
 
+      // Mark all notifications for this project as read
+      try {
+        await mysqlQuery(
+          `UPDATE notifications SET readAt = COALESCE(readAt, NOW())
+            WHERE userId = ? AND projectId = ? AND readAt IS NULL`,
+          [uid, projectId],
+        );
+      } catch (markErr) {
+        log.warn?.({ err: markErr?.message, projectId }, "failed to mark notifications read on close (non-fatal)");
+      }
+
       // ---------------------------------------------------------
       // UPSERT INTO project_closures
       // ---------------------------------------------------------
