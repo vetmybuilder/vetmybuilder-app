@@ -249,16 +249,38 @@ export class ProjectDetailsPage extends BasePage {
   async hasNotification(text: string) {
     await expect(this.notificationsButton).toBeVisible({ timeout: 15_000 });
     await this.notificationsButton.click({delay: 1000});
+
+    // Notifications are now grouped by project. Try finding the text directly first
+    // (ungrouped or already expanded). If not found, expand all group headers then retry.
+    const directMatch = this.page.getByText(text).first();
+    const visible = await directMatch.isVisible().catch(() => false);
+    if (!visible) {
+      // Click all collapsed group headers (▼ buttons) to expand them
+      const groupHeaders = this.page.locator('[aria-label="Notifications"] button:has-text("▼")');
+      const count = await groupHeaders.count();
+      for (let i = 0; i < count; i++) {
+        await groupHeaders.nth(i).click();
+      }
+    }
+
     await expect(
-      this.page.getByRole("menuitem", { name: text }).first(),
+      this.page.getByText(text).first(),
     ).toBeVisible({ timeout: 25_000 });
   }
 
   async openNotification(text: string) {
-    const notification = this.page
-      .getByRole("menuitem", { name: text })
-      .first();
+    // Expand groups if needed, then click the notification
+    const directMatch = this.page.getByText(text).first();
+    const visible = await directMatch.isVisible().catch(() => false);
+    if (!visible) {
+      const groupHeaders = this.page.locator('[aria-label="Notifications"] button:has-text("▼")');
+      const count = await groupHeaders.count();
+      for (let i = 0; i < count; i++) {
+        await groupHeaders.nth(i).click();
+      }
+    }
 
+    const notification = this.page.getByText(text).first();
     await expect(notification).toBeVisible();
     await notification.click();
   }
