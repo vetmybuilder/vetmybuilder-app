@@ -36,6 +36,10 @@ export type Recommendation = {
   likes?: number;
   myLike?: 0 | 1;
   score?: number;
+  source?: string | null;
+  linked_tradesman_uid?: string | null;
+  tradesmanPublicId?: string | null;
+  companyEmail?: string | null;
 };
 
 export type Flash =

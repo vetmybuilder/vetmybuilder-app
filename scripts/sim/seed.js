@@ -297,7 +297,7 @@ async function seedElegantSpotlight() {
     // Boost Elegant's recommendation scores so they show green (70+) in the UI.
     // Add extra likes from sim neighbours and mark as friend recommendation.
     const [elegantRecs] = await conn.query(
-      `SELECT id FROM recommendations WHERE company LIKE '%Elegant%'`
+      `SELECT id FROM recommendations WHERE company LIKE '%Elegant%' AND source != 'pipeline'`
     );
     for (const rec of elegantRecs) {
       // Add 8 likes from unique sim voters

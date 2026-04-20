@@ -17,8 +17,14 @@ module.exports = (router, ctx) => {
       const params = [];
 
       if (q) {
-        wh.push("LOWER(company_name) LIKE ?");
-        params.push(`%${q}%`);
+        wh.push("(LOWER(company_name) LIKE ? OR LOWER(trade_types) LIKE ?)");
+        params.push(`%${q}%`, `%${q}%`);
+      }
+
+      const tradeFilter = String(req.query.trade || "").trim();
+      if (tradeFilter) {
+        wh.push("LOWER(trade_types) LIKE ?");
+        params.push(`%${tradeFilter.toLowerCase()}%`);
       }
 
       if (statusFilter && statusFilter !== "all") {

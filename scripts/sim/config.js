@@ -41,7 +41,7 @@ const FAST_TIMING = {
 
 // Daemon timing — all values in milliseconds
 // SIM_PROD=1 uses realistic production delays; local uses fast defaults for testing
-const _prod = process.env.SIM_PROD === "1";
+const _prod = process.env.SIM_PROD === "1" && process.env.SIM_FAST !== "1";
 
 const DAEMON_TIMING = {
   // How often the daemon polls for newly published projects

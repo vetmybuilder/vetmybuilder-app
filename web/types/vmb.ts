@@ -12,6 +12,7 @@ export type Recommendation = {
   name: string | null;
   email: string | null;
   phone?: string | null;
+  companyEmail?: string | null;
   company: string;
   rating?: number | null;
   comment: string | null;
