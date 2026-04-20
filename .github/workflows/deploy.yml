@@ -1,4 +1,4 @@
-name: Deploy to Production
+name: Deploy
 
 on:
   push:
@@ -37,7 +37,7 @@ jobs:
           # workflow_dispatch = manual trigger, always deploy
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "app=true" >> $GITHUB_OUTPUT
-            echo "Manual trigger — deploying"
+            echo "Manual trigger - deploying"
             exit 0
           fi
           changed=$(git diff --name-only HEAD~1 HEAD)
@@ -46,7 +46,7 @@ jobs:
             echo "app=true" >> $GITHUB_OUTPUT
           else
             echo "app=false" >> $GITHUB_OUTPUT
-            echo "Only e2e/workflow files changed — skipping deploy"
+            echo "Only e2e/workflow files changed - skipping deploy"
           fi
 
       - name: Prepare SSH
@@ -60,10 +60,18 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "$PROD_HOST" >> ~/.ssh/known_hosts
 
-      - name: Deploy
+      - name: Deploy to Staging
         if: steps.changed.outputs.app == 'true'
         env:
           PROD_HOST: ${{ secrets.PROD_HOST }}
         run: |
           set -e
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes "root@$PROD_HOST" 'vmb-deploy && for i in $(seq 1 18); do curl -fsS http://localhost:8787/health >/dev/null 2>&1 && echo "Health: OK" && exit 0; sleep 5; done; echo "Health: FAIL"; exit 1'
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes "root@$PROD_HOST" 'vmb-deploy-staging && for i in $(seq 1 18); do curl -fsS http://localhost:8788/health >/dev/null 2>&1 && echo "Staging health: OK" && exit 0; sleep 5; done; echo "Staging health: FAIL"; exit 1'
+
+      - name: Deploy to Production
+        if: steps.changed.outputs.app == 'true'
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+        run: |
+          set -e
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes "root@$PROD_HOST" 'vmb-deploy && for i in $(seq 1 18); do curl -fsS http://localhost:8787/health >/dev/null 2>&1 && echo "Production health: OK" && exit 0; sleep 5; done; echo "Production health: FAIL"; exit 1'
