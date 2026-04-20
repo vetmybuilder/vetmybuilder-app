@@ -69,6 +69,19 @@ export function projectsClient(core: ApiCore) {
     );
   }
 
+  async function waitForNotification(message: string) {
+    await expect
+      .poll(async () => {
+        const res = await core.get(`/api/notifications`);
+        if (!res.ok()) return false;
+
+        const body = await res.json();
+        const items = Array.isArray(body?.items) ? body.items : [];
+        return items.some((n: any) => n.message === message);
+      })
+      .toBe(true);
+  }
+
   async function createProjectMagicLink(projectId: number) {
     return core.post(`/api/projects/${projectId}/magic-link`, {});
   }
@@ -82,6 +95,7 @@ export function projectsClient(core: ApiCore) {
     findProjectRecommendationByCompany,
     uploadProjectClosePhotos,
     uploadProjectClosePhotosUnauthed,
+    waitForNotification,
     createProjectMagicLink,
     rotateProjectMagicLink,
   };

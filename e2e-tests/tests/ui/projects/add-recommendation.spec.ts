@@ -43,9 +43,8 @@ test.describe("Add recommendation", () => {
       locationPick: location,
     });
 
-    const created = await ownerProjectApi.createProject(project.toApiPayload());
-    // No explicit publishProject call needed — projects are created live
-
+    // Register neighbour BEFORE creating the project so they receive the
+    // project_live_local notification (auto-publish fires on creation)
     const neighbour = Account.anAccount()
       .withRandomDetails()
       .withLocation(location)
@@ -64,13 +63,17 @@ test.describe("Add recommendation", () => {
     );
 
     await AuthApi.signup(neighbourClient, neighbour);
+
+    // Now create the project — neighbour exists and will receive the notification
+    const created = await ownerProjectApi.createProject(project.toApiPayload());
+
     await projectDetailsPage.logoutViaUrl();
     await loginPage.loginExpectSuccess(neighbour.email!, neighbour.password!);
 
-    const notificationText = `A new project “${project.workTypes[0]} in ${location} (${project.propertyType})” in your area is now live`;
+    const notificationText = `A new job "${project.workTypes[0]} in ${location} (${project.propertyType})" in your area is now live`;
+    await neighbourClient.waitForNotification(notificationText);
 
-    await projectDetailsPage.hasNotification(notificationText);
-    await projectDetailsPage.openNotification(notificationText);
+    await projectDetailsPage.visit(created.id);
     await projectDetailsPage.hasHomeownerProjectDetails(created.id, project);
 
     const companyEmail = `hello+${Date.now()}@elegantbuilding.test`;
@@ -97,8 +100,8 @@ test.describe("Add recommendation", () => {
     expect(recItem.companyEmail).toBe(companyEmail);
 
     const newNotificationText = `Someone has recommended a tradesperson to your project “${project.workTypes[0]} in ${location} (${project.propertyType})”`;
+    await ownerClient.waitForNotification(newNotificationText);
 
-    await projectDetailsPage.hasNotification(newNotificationText);
     await expect(projectDetailsPage.page).toHaveURL(`/projects/${created.id}`);
     await projectDetailsPage.hasProjectRecommendation(recommendation);
     await projectDetailsPage.openProjectRecommendation(recommendation);
@@ -159,7 +162,10 @@ test.describe("Add recommendation", () => {
     // After guest submission the page redirects to '/'. No waitUntilReady here.
     await loginPage.loginExpectSuccess(owner.email!, owner.password!);
     await projectDetailsPage.visit(created.id);
-    await projectDetailsPage.hasNotification(`Someone has recommended a tradesperson to your project “${project.workTypes[0]} in ${location} (${project.propertyType})”`);
+
+    const guestRecNotification = `Someone has recommended a tradesperson to your project “${project.workTypes[0]} in ${location} (${project.propertyType})”`;
+    await ownerClient.waitForNotification(guestRecNotification);
+
     await expect(projectDetailsPage.page).toHaveURL(`/projects/${created.id}`);
     await projectDetailsPage.hasProjectRecommendation(recommendation);
     await projectDetailsPage.openProjectRecommendation(recommendation);

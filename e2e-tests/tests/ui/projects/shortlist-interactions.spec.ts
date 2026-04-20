@@ -7,7 +7,7 @@ import { authedApiForUid } from "../../../src/api/services/client";
 import { AuthApi } from "../../../src/apiHelper/auth/AuthApi";
 
 test.describe("Shortlist interactions", () => {
-  test("share button opens the share modal", async ({
+   test("share button opens the share modal", async ({
     projectApi,
     projectDetailsPage,
   }) => {

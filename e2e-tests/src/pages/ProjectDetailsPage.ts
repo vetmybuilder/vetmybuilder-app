@@ -247,42 +247,42 @@ export class ProjectDetailsPage extends BasePage {
   }
 
   async hasNotification(text: string) {
+    // 1. Open the bell
     await expect(this.notificationsButton).toBeVisible({ timeout: 15_000 });
-    await this.notificationsButton.click({delay: 1000});
+    await this.notificationsButton.click();
 
-    // Notifications are now grouped by project. Try finding the text directly first
-    // (ungrouped or already expanded). If not found, expand all group headers then retry.
-    const directMatch = this.page.getByText(text).first();
-    const visible = await directMatch.isVisible().catch(() => false);
-    if (!visible) {
-      // Click all collapsed group headers (▼ buttons) to expand them
-      const groupHeaders = this.page.locator('[aria-label="Notifications"] button:has-text("▼")');
-      const count = await groupHeaders.count();
-      for (let i = 0; i < count; i++) {
-        await groupHeaders.nth(i).click();
-      }
-    }
+    // 2. Wait for the panel to appear and data to load
+    const panel = this.page.locator('[aria-label="Notifications"]');
+    await expect(panel).toBeVisible({ timeout: 10_000 });
 
-    await expect(
-      this.page.getByText(text).first(),
-    ).toBeVisible({ timeout: 25_000 });
+    // 3. Expand every collapsed group so item text enters the DOM
+    await this.expandAllNotificationGroups(panel);
+
+    // 4. Assert the notification text is visible
+    await expect(this.page.getByText(text).first()).toBeVisible({ timeout: 15_000 });
   }
 
   async openNotification(text: string) {
-    // Expand groups if needed, then click the notification
-    const directMatch = this.page.getByText(text).first();
-    const visible = await directMatch.isVisible().catch(() => false);
-    if (!visible) {
-      const groupHeaders = this.page.locator('[aria-label="Notifications"] button:has-text("▼")');
-      const count = await groupHeaders.count();
-      for (let i = 0; i < count; i++) {
-        await groupHeaders.nth(i).click();
-      }
-    }
+    // Panel should already be open from hasNotification
+    const panel = this.page.locator('[aria-label="Notifications"]');
+    await this.expandAllNotificationGroups(panel);
 
     const notification = this.page.getByText(text).first();
-    await expect(notification).toBeVisible();
+    await expect(notification).toBeVisible({ timeout: 10_000 });
     await notification.click();
+  }
+
+  private async expandAllNotificationGroups(panel: Locator) {
+    // Wait for at least one group or ungrouped item to load
+    await panel.locator('.border-b').first().waitFor({ state: "attached", timeout: 15_000 });
+
+    // Click each collapsed group header (contains the project name)
+    const groupButtons = panel.locator('button[type="button"]');
+    const count = await groupButtons.count();
+    for (let i = 0; i < count; i++) {
+      await groupButtons.nth(i).click();
+      await this.page.waitForTimeout(500);
+    }
   }
 
   async hasProjectDetails(
