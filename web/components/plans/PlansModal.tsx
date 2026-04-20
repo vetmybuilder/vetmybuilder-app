@@ -662,14 +662,14 @@ export default function PlansModal({
       {/* Backdrop */}
       <div
         ref={backdropRef}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-backdrop-in"
         onClick={(e) => {
           if (e.target === backdropRef.current) onClose();
         }}
       />
 
       {/* Modal */}
-      <div className="relative z-[1001] mx-4 w-full max-w-7xl overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-2xl">
+      <div className="relative z-[1001] mx-4 w-full max-w-7xl overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-2xl animate-modal-in">
         {/* Header */}
         <div className="flex flex-col gap-3 p-5 border-b border-slate-100">
           <div className="flex items-start justify-between">

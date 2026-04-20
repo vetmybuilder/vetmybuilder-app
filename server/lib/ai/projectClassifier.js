@@ -1,6 +1,6 @@
 // server/lib/ai/projectClassifier.js
 //
-// Project Lighthouse — Day 3.
+// Project Lighthouse - Day 3.
 //
 // Turns a free-text project description into a structured representation:
 //
@@ -10,14 +10,14 @@
 //     "complexity": "simple|moderate|complex|specialist",
 //     "urgency": "asap|weeks|months|flexible",
 //     "recommended_trades": [...],    // trade types this project needs
-//     "price_band_estimate": "£X–£Y",
+//     "price_band_estimate": "£X-£Y",
 //     "materials": [...],             // materials mentioned (optional)
 //     "key_concerns": [...],          // what the homeowner cares about
 //     "summary": "..."                // one-sentence rephrasing
 //   }
 //
 // The output schema is the contract every downstream feature depends on.
-// Don't change field names lightly — match observations, the future
+// Don't change field names lightly - match observations, the future
 // re-ranker, and the decision assistant all read from this shape.
 //
 // Stub mode returns a generic-but-realistic response so the rest of the
@@ -37,7 +37,7 @@ VetMyBuilder. Your job is to read a homeowner's free-text project description \
 and produce a structured JSON representation that downstream systems use to \
 match the homeowner with the right tradespeople.
 
-Output JSON only — no commentary, no Markdown fences, no preamble. Use the \
+Output JSON only - no commentary, no Markdown fences, no preamble. Use the \
 exact field names below. If a field is unknown, use null or an empty array \
 as appropriate. Never invent specifics that aren't in the input.
 
@@ -50,52 +50,52 @@ Specialist", "Extension Builder", or "Other")
   complexity           - one of: "simple", "moderate", "complex", "specialist"
   urgency              - one of: "asap", "weeks", "months", "flexible"
   recommended_trades   - array of trade-type strings the project needs (1-5 items)
-  price_band_estimate  - UK price range as a string, e.g. "£500–£2,000" \
-or "£15,000–£35,000". Use the reference prices below as a guide and \
+  price_band_estimate  - UK price range as a string, e.g. "£500-£2,000" \
+or "£15,000-£35,000". Use the reference prices below as a guide and \
 adjust for scope, property size, location (London/SE add 20-40%), and \
 complexity. Always give a range, never a single figure.
 
 UK TRADE PRICE REFERENCE (2024-2025, ex-VAT, labour + materials):
-  Bathroom refit (standard): £4,000–£8,000; high-end: £10,000–£20,000
-  Kitchen fit (supply + install): £8,000–£15,000; high-end: £20,000–£40,000
-  Loft conversion (dormer): £35,000–£55,000; velux: £20,000–£35,000
-  Single-storey extension: £30,000–£60,000; two-storey: £50,000–£100,000
-  New boiler (combi, installed): £2,500–£4,500
-  Full rewire (3-bed): £3,500–£5,500
-  Full house replaster (3-bed): £4,000–£7,000
-  External wall insulation (semi-detached): £8,000–£15,000; detached: £12,000–£22,000
-  Internal wall insulation (per room): £1,500–£3,000
-  Flat roof replacement (small): £2,000–£4,000; large: £5,000–£10,000
-  Pitched roof replacement: £5,000–£12,000
-  New driveway (block paving): £4,000–£8,000
-  Landscaping/garden: £2,000–£10,000 depending on scope
-  Painting & decorating (full house interior, 3-bed): £3,000–£6,000
-  Single room repaint: £300–£800
-  Tiling (bathroom floor + walls): £1,500–£3,500
-  Flooring (whole house, 3-bed): £3,000–£7,000
-  Window replacement (full house, uPVC): £4,000–£8,000
-  Fascias/soffits/guttering (semi): £2,000–£4,000
-  Damp proofing (single wall): £1,000–£3,000; whole house: £4,000–£10,000
-  Fence installation (10m run): £800–£1,500
-  Decking (20sqm): £2,000–£4,500
-  Chimney removal: £1,500–£4,000
-  Garage conversion: £10,000–£20,000
-  Porch (brick, enclosed): £5,000–£10,000
-  Rendering (full house): £4,000–£8,000
-  Underfloor heating (retrofit, per room): £1,500–£3,000
-  Structural work (RSJ, knock-through): £2,000–£5,000
-  Appliance installation (single, e.g. oven/hob): £100–£300
-  Tumble dryer / washing machine install: £50–£150
+  Bathroom refit (standard): £4,000-£8,000; high-end: £10,000-£20,000
+  Kitchen fit (supply + install): £8,000-£15,000; high-end: £20,000-£40,000
+  Loft conversion (dormer): £35,000-£55,000; velux: £20,000-£35,000
+  Single-storey extension: £30,000-£60,000; two-storey: £50,000-£100,000
+  New boiler (combi, installed): £2,500-£4,500
+  Full rewire (3-bed): £3,500-£5,500
+  Full house replaster (3-bed): £4,000-£7,000
+  External wall insulation (semi-detached): £8,000-£15,000; detached: £12,000-£22,000
+  Internal wall insulation (per room): £1,500-£3,000
+  Flat roof replacement (small): £2,000-£4,000; large: £5,000-£10,000
+  Pitched roof replacement: £5,000-£12,000
+  New driveway (block paving): £4,000-£8,000
+  Landscaping/garden: £2,000-£10,000 depending on scope
+  Painting & decorating (full house interior, 3-bed): £3,000-£6,000
+  Single room repaint: £300-£800
+  Tiling (bathroom floor + walls): £1,500-£3,500
+  Flooring (whole house, 3-bed): £3,000-£7,000
+  Window replacement (full house, uPVC): £4,000-£8,000
+  Fascias/soffits/guttering (semi): £2,000-£4,000
+  Damp proofing (single wall): £1,000-£3,000; whole house: £4,000-£10,000
+  Fence installation (10m run): £800-£1,500
+  Decking (20sqm): £2,000-£4,500
+  Chimney removal: £1,500-£4,000
+  Garage conversion: £10,000-£20,000
+  Porch (brick, enclosed): £5,000-£10,000
+  Rendering (full house): £4,000-£8,000
+  Underfloor heating (retrofit, per room): £1,500-£3,000
+  Structural work (RSJ, knock-through): £2,000-£5,000
+  Appliance installation (single, e.g. oven/hob): £100-£300
+  Tumble dryer / washing machine install: £50-£150
 
-These are guides — always consider the specific description. Larger \
+These are guides - always consider the specific description. Larger \
 properties, London/SE locations, listed buildings, structural work, and \
 premium materials push towards the upper range or above it.
   materials            - array of material types mentioned (e.g. "oak", \
-"plasterboard", "porcelain tile") — empty array if none
+"plasterboard", "porcelain tile") - empty array if none
   key_concerns         - array of short strings describing what the homeowner \
 seems to care about (e.g. "minimising disruption", "structural sign-off", \
 "finishing on time before holiday")
-  summary              - a single sentence rephrasing the project for an admin
+  summary              - a plain-English sentence describing the job in simple terms that a homeowner would understand, e.g. "Installation of engineered wood flooring across 3 rooms in a 4 bedroom semi-detached property in E4 with existing flooring removal and levelling"
 
 Output ONLY the JSON object. Nothing else.`;
 
@@ -110,7 +110,7 @@ const STUB_RESPONSE = JSON.stringify(
     complexity: "moderate",
     urgency: "flexible",
     recommended_trades: ["General Builder"],
-    price_band_estimate: "£5,000–£15,000",
+    price_band_estimate: "£5,000-£15,000",
     materials: [],
     key_concerns: ["quality of finish"],
     summary: "Homeowner has a general home-improvement project of moderate scope.",
@@ -125,7 +125,7 @@ const STUB_RESPONSE = JSON.stringify(
  * returns the parsed structured object.
  *
  * Designed to be called fire-and-forget from a route handler. If anything
- * goes wrong, it logs and returns null — never throws into the caller.
+ * goes wrong, it logs and returns null - never throws into the caller.
  *
  * @param {Object} args
  * @param {Function} args.mysqlQuery   ctx.mysqlQuery
@@ -154,7 +154,7 @@ async function classifyProject({
   if (!Number.isFinite(Number(projectId))) return null;
   if (!description || typeof description !== "string") return null;
 
-  // Build the user prompt — concatenate the form fields so the LLM has
+  // Build the user prompt - concatenate the form fields so the LLM has
   // context beyond the free text.
   const userPrompt = buildUserPrompt({
     description,
@@ -185,7 +185,7 @@ async function classifyProject({
   }
 
   // Parse the JSON. Real LLM output sometimes has stray whitespace or a
-  // wrapping code fence — strip those defensively.
+  // wrapping code fence -- strip those defensively.
   const structured = parseJsonResponse(result.text, log);
   if (!structured) {
     log.warn?.("[project-classifier] could not parse JSON response", {
@@ -195,7 +195,20 @@ async function classifyProject({
     return null;
   }
 
-  // Persist to project_classifications. Fire-and-forget — if the insert
+  // If using stub response, generate a meaningful summary from project details
+  if (structured.__stub && type) {
+    if (description && description.length > 10) {
+      structured.summary = description;
+    } else {
+      const parts = [type];
+      if (location) parts.push("in " + location);
+      if (propertyType) parts.push("(" + propertyType + ")");
+      if (bedrooms) parts.push(bedrooms + " bedroom");
+      structured.summary = parts.join(" ");
+    }
+  }
+
+  // Persist to project_classifications. Fire-and-forget - if the insert
   // fails we still return the structured result so callers can use it.
   try {
     await mysqlQuery(
@@ -312,7 +325,7 @@ module.exports = {
   classifyProject,
   CLASSIFIER_VERSION,
   FEATURE,
-  // Exposed for unit testing — not part of the public API. Do not import
+  // Exposed for unit testing - not part of the public API. Do not import
   // these from other server modules.
   _internal: {
     buildUserPrompt,

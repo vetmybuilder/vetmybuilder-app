@@ -13,9 +13,10 @@ const analytics = require("../../lib/analytics");
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
   const log = ctx.log || console;
+  const { firePublishNotifications } = require("../../lib/publishNotifications");
   const { z } = require("zod");
 
-  // Remove full UK postcode → keep only outward code
+  // Remove full UK postcode -> keep only outward code
   const stripFullPostcodes = (s) => {
     if (!s) return s;
     const fullPC = /\b([A-Z]{1,2}\d{1,2}[A-Z]?)\s*\d[A-Z]{2}\b/gi;
@@ -69,7 +70,7 @@ module.exports = (router, ctx) => {
         `
         INSERT INTO projects
           (name, type, location, description, answers_json, propertyType, bedrooms, status, createdAt, updatedAt, ownerUserId)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'live', ?, ?, ?)
       `,
         [
           body.name,
@@ -98,7 +99,7 @@ module.exports = (router, ctx) => {
         insertedId,
       ]);
 
-      // Project Lighthouse — fire-and-forget classification.
+      // Project Lighthouse -- fire-and-forget classification.
       // Runs the LLM (or stub) and stores the structured form in
       // project_classifications. Never blocks the response.
       // On completion, broadcasts an SSE event so the frontend can
@@ -142,6 +143,22 @@ module.exports = (router, ctx) => {
       res.status(201).json({ project: rows[0] || null });
       analytics.trackProjectCreated(req.user?.uid, { projectId: insertedId, type: body.type, location: body.location });
       ctx.logActivity("project.create", "info", req.user.uid, `Project #${insertedId} "${body.name}"`);
+
+      // Auto-publish: fire notifications for the newly live project
+      firePublishNotifications({
+        mysqlQuery,
+        project: rows[0] || { id: insertedId, name: body.name, type: body.type, location: body.location, ownerUserId: req.user.uid, createdAt: new Date() },
+        uid: req.user.uid,
+        extractLocationTokens: ctx.extractLocationTokens,
+        broadcastNotification: ctx.broadcastNotification,
+        logActivity: ctx.logActivity,
+        log,
+        notifyMatchedTradesmen: require("../../lib/ai/notifyMatchedTradesmen").notifyMatchedTradesmen,
+        surfacePipelineTradespeople: require("../../lib/surfacePipelineTradespeople").surfacePipelineTradespeople,
+      }).catch((err) => {
+        log.warn?.("[projects.post] publish notifications error", { err: err?.message });
+      });
+
       return;
     } catch (err) {
       log.error?.("[projects.post] error", err);

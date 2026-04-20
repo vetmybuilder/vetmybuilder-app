@@ -3,7 +3,7 @@ import { expect, type Locator, type Page } from "@playwright/test";
 export type PublishChannel = "whatsapp" | "sms" | "email" | null;
 
 export type PublishOptions = {
-  // keep your original naming
+  // Neighbourhood toggle — only relevant when the UI still shows it
   askNeighbourhood?: boolean;
 
   channel?: PublishChannel;
@@ -60,7 +60,9 @@ export class PublishModalComponent {
   }
 
   private async setNeighbourhoodEnabled(enabled: boolean) {
-    // If locked, UI disables the button so just skip
+    // If the toggle is absent or disabled, skip silently
+    const count = await this.neighbourhoodToggle.count();
+    if (count === 0) return;
     if (await this.neighbourhoodToggle.isDisabled()) return;
 
     const pressed = await this.neighbourhoodToggle.getAttribute("aria-pressed");
@@ -83,24 +85,26 @@ export class PublishModalComponent {
     if (channel === "email") await this.channelEmail.click();
   }
 
+  /**
+   * Interact with the share modal: optionally select a channel and confirm.
+   * The neighbourhood toggle is handled only when the UI still renders it.
+   */
   async publish(options?: PublishOptions) {
     await this.assertVisible();
 
     const opts = options ?? {};
 
-    // Neighbourhood (only if caller specified it)
+    // Neighbourhood toggle (only applies when UI renders it)
     if (typeof opts.askNeighbourhood === "boolean") {
       await this.setNeighbourhoodEnabled(Boolean(opts.askNeighbourhood));
     }
 
-    // Channel (optional)
+    // Channel selection (optional)
     const channel = this.resolveChannel(opts);
     await this.chooseChannel(channel);
 
-    // Confirm
+    // Confirm and wait for modal to close
     await this.confirmButton.click();
-
-    // Modal should close
     await expect(this.dialog).toBeHidden();
   }
 

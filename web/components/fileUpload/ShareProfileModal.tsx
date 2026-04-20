@@ -1,6 +1,6 @@
 // web/components/fileUpload/ShareProfileModal.tsx
 import * as React from "react";
-import { X, ImagePlus, Send } from "lucide-react";
+import { ImagePlus, Send } from "lucide-react";
 import FileGridUploader from "@/components/fileUpload/FileGridUploader";
 
 type ShareProfileModalProps = {
@@ -54,7 +54,7 @@ export default function ShareProfileModal({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-backdrop-in"
       role="dialog"
       aria-modal="true"
       data-testid="share-profile-modal"
@@ -62,18 +62,10 @@ export default function ShareProfileModal({
         if (e.target === e.currentTarget && !busy) onClose();
       }}
     >
-      <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl overflow-hidden">
+      <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl overflow-hidden animate-modal-in">
 
         {/* Header */}
-        <div className="relative bg-gradient-to-r from-red-500 to-red-600 px-6 py-5">
-          <button
-            className="absolute right-4 top-4 rounded-full bg-white/20 p-1.5 text-white hover:bg-white/30 transition-colors"
-            onClick={onClose}
-            aria-label="Close"
-            disabled={busy}
-          >
-            <X className="h-4 w-4" />
-          </button>
+        <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-5 text-white">
           <div className="flex items-center gap-3">
             <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-white/20">
               <Send className="h-5 w-5 text-white" />
@@ -111,7 +103,7 @@ export default function ShareProfileModal({
                 maxLength={300}
                 value={message ?? ""}
                 onChange={(e) => onChangeMessage?.(e.target.value)}
-                placeholder="E.g., I've recently completed a similar job nearby — photos attached."
+                placeholder="E.g., I've recently completed a similar job nearby - photos attached."
               />
               <div className="mt-1 text-right text-xs text-zinc-400">
                 {message?.length ?? 0}/300

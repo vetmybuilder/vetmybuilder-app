@@ -35,11 +35,8 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
   const {
     project,
     backHref,
-    isLive,
     isClosed,
     isArchived,
-    canPublish,
-    onPublish,
     onArchive,
     onUnarchive,
     onCloseProject,
@@ -75,24 +72,22 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
   // state for "Get recommendations" modal visibility
   const [showGetRecModal, setShowGetRecModal] = React.useState(false);
 
-  // track if neighbourhood has already been shared (per project, persisted in localStorage)
-  const [hasSharedNeighbourhood, setHasSharedNeighbourhood] =
-    React.useState(false);
-
   // track if we've already prompted+shared so we can hide CTA in shortlist
   const [hideShortlistShareCta, setHideShortlistShareCta] =
     React.useState(false);
 
-  // Load neighbourhood-shared flag from localStorage per project
+  // "Your job is live!" banner - shown when arriving from project creation
+  const [showJustCreated, setShowJustCreated] = React.useState(false);
+
   React.useEffect(() => {
-    if (!project?.id || !project?.createdAt) return;
-    if (typeof window === "undefined") return;
-
-    const key = `vmb_neighbourhood_shared_${project.id}_${project.createdAt}`;
-    const val = window.localStorage.getItem(key);
-
-    setHasSharedNeighbourhood(val === "1");
-  }, [project?.id, project?.createdAt]);
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('justCreated') === '1') {
+      setShowJustCreated(true);
+      const t = setTimeout(() => setShowJustCreated(false), 5000);
+      // Clean up the URL param
+      window.history.replaceState({}, '', window.location.pathname);
+      return () => clearTimeout(t);
+    }
+  }, []);
 
   // Fetch Companies House + Google verification + photos for each recommendation
   React.useEffect(() => {
@@ -150,7 +145,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
 
   // Fetch existing hires so we can render the Hire button as "Hired" on
   // recommendations that are currently hired. Only ACTIVE hires (pending,
-  // pending_invite, accepted) block the rec card — terminal statuses
+  // pending_invite, accepted) block the rec card - terminal statuses
   // (declined, cancelled, expired) free it up so the homeowner can re-hire.
   React.useEffect(() => {
     if (!project?.id) return;
@@ -173,7 +168,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
         );
         setHiredRecommendationIds(ids);
       } catch {
-        // non-critical — leave the set as-is
+        // non-critical - leave the set as-is
       }
     })();
 
@@ -204,19 +199,10 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
   const handleShare = async (channel: GetRecommendationsChannel) => {
     if (!project?.id) return;
 
-    // 1) Ensure project is live: auto-publish if needed (regardless of channel)
-    if (!isLive && canPublish) {
-      try {
-        await onPublish(); // onPublish already handles flash + state
-      } catch {
-        // ignore; onPublish will have flashed any error
-      }
-    }
-
-    // If no share channel was selected, stop here – project is already published.
+    // If no share channel was selected, stop here.
     if (!channel) return;
 
-    // 2) Generate magic link – r/<token>
+    // 2) Generate magic link - r/<token>
     let inviteUrl: string;
 
     try {
@@ -265,7 +251,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
   const createdAtRaw = (project as any)?.createdAt;
   const updatedAtRaw = (project as any)?.updatedAt;
 
-  // MySQL DATETIME has no timezone suffix — treat as UTC so local display is correct
+  // MySQL DATETIME has no timezone suffix - treat as UTC so local display is correct
   const parseUtc = (raw: any): Date | null => {
     if (!raw) return null;
     const s = String(raw);
@@ -306,25 +292,14 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
       <GetRecommendationsModal
         open={showGetRecModal}
         onClose={() => setShowGetRecModal(false)}
-        neighbourhoodLocked={hasSharedNeighbourhood}
-        alreadyLive={isLive}
-        onConfirm={async ({ neighbourhood, channel }) => {
-          // If neighbourhood sharing is selected and not previously used, mark it as used
-          if (neighbourhood && project?.id && !hasSharedNeighbourhood) {
-            setHasSharedNeighbourhood(true);
-            if (typeof window !== "undefined") {
-              const key = `vmb_neighbourhood_shared_${project.id}`;
-              window.localStorage.setItem(key, "1");
-            }
-          }
-
+        onConfirm={async ({ channel }) => {
           await handleShare(channel);
           setHideShortlistShareCta(true);
           setShowGetRecModal(false);
         }}
       />
 
-      {/* Back link — outside the header card */}
+      {/* Back link - outside the header card */}
       <a
         href={backHref}
         className="hidden sm:inline-flex items-center gap-2 mb-3 rounded-xl bg-slate-800/90 backdrop-blur-sm px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition-colors"
@@ -370,90 +345,59 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
         {/* TITLE: full-width line on its own so it can wrap freely.
             Status badge + edit icon sit in a separate row below so a
             long title doesn't push them onto a confusing tail line. */}
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {headerTitle}
-        </h1>
-
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <StatusBadge value={project.status} />
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {headerTitle}
+          </h1>
           {!isClosed && (
             <NextLink
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-slate-600 shadow-sm hover:bg-slate-50"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-slate-600 shadow-sm hover:bg-slate-50 flex-shrink-0"
               href={`/projects/${project.id}/edit`}
-              aria-label="Edit project"
-              title="Edit project"
+              aria-label="Edit job"
+              title="Edit job"
               data-testid="btn-edit"
             >
-              <SquarePen size={16} />
+              <SquarePen size={14} />
             </NextLink>
           )}
         </div>
 
-        <div
-          className="mt-3 flex flex-wrap gap-2"
-          role="list"
-          aria-label="Project attributes"
-          data-testid="project-badges"
-        >
-          <span
-            role="listitem"
-            className="badge gray"
-            data-testid="badge-location"
-          >
-            {project.location}
-          </span>
-          <span
-            role="listitem"
-            className="badge orange capitalize"
-            data-testid="badge-property"
-          >
-            {project.propertyType}
-          </span>
-          <span
-            role="listitem"
-            className="badge green"
-            data-testid="badge-bedrooms"
-          >
-            {project.bedrooms} bed
-          </span>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <StatusBadge value={project.status} />
         </div>
 
-        {/* Primary CTA: Share */}
+        {/* Primary CTA + guidance */}
         {!isClosed && (
-          <div className="mt-4 space-y-1">
-            <div
-              className="flex flex-wrap gap-2"
-              aria-label="Primary owner actions"
-              data-testid="owner-actions-primary"
-            >
-              {isLive && (
-                <button
-                  className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-slate-800 transition-colors"
-                  onClick={() => setShowGetRecModal(true)}
-                  data-testid="btn-get-recs"
-                >
-                  <LinkIcon size={14} /> Share
-                </button>
-              )}
-
-              {!isLive && (
-                <button
-                  className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-slate-800 transition-colors"
-                  onClick={() => setShowGetRecModal(true)}
-                  data-testid="btn-get-recs-draft"
-                >
-                  <LinkIcon size={14} /> Share &amp; Publish
-                </button>
-              )}
+          <div className="mt-4" data-testid="owner-actions-primary">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <button
+                className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-red-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:bg-red-600 hover:shadow-xl transition-all flex-shrink-0"
+                onClick={() => setShowGetRecModal(true)}
+                data-testid="btn-get-recs"
+              >
+                <LinkIcon size={16} /> Share with friends
+              </button>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Your job is live and visible to local tradespeople. Share it via WhatsApp, SMS or email to collect recommendations.
+              </p>
             </div>
-
-            <p className="text-[11px] text-slate-400 max-w-xl">
-              Share this project to start seeing recommendations and vetted
-              tradespeople.
-            </p>
+            <div className="mt-3 flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200/60 px-3 py-2">
+              <span className="text-amber-500 flex-shrink-0">&#9660;</span>
+              <p className="text-sm font-medium text-amber-800">
+                Recommendations will appear below as builders respond to your job.
+              </p>
+            </div>
           </div>
         )}
       </header>
+
+      {/* "Your job is live!" success banner - shown when arriving from project creation */}
+      {showJustCreated && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 mb-4 animate-slide-in-left" data-testid="job-live-banner">
+          <p className="text-sm font-semibold text-emerald-800">Your job is live!</p>
+          <p className="text-xs text-emerald-600 mt-0.5">Share it with friends and neighbours to start getting recommendations.</p>
+        </div>
+      )}
 
       {/* === Project Insights (AI classification) === */}
       {vm.classification && (
@@ -493,25 +437,20 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
           </div>
 
           <div className="grid gap-3 text-sm sm:text-sm">
-            {/* Budget line removed — both the deterministic and AI-inferred
-                cost figures are now rendered uniformly in PriceRangeBadge
-                below. */}
-            {vm.classification.recommended_trades?.length > 0 && (
-              <div className="flex gap-2">
-                <span className="text-xs sm:text-[11px] font-bold text-zinc-400 uppercase tracking-wide min-w-[90px] pt-0.5">Trades</span>
-                <span className="text-base sm:text-sm text-zinc-600">{vm.classification.recommended_trades.join(", ")}</span>
-              </div>
-            )}
+            <div className="flex gap-2">
+              <span className="text-xs sm:text-[11px] font-bold text-zinc-400 uppercase tracking-wide min-w-[90px] pt-0.5">Property</span>
+              <span className="text-base sm:text-sm text-zinc-600">{project.location}{project.propertyType ? ` \u00b7 ${project.propertyType}` : ""}{project.bedrooms ? ` \u00b7 ${project.bedrooms} bed` : ""}</span>
+            </div>
             {vm.classification.key_concerns?.length > 0 && (
               <div className="flex gap-2">
-                <span className="text-xs sm:text-[11px] font-bold text-zinc-400 uppercase tracking-wide min-w-[90px] pt-0.5">Concerns</span>
+                <span className="text-xs sm:text-[11px] font-bold text-zinc-400 uppercase tracking-wide min-w-[90px] pt-0.5">What matters</span>
                 <span className="text-base sm:text-sm text-zinc-600">{vm.classification.key_concerns.join(", ")}</span>
               </div>
             )}
             {vm.classification.summary && (
               <div className="flex gap-2">
-                <span className="text-xs sm:text-[11px] font-bold text-zinc-400 uppercase tracking-wide min-w-[90px] pt-0.5">Summary</span>
-                <span className="text-base sm:text-sm text-zinc-600 italic">{vm.classification.summary}</span>
+                <span className="text-xs sm:text-[11px] font-bold text-zinc-400 uppercase tracking-wide min-w-[90px] pt-0.5">About</span>
+                <span className="text-base sm:text-sm text-zinc-600">{vm.classification.summary}</span>
               </div>
             )}
           </div>
@@ -569,7 +508,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
             <SpotlightStrip projectId={String(project.id)} />
           </section>
 
-          {/* Hired tradesmen — only renders if there are any */}
+          {/* Hired tradesmen - only renders if there are any */}
           <div className="mt-3">
             <HiredTradesmenSection
               projectId={project.id}
