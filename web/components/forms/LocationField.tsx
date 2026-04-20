@@ -25,6 +25,8 @@ export type LocationFieldProps = {
   className?: string;
   /** Optional helper text under the field explaining why you ask for a postcode */
   reasonText?: string;
+  /** Called with the user-facing display label (e.g. "Chingford, London") */
+  onDisplayChange?: (display: string) => void;
   /** Validation error message; sets aria-invalid on the input */
   error?: string;
 };
@@ -79,6 +81,7 @@ export default function LocationField({
   dataTestId,
   className = "",
   reasonText = "We use your postcode to match you with nearby tradespeople and improve local recommendations. We never share your full address.",
+  onDisplayChange,
   error,
 }: LocationFieldProps) {
   const [open, setOpen] = React.useState(false);
@@ -89,9 +92,14 @@ export default function LocationField({
   const debounced = useDebounced(query, 180);
   const boxRef = React.useRef<HTMLDivElement | null>(null);
   const hasInteracted = React.useRef(false);
+  // Track the display label chosen by the user (e.g. "Chingford, London")
+  // so that external value syncs don't overwrite it with the outward code.
+  const displayLabel = React.useRef<string | null>(null);
 
   React.useEffect(() => {
-    // Sync external value changes without triggering the dropdown
+    // Sync external value changes without triggering the dropdown,
+    // but preserve the display label if we just committed a place selection.
+    if (displayLabel.current) return;
     setQuery(value);
   }, [value]);
 
@@ -298,8 +306,11 @@ export default function LocationField({
           ? await fetchMeta(s.postcode)
           : await resolvePlaceToMeta(s);
       hasInteracted.current = false; // prevent value-sync re-triggering the dropdown
-      onChange(meta.postcode, meta);
-      setQuery(meta.postcode);
+      const displayValue = s.kind === "place" ? s.label : meta.postcode;
+      displayLabel.current = s.kind === "place" ? displayValue : null;
+      onChange(meta.outward || meta.postcode, meta);
+      onDisplayChange?.(displayValue);
+      setQuery(displayValue);
       setOpen(false);
       setSug([]);
     } catch (e: any) {
@@ -313,8 +324,10 @@ export default function LocationField({
     if (UK_POSTCODE_RE.test(v)) {
       try {
         const meta = await fetchMeta(v);
-        hasInteracted.current = false; // prevent value-sync re-triggering the dropdown
-        onChange(meta.postcode, meta);
+        hasInteracted.current = false;
+        displayLabel.current = null;
+        onChange(meta.outward || meta.postcode, meta);
+        onDisplayChange?.(meta.postcode);
         setQuery(meta.postcode);
         setOpen(false);
         setSug([]);
@@ -353,6 +366,7 @@ export default function LocationField({
   function onInput(e: React.ChangeEvent<HTMLInputElement>) {
     const v = e.target.value;
     hasInteracted.current = true;
+    displayLabel.current = null;
     setQuery(v);
     onChange(v || "", null); // bubble raw value as they type
     setOpen(true);
