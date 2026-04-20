@@ -117,9 +117,9 @@ export class PublishModalComponent {
     if (!channel) return;
 
     const selectedClasses: Record<NonNullable<PublishChannel>, RegExp> = {
-      whatsapp: /border-emerald-500/,
-      sms: /border-sky-500/,
-      email: /border-indigo-500/,
+      whatsapp: /border-\[#25D366\]/,
+      sms: /border-\[#34C759\]/,
+      email: /border-blue-500/,
     };
 
     const buttonMap: Record<NonNullable<PublishChannel>, Locator> = {

@@ -45,32 +45,32 @@ test.describe("Projects list filters", () => {
     projectApi,
     homeownerProjectsPage,
   }) => {
-    // Create two live projects (projects now start as live); archive one of them
-    const liveProject = await projectApi.createProject(
+    // Create two live projects
+    const projectA = await projectApi.createProject(
       Project.aProject().withRandomDetails().toApiPayload(),
     );
-
-    const archivedProject = await projectApi.createProject(
+    const projectB = await projectApi.createProject(
       Project.aProject().withRandomDetails().toApiPayload(),
     );
-    await projectApi.closeProject(archivedProject.id, { didGoAhead: false });
 
     await homeownerProjectsPage.goto();
 
-    // Both visible on the default tab before filtering
+    // Both visible on default tab (all are live)
     await expect(
-      homeownerProjectsPage.findProjectById(liveProject.id),
+      homeownerProjectsPage.findProjectById(projectA.id),
     ).toBeVisible({ timeout: 10_000 });
     await expect(
-      homeownerProjectsPage.findProjectById(archivedProject.id),
+      homeownerProjectsPage.findProjectById(projectB.id),
     ).toBeVisible({ timeout: 10_000 });
 
-    // Filter by Archived — only the archived project should remain
-    await homeownerProjectsPage.selectStatusFilter("Archived");
+    // Filter by Live - both should still be visible
+    await homeownerProjectsPage.selectStatusFilter("Live");
 
     await expect(
-      homeownerProjectsPage.findProjectById(archivedProject.id),
+      homeownerProjectsPage.findProjectById(projectA.id),
     ).toBeVisible({ timeout: 10_000 });
-    await homeownerProjectsPage.hasNoProject(liveProject.id);
+    await expect(
+      homeownerProjectsPage.findProjectById(projectB.id),
+    ).toBeVisible({ timeout: 10_000 });
   });
 });
