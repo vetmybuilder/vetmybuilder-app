@@ -42,42 +42,34 @@ test.describe("Projects list filters", () => {
   });
 
   test("status filter hides projects that don't match the selected status", async ({
-    apiClient,
     projectApi,
     homeownerProjectsPage,
   }) => {
-    // Create a pending project and a live (published) project
-    const resA = await apiClient.post(
-      "/api/projects",
+    // Create two live projects (projects now start as live); archive one of them
+    const liveProject = await projectApi.createProject(
       Project.aProject().withRandomDetails().toApiPayload(),
     );
-    expect(resA.status()).toBe(201);
-    const { project: pendingProject } = await resA.json();
 
-    const resB = await apiClient.post(
-      "/api/projects",
+    const archivedProject = await projectApi.createProject(
       Project.aProject().withRandomDetails().toApiPayload(),
     );
-    expect(resB.status()).toBe(201);
-    const { project: liveProject } = await resB.json();
-
-    await projectApi.publishProject(liveProject.id);
+    await projectApi.closeProject(archivedProject.id, { didGoAhead: false });
 
     await homeownerProjectsPage.goto();
 
     // Both visible on the default tab before filtering
     await expect(
-      homeownerProjectsPage.findProjectById(pendingProject.id),
-    ).toBeVisible({ timeout: 10_000 });
-    await expect(
       homeownerProjectsPage.findProjectById(liveProject.id),
     ).toBeVisible({ timeout: 10_000 });
+    await expect(
+      homeownerProjectsPage.findProjectById(archivedProject.id),
+    ).toBeVisible({ timeout: 10_000 });
 
-    // Filter by Pending — only the pending project should remain
-    await homeownerProjectsPage.selectStatusFilter("Pending");
+    // Filter by Archived — only the archived project should remain
+    await homeownerProjectsPage.selectStatusFilter("Archived");
 
     await expect(
-      homeownerProjectsPage.findProjectById(pendingProject.id),
+      homeownerProjectsPage.findProjectById(archivedProject.id),
     ).toBeVisible({ timeout: 10_000 });
     await homeownerProjectsPage.hasNoProject(liveProject.id);
   });

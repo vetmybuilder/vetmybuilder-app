@@ -44,6 +44,7 @@ test.describe("Add recommendation", () => {
     });
 
     const created = await ownerProjectApi.createProject(project.toApiPayload());
+    // No explicit publishProject call needed — projects are created live
 
     const neighbour = Account.anAccount()
       .withRandomDetails()
@@ -63,7 +64,6 @@ test.describe("Add recommendation", () => {
     );
 
     await AuthApi.signup(neighbourClient, neighbour);
-    await ownerProjectApi.publishProject(created.id);
     await projectDetailsPage.logoutViaUrl();
     await loginPage.loginExpectSuccess(neighbour.email!, neighbour.password!);
 
@@ -140,8 +140,7 @@ test.describe("Add recommendation", () => {
     });
 
     const created = await ownerProjectApi.createProject(project.toApiPayload());
-
-    await ownerProjectApi.publishProject(created.id);
+    // No explicit publishProject call needed — projects are created live
 
     const guestRecommender = Account.aGuestAccount();
     const recommendation = Recommendation.aRecommendation();

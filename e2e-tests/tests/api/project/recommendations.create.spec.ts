@@ -422,6 +422,7 @@ test.describe("POST /api/projects/:id/recommendations", () => {
 
   test("non-owner cannot view recommendations when project is not live or completed", async ({
     apiClient,
+    projectApi,
     request,
     runtime,
   }) => {
@@ -438,6 +439,9 @@ test.describe("POST /api/projects/:id/recommendations", () => {
       Recommendation.aRecommendation().withRandomDetails().toPayload(),
     );
     expect(recRes.status()).toBe(201);
+
+    // Close the project (archived = not live) so non-owners cannot view recommendations
+    await projectApi.closeProject(project.id, { didGoAhead: false });
 
     const otherUid = `viewer-${Date.now()}`;
     const otherClient = await authedApiForUid(

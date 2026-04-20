@@ -483,8 +483,8 @@ export class ProjectDetailsPage extends BasePage {
   }
 
   async clickShortlistShareCta(): Promise<void> {
-    await expect(this.shareAndPublish).toBeVisible();
-    await this.shareAndPublish.click();
+    await expect(this.shortlistEmptyCta).toBeVisible();
+    await this.shortlistEmptyCta.click();
     await this.assertPublishModalVisible();
   }
 

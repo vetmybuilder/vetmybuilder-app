@@ -374,14 +374,18 @@ test.describe("POST /api/projects/:projectId/hires", () => {
     request,
     runtime,
     hireApi,
+    projectApi,
   }) => {
-    // Create a project but DO NOT publish it (status will be 'draft')
+    // Create a project (now auto-published as live), then close it so it is no longer hireable
     const projectRes = await apiClient.post(
       "/api/projects",
       Project.aProject().withRandomDetails().toPayload(),
     );
     expect(projectRes.status()).toBe(201);
     const { project } = await projectRes.json();
+
+    // Close the project (archived = not live, not hireable)
+    await projectApi.closeProject(project.id, { didGoAhead: false });
 
     const { uid: tradesmanUid } = await setupTradesmanProfile({
       request,

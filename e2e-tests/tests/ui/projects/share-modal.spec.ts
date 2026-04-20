@@ -6,11 +6,11 @@ test.describe("Share modal", () => {
     projectApi,
     projectDetailsPage,
   }) => {
+    // Projects now create as live — open the share modal directly
     const project = Project.aProject().withRandomDetails();
     const created = await projectApi.createProject(project.toApiPayload());
 
     await projectDetailsPage.visit(created.id);
-    await projectDetailsPage.publish();
 
     await projectDetailsPage.openShareModal();
     await projectDetailsPage.publishModal.channelWhatsapp.click();
@@ -22,23 +22,9 @@ test.describe("Share modal", () => {
     await projectDetailsPage.publishModal.close();
   });
 
-  test("neighbourhood toggle is locked after sharing with neighbourhood", async ({
-    projectApi,
-    projectDetailsPage,
-  }) => {
-    const project = Project.aProject().withRandomDetails();
-    const created = await projectApi.createProject(project.toApiPayload());
-
-    await projectDetailsPage.visit(created.id);
-
-    // Publish with neighbourhood sharing enabled (no channel = no OS popup)
-    await projectDetailsPage.publish({ askNeighbourhood: true, channel: null });
-    await projectDetailsPage.hasStatus("Live");
-
-    // Re-open the share modal on the now-live project
-    await projectDetailsPage.openShareModal();
-    await projectDetailsPage.publishModal.hasNeighbourhoodLocked();
-
-    await projectDetailsPage.publishModal.close();
+  // Neighbourhood toggle was removed from the share modal — test no longer applies.
+  test.skip("neighbourhood toggle is locked after sharing with neighbourhood", async () => {
+    // This test was invalidated when the neighbourhood toggle was removed from
+    // the share modal UI. Remove this skip once the feature is re-introduced.
   });
 });

@@ -1,7 +1,7 @@
 import Project from "../../../src/models/Project";
 import { expect, test } from "../../../src/ui.fixtures";
 test.describe("Homeowner projects", () => {
-  test("can edit a pending project", async ({
+  test("can edit a live project", async ({
     projectApi,
     projectDetailsPage,
     editProjectPage,
@@ -26,7 +26,7 @@ test.describe("Homeowner projects", () => {
     await projectDetailsPage.visit(projectId);
 
     await projectDetailsPage.hasProjectDetails(projectId, project, {
-      status: "Pending",
+      status: "Live",
       dates: { createdAt: created.project?.createdAt ?? created.createdAt },
     });
 
@@ -66,7 +66,7 @@ test.describe("Homeowner projects", () => {
     });
     await projectDetailsPage.waitUntilReady();
     await projectDetailsPage.hasProjectDetails(projectId, edited, {
-      status: "Pending",
+      status: "Live",
     });
     await projectDetailsPage.assertUpdatedToday();
   });
@@ -172,7 +172,7 @@ test.describe("Homeowner projects", () => {
 
     await projectDetailsPage.visit(projectId);
     await projectDetailsPage.hasProjectDetails(projectId, project, {
-      status: "Pending",
+      status: "Live",
     });
 
     // Drive the edit wizard — the page object asserts pre-populated state
