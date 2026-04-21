@@ -535,19 +535,33 @@ export default function TradesPipelinePage() {
           <div className="flex items-center gap-3 mb-6">
             <h1 className="text-2xl font-bold">Trades Pipeline</h1>
             <AdminRefreshButton onRefresh={fetchItems} />
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  const { data } = await api.post("/api/admin/trades-pipeline/reverify");
-                  alert(`Re-verified: ${data.updated} of ${data.total} updated`);
-                  fetchItems();
-                } catch { alert("Re-verify failed"); }
-              }}
-              className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-black hover:bg-amber-400 transition-colors"
-            >
-              Re-verify CH
-            </button>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const { data } = await api.post("/api/admin/trades-pipeline/reverify");
+                    alert(`Re-verified: ${data.updated} of ${data.total} updated`);
+                    fetchItems();
+                  } catch { alert("Re-verify failed"); }
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-black hover:bg-amber-400 transition-colors"
+              >
+                Re-verify CH
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const { data } = await api.post("/api/admin/trades-pipeline/resurface");
+                    alert(`Resurfaced: ${data.surfaced} tradespeople across ${data.projectsUpdated} of ${data.projects} live projects`);
+                  } catch { alert("Resurface failed"); }
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-400 transition-colors"
+              >
+                Resurface all
+              </button>
+            </div>
           </div>
 
           {/* Discovery panel */}
