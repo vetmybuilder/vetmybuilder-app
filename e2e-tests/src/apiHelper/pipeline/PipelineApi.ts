@@ -271,7 +271,7 @@ export class PipelineApi {
         async () => {
           const conn = await this.connectDb();
           const [rows] = await conn.query(
-            "SELECT linked_tradesman_uid FROM recommendations WHERE source = 'pipeline' AND company = ?",
+            "SELECT linked_tradesman_uid FROM recommendations WHERE source IN ('pipeline', 'community_match') AND company = ?",
             [companyName],
           );
           await conn.end();
