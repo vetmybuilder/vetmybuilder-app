@@ -199,7 +199,7 @@ export default function Home() {
           icon: IconCommunity,
           title: "Gather recommendations",
           tagline: "Verified by your community",
-          description: "Share with friends and neighbours. Every recommendation is checked against Companies House and Google Reviews so you see the full picture, not just a name.",
+          description: "Share your job with friends and neighbours. Every recommended tradesperson is automatically verified and enriched with ratings, reviews, and business checks.",
           color: "emerald",
         },
         {
@@ -207,7 +207,7 @@ export default function Home() {
           icon: IconShortlist,
           title: "Shortlist & hire",
           tagline: "Matched to your project",
-          description: "We rank tradespeople by how well they match your job - trade, location, reputation. Compare profiles side by side and hire with confidence.",
+          description: "Your shortlist is ranked by how well each tradesperson matches your job. See their verified profile, community votes, and reviews - then hire with confidence.",
           color: "amber",
         },
       ];
@@ -223,77 +223,34 @@ export default function Home() {
 
       <div className="overflow-x-hidden -mt-14">
         {/* HERO */}
-        <section className="relative pt-6 sm:pt-24 pb-16 sm:pb-20 overflow-hidden bg-stone-50" aria-label="Hero">
-          {/* Diagonal colour bands */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            {/* Pink/rose band - right side */}
-            <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
-            {/* Sage green blob - bottom left */}
-            <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
-          </div>
+        <section className="relative pt-6 sm:pt-24 pb-16 sm:pb-20 overflow-hidden" aria-label="Hero">
+          <div className="absolute inset-0 bg-zinc-900/60 z-[1]" />
 
           <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 lg:gap-16 items-center">
-              {/* Left: Text - 3/5 width so 'tradesperson' fits on one line */}
-              <div className="lg:col-span-3">
-                <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-4 py-1.5 text-sm font-bold text-zinc-800 mb-6">
-                  {isTrades ? "🔧 The smarter way to win work" : "👋 The smarter way to hire a tradesperson"}
+            <div className="max-w-3xl ml-auto">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 px-4 py-1.5 text-sm font-bold text-white mb-6" style={{ fontFamily: "'Sora', sans-serif" }}>
+                  {isTrades ? "The smarter way to win work" : "The smarter way to hire a tradesperson"}
                 </div>
 
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.05] text-zinc-900">
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-[800] tracking-tight leading-[1.1] text-white" style={{ fontFamily: "'Sora', sans-serif" }}>
                   {isTrades ? (
                     <>
                       <span className="block">Win more work with</span>
-                      <span className="block">
-                        <span className="relative inline-block">
-                          <span className="relative z-10 text-red-500">VetMyBuilder</span>
-                          <svg
-                            className="absolute -bottom-1 left-0 w-full h-3 text-red-300"
-                            viewBox="0 0 100 12"
-                            preserveAspectRatio="none"
-                          >
-                            <path
-                              d="M0 6 Q25 0, 50 6 T100 6"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="8"
-                              strokeLinecap="round"
-                            />
-                          </svg>
-                        </span>
-                      </span>
+                      <span className="block text-red-500" style={{ fontFamily: "'Indie Flower', cursive" }}>VetMyBuilder</span>
                     </>
                   ) : (
                     <>
-                      <span className="block">Find a tradesperson</span>
-                      <span className="block">
-                        you{" "}
-                        <span className="relative inline-block">
-                          <span className="relative z-10 text-red-500">actually</span>
-                          <svg
-                            className="absolute -bottom-1 left-0 w-full h-3 text-red-300"
-                            viewBox="0 0 100 12"
-                            preserveAspectRatio="none"
-                          >
-                            <path
-                              d="M0 6 Q25 0, 50 6 T100 6"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="8"
-                              strokeLinecap="round"
-                            />
-                          </svg>
-                        </span>{" "}
-                        trust
-                      </span>
+                      <span className="block">Every tradesperson <span className="text-red-500" style={{ fontFamily: "'Indie Flower', cursive", fontSize: "115%" }}>vetted</span>.</span>
+                      <span className="block">Every recommendation <span className="text-red-500" style={{ fontFamily: "'Indie Flower', cursive", fontSize: "115%" }}>verified</span>.</span>
                     </>
                   )}
                 </h1>
 
-                <p className="mt-6 text-xl sm:text-2xl leading-relaxed text-zinc-600 font-medium">
+                <p className="mt-6 text-xl sm:text-2xl leading-relaxed text-zinc-300 font-medium" style={{ fontFamily: "'Sora', sans-serif" }}>
                   {isTrades
                     ? "We match you to local projects that fit your skills, verify your credentials automatically, and put you in front of homeowners who are ready to hire."
-                    : "Post a job. We'll analyse it, match you with the right tradespeople, and surface verified recommendations from your neighbourhood."}
+                    : <span>Post your job, gather recommendations, <span className="text-red-500" style={{ fontFamily: "'Indie Flower', cursive", fontSize: "115%" }}>and we'll do the rest.</span></span>}
                 </p>
 
                 <div className="mt-10 flex flex-col sm:flex-row gap-4">
@@ -309,7 +266,7 @@ export default function Home() {
                   {user && !isTrades ? (
                     <Link
                       href="/projects"
-                      className="inline-flex items-center justify-center gap-2 rounded-full bg-zinc-100 px-8 py-4 text-lg font-bold text-zinc-900 hover:bg-zinc-200 transition-colors"
+                      className="inline-flex items-center justify-center gap-2 rounded-full bg-white/15 backdrop-blur-sm border border-white/25 px-8 py-4 text-lg font-bold text-white hover:bg-white/25 transition-colors"
                     >
                       My Projects
                     </Link>
@@ -317,7 +274,7 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}
-                      className="inline-flex items-center justify-center gap-2 rounded-full bg-zinc-100 px-8 py-4 text-lg font-bold text-zinc-900 hover:bg-zinc-200 transition-colors"
+                      className="inline-flex items-center justify-center gap-2 rounded-full bg-white/15 backdrop-blur-sm border border-white/25 px-8 py-4 text-lg font-bold text-white hover:bg-white/25 transition-colors"
                     >
                       See how it works
                     </button>
@@ -349,48 +306,19 @@ export default function Home() {
                         </svg>
                       ))}
                     </div>
-                    <span className="text-zinc-500 font-medium">
+                    <span className="text-zinc-400 font-medium">
                       Trusted by UK homeowners
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Right: Image with fun frame - 2/5 width */}
-              <div className="relative hidden lg:block lg:col-span-2">
-                <div className="relative rounded-3xl overflow-hidden shadow-2xl rotate-2 hover:rotate-0 transition-transform duration-500">
-                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/40 via-transparent to-transparent z-10" />
-                  <Image
-                    src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80"
-                    alt="Happy tradesperson at work"
-                    width={600}
-                    height={500}
-                    priority
-                    className="w-full h-auto object-cover aspect-[4/3]"
-                  />
-                  {/* Floating badge */}
-                  <div className="absolute bottom-4 left-4 right-4 z-20 bg-white/95 backdrop-blur rounded-2xl p-4 shadow-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="h-12 w-12 rounded-full bg-emerald-50 flex items-center justify-center flex-shrink-0">
-                        <IconCheck className="h-6 w-6 text-emerald-600" />
-                      </div>
-                      <div>
-                        <div className="font-bold text-zinc-900">Verified by neighbours</div>
-                        <div className="text-sm text-zinc-500">Real reviews from real people</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                {/* Decorative elements */}
-                <div className="absolute -top-4 -right-4 h-20 w-20 bg-amber-400 rounded-2xl rotate-12 -z-10" />
-                <div className="absolute -bottom-4 -left-4 h-16 w-16 bg-emerald-400 rounded-full -z-10" />
-              </div>
             </div>
           </div>
         </section>
 
-        {/* STATS */}
-        <section className="bg-[#faf0e6] py-16 sm:py-20" id="community">
+        {/* STATS - hidden until community reaches 50 members */}
+        {stats.communityMembers >= 50 && <section className="bg-[#faf0e6] py-16 sm:py-20" id="community">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <h2 className="text-3xl sm:text-4xl font-black text-zinc-900">
@@ -404,22 +332,22 @@ export default function Home() {
                   stat: stats.communityMembers,
                   label: "Community members",
                   tagline: "And growing every day!",
-                  bg: "bg-red-100",
+                  bg: "bg-red-50",
                   accent: "text-red-500",
                 },
                 {
                   stat: stats.recommendations,
                   label: "Recommendations shared",
                   tagline: "Real experiences, real people",
-                  bg: "bg-emerald-100",
-                  accent: "text-emerald-700",
+                  bg: "bg-amber-50",
+                  accent: "text-amber-600",
                 },
                 {
                   stat: stats.shortlists,
                   label: "Shortlists created",
                   tagline: "Projects moving forward",
-                  bg: "bg-yellow-100",
-                  accent: "text-yellow-600",
+                  bg: "bg-zinc-100",
+                  accent: "text-zinc-700",
                 },
               ].map((item) => (
                 <div
@@ -441,7 +369,7 @@ export default function Home() {
               ))}
             </div>
           </div>
-        </section>
+        </section>}
 
         {/* HOW IT WORKS */}
         <section className="bg-white py-20 sm:py-28" id="how-it-works">
@@ -544,7 +472,7 @@ export default function Home() {
               <div>
                 <h2 className="text-4xl sm:text-5xl font-black tracking-tight text-zinc-900 leading-tight">
                   Why homeowners{" "}
-                  <span className="text-red-500">love us</span>
+                  <span className="text-red-500 font-black" style={{ fontFamily: "'Indie Flower', cursive" }}>love us</span>
                 </h2>
                 <p className="mt-6 text-xl text-zinc-600 leading-relaxed">
                   We&apos;re not a directory of every tradesperson in the UK. We&apos;re a
@@ -554,9 +482,9 @@ export default function Home() {
                 <ul className="mt-10 space-y-5">
                   {[
                     "Recommendations only from people you trust",
-                    "No paid placements or sponsored listings",
+                    "Only tradespeople matched to your job",
                     "100% transparent ratings and feedback",
-                    "Completely free to use - always",
+                    "Free to get started - premium features coming soon",
                   ].map((item, i) => (
                     <li key={i} className="flex items-start gap-4">
                       <div className="flex-shrink-0 h-7 w-7 rounded-full bg-emerald-500 flex items-center justify-center mt-0.5">

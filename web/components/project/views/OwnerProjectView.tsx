@@ -377,16 +377,17 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
               >
                 <LinkIcon size={16} /> Share with friends
               </button>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Your job is live and visible to local tradespeople. Share it via WhatsApp, SMS or email to collect recommendations.
+              <p className="text-sm text-slate-600 leading-relaxed" style={{ fontFamily: "'Sora', sans-serif" }}>
+                Your job is live and visible to local tradespeople. Share with friends to get more recommendations.
               </p>
             </div>
-            <div className="mt-3 flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200/60 px-3 py-2">
-              <span className="text-amber-500 flex-shrink-0">&#9660;</span>
-              <p className="text-sm font-medium text-amber-800">
-                Recommendations will appear below as builders respond to your job.
-              </p>
-            </div>
+            <button
+              type="button"
+              onClick={() => document.getElementById("recommendations-section")?.scrollIntoView({ behavior: "smooth" })}
+              className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-red-600 hover:text-red-700 hover:underline transition-colors"
+            >
+              Click to view recommendations <span className="inline-block animate-bounce text-base">&#x1F447;</span>
+            </button>
           </div>
         )}
       </header>
@@ -395,7 +396,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
       {showJustCreated && (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 mb-4 animate-slide-in-left" data-testid="job-live-banner">
           <p className="text-sm font-semibold text-emerald-800">Your job is live!</p>
-          <p className="text-xs text-emerald-600 mt-0.5">Share it with friends and neighbours to start getting recommendations.</p>
+          <p className="text-xs text-emerald-600 mt-0.5">Share it with friends to start getting recommendations.</p>
         </div>
       )}
 
@@ -476,7 +477,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
       <ScrollReveal>
       <div className="grid gap-6 grid-cols-1 lg:[grid-template-columns:580px_minmax(0,1fr)]">
         {/* LEFT: Top recommendations */}
-        <div>
+        <div id="recommendations-section" className="scroll-mt-20">
           <ShortlistSection
             items={shortlistData}
             total={shortlistCount}

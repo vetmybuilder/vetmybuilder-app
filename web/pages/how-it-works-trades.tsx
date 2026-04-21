@@ -149,22 +149,18 @@ export default function HowItWorksTrades() {
       <div className="overflow-x-hidden -mt-14">
 
         {/* HERO */}
-        <section className="relative pt-6 pb-16 sm:pt-28 sm:pb-20 overflow-hidden bg-stone-50">
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
-          </div>
+        <section className="relative pt-6 pb-16 sm:pt-28 sm:pb-20 overflow-hidden bg-zinc-900">
           <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
-              {/* Text */}
               <div>
-                <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-4 py-1.5 text-sm font-bold text-zinc-800 mb-6">
+                <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/15 px-4 py-1.5 text-sm font-bold text-white/80 mb-6">
                   <span>Free to join. No commission.</span>
                 </div>
-                <h1 className="text-5xl sm:text-6xl font-black tracking-tight leading-[0.95] text-zinc-900">
+                <h1 className="text-5xl sm:text-6xl font-black tracking-tight leading-[0.95] text-white">
                   Win more work with{" "}
-                  <span className="text-red-500">VetMyBuilder</span>
+                  <span className="text-red-500" style={{ fontFamily: "'Indie Flower', cursive" }}>VetMyBuilder</span>
                 </h1>
-                <p className="mt-6 text-xl text-zinc-600 leading-relaxed font-medium">
+                <p className="mt-6 text-xl text-zinc-400 leading-relaxed font-medium">
                   We match you to local projects that fit your skills, verify your credentials automatically,
                   and put you in front of homeowners who are ready to hire. No cold calls, no bidding wars.
                 </p>

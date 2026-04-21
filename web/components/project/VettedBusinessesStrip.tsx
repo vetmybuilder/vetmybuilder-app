@@ -33,7 +33,7 @@ export default function VettedBusinessesStrip({
         </h2>
       </div>
       <p className="text-xs text-emerald-600 mb-3">
-        Pre-vetted via Google Reviews &amp; Companies House
+        Pre-vetted and verified
       </p>
 
       <div className="flex flex-col sm:flex-row gap-3">
@@ -121,7 +121,7 @@ function VettedCard({
           className="mt-2 text-[11px] text-zinc-400 italic"
           data-testid={`vetted-no-profile-${rec.id}`}
         >
-          Not yet on VetMyBuilder — contact directly
+          Not yet on VetMyBuilder - contact directly
         </p>
       )}
     </div>

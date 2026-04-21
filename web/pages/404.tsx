@@ -1,45 +1,41 @@
 // web/pages/404.tsx
 import Head from "next/head";
 import Link from "next/link";
-import { Home } from "lucide-react";
 
 export default function NotFound() {
   return (
     <>
       <Head>
-        <title>Page not found — VetMyBuilder</title>
+        <title>Page not found - VetMyBuilder</title>
       </Head>
 
-      <div className="overflow-x-hidden -mt-14 min-h-screen">
-        <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      <div className="overflow-x-hidden -mt-14 min-h-screen flex items-center justify-center bg-[#fafaf9]">
+        <div className="text-center max-w-lg px-4">
+          <div className="text-[80px] leading-none mb-4">
+            <span className="inline-block -rotate-[20deg]">&#128295;</span>
+            <span className="inline-block rotate-[20deg] -ml-2.5">&#128296;</span>
+          </div>
 
-          <div className="relative z-10 w-full max-w-lg px-4 sm:px-0 text-center">
-            {/* Logo */}
-            <Link href="/" className="inline-flex items-center gap-2.5 mb-10">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500">
-                <Home className="h-5 w-5 text-white" />
-              </div>
-              <span className="text-xl font-black text-zinc-900">
-                Vet<span className="text-red-500">My</span>Builder
-              </span>
+          <h1 className="text-7xl font-[800] text-zinc-900 leading-none">404</h1>
+          <p className="text-2xl font-[800] text-zinc-900 mt-2">Nothing to see here</p>
+          <p className="text-base text-zinc-500 mt-3 leading-relaxed">
+            This page doesn&apos;t exist. Head back home or post a job and
+            we&apos;ll find the right tradesperson for you.
+          </p>
+
+          <div className="mt-7 flex gap-3 justify-center">
+            <Link
+              href="/"
+              className="inline-flex items-center justify-center rounded-full bg-red-500 px-8 py-3.5 text-base font-bold text-white shadow-lg shadow-red-500/25 hover:bg-red-600 transition-colors"
+            >
+              Go home
             </Link>
-
-            {/* Card */}
-            <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-10 sm:p-14">
-              <p className="text-8xl font-black text-red-500 leading-none mb-4">404</p>
-              <h1 className="text-2xl font-black tracking-tight text-zinc-900 mb-3">
-                Page not found
-              </h1>
-              <p className="text-zinc-500 text-sm leading-relaxed mb-8">
-                The page you&apos;re looking for doesn&apos;t exist or has been moved.
-              </p>
-              <Link
-                href="/"
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-red-500 px-8 py-3.5 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] transition-all"
-              >
-                Back to home
-              </Link>
-            </div>
+            <Link
+              href="/projects/new"
+              className="inline-flex items-center justify-center rounded-full border-2 border-zinc-300 px-8 py-3.5 text-base font-bold text-zinc-900 hover:bg-zinc-50 transition-colors"
+            >
+              Post a job
+            </Link>
           </div>
         </div>
       </div>

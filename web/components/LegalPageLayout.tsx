@@ -56,25 +56,22 @@ export default function LegalPageLayout({
 
       <div className="overflow-x-hidden -mt-14">
         {/* HERO */}
-        <section className="relative pt-6 pb-12 sm:pt-28 overflow-hidden bg-stone-50">
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
-          </div>
+        <section className="relative pt-6 pb-12 sm:pt-28 overflow-hidden bg-zinc-900">
           <div className="relative z-10 mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-            <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-4 py-1.5 text-sm font-bold text-zinc-800 mb-6">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/15 px-4 py-1.5 text-sm font-bold text-white/80 mb-6">
               Last updated: {lastUpdated}
             </div>
-            <h1 className="text-5xl sm:text-6xl font-black tracking-tight text-zinc-900 leading-[0.95]">
+            <h1 className="text-5xl sm:text-6xl font-black tracking-tight text-white leading-[0.95]">
               {title}
               {titleAccent && (
                 <>
                   {" "}
-                  <span className="text-red-500">{titleAccent}</span>
+                  <span className="text-red-500" style={{ fontFamily: "'Indie Flower', cursive" }}>{titleAccent}</span>
                 </>
               )}
             </h1>
             {subtitle && (
-              <p className="mt-6 text-xl text-zinc-600 leading-relaxed font-medium max-w-2xl">
+              <p className="mt-6 text-xl text-zinc-400 leading-relaxed font-medium max-w-2xl">
                 {subtitle}
               </p>
             )}

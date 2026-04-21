@@ -422,16 +422,31 @@ function ShortlistInner() {
           <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
             {/* Header */}
             <div className="px-5 py-5 sm:px-8 sm:py-6 border-b border-zinc-100">
-              <h1
-                className="text-xl sm:text-2xl font-black tracking-tight text-zinc-900"
-                data-testid="recommendations-title"
-              >
-                All recommendations
-                {projectTitle ? <span className="text-zinc-400 font-semibold text-lg"> · {projectTitle}</span> : ""}
-              </h1>
-              {total > 0 && (
-                <p className="mt-1 text-sm text-zinc-500">{total} recommendation{total !== 1 ? "s" : ""} from neighbours and the community</p>
-              )}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1
+                    className="text-xl sm:text-2xl font-black tracking-tight text-zinc-900"
+                    data-testid="recommendations-title"
+                  >
+                    All recommendations
+                    {projectTitle ? <span className="text-zinc-400 font-semibold text-lg"> · {projectTitle}</span> : ""}
+                  </h1>
+                  {total > 0 && (
+                    <p className="mt-1 text-sm text-zinc-500">{total} recommendation{total !== 1 ? "s" : ""} from friends and the community</p>
+                  )}
+                </div>
+                {groups.length >= 2 && (
+                  <Link
+                    href={`/projects/${id}/compare`}
+                    className="inline-flex items-center gap-2 rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-bold text-white hover:bg-zinc-800 transition-colors"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7" />
+                    </svg>
+                    Compare
+                  </Link>
+                )}
+              </div>
             </div>
 
           {/* List */}
