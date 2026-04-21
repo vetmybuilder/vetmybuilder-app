@@ -140,7 +140,10 @@ export default function Footer() {
         <div className="mt-12 pt-8 border-t border-white/10 flex flex-col sm:flex-row justify-between items-center gap-4">
           <div className="flex flex-col gap-1 text-center sm:text-left">
             <p className="text-sm text-zinc-500">
-              &copy; {year} VetMyBuilder. All rights reserved.
+              &copy; {year} VetMyBuilder Ltd. All rights reserved.
+            </p>
+            <p className="text-xs text-zinc-600">
+              Registered in England and Wales. Company No. 1627511.
             </p>
             <p className="text-xs text-zinc-600">
               Powered by Connect2Find Ltd.

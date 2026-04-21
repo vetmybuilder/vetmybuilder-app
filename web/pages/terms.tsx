@@ -4,7 +4,7 @@ import LegalPageLayout, {
 } from "@/components/LegalPageLayout";
 
 // ---------------------------------------------------------------------------
-// Terms of Service - UK-law-governed. Operating entity: Connect2Find Ltd
+// Terms of Service - UK-law-governed. Operating entity: VetMyBuilder Ltd
 // (trading as VetMyBuilder).
 //
 // [REVIEW] items before launch:
@@ -27,7 +27,7 @@ const sections: LegalSection[] = [
     title: "Acceptance of these Terms",
     content: `By accessing or using VetMyBuilder (the "Platform") at vetmybuilder.com, you agree to be bound by these Terms of Service ("Terms"). If you do not agree, please do not use the Platform.
 
-These Terms form a legally binding agreement between you and Connect2Find Ltd ("we", "us", "our"), a company registered in England and Wales, trading as VetMyBuilder.
+These Terms form a legally binding agreement between you and VetMyBuilder Ltd ("we", "us", "our"), a company registered in England and Wales (Company No. 1627511).
 
 We may update these Terms from time to time. Where changes materially affect your rights, we will notify you by email or by a banner on the Platform. The "Last updated" date at the top of this page tells you when the current version took effect.`,
   },
@@ -76,7 +76,7 @@ We may suspend or terminate accounts that breach these Terms or our <a href="/ac
     title: "Your content",
     content: `You keep ownership of anything you upload or submit to the Platform - job descriptions, recommendations, profile info, photos ("User Content").
 
-By submitting User Content, you grant Connect2Find Ltd a non-exclusive, royalty-free, worldwide licence to host, store, display, reproduce, and distribute that content **as necessary to operate the Platform** and to describe or promote the Platform in our own marketing (for example, anonymised examples of the service in action).
+By submitting User Content, you grant VetMyBuilder Ltd a non-exclusive, royalty-free, worldwide licence to host, store, display, reproduce, and distribute that content **as necessary to operate the Platform** and to describe or promote the Platform in our own marketing (for example, anonymised examples of the service in action).
 
 You agree that:
 - Your User Content is accurate, honest, and your own work (or that you have the rights to share it)
@@ -137,7 +137,7 @@ Nothing in this section limits your rights as a consumer under the Consumer Righ
   },
   {
     title: "Limitation of liability",
-    content: `To the fullest extent permitted by law, Connect2Find Ltd's total liability to you, arising out of or in connection with these Terms or the Platform, shall not exceed £250 in aggregate.
+    content: `To the fullest extent permitted by law, VetMyBuilder Ltd's total liability to you, arising out of or in connection with these Terms or the Platform, shall not exceed £250 in aggregate.
 
 We are not liable for any:
 - Indirect, incidental, special, or consequential losses
@@ -159,7 +159,7 @@ We aim to review reports within 48 hours. Our full process is described on the <
   },
   {
     title: "Intellectual property",
-    content: `All code, design, branding, text and other materials on the Platform (excluding User Content) are owned by or licensed to Connect2Find Ltd and are protected by UK and international intellectual property laws.
+    content: `All code, design, branding, text and other materials on the Platform (excluding User Content) are owned by or licensed to VetMyBuilder Ltd and are protected by UK and international intellectual property laws.
 
 You may not copy, modify, distribute, republish, or create derivative works from our materials without our prior written permission, except as strictly necessary to view and use the Platform as intended.
 
@@ -188,9 +188,8 @@ The courts of England and Wales have exclusive jurisdiction over any such disput
     title: "Contact",
     content: `Questions about these Terms? Contact us:
 - Email: hello@vetmybuilder.com
-- Post: Connect2Find Ltd (trading as VetMyBuilder), London, United Kingdom [REVIEW: add full registered office]
 
-Company number: [REVIEW: add Companies House number]`,
+Company number: 1627511`,
   },
 ];
 

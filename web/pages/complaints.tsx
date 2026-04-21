@@ -55,11 +55,10 @@ VetMyBuilder is currently a free service; we do not subscribe to an Alternative 
   },
   {
     title: "Contact",
-    content: `Connect2Find Ltd (trading as VetMyBuilder)
+    content: `VetMyBuilder Ltd
 Email: hello@vetmybuilder.com
-Post: London, United Kingdom [REVIEW: add registered office]
 
-Company number: [REVIEW]`,
+Company number: 1627511`,
   },
 ];
 

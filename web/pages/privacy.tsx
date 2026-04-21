@@ -26,15 +26,13 @@ const CONTACT = "hello@vetmybuilder.com";
 const sections: LegalSection[] = [
   {
     title: "Who we are",
-    content: `Connect2Find Ltd (trading as VetMyBuilder, "we", "us", "our") operates the website at vetmybuilder.com (the "Platform"). We are a company registered in England and Wales.
+    content: `VetMyBuilder Ltd ("we", "us", "our") operates the website at vetmybuilder.com (the "Platform"). We are a company registered in England and Wales (Company No. 1627511).
 
 This Privacy Policy explains how we collect, use, store, and protect your personal information when you use VetMyBuilder. It applies to homeowners, tradespeople, and anyone else who interacts with us.
 
 **Contact for data protection matters:** ${CONTACT}
 
-**Postal address:** Connect2Find Ltd, London, United Kingdom. [REVIEW: add full registered office]
-
-**ICO registration:** [REVIEW: add ICO registration number once registered]`,
+**Company number:** 1627511`,
   },
   {
     title: "What personal data we collect",
@@ -108,7 +106,7 @@ A full up-to-date list is published at <a href="/sub-processors">our Sub-process
 
 **Law enforcement and regulators** - only where required by law, court order, or to protect the vital interests of users.
 
-**In the event of a business transfer** - if Connect2Find Ltd is ever acquired or reorganised, user data may transfer as part of that transaction, subject to the same protections described here.`,
+**In the event of a business transfer** - if VetMyBuilder Ltd is ever acquired or reorganised, user data may transfer as part of that transaction, subject to the same protections described here.`,
   },
   {
     title: "International transfers",
