@@ -497,50 +497,39 @@ function EditProjectInner() {
         aria-label="Edit Project Page"
       >
 
-        <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
-          {/* Header */}
-          <div
-            className="mb-6 flex items-center justify-between rounded-2xl bg-white/80 backdrop-blur px-4 py-3 shadow-sm"
-            data-testid="project-edit-header"
-          >
-            <div>
-              <h1
-                className="text-3xl font-black tracking-tight text-zinc-900"
-                data-testid="project-edit-title"
-              >
-                Edit project
-              </h1>
-              <p
-                className="mt-1 text-sm text-zinc-500"
-                data-testid="project-edit-subtitle"
-              >
-                Update the key details. Location can’t be changed here.
-              </p>
-            </div>
-            <Link
-              href={`/projects/${id}`}
-              data-testid="btn-back"
-              aria-label="Back to project"
-              className="inline-flex items-center gap-2 rounded-xl bg-slate-800/90 backdrop-blur-sm px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition-colors"
-            >
-              <span className="text-lg">←</span>
-              Back
-            </Link>
-          </div>
-
-          {/* Progress bar */}
-          <div data-testid="wizard-progress-edit" aria-label="Progress">
-            <ProgressBar current={step} total={STEPS.length} />
-          </div>
-
+        <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-16 sm:pt-20 pb-8">
           {/* Wizard card */}
           <div
             ref={wizardRef}
             tabIndex={-1}
-            className="mt-4 relative w-full overflow-hidden rounded-3xl bg-white shadow-xl shadow-zinc-200/60"
+            className="relative w-full overflow-hidden rounded-3xl bg-white shadow-xl shadow-zinc-200/60"
             data-testid="wizard-edit"
-            data-current-step={STEPS[step].key}
+            data-current-step={STEPS[step]?.key}
           >
+            {/* Header inside card */}
+            <div className="px-4 pt-4 pb-3 sm:px-10 sm:pt-8 sm:pb-5 border-b border-zinc-100">
+              <div className="flex items-center justify-between">
+                <h1
+                  className="text-xl sm:text-2xl font-black tracking-tight text-zinc-900"
+                  data-testid="project-edit-title"
+                >
+                  Edit job
+                </h1>
+                <Link
+                  href={`/projects/${id}`}
+                  data-testid="btn-back"
+                  aria-label="Back to project"
+                  className="hidden sm:flex items-center gap-2 text-sm font-medium text-zinc-500 hover:text-zinc-900 transition-colors"
+                >
+                  <span className="text-lg">&#8592;</span>
+                  Back
+                </Link>
+              </div>
+              <div className="mt-3" data-testid="wizard-progress-edit" aria-label="Progress">
+                <ProgressBar current={step} total={STEPS.length} />
+              </div>
+            </div>
+
             <div
               className="flex w-full transition-transform duration-300 ease-out"
               style={{ transform: `translateX(-${step * 100}%)` }}
@@ -555,7 +544,7 @@ function EditProjectInner() {
                     aria-labelledby={titleId}
                     aria-hidden={active ? undefined : true}
                     {...(!active ? ({ inert: "" } as any) : {})}
-                    className="w-full shrink-0 px-6 py-6 sm:px-10 sm:py-10 min-h-[28rem] sm:min-h-[32rem]"
+                    className="w-full shrink-0 px-6 py-4 sm:px-10 sm:py-8 min-h-[20rem] sm:min-h-[28rem]"
                   >
                     <h2
                       id={titleId}
