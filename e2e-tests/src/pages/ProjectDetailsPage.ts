@@ -322,14 +322,14 @@ export class ProjectDetailsPage extends BasePage {
 
     if (!expected) {
       await expect(this.topRecommendationsSection).toContainText(
-        "No builders have yet been recommended by a friend or neighbours.",
+        "No builders have yet been recommended by friends or the community.",
       );
 
       return;
     }
 
     await expect(this.topRecommendationsSection).not.toContainText(
-      "No builders have yet been recommended by a friend or neighbours.",
+      "No builders have yet been recommended by friends or the community.",
     );
   }
 
