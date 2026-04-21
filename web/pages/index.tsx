@@ -241,8 +241,8 @@ export default function Home() {
                     </>
                   ) : (
                     <>
-                      <span className="block">Every tradesperson <span className="text-red-500" style={{ fontFamily: "'Indie Flower', cursive", fontSize: "115%" }}>vetted</span>.</span>
-                      <span className="block">Every recommendation <span className="text-red-500" style={{ fontFamily: "'Indie Flower', cursive", fontSize: "115%" }}>verified</span>.</span>
+                      <span className="block">Every tradesperson <span className="text-red-500" style={{ fontFamily: "'Indie Flower', cursive", fontSize: "115%" }}>vetted.</span></span>
+                      <span className="block">Every recommendation <span className="text-red-500" style={{ fontFamily: "'Indie Flower', cursive", fontSize: "115%" }}>verified.</span></span>
                     </>
                   )}
                 </h1>
@@ -458,9 +458,6 @@ export default function Home() {
                 {isTrades ? "View available jobs" : "Start your free project"}
                 <IconArrowRight className="h-5 w-5" />
               </Link>
-              <p className="mt-4 text-sm text-zinc-400">
-                No credit card needed. Free forever.
-              </p>
             </div>
           </div>
         </section>
