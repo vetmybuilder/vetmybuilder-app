@@ -123,14 +123,24 @@ function DiscoveryPanel({ api, onComplete }: { api: ReturnType<typeof useApi>; o
           setAreaSuggestions(list);
           setAreaDropdownOpen(list.length > 0);
         } else {
-          // Place name search
-          const resp = await fetch(`https://api.postcodes.io/places?query=${encodeURIComponent(q)}&limit=10`);
+          // Place and borough search
+          const resp = await fetch(`https://api.postcodes.io/places?query=${encodeURIComponent(q)}&limit=20`);
           if (!resp.ok) return;
           const data = await resp.json();
-          const places: string[] = (data.result || [])
-            .map((p: any) => p.name1 || p.name || p.locality || "")
-            .filter(Boolean);
-          const unique = [...new Set(places)];
+          const results: string[] = [];
+          for (const p of (data.result || [])) {
+            const name = p.name_1 || p.name1 || p.name || p.locality || "";
+            if (name) results.push(name);
+            const borough = p.district_borough || "";
+            if (borough) results.push(borough);
+          }
+          // Also allow typing a borough name directly even if API returns nothing
+          const qLower = q.toLowerCase();
+          const unique = [...new Set(results)].filter((r) => r.toLowerCase().includes(qLower));
+          // If no results but looks like a valid place name, offer it as-is
+          if (unique.length === 0 && q.length >= 3) {
+            unique.push(q);
+          }
           setAreaSuggestions(unique.slice(0, 8));
           setAreaDropdownOpen(unique.length > 0);
         }
@@ -153,8 +163,12 @@ function DiscoveryPanel({ api, onComplete }: { api: ReturnType<typeof useApi>; o
     .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0) || a.label.localeCompare(b.label));
 
   function addArea(token: string) {
-    const upper = token.toUpperCase().trim();
-    if (upper && !areas.includes(upper)) setAreas((prev) => [...prev, upper]);
+    const trimmed = token.trim();
+    const isPostcode = /^[A-Z]{1,2}\d/i.test(trimmed);
+    const value = isPostcode ? trimmed.toUpperCase() : trimmed;
+    if (value && !areas.some((a) => a.toLowerCase() === value.toLowerCase())) {
+      setAreas((prev) => [...prev, value]);
+    }
   }
 
   function removeArea(a: string) {
@@ -268,7 +282,7 @@ function DiscoveryPanel({ api, onComplete }: { api: ReturnType<typeof useApi>; o
               if (e.key === "Enter") {
                 e.preventDefault();
                 const val = areaQuery.trim().toUpperCase();
-                if (val) { addArea(val); setAreaQuery(""); setAreaSuggestions([]); setAreaDropdownOpen(false); }
+                if (val) { addArea(areaQuery.trim()); setAreaQuery(""); setAreaSuggestions([]); setAreaDropdownOpen(false); }
               }
             }}
             className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none"
