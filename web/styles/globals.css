@@ -29,6 +29,10 @@
   --brand-50: #eef2ff;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 html,
 body,
 #__next {

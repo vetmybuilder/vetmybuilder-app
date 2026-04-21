@@ -40,26 +40,22 @@ export default function Contact() {
       <Head>
         <title>Contact Us — VetMyBuilder</title>
         <meta name="description" content="Get in touch with the VetMyBuilder team." />
-        <style>{`body { background: #fafaf9 !important; }`}</style>
       </Head>
 
       <div className="overflow-x-hidden -mt-14">
 
         {/* HERO */}
-        <section className="relative pt-6 pb-16 sm:pt-28 sm:pb-20 overflow-hidden bg-stone-50">
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
-          </div>
+        <section className="relative pt-6 pb-16 sm:pt-28 sm:pb-20 overflow-hidden bg-zinc-900">
           <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
               <div>
-                <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-4 py-1.5 text-sm font-bold text-zinc-800 mb-6">
+                <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/15 px-4 py-1.5 text-sm font-bold text-white/80 mb-6">
                   <span>We&apos;d love to hear from you</span>
                 </div>
-                <h1 className="text-5xl sm:text-6xl font-black tracking-tight leading-[0.95] text-zinc-900">
-                  Get in <span className="text-red-500">touch</span>
+                <h1 className="text-5xl sm:text-6xl font-black tracking-tight leading-[0.95] text-white">
+                  Get in <span className="text-red-500" style={{ fontFamily: "'Indie Flower', cursive" }}>touch</span>
                 </h1>
-                <p className="mt-6 text-xl text-zinc-600 leading-relaxed font-medium">
+                <p className="mt-6 text-xl text-zinc-400 leading-relaxed font-medium">
                   Questions, feedback, or just want to say hello? Drop us a message and
                   we&apos;ll get back to you within one working day.
                 </p>

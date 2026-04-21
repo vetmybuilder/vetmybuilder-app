@@ -131,7 +131,7 @@ export default function BuilderProfilePage() {
               {builder?.summary && (
                 <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 px-6 py-5">
                   <h2 className="text-lg font-bold text-zinc-900 mb-3">
-                    What neighbours say
+                    What the community says
                   </h2>
                   <ul className="space-y-2">
                     {builder.summary.bullets.map((bullet: string, i: number) => (

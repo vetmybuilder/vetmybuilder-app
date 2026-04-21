@@ -102,7 +102,7 @@ export default function VettedBusinessesPage() {
                 </h1>
               </div>
               <p className="text-sm text-emerald-600 mb-1">
-                Pre-vetted via Google Reviews &amp; Companies House
+                Pre-vetted and verified
               </p>
               {projectName && (
                 <p className="text-xs text-emerald-500 mb-6">
@@ -202,7 +202,7 @@ function VettedCardFull({ rec, projectId }: { rec: Recommendation; projectId: nu
             </Link>
           ) : (
             <p className="mt-3 text-xs text-zinc-400 italic">
-              Not yet on VetMyBuilder — contact directly
+              Not yet on VetMyBuilder - contact directly
             </p>
           )}
         </div>

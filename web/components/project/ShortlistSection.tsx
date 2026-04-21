@@ -156,7 +156,7 @@ export default function ShortlistSection({
         {items.length === 0 ? (
           <div data-testid="shortlist-empty">
             <p className="text-sm text-slate-500">
-              No builders have yet been recommended by a friend or neighbours.
+              No builders have yet been recommended by friends or the community.
             </p>
 
             {isOwner && showOwnerShareCta && onOwnerShareClick && (
@@ -171,7 +171,7 @@ export default function ShortlistSection({
                   Share &amp; Publish
                 </button>
                 <p className="text-xs text-slate-500 max-w-md">
-                  Share this project with friends or neighbours to start seeing
+                  Share this project with friends to start seeing
                   recommendations from vetted tradespeople.
                 </p>
               </div>
@@ -415,7 +415,7 @@ export default function ShortlistSection({
             </ul>
 
             {shouldShowViewMore && (
-              <div className="mt-4">
+              <div className="mt-4 flex items-center gap-4">
                 <Link
                   className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-900 hover:text-slate-600 transition-colors"
                   href={viewMoreHref as string}
@@ -424,6 +424,17 @@ export default function ShortlistSection({
                 >
                   View all recommendations &rarr;
                 </Link>
+                {projectId && groups.length >= 2 && (
+                  <Link
+                    href={`/projects/${projectId}/compare`}
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-red-600 hover:text-red-700 transition-colors"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7" />
+                    </svg>
+                    Compare
+                  </Link>
+                )}
               </div>
             )}
           </>

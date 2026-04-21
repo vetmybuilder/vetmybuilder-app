@@ -35,13 +35,13 @@ export default function BuilderPhotos({ user, galleryImages, photos }: Props) {
     >
       <h2 className="text-lg font-black text-zinc-900 mb-1">Shared photos</h2>
       <p className="text-sm text-zinc-500 mb-4">
-        Create a free account to see photos your neighbours shared with this recommendation.
+        Create a free account to see photos shared with this recommendation.
       </p>
 
       <BlurUnlock
         previewCount={3}
         totalCount={photos.length || undefined}
-        label="photos from neighbours"
+        label="photos from the community"
       >
         <div
           className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2"

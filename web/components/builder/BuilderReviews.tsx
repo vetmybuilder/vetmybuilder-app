@@ -34,9 +34,9 @@ export default function BuilderReviews({ reviews }: Props) {
       className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-6 sm:p-7"
       data-testid="builder-reviews-card"
     >
-      <h2 className="text-lg font-black text-zinc-900">Reviews from neighbours</h2>
+      <h2 className="text-lg font-black text-zinc-900">Reviews from the community</h2>
       <p className="mt-1 text-sm text-zinc-500">
-        What your neighbours said when they recommended this builder.
+        What the community said when they recommended this builder.
       </p>
 
       <div className="mt-5 space-y-3">
