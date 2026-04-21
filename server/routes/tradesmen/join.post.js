@@ -294,6 +294,7 @@ module.exports = (router, ctx) => {
         uid: leadId,
         companyName,
         companyNumber: company_number || null,
+        broadcastNotification: ctx.broadcastNotification,
       }).catch(() => {});
 
       // photos

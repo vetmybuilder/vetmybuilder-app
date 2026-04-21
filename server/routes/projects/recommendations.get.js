@@ -144,7 +144,8 @@ module.exports = (router, ctx) => {
           COALESCE(cw.wouldAgain, 0) AS wouldAgain,
           cv.status AS chStatus,
           cv.score AS chScore,
-          t_linked.public_id AS t_linked_public_id
+          t_linked.public_id AS t_linked_public_id,
+          tp.vetting_score AS pipelineVettingScore
 
         FROM recommendations r
 
@@ -193,6 +194,10 @@ module.exports = (router, ctx) => {
 
         LEFT JOIN tradesmen t_linked ON t_linked.user_id = r.linked_tradesman_uid
 
+        LEFT JOIN tradesperson_pipeline tp
+               ON tp.claimed_by = r.linked_tradesman_uid
+              AND tp.status = 'approved'
+
         WHERE r.projectId = ?
         ORDER BY r.createdAt DESC
         LIMIT ${safeLimit} OFFSET ${safeOffset}
@@ -240,17 +245,20 @@ module.exports = (router, ctx) => {
           fromFriend,
           fromCommunity,
           photoCount: Number(r.photoCount || 0),
-          score: normaliseScore(computeScore({
-            fromFriend: fromFriend ? 1 : 0,
-            fromCommunity: fromCommunity ? 1 : 0,
-            likes: Number(r.likes || 0),
-            recPhotos: Number(r.photoCount || 0),
-            hiresAccepted: Number(r.hiresAccepted || 0),
-            hiresDeclined: Number(r.hiresDeclined || 0),
-            wins: Number(r.wins || 0),
-            wouldAgain: Number(r.wouldAgain || 0),
-            ch: r.chStatus ? { status: r.chStatus, score: r.chScore } : null,
-          })),
+          score: Math.max(
+            normaliseScore(computeScore({
+              fromFriend: fromFriend ? 1 : 0,
+              fromCommunity: fromCommunity ? 1 : 0,
+              likes: Number(r.likes || 0),
+              recPhotos: Number(r.photoCount || 0),
+              hiresAccepted: Number(r.hiresAccepted || 0),
+              hiresDeclined: Number(r.hiresDeclined || 0),
+              wins: Number(r.wins || 0),
+              wouldAgain: Number(r.wouldAgain || 0),
+              ch: r.chStatus ? { status: r.chStatus, score: r.chScore } : null,
+            })),
+            Number(r.pipelineVettingScore || 0),
+          ),
         };
 
         if (r.source) item.source = r.source;

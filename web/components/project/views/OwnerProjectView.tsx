@@ -249,6 +249,9 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
   };
 
   const allRecs = recs || [];
+  // pipeline = unregistered discovered businesses (vetted card)
+  // community_match = registered tradesman matched via pipeline (top recommendations)
+  // everything else = community/friend recommendations (top recommendations)
   const pipelineRecs = allRecs.filter((r) => r.source === "pipeline");
   const communityRecs = allRecs.filter((r) => r.source !== "pipeline");
   const shortlistData = communityRecs;
