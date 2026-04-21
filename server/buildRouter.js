@@ -391,6 +391,7 @@ function buildRouter(ctx) {
   require("./routes/admin/trades-pipeline.get")(router, ctx);
   require("./routes/admin/trades-pipeline.patch")(router, ctx);
   require("./routes/admin/trades-pipeline-discover")(router, ctx);
+  require("./routes/admin/trades-pipeline.reverify.post")(router, ctx);
   require("./routes/admin/feedback.get")(router, ctx);
 
   return router;
