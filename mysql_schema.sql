@@ -889,3 +889,17 @@ CREATE TABLE google_places_cache (
   fetched_at DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY idx_fetched_at (fetched_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS feedback (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id VARCHAR(128) DEFAULT NULL,
+  user_type VARCHAR(50) DEFAULT NULL,
+  features_used TEXT DEFAULT NULL,
+  rating TINYINT NOT NULL,
+  ease_of_use TINYINT DEFAULT NULL,
+  positives TEXT DEFAULT NULL,
+  improvements TEXT DEFAULT NULL,
+  recommend ENUM('yes','maybe','no') DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_feedback_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

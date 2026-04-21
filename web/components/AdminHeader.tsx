@@ -108,6 +108,7 @@ export default function AdminHeader() {
     { label: "Pipeline", href: "/admin/trades-pipeline", testId: "nav-admin-pipeline", active: router.pathname === "/admin/trades-pipeline" },
     { label: "Dashboard", href: "/admin/dashboard", testId: "nav-admin-dashboard", active: router.pathname === "/admin/dashboard" },
     { label: "Users", href: "/admin/users", testId: "nav-admin-users", active: router.pathname === "/admin/users" },
+    { label: "Feedback", href: "/admin/feedback", testId: "nav-admin-feedback", active: router.pathname === "/admin/feedback" },
   ];
 
   const activePill = "bg-violet-600 text-white font-bold shadow-sm";
