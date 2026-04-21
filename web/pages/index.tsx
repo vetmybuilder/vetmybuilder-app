@@ -233,7 +233,7 @@ export default function Home() {
                   {isTrades ? "The smarter way to win work" : "The smarter way to hire a tradesperson"}
                 </div>
 
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-[800] tracking-tight leading-[1.1] text-white" style={{ fontFamily: "'Sora', sans-serif" }}>
+                <h1 className="text-2xl sm:text-4xl lg:text-5xl font-[800] tracking-tight leading-[1.1] text-white" style={{ fontFamily: "'Sora', sans-serif" }}>
                   {isTrades ? (
                     <>
                       <span className="block">Win more work with</span>
@@ -247,7 +247,7 @@ export default function Home() {
                   )}
                 </h1>
 
-                <p className="mt-6 text-xl sm:text-2xl leading-relaxed text-zinc-300 font-medium" style={{ fontFamily: "'Sora', sans-serif" }}>
+                <p className="mt-4 text-base sm:text-xl lg:text-2xl leading-relaxed text-zinc-300 font-medium" style={{ fontFamily: "'Sora', sans-serif" }}>
                   {isTrades
                     ? "We match you to local projects that fit your skills, verify your credentials automatically, and put you in front of homeowners who are ready to hire."
                     : <span>Post your job, gather recommendations, <span className="text-red-500" style={{ fontFamily: "'Indie Flower', cursive", fontSize: "115%" }}>and we'll do the rest.</span></span>}

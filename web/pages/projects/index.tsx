@@ -659,8 +659,8 @@ function OwnerProjects() {
 
             {/* Footer */}
             <div className="mt-8 flex items-center justify-between">
-              <p className="text-sm text-white/80 font-medium drop-shadow">
-                Showing {items.length} of {total} projects
+              <p className="text-sm font-medium text-zinc-700 bg-white/80 backdrop-blur-sm rounded-full px-4 py-1.5">
+                Showing {items.length} of {total} project{total !== 1 ? "s" : ""}
               </p>
               {hasMore ? (
                 <button
@@ -672,12 +672,7 @@ function OwnerProjects() {
                 >
                   {loading ? "Loading…" : "Load more"}
                 </button>
-              ) : (
-                <div className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                  <span className="text-sm font-medium text-emerald-700">All caught up</span>
-                </div>
-              )}
+              ) : null}
             </div>
             <div className="sr-only" aria-live="polite">{announce}</div>
           </div>
@@ -686,6 +681,18 @@ function OwnerProjects() {
 
       {showPushPrompt && (
         <PushPrompt onComplete={() => setShowPushPrompt(false)} />
+      )}
+
+      {/* Floating Post a Job button */}
+      {items.length > 0 && (
+        <button
+          type="button"
+          onClick={() => router.push("/projects/new")}
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-amber-400 px-6 py-4 text-base font-bold text-zinc-900 shadow-xl shadow-amber-400/40 hover:bg-amber-300 hover:scale-105 transition-all animate-bounce-slow"
+        >
+          <Plus className="h-5 w-5" />
+          Post a Job
+        </button>
       )}
     </div>
   );

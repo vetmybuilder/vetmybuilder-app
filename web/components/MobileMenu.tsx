@@ -345,14 +345,14 @@ export default function MobileMenu({
                   href="/login"
                   onClick={onClose}
                   className={[
-                    "px-6 py-6 text-left flex items-center gap-3",
+                    "px-6 py-6 flex items-center justify-center gap-3",
                     "bg-indigo-600 hover:bg-indigo-500",
                     "text-white",
                   ].join(" ")}
                   data-testid="mobile-menu-sign-in-cta"
                 >
-                  <User className="h-5 w-5" />
-                  <span className="block text-[22px] leading-tight font-medium">
+                  <User className="h-6 w-6 flex-shrink-0" strokeWidth={2.5} />
+                  <span className="block text-[20px] leading-tight font-medium">
                     Homeowner
                   </span>
                 </Link>
@@ -361,14 +361,14 @@ export default function MobileMenu({
                   href="/tradesman/login"
                   onClick={onClose}
                   className={[
-                    "px-6 py-6 text-left flex items-center gap-3",
+                    "px-6 py-6 flex items-center justify-center gap-3",
                     "bg-emerald-600 hover:bg-emerald-500",
                     "text-white",
                   ].join(" ")}
                   data-testid="mobile-menu-trades-cta"
                 >
-                  <Wrench className="h-5 w-5" />
-                  <span className="block text-[22px] leading-tight font-medium">
+                  <Wrench className="h-6 w-6 flex-shrink-0" strokeWidth={2.5} />
+                  <span className="block text-[20px] leading-tight font-medium">
                     Tradesperson
                   </span>
                 </Link>

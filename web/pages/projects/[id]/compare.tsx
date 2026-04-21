@@ -154,17 +154,22 @@ function CompareInner() {
 
         const g = groupByCompany(items, verMap);
         setGroups(g);
-        setSelected(g.slice(0, Math.min(3, g.length)).map((x) => x.key));
+        const mobile = typeof window !== "undefined" && window.innerWidth < 1024;
+        const limit = mobile ? 2 : 4;
+        setSelected(g.slice(0, Math.min(limit, g.length)).map((x) => x.key));
       } catch { setNotFound(true); }
       if (alive) setLoading(false);
     })();
     return () => { alive = false; };
   }, [api, id, router.isReady, authLoading, user]);
 
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
+  const maxCompare = isMobile ? 2 : 4;
+
   function toggle(key: string) {
     setSelected((prev) => {
       if (prev.includes(key)) return prev.filter((k) => k !== key);
-      if (prev.length >= 4) return prev;
+      if (prev.length >= maxCompare) return prev;
       return [...prev, key];
     });
   }
@@ -214,14 +219,14 @@ function CompareInner() {
             </div>
 
             {/* Sidebar + Table layout */}
-            <div className="flex min-h-[400px]">
+            <div className="flex flex-col lg:flex-row min-h-[400px]">
 
               {/* Sidebar checklist */}
-              <div className="w-64 flex-shrink-0 border-r border-zinc-100 bg-zinc-50/50 p-4 overflow-y-auto">
+              <div className="w-full lg:w-64 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-zinc-100 bg-zinc-50/50 p-4 overflow-y-auto">
                 <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">
                   Select to compare
                 </h2>
-                <div className="space-y-1.5">
+                <div className="flex flex-col gap-1.5">
                   {groups.map((g) => {
                     const isOn = selected.includes(g.key);
                     return (
@@ -229,7 +234,7 @@ function CompareInner() {
                         key={g.key}
                         type="button"
                         onClick={() => toggle(g.key)}
-                        className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-colors ${
+                        className={`w-full flex items-center gap-3 p-2.5 lg:p-3 rounded-xl text-left transition-colors ${
                           isOn
                             ? "bg-red-50 border border-red-200"
                             : "hover:bg-zinc-100 border border-transparent"
@@ -249,7 +254,7 @@ function CompareInner() {
                         {/* Info */}
                         <div className="flex-1 min-w-0">
                           <div className="font-bold text-sm text-zinc-900 truncate">{g.company}</div>
-                          <div className="text-xs text-zinc-500">
+                          <div className="text-xs text-zinc-500 hidden lg:block">
                             Score: {typeof g.aggScore === "number" ? Math.round(g.aggScore) : "-"} - {g.recCount} rec{g.recCount !== 1 ? "s" : ""}
                           </div>
                         </div>
@@ -263,18 +268,80 @@ function CompareInner() {
                   })}
                 </div>
                 <p className="text-xs text-zinc-400 mt-4">
-                  {selected.length} of {groups.length} selected (max 4)
+                  {selected.length} of {groups.length} selected (max {maxCompare})
                 </p>
               </div>
 
-              {/* Comparison table */}
+              {/* Comparison - cards on mobile, table on desktop */}
               <div className="flex-1 overflow-x-auto">
                 {comparing.length === 0 ? (
-                  <div className="flex items-center justify-center h-full text-zinc-400 text-sm">
+                  <div className="flex items-center justify-center h-full text-zinc-400 text-sm p-8">
                     Select tradespeople from the list to compare
                   </div>
                 ) : (
-                  <table className="w-full border-collapse">
+                  <>
+                  {/* Mobile: horizontal scroll table (Which? style) */}
+                  <div className="lg:hidden">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr>
+                          <th className="w-20 p-3 text-left text-[11px] font-semibold text-zinc-400 bg-zinc-50 border-b border-zinc-200 sticky left-0 z-10" />
+                          {comparing.map((g) => (
+                            <th key={g.key} className={`p-3 text-center border-b border-zinc-200 ${g.key === bestKey ? "bg-amber-50/50" : "bg-white"}`}>
+                              {g.key === bestKey && (
+                                <span className="inline-block bg-red-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full mb-1">Best match</span>
+                              )}
+                              <div className="font-bold text-xs text-zinc-900">{g.company}</div>
+                              <button type="button" onClick={() => toggle(g.key)} className="text-zinc-400 hover:text-red-500 text-[10px] mt-1">&#10005; remove</button>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <MobileRow label="Score" bestKey={bestKey} comparing={comparing} even={false}>
+                          {(g) => (
+                            <span className={`inline-flex items-center justify-center w-9 h-9 rounded-full text-white font-bold text-xs ${scoreColor(g.aggScore)}`}>
+                              {typeof g.aggScore === "number" ? Math.round(g.aggScore) : "-"}
+                            </span>
+                          )}
+                        </MobileRow>
+                        <MobileRow label="Google" bestKey={bestKey} comparing={comparing} even={true}>
+                          {(g) => {
+                            const v = g.verification;
+                            if (!v?.googleRating) return <span className="text-xs text-zinc-400">-</span>;
+                            return <span><span className="font-bold text-sm">{v.googleRating.toFixed(1)}</span><span className="text-amber-400 ml-0.5">&#9733;</span><span className="text-xs text-zinc-500 ml-1">({v.googleReviewsCount ?? 0})</span></span>;
+                          }}
+                        </MobileRow>
+                        <MobileRow label="Votes" bestKey={bestKey} comparing={comparing} even={false}>
+                          {(g) => <span className="font-bold text-zinc-900">{g.aggLikes}</span>}
+                        </MobileRow>
+                        <MobileRow label="Recs" bestKey={bestKey} comparing={comparing} even={true}>
+                          {(g) => <span className="font-bold text-zinc-900">{g.recCount}</span>}
+                        </MobileRow>
+                        <MobileRow label="Check" bestKey={bestKey} comparing={comparing} even={false}>
+                          {(g) => {
+                            const l = verStatusLabel(g.verification?.status);
+                            return <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold border ${l.cls}`}>{l.text}</span>;
+                          }}
+                        </MobileRow>
+                        <tr>
+                          <td className="p-3 bg-zinc-50 border-t border-zinc-200 sticky left-0 z-10" />
+                          {comparing.map((g) => {
+                            const item = g.items.find((i) => i.tradesmanPublicId || i.linked_tradesman_uid);
+                            const pid = item?.tradesmanPublicId || item?.linked_tradesman_uid;
+                            return (
+                              <td key={g.key} className={`p-3 text-center border-t border-zinc-200 ${g.key === bestKey ? "bg-amber-50/30" : ""}`}>
+                                {pid ? <Link href={`/tradesman/${pid}?projectId=${id}`} className="text-xs font-bold text-red-600">View profile</Link> : <span className="text-xs text-zinc-400">-</span>}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Desktop: table */}
+                  <table className="w-full border-collapse hidden lg:table">
                     <thead>
                       <tr>
                         <th className="w-36 p-4 text-left text-sm font-semibold text-zinc-500 bg-zinc-50 border-b-2 border-zinc-200 sticky left-0 z-10" />
@@ -401,6 +468,7 @@ function CompareInner() {
                       </tr>
                     </tbody>
                   </table>
+                  </>
                 )}
               </div>
             </div>
@@ -430,6 +498,34 @@ function Row({
       </td>
       {comparing.map((g) => (
         <td key={g.key} className={`p-4 text-center border-b border-zinc-100 ${g.key === bestKey ? "bg-amber-50/50" : ""}`}>
+          {children(g)}
+        </td>
+      ))}
+    </tr>
+  );
+}
+
+function MobileRow({
+  label,
+  bestKey,
+  comparing,
+  children,
+  even,
+}: {
+  label: string;
+  bestKey: string | null;
+  comparing: Grouped[];
+  children: (g: Grouped) => React.ReactNode;
+  even?: boolean;
+}) {
+  const rowBg = even ? "bg-zinc-50/60" : "";
+  return (
+    <tr>
+      <td className={`p-3 text-[11px] font-semibold text-zinc-400 uppercase border-b border-zinc-100 sticky left-0 z-10 ${even ? "bg-zinc-100" : "bg-zinc-50"}`}>
+        {label}
+      </td>
+      {comparing.map((g) => (
+        <td key={g.key} className={`p-3 text-center border-b border-zinc-100 ${g.key === bestKey ? "bg-amber-50/30" : rowBg}`}>
           {children(g)}
         </td>
       ))}

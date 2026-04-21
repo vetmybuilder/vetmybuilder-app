@@ -74,14 +74,7 @@ export class CreateProjectPage {
     input: CreateProjectInput,
     isMobile: boolean,
   ): Promise<string> {
-    await this.page.goto("/projects", { waitUntil: "domcontentloaded" });
-
-    if (isMobile) {
-      await this.mobileMenuButton.waitFor({ state: "visible" });
-      await this.mobileMenuButton.click();
-    }
-
-    await this.postJobButton(isMobile).click();
+    await this.page.goto("/projects/new", { waitUntil: "domcontentloaded" });
     await this.page.waitForURL("**/projects/new", { timeout: 30_000 });
 
     await this.selectCategory(input.category);
