@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS _migrations (
       appliedAt TEXT NOT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE projects (
+CREATE TABLE IF NOT EXISTS projects (
   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   type VARCHAR(100) NOT NULL,
@@ -23,7 +23,7 @@ CREATE TABLE projects (
   updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE recommendation_links (
+CREATE TABLE IF NOT EXISTS recommendation_links (
   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   projectId INTEGER NOT NULL,
   token VARCHAR(255) NOT NULL UNIQUE,
@@ -32,7 +32,7 @@ CREATE TABLE recommendation_links (
   FOREIGN KEY(projectId) REFERENCES projects(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE recommendations (
+CREATE TABLE IF NOT EXISTS recommendations (
   id                INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   projectId         INTEGER NOT NULL,
   recommenderUserId VARCHAR(255),                 -- now nullable
@@ -53,7 +53,7 @@ CREATE TABLE recommendations (
 CREATE INDEX idx_recs_project ON recommendations(projectId);
 CREATE INDEX idx_recs_user ON recommendations(recommenderUserId);
 CREATE INDEX idx_recs_project_createdAt ON recommendations(projectId, createdAt DESC);
-CREATE TABLE notifications (
+CREATE TABLE IF NOT EXISTS notifications (
   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   userId VARCHAR(255),                       -- target user
   type VARCHAR(50) NOT NULL,                -- e.g. 'project_live'
@@ -67,7 +67,7 @@ CREATE TABLE notifications (
 
 CREATE INDEX idx_notifications_user_created
   ON notifications(userId, createdAt DESC);
-CREATE TABLE user_profiles (
+CREATE TABLE IF NOT EXISTS user_profiles (
   userId VARCHAR(255) PRIMARY KEY,
   locationRaw TEXT,
   postcode VARCHAR(16),          -- full postcode e.g. "E4 6JH"
@@ -81,7 +81,7 @@ CREATE INDEX idx_user_profiles_postcode ON user_profiles(postcode);
 CREATE INDEX idx_user_profiles_sector ON user_profiles(postcodeSector);
 CREATE INDEX idx_user_profiles_outward ON user_profiles(postcodeOutward);
 CREATE INDEX idx_user_profiles_city ON user_profiles(city);
-CREATE TABLE recommendation_votes (
+CREATE TABLE IF NOT EXISTS recommendation_votes (
   id              INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   recommendationId INTEGER NOT NULL,
   userId          VARCHAR(255) NOT NULL,
@@ -96,7 +96,7 @@ CREATE INDEX idx_recommendation_votes_rec
   ON recommendation_votes (recommendationId);
 CREATE INDEX idx_recommendation_votes_user
   ON recommendation_votes (userId);
-CREATE TABLE recommendation_photos (
+CREATE TABLE IF NOT EXISTS recommendation_photos (
   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   recommendationId INTEGER NOT NULL,
   filePath TEXT NOT NULL,       -- relative path under /uploads
@@ -107,7 +107,7 @@ CREATE TABLE recommendation_photos (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX idx_rec_photos_rec ON recommendation_photos(recommendationId);
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   uid VARCHAR(255) PRIMARY KEY,
   email TEXT,
   createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -122,7 +122,7 @@ CREATE TABLE users (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX idx_users_createdAt ON users(createdAt);
-CREATE TABLE favourites (
+CREATE TABLE IF NOT EXISTS favourites (
   userId    VARCHAR(255) NOT NULL,
   projectId INTEGER NOT NULL,
   createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -139,7 +139,7 @@ CREATE INDEX idx_projects_createdAt        ON projects(createdAt);
 CREATE INDEX idx_projects_name             ON projects(name(191));
 CREATE INDEX idx_projects_type             ON projects(type);
 CREATE INDEX idx_projects_propertyType     ON projects(propertyType);
-CREATE TABLE project_closures (
+CREATE TABLE IF NOT EXISTS project_closures (
   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   projectId INTEGER NOT NULL UNIQUE,
 
@@ -160,7 +160,7 @@ CREATE TABLE project_closures (
 
 
 CREATE INDEX idx_project_closures_projectId ON project_closures(projectId);
-CREATE TABLE project_closure_photos (
+CREATE TABLE IF NOT EXISTS project_closure_photos (
   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   projectId INTEGER NOT NULL,
   filePath TEXT NOT NULL,
@@ -249,12 +249,12 @@ LEFT JOIN completed       c  ON c.recommendationId = r.id
 LEFT JOIN positive        p  ON p.recommendationId = r.id
 LEFT JOIN closure_photos  cp ON cp.recommendationId = r.id
 /* v_recommendation_scores(recommendationId,company,fromCommunity,likes_count,completed_count,positive_count,photos_count,has_2plus_photos,lastCompletedAt,score) */;
-CREATE TABLE user_roles (
+CREATE TABLE IF NOT EXISTS user_roles (
   uid VARCHAR(255) PRIMARY KEY,
   role VARCHAR(50) NOT NULL DEFAULT 'user'         -- 'user' | 'tradesman' | 'admin'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE tradesmen (
+CREATE TABLE IF NOT EXISTS tradesmen (
   user_id VARCHAR(255) PRIMARY KEY,                 -- Firebase uid
   company_name VARCHAR(255) NOT NULL,
   contact_name VARCHAR(255),
@@ -313,7 +313,7 @@ CREATE TABLE tradesmen (
 CREATE INDEX idx_tradesmen_service_areas ON tradesmen(service_areas);
 CREATE INDEX idx_tradesmen_trade_types   ON tradesmen(trade_types);
 CREATE UNIQUE INDEX idx_tradesmen_public_id ON tradesmen(public_id);
-CREATE TABLE tradesmen_offers (
+CREATE TABLE IF NOT EXISTS tradesmen_offers (
   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   user_id VARCHAR(255) NOT NULL,
   kind TEXT NOT NULL,                      -- 'discount','bundle','perk','cashback','finance','other'
@@ -338,7 +338,7 @@ CREATE TABLE tradesmen_offers (
 
 CREATE INDEX idx_trd_offers_user ON tradesmen_offers(user_id);
 CREATE INDEX idx_trd_offers_active ON tradesmen_offers(is_active, valid_until, priority);
-CREATE TABLE tradesmen_warranties (
+CREATE TABLE IF NOT EXISTS tradesmen_warranties (
   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   user_id VARCHAR(255) NOT NULL,
   coverage_text TEXT NOT NULL,             -- e.g. "Workmanship warranty"
@@ -352,7 +352,7 @@ CREATE TABLE tradesmen_warranties (
 
 CREATE INDEX idx_trd_warr_user ON tradesmen_warranties(user_id);
 
-CREATE TABLE tradesmen_service_options (
+CREATE TABLE IF NOT EXISTS tradesmen_service_options (
   user_id VARCHAR(255) PRIMARY KEY,
   emergency_service INTEGER DEFAULT 0,     -- 0/1
   free_quotes INTEGER DEFAULT 1,           -- 0/1
@@ -364,7 +364,7 @@ CREATE TABLE tradesmen_service_options (
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE tradesmen_payment_methods (
+CREATE TABLE IF NOT EXISTS tradesmen_payment_methods (
   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   user_id VARCHAR(255) NOT NULL,
   method VARCHAR(50) NOT NULL,                    -- 'visa','mastercard','amex','bank_transfer','cash','apple_pay','klarna','paypal','other'
@@ -401,7 +401,7 @@ LEFT JOIN (
   GROUP BY user_id
 ) p ON p.user_id = t.user_id AND o.priority = p.maxp
 /* vw_tradesmen_marketing(user_id,emergency_service,free_quotes,callout_fee_pennies,response_sla_hours,finance_available,hours_json,offer_id,offer_kind,offer_title,value_type,value_numeric,value_currency,valid_until) */;
-CREATE TABLE tradesmen_memberships (
+CREATE TABLE IF NOT EXISTS tradesmen_memberships (
   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   user_id VARCHAR(255) NOT NULL,
   organisation VARCHAR(255) NOT NULL,              -- e.g. "Gas Safe Register", "FMB", "NICEIC"
@@ -422,7 +422,7 @@ CREATE INDEX idx_trm_user ON tradesmen_memberships(user_id);
 CREATE INDEX idx_trm_org ON tradesmen_memberships(organisation);
 CREATE INDEX idx_trm_verify ON tradesmen_memberships(verified_status);
 
-CREATE TABLE tradesmen_insurance_policies (
+CREATE TABLE IF NOT EXISTS tradesmen_insurance_policies (
   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   user_id VARCHAR(255) NOT NULL,
   provider TEXT NOT NULL,
@@ -445,7 +445,7 @@ CREATE INDEX idx_tri_user ON tradesmen_insurance_policies(user_id);
 CREATE INDEX idx_tri_expires ON tradesmen_insurance_policies(expires_on);
 CREATE INDEX idx_tri_verify ON tradesmen_insurance_policies(verified_status);
 
-CREATE TABLE tradesmen_certifications (
+CREATE TABLE IF NOT EXISTS tradesmen_certifications (
   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   user_id VARCHAR(255) NOT NULL,
   authority VARCHAR(100) NOT NULL,                 -- issuing body
@@ -465,7 +465,7 @@ CREATE TABLE tradesmen_certifications (
 CREATE INDEX idx_trc_user ON tradesmen_certifications(user_id);
 CREATE INDEX idx_trc_verify ON tradesmen_certifications(verified_status);
 
-CREATE TABLE tradesmen_background_checks (
+CREATE TABLE IF NOT EXISTS tradesmen_background_checks (
   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   user_id VARCHAR(255) NOT NULL,
   check_type TEXT NOT NULL,                -- 'dbs_basic','dbs_enhanced','right_to_work', etc.
@@ -512,7 +512,7 @@ FROM tradesmen t
 /* vw_tradesmen_trust_signals(user_id,insurance_valid_until,max_public_liability_pennies,verified_membership_count,verified_cert_count) */;
 CREATE INDEX idx_tradesmen_user_id ON tradesmen(user_id);
 
-CREATE TABLE subscriptions_history (
+CREATE TABLE IF NOT EXISTS subscriptions_history (
   id              INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   user_id         VARCHAR(255) NOT NULL,         -- matches tradesmen.user_id
   event           TEXT NOT NULL,
@@ -527,7 +527,7 @@ CREATE TABLE subscriptions_history (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX idx_subhist_user_at ON subscriptions_history(user_id, at);
-CREATE TABLE favourite_tradesmen (
+CREATE TABLE IF NOT EXISTS favourite_tradesmen (
   id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   userId     VARCHAR(255) NOT NULL,
   builderId  VARCHAR(255) NOT NULL,
@@ -544,7 +544,7 @@ CREATE INDEX idx_users_city ON users(city);
 CREATE INDEX idx_users_postcode ON users(postcode);
 CREATE INDEX idx_users_postcodeSector ON users(postcodeSector);
 CREATE INDEX idx_users_postcodeOutward ON users(postcodeOutward);
-CREATE TABLE tradesmen_flags (
+CREATE TABLE IF NOT EXISTS tradesmen_flags (
       id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
       user_id VARCHAR(255) NOT NULL,          -- the tradesman (t.user_id)
       created_by TEXT NOT NULL,       -- admin/mod uid
@@ -558,7 +558,7 @@ CREATE TABLE tradesmen_flags (
 
 CREATE INDEX idx_flags_user ON tradesmen_flags(user_id);
 CREATE INDEX idx_flags_open ON tradesmen_flags(user_id,resolved);
-CREATE TABLE company_verifications (
+CREATE TABLE IF NOT EXISTS company_verifications (
       id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
       recommendationId INTEGER NOT NULL,
       status TEXT NOT NULL,                        -- queued | running | verified | ambiguous | no_match | error
@@ -573,7 +573,7 @@ CREATE TABLE company_verifications (
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX idx_cv_rec ON company_verifications(recommendationId);
-CREATE TABLE project_contact_unlocks (
+CREATE TABLE IF NOT EXISTS project_contact_unlocks (
       id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
       project_id INTEGER NOT NULL,
       buyer_uid  VARCHAR(255) NOT NULL,
@@ -588,7 +588,7 @@ CREATE TABLE project_contact_unlocks (
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
-CREATE TABLE trade_shares (
+CREATE TABLE IF NOT EXISTS trade_shares (
       id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
       project_id INTEGER NOT NULL,
       tradesman_uid VARCHAR(255) NOT NULL,
@@ -601,7 +601,7 @@ CREATE TABLE trade_shares (
         ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE tradesmen_photos (
+CREATE TABLE IF NOT EXISTS tradesmen_photos (
       id                INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
       tradesman_user_id VARCHAR(255) NOT NULL,
       url               TEXT NOT NULL,
@@ -612,7 +612,7 @@ CREATE TABLE tradesmen_photos (
 CREATE INDEX idx_tradesmen_photos_user
       ON tradesmen_photos(tradesman_user_id, sort_order)
   ;
-CREATE TABLE tradesman_interests (
+CREATE TABLE IF NOT EXISTS tradesman_interests (
       id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
       projectId INTEGER NOT NULL,
       fromUid VARCHAR(255) NOT NULL,
@@ -622,7 +622,7 @@ CREATE TABLE tradesman_interests (
       UNIQUE(projectId, fromUid)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE payments_subscription (
+CREATE TABLE IF NOT EXISTS payments_subscription (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     buyer_uid TEXT NOT NULL,
     plan_id TEXT NOT NULL,
@@ -636,7 +636,7 @@ CREATE TABLE payments_subscription (
     created_at TEXT NOT NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE payments_oneoff (
+CREATE TABLE IF NOT EXISTS payments_oneoff (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     user_id VARCHAR(255) NOT NULL,
     type VARCHAR(50) NOT NULL,
@@ -650,7 +650,7 @@ CREATE TABLE payments_oneoff (
     created_at TEXT NOT NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE tradesmen_spotlight_views (
+CREATE TABLE IF NOT EXISTS tradesmen_spotlight_views (
         tradesman_user_id VARCHAR(255) PRIMARY KEY,
         views INTEGER NOT NULL DEFAULT 0,
         last_viewed_at TEXT
@@ -659,7 +659,7 @@ CREATE TABLE tradesmen_spotlight_views (
 CREATE INDEX idx_oneoff_user_type_entity
          ON payments_oneoff (user_id, type, entity_id, status);
 
-CREATE TABLE hires (
+CREATE TABLE IF NOT EXISTS hires (
   id                    INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   projectId             INT NOT NULL,
   homeownerUid          VARCHAR(255) NOT NULL,
@@ -718,7 +718,7 @@ CREATE INDEX idx_hires_invite_token ON hires (inviteToken);
 -- by an LLM call at submission time. Powers the matcher and decision
 -- assistant downstream. The classifier_version column is critical so we
 -- can re-run / A-B test prompt revisions without losing the audit trail.
-CREATE TABLE project_classifications (
+CREATE TABLE IF NOT EXISTS project_classifications (
   id                 BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   project_id         INT NOT NULL,
   classified_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -739,7 +739,7 @@ CREATE TABLE project_classifications (
 -- search results — we log it here. Every action the homeowner then
 -- takes (clicked, hired, dismissed) becomes a labelled training pair.
 -- This is the dataset every future ranker is trained on. Log generously.
-CREATE TABLE match_observations (
+CREATE TABLE IF NOT EXISTS match_observations (
   id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   project_id          INT NOT NULL,
   -- The unit being surfaced. At least one of these MUST be set:
@@ -777,7 +777,7 @@ CREATE TABLE match_observations (
 -- Per-recommendation derived signals: how generic the comment is, what
 -- themes it touches, sentiment score. Feeds the review summariser and
 -- the trust/reputation model. Computed lazily.
-CREATE TABLE recommendation_signals (
+CREATE TABLE IF NOT EXISTS recommendation_signals (
   recommendation_id  INT NOT NULL PRIMARY KEY,
   word_count         INT NOT NULL,
   -- 0..1 — how "boilerplate" the comment looks vs distinctive
@@ -796,7 +796,7 @@ CREATE TABLE recommendation_signals (
 -- iteration, and (eventually) retraining smaller models from the
 -- larger model's outputs. Hash the prompt so we can dedup expensive
 -- repeat calls without comparing entire bodies.
-CREATE TABLE ai_inference_log (
+CREATE TABLE IF NOT EXISTS ai_inference_log (
   id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   -- 'project_classify' | 'review_summary' | 'profile_coach' | ...
   feature      VARCHAR(64) NOT NULL,
@@ -813,7 +813,7 @@ CREATE TABLE ai_inference_log (
   KEY idx_ail_hash (prompt_hash)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE reports (
+CREATE TABLE IF NOT EXISTS reports (
   id INT AUTO_INCREMENT PRIMARY KEY,
   reporter_uid VARCHAR(128) NOT NULL,
   target_type ENUM('profile','recommendation','photo') NOT NULL,
@@ -828,7 +828,7 @@ CREATE TABLE reports (
   KEY idx_reports_target (target_type, target_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE tradesperson_pipeline (
+CREATE TABLE IF NOT EXISTS tradesperson_pipeline (
   id INT AUTO_INCREMENT PRIMARY KEY,
   company_name VARCHAR(255) NOT NULL,
   trade_types VARCHAR(255) NULL,
@@ -855,14 +855,14 @@ CREATE TABLE tradesperson_pipeline (
   INDEX idx_pipeline_company_number (company_number)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE notification_preferences (
+CREATE TABLE IF NOT EXISTS notification_preferences (
   uid       VARCHAR(128) NOT NULL,
   category  VARCHAR(50)  NOT NULL,
   push_enabled TINYINT   NOT NULL DEFAULT 1,
   PRIMARY KEY (uid, category)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE push_subscriptions (
+CREATE TABLE IF NOT EXISTS push_subscriptions (
   id         INT AUTO_INCREMENT PRIMARY KEY,
   uid        VARCHAR(128) NOT NULL,
   endpoint   TEXT         NOT NULL,
@@ -872,7 +872,7 @@ CREATE TABLE push_subscriptions (
   KEY idx_push_uid (uid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE builder_summaries (
+CREATE TABLE IF NOT EXISTS builder_summaries (
   id                  INT AUTO_INCREMENT PRIMARY KEY,
   company             VARCHAR(255) NOT NULL,
   bullets             JSON         NOT NULL,
@@ -883,7 +883,7 @@ CREATE TABLE builder_summaries (
   UNIQUE KEY uq_company (company)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE google_places_cache (
+CREATE TABLE IF NOT EXISTS google_places_cache (
   cache_key  CHAR(64)  NOT NULL PRIMARY KEY,
   payload    JSON      NULL,
   fetched_at DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP,
