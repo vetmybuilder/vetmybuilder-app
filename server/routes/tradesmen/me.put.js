@@ -446,6 +446,7 @@ module.exports = (router, ctx) => {
           uid,
           companyName: companyName,
           companyNumber: companyNumber || null,
+          broadcastNotification: ctx.broadcastNotification,
         }).catch(() => {});
 
         const finalRow = await queryOne(
