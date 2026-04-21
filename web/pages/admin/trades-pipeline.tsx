@@ -62,6 +62,15 @@ const toggleItem = (arr: string[], item: string) => {
 };
 const uniq = <T,>(xs: T[]) => Array.from(new Set(xs));
 
+const LONDON_BOROUGHS = [
+  "Barking and Dagenham", "Barnet", "Bexley", "Brent", "Bromley", "Camden",
+  "City of London", "Croydon", "Ealing", "Enfield", "Greenwich", "Hackney",
+  "Hammersmith and Fulham", "Haringey", "Harrow", "Havering", "Hillingdon",
+  "Hounslow", "Islington", "Kensington and Chelsea", "Kingston upon Thames",
+  "Lambeth", "Lewisham", "Merton", "Newham", "Redbridge", "Richmond upon Thames",
+  "Southwark", "Sutton", "Tower Hamlets", "Waltham Forest", "Wandsworth", "Westminster",
+];
+
 function DiscoveryPanel({ api, onComplete }: { api: ReturnType<typeof useApi>; onComplete: () => void }) {
   const [open, setOpen] = useState(false);
 
@@ -124,20 +133,28 @@ function DiscoveryPanel({ api, onComplete }: { api: ReturnType<typeof useApi>; o
           setAreaDropdownOpen(list.length > 0);
         } else {
           // Place and borough search
-          const resp = await fetch(`https://api.postcodes.io/places?query=${encodeURIComponent(q)}&limit=20`);
-          if (!resp.ok) return;
-          const data = await resp.json();
-          const results: string[] = [];
-          for (const p of (data.result || [])) {
-            const name = p.name_1 || p.name1 || p.name || p.locality || "";
-            if (name) results.push(name);
-            const borough = p.district_borough || "";
-            if (borough) results.push(borough);
-          }
-          // Also allow typing a borough name directly even if API returns nothing
           const qLower = q.toLowerCase();
-          const unique = [...new Set(results)].filter((r) => r.toLowerCase().includes(qLower));
-          // If no results but looks like a valid place name, offer it as-is
+
+          // Match against static borough list first
+          const boroughMatches = LONDON_BOROUGHS.filter((b) => b.toLowerCase().includes(qLower));
+
+          // Then search postcodes.io places API
+          const resp = await fetch(`https://api.postcodes.io/places?query=${encodeURIComponent(q)}&limit=20`);
+          const apiResults: string[] = [];
+          if (resp.ok) {
+            const data = await resp.json();
+            for (const p of (data.result || [])) {
+              const name = p.name_1 || p.name1 || p.name || p.locality || "";
+              if (name) apiResults.push(name);
+              const borough = p.district_borough || "";
+              if (borough) apiResults.push(borough);
+            }
+          }
+
+          // Combine: boroughs first, then API results
+          const combined = [...boroughMatches, ...apiResults];
+          const unique = [...new Set(combined)].filter((r) => r.toLowerCase().includes(qLower));
+
           if (unique.length === 0 && q.length >= 3) {
             unique.push(q);
           }
