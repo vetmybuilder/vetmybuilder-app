@@ -366,7 +366,7 @@ export default function SiteHeader() {
                     <Home className="h-4 w-4" />
                   </span>
                   <span className="text-2xl font-black tracking-tight text-zinc-900">
-                    Vet<span className="text-red-500">My</span>Builder
+                    Vet<span className="text-red-500" style={{ fontFamily: "'Caveat', cursive", fontWeight: 700, fontSize: "130%", WebkitTextStroke: "0.5px currentColor" }}>My</span>Builder
                   </span>
                   {(isTrades || isTradesPage) && (
                     <span className="ml-1.5 text-sm font-semibold text-red-500">Trade</span>
@@ -549,7 +549,7 @@ export default function SiteHeader() {
                   <Home className="h-4 w-4" />
                 </span>
                 <span className="text-2xl font-black tracking-tight text-zinc-900">
-                  Vet<span className="text-red-500">My</span>Builder
+                  Vet<span className="text-red-500" style={{ fontFamily: "'Caveat', cursive", fontWeight: 700, fontSize: "130%", WebkitTextStroke: "0.5px currentColor" }}>My</span>Builder
                 </span>
                 {(isTrades || isTradesPage) && (
                   <span className="ml-1.5 text-sm font-semibold text-red-500">Trade</span>
@@ -618,28 +618,7 @@ export default function SiteHeader() {
                 </Link>
               )}
 
-              {displayUser && roleChecked && !isTrades && router.pathname !== "/login" && (
-                <Link
-                  href="/projects/new"
-                  aria-label="Post a Job"
-                  aria-hidden="true"
-                  tabIndex={-1}
-                  className={[
-                    "hidden sm:inline-flex items-center justify-center rounded-xl px-4 h-9 text-sm font-semibold whitespace-nowrap",
-                    "bg-amber-400 text-slate-900 shadow-sm hover:bg-amber-300",
-                    "sm:[aria-hidden=false] sm:tabIndex-0",
-                  ].join(" ")}
-                  data-testid="btn-post-job-header"
-                >
-                  <span>Post a Job</span>
-                  <span
-                    className="ml-1.5 text-base leading-none"
-                    aria-hidden="true"
-                  >
-                    ↗
-                  </span>
-                </Link>
-              )}
+              {/* Post a Job button removed from header - now a floating button on the projects page */}
 
               {displayUser && <NotificationsBell />}
 

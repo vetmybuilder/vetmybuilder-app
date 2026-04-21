@@ -371,7 +371,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
           <div className="mt-4" data-testid="owner-actions-primary">
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <button
-                className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-red-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:bg-red-600 hover:shadow-xl transition-all flex-shrink-0"
+                className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-red-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:bg-red-600 hover:shadow-xl transition-all flex-shrink-0 self-start"
                 onClick={() => setShowGetRecModal(true)}
                 data-testid="btn-get-recs"
               >

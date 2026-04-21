@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---------- Floating button pulse ---------- */
+@keyframes bounce-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.animate-bounce-slow { animation: bounce-slow 2s ease-in-out infinite; }
+.animate-bounce-slow:hover { animation: none; }
+
 /* ---------- Modal animation ---------- */
 @keyframes modalIn {
   from { opacity: 0; transform: scale(0.95) translateY(10px); }

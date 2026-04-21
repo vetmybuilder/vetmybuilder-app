@@ -33,8 +33,8 @@ export default function Footer() {
 
   return (
     <footer className="bg-zinc-900">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 lg:gap-12">
+      <div className="mx-auto max-w-6xl px-6 sm:px-6 lg:px-8 py-16">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 lg:gap-12 text-center sm:text-left">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2.5">
@@ -42,7 +42,7 @@ export default function Footer() {
                 <Home className="h-5 w-5 text-white" />
               </div>
               <span className="text-xl font-black text-white">
-                Vet<span className="text-red-400">My</span>Builder
+                Vet<span className="text-red-400" style={{ fontFamily: "'Caveat', cursive", fontWeight: 700, fontSize: "130%", WebkitTextStroke: "0.5px currentColor" }}>My</span>Builder
               </span>
             </Link>
             <p className="mt-4 text-sm text-zinc-400 max-w-xs leading-relaxed">

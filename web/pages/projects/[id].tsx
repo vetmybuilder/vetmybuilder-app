@@ -80,7 +80,7 @@ export default function ProjectViewPage() {
                   <Home className="h-5 w-5 text-white" />
                 </div>
                 <span className="text-xl font-black text-zinc-900">
-                  Vet<span className="text-red-500">My</span>Builder
+                  Vet<span className="text-red-500" style={{ fontFamily: "'Caveat', cursive", fontWeight: 700, fontSize: "130%", WebkitTextStroke: "0.5px currentColor" }}>My</span>Builder
                 </span>
               </Link>
               <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-10 sm:p-14">

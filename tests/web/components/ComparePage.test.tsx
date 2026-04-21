@@ -218,6 +218,16 @@ describe("Compare page logic", () => {
       const after = toggle(["a", "b", "c", "d"], "d");
       expect(toggle(after, "e")).toEqual(["a", "b", "c", "e"]);
     });
+
+    it("limits to 2 on mobile (max=2)", () => {
+      expect(toggle(["a", "b"], "c", 2)).toEqual(["a", "b"]);
+    });
+
+    it("allows deselect and re-add within mobile limit", () => {
+      const after = toggle(["a", "b"], "a", 2);
+      expect(after).toEqual(["b"]);
+      expect(toggle(after, "c", 2)).toEqual(["b", "c"]);
+    });
   });
 
   describe("findBestKey", () => {
