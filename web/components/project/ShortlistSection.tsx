@@ -49,6 +49,7 @@ type Props = {
    * this project. Used to render the Hire button as "Hired" + disabled.
    */
   hiredRecommendationIds?: Set<number>;
+  hireStatusMap?: Record<number, string>;
   "data-testid"?: string;
 };
 
@@ -70,6 +71,7 @@ export default function ShortlistSection({
   projectId,
   onHire,
   hiredRecommendationIds,
+  hireStatusMap = {},
   "data-testid": dataTestId = "project-shortlist",
 }: Props) {
   // 🔹 Single source of truth for grouping + base agg scores
@@ -376,6 +378,9 @@ export default function ShortlistSection({
                         <div className="mt-2 flex items-center justify-between">
                           {isOwner && onHire && (() => {
                             const alreadyHired = hiredRecommendationIds?.has(r.id);
+                            const hireStatus = hireStatusMap[r.id];
+                            const isPending = hireStatus === "pending" || hireStatus === "pending_invite";
+                            const hireLabel = alreadyHired ? (isPending ? "Hire pending" : "Hired") : "Hire";
                             return (
                               <button
                                 type="button"
@@ -384,11 +389,13 @@ export default function ShortlistSection({
                                 data-testid={`shortlist-hire-${r.id}`}
                                 className={`inline-flex items-center justify-center rounded-lg px-3.5 py-2 text-sm sm:text-[11px] font-bold transition-colors ${
                                   alreadyHired
-                                    ? "bg-emerald-100 text-emerald-700 cursor-default"
+                                    ? isPending
+                                      ? "bg-amber-100 text-amber-700 cursor-default"
+                                      : "bg-emerald-100 text-emerald-700 cursor-default"
                                     : "bg-slate-900 text-white hover:bg-slate-800"
                                 }`}
                               >
-                                {alreadyHired ? "Hired" : "Hire"}
+                                {hireLabel}
                               </button>
                             );
                           })()}

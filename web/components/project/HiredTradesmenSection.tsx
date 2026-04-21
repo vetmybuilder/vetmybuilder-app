@@ -142,10 +142,10 @@ export default function HiredTradesmenSection({
       aria-label="Hired tradesmen"
       data-testid="hired-tradesmen-section"
     >
-      <div className="mb-3 flex items-center gap-2">
+      <div className="mb-3 flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-4 py-1.5 w-fit">
         <Briefcase className="h-5 w-5 text-red-500" />
         <h2 className="text-xl font-bold text-zinc-900">Hires</h2>
-        <span className="inline-flex items-center justify-center rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-bold text-zinc-700">
+        <span className="inline-flex items-center justify-center rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-bold text-zinc-700">
           {hires.length}
         </span>
       </div>

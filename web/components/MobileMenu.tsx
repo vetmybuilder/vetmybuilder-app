@@ -251,6 +251,17 @@ export default function MobileMenu({
                   <span>Account</span>
                 </span>
               </button>
+
+              <Link
+                href="/feedback"
+                onClick={onClose}
+                className={`${bigItemClass} text-white/60 hover:text-white`}
+              >
+                <span className={rowClass}>
+                  <Heart className={iconClass(true)} />
+                  <span>Feedback</span>
+                </span>
+              </Link>
             </>
           )}
 

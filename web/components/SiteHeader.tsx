@@ -402,6 +402,9 @@ export default function SiteHeader() {
                           <Link role="menuitem" href="/account" className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => setOpenMenu(null)}>
                             Manage account
                           </Link>
+                          <Link role="menuitem" href="/feedback" className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => setOpenMenu(null)}>
+                            Feedback
+                          </Link>
                           <button role="menuitem" onClick={onLogout} className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50/60">
                             Logout
                           </button>

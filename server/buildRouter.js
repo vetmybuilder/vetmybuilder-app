@@ -247,6 +247,9 @@ function buildRouter(ctx) {
   // ---------------- contact ----------------
   require("./routes/contact/contact.post")(router, ctx);
 
+  // ---------------- feedback ----------------
+  require("./routes/feedback/feedback.post")(router, ctx);
+
   // ---------------- auth ----------------
   require("./routes/auth/beta-status.get")(router, ctx);
   require("./routes/auth/check-email.post")(router, ctx);
@@ -388,6 +391,7 @@ function buildRouter(ctx) {
   require("./routes/admin/trades-pipeline.get")(router, ctx);
   require("./routes/admin/trades-pipeline.patch")(router, ctx);
   require("./routes/admin/trades-pipeline-discover")(router, ctx);
+  require("./routes/admin/feedback.get")(router, ctx);
 
   return router;
 }

@@ -63,6 +63,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
     recommendationId: number;
     displayName: string;
   } | null>(null);
+  const [hireStatusMap, setHireStatusMap] = React.useState<Record<number, string>>({});
   const [hiredRecommendationIds, setHiredRecommendationIds] = React.useState<
     Set<number>
   >(new Set());
@@ -160,13 +161,19 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
           "pending_invite",
           "accepted",
         ]);
+        const activeHires = (Array.isArray(data?.items) ? data.items : [])
+          .filter((h: any) => ACTIVE_STATUSES.has(h?.status));
         const ids = new Set<number>(
-          (Array.isArray(data?.items) ? data.items : [])
-            .filter((h: any) => ACTIVE_STATUSES.has(h?.status))
+          activeHires
             .map((h: any) => h?.recommendationId)
             .filter((id: any): id is number => typeof id === "number"),
         );
+        const statusMap: Record<number, string> = {};
+        activeHires.forEach((h: any) => {
+          if (typeof h?.recommendationId === "number") statusMap[h.recommendationId] = h.status;
+        });
         setHiredRecommendationIds(ids);
+        setHireStatusMap(statusMap);
       } catch {
         // non-critical - leave the set as-is
       }
@@ -495,6 +502,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
               setHireTarget({ recommendationId, displayName })
             }
             hiredRecommendationIds={hiredRecommendationIds}
+            hireStatusMap={hireStatusMap}
           />
           {recsErr && <p className="mt-2 text-sm text-rose-600">{recsErr}</p>}
         </div>
