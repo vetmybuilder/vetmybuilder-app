@@ -7,7 +7,7 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 COPY web/package.json web/package-lock.json* ./web/
 COPY e2e-tests/package.json e2e-tests/package-lock.json* ./e2e-tests/
-RUN npm ci || (echo "npm ci failed - ensure package-lock.json exists" && exit 1)
+RUN npm ci || npm ci || npm ci || (echo "npm ci failed after 3 attempts" && exit 1)
 
 # Copy full repo
 COPY . .
