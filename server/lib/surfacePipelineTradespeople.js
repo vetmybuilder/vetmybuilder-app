@@ -70,13 +70,17 @@ async function surfacePipelineTradespeople({
 
     const candidates = await mysqlQuery(
       `SELECT tp.id, tp.company_name, tp.email, tp.phone, tp.website,
-              tp.google_rating, tp.google_reviews_count, tp.company_number, tp.claimed_by
+              tp.google_rating, tp.google_reviews_count, tp.company_number, tp.claimed_by,
+              tp.vetting_score,
+              t.vmb_score AS tradesman_vmb_score,
+              GREATEST(tp.vetting_score, COALESCE(t.vmb_score, 0)) AS effective_score
          FROM tradesperson_pipeline tp
+         LEFT JOIN tradesmen t ON t.user_id = tp.claimed_by
         WHERE tp.status = 'approved'
-          AND tp.vetting_score >= ?
+          AND GREATEST(tp.vetting_score, COALESCE(t.vmb_score, 0)) >= ?
           AND (${tradeConditions})
           AND (${areaConditions})
-        ORDER BY tp.vetting_score DESC
+        ORDER BY effective_score DESC
         LIMIT ${MAX_PIPELINE_RECS}`,
       [MIN_VETTING_SCORE, ...tradeParams, ...areaParams],
     );

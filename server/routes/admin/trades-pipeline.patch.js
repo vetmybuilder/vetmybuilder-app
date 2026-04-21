@@ -36,16 +36,23 @@ module.exports = (router, ctx) => {
           const normName = normaliseCompanyName(companyName);
           if (normName) {
             const tradesmen = await mysqlQuery(
-              "SELECT user_id, company_name FROM tradesmen WHERE company_name IS NOT NULL",
+              "SELECT user_id, company_name, vmb_score, google_rating, google_reviews_count FROM tradesmen WHERE company_name IS NOT NULL",
             );
             const match = tradesmen.find(
               (t) => normaliseCompanyName(t.company_name) === normName,
             );
             if (match) {
+              // Use the registered tradesman's VMB score if it's higher than the discovery score
+              const pipelineRows = await mysqlQuery("SELECT vetting_score FROM tradesperson_pipeline WHERE id = ?", [id]);
+              const pipelineScore = pipelineRows[0]?.vetting_score || 0;
+              const tradesmanScore = match.vmb_score || 0;
+              const bestScore = Math.max(pipelineScore, tradesmanScore);
+
               await mysqlQuery(
-                "UPDATE tradesperson_pipeline SET claimed_by = ? WHERE id = ?",
-                [match.user_id, id],
+                "UPDATE tradesperson_pipeline SET claimed_by = ?, vetting_score = ? WHERE id = ?",
+                [match.user_id, bestScore, id],
               );
+
               // Also link any existing pipeline recommendations
               const pipelineRecs = await mysqlQuery(
                 "SELECT id, company FROM recommendations WHERE source = 'pipeline' AND linked_tradesman_uid IS NULL",
@@ -58,7 +65,7 @@ module.exports = (router, ctx) => {
                   );
                 }
               }
-              log.info({ id, tradesman: match.user_id, company: companyName }, "pipeline entry auto-linked to existing tradesman on approval");
+              log.info({ id, tradesman: match.user_id, company: companyName, pipelineScore, tradesmanScore, bestScore }, "pipeline entry auto-linked to existing tradesman on approval (score upgraded)");
             }
           }
         } catch (linkErr) {
