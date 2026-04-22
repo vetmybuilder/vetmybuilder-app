@@ -7,10 +7,6 @@ import DynamicFieldGroup, {
 } from "../../../web/components/forms/DynamicFieldGroup";
 import { JOB_FIELDS } from "../../../web/config/jobFields";
 
-// The flooring spec is the only one defined today and is the subject of the
-// feature being tested. Pulling it from JOB_FIELDS rather than re-declaring
-// keeps the test coupled to the real config so config drift can't silently
-// invalidate assertions.
 const flooringGroup = JOB_FIELDS.find((s) => s.id === "flooring")!.groups[0];
 
 function renderGroup(initial: Record<string, any> = {}, onChange = vi.fn()) {
@@ -43,7 +39,11 @@ describe("<DynamicFieldGroup /> — flooring", () => {
       expect(screen.getByText("Number of rooms")).toBeInTheDocument();
       expect(screen.getByTestId("field-flooring-size-value")).toBeInTheDocument();
 
-      expect(screen.getByTestId("field-flooring-floor_type")).toBeInTheDocument();
+      // floor_type chip buttons
+      expect(screen.getByTestId("field-flooring-floor_type-carpet")).toBeInTheDocument();
+      expect(screen.getByTestId("field-flooring-floor_type-laminate")).toBeInTheDocument();
+
+      // removal_required chip button
       expect(
         screen.getByTestId("field-flooring-removal_required"),
       ).toBeInTheDocument();
@@ -52,14 +52,20 @@ describe("<DynamicFieldGroup /> — flooring", () => {
     it("hides subfloor_condition when removal_required is not true (showIf)", () => {
       renderGroup({ flooring: { removal_required: false } });
       expect(
-        screen.queryByTestId("field-flooring-subfloor_condition"),
+        screen.queryByTestId("field-flooring-subfloor_condition-unknown"),
       ).not.toBeInTheDocument();
     });
 
     it("shows subfloor_condition when removal_required is true", () => {
       renderGroup({ flooring: { removal_required: true } });
       expect(
-        screen.getByTestId("field-flooring-subfloor_condition"),
+        screen.getByTestId("field-flooring-subfloor_condition-unknown"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId("field-flooring-subfloor_condition-level"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId("field-flooring-subfloor_condition-needs_levelling"),
       ).toBeInTheDocument();
     });
 
@@ -73,15 +79,18 @@ describe("<DynamicFieldGroup /> — flooring", () => {
         },
       });
       expect(screen.getByTestId("field-flooring-size-value")).toHaveValue(42);
-      expect(screen.getByTestId("field-flooring-floor_type")).toHaveValue(
-        "laminate",
-      );
-      expect(
-        screen.getByTestId("field-flooring-removal_required"),
-      ).toBeChecked();
-      expect(
-        screen.getByTestId("field-flooring-subfloor_condition"),
-      ).toHaveValue("needs_levelling");
+
+      // Laminate chip should have the selected styling (amber border)
+      const laminateChip = screen.getByTestId("field-flooring-floor_type-laminate");
+      expect(laminateChip.className).toContain("border-amber");
+
+      // Removal chip should have selected styling
+      const removalChip = screen.getByTestId("field-flooring-removal_required");
+      expect(removalChip.className).toContain("border-amber");
+
+      // Subfloor needs_levelling chip should have selected styling
+      const subfloorChip = screen.getByTestId("field-flooring-subfloor_condition-needs_levelling");
+      expect(subfloorChip.className).toContain("border-amber");
     });
   });
 
@@ -89,11 +98,8 @@ describe("<DynamicFieldGroup /> — flooring", () => {
     it("emits a new answers object when floor_type changes", () => {
       const { onChange } = renderGroup();
 
-      fireEvent.change(screen.getByTestId("field-flooring-floor_type"), {
-        target: { value: "carpet" },
-      });
+      fireEvent.click(screen.getByTestId("field-flooring-floor_type-carpet"));
 
-      // Last call is the most recent state after our change
       const last = onChange.mock.calls.at(-1)?.[0];
       expect(last.flooring.floor_type).toBe("carpet");
     });
@@ -101,7 +107,6 @@ describe("<DynamicFieldGroup /> — flooring", () => {
     it("emits { kind, value } when the either field is toggled + filled", () => {
       const { onChange } = renderGroup();
 
-      // Switch to rooms branch via the label
       fireEvent.click(
         screen.getByTestId("field-flooring-size-kind-rooms-label"),
       );
@@ -113,7 +118,7 @@ describe("<DynamicFieldGroup /> — flooring", () => {
       expect(last.flooring.size).toEqual({ kind: "rooms", value: 3 });
     });
 
-    it("emits removal_required=true when the checkbox is ticked", () => {
+    it("emits removal_required=true when the chip is clicked", () => {
       const { onChange } = renderGroup();
 
       fireEvent.click(screen.getByTestId("field-flooring-removal_required"));
@@ -124,7 +129,7 @@ describe("<DynamicFieldGroup /> — flooring", () => {
   });
 
   describe("auto-purge on showIf transitions", () => {
-    it("drops subfloor_condition when removal_required goes true → false", async () => {
+    it("drops subfloor_condition when removal_required goes true -> false", async () => {
       const { onChange } = renderGroup({
         flooring: {
           size: { kind: "m2", value: 50 },
@@ -136,24 +141,20 @@ describe("<DynamicFieldGroup /> — flooring", () => {
 
       // Initial render should have the field visible
       expect(
-        screen.getByTestId("field-flooring-subfloor_condition"),
+        screen.getByTestId("field-flooring-subfloor_condition-needs_levelling"),
       ).toBeInTheDocument();
 
-      // Uncheck removal
+      // Click removal chip to toggle it off
       fireEvent.click(screen.getByTestId("field-flooring-removal_required"));
 
-      // The purge effect runs in a useEffect, so wait a microtask for the
-      // follow-up onChange call.
       await Promise.resolve();
 
-      // The most recent onChange call must no longer contain subfloor_condition
       const last = onChange.mock.calls.at(-1)?.[0];
       expect(last.flooring.removal_required).toBe(false);
       expect(last.flooring.subfloor_condition).toBeUndefined();
 
-      // And the field is hidden in the DOM
       expect(
-        screen.queryByTestId("field-flooring-subfloor_condition"),
+        screen.queryByTestId("field-flooring-subfloor_condition-needs_levelling"),
       ).not.toBeInTheDocument();
     });
   });
@@ -187,8 +188,6 @@ describe("<DynamicFieldGroup /> — flooring", () => {
     });
 
     it("skips validation for fields hidden by showIf", () => {
-      // subfloor_condition is required-less and also hidden here — either way,
-      // validator should not report an error for it.
       const errors = validateGroup(flooringGroup, {
         _version: 1,
         flooring: {
