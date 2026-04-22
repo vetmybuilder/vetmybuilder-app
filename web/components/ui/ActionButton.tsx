@@ -53,6 +53,8 @@ export default function ActionButton({
     setInternalBusy(true);
     try {
       await onClick();
+    } catch {
+      // Caller handles errors; button just resets
     } finally {
       guardRef.current = false;
       setInternalBusy(false);
