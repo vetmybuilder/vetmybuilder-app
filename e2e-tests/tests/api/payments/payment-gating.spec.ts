@@ -1,5 +1,6 @@
 import { test, expect } from "../../../src/fixtures";
 import Project from "../../../src/models/Project";
+import Tradesman from "../../../src/models/tradesman";
 import { TEST_CARD } from "../../../src/helpers/testCard";
 
 test.describe("Payment gating for tradespeople", () => {
@@ -17,8 +18,15 @@ test.describe("Payment gating for tradespeople", () => {
 
   test("unlock checkout creates a session for a live project", async ({
     apiClient,
+    adminApiClient,
+    adminApi,
     projectApi,
   }) => {
+    const tradesman = Tradesman.aTradesman().withRandomDetails();
+    await apiClient.put("/api/tradesmen/me", tradesman.toPayload());
+    const tradesmanUid = await apiClient.getTradesmanUserId();
+    await adminApi.setTradesmanStatus(tradesmanUid, "active");
+
     const project = Project.aProject().withRandomDetails();
     const created = await projectApi.createProject(project.toApiPayload());
 
@@ -33,8 +41,14 @@ test.describe("Payment gating for tradespeople", () => {
 
   test("duplicate unlock returns alreadyUnlocked", async ({
     apiClient,
+    adminApi,
     projectApi,
   }) => {
+    const tradesman = Tradesman.aTradesman().withRandomDetails();
+    await apiClient.put("/api/tradesmen/me", tradesman.toPayload());
+    const tradesmanUid = await apiClient.getTradesmanUserId();
+    await adminApi.setTradesmanStatus(tradesmanUid, "active");
+
     const project = Project.aProject().withRandomDetails();
     const created = await projectApi.createProject(project.toApiPayload());
 
@@ -53,8 +67,14 @@ test.describe("Payment gating for tradespeople", () => {
 
   test("mock payment creates active unlock record", async ({
     apiClient,
+    adminApi,
     projectApi,
   }) => {
+    const tradesman = Tradesman.aTradesman().withRandomDetails();
+    await apiClient.put("/api/tradesmen/me", tradesman.toPayload());
+    const tradesmanUid = await apiClient.getTradesmanUserId();
+    await adminApi.setTradesmanStatus(tradesmanUid, "active");
+
     const project = Project.aProject().withRandomDetails();
     const created = await projectApi.createProject(project.toApiPayload());
 
@@ -75,8 +95,14 @@ test.describe("Payment gating for tradespeople", () => {
 
   test("checkout fails for non-live project", async ({
     apiClient,
+    adminApi,
     projectApi,
   }) => {
+    const tradesman = Tradesman.aTradesman().withRandomDetails();
+    await apiClient.put("/api/tradesmen/me", tradesman.toPayload());
+    const tradesmanUid = await apiClient.getTradesmanUserId();
+    await adminApi.setTradesmanStatus(tradesmanUid, "active");
+
     const project = Project.aProject().withRandomDetails();
     const created = await projectApi.createProject(project.toApiPayload());
 

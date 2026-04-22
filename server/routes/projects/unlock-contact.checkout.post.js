@@ -77,7 +77,7 @@ module.exports = (router, ctx) => {
              FROM project_contact_unlocks
             WHERE project_id = ?
               AND buyer_uid = ?
-              AND status = 'paid'
+              AND status IN ('paid', 'active')
             LIMIT 1`,
           [pid, uid]
         );
@@ -128,7 +128,7 @@ module.exports = (router, ctx) => {
         res.json({
           ok: true,
           sessionId: session.id,
-          url: session.hosted_url,
+          url: `/payments/mock/checkout/${session.id}`,
         });
         ctx.logActivity("contact.unlock", "info", req.user?.uid, `Contact unlock for project #${pid}`);
         return;
