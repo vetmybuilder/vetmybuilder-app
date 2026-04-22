@@ -1,5 +1,6 @@
 // server/boot/attachPayments.js
 const { createMockPayments } = require("../lib/payments/mock");
+const { createStripePayments } = require("../lib/payments/stripe");
 
 /**
  * Small helper to safely pick the first non-empty string.
@@ -94,22 +95,34 @@ function attachPayments(ctx = {}) {
   const webhookSecret =
     pick(process.env.PAYMENTS_MOCK_WEBHOOK_SECRET) || "dev_mock_secret";
 
-  const payments = createMockPayments({
-    baseUrl,
-    webhookSecret,
-    log,
-    mysqlQuery: ctx.mysqlQuery || null,
-  });
+  // Try Stripe first, fall back to mock
+  const stripeSecretKey = pick(process.env.STRIPE_SECRET_KEY);
+  let payments;
+
+  if (stripeSecretKey) {
+    payments = createStripePayments({
+      secretKey: stripeSecretKey,
+      baseUrl,
+      log,
+      mysqlQuery: ctx.mysqlQuery || null,
+    });
+    if (payments) {
+      log.info?.(`${TAG} Stripe attached: baseUrl=${baseUrl}`);
+    }
+  }
+
+  if (!payments) {
+    payments = createMockPayments({
+      baseUrl,
+      webhookSecret,
+      log,
+      mysqlQuery: ctx.mysqlQuery || null,
+    });
+    log.info?.(`${TAG} mock attached: baseUrl=${baseUrl}`);
+  }
 
   shimInterface(payments, log);
-
   ctx.payments = payments;
-
-  log.info?.(
-    `${TAG} mock attached: baseUrl=${baseUrl}, webhookSecret=${
-      webhookSecret ? "***" : "none"
-    }`
-  );
 
   return ctx;
 }

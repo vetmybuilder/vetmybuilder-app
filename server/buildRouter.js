@@ -357,6 +357,8 @@ function buildRouter(ctx) {
   require("./routes/payments/oneoff.spotlight.purchase.post")(router, ctx);
   require("./routes/payments/spotlight.purchase.post")(router, ctx);
   require("./routes/payments/mock.webhook.post")(router, ctx);
+  require("./routes/payments/stripe-webhook.post")(router, ctx);
+  require("./routes/payments/activate-unlock.post")(router, ctx);
 
   // ---------------- Admin ----------------
   require("./routes/admin/projects.get")(router, ctx);
