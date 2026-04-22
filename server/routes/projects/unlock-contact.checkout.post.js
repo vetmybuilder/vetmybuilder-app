@@ -90,13 +90,14 @@ module.exports = (router, ctx) => {
           });
         }
 
-        // --- Determine price based on project classification ---
+        // --- Determine unlock price based on project value ---
         let unitAmount = 999; // default £9.99
 
         if (Number(process.env.ONEOFF_UNLOCK_PRICE_PENCE) > 0) {
           unitAmount = Number(process.env.ONEOFF_UNLOCK_PRICE_PENCE);
         } else {
           try {
+            const { parsePriceBand } = require("../../lib/pricingLookup");
             const classRows = await mysqlQuery(
               "SELECT structured FROM project_classifications WHERE project_id = ? ORDER BY id DESC LIMIT 1",
               [pid]
@@ -105,11 +106,14 @@ module.exports = (router, ctx) => {
               const parsed = typeof classRows[0].structured === "string"
                 ? JSON.parse(classRows[0].structured)
                 : classRows[0].structured;
-              const maxPrice = parsed?.price_band_estimate?.max || 0;
-              if (maxPrice <= 1000) unitAmount = 299;
-              else if (maxPrice <= 5000) unitAmount = 499;
-              else if (maxPrice <= 15000) unitAmount = 999;
-              else unitAmount = 1499;
+              const band = parsePriceBand(parsed?.price_band_estimate);
+              if (band) {
+                const maxPounds = band.max / 100;
+                if (maxPounds <= 1000) unitAmount = 299;
+                else if (maxPounds <= 5000) unitAmount = 499;
+                else if (maxPounds <= 15000) unitAmount = 999;
+                else unitAmount = 1499;
+              }
             }
           } catch {}
         }

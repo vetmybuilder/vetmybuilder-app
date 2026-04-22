@@ -45,7 +45,9 @@ Fields:
   type                 - one short string describing the primary trade \
 ("General Builder", "Plumber", "Electrician", "Roofer", "Decorator", \
 "Kitchen Fitter", "Bathroom Fitter", "Plasterer", "Tiler", "Loft Conversion \
-Specialist", "Extension Builder", or "Other")
+Specialist", "Extension Builder", "Cleaner", "Gardener", "Landscaper", \
+"Locksmith", "Handyman", "Pest Control", "Carpet Cleaner", "Tree Surgeon", \
+"Window Cleaner", or "Other")
   scope                - one of: "small", "medium", "large", "xlarge"
   complexity           - one of: "simple", "moderate", "complex", "specialist"
   urgency              - one of: "asap", "weeks", "months", "flexible"
@@ -86,6 +88,22 @@ UK TRADE PRICE REFERENCE (2024-2025, ex-VAT, labour + materials):
   Structural work (RSJ, knock-through): £2,000-£5,000
   Appliance installation (single, e.g. oven/hob): £100-£300
   Tumble dryer / washing machine install: £50-£150
+  Deep clean (kitchen/bathroom): £150-£400
+  End of tenancy clean (1-2 bed flat): £150-£300; 3-4 bed house: £250-£500
+  Carpet cleaning (per room): £25-£50; whole house (3-bed): £100-£250
+  Oven clean: £50-£80
+  Gutter cleaning (semi-detached): £75-£150; detached: £100-£200
+  Pressure washing (driveway): £100-£300; patio: £80-£200
+  Pest control (single treatment): £80-£200; ongoing: £200-£500/year
+  Locksmith (lock change): £60-£150; emergency callout: £80-£200
+  Garden maintenance (one-off tidy): £100-£300; regular monthly: £50-£150
+  Hedge trimming: £80-£250
+  Tree surgery (small tree removal): £300-£800; large: £1,000-£3,000
+  Rubbish removal (small load): £50-£150; full house clearance: £300-£1,000
+  Handyman (half day): £120-£200; full day: £200-£350
+  Curtain/blind fitting: £50-£150
+  TV wall mounting: £50-£100
+  Flat pack assembly (per item): £30-£80
 
 These are guides - always consider the specific description. Larger \
 properties, London/SE locations, listed buildings, structural work, and \
@@ -195,8 +213,139 @@ async function classifyProject({
     return null;
   }
 
-  // If using stub response, generate a meaningful summary from project details
+  // If using stub response, generate meaningful data from project details
   if (structured.__stub && type) {
+    structured.type = type;
+    structured.recommended_trades = [type];
+
+    // Estimate price based on trade type
+    const lowerType = (type || "").toLowerCase();
+    if (/clean|deep clean|tenancy/i.test(lowerType)) {
+      structured.price_band_estimate = "£100-£500";
+      structured.scope = "small";
+      structured.complexity = "simple";
+    } else if (/garden|hedge|lawn|mow/i.test(lowerType)) {
+      structured.price_band_estimate = "£100-£300";
+      structured.scope = "small";
+      structured.complexity = "simple";
+    } else if (/locksmith|lock/i.test(lowerType)) {
+      structured.price_band_estimate = "£60-£200";
+      structured.scope = "small";
+      structured.complexity = "simple";
+    } else if (/handyman|odd job|flat pack/i.test(lowerType)) {
+      structured.price_band_estimate = "£100-£350";
+      structured.scope = "small";
+      structured.complexity = "simple";
+    } else if (/pest|rat|mice|wasp/i.test(lowerType)) {
+      structured.price_band_estimate = "£80-£250";
+      structured.scope = "small";
+      structured.complexity = "simple";
+    } else if (/gutter|pressure wash/i.test(lowerType)) {
+      structured.price_band_estimate = "£75-£300";
+      structured.scope = "small";
+      structured.complexity = "simple";
+    } else if (/tv.*mount|wall.*mount/i.test(lowerType)) {
+      structured.price_band_estimate = "£50-£100";
+      structured.scope = "small";
+      structured.complexity = "simple";
+    } else if (/curtain|blind/i.test(lowerType)) {
+      structured.price_band_estimate = "£50-£150";
+      structured.scope = "small";
+      structured.complexity = "simple";
+    } else if (/appliance|oven|hob|dryer|washer|dishwasher|cooker/i.test(lowerType)) {
+      structured.price_band_estimate = "£50-£300";
+      structured.scope = "small";
+      structured.complexity = "simple";
+    } else if (/carpet clean/i.test(lowerType)) {
+      structured.price_band_estimate = "£100-£250";
+      structured.scope = "small";
+      structured.complexity = "simple";
+    } else if (/carpet fit/i.test(lowerType)) {
+      structured.price_band_estimate = "£300-£1,500";
+      structured.scope = "medium";
+    } else if (/laminate|vinyl|lvt|flooring install/i.test(lowerType)) {
+      structured.price_band_estimate = "£500-£2,500";
+      structured.scope = "medium";
+    } else if (/paint|decorat|repaint|wallpaper/i.test(lowerType)) {
+      structured.price_band_estimate = "£300-£3,000";
+      structured.scope = "medium";
+    } else if (/fuse.?box|consumer.?unit/i.test(lowerType)) {
+      structured.price_band_estimate = "£300-£600";
+      structured.scope = "small";
+    } else if (/socket|light.*fit|switch/i.test(lowerType)) {
+      structured.price_band_estimate = "£80-£300";
+      structured.scope = "small";
+    } else if (/rewire/i.test(lowerType)) {
+      structured.price_band_estimate = "£3,500-£5,500";
+      structured.scope = "large";
+    } else if (/leak|tap|toilet.*repair|cistern/i.test(lowerType)) {
+      structured.price_band_estimate = "£80-£300";
+      structured.scope = "small";
+      structured.complexity = "simple";
+    } else if (/boiler|heating/i.test(lowerType)) {
+      structured.price_band_estimate = "£2,500-£4,500";
+      structured.scope = "medium";
+    } else if (/radiator/i.test(lowerType)) {
+      structured.price_band_estimate = "£200-£600";
+      structured.scope = "small";
+    } else if (/tree/i.test(lowerType)) {
+      structured.price_band_estimate = "£300-£2,000";
+      structured.scope = "medium";
+    } else if (/landscap/i.test(lowerType)) {
+      structured.price_band_estimate = "£2,000-£10,000";
+      structured.scope = "medium";
+    } else if (/fence|deck/i.test(lowerType)) {
+      structured.price_band_estimate = "£800-£4,500";
+      structured.scope = "medium";
+    } else if (/damp/i.test(lowerType)) {
+      structured.price_band_estimate = "£1,000-£5,000";
+      structured.scope = "medium";
+    } else if (/chimney/i.test(lowerType)) {
+      structured.price_band_estimate = "£1,500-£4,000";
+      structured.scope = "medium";
+    } else if (/window.*replace/i.test(lowerType)) {
+      structured.price_band_estimate = "£4,000-£8,000";
+      structured.scope = "large";
+    } else if (/glazing|window.*repair/i.test(lowerType)) {
+      structured.price_band_estimate = "£100-£500";
+      structured.scope = "small";
+    } else if (/render/i.test(lowerType)) {
+      structured.price_band_estimate = "£4,000-£8,000";
+      structured.scope = "large";
+    } else if (/roof/i.test(lowerType)) {
+      structured.price_band_estimate = "£2,000-£10,000";
+      structured.scope = "medium";
+    } else if (/insulation/i.test(lowerType)) {
+      structured.price_band_estimate = "£1,500-£15,000";
+      structured.scope = "medium";
+    } else if (/worktop/i.test(lowerType)) {
+      structured.price_band_estimate = "£500-£2,000";
+      structured.scope = "small";
+    } else if (/kitchen.*remodel|kitchen.*full|new kitchen/i.test(lowerType)) {
+      structured.price_band_estimate = "£8,000-£20,000";
+      structured.scope = "large";
+    } else if (/kitchen/i.test(lowerType)) {
+      structured.price_band_estimate = "£2,000-£8,000";
+      structured.scope = "medium";
+    } else if (/bathroom.*remodel|bathroom.*full|new bathroom/i.test(lowerType)) {
+      structured.price_band_estimate = "£4,000-£10,000";
+      structured.scope = "medium";
+    } else if (/bathroom|shower|wet room/i.test(lowerType)) {
+      structured.price_band_estimate = "£2,000-£6,000";
+      structured.scope = "medium";
+    } else if (/garage.*conver/i.test(lowerType)) {
+      structured.price_band_estimate = "£10,000-£20,000";
+      structured.scope = "large";
+    } else if (/extension/i.test(lowerType)) {
+      structured.price_band_estimate = "£30,000-£60,000";
+      structured.scope = "xlarge";
+      structured.complexity = "complex";
+    } else if (/loft.*conver/i.test(lowerType)) {
+      structured.price_band_estimate = "£25,000-£55,000";
+      structured.scope = "xlarge";
+      structured.complexity = "complex";
+    }
+
     if (description && description.length > 10) {
       structured.summary = description;
     } else {
@@ -206,6 +355,21 @@ async function classifyProject({
       if (bedrooms) parts.push(bedrooms + " bedroom");
       structured.summary = parts.join(" ");
     }
+  }
+
+  // Run price through the lookup table (cache AI estimates, use cached if available)
+  try {
+    const { getPriceBand } = require("../pricingLookup");
+    const jobSubtype = type || structured.type || "";
+    const cachedPrice = await getPriceBand({
+      mysqlQuery,
+      subtype: jobSubtype,
+      location: location || "",
+      classificationPriceBand: structured.price_band_estimate,
+    });
+    if (cachedPrice) structured.price_band_estimate = cachedPrice;
+  } catch (e) {
+    log.warn?.("[project-classifier] pricing lookup failed", { error: e?.message });
   }
 
   // Persist to project_classifications. Fire-and-forget - if the insert
