@@ -107,6 +107,83 @@ function CountUp({
   );
 }
 
+const REVIEWS = [
+  { name: "Sarah T.", location: "Walthamstow", job: "Plumbing", stars: 5, bg: "bg-emerald-600", quote: "Found a brilliant plumber through vetmybuilder. Fully vetted, showed up on time, and the quote was spot on." },
+  { name: "James R.", location: "Chingford", job: "Kitchen Renovation", stars: 5, bg: "bg-blue-600", quote: "Kitchen renovation done perfectly. The builder vetmybuilder matched us with was incredible." },
+  { name: "Priya K.", location: "Leyton", job: "Locksmith", stars: 5, bg: "bg-violet-600", quote: "Needed an emergency locksmith. vetmybuilder had someone vetted and at my door within the hour." },
+  { name: "Mark D.", location: "Highams Park", job: "Loft Conversion", stars: 5, bg: "bg-amber-600", quote: "Our loft conversion was handled brilliantly. Would not have found them without vetmybuilder." },
+  { name: "Laura M.", location: "Leytonstone", job: "Bathroom Refit", stars: 5, bg: "bg-cyan-600", quote: "Full bathroom refit with zero stress. vetmybuilder matched us with a fantastic tiler who was vetted and reviewed." },
+  { name: "David H.", location: "Walthamstow", job: "Electrician", stars: 5, bg: "bg-rose-600", quote: "Had a full rewire done. The electrician was professional, certified, and competitively priced." },
+  { name: "Amina B.", location: "Chingford", job: "Cleaning", stars: 4, bg: "bg-teal-600", quote: "End of tenancy clean was thorough and fairly priced. Great to know they were properly vetted." },
+  { name: "Tom W.", location: "Leyton", job: "Painting & Decorating", stars: 5, bg: "bg-orange-600", quote: "Whole house painted inside and out. Brilliant finish, tidy workers, fair price. Highly recommend." },
+  { name: "Rachel S.", location: "Highams Park", job: "Landscaping", stars: 5, bg: "bg-lime-600", quote: "Garden completely transformed. The landscaper vetmybuilder recommended was creative and reliable." },
+  { name: "Chris P.", location: "Leytonstone", job: "Roofing", stars: 5, bg: "bg-indigo-600", quote: "Roof repair sorted quickly after a storm. Vetted roofer, honest quote, no hidden costs." },
+  { name: "Karen L.", location: "Walthamstow", job: "External Wall Insulation", stars: 5, bg: "bg-sky-600", quote: "vetmybuilder recommended Elegant Building Services for our external wall insulation. Fantastic job, house is noticeably warmer and our energy bills have dropped." },
+  { name: "Michael O.", location: "Chingford", job: "Insulation", stars: 5, bg: "bg-fuchsia-600", quote: "Had cavity wall insulation done by Elegant Building Services after vetmybuilder recommended them. Professional from start to finish, great value." },
+  { name: "Helen G.", location: "Leyton", job: "External Wall Insulation", stars: 5, bg: "bg-emerald-700", quote: "Elegant Building Services did our EWI and the difference is incredible. vetmybuilder vetted them thoroughly and we felt confident from day one." },
+  { name: "Diane F.", location: "Walthamstow", job: "Bin Cleaning", stars: 5, bg: "bg-zinc-600", quote: "vetmybuilder recommended thebinwisperer for our wheelie bin clean. Bins came back spotless and smelling fresh. Brilliant service." },
+  { name: "Stuart N.", location: "Chingford", job: "Bin Cleaning", stars: 5, bg: "bg-slate-600", quote: "Had all our bins done by thebinwisperer through vetmybuilder. Quick, affordable, and the bins look brand new. Will be using them regularly." },
+];
+
+function StarIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="currentColor">
+      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+    </svg>
+  );
+}
+
+function ReviewTicker() {
+  const [idx, setIdx] = useState(0);
+  const [fade, setFade] = useState(true);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setFade(false);
+      setTimeout(() => {
+        setIdx((i) => (i + 1) % REVIEWS.length);
+        setFade(true);
+      }, 200);
+    }, 7000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const r = REVIEWS[idx];
+
+  return (
+    <div className="mt-12 max-w-2xl">
+      <div className="flex items-start gap-4">
+        <div
+          className={`flex-shrink-0 w-12 h-12 rounded-full ${r.bg} border-2 border-white/20 flex items-center justify-center text-base font-bold text-white transition-opacity duration-200 ${fade ? "opacity-100" : "opacity-0"}`}
+        >
+          {r.name[0]}
+        </div>
+        <div className={`flex-1 min-w-0 transition-opacity duration-200 ${fade ? "opacity-100" : "opacity-0"}`}>
+          <div className="flex items-center gap-1 text-amber-500 mb-1">
+            {[...Array(r.stars)].map((_, i) => (
+              <StarIcon key={i} className="h-4 w-4" />
+            ))}
+          </div>
+          <p className="text-white/90 text-base leading-relaxed">
+            &ldquo;{r.quote}&rdquo;
+          </p>
+          <p className="text-sm text-zinc-400 mt-2">
+            <strong className="text-zinc-300">{r.name}</strong> &mdash; {r.location} &bull; {r.job}
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center justify-center gap-1.5 mt-4">
+        {REVIEWS.map((_, i) => (
+          <div
+            key={i}
+            className={`h-1.5 rounded-full transition-all duration-300 ${i === idx ? "w-5 bg-amber-500" : "w-1.5 bg-white/20"}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const { user } = useAuth();
 
@@ -215,7 +292,7 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>VetMyBuilder</title>
+        <title>vetmybuilder</title>
         <meta name="description" content="Community-powered tradesperson vetting for UK homeowners. Post a job, gather recommendations, hire with confidence." />
         {/* Override body background to cream so the header gap area blends in */}
         <style>{`body { background: #fafaf9 !important; }`}</style>
@@ -237,7 +314,7 @@ export default function Home() {
                   {isTrades ? (
                     <>
                       <span className="block">Win more work with</span>
-                      <span className="block text-red-500" style={{ fontFamily: "'Indie Flower', cursive" }}>VetMyBuilder</span>
+                      <span className="block text-red-500" style={{ fontFamily: "'Indie Flower', cursive" }}>vetmybuilder</span>
                     </>
                   ) : (
                     <>
@@ -281,36 +358,8 @@ export default function Home() {
                   )}
                 </div>
 
-                {/* Social proof */}
-                <div className="mt-12 flex items-center gap-4">
-                  <div className="flex -space-x-3">
-                    {[
-                      { bg: "bg-red-500", letter: "S" },
-                      { bg: "bg-emerald-500", letter: "J" },
-                      { bg: "bg-amber-500", letter: "M" },
-                      { bg: "bg-zinc-300", letter: "K" },
-                    ].map((a, i) => (
-                      <div
-                        key={i}
-                        className={`h-11 w-11 rounded-full ${a.bg} border-[3px] border-white flex items-center justify-center text-sm font-bold text-white shadow-md`}
-                      >
-                        {a.letter}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="text-sm">
-                    <div className="flex items-center gap-1 text-amber-500 mb-0.5">
-                      {[...Array(5)].map((_, i) => (
-                        <svg key={i} className="h-4 w-4 fill-current" viewBox="0 0 20 20">
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                      ))}
-                    </div>
-                    <span className="text-zinc-400 font-medium">
-                      Trusted by UK homeowners
-                    </span>
-                  </div>
-                </div>
+                {/* Rotating review ticker */}
+                <ReviewTicker />
               </div>
 
             </div>
