@@ -368,7 +368,15 @@ export default function ManageAccount() {
           <div className="relative z-10 w-full max-w-3xl px-4 sm:px-0">
 
             {/* Card */}
-            <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 overflow-hidden">
+            <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 overflow-hidden relative">
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="absolute top-4 right-4 sm:top-6 sm:right-6 w-8 h-8 rounded-full border-2 border-zinc-200 bg-white text-zinc-400 hover:text-zinc-900 hover:border-zinc-300 flex items-center justify-center text-sm transition-colors z-10"
+                aria-label="Close"
+              >
+                &#10005;
+              </button>
               <div className="flex flex-col sm:flex-row">
 
                 {/* ── Mobile: horizontal tabs ── */}
