@@ -1,7 +1,7 @@
 import { test } from "../../../src/ui.fixtures";
 import Project from "../../../src/models/Project";
 import Tradesman from "../../../src/models/tradesman";
-import { authedApiForUid } from "../../../src/api/services/client";
+import { setupOwnerWithLiveProject } from "../../../src/apiHelper/project/setupOwnerWithLiveProject";
 
 test.describe("Project Insights", () => {
   test("insights card appears on a published project with classification data", async ({
@@ -50,53 +50,36 @@ test.describe("Project Insights", () => {
   test("insights card appears in the tradesman accordion view", async ({
     request,
     runtime,
-    projectApi,
-    tradesmanApi,
+    apiClient,
     adminApi,
-    authHelper,
-    basePage,
     tradesmanProjectsPage,
   }) => {
-    // 1. Create and publish a project as the default homeowner
-    const project = Project.aProject().withRandomDetails({
-      category: "Appliances",
-      workTypes: ["Tumble Dryer Installation"],
-      locationQuery: "E4",
-      locationPick: "E4 0BQ",
-      propertyType: "Semi-Detached",
-      bedrooms: 3,
-      timeframe: "Urgent (1-2 weeks)",
-      budget: "£5k-£15k",
-      materials: "Supplied by tradesman",
-      access: "Parking available",
-      extraNotes: "Full installation with ventilation setup.",
+    const location = "E4";
+
+    const { projectId } = await setupOwnerWithLiveProject({
+      request,
+      apiBaseUrl: runtime.apiBaseUrl,
+      location,
     });
 
-    const created = await projectApi.createProject(project.toApiPayload(), {
-      publish: true,
-    });
-
-    // 2. Register a tradesman via join + activate
     const tradesman = Tradesman.aTradesman().withRandomDetails();
-    const leadId = await tradesmanApi.join(tradesman);
-    const tradesmanUid = `e2e-trades-insights-${Date.now()}`;
-    await adminApi.setTradesmanStatus(leadId, "active", tradesmanUid);
+    tradesman.serviceAreas = location;
+    tradesman.tradeTypes = "General Builder";
+    await apiClient.put("/api/tradesmen/me", {
+      ...tradesman.toPayload(),
+      service_areas: location,
+      trade_types: "General Builder",
+    });
 
-    // 3. Unlock the job as the tradesman (payment gate)
-    const tradesmanClient = await authedApiForUid(request, runtime.apiBaseUrl, tradesmanUid);
-    await tradesmanClient.unlockProjectWithMockPayment(created.id);
+    const tradesmanUid = await apiClient.getTradesmanUserId();
+    await adminApi.setTradesmanStatus(tradesmanUid, "active");
+    await apiClient.unlockProjectWithMockPayment(projectId);
 
-    // 4. Switch browser session to the tradesman
-    await basePage.logoutViaUrl();
-    await authHelper.loginAsUid(tradesmanUid);
-
-    // 5. Navigate to tradesman projects and expand the row
     await tradesmanProjectsPage.visit();
-    await tradesmanProjectsPage.expandProject(created.id);
+    await tradesmanProjectsPage.expandProject(projectId);
 
-    // 6. Assert insights are visible with expected classification
-    await tradesmanProjectsPage.expectInsightsVisible(created.id);
-    await tradesmanProjectsPage.expectInsightsContains(created.id, "Project Insights");
-    await tradesmanProjectsPage.expectInsightsContains(created.id, "General Builder");
+    await tradesmanProjectsPage.expectInsightsVisible(projectId);
+    await tradesmanProjectsPage.expectInsightsContains(projectId, "Project Insights");
+    await tradesmanProjectsPage.expectInsightsContains(projectId, "General Builder");
   });
 });
