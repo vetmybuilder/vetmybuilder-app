@@ -54,7 +54,7 @@ export default function ProjectTypeInbox() {
         label: targetLabel,
         synonym,
       });
-      setNotice(`Added “${synonym}” as a synonym of “${targetLabel}”.`);
+      setNotice(`Added "${synonym}" as a synonym of "${targetLabel}".`);
       fetchInbox();
     } catch (e: any) {
       setNotice(
@@ -72,7 +72,7 @@ export default function ProjectTypeInbox() {
         synonyms: [],
         buckets: [],
       });
-      setNotice(`Created new type “${newLabel}”.`);
+      setNotice(`Created new type "${newLabel}".`);
       fetchInbox();
     } catch (e: any) {
       setNotice(
@@ -280,9 +280,9 @@ function Row({
               {creating ? "Cancel" : "Create new type…"}
             </button>
             {creating && (
-              <button className={`btn inline-flex items-center gap-2 ${busy ? “!bg-zinc-400” : “active:scale-95”}`} onClick={handleCreate} disabled={busy}>
-                {busy && <svg className=”h-4 w-4 animate-spin” viewBox=”0 0 24 24” fill=”none”><circle cx=”12” cy=”12” r=”10” stroke=”currentColor” strokeWidth=”3” className=”opacity-25” /><path d=”M4 12a8 8 0 018-8” stroke=”currentColor” strokeWidth=”3” strokeLinecap=”round” className=”opacity-75” /></svg>}
-                {busy ? “Creating...” : `Create “${titleCase(it.normalized)}”`}
+              <button className={`btn inline-flex items-center gap-2 ${busy ? "!bg-zinc-400" : "active:scale-95"}`} onClick={handleCreate} disabled={busy}>
+                {busy && <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" /><path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" /></svg>}
+                {busy ? "Creating..." : `Create "${titleCase(it.normalized)}"`}
               </button>
             )}
           </div>
