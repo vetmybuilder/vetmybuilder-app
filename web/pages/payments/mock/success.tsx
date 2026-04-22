@@ -193,7 +193,7 @@ export default function MockSuccess() {
           // back to their projects list, optionally tagging the project.
           let target = "/tradesman/projects?unlock=success";
           if (Number.isFinite(projectId) && projectId > 0) {
-            target += `&projectId=${projectId}`;
+            target += `&open=${projectId}`;
           }
           router.replace(target);
           return;

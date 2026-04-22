@@ -3,11 +3,13 @@ import { useRouter } from "next/router";
 import ProjectDetailsCard from "@/components/project/ProjectDetailsCard";
 import ContactDetailsCard from "@/components/project/ContactDetailsCard";
 import PriceRangeBadge from "@/components/project/PriceRangeBadge";
+import { useApi } from "@/utils/api";
 
 type VM = ReturnType<typeof import("./useProjectView").useProjectView>;
 
 export default function TradesmanProjectView({ vm }: { vm: VM }) {
   const router = useRouter();
+  const api = useApi();
 
   const {
     project,
@@ -34,10 +36,34 @@ export default function TradesmanProjectView({ vm }: { vm: VM }) {
     onUpgradeClick,
   } = vm;
 
+  // Check if tradesperson has been recommended on this project
+  const [isRecommended, setIsRecommended] = React.useState(false);
+  React.useEffect(() => {
+    if (!project?.id) return;
+    (async () => {
+      try {
+        const { data } = await api.get(`/api/projects/${project.id}/recommendations?limit=100`);
+        const items = data?.items || [];
+        // Check if any recommendation is linked to this tradesman
+        const linked = items.some((r: any) => r.linked_tradesman_uid && r.source !== "pipeline");
+        setIsRecommended(linked);
+      } catch {}
+    })();
+  }, [api, project?.id]);
+
+  // Job is gated if tradesperson is not recommended and hasn't unlocked contact
+  const jobGated = !isRecommended && !contactUnlocked;
+
   if (!project) return null;
 
   const handleUpgrade =
     onUpgradeClick || (() => router.push("/tradesman/plans"));
+
+  const handleUnlockJob = async () => {
+    // For now, use the existing unlock flow via plans page
+    // This will be replaced with direct Stripe/mock checkout
+    router.push(`/tradesman/plans?projectId=${project.id}`);
+  };
 
   return (
     <>
@@ -52,8 +78,8 @@ export default function TradesmanProjectView({ vm }: { vm: VM }) {
         </div>
       )}
 
-      {/* === Project Insights (AI classification) === */}
-      {vm.classification && (
+      {/* === Project Insights (AI classification) — hidden when gated === */}
+      {vm.classification && !jobGated && (
         <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-6 border-l-4 border-violet-500 mb-6 animate-slide-in-left">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -130,9 +156,11 @@ export default function TradesmanProjectView({ vm }: { vm: VM }) {
             onOpenCloseModal={onCloseProject}
             canAddRec={false}
             showShareButton={
-              !!project && isTrades && !isOwner && isLive && !isClosed
+              !!project && isTrades && !isOwner && isLive && !isClosed && !jobGated
             }
             shareBusy={false}
+            gated={jobGated}
+            onUnlockJob={handleUnlockJob}
           />
         </div>
 

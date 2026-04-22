@@ -8,7 +8,7 @@ module.exports = (router, ctx) => {
 
   if (!payments) throw new Error("payments not attached to ctx");
 
-  router.get("/payments/mock/session", auth, (req, res) => {
+  router.get("/payments/mock/session", auth, async (req, res) => {
     const log = withRequest(req, logger).child({
       route: "GET /api/payments/mock/session",
     });
@@ -27,7 +27,7 @@ module.exports = (router, ctx) => {
       }
 
       const sid = String(id);
-      const session = payments.getSession(sid);
+      const session = await payments.getSession(sid);
 
       if (!session) {
         log.warn({ sid }, "Session not found");

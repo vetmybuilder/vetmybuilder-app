@@ -48,6 +48,7 @@ export default function HireButton({
 
   const [open, setOpen] = React.useState(false);
   const [alreadyHired, setAlreadyHired] = React.useState(false);
+  const [hireStatus, setHireStatus] = React.useState<string | null>(null);
   const [projectAccessible, setProjectAccessible] = React.useState<
     boolean | null
   >(null);
@@ -65,17 +66,21 @@ export default function HireButton({
         "pending_invite",
         "accepted",
       ]);
+      let matchedStatus: string | null = null;
       const hit = items.some((h: any) => {
         if (!ACTIVE_STATUSES.has(h?.status)) return false;
-        if (recommendationId != null) {
-          return h?.recommendationId === recommendationId;
+        if (recommendationId != null && h?.recommendationId === recommendationId) {
+          matchedStatus = h.status;
+          return true;
         }
-        if (tradesmanUserId) {
-          return h?.tradesmanUserId === tradesmanUserId;
+        if (tradesmanUserId && h?.tradesmanUserId === tradesmanUserId) {
+          matchedStatus = h.status;
+          return true;
         }
         return false;
       });
       setAlreadyHired(hit);
+      setHireStatus(matchedStatus);
       setProjectAccessible(true);
     } catch {
       setProjectAccessible(false);
@@ -114,12 +119,14 @@ export default function HireButton({
         data-testid="hire-button"
         className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-bold transition-colors ${
           alreadyHired
-            ? "bg-emerald-100 text-emerald-700 cursor-default"
+            ? hireStatus === "pending" || hireStatus === "pending_invite"
+              ? "bg-amber-100 text-amber-700 cursor-default"
+              : "bg-emerald-100 text-emerald-700 cursor-default"
             : "bg-green-600 text-white shadow-sm hover:bg-green-700"
         }`}
       >
         <CheckCircle2 className="h-3.5 w-3.5" />
-        {alreadyHired ? "Hired" : "Hire"}
+        {alreadyHired ? (hireStatus === "pending" || hireStatus === "pending_invite" ? "Hire pending" : "Hired") : "Hire"}
       </button>
 
       <HireConfirmModal

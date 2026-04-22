@@ -98,6 +98,7 @@ function attachPayments(ctx = {}) {
     baseUrl,
     webhookSecret,
     log,
+    mysqlQuery: ctx.mysqlQuery || null,
   });
 
   shimInterface(payments, log);

@@ -231,11 +231,38 @@ module.exports = (router, ctx) => {
       // ---- 7b. Verification APPROVED: now check entitlements ----
 
       if (!paymentsEnabled) {
-        // Payments disabled: any verified tradesman gets free access.
-        unlocked = true;
-        hasGlobalContact = true;
-        state = "unlocked_global";
-        errorCode = null;
+        // Payments disabled: check if tradesman is recommended on this project.
+        // Recommended tradespeople get free access. Others see gated content.
+        let isRecommended = false;
+        try {
+          const recRows = await mysqlQuery(
+            `SELECT id FROM recommendations
+             WHERE projectId = ? AND linked_tradesman_uid = ? AND source != 'pipeline'
+             LIMIT 1`,
+            [projectId, viewerUid],
+          );
+          isRecommended = recRows.length > 0;
+        } catch {}
+
+        if (isRecommended) {
+          unlocked = true;
+          hasGlobalContact = true;
+          state = "unlocked_recommended";
+          errorCode = null;
+        } else {
+          // Check for a paid one-off unlock even when payments are "disabled"
+          const unlockStatus = await getUnlockStatus(projectId, viewerUid);
+          if (unlockStatus === "active" || unlockStatus === "approved") {
+            unlocked = true;
+            oneOffUnlock = true;
+            state = "unlocked_one_off";
+            errorCode = null;
+          } else {
+            state = "not_unlocked";
+            errorCode = "not_unlocked";
+            canRequestUnlock = true;
+          }
+        }
       } else {
         // 🔑 GOLD (active) + verification → global unlock
         if (planId === "gold" && subscriptionStatus === "active") {

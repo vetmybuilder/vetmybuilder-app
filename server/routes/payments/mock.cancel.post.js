@@ -28,7 +28,7 @@ module.exports = (router, ctx) => {
         return res.status(400).json({ error: "sessionId_required" });
       }
 
-      const session = payments.getSession(sessionId);
+      const session = await payments.getSession(sessionId);
 
       if (!session) {
         log.warn({ sessionId }, "Session not found");
@@ -43,7 +43,7 @@ module.exports = (router, ctx) => {
         return res.status(403).json({ error: "forbidden" });
       }
 
-      const updated = payments.cancel(sessionId);
+      const updated = await payments.cancel(sessionId);
 
       log.info({ sessionId }, "Mock session cancelled");
       res.status(200).json({ ok: true, session: updated });

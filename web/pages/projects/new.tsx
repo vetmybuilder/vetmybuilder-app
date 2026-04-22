@@ -271,8 +271,11 @@ export default function NewProject() {
 
   /* ===== Submit ===== */
 
+  const creatingRef = useRef(false);
   async function onCreate() {
     if (!isStepValid(maxStep)) return;
+    if (creatingRef.current) return;
+    creatingRef.current = true;
     setBusy(true);
     setErr(null);
 
@@ -314,10 +317,13 @@ export default function NewProject() {
 
       const { data } = await api.post("/api/projects", payload);
       trackProjectCreated(data.project.id, payload.type);
-      router.replace(`/projects/${data.project.id}`);
+      // Brief pause so the user sees the "Creating your job..." state
+      await new Promise((r) => setTimeout(r, 1200));
+      router.replace(`/projects/${data.project.id}?justCreated=1`);
+      // Don't reset busy — page is redirecting, button stays disabled
     } catch (e: any) {
       setErr(e?.response?.data?.error || "Failed to create");
-    } finally {
+      creatingRef.current = false;
       setBusy(false);
     }
   }
@@ -653,9 +659,19 @@ export default function NewProject() {
                             type="button"
                             onClick={onCreate}
                             disabled={!isStepValid(step) || busy}
-                            className="inline-flex items-center gap-2 rounded-full bg-red-500 px-8 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] disabled:opacity-40 disabled:scale-100 disabled:shadow-none transition-all"
+                            className={`inline-flex items-center gap-2 rounded-full px-8 py-3 text-sm font-bold text-white shadow-lg transition-all ${
+                              busy
+                                ? "bg-zinc-400 cursor-not-allowed shadow-none"
+                                : "bg-red-500 shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] active:scale-95"
+                            } disabled:opacity-40 disabled:scale-100 disabled:shadow-none`}
                           >
-                            {busy ? "Creating…" : "Create project"}
+                            {busy && (
+                              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+                                <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
+                              </svg>
+                            )}
+                            {busy ? "Creating your job..." : "Create project"}
                           </button>
                         )}
                       </div>

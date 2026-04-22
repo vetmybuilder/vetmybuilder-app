@@ -59,7 +59,7 @@ module.exports = (router, ctx) => {
         return res.status(400).json({ error: "sessionId_required" });
       }
 
-      const s = payments.getSession(sid);
+      const s = await payments.getSession(sid);
       if (!s) {
         log.warn({ sid }, "Payment session not found");
         return res.status(404).json({ error: "session_not_found" });
@@ -98,20 +98,21 @@ module.exports = (router, ctx) => {
 
         log.info(
           { sid, projectId },
-          "Creating pending_admin unlock_contact intent"
+          "Processing unlock_contact payment"
         );
 
         await mysqlQuery(
           `
           INSERT INTO project_contact_unlocks
-            (project_id, buyer_uid, session_id, amount, currency, status, created_at)
+            (project_id, buyer_uid, session_id, amount, currency, status, created_at, approved_at)
           VALUES
-            (?, ?, ?, ?, ?, 'pending_admin', NOW())
+            (?, ?, ?, ?, ?, 'active', NOW(), NOW())
           ON DUPLICATE KEY UPDATE
             session_id = VALUES(session_id),
             amount = VALUES(amount),
             currency = VALUES(currency),
-            status = 'pending_admin'
+            status = 'active',
+            approved_at = NOW()
           `,
           [projectId, uid, sid, amount, currency]
         );
@@ -122,12 +123,12 @@ module.exports = (router, ctx) => {
             (user_id, type, entity_id, amount, currency, status,
              provider_session_id, provider_payment_intent, created_at)
           VALUES
-            (?, 'unlock_contact', ?, ?, ?, 'pending_admin',
+            (?, 'unlock_contact', ?, ?, ?, 'active',
              ?, CONCAT('mock:', ?), NOW())
           ON DUPLICATE KEY UPDATE
             amount = VALUES(amount),
             currency = VALUES(currency),
-            status = 'pending_admin',
+            status = 'active',
             provider_session_id = VALUES(provider_session_id),
             provider_payment_intent = VALUES(provider_payment_intent)
           `,
@@ -136,13 +137,13 @@ module.exports = (router, ctx) => {
 
         log.info(
           { sid, uid, projectId },
-          "Unlock intent stored as pending_admin"
+          "Unlock payment completed - contact now active"
         );
 
         res.json({
           ok: true,
           type: "unlock_contact",
-          status: "pending_admin",
+          status: "active",
           projectId,
           amount,
           currency,

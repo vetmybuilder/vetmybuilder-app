@@ -675,9 +675,10 @@ export default function AdminUsersPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                  className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50 ${saving ? "bg-zinc-400" : "bg-blue-600 hover:bg-blue-700 active:scale-95"}`}
                   data-testid="user-modal-submit"
                 >
+                  {saving && <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" /><path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" /></svg>}
                   {saving ? "Saving..." : editingUser ? "Update" : "Create"}
                 </button>
               </div>

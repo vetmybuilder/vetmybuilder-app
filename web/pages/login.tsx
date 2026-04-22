@@ -225,7 +225,6 @@ export default function Login() {
       } else {
         setErr("Something went wrong. Please try again.");
       }
-    } finally {
       submittingRef.current = false;
       setBusy(false);
     }
@@ -354,12 +353,20 @@ export default function Login() {
                 )}
 
                 <button
-                  className="w-full inline-flex items-center justify-center rounded-full bg-red-500 px-8 py-4 text-base font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  className={`w-full inline-flex items-center justify-center gap-2 rounded-full px-8 py-4 text-base font-bold text-white shadow-lg transition-all ${
+                    busy ? "bg-zinc-400 cursor-not-allowed shadow-none" : "bg-red-500 shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] active:scale-95"
+                  } disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100`}
                   disabled={busy}
                   aria-label="Sign in"
                   data-testid="btn-login"
                 >
-                  {busy ? "Signing in…" : "Sign in"}
+                  {busy && (
+                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+                      <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
+                    </svg>
+                  )}
+                  {busy ? "Signing in..." : "Sign in"}
                 </button>
               </form>
 

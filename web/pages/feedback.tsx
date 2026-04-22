@@ -291,9 +291,19 @@ export default function FeedbackPage() {
                 <button
                   type="submit"
                   disabled={submitting || userTypes.length === 0 || rating === 0 || !recommend}
-                  className="w-full rounded-full bg-red-500 py-3.5 text-base font-bold text-white shadow-lg shadow-red-500/25 hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`w-full rounded-full py-3.5 text-base font-bold text-white shadow-lg transition-all inline-flex items-center justify-center gap-2 ${
+                    submitting
+                      ? "bg-zinc-400 cursor-not-allowed shadow-none"
+                      : "bg-red-500 shadow-red-500/25 hover:bg-red-600 hover:scale-[1.02] active:scale-95"
+                  } disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100`}
                 >
-                  {submitting ? "Sending..." : "Submit feedback"}
+                  {submitting && (
+                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+                      <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
+                    </svg>
+                  )}
+                  {submitting ? "Sending feedback..." : "Submit feedback"}
                 </button>
               </form>
             </div>
