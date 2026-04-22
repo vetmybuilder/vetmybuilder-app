@@ -16,7 +16,7 @@ test.describe("Project Insights", () => {
       propertyType: "Semi-Detached",
       bedrooms: 3,
       timeframe: "Urgent (1-2 weeks)",
-      budget: "£5k-£15k",
+      budget: "5k - 15k",
       materials: "Supplied by tradesman",
       access: "Parking available",
       extraNotes: "Full installation with ventilation setup.",

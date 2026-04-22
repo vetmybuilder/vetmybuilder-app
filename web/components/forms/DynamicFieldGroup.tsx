@@ -39,8 +39,6 @@ export default function DynamicFieldGroup({
 
   // Keep state clean: when a conditional field (showIf) becomes hidden, drop
   // its stored value so we never persist a value the user can no longer see.
-  // Prevents the classifier / price model from receiving contradictory data
-  // like `removal_required: false, subfloor_condition: "needs_levelling"`.
   React.useEffect(() => {
     let changed = false;
     let next = groupAnswers;
@@ -66,7 +64,7 @@ export default function DynamicFieldGroup({
     <section
       aria-label={group.title}
       data-testid={`dynamic-group-${group.id}`}
-      className="space-y-4"
+      className="space-y-5"
     >
       {group.fields.map((field) => {
         if (field.kind === "select" && field.showIf && !field.showIf(value)) {
@@ -107,18 +105,18 @@ function FieldRenderer({
 }) {
   if (field.kind === "number") {
     const unitLabel =
-      field.unit === "m2" ? "m²" : field.unit === "count" ? "" : "";
+      field.unit === "m2" ? "m\u00B2" : field.unit === "count" ? "" : "";
     return (
       <label className="block">
-        <span className="block text-sm font-medium text-zinc-800">
+        <span className="block text-sm font-semibold text-zinc-700 mb-2">
           {field.label}
           {field.required && <span className="text-red-500"> *</span>}
         </span>
-        <div className="mt-1 flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <input
             type="number"
             inputMode="numeric"
-            className="w-40 rounded-xl border border-zinc-300 px-3 py-2 text-sm focus:border-red-400 focus:outline-none"
+            className="w-44 rounded-xl border-2 border-zinc-200 px-4 py-3 text-sm text-zinc-900 focus:border-amber-500 focus:outline-none transition-colors"
             value={value ?? ""}
             min={0}
             onChange={(e) => {
@@ -128,11 +126,11 @@ function FieldRenderer({
             data-testid={testIdBase}
           />
           {unitLabel && (
-            <span className="text-sm text-zinc-500">{unitLabel}</span>
+            <span className="text-sm font-medium text-zinc-500">{unitLabel}</span>
           )}
         </div>
         {field.help && (
-          <span className="mt-1 block text-xs text-zinc-500">{field.help}</span>
+          <span className="mt-1.5 block text-xs text-zinc-400">{field.help}</span>
         )}
       </label>
     );
@@ -140,46 +138,58 @@ function FieldRenderer({
 
   if (field.kind === "select") {
     return (
-      <label className="block">
-        <span className="block text-sm font-medium text-zinc-800">
+      <div>
+        <span className="block text-sm font-semibold text-zinc-700 mb-2">
           {field.label}
           {field.required && <span className="text-red-500"> *</span>}
         </span>
-        <select
-          className="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm focus:border-red-400 focus:outline-none"
-          value={value ?? ""}
-          onChange={(e) => onChange(e.target.value || null)}
-          data-testid={testIdBase}
-        >
-          <option value="">Select…</option>
-          {field.options.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+        <div className="flex flex-wrap gap-2">
+          {field.options.map((o) => {
+            const selected = value === o.value;
+            return (
+              <button
+                key={o.value}
+                type="button"
+                onClick={() => onChange(selected ? null : o.value)}
+                className={`px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${
+                  selected
+                    ? "border-amber-500 bg-amber-50 text-amber-800"
+                    : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
+                }`}
+                data-testid={`${testIdBase}-${o.value}`}
+              >
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
         {field.help && (
-          <span className="mt-1 block text-xs text-zinc-500">{field.help}</span>
+          <span className="mt-1.5 block text-xs text-zinc-400">{field.help}</span>
         )}
-      </label>
+      </div>
     );
   }
 
   if (field.kind === "boolean") {
     return (
-      <label className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          className="h-4 w-4 rounded border-zinc-300"
-          checked={value === true}
-          onChange={(e) => onChange(e.target.checked)}
-          data-testid={testIdBase}
-        />
-        <span className="text-sm text-zinc-800">
-          {field.label}
-          {field.required && <span className="text-red-500"> *</span>}
+      <button
+        type="button"
+        onClick={() => onChange(!value)}
+        className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${
+          value === true
+            ? "border-amber-500 bg-amber-50 text-amber-800"
+            : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
+        }`}
+        data-testid={testIdBase}
+      >
+        <span className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center border-2 text-[10px] font-bold ${
+          value === true ? "bg-amber-500 border-amber-500 text-white" : "border-zinc-300"
+        }`}>
+          {value === true && "\u2713"}
         </span>
-      </label>
+        {field.label}
+        {field.required && <span className="text-red-500"> *</span>}
+      </button>
     );
   }
 
@@ -190,23 +200,21 @@ function FieldRenderer({
     const currentValue = current?.value ?? "";
 
     return (
-      <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-zinc-800">
+      <fieldset className="space-y-3">
+        <legend className="text-sm font-semibold text-zinc-700">
           {field.branches[0].label} <em className="text-zinc-400">or</em>{" "}
           {field.branches[1].label}
           {field.required && <span className="text-red-500"> *</span>}
         </legend>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           {field.branches.map((branch) => (
             <label
               key={branch.key}
-              // Label is the visible click target — radio input is sr-only.
-              // Tests target this testid so clicks land on the interactable element.
               data-testid={`${testIdBase}-kind-${branch.key}-label`}
-              className={`inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs cursor-pointer ${
+              className={`inline-flex items-center gap-2 rounded-xl border-2 px-4 py-2 text-sm font-medium cursor-pointer transition-all ${
                 activeKind === branch.key
-                  ? "border-red-400 bg-red-50 text-red-700"
-                  : "border-zinc-300 bg-white text-zinc-600"
+                  ? "border-amber-500 bg-amber-50 text-amber-800"
+                  : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300"
               }`}
             >
               <input
@@ -231,7 +239,7 @@ function FieldRenderer({
             type="number"
             inputMode="numeric"
             min={0}
-            className="w-40 rounded-xl border border-zinc-300 px-3 py-2 text-sm focus:border-red-400 focus:outline-none"
+            className="w-44 rounded-xl border-2 border-zinc-200 px-4 py-3 text-sm text-zinc-900 focus:border-amber-500 focus:outline-none transition-colors"
             value={currentValue}
             onChange={(e) => {
               const raw = e.target.value;
@@ -242,16 +250,16 @@ function FieldRenderer({
             }}
             data-testid={`${testIdBase}-value`}
           />
-          <span className="text-sm text-zinc-500">
+          <span className="text-sm font-medium text-zinc-500">
             {activeKind === "m2"
-              ? "m²"
+              ? "m\u00B2"
               : activeKind === "rooms"
                 ? "rooms"
                 : ""}
           </span>
         </div>
         {field.help && (
-          <span className="block text-xs text-zinc-500">{field.help}</span>
+          <span className="block text-xs text-zinc-400">{field.help}</span>
         )}
       </fieldset>
     );
