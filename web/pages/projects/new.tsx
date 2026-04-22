@@ -703,7 +703,7 @@ export default function NewProject() {
 
               {/* ===== BEDROOMS ===== */}
               {currentStep.key === "bedrooms" && (
-                <div className="flex gap-3 justify-center" data-testid="field-bedrooms">
+                <div className="flex flex-wrap gap-2 sm:gap-3 justify-center" data-testid="field-bedrooms">
                   {BEDROOM_OPTIONS.map((b) => {
                     const numVal = b.endsWith("+") ? parseInt(b, 10) : parseInt(b, 10);
                     const selected = form.bedrooms === numVal;
@@ -715,7 +715,7 @@ export default function NewProject() {
                           set("bedrooms", numVal);
                           setTimeout(() => setStep((s) => s + 1), 150);
                         }}
-                        className={`w-14 h-14 rounded-2xl border-2 text-lg font-bold transition-all ${
+                        className={`w-11 h-11 sm:w-14 sm:h-14 rounded-2xl border-2 text-base sm:text-lg font-bold transition-all ${
                           selected
                             ? "border-amber-500 bg-amber-50 text-amber-800"
                             : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
