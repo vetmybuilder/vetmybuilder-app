@@ -319,7 +319,6 @@ export default function RecommendOnPlatform() {
       }
       setFormError(e?.response?.data?.error || e?.message || "Failed to submit recommendation");
       setTimeout(() => errorRef.current?.focus(), 0);
-    } finally {
       setSubmitting(false);
     }
   };
@@ -537,10 +536,18 @@ export default function RecommendOnPlatform() {
                 <button
                   type="submit"
                   disabled={submitting || (photos.length > 0 && !photoConsent)}
-                  className="w-full inline-flex items-center justify-center rounded-full bg-red-500 px-8 py-4 text-base font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100"
+                  className={`w-full inline-flex items-center justify-center gap-2 rounded-full px-8 py-4 text-base font-bold text-white shadow-lg transition-all ${
+                    submitting ? "bg-zinc-400 cursor-not-allowed shadow-none" : "bg-red-500 shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] active:scale-95"
+                  } disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100`}
                   title={photos.length > 0 && !photoConsent ? "Please confirm the photo upload consent before submitting." : undefined}
                 >
-                  {submitting ? "Sending…" : "Submit recommendation"}
+                  {submitting && (
+                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+                      <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
+                    </svg>
+                  )}
+                  {submitting ? "Submitting recommendation..." : "Submit recommendation"}
                 </button>
               </form>
             </div>

@@ -256,10 +256,11 @@ function VerifyCompanyContent() {
             <div className="flex gap-2">
               <button
                 type="submit"
-                className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-100 disabled:opacity-50 transition-colors"
+                className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 ${loading ? "bg-zinc-400 text-white" : "bg-white text-slate-900 hover:bg-slate-100 active:scale-95"}`}
                 disabled={!canSubmit || loading}
                 data-testid="btn-lookup"
               >
+                {loading && <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" /><path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" /></svg>}
                 {loading ? "Checking…" : "Check Companies House"}
               </button>
               <button

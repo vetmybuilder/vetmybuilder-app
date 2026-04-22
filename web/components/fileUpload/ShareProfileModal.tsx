@@ -141,7 +141,7 @@ export default function ShareProfileModal({
               Cancel
             </button>
             <button
-              className="inline-flex items-center gap-2 rounded-full bg-red-500 px-5 py-2 text-sm font-bold text-white shadow-sm shadow-red-500/30 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className={`inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-bold text-white shadow-sm transition-colors disabled:cursor-not-allowed ${busy ? "bg-zinc-400" : "bg-red-500 shadow-red-500/30 hover:bg-red-600 active:scale-95 disabled:opacity-50"}`}
               disabled={!canSubmit}
               onClick={async () => {
                 if (!canSubmit) return;
@@ -154,7 +154,7 @@ export default function ShareProfileModal({
               }}
               data-testid="btn-upload-and-share"
             >
-              <Send className="h-3.5 w-3.5" />
+              {busy ? <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" /><path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" /></svg> : <Send className="h-3.5 w-3.5" />}
               {busy ? "Sharing…" : "Share profile"}
             </button>
           </div>

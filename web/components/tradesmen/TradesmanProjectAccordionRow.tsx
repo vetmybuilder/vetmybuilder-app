@@ -252,13 +252,36 @@ export default function TradesmanProjectAccordionRow({
     }
   };
 
-  const handleUpgradeClick = () => {
+  const [unlockBusy, setUnlockBusy] = React.useState(false);
+
+  const handleUnlockJob = async () => {
     if (["verification_required", "verification_rejected", "verification_pending"].includes(contactStatus)) {
       router.push("/tradesman/profile");
       return;
     }
-    setPlansOpen(true);
+    setUnlockBusy(true);
+    try {
+      const { data } = await api.post(`/api/projects/${project.id}/unlock-contact/checkout`);
+      if (data?.alreadyUnlocked) {
+        // Refresh to show unlocked state
+        window.location.reload();
+        return;
+      }
+      if (data?.url) {
+        router.push(data.url);
+      }
+    } catch (e: any) {
+      alert(e?.response?.data?.error || "Failed to start checkout");
+      setUnlockBusy(false);
+    }
   };
+
+  const handleUpgradeClick = () => {
+    handleUnlockJob();
+  };
+
+  // Job is gated if contact is not unlocked (not recommended / not paid)
+  const jobGated = contactStatus !== "loaded";
 
   const ep = (fullProject || project) as FullProject | ListProject;
   const propType = (ep as any).propertyType || (project.propertyType ?? "—");
@@ -415,11 +438,45 @@ export default function TradesmanProjectAccordionRow({
               {/* Description */}
               <div className="pt-4 border-t border-[#e8e0da]">
                 <h5 className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-2">Description</h5>
-                <p className="text-sm text-slate-800 leading-relaxed">{descriptionRaw}</p>
+                {jobGated ? (
+                  <div className="relative min-h-[120px]" data-testid="job-gated-overlay">
+                    <p className="text-sm text-slate-800 leading-relaxed blur-sm select-none" aria-hidden>{descriptionRaw}</p>
+                    <div className="absolute inset-0 flex items-center justify-center bg-[#f5f0ed]/60 backdrop-blur-[1px] rounded-lg">
+                      <div className="bg-white rounded-xl shadow-lg border border-zinc-200 p-5 text-center max-w-xs">
+                        <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-2">
+                          <svg className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                          </svg>
+                        </div>
+                        <p className="text-xs font-bold text-zinc-900">Unlock full job details</p>
+                        <p className="text-[10px] text-zinc-500 mt-1">See the full description and contact the homeowner</p>
+                        <button
+                          type="button"
+                          onClick={handleUnlockJob}
+                          disabled={unlockBusy}
+                          data-testid="btn-unlock-job"
+                          className={`mt-3 w-full inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-xs font-bold text-white shadow-sm transition-all ${
+                            unlockBusy ? "bg-zinc-400 cursor-not-allowed shadow-none" : "bg-red-500 hover:bg-red-600 active:scale-95"
+                          } disabled:opacity-50 disabled:scale-100`}
+                        >
+                          {unlockBusy && (
+                            <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+                              <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
+                            </svg>
+                          )}
+                          {unlockBusy ? "Unlocking..." : "Unlock this job"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-800 leading-relaxed">{descriptionRaw}</p>
+                )}
               </div>
 
-              {/* Express interest button */}
-              {!hasShared && !shareFlash && (
+              {/* Express interest button — hidden when gated */}
+              {!jobGated && !hasShared && !shareFlash && (
                 <button
                   type="button"
                   onClick={() => setShareOpen(true)}
@@ -488,8 +545,8 @@ export default function TradesmanProjectAccordionRow({
         </div>
       </div>
 
-      {/* Project Insights */}
-      {classification && (
+      {/* Project Insights — hidden when gated */}
+      {classification && !jobGated && (
         <div className="rounded-xl border border-[#e8e0da] bg-[#f5f0ed] p-5 space-y-4" data-testid="project-insights-card">
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-amber-500" />

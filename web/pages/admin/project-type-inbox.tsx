@@ -258,11 +258,12 @@ function Row({
               ))}
             </select>
             <button
-              className="btn"
+              className={`btn inline-flex items-center gap-2 ${busy ? "!bg-zinc-400" : "active:scale-95"}`}
               onClick={handleAddSyn}
               disabled={busy}
               title="Add as synonym to selected type"
             >
+              {busy && <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" /><path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" /></svg>}
               {busy ? "Working…" : "Add as synonym"}
             </button>
           </div>
@@ -279,8 +280,9 @@ function Row({
               {creating ? "Cancel" : "Create new type…"}
             </button>
             {creating && (
-              <button className="btn" onClick={handleCreate} disabled={busy}>
-                {busy ? "Creating…" : `Create “${titleCase(it.normalized)}”`}
+              <button className={`btn inline-flex items-center gap-2 ${busy ? “!bg-zinc-400” : “active:scale-95”}`} onClick={handleCreate} disabled={busy}>
+                {busy && <svg className=”h-4 w-4 animate-spin” viewBox=”0 0 24 24” fill=”none”><circle cx=”12” cy=”12” r=”10” stroke=”currentColor” strokeWidth=”3” className=”opacity-25” /><path d=”M4 12a8 8 0 018-8” stroke=”currentColor” strokeWidth=”3” strokeLinecap=”round” className=”opacity-75” /></svg>}
+                {busy ? “Creating…” : `Create “${titleCase(it.normalized)}”`}
               </button>
             )}
           </div>

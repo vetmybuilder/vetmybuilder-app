@@ -9,6 +9,7 @@ import {
   XCircle,
   Archive as ArchiveIcon,
   Link as LinkIcon,
+  Plus,
 } from "lucide-react";
 import { useApi } from "@/utils/api";
 import SpotlightStrip from "@/components/tradesmen/SpotlightStrip";
@@ -541,6 +542,16 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
         onConfirm={submitHire}
         onClose={() => setHireTarget(null)}
       />
+
+      {/* Floating Post a Job button */}
+      <button
+        type="button"
+        onClick={() => router.push("/projects/new")}
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-amber-400 px-6 py-4 text-base font-bold text-zinc-900 shadow-xl shadow-amber-400/40 hover:bg-amber-300 hover:scale-105 transition-all animate-bounce-slow"
+      >
+        <Plus className="h-5 w-5" />
+        Post a Job
+      </button>
     </>
   );
 }

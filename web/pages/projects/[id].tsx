@@ -125,7 +125,7 @@ export default function ProjectViewPage() {
   } else if (viewerRole === "home") {
     viewContent = <NeighbourProjectView vm={vm} />;
   } else if (viewerRole === "trades") {
-    // (This will never show — redirect already handled)
+    // Redirect already handled above
     viewContent = <TradesmanProjectView vm={vm} />;
   }
 

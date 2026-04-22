@@ -130,7 +130,7 @@ module.exports = (router, ctx) => {
       };
 
       // Create mock checkout session
-      const session = payments.createSession({
+      const session = await payments.createSession({
         userId: uid,
         type: finalType,
         items: [

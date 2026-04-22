@@ -120,10 +120,19 @@ export default function HireConfirmModal({
               onClick={handleConfirm}
               disabled={submitting}
               data-testid="hire-confirm-submit"
-              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full bg-red-500 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-red-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-full px-5 py-3 text-sm font-bold text-white shadow-sm transition-all ${
+                submitting ? "bg-zinc-400 cursor-not-allowed" : "bg-red-500 hover:bg-red-600 active:scale-95"
+              } disabled:opacity-60 disabled:cursor-not-allowed`}
             >
-              <CheckCircle2 className="h-4 w-4" />
-              {submitting ? "Sending…" : `Confirm hire`}
+              {submitting ? (
+                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+                  <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
+                </svg>
+              ) : (
+                <CheckCircle2 className="h-4 w-4" />
+              )}
+              {submitting ? "Sending hire request..." : "Confirm hire"}
             </button>
           </div>
         </div>

@@ -92,7 +92,7 @@ describe("<HireButton />", () => {
     expect(btn).toHaveTextContent(/Hire/i);
   });
 
-  it("[recommendation] renders 'Hired' (disabled) when this recommendation is already hired", async () => {
+  it("[recommendation] renders 'Hire pending' (disabled) when this recommendation has a pending hire", async () => {
     routerQuery = { projectId: "123" };
     api.get.mockResolvedValue({
       data: {
@@ -109,7 +109,7 @@ describe("<HireButton />", () => {
 
     const btn = await screen.findByTestId("hire-button");
     await waitFor(() => expect(btn).toBeDisabled());
-    expect(btn).toHaveTextContent(/^Hired$/i);
+    expect(btn).toHaveTextContent(/Hire pending/i);
   });
 
   it("[recommendation] terminal-status hires (declined/cancelled/expired) do NOT block the button", async () => {
@@ -220,7 +220,7 @@ describe("<HireButton />", () => {
     expect(btn).toHaveTextContent(/Hire/i);
   });
 
-  it("[tradesman] renders 'Hired' (disabled) when this tradesman is already hired", async () => {
+  it("[tradesman] renders 'Hire pending' (disabled) when this tradesman has a pending hire", async () => {
     routerQuery = { projectId: "123" };
     api.get.mockResolvedValue({
       data: {
@@ -239,7 +239,7 @@ describe("<HireButton />", () => {
 
     const btn = await screen.findByTestId("hire-button");
     await waitFor(() => expect(btn).toBeDisabled());
-    expect(btn).toHaveTextContent(/^Hired$/i);
+    expect(btn).toHaveTextContent(/Hire pending/i);
   });
 
   it("[tradesman] does NOT match a hire for a different tradesmanUserId", async () => {

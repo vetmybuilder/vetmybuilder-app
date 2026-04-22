@@ -108,10 +108,11 @@ export default function Step4Account({
           Back
         </button>
         <button
-          className="inline-flex items-center justify-center rounded-full bg-red-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:bg-red-600 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+          className={`inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-white shadow-lg transition-all disabled:cursor-not-allowed ${busy ? "bg-zinc-400" : "bg-red-500 shadow-red-500/25 hover:bg-red-600 active:scale-95 disabled:opacity-60"}`}
           disabled={busy || !agreedTerms}
           data-testid="btn-create-account"
         >
+          {busy && <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" /><path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" /></svg>}
           {busy ? "Creating…" : "Create account"}
         </button>
       </div>

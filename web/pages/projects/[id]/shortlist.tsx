@@ -270,7 +270,8 @@ function ShortlistInner() {
     return () => { alive = false; };
   }, [api, id, router.isReady, authLoading, user]);
 
-  // Fetch existing hires so Hire button renders as "Hired" when applicable
+  // Fetch existing hires so Hire button shows correct status
+  const [hireStatusMap, setHireStatusMap] = useState<Record<number, string>>({});
   useEffect(() => {
     if (!project?.id || !isOwner) return;
     let cancelled = false;
@@ -279,13 +280,19 @@ function ShortlistInner() {
         const { data } = await api.get(`/api/projects/${project.id}/hires`);
         if (cancelled) return;
         const ACTIVE = new Set(["pending", "pending_invite", "accepted"]);
+        const activeHires = (Array.isArray(data?.items) ? data.items : [])
+          .filter((h: any) => ACTIVE.has(h?.status));
         const ids = new Set<number>(
-          (Array.isArray(data?.items) ? data.items : [])
-            .filter((h: any) => ACTIVE.has(h?.status))
+          activeHires
             .map((h: any) => h?.recommendationId)
             .filter((rid: any): rid is number => typeof rid === "number")
         );
+        const statusMap: Record<number, string> = {};
+        activeHires.forEach((h: any) => {
+          if (typeof h?.recommendationId === "number") statusMap[h.recommendationId] = h.status;
+        });
         setHiredRecommendationIds(ids);
+        setHireStatusMap(statusMap);
       } catch {}
     })();
     return () => { cancelled = true; };
@@ -596,6 +603,9 @@ function ShortlistInner() {
                         <div className="mt-2 flex items-center justify-between">
                           {r.source === "pipeline" ? null : isOwner ? (() => {
                             const alreadyHired = hiredRecommendationIds.has(r.id);
+                            const hireStatus = hireStatusMap[r.id];
+                            const isPending = hireStatus === "pending" || hireStatus === "pending_invite";
+                            const hireLabel = alreadyHired ? (isPending ? "Hire pending" : "Hired") : "Hire";
                             return (
                               <button
                                 type="button"
@@ -604,11 +614,13 @@ function ShortlistInner() {
                                 data-testid={`shortlist-hire-${r.id}`}
                                 className={`inline-flex items-center justify-center rounded-lg px-3.5 py-2 text-sm font-bold transition-colors ${
                                   alreadyHired
-                                    ? "bg-emerald-100 text-emerald-700 cursor-default"
+                                    ? isPending
+                                      ? "bg-amber-100 text-amber-700 cursor-default"
+                                      : "bg-emerald-100 text-emerald-700 cursor-default"
                                     : "bg-slate-900 text-white hover:bg-slate-800"
                                 }`}
                               >
-                                {alreadyHired ? "Hired" : "Hire"}
+                                {hireLabel}
                               </button>
                             );
                           })() : (

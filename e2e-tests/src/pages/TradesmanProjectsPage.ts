@@ -47,6 +47,22 @@ export class TradesmanProjectsPage extends BasePage {
     );
     await expect(card).toContainText(text, { timeout: 10_000 });
   }
+
+  async expectJobGated(projectId: number | string) {
+    const row = this.projectRow(projectId);
+    await expect(row.getByTestId("job-gated-overlay")).toBeVisible({ timeout: 15_000 });
+    await expect(row.getByTestId("project-insights-card")).not.toBeVisible();
+  }
+
+  async expectJobUnlocked(projectId: number | string) {
+    const row = this.projectRow(projectId);
+    await expect(row.getByTestId("job-gated-overlay")).not.toBeVisible({ timeout: 10_000 });
+  }
+
+  async clickUnlockJob(projectId: number | string) {
+    const row = this.projectRow(projectId);
+    await row.getByTestId("btn-unlock-job").click();
+  }
 }
 
 export default TradesmanProjectsPage;

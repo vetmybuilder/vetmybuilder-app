@@ -281,8 +281,10 @@ export default function MockCheckout() {
                 <button
                   onClick={onPay}
                   disabled={submitting}
-                  className="h-10 rounded-full bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-900/90 disabled:opacity-60"
+                  data-testid="btn-mock-pay"
+                  className={`h-10 inline-flex items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold text-white transition ${submitting ? "bg-zinc-400" : "bg-slate-900 hover:bg-slate-900/90 active:scale-95 disabled:opacity-60"}`}
                 >
+                  {submitting && <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" /><path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" /></svg>}
                   {submitting ? "Processing…" : "Pay now"}
                 </button>
               </div>

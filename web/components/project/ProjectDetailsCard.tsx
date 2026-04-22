@@ -56,6 +56,11 @@ type Props = {
 
   // Optional override for share submit (parent-managed)
   onShareSubmit?: (files: File[]) => Promise<void> | void;
+
+  // Payment gating: blur job details for non-recommended tradespeople
+  gated?: boolean;
+  onUnlockJob?: () => void;
+  unlockPrice?: string;
 };
 
 export default function ProjectDetailsCard({
@@ -77,6 +82,9 @@ export default function ProjectDetailsCard({
   showShareButton = false,
   shareBusy = false,
   onShareSubmit,
+  gated = false,
+  onUnlockJob,
+  unlockPrice = "14.99",
 }: Props) {
   const api = useApi();
 
@@ -405,13 +413,44 @@ export default function ProjectDetailsCard({
           <h3 className="mb-1 font-semibold" id="desc-heading">
             Description
           </h3>
-          <p
-            className="whitespace-pre-wrap text-slate-700"
-            aria-labelledby="desc-heading"
-            data-testid="field-description"
-          >
-            {project.description}
-          </p>
+          {gated ? (
+            <div className="relative">
+              <p
+                className="whitespace-pre-wrap text-slate-700 blur-sm select-none"
+                aria-hidden
+              >
+                {project.description}
+              </p>
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 backdrop-blur-[2px] rounded-xl">
+                <div className="bg-white rounded-2xl shadow-lg border border-zinc-200 p-6 text-center max-w-sm">
+                  <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-3">
+                    <svg className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <h4 className="font-bold text-zinc-900 text-sm">Unlock full job details</h4>
+                  <p className="mt-1 text-xs text-zinc-500">See the full description, contact the homeowner, and express your interest.</p>
+                  {onUnlockJob && (
+                    <button
+                      type="button"
+                      onClick={onUnlockJob}
+                      className="mt-4 w-full inline-flex items-center justify-center rounded-full bg-red-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:bg-red-600 transition-colors"
+                    >
+                      Unlock for &pound;{unlockPrice}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p
+              className="whitespace-pre-wrap text-slate-700"
+              aria-labelledby="desc-heading"
+              data-testid="field-description"
+            >
+              {project.description}
+            </p>
+          )}
         </div>
 
         {/* Footer actions row (optional) */}

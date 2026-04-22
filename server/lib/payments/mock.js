@@ -1,11 +1,10 @@
 // server/lib/payments/mock.js
 /**
- * Lightweight in-memory payments mock for local/dev testing.
+ * Mock payments backed by MySQL checkout_sessions table.
+ * Sessions persist across server restarts and are shared across shards.
  */
 
 const TAG = "[payments.mock]";
-
-/* ----------------------- helpers ----------------------- */
 
 function createId(prefix) {
   const rand = Math.random().toString(36).slice(2, 10);
@@ -21,51 +20,63 @@ function clone(obj) {
   return obj == null ? obj : JSON.parse(JSON.stringify(obj));
 }
 
-/**
- * Compute the total in minor units (pence) from items.
- */
 function computeTotal(items) {
   if (!Array.isArray(items) || !items.length) {
     return { amount: 0, currency: "GBP" };
   }
   const currency = String(items[0].price?.currency || "GBP").toUpperCase();
   let amount = 0;
-
   for (const it of items) {
     const qty = Number(it.quantity == null ? 1 : it.quantity) || 1;
     const priceMinor = Number(it.price?.amount || 0) || 0;
     amount += priceMinor * qty;
   }
-
   return { amount, currency };
 }
 
-/* ----------------------- main factory ----------------------- */
-
 function createMockPayments(opts = {}) {
-  const log = opts.log || console; // logger or fallback
-
-  const baseUrl = String(opts.baseUrl || "http://localhost:3000").replace(
-    /\/+$/,
-    ""
-  );
+  const log = opts.log || console;
+  const mysqlQuery = opts.mysqlQuery || null;
+  const baseUrl = String(opts.baseUrl || "http://localhost:3000").replace(/\/+$/, "");
   const webhookSecret = opts.webhookSecret || "";
 
-  /** @type {Record<string, any>} */
-  const sessions = Object.create(null);
+  // Fallback in-memory store when no MySQL available
+  const memStore = Object.create(null);
 
-  /* ------------------- create checkout session ------------------- */
+  async function dbSave(id, data) {
+    if (!mysqlQuery) { memStore[id] = data; return; }
+    try {
+      await mysqlQuery(
+        `INSERT INTO checkout_sessions (id, data, created_at, updated_at) VALUES (?, ?, NOW(), NOW())
+         ON DUPLICATE KEY UPDATE data = VALUES(data), updated_at = NOW()`,
+        [id, JSON.stringify(data)]
+      );
+    } catch (err) {
+      log.warn?.({ err: err?.message }, `${TAG} dbSave failed, using memory`);
+      memStore[id] = data;
+    }
+  }
 
-  function createCheckout(options = {}) {
+  async function dbGet(id) {
+    if (!mysqlQuery) return memStore[id] ? clone(memStore[id]) : null;
+    try {
+      const rows = await mysqlQuery("SELECT data FROM checkout_sessions WHERE id = ?", [id]);
+      if (!rows.length) return memStore[id] ? clone(memStore[id]) : null;
+      const parsed = typeof rows[0].data === "string" ? JSON.parse(rows[0].data) : rows[0].data;
+      return parsed;
+    } catch (err) {
+      log.warn?.({ err: err?.message }, `${TAG} dbGet failed, using memory`);
+      return memStore[id] ? clone(memStore[id]) : null;
+    }
+  }
+
+  async function createCheckout(options = {}) {
     const id = createId("cs_test");
     const createdAt = nowIso();
     const items = Array.isArray(options.items) ? options.items.slice() : [];
     const total =
       options.total && typeof options.total.amount === "number"
-        ? {
-            amount: Number(options.total.amount) || 0,
-            currency: String(options.total.currency || "GBP").toUpperCase(),
-          }
+        ? { amount: Number(options.total.amount) || 0, currency: String(options.total.currency || "GBP").toUpperCase() }
         : computeTotal(items);
 
     const session = {
@@ -77,118 +88,84 @@ function createMockPayments(opts = {}) {
       total,
       mode: options.mode || (options.planId ? "subscription" : "payment"),
       hosted_url: `${baseUrl}/payments/mock/checkout/${id}`,
-      success_url:
-        options.success_url ||
-        `${baseUrl}/payments/mock/success?sessionId=${id}`,
-      cancel_url:
-        options.cancel_url || `${baseUrl}/payments/mock/cancel?sessionId=${id}`,
+      success_url: options.success_url || `${baseUrl}/payments/mock/success?sessionId=${id}`,
+      cancel_url: options.cancel_url || `${baseUrl}/payments/mock/cancel?sessionId=${id}`,
       metadata: options.metadata || {},
       createdAt,
       updatedAt: createdAt,
     };
 
-    sessions[id] = session;
+    memStore[id] = session;
+    await dbSave(id, session);
 
-    log.info(
-      { id, userId: session.userId, planId: session.planId },
-      `${TAG} createCheckout`
-    );
-
+    log.info?.({ id, userId: session.userId, planId: session.planId }, `${TAG} createCheckout`);
     return clone(session);
   }
 
-  /* ------------------- session helpers ------------------- */
-
-  function getSession(id) {
+  async function getSession(id) {
     if (!id) return null;
-    const s = sessions[id];
-    return s ? clone(s) : null;
+    return dbGet(id);
   }
 
-  function updateSession(id, patch) {
-    const s = sessions[id];
+  async function updateSession(id, patch) {
+    const s = await dbGet(id);
     if (!s) return null;
-
-    const updated = {
-      ...s,
-      ...patch,
-      updatedAt: nowIso(),
-    };
-
-    sessions[id] = updated;
-
-    log.info({ id, status: updated.status }, `${TAG} updateSession`);
-
+    const updated = { ...s, ...patch, updatedAt: nowIso() };
+    memStore[id] = updated;
+    await dbSave(id, updated);
+    log.info?.({ id, status: updated.status }, `${TAG} updateSession`);
     return clone(updated);
   }
 
-  function markPaid(id) {
+  async function markPaid(id) {
     return updateSession(id, { status: "paid" });
   }
 
-  function cancel(id) {
+  async function cancel(id) {
     return updateSession(id, { status: "canceled" });
   }
 
-  function expire(id) {
+  async function expire(id) {
     return updateSession(id, { status: "expired" });
   }
 
   function listSessions() {
-    return Object.keys(sessions).map((id) => clone(sessions[id]));
+    return Object.keys(memStore).map((id) => clone(memStore[id]));
   }
 
-  /* ------------------- webhook helpers ------------------- */
-
   function verifyWebhook({ payload, signature, secret }) {
-    const body =
-      typeof payload === "string" ? payload : JSON.stringify(payload);
+    const body = typeof payload === "string" ? payload : JSON.stringify(payload);
     const expectedSecret = secret || webhookSecret || "";
-
     if (!expectedSecret) {
-      log.info(`${TAG} verifyWebhook no secret → auto-ok`);
+      log.info?.(`${TAG} verifyWebhook no secret - auto-ok`);
       return { ok: true, event: { type: "mock", payload: body } };
     }
-
     if (signature !== expectedSecret) {
-      log.warn(`${TAG} invalid webhook signature`);
+      log.warn?.(`${TAG} invalid webhook signature`);
       return { ok: false, error: "invalid_signature" };
     }
-
-    log.info(`${TAG} webhook verified`);
+    log.info?.(`${TAG} webhook verified`);
     return { ok: true, event: { type: "mock", payload: body } };
   }
 
   function emitWebhook(type, session) {
-    const event = {
-      id: createId("evt"),
-      type,
-      data: { object: clone(session) },
-      created: Date.now(),
-    };
-
-    log.info(
-      { eventId: event.id, type, sessionId: session.id },
-      `${TAG} emitWebhook`
-    );
-
+    const event = { id: createId("evt"), type, data: { object: clone(session) }, created: Date.now() };
+    log.info?.({ eventId: event.id, type }, `${TAG} emitWebhook`);
     return event;
   }
 
-  /* ------------------- public API ------------------- */
-
   return {
     createCheckout,
+    createSession: createCheckout,
+    getSession,
+    updateSession,
     markPaid,
     cancel,
     expire,
-    getSession,
     listSessions,
     verifyWebhook,
     emitWebhook,
   };
 }
 
-module.exports = {
-  createMockPayments,
-};
+module.exports = { createMockPayments };

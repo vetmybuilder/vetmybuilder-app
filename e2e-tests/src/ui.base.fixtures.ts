@@ -33,6 +33,7 @@ import AdminUsersPage from "./pages/AdminUsersPage";
 import NotificationSettingsPage from "./pages/NotificationSettingsPage";
 import TradesmanPublicProfilePage from "./pages/TradesmanPublicProfilePage";
 import CookieBannerComponent from "./pages/components/CookieBannerComponent";
+import MockCheckoutPage from "./pages/MockCheckoutPage";
 
 type Runtime = ReturnType<typeof getRuntime>;
 
@@ -69,6 +70,7 @@ type UiFixtures = {
   tradesmanPublicProfilePage: TradesmanPublicProfilePage;
   notificationSettingsPage: NotificationSettingsPage;
   cookieBanner: CookieBannerComponent;
+  mockCheckoutPage: MockCheckoutPage;
 };
 
 function normalizeApiBase(url: string): string {
@@ -235,6 +237,10 @@ export const test = base.extend<UiFixtures, { runtime: Runtime }>({
 
   cookieBanner: async ({ page }, use) => {
     await use(new CookieBannerComponent(page));
+  },
+
+  mockCheckoutPage: async ({ page }, use) => {
+    await use(new MockCheckoutPage(page));
   },
 
   adminApi: async ({ request, runtime }, use) => {

@@ -364,7 +364,6 @@ function EditProjectInner() {
           e?.message ||
           "Failed to update",
       );
-    } finally {
       setBusy(false);
     }
   }
@@ -808,10 +807,11 @@ function EditProjectInner() {
                         type="button"
                         onClick={onSave}
                         disabled={!isStepValid(step) || busy}
-                        className="inline-flex items-center gap-2 rounded-full bg-red-500 px-8 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] disabled:opacity-40 disabled:scale-100 disabled:shadow-none transition-all"
+                        className={`inline-flex items-center gap-2 rounded-full px-8 py-3 text-sm font-bold text-white shadow-lg transition-all ${busy ? "bg-zinc-400" : "bg-red-500 shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] active:scale-95 disabled:opacity-40 disabled:scale-100 disabled:shadow-none"}`}
                         aria-label="Save changes"
                         data-testid="wizard-save-edit"
                       >
+                        {busy && <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" /><path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" /></svg>}
                         {busy ? "Saving…" : "Save changes"}
                       </button>
                     )}

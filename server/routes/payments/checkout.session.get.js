@@ -15,7 +15,7 @@ module.exports = (router, ctx) => {
   }
 
   /** Main handler */
-  function handleGet(req, res) {
+  async function handleGet(req, res) {
     const log = withRequest(req, logger).child({
       route: "GET /api/payments/checkout/session",
     });
@@ -35,7 +35,7 @@ module.exports = (router, ctx) => {
         return res.status(400).json({ error: "sessionId_required" });
       }
 
-      const session = payments.getSession(id);
+      const session = await payments.getSession(id);
       if (!session) {
         log.warn({ sessionId: id }, "Session not found");
         return res.status(404).json({ error: "not_found" });
