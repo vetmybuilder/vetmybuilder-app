@@ -90,21 +90,47 @@ module.exports = (router, ctx) => {
           });
         }
 
-        // --- Determine price ---
-        const unitAmount =
-          Number(process.env.ONEOFF_UNLOCK_PRICE_PENCE) > 0
-            ? Number(process.env.ONEOFF_UNLOCK_PRICE_PENCE)
-            : 299; // default £2.99
+        // --- Determine price based on project classification ---
+        let unitAmount = 999; // default £9.99
+
+        if (Number(process.env.ONEOFF_UNLOCK_PRICE_PENCE) > 0) {
+          unitAmount = Number(process.env.ONEOFF_UNLOCK_PRICE_PENCE);
+        } else {
+          try {
+            const classRows = await mysqlQuery(
+              "SELECT structured FROM project_classifications WHERE project_id = ? ORDER BY id DESC LIMIT 1",
+              [pid]
+            );
+            if (classRows.length > 0 && classRows[0].structured) {
+              const parsed = typeof classRows[0].structured === "string"
+                ? JSON.parse(classRows[0].structured)
+                : classRows[0].structured;
+              const maxPrice = parsed?.price_band_estimate?.max || 0;
+              if (maxPrice <= 1000) unitAmount = 299;
+              else if (maxPrice <= 5000) unitAmount = 499;
+              else if (maxPrice <= 15000) unitAmount = 999;
+              else unitAmount = 1499;
+            }
+          } catch {}
+        }
 
         const productName =
-          process.env.ONEOFF_UNLOCK_PRODUCT_NAME || "Unlock homeowner contact";
+          process.env.ONEOFF_UNLOCK_PRODUCT_NAME || "Unlock job details";
 
-        // --- Create mock checkout session ---
+        // --- Create checkout session (Stripe or mock) ---
+        const isStripe = !!payments.isStripe;
+        const successUrl = isStripe
+          ? `${process.env.NEXT_PUBLIC_WEB_BASE || "http://localhost:3000"}/payments/success?sessionId={CHECKOUT_SESSION_ID}&projectId=${pid}`
+          : undefined;
+        const cancelUrl = isStripe
+          ? `${process.env.NEXT_PUBLIC_WEB_BASE || "http://localhost:3000"}/tradesman/projects`
+          : undefined;
+
         const session = await payments.createSession({
           userId: uid,
           items: [
             {
-              label: `${productName} · Project #${pid}`,
+              label: `${productName} - Project #${pid}`,
               price: { amount: unitAmount, currency: "GBP" },
               quantity: 1,
             },
@@ -116,6 +142,8 @@ module.exports = (router, ctx) => {
             vmb_project_id: String(pid),
             buyerUid: uid,
           },
+          success_url: successUrl,
+          cancel_url: cancelUrl,
           ttlSeconds: 15 * 60,
         });
 
@@ -123,12 +151,17 @@ module.exports = (router, ctx) => {
           uid,
           pid,
           sessionId: session.id,
+          isStripe,
         });
+
+        const checkoutUrl = isStripe
+          ? session.hosted_url
+          : `/payments/mock/checkout/${session.id}`;
 
         res.json({
           ok: true,
           sessionId: session.id,
-          url: `/payments/mock/checkout/${session.id}`,
+          url: checkoutUrl,
         });
         ctx.logActivity("contact.unlock", "info", req.user?.uid, `Contact unlock for project #${pid}`);
         return;

@@ -268,7 +268,11 @@ export default function TradesmanProjectAccordionRow({
         return;
       }
       if (data?.url) {
-        router.push(data.url);
+        if (data.url.startsWith("http")) {
+          window.location.href = data.url;
+        } else {
+          router.push(data.url);
+        }
       }
     } catch (e: any) {
       alert(e?.response?.data?.error || "Failed to start checkout");
