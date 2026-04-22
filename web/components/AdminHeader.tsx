@@ -109,6 +109,7 @@ export default function AdminHeader() {
     { label: "Dashboard", href: "/admin/dashboard", testId: "nav-admin-dashboard", active: router.pathname === "/admin/dashboard" },
     { label: "Users", href: "/admin/users", testId: "nav-admin-users", active: router.pathname === "/admin/users" },
     { label: "Feedback", href: "/admin/feedback", testId: "nav-admin-feedback", active: router.pathname === "/admin/feedback" },
+    { label: "Pricing", href: "/admin/pricing", testId: "nav-admin-pricing", active: router.pathname === "/admin/pricing" },
   ];
 
   const activePill = "bg-violet-600 text-white font-bold shadow-sm";

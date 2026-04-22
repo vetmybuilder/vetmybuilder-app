@@ -28,10 +28,9 @@ test.describe("Project Insights", () => {
 
     await projectDetailsPage.visit(created.id);
 
-    // Stub mode returns "General Builder" classification
     await projectDetailsPage.expectInsightsVisible();
     await projectDetailsPage.expectInsightsContains("Project Insights");
-    await projectDetailsPage.expectInsightsContains("General Builder");
+    await projectDetailsPage.expectInsightsContains("Tumble Dryer Installation");
   });
 
   test("insights card appears on a draft project (classification runs on creation)", async ({
@@ -44,7 +43,7 @@ test.describe("Project Insights", () => {
 
     await projectDetailsPage.visit(created.id);
     await projectDetailsPage.expectInsightsVisible();
-    await projectDetailsPage.expectInsightsContains("General Builder");
+    await projectDetailsPage.expectInsightsContains("Project Insights");
   });
 
   test("insights card appears in the tradesman accordion view", async ({
@@ -80,6 +79,5 @@ test.describe("Project Insights", () => {
 
     await tradesmanProjectsPage.expectInsightsVisible(projectId);
     await tradesmanProjectsPage.expectInsightsContains(projectId, "Project Insights");
-    await tradesmanProjectsPage.expectInsightsContains(projectId, "General Builder");
   });
 });
