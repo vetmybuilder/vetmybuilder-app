@@ -4,33 +4,130 @@ import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
-import Select from "@/components/forms/Select";
 import { PROJECT_TYPES, type ProjectTypeCategory } from "@/types/projectTypes";
 import LocationField from "@/components/forms/LocationField";
-import BedroomsSelect from "@/components/forms/BedroomsSelect";
 import { trackProjectCreated } from "@/utils/analytics";
-import DescriptionBuilder from "@/components/forms/DescriptionBuilder";
-import SearchableSelect from "@/components/forms/SearchableSelect";
-import ProgressBar from "@/components/ProgressBar";
 import DynamicFieldGroup, {
   validateGroup,
 } from "@/components/forms/DynamicFieldGroup";
 import { getSpecForSelection, type AnswersShape } from "@/config/jobFields";
 
+/* ===== Category icons ===== */
+
+const CATEGORY_ICONS: Record<string, string> = {
+  "Accessibility & Safety": "\u267F",
+  "Appliances": "\u2699\uFE0F",
+  "Bathroom": "\u{1F6C1}",
+  "Bedroom": "\u{1F6CF}\uFE0F",
+  "Building & Construction": "\u{1F3D7}\uFE0F",
+  "Carpentry & Joinery": "\u{1FA9A}",
+  "Cleaning & Waste": "\u{1F9F9}",
+  "Damp & Waterproofing": "\u{1F4A7}",
+  "Electrical": "\u26A1",
+  "Energy & Renewables": "\u{1F33F}",
+  "Extensions & Conversions": "\u{1F3E0}",
+  "Exterior & Structure": "\u{1F9F1}",
+  "Fencing & Gates": "\u{1F3E1}",
+  "Flooring": "\u{1FA9E}",
+  "Heating & Cooling": "\u{1F525}",
+  "Insulation": "\u{1F3E0}",
+  "Kitchen": "\u{1F373}",
+  "Landscaping & Garden": "\u{1F331}",
+  "Metalwork & Fabrication": "\u{1F529}",
+  "Painting & Decorating": "\u{1F3A8}",
+  "Pest Control": "\u{1F41C}",
+  "Plumbing": "\u{1F527}",
+  "Repairs & Maintenance": "\u{1F6E0}\uFE0F",
+  "Roofing": "\u{1F3E0}",
+  "Smart Home & Security": "\u{1F4F1}",
+  "Tiling & Plastering": "\u{1F9F1}",
+  "Windows & Doors": "\u{1FA9F}",
+};
+
 /* ===== Constants & helpers ===== */
 
 const PROPERTY_TYPES = [
-  "Detached",
-  "Semi-Detached",
-  "Terraced",
-  "End of Terrace",
-  "Flat",
-  "Bungalow",
-  "Cottage",
-  "Maisonette",
-  "Townhouse",
-  "Other",
+  { label: "Detached", icon: "\u{1F3E0}" },
+  { label: "Semi-Detached", icon: "\u{1F3E0}" },
+  { label: "Terraced", icon: "\u{1F3E0}" },
+  { label: "End of Terrace", icon: "\u{1F3E0}" },
+  { label: "Flat", icon: "\u{1F3E2}" },
+  { label: "Bungalow", icon: "\u{1F3E1}" },
+  { label: "Cottage", icon: "\u{1F3E1}" },
+  { label: "Maisonette", icon: "\u{1F3E2}" },
+  { label: "Townhouse", icon: "\u{1F3D8}\uFE0F" },
+  { label: "Other", icon: "\u{1F3E0}" },
 ] as const;
+
+const BEDROOM_OPTIONS = ["0", "1", "2", "3", "4", "5", "6+"] as const;
+
+const TIMEFRAMES = [
+  "Urgent (1-2 weeks)",
+  "Soon (2-4 weeks)",
+  "This quarter (1-3 months)",
+  "Flexible (3+ months)",
+];
+
+const BUDGETS = ["Under 1k", "1k - 5k", "5k - 15k", "15k - 30k", "30k+", "Not sure"];
+
+const MATERIALS_OPTIONS = [
+  "Supplied by tradesman",
+  "Supplied by homeowner",
+  "Mixed (some provided)",
+  "Not sure yet",
+];
+
+type AccessChip = { label: string; value: string };
+
+const INSULATION_ACCESS_CHIPS: AccessChip[] = [
+  { label: "Side access available", value: "side_access_available" },
+  { label: "Narrow side access (<800mm)", value: "narrow_side_access" },
+  { label: "Rear access available", value: "rear_access_available" },
+  { label: "No rear access", value: "no_rear_access" },
+  { label: "Scaffolding required", value: "scaffolding_required" },
+  { label: "Scaffolding already present", value: "scaffolding_present" },
+  { label: "Loft easy to access", value: "loft_easy" },
+  { label: "Restricted loft height", value: "loft_restricted" },
+  { label: "Boarded loft", value: "loft_boarded" },
+  { label: "Small loft hatch", value: "small_loft_hatch" },
+  { label: "Parking close to property", value: "parking_close" },
+  { label: "Long hose needed (no close parking)", value: "long_hose_needed" },
+  { label: "Asbestos suspected", value: "asbestos_suspected" },
+  { label: "Waste removal needed", value: "waste_removal" },
+];
+
+const CONSTRUCTION_ACCESS_CHIPS: AccessChip[] = [
+  { label: "Skip can be placed on driveway", value: "skip_driveway" },
+  { label: "Skip must be placed on road", value: "skip_road" },
+  { label: "Scaffolding required", value: "scaffolding_required" },
+  { label: "Rear access available", value: "rear_access" },
+  { label: "No rear access", value: "no_rear_access" },
+  { label: "Parking available", value: "parking_available" },
+  { label: "Permit required", value: "permit_required" },
+];
+
+const GENERAL_ACCESS_CHIPS: AccessChip[] = [
+  { label: "Easy access", value: "easy_access" },
+  { label: "Restricted access", value: "restricted_access" },
+  { label: "Parking available", value: "parking_available" },
+  { label: "Street parking only", value: "street_parking" },
+  { label: "Permit required", value: "permit_required" },
+  { label: "Pets at home", value: "pets" },
+  { label: "Someone home to let in", value: "someone_home" },
+  { label: "Keys can be left", value: "keys_left" },
+];
+
+function getAccessChips(category: string | null | undefined): AccessChip[] {
+  if (!category) return GENERAL_ACCESS_CHIPS;
+  if (category === "Insulation") return INSULATION_ACCESS_CHIPS;
+  if (
+    category === "Extensions & Conversions" ||
+    category === "Roofing" ||
+    category === "Exterior & Structure" ||
+    category === "Masonry & Structural"
+  ) return CONSTRUCTION_ACCESS_CHIPS;
+  return GENERAL_ACCESS_CHIPS;
+}
 
 function normalize(s: string) {
   return s.trim().replace(/\s+/g, " ");
@@ -57,12 +154,15 @@ type FormShape = {
 
   location: string;
   locationDisplay: string;
-  description: string;
   propertyType: string;
   bedrooms: number;
 
-  // Structured, category-specific answers. Shape is `{ _version, [groupId]: {...} }`
-  // — see web/config/jobFields.ts. Empty object when the category has no spec.
+  timeframe: string;
+  budget: string;
+  materials: string;
+  access: string[];
+  description: string;
+
   answers: AnswersShape;
 };
 
@@ -71,12 +171,11 @@ export default function NewProject() {
   const router = useRouter();
   const { user, loading } = useAuth();
 
-  // Tradesmen are not allowed to post projects — redirect them away
   const [roleChecked, setRoleChecked] = useState(false);
 
   useEffect(() => {
     if (loading) return;
-    if (!user) { setRoleChecked(true); return; } // AuthedOnly handles unauthed
+    if (!user) { setRoleChecked(true); return; }
     api.get("/api/tradesmen/me").then((res: any) => {
       const data = res?.data ?? res;
       const role = String(data?.role || "user").toLowerCase();
@@ -88,10 +187,6 @@ export default function NewProject() {
     }).catch(() => { setRoleChecked(true); });
   }, [loading, user, router, api]);
 
-  // Scroll target (just above the card, under header)
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const shouldScrollRef = useRef(false);
-
   const [form, setForm] = useState<FormShape>({
     category: null,
     selectedTypes: [],
@@ -100,9 +195,14 @@ export default function NewProject() {
 
     location: "",
     locationDisplay: "",
-    description: "",
     propertyType: "",
     bedrooms: 0,
+
+    timeframe: "",
+    budget: "",
+    materials: "",
+    access: [],
+    description: "",
 
     answers: { _version: 1 },
   });
@@ -110,28 +210,12 @@ export default function NewProject() {
   const [step, setStep] = useState(0);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  // Per-field errors for the dynamic "details" step, keyed by `${groupId}.${fieldKey}`.
   const [answerErrors, setAnswerErrors] = useState<Record<string, string>>({});
+  const [subtypeSearch, setSubtypeSearch] = useState("");
+  const [categorySearch, setCategorySearch] = useState("");
 
-  // Reset structured answers only when the matched spec changes — NOT when the
-  // selection changes within the same spec (user toggling work types mid-flow).
-  // See categorySpec.id below.
-
-  /* ===== Scroll to top *after* step content is rendered ===== */
-  useEffect(() => {
-    if (!shouldScrollRef.current) return;
-
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        scrollRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      });
-    });
-
-    shouldScrollRef.current = false;
-  }, [step]);
+  const set = <K extends keyof FormShape>(k: K, v: FormShape[K]) =>
+    setForm((prev) => ({ ...prev, [k]: v }));
 
   /* ===== Derived lists ===== */
 
@@ -151,13 +235,20 @@ export default function NewProject() {
     return bucket ? [...bucket.types].sort((a, b) => a.localeCompare(b)) : [];
   }, [form.category]);
 
-  const set = <K extends keyof FormShape>(k: K, v: FormShape[K]) =>
-    setForm((prev) => ({ ...prev, [k]: v }));
+  const filteredCategories = useMemo(() => {
+    if (!categorySearch.trim()) return CATEGORY_OPTIONS;
+    const q = categorySearch.toLowerCase();
+    return CATEGORY_OPTIONS.filter((c) => c.toLowerCase().includes(q));
+  }, [CATEGORY_OPTIONS, categorySearch]);
+
+  const filteredSubtypes = useMemo(() => {
+    if (!subtypeSearch.trim()) return SUBTYPE_OPTIONS;
+    const q = subtypeSearch.toLowerCase();
+    return SUBTYPE_OPTIONS.filter((t) => t.toLowerCase().includes(q));
+  }, [SUBTYPE_OPTIONS, subtypeSearch]);
 
   /* ===== Steps ===== */
 
-  // "details" step is injected only when a selected work type matches a spec.
-  // All other work types keep the existing flow untouched.
   const categorySpec = useMemo(
     () => getSpecForSelection(form.selectedTypes),
     [form.selectedTypes],
@@ -170,23 +261,24 @@ export default function NewProject() {
   }, [categorySpec?.id]);
 
   const STEPS = useMemo(() => {
-    const base: Array<{ key: string; title: string }> = [
-      { key: "category", title: "Choose category" },
-      { key: "subtypes", title: "Type of work" },
-      { key: "location", title: "Location" },
-      { key: "propertyType", title: "Property type" },
-      { key: "bedrooms", title: "Bedrooms" },
+    const base: Array<{ key: string; title: string; subtitle: string }> = [
+      { key: "category", title: "What do you need done?", subtitle: "Pick a category to get started." },
+      { key: "subtypes", title: form.category ? `What type of ${(form.category || "").toLowerCase()} work?` : "Type of work", subtitle: "Select all that apply." },
+      { key: "location", title: "Where is the job?", subtitle: "Enter a postcode or area name." },
+      { key: "propertyType", title: "What type of property?", subtitle: "This helps tradespeople prepare an accurate quote." },
+      { key: "bedrooms", title: "How many bedrooms?", subtitle: "Helps tradespeople estimate the size of the job." },
     ];
     const details = categorySpec
-      ? [{ key: "details", title: categorySpec.groups[0].title }]
+      ? [{ key: "details", title: categorySpec.groups[0].title, subtitle: "These details help us match you with the right tradesperson." }]
       : [];
     return [
       ...base,
       ...details,
-      { key: "description", title: "Brief description" },
-      { key: "review", title: "Review & create" },
+      { key: "extras", title: "A few more details", subtitle: "These help tradespeople give you an accurate quote." },
+      { key: "description", title: "Describe the job", subtitle: "Add any details that will help tradespeople understand what you need." },
+      { key: "review", title: "Review your job", subtitle: "Check everything looks right before posting." },
     ];
-  }, [categorySpec]);
+  }, [categorySpec, form.category]);
 
   const maxStep = STEPS.length - 1;
 
@@ -212,21 +304,23 @@ export default function NewProject() {
       case "subtypes":
         return hasAnySubtype();
       case "location":
+        return !!form.location.trim();
       case "propertyType":
-        return !!String(form[key as "location" | "propertyType"]).trim();
+        return !!form.propertyType.trim();
       case "bedrooms":
         return Number(form.bedrooms) >= 0;
       case "details":
         return Object.keys(detailsStepErrors()).length === 0;
+      case "extras":
+        return true;
       case "description":
-        return form.description.trim().length >= 2;
+        return true;
       case "review":
         return (
           !!form.category &&
           hasAnySubtype() &&
           !!form.location.trim() &&
           !!form.propertyType.trim() &&
-          String(form.description).trim().length >= 2 &&
           Object.keys(detailsStepErrors()).length === 0
         );
       default:
@@ -234,18 +328,10 @@ export default function NewProject() {
     }
   }
 
-  /* ===== Navigation helpers ===== */
-
-  const autoNext = (force = false) => {
-    if (step < maxStep && (force || isStepValid(step))) {
-      shouldScrollRef.current = true;
-      setStep((s) => s + 1);
-    }
-  };
+  /* ===== Navigation ===== */
 
   const next = () => {
     if (step >= maxStep) return;
-
     if (STEPS[step].key === "details") {
       const errs = detailsStepErrors();
       if (Object.keys(errs).length > 0) {
@@ -254,9 +340,7 @@ export default function NewProject() {
       }
       setAnswerErrors({});
     }
-
     if (isStepValid(step)) {
-      shouldScrollRef.current = true;
       setErr(null);
       setStep((s) => s + 1);
     }
@@ -264,9 +348,15 @@ export default function NewProject() {
 
   const back = () => {
     if (step === 0) return;
-    shouldScrollRef.current = true;
     setErr(null);
     setStep((s) => Math.max(0, s - 1));
+  };
+
+  const goToStep = (idx: number) => {
+    if (idx < step) {
+      setErr(null);
+      setStep(idx);
+    }
   };
 
   /* ===== Submit ===== */
@@ -305,11 +395,27 @@ export default function NewProject() {
         categorySpec &&
         Object.keys(form.answers).some((k) => k !== "_version");
 
+      // Build description from structured fields + free text
+      const descLines: string[] = [];
+      if (form.timeframe) descLines.push(`Timeframe: ${form.timeframe}.`);
+      if (form.budget) descLines.push(`Budget: ${form.budget}.`);
+      if (form.materials) descLines.push(`Materials: ${form.materials}.`);
+      if (form.access.length > 0) {
+        const accessChips = getAccessChips(form.category);
+        const labels = form.access.map((v) => {
+          const chip = accessChips.find((c) => c.value === v);
+          return chip ? chip.label : v;
+        });
+        descLines.push(`Access: ${labels.join(", ")}.`);
+      }
+      if (form.description.trim()) descLines.push(form.description.trim());
+      const fullDescription = normalize(descLines.join("\n") + descExtras);
+
       const payload = {
         name: autoName,
         type: primaryType,
         location: form.location,
-        description: normalize((form.description || "") + descExtras),
+        description: fullDescription,
         propertyType: form.propertyType,
         bedrooms: Number(form.bedrooms) || 0,
         ...(hasAnswers ? { answers: form.answers } : {}),
@@ -317,10 +423,8 @@ export default function NewProject() {
 
       const { data } = await api.post("/api/projects", payload);
       trackProjectCreated(data.project.id, payload.type);
-      // Brief pause so the user sees the "Creating your job..." state
       await new Promise((r) => setTimeout(r, 1200));
       router.replace(`/projects/${data.project.id}?justCreated=1`);
-      // Don't reset busy — page is redirecting, button stays disabled
     } catch (e: any) {
       setErr(e?.response?.data?.error || "Failed to create");
       creatingRef.current = false;
@@ -340,21 +444,11 @@ export default function NewProject() {
             (t) => t.toLowerCase() !== label.toLowerCase(),
           )
         : [...prev.selectedTypes, label];
-
       return { ...prev, selectedTypes: next };
     });
   }
 
-  /* ===== IDs & preview ===== */
-
-  const ids = {
-    category: "np-category",
-    subtypes: "np-subtypes",
-    location: "np-location",
-    propertyType: "np-property",
-    bedrooms: "np-beds",
-    description: "np-desc",
-  };
+  /* ===== Preview ===== */
 
   const primaryPreview =
     form.selectedTypes[0] || (form.otherEnabled ? form.otherText.trim() : "");
@@ -369,6 +463,8 @@ export default function NewProject() {
 
   if (!roleChecked) return null;
 
+  const currentStep = STEPS[step];
+
   return (
     <AuthedOnly>
       <Head>
@@ -376,309 +472,528 @@ export default function NewProject() {
       </Head>
 
       <div className="relative min-h-screen overflow-hidden -mt-14">
-
-        <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-16 sm:pt-20 pb-8">
-          {/* Wizard card */}
+        <div className="relative z-10 mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 pt-4 sm:pt-20 pb-8">
           <div className="relative w-full overflow-hidden rounded-3xl bg-white shadow-xl shadow-zinc-200/60">
-            {/* Header inside card */}
-            <div className="px-4 pt-4 pb-3 sm:px-10 sm:pt-8 sm:pb-5 border-b border-zinc-100">
-              <div className="flex items-center justify-between">
-                <h1 className="text-xl sm:text-2xl font-black tracking-tight text-zinc-900">
-                  Post a job
-                </h1>
+
+            {/* Progress dots + step counter */}
+            <div className="flex items-center gap-1.5 px-6 pt-6 sm:px-10 sm:pt-8">
+              {STEPS.map((_, i) => (
                 <button
+                  key={i}
                   type="button"
-                  onClick={() => router.push("/projects")}
-                  className="hidden sm:flex items-center gap-2 text-sm font-medium text-zinc-500 hover:text-zinc-900 transition-colors"
-                  data-testid="btn-back-to-projects"
-                >
-                  <span className="text-lg">&#8592;</span>
-                  Back
-                </button>
-              </div>
-              <div ref={scrollRef} className="mt-3">
-                <ProgressBar current={step} total={STEPS.length} />
-              </div>
+                  onClick={() => { if (i < step) goToStep(i); }}
+                  className={`h-2 rounded-full transition-all duration-300 flex-1 ${
+                    i < step ? "bg-green-500 cursor-pointer hover:bg-green-400" : i === step ? "bg-amber-500 cursor-default" : "bg-zinc-200 cursor-default"
+                  }`}
+                  aria-label={`Go to step ${i + 1}`}
+                  disabled={i >= step}
+                />
+              ))}
             </div>
-            <div
-              className="flex w-full transition-transform duration-300 ease-out"
-              style={{ transform: `translateX(-${step * 100}%)` }}
-            >
-              {STEPS.map((s, idx) => {
-                const titleId = `step-${s.key}-title`;
 
-                return (
-                  <section
-                    key={s.key}
-                    role="region"
-                    aria-labelledby={titleId}
-                    className="w-full shrink-0 px-6 py-4 sm:px-10 sm:py-8 min-h-[20rem] sm:min-h-[28rem]"
-                  >
-                    <h2
-                      id={titleId}
-                      className="max-w-3xl mx-auto text-xl font-black text-zinc-900"
+            {/* Active step content */}
+            <div className="px-6 py-6 sm:px-10 sm:py-10 min-h-[28rem] flex flex-col items-center text-center relative">
+
+              {/* Close button */}
+              <button
+                type="button"
+                onClick={() => router.push("/projects")}
+                className="absolute top-1 right-1 sm:top-2 sm:right-2 w-8 h-8 rounded-full border-2 border-zinc-200 bg-white text-zinc-400 hover:text-zinc-900 hover:border-zinc-300 flex items-center justify-center text-sm transition-colors"
+                aria-label="Cancel"
+                data-testid="btn-cancel"
+              >
+                &#10005;
+              </button>
+
+              <div className="text-xs font-semibold text-amber-500 uppercase tracking-wider mb-2">
+                Step {step + 1} of {STEPS.length}
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-black text-zinc-900 mb-1" data-testid="step-title">
+                {currentStep.title}
+              </h2>
+              <p className="text-sm text-zinc-500 mb-8">
+                {currentStep.subtitle}
+              </p>
+
+              {/* ===== CATEGORY ===== */}
+              {currentStep.key === "category" && (
+                <div className="max-w-lg w-full" data-testid="field-category">
+                  <div className="relative mb-5">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">&#128269;</span>
+                    <input
+                      type="text"
+                      className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-zinc-200 text-sm font-medium text-zinc-900 placeholder:text-zinc-400 focus:border-amber-500 focus:outline-none transition-colors"
+                      placeholder="Search categories..."
+                      value={categorySearch}
+                      onChange={(e) => setCategorySearch(e.target.value)}
+                      data-testid="category-search"
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                  {filteredCategories.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => {
+                        set("category", cat);
+                        set("selectedTypes", []);
+                        set("otherEnabled", false);
+                        set("otherText", "");
+                        setSubtypeSearch("");
+                        setTimeout(() => setStep((s) => s + 1), 150);
+                      }}
+                      className={`flex flex-col items-center gap-1.5 p-4 rounded-2xl border-2 transition-all text-center ${
+                        form.category === cat
+                          ? "border-amber-500 bg-amber-50"
+                          : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50"
+                      }`}
+                      data-testid={`category-${cat}`}
                     >
-                      {s.title}
-                    </h2>
+                      <span className="text-2xl">{CATEGORY_ICONS[cat] || "\u{1F3E0}"}</span>
+                      <span className="text-xs font-semibold text-zinc-700 leading-tight">{cat}</span>
+                    </button>
+                  ))}
+                  {filteredCategories.length === 0 && categorySearch && (
+                    <p className="col-span-3 text-sm text-zinc-400 text-center py-4">No categories match &ldquo;{categorySearch}&rdquo;</p>
+                  )}
+                  </div>
+                </div>
+              )}
 
-                    <div className="mt-5 grid max-w-3xl mx-auto gap-4">
-                      {/* Category */}
-                      {s.key === "category" && (
-                        <SearchableSelect
-                          id={ids.category}
-                          label="Category"
-                          placeholder="Select category"
-                          value={form.category}
-                          onChange={(v) => {
-                            set("category", v);
-                            set("selectedTypes", []);
-                            set("otherEnabled", false);
-                            set("otherText", "");
-                            if (v && v.trim().length > 0) autoNext(true);
-                          }}
-                          options={CATEGORY_OPTIONS}
-                          dataTestId="field-category"
-                          mode="select"
-                        />
-                      )}
-
-                      {/* Subtypes */}
-                      {s.key === "subtypes" && (
-                        <div>
-                          {!form.category ? (
-                            <p className="text-sm text-zinc-400">
-                              Pick a category first.
-                            </p>
-                          ) : (
-                            <>
-                              <div className="text-xs text-zinc-400 mb-3">
-                                Select all that apply
-                              </div>
-
-                              <div
-                                id={ids.subtypes}
-                                className="grid grid-cols-1 sm:grid-cols-2 gap-2"
-                              >
-                                {SUBTYPE_OPTIONS.map((t) => {
-                                  const checked = form.selectedTypes.some(
-                                    (x) => x.toLowerCase() === t.toLowerCase(),
-                                  );
-                                  return (
-                                    <label
-                                      key={t}
-                                      className={`flex items-center gap-2 rounded-xl border-2 px-3 py-2 cursor-pointer transition ${
-                                        checked
-                                          ? "border-red-300 bg-red-50"
-                                          : "border-zinc-200 hover:bg-zinc-50"
-                                      }`}
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        className="checkbox"
-                                        checked={checked}
-                                        onChange={(e) => {
-                                          e.stopPropagation();
-                                          toggleSubtype(t);
-                                        }}
-                                      />
-                                      <span className="text-sm text-zinc-800">{t}</span>
-                                    </label>
-                                  );
-                                })}
-                              </div>
-
-                              {/* Other */}
-                              <div className="mt-3 rounded-xl border-2 border-zinc-200 p-3">
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    className="checkbox"
-                                    checked={form.otherEnabled}
-                                    onChange={(e) =>
-                                      set("otherEnabled", e.target.checked)
-                                    }
-                                  />
-                                  <span className="text-sm text-zinc-700">Other…</span>
-                                </label>
-
-                                {form.otherEnabled && (
-                                  <input
-                                    className="mt-2 w-full rounded-xl border-2 border-zinc-200 px-4 py-2.5 text-zinc-900 placeholder:text-zinc-400 focus:border-red-400 focus:outline-none transition-colors text-sm"
-                                    placeholder="Describe another type of work"
-                                    value={form.otherText}
-                                    onChange={(e) => {
-                                      set("otherText", e.target.value);
-                                    }}
-                                  />
-                                )}
-                              </div>
-                            </>
-                          )}
+              {/* ===== SUBTYPES ===== */}
+              {currentStep.key === "subtypes" && (
+                <div className="max-w-lg w-full" data-testid="field-subtypes">
+                  {!form.category ? (
+                    <p className="text-sm text-zinc-400">Pick a category first.</p>
+                  ) : (
+                    <>
+                      {/* Search */}
+                      {SUBTYPE_OPTIONS.length > 6 && (
+                        <div className="relative mb-5">
+                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">&#128269;</span>
+                          <input
+                            type="text"
+                            className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-zinc-200 text-sm font-medium text-zinc-900 placeholder:text-zinc-400 focus:border-amber-500 focus:outline-none transition-colors"
+                            placeholder="Search work types..."
+                            value={subtypeSearch}
+                            onChange={(e) => setSubtypeSearch(e.target.value)}
+                            data-testid="subtypes-search"
+                          />
                         </div>
                       )}
 
-                      {/* Location */}
-                      {s.key === "location" && (
-                        <LocationField
-                          id={ids.location}
-                          label="Location"
-                          value={form.location}
-                          onChange={(v, meta) => {
-                            set("location", v.toUpperCase());
-                          }}
-                          onDisplayChange={(display) => {
-                            set("locationDisplay", display);
-                          }}
-                          dataTestId="field-location"
-                        />
-                      )}
-
-                      {/* Property type */}
-                      {s.key === "propertyType" && (
-                        <Select
-                          id={ids.propertyType}
-                          label="Property type"
-                          placeholder="Select property type"
-                          value={form.propertyType || null}
-                          onChange={(v) => {
-                            set("propertyType", v);
-                          }}
-                          options={Array.from(PROPERTY_TYPES)}
-                        />
-                      )}
-
-                      {/* Bedrooms */}
-                      {s.key === "bedrooms" && (
-                        <BedroomsSelect
-                          id={ids.bedrooms}
-                          value={Number(form.bedrooms) || 0}
-                          onChange={(n) => {
-                            set("bedrooms", n);
-                          }}
-                        />
-                      )}
-
-                      {/* Category-specific dynamic fields */}
-                      {s.key === "details" && categorySpec && (
-                        <div className="space-y-6">
-                          {categorySpec.groups.map((g) => (
-                            <DynamicFieldGroup
-                              key={g.id}
-                              group={g}
-                              value={form.answers}
-                              onChange={(nextAnswers) =>
-                                set("answers", nextAnswers)
-                              }
-                              errors={answerErrors}
-                            />
+                      {/* Selected pills */}
+                      {form.selectedTypes.length > 0 && (
+                        <div className="flex flex-wrap gap-2 justify-center mb-4">
+                          {form.selectedTypes.map((t) => (
+                            <span
+                              key={t}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 border-2 border-amber-500 text-amber-800"
+                            >
+                              {t}
+                              <button
+                                type="button"
+                                onClick={() => toggleSubtype(t)}
+                                className="w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center text-[10px] font-bold leading-none"
+                              >
+                                x
+                              </button>
+                            </span>
                           ))}
                         </div>
                       )}
 
-                      {/* Description */}
-                      {s.key === "description" && (
-                        <DescriptionBuilder
-                          value={form.description}
-                          onChange={(nextVal) => set("description", nextVal)}
-                          category={form.category}
-                        />
-                      )}
-
-                      {/* Review */}
-                      {s.key === "review" && (
-                        <div className="space-y-3 text-sm">
-                          <ReviewRow
-                            label="Project name (auto)"
-                            value={reviewAutoName}
-                          />
-                          <ReviewRow
-                            label="Category"
-                            value={form.category || "—"}
-                          />
-                          <ReviewRow
-                            label="Type(s) of work"
-                            value={
-                              [
-                                ...form.selectedTypes,
-                                ...(form.otherEnabled && form.otherText.trim()
-                                  ? [normalize(form.otherText)]
-                                  : []),
-                              ].join(", ") || "—"
-                            }
-                          />
-                          <ReviewRow label="Location" value={form.locationDisplay || form.location} />
-                          <ReviewRow
-                            label="Property type"
-                            value={form.propertyType}
-                          />
-                          <ReviewRow
-                            label="Bedrooms"
-                            value={String(form.bedrooms || 0)}
-                          />
-                          <ReviewRow
-                            label="Description"
-                            value={form.description}
-                            multiline
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    {err && idx === step && (
-                      <p
-                        className="mt-3 max-w-3xl mx-auto text-sm text-red-500 font-medium"
-                        role="alert"
-                      >
-                        {err}
-                      </p>
-                    )}
-
-                    {/* Navigation buttons – only from step 1 onwards */}
-                    {idx === step && step > 0 && (
-                      <div className="mt-10 flex max-w-3xl mx-auto items-center justify-center gap-4">
-                        <button
-                          type="button"
-                          onClick={back}
-                          disabled={busy}
-                          className="inline-flex items-center gap-2 rounded-full border-2 border-zinc-200 bg-white px-6 py-3 text-sm font-bold text-zinc-700 hover:bg-zinc-50 disabled:opacity-40 transition-all"
-                        >
-                          Previous
-                        </button>
-
-                        {step < maxStep ? (
-                          <button
-                            type="button"
-                            onClick={next}
-                            disabled={!isStepValid(step) || busy}
-                            className="inline-flex items-center gap-2 rounded-full bg-red-500 px-8 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] disabled:opacity-40 disabled:scale-100 disabled:shadow-none transition-all"
-                          >
-                            Next
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={onCreate}
-                            disabled={!isStepValid(step) || busy}
-                            className={`inline-flex items-center gap-2 rounded-full px-8 py-3 text-sm font-bold text-white shadow-lg transition-all ${
-                              busy
-                                ? "bg-zinc-400 cursor-not-allowed shadow-none"
-                                : "bg-red-500 shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] active:scale-95"
-                            } disabled:opacity-40 disabled:scale-100 disabled:shadow-none`}
-                          >
-                            {busy && (
-                              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
-                                <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
-                              </svg>
-                            )}
-                            {busy ? "Creating your job..." : "Create project"}
-                          </button>
+                      {/* Chip list */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5" id="np-subtypes">
+                        {filteredSubtypes.map((t) => {
+                          const checked = form.selectedTypes.some(
+                            (x) => x.toLowerCase() === t.toLowerCase(),
+                          );
+                          return (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={() => toggleSubtype(t)}
+                              className={`flex items-center gap-2.5 px-4 h-12 rounded-xl border-2 text-sm font-medium transition-all text-left ${
+                                checked
+                                  ? "border-amber-500 bg-amber-50 text-amber-800"
+                                  : "border-zinc-200 text-zinc-700 hover:border-zinc-300"
+                              }`}
+                            >
+                              <span className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center border-2 text-[10px] font-bold ${
+                                checked ? "bg-amber-500 border-amber-500 text-white" : "border-zinc-300"
+                              }`}>
+                                {checked && "\u2713"}
+                              </span>
+                              {t}
+                            </button>
+                          );
+                        })}
+                        {filteredSubtypes.length === 0 && subtypeSearch && (
+                          <p className="col-span-2 text-sm text-zinc-400 text-center py-4">No matches for &ldquo;{subtypeSearch}&rdquo;</p>
                         )}
                       </div>
+
+                      {/* Other */}
+                      <div className="mt-4">
+                        <button
+                          type="button"
+                          onClick={() => set("otherEnabled", !form.otherEnabled)}
+                          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${
+                            form.otherEnabled
+                              ? "border-amber-500 bg-amber-50 text-amber-800"
+                              : "border-zinc-200 text-zinc-700 hover:border-zinc-300"
+                          }`}
+                        >
+                          Other...
+                        </button>
+                        {form.otherEnabled && (
+                          <input
+                            className="mt-3 w-full rounded-xl border-2 border-zinc-200 px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-500 focus:outline-none transition-colors"
+                            placeholder="Describe another type of work"
+                            value={form.otherText}
+                            onChange={(e) => set("otherText", e.target.value)}
+                            data-testid="field-other-text"
+                          />
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* ===== LOCATION ===== */}
+              {currentStep.key === "location" && (
+                <div className="max-w-sm w-full text-left" data-testid="field-location-wrap">
+                  <LocationField
+                    id="np-location"
+                    label=""
+                    value={form.location}
+                    onChange={(v) => set("location", v.toUpperCase())}
+                    onDisplayChange={(display) => set("locationDisplay", display)}
+                    dataTestId="field-location"
+                  />
+                </div>
+              )}
+
+              {/* ===== PROPERTY TYPE ===== */}
+              {currentStep.key === "propertyType" && (
+                <div className="grid grid-cols-2 gap-3 max-w-md w-full">
+                  {PROPERTY_TYPES.map((pt) => (
+                    <button
+                      key={pt.label}
+                      type="button"
+                      onClick={() => {
+                        set("propertyType", pt.label);
+                        setTimeout(() => setStep((s) => s + 1), 150);
+                      }}
+                      className={`flex items-center gap-3 px-4 h-14 rounded-2xl border-2 text-left transition-all ${
+                        form.propertyType === pt.label
+                          ? "border-amber-500 bg-amber-50"
+                          : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50"
+                      }`}
+                      data-testid={`property-${pt.label}`}
+                    >
+                      <span className="text-xl">{pt.icon}</span>
+                      <span className="text-sm font-semibold text-zinc-700">{pt.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* ===== BEDROOMS ===== */}
+              {currentStep.key === "bedrooms" && (
+                <div className="flex gap-3 justify-center" data-testid="field-bedrooms">
+                  {BEDROOM_OPTIONS.map((b) => {
+                    const numVal = b.endsWith("+") ? parseInt(b, 10) : parseInt(b, 10);
+                    const selected = form.bedrooms === numVal;
+                    return (
+                      <button
+                        key={b}
+                        type="button"
+                        onClick={() => {
+                          set("bedrooms", numVal);
+                          setTimeout(() => setStep((s) => s + 1), 150);
+                        }}
+                        className={`w-14 h-14 rounded-2xl border-2 text-lg font-bold transition-all ${
+                          selected
+                            ? "border-amber-500 bg-amber-50 text-amber-800"
+                            : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
+                        }`}
+                        data-testid={`beds-${b}`}
+                      >
+                        {b}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* ===== CATEGORY-SPECIFIC DETAILS ===== */}
+              {currentStep.key === "details" && categorySpec && (
+                <div className="max-w-md w-full text-left space-y-6">
+                  {categorySpec.groups.map((g) => (
+                    <DynamicFieldGroup
+                      key={g.id}
+                      group={g}
+                      value={form.answers}
+                      onChange={(nextAnswers) => set("answers", nextAnswers)}
+                      errors={answerErrors}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* ===== EXTRAS (timeframe, budget, materials, access) ===== */}
+              {currentStep.key === "extras" && (
+                <div className="max-w-lg w-full text-left space-y-8">
+                  <div>
+                    <div className="text-sm font-semibold text-zinc-700 mb-3">When do you need this done?</div>
+                    <div className="grid grid-cols-2 gap-2" data-testid="field-timeframe">
+                      {TIMEFRAMES.map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => set("timeframe", form.timeframe === t ? "" : t)}
+                          className={`px-4 h-11 rounded-xl border-2 text-sm font-medium transition-all ${
+                            form.timeframe === t
+                              ? "border-amber-500 bg-amber-50 text-amber-800"
+                              : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-sm font-semibold text-zinc-700 mb-3">What is your budget?</div>
+                    <div className="grid grid-cols-3 gap-2" data-testid="field-budget">
+                      {BUDGETS.map((b) => (
+                        <button
+                          key={b}
+                          type="button"
+                          onClick={() => set("budget", form.budget === b ? "" : b)}
+                          className={`px-4 h-11 rounded-xl border-2 text-sm font-medium transition-all ${
+                            form.budget === b
+                              ? "border-amber-500 bg-amber-50 text-amber-800"
+                              : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
+                          }`}
+                        >
+                          {b}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-sm font-semibold text-zinc-700 mb-3">Who is supplying materials?</div>
+                    <div className="grid grid-cols-2 gap-2" data-testid="field-materials">
+                      {MATERIALS_OPTIONS.map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => set("materials", form.materials === m ? "" : m)}
+                          className={`px-4 h-11 rounded-xl border-2 text-sm font-medium transition-all ${
+                            form.materials === m
+                              ? "border-amber-500 bg-amber-50 text-amber-800"
+                              : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
+                          }`}
+                        >
+                          {m}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-sm font-semibold text-zinc-700 mb-3">Access and constraints</div>
+                    <div className="grid grid-cols-2 gap-2" data-testid="field-access">
+                      {getAccessChips(form.category).map((a) => {
+                        const selected = form.access.includes(a.value);
+                        return (
+                          <button
+                            key={a.value}
+                            type="button"
+                            onClick={() => {
+                              set("access", selected
+                                ? form.access.filter((v) => v !== a.value)
+                                : [...form.access, a.value]
+                              );
+                            }}
+                            className={`px-4 h-11 rounded-xl border-2 text-sm font-medium transition-all text-left ${
+                              selected
+                                ? "border-amber-500 bg-amber-50 text-amber-800"
+                                : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
+                            }`}
+                          >
+                            {a.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ===== DESCRIPTION ===== */}
+              {currentStep.key === "description" && (
+                <div className="max-w-lg w-full">
+                  <textarea
+                    className="w-full min-h-[160px] p-4 rounded-2xl border-2 border-zinc-200 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-500 focus:outline-none transition-colors resize-vertical leading-relaxed"
+                    placeholder="e.g. We have a 3-bed semi and want external wall insulation on the front and side walls. The house was built in the 1930s and has no cavity..."
+                    value={form.description}
+                    maxLength={200}
+                    onChange={(e) => set("description", e.target.value)}
+                    data-testid="field-description"
+                  />
+                  <div className={`text-right text-xs mt-1.5 ${form.description.length >= 200 ? "text-red-500 font-semibold" : "text-zinc-400"}`}>
+                    {form.description.length} / 200
+                  </div>
+                </div>
+              )}
+
+              {/* ===== REVIEW ===== */}
+              {currentStep.key === "review" && (
+                <div className="max-w-lg w-full text-left space-y-0">
+                  <ReviewSection label="Category" value={form.category || ""} onEdit={() => goToStep(0)} />
+                  <ReviewSection
+                    label="Type of work"
+                    value={[
+                      ...form.selectedTypes,
+                      ...(form.otherEnabled && form.otherText.trim() ? [normalize(form.otherText)] : []),
+                    ].join(", ")}
+                    onEdit={() => goToStep(1)}
+                  />
+                  <ReviewSection label="Location" value={form.locationDisplay || form.location} onEdit={() => goToStep(2)} />
+                  <ReviewSection label="Property" value={`${form.propertyType}, ${form.bedrooms} bedroom${form.bedrooms !== 1 ? "s" : ""}`} onEdit={() => goToStep(3)} />
+                  {categorySpec && (() => {
+                    const specAnswers = form.answers[categorySpec.groups[0].id];
+                    if (!specAnswers || typeof specAnswers !== "object") return null;
+                    const parts: string[] = [];
+                    for (const field of categorySpec.groups[0].fields) {
+                      const val = specAnswers[field.key];
+                      if (val == null || val === "") continue;
+                      if (field.kind === "number") {
+                        const unit = field.unit === "m2" ? "m\u00B2" : field.unit === "count" ? " rooms" : "";
+                        parts.push(`${field.label}: ${val}${unit}`);
+                      } else if (field.kind === "select") {
+                        const opt = field.options.find((o) => o.value === val);
+                        parts.push(`${field.label}: ${opt ? opt.label : val}`);
+                      } else if (field.kind === "boolean") {
+                        if (val === true) parts.push(field.label);
+                      } else if (field.kind === "either" && val && typeof val === "object") {
+                        const unit = val.kind === "m2" ? "m\u00B2" : val.kind === "rooms" ? " rooms" : "";
+                        parts.push(`${field.branches ? field.branches.find((b: any) => b.key === val.kind)?.label || val.kind : val.kind}: ${val.value}${unit}`);
+                      }
+                    }
+                    if (parts.length === 0) return null;
+                    return (
+                      <ReviewSection
+                        label={categorySpec.groups[0].title}
+                        value={parts.join(" \u2022 ")}
+                        onEdit={() => {
+                          const detIdx = STEPS.findIndex((s) => s.key === "details");
+                          if (detIdx >= 0) goToStep(detIdx);
+                        }}
+                      />
+                    );
+                  })()}
+                  <ReviewSection
+                    label="Details"
+                    value={[
+                      form.timeframe,
+                      form.budget ? `Budget: ${form.budget}` : "",
+                      form.materials,
+                      ...(form.access.length > 0 ? [form.access.map((v) => {
+                        const chip = getAccessChips(form.category).find((c) => c.value === v);
+                        return chip ? chip.label : v;
+                      }).join(", ")] : []),
+                    ].filter(Boolean).join(" \u2022 ")}
+                    onEdit={() => {
+                      const extrasIdx = STEPS.findIndex((s) => s.key === "extras");
+                      if (extrasIdx >= 0) goToStep(extrasIdx);
+                    }}
+                  />
+                  <ReviewSection
+                    label="Description"
+                    value={form.description}
+                    onEdit={() => {
+                      const descIdx = STEPS.findIndex((s) => s.key === "description");
+                      if (descIdx >= 0) goToStep(descIdx);
+                    }}
+                    last
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Error */}
+            {err && (
+              <p className="px-6 sm:px-10 -mt-4 pb-2 text-sm text-red-500 font-medium text-center" role="alert">
+                {err}
+              </p>
+            )}
+
+            {/* Bottom navigation */}
+            <div className="flex items-center justify-between px-6 pb-6 sm:px-10 sm:pb-8">
+                {step > 0 ? (
+                  <button
+                    type="button"
+                    onClick={back}
+                    disabled={busy}
+                    className="inline-flex items-center gap-1 px-4 py-2.5 rounded-xl border-2 border-zinc-200 text-xs sm:text-sm font-semibold text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 disabled:opacity-40 transition-all"
+                    data-testid="btn-prev"
+                  >
+                    &#8592; Previous
+                  </button>
+                ) : <div />}
+
+                {step < maxStep ? (
+                  step === 0 ? null : (
+                  <button
+                    type="button"
+                    onClick={next}
+                    disabled={!isStepValid(step) || busy}
+                    className="inline-flex items-center gap-1 px-5 py-2.5 rounded-xl bg-amber-500 text-xs sm:text-sm font-bold text-white shadow-lg shadow-amber-500/25 hover:bg-amber-600 disabled:opacity-40 disabled:shadow-none transition-all"
+                    data-testid="btn-next"
+                  >
+                    Continue &#8594;
+                  </button>)
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onCreate}
+                    disabled={!isStepValid(step) || busy}
+                    className={`inline-flex items-center gap-1 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white shadow-lg transition-all ${
+                      busy
+                        ? "bg-zinc-400 cursor-not-allowed shadow-none"
+                        : "bg-green-500 shadow-green-500/25 hover:bg-green-600"
+                    } disabled:opacity-40 disabled:shadow-none`}
+                    data-testid="btn-create"
+                  >
+                    {busy && (
+                      <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+                        <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
+                      </svg>
                     )}
-                  </section>
-                );
-              })}
+                    {busy ? "Creating..." : "Post my job \u2192"}
+                  </button>
+                )}
+              </div>
+
+            {/* Progress dots at bottom */}
+            <div className="flex items-center justify-center gap-1.5 pb-6">
+              {STEPS.map((_, i) => (
+                <div
+                  key={i}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    i === step ? "w-5 bg-amber-500" : i < step ? "w-1.5 bg-green-500" : "w-1.5 bg-zinc-200"
+                  }`}
+                />
+              ))}
             </div>
           </div>
         </div>
@@ -687,31 +1002,32 @@ export default function NewProject() {
   );
 }
 
-/* ====== Review Row ====== */
+/* ====== Review Section ====== */
 
-function ReviewRow({
+function ReviewSection({
   label,
   value,
-  multiline,
+  onEdit,
+  last,
 }: {
   label: string;
   value: string;
-  multiline?: boolean;
+  onEdit: () => void;
+  last?: boolean;
 }) {
   return (
-    <div>
-      <div className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1">
-        {label}
+    <div className={`flex items-start justify-between py-4 ${last ? "" : "border-b border-zinc-100"}`}>
+      <div>
+        <div className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">{label}</div>
+        <div className="text-sm font-medium text-zinc-900">{value || "\u2014"}</div>
       </div>
-      {multiline ? (
-        <p className="whitespace-pre-wrap rounded-2xl border-2 border-zinc-100 bg-zinc-50 p-4 text-zinc-800">
-          {value || "—"}
-        </p>
-      ) : (
-        <div className="rounded-2xl border-2 border-zinc-100 bg-zinc-50 px-4 py-2.5 text-zinc-800">
-          {value || "—"}
-        </div>
-      )}
+      <button
+        type="button"
+        onClick={onEdit}
+        className="text-xs font-semibold text-amber-500 hover:text-amber-600 ml-4 flex-shrink-0 mt-0.5"
+      >
+        Edit
+      </button>
     </div>
   );
 }

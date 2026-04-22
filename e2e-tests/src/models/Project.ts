@@ -108,7 +108,7 @@ export default class Project {
 
       // IMPORTANT: these default values must match the UI option strings
       timeframe: "Urgent (1-2 weeks)",
-      budget: "£30k-£60k",
+      budget: "5k - 15k",
       materials: "Supplied by homeowner",
       access: "Parking available",
       extraNotes: chance.sentence({ words: 8 }).replace(/\.$/, "."),
@@ -215,15 +215,13 @@ export default class Project {
 
   expectedDescriptionPreview(): string {
     const input = this.toCreateInput();
-    return [
-      `Timeframe: ${ensureEndsWithPeriod(input.timeframe)}`,
-      `Budget: ${ensureEndsWithPeriod(input.budget)}`,
-      `Materials: ${ensureEndsWithPeriod(input.materials)}`,
-      `Access: ${ensureEndsWithPeriod(input.access)}`,
-      ensureEndsWithPeriod(input.extraNotes || ""),
-    ]
-      .filter((x) => normalize(x))
-      .join("\n");
+    const lines: string[] = [];
+    if (input.timeframe) lines.push(`Timeframe: ${ensureEndsWithPeriod(input.timeframe)}`);
+    if (input.budget) lines.push(`Budget: ${ensureEndsWithPeriod(input.budget)}`);
+    if (input.materials) lines.push(`Materials: ${ensureEndsWithPeriod(input.materials)}`);
+    if (input.access) lines.push(`Access: ${ensureEndsWithPeriod(input.access)}`);
+    if (input.extraNotes) lines.push(normalize(input.extraNotes));
+    return lines.join("\n");
   }
 
   /**

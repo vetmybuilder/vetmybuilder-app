@@ -37,4 +37,26 @@ test.describe("POST /api/projects", () => {
         created.updatedAt === created.createdAt,
     ).toBe(true);
   });
+
+  test("rejects a project with description over 500 characters", async ({
+    apiClient,
+  }) => {
+    const project = Project.aProject().withRandomDetails();
+    const payload = project.toApiPayload();
+    payload.description = "x".repeat(501);
+
+    const res = await apiClient.post("/api/projects", payload);
+    expect(res.status()).toBe(400);
+  });
+
+  test("accepts a project with an empty description", async ({
+    apiClient,
+  }) => {
+    const project = Project.aProject().withRandomDetails();
+    const payload = project.toApiPayload();
+    payload.description = "";
+
+    const res = await apiClient.post("/api/projects", payload);
+    expect(res.status()).toBe(201);
+  });
 });

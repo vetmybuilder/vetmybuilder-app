@@ -21,7 +21,7 @@ module.exports = (router, ctx) => {
     name: z.string().min(2).max(120),
     type: z.string().min(2).max(80),
     location: z.string().min(2).max(120),
-    description: z.string().min(2).max(2000),
+    description: z.string().max(500).default(""),
     propertyType: z.string().min(2).max(80),
     bedrooms: z.coerce.number().int().min(0).max(20),
   });

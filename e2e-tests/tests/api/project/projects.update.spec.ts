@@ -241,6 +241,38 @@ test.describe("PUT /api/projects/:id", () => {
     expect(await res.json()).toEqual({ error: "invalid_payload" });
   });
 
+  test("rejects update with description over 500 characters", async ({
+    apiClient,
+  }) => {
+    const createdRes = await apiClient.post(
+      "/api/projects",
+      Project.aProject().withRandomDetails().toPayload(),
+    );
+    expect(createdRes.status()).toBe(201);
+    const { project: created } = await createdRes.json();
+
+    const res = await apiClient.put(`/api/projects/${created.id}`, {
+      description: "x".repeat(501),
+    });
+    expect(res.status()).toBe(400);
+  });
+
+  test("accepts update with empty description", async ({ apiClient }) => {
+    const createdRes = await apiClient.post(
+      "/api/projects",
+      Project.aProject().withRandomDetails().toPayload(),
+    );
+    expect(createdRes.status()).toBe(201);
+    const { project: created } = await createdRes.json();
+
+    const res = await apiClient.put(`/api/projects/${created.id}`, {
+      description: "",
+    });
+    expect(res.status()).toBe(200);
+    const { project } = await res.json();
+    expect(project.description).toBe("");
+  });
+
   test("401 if no auth", async ({ request, runtime }) => {
     const res = await request.put(`${runtime.apiBaseUrl}/api/projects/1`, {
       data: {

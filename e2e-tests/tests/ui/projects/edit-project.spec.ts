@@ -14,7 +14,7 @@ test.describe("Homeowner projects", () => {
       propertyType: "Semi-Detached",
       bedrooms: 4,
       timeframe: "Urgent (1-2 weeks)",
-      budget: "£30k-£60k",
+      budget: "5k - 15k",
       materials: "Supplied by homeowner",
       access: "Parking available",
       extraNotes: "Install new tumble dryer and ensure correct ventilation.",
@@ -30,15 +30,14 @@ test.describe("Homeowner projects", () => {
       dates: { createdAt: created.project?.createdAt ?? created.createdAt },
     });
 
-    // Edit (draft)
     const updatedPropertyType = "Terraced";
     const updatedBedrooms = 3;
-    const updatedTimeframe = "Soon (2–4 weeks)";
-    const updatedBudget = "£15k–£30k";
+    const updatedTimeframe = "Soon (2-4 weeks)";
+    const updatedBudget = "15k - 30k";
     const updatedMaterials = "Mixed (some provided)";
-    const updatedAccess = "Permit required";
+    const updatedAccess = "Street parking only";
     const updatedNotes =
-      "Updated notes: please confirm ventilation, remove old unit, and test before leaving.";
+      "Updated notes: please confirm ventilation and test.";
 
     await projectDetailsPage.editProject();
     await editProjectPage.editProjectDetails(project, {
@@ -84,7 +83,7 @@ test.describe("Homeowner projects", () => {
       propertyType: "Semi-Detached",
       bedrooms: 4,
       timeframe: "Urgent (1-2 weeks)",
-      budget: "£30k-£60k",
+      budget: "5k - 15k",
       materials: "Supplied by homeowner",
       access: "Parking available",
       extraNotes: "Install new tumble dryer and ensure correct ventilation.",
@@ -100,15 +99,14 @@ test.describe("Homeowner projects", () => {
       status: "Live",
     });
 
-    // set as object
     const updatedPropertyType = "Terraced";
     const updatedBedrooms = 3;
-    const updatedTimeframe = "Soon (2–4 weeks)";
-    const updatedBudget = "£15k–£30k";
+    const updatedTimeframe = "Soon (2-4 weeks)";
+    const updatedBudget = "15k - 30k";
     const updatedMaterials = "Mixed (some provided)";
-    const updatedAccess = "Permit required";
+    const updatedAccess = "Street parking only";
     const updatedNotes =
-      "Updated notes (published): please confirm ventilation, remove old unit, and test before leaving.";
+      "Updated notes: confirm ventilation and test.";
 
     await projectDetailsPage.editProject(projectId);
 
@@ -156,7 +154,7 @@ test.describe("Homeowner projects", () => {
         propertyType: "Semi-Detached",
         bedrooms: 4,
         timeframe: "Urgent (1-2 weeks)",
-        budget: "£15k-£30k",
+        budget: "5k - 15k",
         materials: "Supplied by homeowner",
         access: "Parking available",
         extraNotes: "Replace laminate throughout the house.",
@@ -175,8 +173,6 @@ test.describe("Homeowner projects", () => {
       status: "Live",
     });
 
-    // Drive the edit wizard — the page object asserts pre-populated state
-    // step-by-step (including flooring) and applies our requested update.
     await projectDetailsPage.editProject();
     await editProjectPage.editProjectDetails(project, {
       flooringAnswers: {
@@ -216,7 +212,6 @@ test.describe("Homeowner projects", () => {
     projectDetailsPage,
     editProjectPage,
   }) => {
-    // Start with a big engineered-wood job — produces a high range.
     const project = Project.aProject()
       .withRandomDetails({
         category: "Flooring",
@@ -230,10 +225,8 @@ test.describe("Homeowner projects", () => {
     const created = await projectApi.createProject(project.toApiPayload());
 
     await projectDetailsPage.visit(created.id);
-    // 50 m² engineered wood: (25+40)–(40+90) × 50 = 3,250–6,500
     await projectDetailsPage.hasPriceRangeBadge({ min: 3250, max: 6500 });
 
-    // Edit to a much cheaper setup: same area but carpet, no extras.
     await projectDetailsPage.editProject();
     await editProjectPage.editProjectDetails(project, {
       flooringAnswers: {
@@ -242,7 +235,6 @@ test.describe("Homeowner projects", () => {
       },
     });
 
-    // 50 m² carpet: (8+10)–(12+30) × 50 = 900–2,100
     await projectDetailsPage.hasPriceRangeBadge({ min: 900, max: 2100 });
   });
 
@@ -272,13 +264,7 @@ test.describe("Homeowner projects", () => {
       workTypes: ["Tumble Dryer Installation"],
     });
 
-    // Backend state: structured answers cleared.
     await projectApi.hasNoAnswers(created.id);
-
-    // UI: the deterministic range is gone. The badge may still render with
-    // the AI-fallback caveat once the classifier re-runs on the updated
-    // project — that's fine, we only care that it no longer claims to be
-    // derived from the homeowner's (now empty) structured answers.
     await projectDetailsPage.hasNoDeterministicPriceRangeBadge();
   });
 });
