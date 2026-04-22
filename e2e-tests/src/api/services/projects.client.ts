@@ -90,6 +90,19 @@ export function projectsClient(core: ApiCore) {
     return core.post(`/api/projects/${projectId}/magic-link?rotate=1`, {});
   }
 
+  async function unlockProjectWithMockPayment(projectId: number) {
+    const checkoutRes = await core.post(`/api/projects/${projectId}/unlock-contact/checkout`);
+    expect(checkoutRes.ok(), `unlock checkout failed: ${await checkoutRes.text()}`).toBe(true);
+    const checkoutBody = await checkoutRes.json();
+    if (checkoutBody.alreadyUnlocked) return;
+    expect(checkoutBody.sessionId).toBeTruthy();
+    const payRes = await core.post(`/api/payments/mock/pay`, {
+      sessionId: checkoutBody.sessionId,
+      card: { number: "4242 4242 4242 4242", expMonth: 12, expYear: 2030, cvc: "123" },
+    });
+    expect(payRes.ok(), `mock pay failed: ${await payRes.text()}`).toBe(true);
+  }
+
   return {
     getProjectRecommendation,
     findProjectRecommendationByCompany,
@@ -98,5 +111,6 @@ export function projectsClient(core: ApiCore) {
     waitForNotification,
     createProjectMagicLink,
     rotateProjectMagicLink,
+    unlockProjectWithMockPayment,
   };
 }

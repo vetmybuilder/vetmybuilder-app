@@ -1,6 +1,7 @@
 import { test } from "../../../src/ui.fixtures";
 import Project from "../../../src/models/Project";
 import Tradesman from "../../../src/models/tradesman";
+import { authedApiForUid } from "../../../src/api/services/client";
 
 test.describe("Project Insights", () => {
   test("insights card appears on a published project with classification data", async ({
@@ -47,6 +48,8 @@ test.describe("Project Insights", () => {
   });
 
   test("insights card appears in the tradesman accordion view", async ({
+    request,
+    runtime,
     projectApi,
     tradesmanApi,
     adminApi,
@@ -79,15 +82,19 @@ test.describe("Project Insights", () => {
     const tradesmanUid = `e2e-trades-insights-${Date.now()}`;
     await adminApi.setTradesmanStatus(leadId, "active", tradesmanUid);
 
-    // 3. Switch browser session to the tradesman
+    // 3. Unlock the job as the tradesman (payment gate)
+    const tradesmanClient = await authedApiForUid(request, runtime.apiBaseUrl, tradesmanUid);
+    await tradesmanClient.unlockProjectWithMockPayment(created.id);
+
+    // 4. Switch browser session to the tradesman
     await basePage.logoutViaUrl();
     await authHelper.loginAsUid(tradesmanUid);
 
-    // 4. Navigate to tradesman projects and expand the row
+    // 5. Navigate to tradesman projects and expand the row
     await tradesmanProjectsPage.visit();
     await tradesmanProjectsPage.expandProject(created.id);
 
-    // 5. Assert insights are visible with expected classification
+    // 6. Assert insights are visible with expected classification
     await tradesmanProjectsPage.expectInsightsVisible(created.id);
     await tradesmanProjectsPage.expectInsightsContains(created.id, "Project Insights");
     await tradesmanProjectsPage.expectInsightsContains(created.id, "General Builder");
