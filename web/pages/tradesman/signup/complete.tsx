@@ -38,6 +38,13 @@ import {
   buildReviewLinksPayload,
   type ReviewPlatformId,
 } from "@/utils/reviewLinks";
+import type { ServiceArea } from "@/utils/serviceAreas";
+import {
+  addOutward,
+  addBorough,
+  removeAt,
+  flattenServiceAreas,
+} from "@/utils/serviceAreas";
 
 // Keep the drafting key separate from the password-flow register page so
 // a half-finished SSO signup doesn't collide with a half-finished
@@ -59,7 +66,7 @@ export default function TradesmanSsoOnboardingPage() {
     contactName: "",
     phone: "",
     email: "",
-    serviceAreas: [] as string[],
+    serviceAreas: [] as ServiceArea[],
     website: "",
     socials: {
       instagram: "",
@@ -198,7 +205,25 @@ export default function TradesmanSsoOnboardingPage() {
           ...p,
           ...rest,
           tradeTypes: parseCsv(rest.tradeTypes ?? p.tradeTypes),
-          serviceAreas: parseCsv(rest.serviceAreas ?? p.serviceAreas),
+          serviceAreas: Array.isArray(rest.serviceAreas)
+            ? (rest.serviceAreas as unknown[])
+                .map((item): ServiceArea | null => {
+                  if (typeof item === "string") {
+                    const code = item.trim().toUpperCase();
+                    return code ? { kind: "outward", code } : null;
+                  }
+                  if (
+                    item &&
+                    typeof item === "object" &&
+                    "kind" in item &&
+                    ((item as any).kind === "outward" || (item as any).kind === "borough")
+                  ) {
+                    return item as ServiceArea;
+                  }
+                  return null;
+                })
+                .filter((x): x is ServiceArea => x !== null)
+            : [],
           website:
             typeof rest.website === "string"
               ? rest.website
@@ -242,26 +267,15 @@ export default function TradesmanSsoOnboardingPage() {
   );
 
   // ---- helpers (mirror register-tradesmen.tsx) ----
-  function normalizeOutward(input: string): string {
-    const v = (input || "").toUpperCase().trim();
-    const m = v.match(/^([A-Z]{1,2}\d{1,2}[A-Z]?)/);
-    return m ? m[1] : v;
-  }
-
-  const addServiceArea = (raw: string) => {
-    const code = normalizeOutward(raw);
-    if (!code) return;
-    set(
-      "serviceAreas",
-      Array.from(new Set([...(form.serviceAreas || []), code])),
-    );
+  const addServiceAreaOutward = (raw: string) => {
+    set("serviceAreas", addOutward(form.serviceAreas || [], raw));
   };
-
-  const removeServiceArea = (code: string) =>
-    set(
-      "serviceAreas",
-      (form.serviceAreas || []).filter((x) => x !== code),
-    );
+  const addServiceAreaBorough = (name: string, outwardCodes: string[]) => {
+    set("serviceAreas", addBorough(form.serviceAreas || [], name, outwardCodes));
+  };
+  const removeServiceAreaAt = (index: number) => {
+    set("serviceAreas", removeAt(form.serviceAreas || [], index));
+  };
 
   const commitWebsite = () => {
     const url = normalizeAsUrl(websiteInput);
@@ -438,7 +452,7 @@ export default function TradesmanSsoOnboardingPage() {
         phone: form.phone || null,
         email: form.email || user?.email || null,
         tradeTypes: form.tradeTypes,
-        serviceAreas: form.serviceAreas,
+        serviceAreas: flattenServiceAreas(form.serviceAreas),
         website: form.website || "",
         socialLinks: socials,
         reviewLinks,
@@ -638,8 +652,9 @@ export default function TradesmanSsoOnboardingPage() {
                     if ((k as string) === "betaCode") setBetaCodeErr(null);
                     set(k as any, v as any);
                   }}
-                  addServiceArea={addServiceArea}
-                  removeServiceArea={removeServiceArea}
+                  addServiceAreaOutward={addServiceAreaOutward}
+                  addServiceAreaBorough={addServiceAreaBorough}
+                  removeServiceAreaAt={removeServiceAreaAt}
                   areaQuery={areaQuery}
                   setAreaQuery={setAreaQuery}
                   websiteInput={websiteInput}
@@ -654,7 +669,7 @@ export default function TradesmanSsoOnboardingPage() {
                   // We already know this email — it's the Firebase identity
                   // for this session, so we must not let the user change it.
                   disableBusinessEmail
-                  emailError={null}
+                  errors={{email: null}}
                   betaRequired={betaRequired}
                   betaCode={form.betaCode}
                   setBetaCode={(v) => {

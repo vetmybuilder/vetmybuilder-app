@@ -1,5 +1,6 @@
 // server/routes/tradesmen/me.put.js
 const { claimPipelineEntry } = require("../../lib/claimPipelineEntry");
+const { cleanPhone, isValidUKPhone } = require("../../lib/phone");
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
@@ -155,6 +156,15 @@ module.exports = (router, ctx) => {
       if (!companyName) {
         log.warn(`${TAG} missing companyName`, { uid });
         return res.status(400).json({ error: "companyName_required" });
+      }
+
+      const rawPhone = (req.body && req.body.phone) || "";
+      if (rawPhone && !isValidUKPhone(rawPhone)) {
+        return res.status(400).json({
+          ok: false,
+          field: "phone",
+          message: "Enter a valid UK phone number",
+        });
       }
 
       const contactName = body.contactName || null;

@@ -11,6 +11,7 @@ export class TradesmanRegisterPage extends BasePage {
   readonly companyNameInput: Locator;
   readonly contactNameInput: Locator;
   readonly emailInput: Locator;
+  readonly phoneInput: Locator;
   readonly areasInput: Locator;
   readonly nextButton: Locator;
   readonly continueButton: Locator;
@@ -33,6 +34,7 @@ export class TradesmanRegisterPage extends BasePage {
     this.companyNameInput = page.getByTestId("input-company-name");
     this.contactNameInput = page.getByTestId("input-contact-name");
     this.emailInput = page.getByTestId("input-email");
+    this.phoneInput = page.getByTestId("input-phone");
     this.areasInput = page.getByTestId("input-areas").locator("input").first();
     this.nextButton = page.getByTestId("btn-next");
     this.continueButton = page.getByTestId("btn-continue");
@@ -162,6 +164,66 @@ export class TradesmanRegisterPage extends BasePage {
     } else {
       await expect(item).toHaveClass(/text-zinc-400/);
     }
+  }
+
+  async fillPhone(value: string) {
+    await this.phoneInput.fill(value);
+  }
+
+  async fillServiceAreaQuery(query: string) {
+    await this.areasInput.fill(query);
+  }
+
+  async expectFieldError(
+    field: "companyName" | "contactName" | "email" | "phone" | "serviceAreas",
+    message: string | RegExp,
+  ) {
+    await expect(
+      this.page
+        .locator('[role="alert"]')
+        .filter({ hasText: message })
+        .first(),
+    ).toBeVisible({ timeout: 5_000 });
+  }
+
+  async expectFieldErrorCleared(message: string | RegExp) {
+    await expect(
+      this.page.locator('[role="alert"]').filter({ hasText: message }),
+    ).toHaveCount(0);
+  }
+
+  async expectChipVisible(label: string) {
+    await expect(
+      this.page.locator(`[aria-label="Remove ${label}"]`),
+    ).toBeVisible({ timeout: 5_000 });
+  }
+
+  async expectChipRemoved(label: string) {
+    await expect(
+      this.page.locator(`[aria-label="Remove ${label}"]`),
+    ).toHaveCount(0);
+  }
+
+  async expectServicePreview(text: string | RegExp) {
+    await expect(
+      this.page.getByTestId("service-areas-preview"),
+    ).toContainText(text);
+  }
+
+  async selectBoroughByName(query: string, fullBoroughName: string) {
+    await this.areasInput.fill(query);
+    await this.page.getByTestId(`borough-option-${fullBoroughName}`).click();
+    await this.expectChipVisible(fullBoroughName);
+  }
+
+  async expectNoTopBanner() {
+    await expect(
+      this.page.getByText(/Please complete all required fields/i),
+    ).toHaveCount(0);
+  }
+
+  async tryContinueFromStep1() {
+    await this.nextButton.click();
   }
 
   /**

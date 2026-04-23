@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import type { ServiceArea } from "@/utils/serviceAreas";
+import { flattenServiceAreas } from "@/utils/serviceAreas";
 import {
   Building2, User, Phone, Mail, Globe, MapPin,
   ChevronDown, ChevronUp, ArrowRight, KeyRound,
@@ -26,7 +28,7 @@ export type Step1Form = {
   contactName: string;
   phone: string;
   email: string;
-  serviceAreas: string[];
+  serviceAreas: ServiceArea[];
   website: string;
   socials: {
     instagram: string;
@@ -51,8 +53,9 @@ export type Step1Form = {
 type Props = {
   form: Step1Form;
   set<K extends keyof Step1Form>(k: K, v: Step1Form[K]): void;
-  addServiceArea: (raw: string) => void;
-  removeServiceArea: (code: string) => void;
+  addServiceAreaOutward: (raw: string) => void;
+  addServiceAreaBorough: (name: string, outwardCodes: string[]) => void;
+  removeServiceAreaAt: (index: number) => void;
   areaQuery: string;
   setAreaQuery: (s: string) => void;
   websiteInput: string;
@@ -64,7 +67,7 @@ type Props = {
   onNext: (e: React.FormEvent) => void;
   userIsAuthed: boolean;
   nextQuery: string;
-  emailError?: string | null;
+  errors?: Record<string, string | null>;
 
   // Only used by edit-profile page
   disableCompanyName?: boolean;
@@ -85,8 +88,9 @@ const iconCls =
 export default function Step1Company({
   form,
   set,
-  addServiceArea,
-  removeServiceArea,
+  addServiceAreaOutward,
+  addServiceAreaBorough,
+  removeServiceAreaAt,
   areaQuery,
   setAreaQuery,
   websiteInput,
@@ -98,7 +102,7 @@ export default function Step1Company({
   onNext,
   userIsAuthed,
   nextQuery,
-  emailError,
+  errors,
   disableCompanyName,
   disableBusinessEmail,
   betaRequired,
@@ -106,6 +110,7 @@ export default function Step1Company({
   setBetaCode,
   betaCodeError,
 }: Props) {
+  const err = (field: string) => errors?.[field] || null;
   const [socialsOpen, setSocialsOpen] = useState(false);
   const [reviewsOpen, setReviewsOpen] = useState(false);
 
@@ -153,14 +158,21 @@ export default function Step1Company({
             <Building2 className={iconCls} />
             <input
               id="companyName"
-              className={fieldCls}
+              className={`${fieldCls} ${err("companyName") ? "border-red-400 ring-2 ring-red-400/20" : ""}`}
               value={form.companyName}
               onChange={(e) => set("companyName", e.target.value)}
               placeholder="Company Ltd"
               data-testid="input-company-name"
               disabled={disableCompanyName}
+              aria-invalid={!!err("companyName")}
+              aria-describedby={err("companyName") ? "companyName-error" : undefined}
             />
           </div>
+          {err("companyName") && (
+            <p id="companyName-error" className="text-sm text-red-600 mt-1" role="alert">
+              {err("companyName")}
+            </p>
+          )}
         </div>
 
         {/* Contact name */}
@@ -172,13 +184,20 @@ export default function Step1Company({
             <User className={iconCls} />
             <input
               id="contactName"
-              className={fieldCls}
+              className={`${fieldCls} ${err("contactName") ? "border-red-400 ring-2 ring-red-400/20" : ""}`}
               value={form.contactName}
               onChange={(e) => set("contactName", e.target.value)}
               placeholder="Your name"
               data-testid="input-contact-name"
+              aria-invalid={!!err("contactName")}
+              aria-describedby={err("contactName") ? "contactName-error" : undefined}
             />
           </div>
+          {err("contactName") && (
+            <p id="contactName-error" className="text-sm text-red-600 mt-1" role="alert">
+              {err("contactName")}
+            </p>
+          )}
         </div>
 
         {/* Phone + Email */}
@@ -191,13 +210,20 @@ export default function Step1Company({
               <Phone className={iconCls} />
               <input
                 id="phone"
-                className={fieldCls}
+                className={`${fieldCls} ${err("phone") ? "border-red-400 ring-2 ring-red-400/20" : ""}`}
                 value={form.phone}
                 onChange={(e) => set("phone", e.target.value)}
                 placeholder="020..."
                 data-testid="input-phone"
+                aria-invalid={!!err("phone")}
+                aria-describedby={err("phone") ? "phone-error" : undefined}
               />
             </div>
+            {err("phone") && (
+              <p id="phone-error" className="text-sm text-red-600 mt-1" role="alert">
+                {err("phone")}
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500" htmlFor="email" data-testid="label-email">
@@ -207,7 +233,7 @@ export default function Step1Company({
               <Mail className={iconCls} />
               <input
                 id="email"
-                className={`${fieldCls} ${emailError ? "border-red-400 ring-2 ring-red-400/20" : ""}`}
+                className={`${fieldCls} ${err("email") ? "border-red-400 ring-2 ring-red-400/20" : ""}`}
                 type="email"
                 value={form.email}
                 onChange={(e) => set("email", e.target.value)}
@@ -215,13 +241,13 @@ export default function Step1Company({
                 autoComplete="email"
                 required
                 data-testid="input-email"
-                aria-invalid={!!emailError}
-                aria-describedby={emailError ? "email-error" : undefined}
+                aria-invalid={!!err("email")}
+                aria-describedby={err("email") ? "email-error" : undefined}
                 disabled={disableBusinessEmail}
               />
             </div>
-            {emailError && (
-              <p id="email-error" className="text-sm text-red-600" role="alert">{emailError}</p>
+            {err("email") && (
+              <p id="email-error" className="text-sm text-red-600 mt-1" role="alert">{err("email")}</p>
             )}
           </div>
         </div>
@@ -262,17 +288,28 @@ export default function Step1Company({
             Service areas <span className="text-red-500">*</span>{" "}
             <span className="text-zinc-400 font-normal normal-case">(postcode sectors)</span>
           </label>
+          {err("serviceAreas") && (
+            <p className="text-sm text-red-600 mt-1" role="alert">
+              {err("serviceAreas")}
+            </p>
+          )}
           <div data-testid="input-areas">
             <LocationField
               label=""
               reasonText=""
-              placeholder="Type a postcode or place… e.g., E4, N17, Chingford"
+              placeholder="Type a postcode or place… e.g., E4, N17, Chingford, Waltham Forest"
               value={areaQuery}
               onChange={(val: string, meta?: any) => {
                 setAreaQuery(val || "");
-                if (meta) {
-                  const token = meta.outward || meta.sector || meta.postcode || "";
-                  if (token) addServiceArea(token);
+                if (!meta) return;
+                if (meta.borough) {
+                  addServiceAreaBorough(meta.borough.name, meta.borough.outwardCodes);
+                  setAreaQuery("");
+                  return;
+                }
+                const token = meta.outward || meta.sector || meta.postcode || "";
+                if (token) {
+                  addServiceAreaOutward(token);
                   setAreaQuery("");
                 }
               }}
@@ -280,23 +317,35 @@ export default function Step1Company({
           </div>
           {form.serviceAreas.length > 0 && (
             <div className="flex flex-wrap gap-2 pt-1">
-              {form.serviceAreas.map((s) => (
-                <span
-                  key={s}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-sm text-zinc-700"
-                >
-                  {s}
-                  <button
-                    type="button"
-                    onClick={() => removeServiceArea(s)}
-                    className="rounded-full text-zinc-400 hover:text-zinc-700"
-                    aria-label={`Remove ${s}`}
+              {form.serviceAreas.map((area, index) => {
+                const label = area.kind === "outward" ? area.code : area.name;
+                return (
+                  <span
+                    key={`${area.kind}-${label}`}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-sm text-zinc-700"
+                    data-testid={`service-area-chip-${label}`}
                   >
-                    ×
-                  </button>
-                </span>
-              ))}
+                    {label}
+                    <button
+                      type="button"
+                      onClick={() => removeServiceAreaAt(index)}
+                      className="rounded-full text-zinc-400 hover:text-zinc-700"
+                      aria-label={`Remove ${label}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                );
+              })}
             </div>
+          )}
+          {form.serviceAreas.length > 0 && (
+            <p
+              className="mt-2 text-xs text-zinc-500"
+              data-testid="service-areas-preview"
+            >
+              Covers: {flattenServiceAreas(form.serviceAreas).join(", ")}
+            </p>
           )}
         </div>
 
