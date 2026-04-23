@@ -151,7 +151,7 @@ function FieldRenderer({
                 key={o.value}
                 type="button"
                 onClick={() => onChange(selected ? null : o.value)}
-                className={`px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${
+                className={`px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-colors ${
                   selected
                     ? "border-amber-500 bg-amber-50 text-amber-800"
                     : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
@@ -175,7 +175,7 @@ function FieldRenderer({
       <button
         type="button"
         onClick={() => onChange(!value)}
-        className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${
+        className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-colors ${
           value === true
             ? "border-amber-500 bg-amber-50 text-amber-800"
             : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
@@ -211,7 +211,7 @@ function FieldRenderer({
             <label
               key={branch.key}
               data-testid={`${testIdBase}-kind-${branch.key}-label`}
-              className={`inline-flex items-center gap-2 rounded-xl border-2 px-4 py-2 text-sm font-medium cursor-pointer transition-all ${
+              className={`inline-flex items-center gap-2 rounded-xl border-2 px-4 py-2 text-sm font-medium cursor-pointer transition-colors ${
                 activeKind === branch.key
                   ? "border-amber-500 bg-amber-50 text-amber-800"
                   : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300"

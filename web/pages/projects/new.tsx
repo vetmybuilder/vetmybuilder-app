@@ -542,7 +542,7 @@ export default function NewProject() {
                         setSubtypeSearch("");
                         setTimeout(() => setStep((s) => s + 1), 150);
                       }}
-                      className={`flex flex-col items-center gap-1.5 p-4 rounded-2xl border-2 transition-all text-center ${
+                      className={`flex flex-col items-center gap-1.5 p-4 rounded-2xl border-2 transition-colors text-center ${
                         form.category === cat
                           ? "border-amber-500 bg-amber-50"
                           : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50"
@@ -614,7 +614,7 @@ export default function NewProject() {
                               key={t}
                               type="button"
                               onClick={() => toggleSubtype(t)}
-                              className={`flex items-center gap-2.5 px-4 h-12 rounded-xl border-2 text-sm font-medium transition-all text-left ${
+                              className={`flex items-center gap-2.5 px-4 h-12 rounded-xl border-2 text-sm font-medium transition-colors text-left ${
                                 checked
                                   ? "border-amber-500 bg-amber-50 text-amber-800"
                                   : "border-zinc-200 text-zinc-700 hover:border-zinc-300"
@@ -639,7 +639,7 @@ export default function NewProject() {
                         <button
                           type="button"
                           onClick={() => set("otherEnabled", !form.otherEnabled)}
-                          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${
+                          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-colors ${
                             form.otherEnabled
                               ? "border-amber-500 bg-amber-50 text-amber-800"
                               : "border-zinc-200 text-zinc-700 hover:border-zinc-300"
@@ -687,7 +687,7 @@ export default function NewProject() {
                         set("propertyType", pt.label);
                         setTimeout(() => setStep((s) => s + 1), 150);
                       }}
-                      className={`flex items-center gap-3 px-4 h-14 rounded-2xl border-2 text-left transition-all ${
+                      className={`flex items-center gap-3 px-4 h-14 rounded-2xl border-2 text-left transition-colors ${
                         form.propertyType === pt.label
                           ? "border-amber-500 bg-amber-50"
                           : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50"
@@ -715,7 +715,7 @@ export default function NewProject() {
                           set("bedrooms", numVal);
                           setTimeout(() => setStep((s) => s + 1), 150);
                         }}
-                        className={`w-11 h-11 sm:w-14 sm:h-14 rounded-2xl border-2 text-base sm:text-lg font-bold transition-all ${
+                        className={`w-11 h-11 sm:w-14 sm:h-14 rounded-2xl border-2 text-base sm:text-lg font-bold transition-colors ${
                           selected
                             ? "border-amber-500 bg-amber-50 text-amber-800"
                             : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
@@ -755,7 +755,7 @@ export default function NewProject() {
                           key={t}
                           type="button"
                           onClick={() => set("timeframe", form.timeframe === t ? "" : t)}
-                          className={`px-4 h-11 rounded-xl border-2 text-sm font-medium transition-all ${
+                          className={`px-4 h-11 rounded-xl border-2 text-sm font-medium transition-colors ${
                             form.timeframe === t
                               ? "border-amber-500 bg-amber-50 text-amber-800"
                               : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
@@ -775,7 +775,7 @@ export default function NewProject() {
                           key={b}
                           type="button"
                           onClick={() => set("budget", form.budget === b ? "" : b)}
-                          className={`px-4 h-11 rounded-xl border-2 text-sm font-medium transition-all ${
+                          className={`px-4 h-11 rounded-xl border-2 text-sm font-medium transition-colors ${
                             form.budget === b
                               ? "border-amber-500 bg-amber-50 text-amber-800"
                               : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
@@ -795,7 +795,7 @@ export default function NewProject() {
                           key={m}
                           type="button"
                           onClick={() => set("materials", form.materials === m ? "" : m)}
-                          className={`px-4 h-11 rounded-xl border-2 text-sm font-medium transition-all ${
+                          className={`px-4 h-11 rounded-xl border-2 text-sm font-medium transition-colors ${
                             form.materials === m
                               ? "border-amber-500 bg-amber-50 text-amber-800"
                               : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
@@ -822,7 +822,7 @@ export default function NewProject() {
                                 : [...form.access, a.value]
                               );
                             }}
-                            className={`px-4 h-11 rounded-xl border-2 text-sm font-medium transition-all text-left ${
+                            className={`px-4 h-11 rounded-xl border-2 text-sm font-medium transition-colors text-left ${
                               selected
                                 ? "border-amber-500 bg-amber-50 text-amber-800"
                                 : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
@@ -943,7 +943,7 @@ export default function NewProject() {
                     type="button"
                     onClick={back}
                     disabled={busy}
-                    className="inline-flex items-center gap-1 px-4 py-2.5 rounded-xl border-2 border-zinc-200 text-xs sm:text-sm font-semibold text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 disabled:opacity-40 transition-all"
+                    className="inline-flex items-center gap-1 px-4 py-2.5 rounded-xl border-2 border-zinc-200 text-xs sm:text-sm font-semibold text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 disabled:opacity-40 transition-colors"
                     data-testid="btn-prev"
                   >
                     &#8592; Previous
@@ -956,7 +956,7 @@ export default function NewProject() {
                     type="button"
                     onClick={next}
                     disabled={!isStepValid(step) || busy}
-                    className="inline-flex items-center gap-1 px-5 py-2.5 rounded-xl bg-amber-500 text-xs sm:text-sm font-bold text-white shadow-lg shadow-amber-500/25 hover:bg-amber-600 disabled:opacity-40 disabled:shadow-none transition-all"
+                    className="inline-flex items-center gap-1 px-5 py-2.5 rounded-xl bg-amber-500 text-xs sm:text-sm font-bold text-white shadow-lg shadow-amber-500/25 hover:bg-amber-600 disabled:opacity-40 disabled:shadow-none transition-colors"
                     data-testid="btn-next"
                   >
                     Continue &#8594;
@@ -966,7 +966,7 @@ export default function NewProject() {
                     type="button"
                     onClick={onCreate}
                     disabled={!isStepValid(step) || busy}
-                    className={`inline-flex items-center gap-1 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white shadow-lg transition-all ${
+                    className={`inline-flex items-center gap-1 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white shadow-lg transition-colors ${
                       busy
                         ? "bg-zinc-400 cursor-not-allowed shadow-none"
                         : "bg-green-500 shadow-green-500/25 hover:bg-green-600"
