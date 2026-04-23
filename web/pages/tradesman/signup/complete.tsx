@@ -50,6 +50,7 @@ import {
 // a half-finished SSO signup doesn't collide with a half-finished
 // email/password signup on the same device.
 const DRAFT_KEY = "vmb.vendorDraftSso.v1";
+const UK_PHONE = /^(?:\+44|0)[12378]\d{9}$/;
 
 type Step = 1 | 2 | 3;
 type Doc = { name: string; size: number; type: string };
@@ -103,6 +104,9 @@ export default function TradesmanSsoOnboardingPage() {
   const [websiteInput, setWebsiteInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [step1Errors, setStep1Errors] = useState<Record<string, string | null>>(
+    {},
+  );
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [hydrating, setHydrating] = useState(true);
 
@@ -266,6 +270,18 @@ export default function TradesmanSsoOnboardingPage() {
     [persist],
   );
 
+  // Clears the per-field step-1 error for the field being edited so the
+  // inline red border disappears as the user fixes the value.
+  const setAndClear = useCallback(
+    <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => {
+      set(k, v);
+      setStep1Errors((prev) =>
+        prev[String(k)] ? { ...prev, [String(k)]: null } : prev,
+      );
+    },
+    [set],
+  );
+
   // ---- helpers (mirror register-tradesmen.tsx) ----
   const addServiceAreaOutward = (raw: string) => {
     set("serviceAreas", addOutward(form.serviceAreas || [], raw));
@@ -317,14 +333,39 @@ export default function TradesmanSsoOnboardingPage() {
     setErr(null);
     setBetaCodeErr(null);
 
-    const hasBasics =
-      form.companyName.trim() &&
-      form.contactName.trim() &&
-      form.serviceAreas.length > 0;
-    if (!hasBasics) {
-      setErr("Please complete all required fields before continuing.");
+    const next: Record<string, string | null> = {};
+    if (!form.companyName.trim())
+      next.companyName = "Company name is required";
+    if (!form.contactName.trim())
+      next.contactName = "Contact name is required";
+    const phone = form.phone.trim();
+    if (phone) {
+      const compact = phone.replace(/[\s\-()]/g, "");
+      if (!UK_PHONE.test(compact))
+        next.phone = "Enter a valid UK phone number (e.g. 07123 456789)";
+    }
+    if ((form.serviceAreas || []).length === 0)
+      next.serviceAreas = "Add at least one service area";
+
+    if (Object.values(next).some(Boolean)) {
+      setStep1Errors(next);
+      requestAnimationFrame(() => {
+        const firstKey = Object.keys(next).find((k) => next[k]);
+        if (!firstKey) return;
+        const sel =
+          firstKey === "serviceAreas"
+            ? '[data-testid="input-areas"]'
+            : `[data-testid="input-${firstKey.replace(/([A-Z])/g, "-$1").toLowerCase()}"]`;
+        const el = document.querySelector(sel);
+        if (el && "scrollIntoView" in el)
+          (el as HTMLElement).scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+      });
       return;
     }
+    setStep1Errors({});
 
     // Beta gate. We can't reuse ensureEmailAvailable here because the
     // Firebase user already exists (that's the point of the SSO flow) —
@@ -650,7 +691,7 @@ export default function TradesmanSsoOnboardingPage() {
                   form={form as Step1Form}
                   set={(k, v) => {
                     if ((k as string) === "betaCode") setBetaCodeErr(null);
-                    set(k as any, v as any);
+                    setAndClear(k as any, v as any);
                   }}
                   addServiceAreaOutward={addServiceAreaOutward}
                   addServiceAreaBorough={addServiceAreaBorough}
@@ -669,7 +710,7 @@ export default function TradesmanSsoOnboardingPage() {
                   // We already know this email — it's the Firebase identity
                   // for this session, so we must not let the user change it.
                   disableBusinessEmail
-                  errors={{email: null}}
+                  errors={step1Errors}
                   betaRequired={betaRequired}
                   betaCode={form.betaCode}
                   setBetaCode={(v) => {

@@ -133,6 +133,7 @@ export default function Step1Company({
     <form
       className="bg-white rounded-2xl shadow-lg shadow-zinc-200/60 p-7 sm:p-9 space-y-7"
       onSubmit={onNext}
+      noValidate
       data-testid="step-1"
     >
       {/* Step header */}
