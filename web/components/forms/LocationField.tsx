@@ -13,6 +13,10 @@ type PostcodeMeta = {
   admin_district?: string | null;
   region?: string | null;
   country?: string | null;
+  /** Present only when the user picked a borough row. When set, the caller
+   * should treat this as a whole-borough selection and ignore the postcode
+   * fields (which will be empty strings). */
+  borough?: { name: string; outwardCodes: string[] };
 };
 
 export type LocationFieldProps = {
@@ -89,6 +93,9 @@ export default function LocationField({
   const [loading, setLoading] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
   const [sug, setSug] = React.useState<Suggestion[]>([]);
+  const [boroughResults, setBoroughResults] = React.useState<
+    Array<{ name: string; outwardCodes: string[] }>
+  >([]);
   const debounced = useDebounced(query, 180);
   const boxRef = React.useRef<HTMLDivElement | null>(null);
   const hasInteracted = React.useRef(false);
@@ -242,7 +249,7 @@ export default function LocationField({
             .slice(0, 12);
 
           setSug(ranked);
-          if (hasInteracted.current) setOpen(ranked.length > 0);
+          if (hasInteracted.current && ranked.length > 0) setOpen(true);
         }
       } catch {
         setSug([]);
@@ -253,6 +260,33 @@ export default function LocationField({
     };
 
     run();
+  }, [debounced]);
+
+  // Fetch borough suggestions (reuse same debounced query; skip if looks like a postcode fragment)
+  React.useEffect(() => {
+    const q = (debounced || "").trim();
+    if (q.length < 2 || /^[a-z]{1,2}\d/i.test(q)) {
+      setBoroughResults([]);
+      return;
+    }
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const r = await fetch(
+          `/api/boroughs/search?q=${encodeURIComponent(q)}`,
+          { signal: controller.signal },
+        );
+        if (!r.ok) return;
+        const data = await r.json();
+        if (Array.isArray(data)) {
+          setBoroughResults(data);
+          if (data.length > 0) setOpen(true);
+        }
+      } catch (e: any) {
+        if (e?.name !== "AbortError") setBoroughResults([]);
+      }
+    })();
+    return () => controller.abort();
   }, [debounced]);
 
   async function fetchMeta(postcodeRaw: string): Promise<PostcodeMeta> {
@@ -441,12 +475,42 @@ export default function LocationField({
         </div>
       </div>
 
-      {open && sug.length > 0 && (
+      {open && (sug.length > 0 || boroughResults.length > 0) && (
         <ul
           id={`${id}-listbox`}
           role="listbox"
           className="absolute z-30 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg max-h-60 overflow-auto"
         >
+          {boroughResults.map((b) => (
+            <li key={`borough-${b.name}`} role="option">
+              <button
+                type="button"
+                onClick={() => {
+                  onChange("", {
+                    postcode: "",
+                    outward: null,
+                    sector: null,
+                    borough: { name: b.name, outwardCodes: b.outwardCodes },
+                  });
+                  setBoroughResults([]);
+                  setOpen(false);
+                  setSug([]);
+                }}
+                className="w-full text-left px-3 py-2 hover:bg-zinc-50 flex items-center gap-2"
+                data-testid={`borough-option-${b.name}`}
+              >
+                <span className="inline-flex items-center rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold px-2 py-0.5">
+                  Borough
+                </span>
+                <span className="flex-1">
+                  <span className="block text-sm text-zinc-900">{b.name}</span>
+                  <span className="block text-xs text-zinc-500">
+                    {b.outwardCodes.length} postcodes covered
+                  </span>
+                </span>
+              </button>
+            </li>
+          ))}
           {sug.map((s, idx) => (
             <li
               key={`${s.kind}-${idx}-${"label" in s ? s.label : ""}`}

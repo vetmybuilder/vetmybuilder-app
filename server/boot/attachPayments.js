@@ -95,8 +95,17 @@ function attachPayments(ctx = {}) {
   const webhookSecret =
     pick(process.env.PAYMENTS_MOCK_WEBHOOK_SECRET) || "dev_mock_secret";
 
-  // Try Stripe first, fall back to mock
-  const stripeSecretKey = pick(process.env.STRIPE_SECRET_KEY);
+  // Try Stripe first, fall back to mock.
+  //
+  // MOCK_EXTERNAL_SERVICES=1 short-circuits Stripe even when a real
+  // STRIPE_SECRET_KEY is present — this is the standard E2E / CI cost
+  // guard env var (also used to stub Google Places, Companies House,
+  // Anthropic). It lets local dev keep a real Stripe key in .env while
+  // test runs stay on the mock provider.
+  const mockExternal = process.env.MOCK_EXTERNAL_SERVICES === "1";
+  const stripeSecretKey = mockExternal
+    ? null
+    : pick(process.env.STRIPE_SECRET_KEY);
   let payments;
 
   if (stripeSecretKey) {
@@ -109,6 +118,8 @@ function attachPayments(ctx = {}) {
     if (payments) {
       log.info?.(`${TAG} Stripe attached: baseUrl=${baseUrl}`);
     }
+  } else if (mockExternal) {
+    log.info?.(`${TAG} MOCK_EXTERNAL_SERVICES=1 — forcing mock payments`);
   }
 
   if (!payments) {

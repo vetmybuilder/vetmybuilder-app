@@ -17,6 +17,13 @@ import Step2Trades from "@/components/vendor-register/Step2Trades";
 import Step3Offers from "@/components/vendor-register/Step3Offers";
 import Step4Account from "@/components/vendor-register/Step4Account";
 
+import type { ServiceArea } from "@/utils/serviceAreas";
+import {
+  addOutward,
+  addBorough,
+  removeAt,
+  flattenServiceAreas,
+} from "@/utils/serviceAreas";
 import {
   normalizeAsUrl,
   normalizeFacebook,
@@ -35,6 +42,8 @@ import { isStrongPassword } from "@/components/forms/PasswordChecklist";
 
 const DRAFT_KEY = "vmb.vendorDraft.v3";
 const REG_SENTINEL = "__vendor_registration_in_progress__";
+const UK_PHONE = /^(?:\+44|0)[12378]\d{9}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Step = 1 | 2 | 3 | 4;
 type Doc = { name: string; size: number; type: string };
@@ -64,7 +73,7 @@ export default function TradesmanRegisterV2Page() {
     contactName: "",
     phone: "",
     email: "",
-    serviceAreas: [] as string[],
+    serviceAreas: [] as ServiceArea[],
     website: "",
     socials: {
       instagram: "",
@@ -113,6 +122,7 @@ export default function TradesmanRegisterV2Page() {
   const [err, setErr] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [emailErr, setEmailErr] = useState<string | null>(null);
+  const [step1Errors, setStep1Errors] = useState<Record<string, string | null>>({});
 
   // ---- persistence load ----
   const parseCsv = (val: unknown): string[] =>
@@ -147,7 +157,25 @@ export default function TradesmanRegisterV2Page() {
           ...p,
           ...restDraft,
           tradeTypes: parseCsv(restDraft.tradeTypes ?? p.tradeTypes),
-          serviceAreas: parseCsv(restDraft.serviceAreas ?? p.serviceAreas),
+          serviceAreas: Array.isArray(restDraft.serviceAreas)
+            ? (restDraft.serviceAreas as unknown[])
+                .map((item): ServiceArea | null => {
+                  if (typeof item === "string") {
+                    const code = item.trim().toUpperCase();
+                    return code ? { kind: "outward", code } : null;
+                  }
+                  if (
+                    item &&
+                    typeof item === "object" &&
+                    "kind" in item &&
+                    ((item as any).kind === "outward" || (item as any).kind === "borough")
+                  ) {
+                    return item as ServiceArea;
+                  }
+                  return null;
+                })
+                .filter((x): x is ServiceArea => x !== null)
+            : [],
           website:
             typeof restDraft.website === "string"
               ? restDraft.website
@@ -192,27 +220,26 @@ export default function TradesmanRegisterV2Page() {
     [persist]
   );
 
+  const setAndClear = useCallback(
+    <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => {
+      set(k, v);
+      setStep1Errors((prev) =>
+        prev[String(k)] ? { ...prev, [String(k)]: null } : prev,
+      );
+    },
+    [set],
+  );
+
   // ---- helpers ----
-  function normalizeOutward(input: string): string {
-    const v = (input || "").toUpperCase().trim();
-    const m = v.match(/^([A-Z]{1,2}\d{1,2}[A-Z]?)/);
-    return m ? m[1] : v;
-  }
-
-  const addServiceArea = (raw: string) => {
-    const code = normalizeOutward(raw);
-    if (!code) return;
-    set(
-      "serviceAreas",
-      Array.from(new Set([...(form.serviceAreas || []), code]))
-    );
+  const addServiceAreaOutward = (raw: string) => {
+    set("serviceAreas", addOutward(form.serviceAreas || [], raw));
   };
-
-  const removeServiceArea = (code: string) =>
-    set(
-      "serviceAreas",
-      (form.serviceAreas || []).filter((x) => x !== code)
-    );
+  const addServiceAreaBorough = (name: string, outwardCodes: string[]) => {
+    set("serviceAreas", addBorough(form.serviceAreas || [], name, outwardCodes));
+  };
+  const removeServiceAreaAt = (index: number) => {
+    set("serviceAreas", removeAt(form.serviceAreas || [], index));
+  };
 
   // website single
   const commitWebsite = () => {
@@ -253,26 +280,47 @@ export default function TradesmanRegisterV2Page() {
   // STEP 1 -> 2
   const onNextFromStep1 = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErr(null);
-    setEmailErr(null);
-    setBetaCodeErr(null);
 
-    const hasBasics =
-      form.companyName.trim() &&
-      form.contactName.trim() &&
-      form.email.trim() &&
-      form.serviceAreas.length > 0;
+    const next: Record<string, string | null> = {};
+    if (!form.companyName.trim()) next.companyName = "Company name is required";
+    if (!form.contactName.trim()) next.contactName = "Contact name is required";
+    if (!form.email.trim()) next.email = "Business email is required";
+    else if (!EMAIL_RE.test(form.email.trim()))
+      next.email = "Enter a valid email address";
+    const phone = form.phone.trim();
+    if (phone) {
+      const compact = phone.replace(/[\s\-()]/g, "");
+      if (!UK_PHONE.test(compact))
+        next.phone = "Enter a valid UK phone number (e.g. 07123 456789)";
+    }
+    if ((form.serviceAreas || []).length === 0)
+      next.serviceAreas = "Add at least one service area";
 
-    if (!hasBasics) {
-      setErr("Please complete all required fields before continuing.");
+    const hasAnyError = Object.values(next).some(Boolean);
+    if (hasAnyError) {
+      setStep1Errors(next);
+      requestAnimationFrame(() => {
+        const firstKey = Object.keys(next).find((k) => next[k]);
+        if (!firstKey) return;
+        const sel =
+          firstKey === "serviceAreas"
+            ? '[data-testid="input-areas"]'
+            : `[data-testid="input-${firstKey.replace(/([A-Z])/g, "-$1").toLowerCase()}"]`;
+        const el = document.querySelector(sel);
+        if (el && "scrollIntoView" in el)
+          (el as HTMLElement).scrollIntoView({ behavior: "smooth", block: "center" });
+      });
       return;
     }
+
+    setStep1Errors({});
+    setBetaCodeErr(null);
 
     try {
       await ensureEmailAvailable(
         api,
         form.email.trim(),
-        betaRequired ? form.betaCode : undefined
+        betaRequired ? form.betaCode : undefined,
       );
       setStep(2);
     } catch (ex: any) {
@@ -280,7 +328,7 @@ export default function TradesmanRegisterV2Page() {
       if (errCode === "invalid_beta_code") {
         setBetaCodeErr("Invalid beta access code.");
       } else {
-        setEmailErr(errCode || "Email already in use.");
+        setStep1Errors({ email: errCode || "Email already in use." });
       }
     }
   };
@@ -297,7 +345,7 @@ export default function TradesmanRegisterV2Page() {
     try {
       const name = form.companyName?.trim();
       if (!name) return;
-      const postcode = form.serviceAreas?.[0] || "";
+      const postcode = flattenServiceAreas(form.serviceAreas)[0] || "";
       const { data } = await api.post("/api/tradesmen/precheck", {
         name,
         postcode,
@@ -453,7 +501,7 @@ export default function TradesmanRegisterV2Page() {
         phone: form.phone || null,
         email: form.email,
         tradeTypes: form.tradeTypes,
-        serviceAreas: form.serviceAreas,
+        serviceAreas: flattenServiceAreas(form.serviceAreas),
         website: form.website || "",
         socialLinks: socials,
         reviewLinks,
@@ -601,12 +649,10 @@ export default function TradesmanRegisterV2Page() {
         {step === 1 && (
           <Step1Company
             form={form as Step1Form}
-            set={(k, v) => {
-              if (k === "email") setEmailErr(null);
-              set(k as any, v as any);
-            }}
-            addServiceArea={addServiceArea}
-            removeServiceArea={removeServiceArea}
+            set={setAndClear as typeof set}
+            addServiceAreaOutward={addServiceAreaOutward}
+            addServiceAreaBorough={addServiceAreaBorough}
+            removeServiceAreaAt={removeServiceAreaAt}
             areaQuery={areaQuery}
             setAreaQuery={setAreaQuery}
             websiteInput={websiteInput}
@@ -618,7 +664,7 @@ export default function TradesmanRegisterV2Page() {
             onNext={onNextFromStep1}
             userIsAuthed={!!user || !!authLoading}
             nextQuery={"?next=/tradesman/projects"}
-            emailError={emailErr}
+            errors={step1Errors}
             betaRequired={betaRequired}
             betaCode={form.betaCode}
             setBetaCode={(v) => set("betaCode", v)}

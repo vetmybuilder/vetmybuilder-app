@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
+import { safeGoto } from "../helpers/navigation";
 
 /**
  * Page object for /tradesman/signup/complete — the post-OAuth tradesman
@@ -22,6 +23,7 @@ export class TradesmanSignupCompletePage {
   readonly companyName: Locator;
   readonly contactName: Locator;
   readonly email: Locator;
+  readonly phoneInput: Locator;
   readonly areasInput: Locator;
   readonly nextButton: Locator;
   readonly continueButton: Locator;
@@ -39,10 +41,15 @@ export class TradesmanSignupCompletePage {
     this.companyName = page.getByTestId("input-company-name");
     this.contactName = page.getByTestId("input-contact-name");
     this.email = page.getByTestId("input-email");
+    this.phoneInput = page.getByTestId("input-phone");
     this.areasInput = page.getByTestId("input-areas").locator("input").first();
     this.nextButton = page.getByTestId("btn-next");
     this.continueButton = page.getByTestId("btn-continue");
     this.formError = page.getByTestId("tradesman-signup-complete-error");
+  }
+
+  async goto(): Promise<void> {
+    await safeGoto(this.page, "/tradesman/signup/complete");
   }
 
   async expectVisible(): Promise<void> {
@@ -51,6 +58,37 @@ export class TradesmanSignupCompletePage {
     });
     await expect(this.root).toBeVisible({ timeout: 10_000 });
     await expect(this.step1).toBeVisible({ timeout: 10_000 });
+  }
+
+  async fillPhone(value: string): Promise<void> {
+    await this.phoneInput.fill(value);
+  }
+
+  async tryContinueFromStep1(): Promise<void> {
+    await this.nextButton.click();
+  }
+
+  async expectFieldError(
+    field:
+      | "companyName"
+      | "contactName"
+      | "email"
+      | "phone"
+      | "serviceAreas",
+    message: string | RegExp,
+  ): Promise<void> {
+    await expect(
+      this.page
+        .locator('[role="alert"]')
+        .filter({ hasText: message })
+        .first(),
+    ).toBeVisible({ timeout: 5_000 });
+  }
+
+  async expectFieldErrorCleared(message: string | RegExp): Promise<void> {
+    await expect(
+      this.page.locator('[role="alert"]').filter({ hasText: message }),
+    ).toHaveCount(0);
   }
 
   async expectBlockedAsExistingHomeowner(): Promise<void> {

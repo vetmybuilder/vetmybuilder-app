@@ -24,6 +24,13 @@ import {
   buildReviewLinksPayload,
   type ReviewPlatformId,
 } from "@/utils/reviewLinks";
+import type { ServiceArea } from "@/utils/serviceAreas";
+import {
+  addOutward,
+  addBorough,
+  removeAt,
+  flattenServiceAreas,
+} from "@/utils/serviceAreas";
 
 type Step = 1 | 2 | 3;
 type Doc = { name: string; size: number; type: string };
@@ -67,7 +74,7 @@ type FormState = {
   contactName: string;
   phone: string;
   email: string;
-  serviceAreas: string[];
+  serviceAreas: ServiceArea[];
   website: string;
   socials: {
     instagram: string;
@@ -146,7 +153,9 @@ function Inner() {
         const p: RawProfile = data.profile;
         setProfile(p);
 
-        const serviceAreas = parseCsv(p.service_areas);
+        const serviceAreas: ServiceArea[] = parseCsv(p.service_areas).map(
+          (code): ServiceArea => ({ kind: "outward", code }),
+        );
         const website = p.web_url || "";
         const socialsArray = parseSocials(p.social_links_json);
 
@@ -295,26 +304,15 @@ function Inner() {
   };
 
   // ---- helpers (mirroring registration) ----
-  function normalizeOutward(input: string): string {
-    const v = (input || "").toUpperCase().trim();
-    const m = v.match(/^([A-Z]{1,2}\d{1,2}[A-Z]?)/);
-    return m ? m[1] : v;
-  }
-
-  const addServiceArea = (raw: string) => {
-    const code = normalizeOutward(raw);
-    if (!code) return;
-    set(
-      "serviceAreas",
-      Array.from(new Set([...(form.serviceAreas || []), code]))
-    );
+  const addServiceAreaOutward = (raw: string) => {
+    set("serviceAreas", addOutward(form.serviceAreas || [], raw));
   };
-
-  const removeServiceArea = (code: string) =>
-    set(
-      "serviceAreas",
-      (form.serviceAreas || []).filter((x) => x !== code)
-    );
+  const addServiceAreaBorough = (name: string, outwardCodes: string[]) => {
+    set("serviceAreas", addBorough(form.serviceAreas || [], name, outwardCodes));
+  };
+  const removeServiceAreaAt = (index: number) => {
+    set("serviceAreas", removeAt(form.serviceAreas || [], index));
+  };
 
   // website single
   const commitWebsite = () => {
@@ -465,7 +463,7 @@ function Inner() {
         phone: form.phone || null,
         email: form.email,
         tradeTypes: form.tradeTypes,
-        serviceAreas: form.serviceAreas,
+        serviceAreas: flattenServiceAreas(form.serviceAreas),
         website: form.website || "",
         socialLinks: socials,
         reviewLinks,
@@ -650,8 +648,9 @@ function Inner() {
               // @ts-expect-error
               set(k, v);
             }}
-            addServiceArea={addServiceArea}
-            removeServiceArea={removeServiceArea}
+            addServiceAreaOutward={addServiceAreaOutward}
+            addServiceAreaBorough={addServiceAreaBorough}
+            removeServiceAreaAt={removeServiceAreaAt}
             areaQuery={areaQuery}
             setAreaQuery={setAreaQuery}
             websiteInput={websiteInput}
@@ -663,7 +662,7 @@ function Inner() {
             onNext={onNextFromStep1}
             userIsAuthed={true}
             nextQuery={"?next=/tradesman/projects"}
-            emailError={emailErr}
+            errors={{ email: emailErr }}
             disableCompanyName
             disableBusinessEmail
           />

@@ -256,6 +256,9 @@ function buildRouter(ctx) {
   require("./routes/auth/check-username.get")(router, ctx);
   require("./routes/auth/signup.post")(router, ctx);
 
+  // ---------------- Boroughs ----------------
+  require("./routes/boroughs/search.get")(router, ctx);
+
   // ---------------- Notifications & SSE ----------------
   require("./routes/notifications/stream.get")(router, ctx);
   require("./routes/notifications/notifications.get")(router, ctx);
