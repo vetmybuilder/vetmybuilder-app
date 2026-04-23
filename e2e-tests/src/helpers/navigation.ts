@@ -10,7 +10,7 @@ type SafeGotoOptions = {
 };
 
 /**
- * Navigates to `url` and handles two WebKit-specific transient errors:
+ * Navigates to `url` and handles WebKit-specific transient errors:
  *
  * - "interrupted by another navigation" — the /logout page's deferred
  *   window.location.replace fires mid-navigation. We wait for the page to
@@ -18,6 +18,10 @@ type SafeGotoOptions = {
  *
  * - "WebKit encountered an internal error" — resource-pressure crash on
  *   first load. Retry once.
+ *
+ * - "Frame load interrupted" — WebKit cancels the in-flight navigation
+ *   (common on mobile-webkit when Next.js dev-server ships a redirect or
+ *   injects HMR client script mid-load). Retry once.
  */
 export async function safeGoto(
   page: Page,
@@ -33,7 +37,8 @@ export async function safeGoto(
     const msg = String(err);
     if (
       msg.includes("interrupted by another navigation") ||
-      msg.includes("WebKit encountered an internal error")
+      msg.includes("WebKit encountered an internal error") ||
+      msg.includes("Frame load interrupted")
     ) {
       await page
         .waitForLoadState("domcontentloaded", { timeout: settleTimeout })

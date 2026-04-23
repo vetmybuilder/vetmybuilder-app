@@ -30,7 +30,7 @@ test.describe("Tradesman registration — borough service area", () => {
     await mockBoroughsApi(page);
     await tradesmanRegisterPage.goto();
 
-    await tradesmanRegisterPage.addServiceArea("E4 6");
+    await tradesmanRegisterPage.addServiceArea("E4 6AB");
     await tradesmanRegisterPage.expectChipVisible("E4");
 
     await tradesmanRegisterPage.selectBoroughByName("waltham", "Waltham Forest");

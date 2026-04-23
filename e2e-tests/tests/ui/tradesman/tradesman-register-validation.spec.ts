@@ -44,7 +44,7 @@ test.describe("Tradesman registration — Step 1 inline validation", () => {
       contactName: "Chris Test",
       email: "chris.test@example.com",
     });
-    await tradesmanRegisterPage.addServiceArea("E4 6");
+    await tradesmanRegisterPage.addServiceArea("E4 6AB");
     await tradesmanRegisterPage.fillPhone("09043535345322342342");
     await tradesmanRegisterPage.tryContinueFromStep1();
 
@@ -67,7 +67,7 @@ test.describe("Tradesman registration — Step 1 inline validation", () => {
       contactName: "Chris Test",
       email: "chris.test@example.com",
     });
-    await tradesmanRegisterPage.addServiceArea("E4 6");
+    await tradesmanRegisterPage.addServiceArea("E4 6AB");
     await tradesmanRegisterPage.fillPhone("09043535345322342342");
     await tradesmanRegisterPage.tryContinueFromStep1();
     await tradesmanRegisterPage.expectFieldError(
