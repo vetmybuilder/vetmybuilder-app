@@ -1,6 +1,8 @@
 // src/helpers/AuthHelper.ts
 import { loginInAsHomeowner } from "../apiHelper/setupHomeownerSession";
+import { loginInAsTradesman } from "../apiHelper/tradesman/setupTradesmanSession";
 import { uiLoginAsUid } from "../apiHelper/uiAuth";
+import type Tradesman from "../models/tradesman";
 
 export class AuthHelper {
   constructor(
@@ -20,6 +22,16 @@ export class AuthHelper {
       apiBaseUrl: this.runtime.apiBaseUrl,
       uiBaseUrl: this.runtime.webBaseUrl,
       ...args,
+    });
+  }
+
+  async loginAsTradesman(tradesman: Tradesman): Promise<string> {
+    return await loginInAsTradesman({
+      request: this.request,
+      page: this.page,
+      apiBaseUrl: this.runtime.apiBaseUrl,
+      uiBaseUrl: this.runtime.webBaseUrl,
+      tradesman,
     });
   }
 

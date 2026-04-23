@@ -23,6 +23,7 @@ import TradesmanMyProfilePage from "./pages/TradesmanMyProfilePage";
 import TradesmanEditPage from "./pages/TradesmanEditPage";
 import TradesmanProjectsPage from "./pages/TradesmanProjectsPage";
 import TradesmanRegisterPage from "./pages/TradesmanRegisterPage";
+import TradesmanLoginPage from "./pages/TradesmanLoginPage";
 import TradesmanApi from "./apiHelper/tradesman/TradesmanApi";
 import AdminApi from "./apiHelper/admin/AdminApi";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
@@ -60,6 +61,7 @@ type UiFixtures = {
   tradesmanEditPage: TradesmanEditPage;
   tradesmanProjectsPage: TradesmanProjectsPage;
   tradesmanRegisterPage: TradesmanRegisterPage;
+  tradesmanLoginPage: TradesmanLoginPage;
   tradesmanApi: TradesmanApi;
   adminApi: AdminApi;
   forgotPasswordPage: ForgotPasswordPage;
@@ -209,6 +211,10 @@ export const test = base.extend<UiFixtures, { runtime: Runtime }>({
 
   tradesmanRegisterPage: async ({ page }, use) => {
     await use(new TradesmanRegisterPage(page));
+  },
+
+  tradesmanLoginPage: async ({ page }, use) => {
+    await use(new TradesmanLoginPage(page));
   },
 
   tradesmanApi: async ({ request, runtime }, use) => {
