@@ -133,11 +133,11 @@ function createMockPayments(opts = {}) {
     return Object.keys(memStore).map((id) => clone(memStore[id]));
   }
 
-  function verifyWebhook({ payload, signature, secret }) {
+  function verifyWebhookFromPayload({ payload, signature, secret }) {
     const body = typeof payload === "string" ? payload : JSON.stringify(payload);
     const expectedSecret = secret || webhookSecret || "";
     if (!expectedSecret) {
-      log.info?.(`${TAG} verifyWebhook no secret - auto-ok`);
+      log.info?.(`${TAG} verifyWebhookFromPayload no secret - auto-ok`);
       return { ok: true, event: { type: "mock", payload: body } };
     }
     if (signature !== expectedSecret) {
@@ -148,23 +148,82 @@ function createMockPayments(opts = {}) {
     return { ok: true, event: { type: "mock", payload: body } };
   }
 
+  function verifyWebhookFromReq(_req) {
+    // Mock provider has no real webhook; return an inert event so the
+    // webhook route can no-op cleanly if ever hit in test/dev.
+    return { type: "mock.noop", data: { object: {} } };
+  }
+
   function emitWebhook(type, session) {
     const event = { id: createId("evt"), type, data: { object: clone(session) }, created: Date.now() };
     log.info?.({ eventId: event.id, type }, `${TAG} emitWebhook`);
     return event;
   }
 
+  async function createSubscriptionCheckout(options = {}) {
+    const { getTier } = require("../subscriptions/tiers");
+    const tier = getTier(options.tier);
+    if (!tier) throw new Error(`Unknown subscription tier: ${options.tier}`);
+    const userId = options.userId;
+    if (!userId) throw new Error("createSubscriptionCheckout: userId required");
+
+    const sessionId = `mock_sub_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`;
+    const now = new Date();
+    const periodEnd = new Date(now);
+    if (tier.interval === "week") {
+      periodEnd.setDate(periodEnd.getDate() + 7 * tier.intervalCount);
+    } else if (tier.interval === "month") {
+      periodEnd.setMonth(periodEnd.getMonth() + tier.intervalCount);
+    }
+
+    if (mysqlQuery) {
+      await mysqlQuery(
+        `INSERT INTO builder_subscriptions
+           (user_id, tier_id, stripe_subscription_id, status, current_period_start, current_period_end)
+         VALUES (?, ?, ?, 'active', ?, ?)`,
+        [userId, tier.id, sessionId, now, periodEnd],
+      );
+    }
+
+    log.info?.(
+      { id: sessionId, userId, tier: tier.id },
+      `${TAG} mock subscription activated`,
+    );
+
+    return {
+      id: sessionId,
+      hosted_url: `${baseUrl}/payments/mock/subscription-success?sessionId=${sessionId}`,
+      status: "complete",
+      tier: tier.id,
+    };
+  }
+
+  async function cancelSubscriptionAtPeriodEnd(stripeSubscriptionId) {
+    if (mysqlQuery) {
+      await mysqlQuery(
+        `UPDATE builder_subscriptions
+            SET status = 'canceled', canceled_at = NOW()
+          WHERE stripe_subscription_id = ?`,
+        [stripeSubscriptionId],
+      );
+    }
+    return { id: stripeSubscriptionId, cancelAtPeriodEnd: true };
+  }
+
   return {
     createCheckout,
     createSession: createCheckout,
+    createSubscriptionCheckout,
+    cancelSubscriptionAtPeriodEnd,
     getSession,
     updateSession,
     markPaid,
     cancel,
     expire,
     listSessions,
-    verifyWebhook,
+    verifyWebhook: verifyWebhookFromReq,
     emitWebhook,
+    isStripe: false,
   };
 }
 
