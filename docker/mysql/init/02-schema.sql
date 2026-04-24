@@ -603,6 +603,44 @@ CREATE TABLE IF NOT EXISTS builder_subscriptions (
   KEY idx_builder_subscriptions_user_active (user_id, status, current_period_end)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS swipe_interest (
+  id                       INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  project_id               INT NOT NULL,
+  homeowner_uid            VARCHAR(128) NOT NULL,
+  builder_uid              VARCHAR(128) NOT NULL,
+  source                   ENUM('recommended', 'subscribed') NOT NULL,
+  status                   ENUM(
+    'pending',
+    'matched',
+    'declined_by_homeowner',
+    'declined_by_builder',
+    'expired'
+  ) NOT NULL DEFAULT 'pending',
+  homeowner_swiped_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  builder_swiped_at        DATETIME NULL,
+  created_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                           ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_swipe_interest_pair (project_id, builder_uid),
+  KEY idx_swipe_interest_builder_pending (builder_uid, status, homeowner_swiped_at),
+  KEY idx_swipe_interest_project_status (project_id, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS inbox_messages (
+  id              INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  project_id      INT NOT NULL,
+  homeowner_uid   VARCHAR(128) NOT NULL,
+  builder_uid     VARCHAR(128) NOT NULL,
+  intro_message   TEXT NULL,
+  source          ENUM('paid_unlock') NOT NULL DEFAULT 'paid_unlock',
+  homeowner_replied_at DATETIME NULL,
+  created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                  ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_inbox_pair (project_id, builder_uid),
+  KEY idx_inbox_homeowner (homeowner_uid, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS trade_shares (
       id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
       project_id INTEGER NOT NULL,
