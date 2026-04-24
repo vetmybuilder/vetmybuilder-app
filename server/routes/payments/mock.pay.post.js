@@ -140,6 +140,29 @@ module.exports = (router, ctx) => {
           "Unlock payment completed - contact now active"
         );
 
+        // Insert inbox_messages row so the homeowner sees the profile share + builder intro.
+        try {
+          const introMessage = md.introMessage || "";
+          const pRows = await mysqlQuery(
+            `SELECT ownerUserId FROM projects WHERE id = ? LIMIT 1`,
+            [projectId]
+          );
+          const ownerUid = pRows?.[0]?.ownerUserId;
+          if (ownerUid) {
+            await mysqlQuery(
+              `INSERT INTO inbox_messages
+                 (project_id, homeowner_uid, builder_uid, intro_message, source)
+               VALUES (?, ?, ?, ?, 'paid_unlock')
+               ON DUPLICATE KEY UPDATE
+                 intro_message = VALUES(intro_message),
+                 updated_at = NOW()`,
+              [projectId, ownerUid, uid, introMessage]
+            );
+          }
+        } catch (e) {
+          log.warn({ err: e?.message }, "inbox_messages insert failed in mock.pay");
+        }
+
         res.json({
           ok: true,
           type: "unlock_contact",

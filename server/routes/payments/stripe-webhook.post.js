@@ -74,6 +74,29 @@ module.exports = (router, ctx) => {
 
             log.info({ uid, projectId, sessionId: session.id }, "Unlock activated via Stripe webhook");
             ctx.logActivity?.("payment.stripe.unlock", "info", uid, `Stripe unlock for project #${projectId}`);
+
+            // Insert inbox_messages row so the homeowner sees the profile share + builder intro.
+            try {
+              const introMessage = metadata.introMessage || "";
+              const pRows = await mysqlQuery(
+                `SELECT ownerUserId FROM projects WHERE id = ? LIMIT 1`,
+                [projectId]
+              );
+              const ownerUid = pRows?.[0]?.ownerUserId;
+              if (ownerUid) {
+                await mysqlQuery(
+                  `INSERT INTO inbox_messages
+                     (project_id, homeowner_uid, builder_uid, intro_message, source)
+                   VALUES (?, ?, ?, ?, 'paid_unlock')
+                   ON DUPLICATE KEY UPDATE
+                     intro_message = VALUES(intro_message),
+                     updated_at = NOW()`,
+                  [projectId, ownerUid, uid, introMessage]
+                );
+              }
+            } catch (inboxErr) {
+              log.warn({ err: inboxErr?.message }, "inbox_messages insert failed in stripe webhook");
+            }
           } catch (err) {
             log.error({ err: err?.message }, "Failed to process unlock webhook");
           }
