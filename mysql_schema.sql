@@ -587,6 +587,20 @@ CREATE TABLE IF NOT EXISTS project_contact_unlocks (
       UNIQUE (project_id, buyer_uid)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS builder_subscriptions (
+  id            INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  user_id       VARCHAR(128) NOT NULL,
+  tier_id       VARCHAR(32) NOT NULL,
+  stripe_subscription_id VARCHAR(255) NULL,
+  status        ENUM('active', 'past_due', 'canceled', 'incomplete') NOT NULL DEFAULT 'incomplete',
+  current_period_start  DATETIME NULL,
+  current_period_end    DATETIME NULL,
+  canceled_at   DATETIME NULL,
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_builder_subscriptions_stripe (stripe_subscription_id),
+  KEY idx_builder_subscriptions_user_active (user_id, status, current_period_end)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS trade_shares (
       id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
