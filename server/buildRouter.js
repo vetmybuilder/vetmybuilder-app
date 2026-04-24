@@ -363,6 +363,12 @@ function buildRouter(ctx) {
   require("./routes/payments/stripe-webhook.post")(router, ctx);
   require("./routes/payments/activate-unlock.post")(router, ctx);
 
+  // ---------------- Subscriptions ----------------
+  require("./routes/subscriptions/checkout.post")(router, ctx);
+  require("./routes/subscriptions/cancel.post")(router, ctx);
+  require("./routes/subscriptions/me.get")(router, ctx);
+  require("./routes/subscriptions/stripe-webhook.post")(router, ctx);
+
   // ---------------- Admin ----------------
   require("./routes/admin/projects.get")(router, ctx);
   require("./routes/admin/projects.delete")(router, ctx);
