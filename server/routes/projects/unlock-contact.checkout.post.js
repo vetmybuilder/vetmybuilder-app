@@ -21,6 +21,11 @@ module.exports = (router, ctx) => {
 
       log.info?.(`${TAG} start`, { uid, projectId: req.params.id });
 
+      const introMessage =
+        typeof req.body?.introMessage === "string"
+          ? req.body.introMessage.trim().slice(0, 1000)
+          : "";
+
       try {
         if (!uid) {
           log.warn?.(`${TAG} unauthorized (no uid)`);
@@ -145,6 +150,7 @@ module.exports = (router, ctx) => {
             projectId: String(pid),
             vmb_project_id: String(pid),
             buyerUid: uid,
+            introMessage,
           },
           success_url: successUrl,
           cancel_url: cancelUrl,

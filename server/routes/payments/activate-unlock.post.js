@@ -81,6 +81,37 @@ module.exports = (router, ctx) => {
       log.info?.({ uid, pid, sessionId }, `${TAG} unlock activated`);
       ctx.logActivity?.("payment.unlock", "info", uid, `Unlock activated for project #${pid}`);
 
+      // Insert inbox_messages row so the homeowner sees the profile share + builder intro.
+      // Guarded to only fire for unlock_contact sessions.
+      try {
+        const vmbType =
+          session?.metadata?.vmb_type || session?.metadata?.type || "";
+        if (vmbType === "unlock_contact") {
+          const introMessage = session.metadata?.introMessage || "";
+          const pRows = await mysqlQuery(
+            `SELECT ownerUserId FROM projects WHERE id = ? LIMIT 1`,
+            [pid]
+          );
+          const ownerUid = pRows?.[0]?.ownerUserId;
+          if (ownerUid) {
+            await mysqlQuery(
+              `INSERT INTO inbox_messages
+                 (project_id, homeowner_uid, builder_uid, intro_message, source)
+               VALUES (?, ?, ?, ?, 'paid_unlock')
+               ON DUPLICATE KEY UPDATE
+                 intro_message = VALUES(intro_message),
+                 updated_at = NOW()`,
+              [pid, ownerUid, uid, introMessage]
+            );
+          }
+        }
+      } catch (e) {
+        (log?.warn || console.warn)(
+          { err: e?.message },
+          `${TAG} inbox_messages insert failed`
+        );
+      }
+
       res.json({ ok: true });
     } catch (err) {
       log.error?.({ err: err?.message }, `${TAG} failed`);
