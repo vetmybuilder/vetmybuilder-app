@@ -346,6 +346,14 @@ function buildRouter(ctx) {
   require("./routes/tradesmen/tradesman.get")(router, ctx);
   require("./routes/tradesmen/favourite.post")(router, ctx);
   require("./routes/tradesmen/google-reviews.get")(router, ctx);
+  require("./routes/tradesmen/incoming-interest.get")(router, ctx);
+
+  // ---------------- Swipe matching ----------------
+  require("./routes/projects/matches.get")(router, ctx);
+  require("./routes/projects/swipe.post")(router, ctx);
+  require("./routes/projects/inbox.get")(router, ctx);
+  require("./routes/projects/inbox-reply.post")(router, ctx);
+  require("./routes/swipe/respond.post")(router, ctx);
 
   // ---------------- Plans ----------------
   require("./routes/meta/plans.get")(router, ctx);
