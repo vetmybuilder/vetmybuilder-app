@@ -16,7 +16,6 @@ import { chLabel } from "@/components/ui/vmb";
 import HireConfirmModal from "@/components/project/HireConfirmModal";
 import ReportModal from "@/components/ReportModal";
 import SwipeDeck from "@/components/project/SwipeDeck";
-import BuilderInfoModal from "@/components/project/BuilderInfoModal";
 import MatchesList from "@/components/project/MatchesList";
 import SiteHeader from "@/components/SiteHeader";
 
@@ -261,7 +260,6 @@ function ShortlistInner() {
   // Swipe matching (mobile-only UI, see render block)
   const projectIdStr = Array.isArray(id) ? id[0] : id;
   const [matches, setMatches] = useState<{ recommended: any[]; subscribed: any[] } | null>(null);
-  const [infoFor, setInfoFor] = useState<any | null>(null);
   const [matchRows, setMatchRows] = useState<any[]>([]);
 
   useEffect(() => {
@@ -454,16 +452,16 @@ function ShortlistInner() {
           <SwipeDeck
             projectId={String(projectIdStr ?? "")}
             builders={[...(matches.recommended || []), ...(matches.subscribed || [])]}
-            onInfo={setInfoFor}
+            onInfo={(builder) => {
+              const recId = (builder as any).recommendationId;
+              const pid = String(projectIdStr ?? "");
+              if (builder.tier === "recommended" && recId) {
+                router.push(`/builders/${recId}?projectId=${pid}`);
+              } else {
+                router.push(`/tradesman/${builder.uid}?projectId=${pid}`);
+              }
+            }}
             onMatch={(matchId) => router.push(`/match/${matchId}`)}
-          />
-        )}
-        {infoFor && (
-          <BuilderInfoModal
-            builder={infoFor}
-            onClose={() => setInfoFor(null)}
-            onLike={() => { /* TODO(T7-followup): commit right-swipe via /swipe */ }}
-            onPass={() => { /* TODO(T7-followup): commit left-swipe via /swipe */ }}
           />
         )}
         <div className="mt-4">

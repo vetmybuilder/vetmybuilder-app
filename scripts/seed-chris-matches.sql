@@ -29,7 +29,7 @@ SELECT
   'house',
   3,
   @chris,
-  'published'
+  'live'
 FROM DUAL
 WHERE NOT EXISTS (
   SELECT 1 FROM projects
@@ -46,7 +46,7 @@ SELECT
   'house',
   3,
   @chris,
-  'published'
+  'live'
 FROM DUAL
 WHERE NOT EXISTS (
   SELECT 1 FROM projects

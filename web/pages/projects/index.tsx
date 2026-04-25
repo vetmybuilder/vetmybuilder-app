@@ -17,6 +17,11 @@ import ProjectFilters, {
 import FavouriteTradesmenSection from "@/components/tradesmen/FavouriteTradesmenSection";
 import PushPrompt from "@/components/PushPrompt";
 import { Home, Heart, FolderOpen, Shield, Building2, Star, Lightbulb, ChevronDown, ChevronUp, Plus, CheckCircle2 } from "lucide-react";
+import Layout from "@/components/Layout";
+import ProjectsListMobile, {
+  type MobileTab,
+  type MobileProject,
+} from "@/components/project/ProjectsListMobile";
 
 
 function EmptyState({ onNewProject }: { onNewProject: () => void }) {
@@ -135,17 +140,31 @@ function ProjectsGate() {
 
   if (status === "redirect") {
     return (
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 text-sm text-zinc-400">
-        Redirecting…
-      </div>
+      <>
+        <div className="md:hidden p-6 text-sm text-zinc-400">Redirecting…</div>
+        <div className="hidden md:block">
+          <Layout>
+            <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 text-sm text-zinc-400">
+              Redirecting…
+            </div>
+          </Layout>
+        </div>
+      </>
     );
   }
 
   if (status !== "ok") {
     return (
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 text-sm text-zinc-400">
-        Loading…
-      </div>
+      <>
+        <div className="md:hidden p-6 text-sm text-zinc-400">Loading…</div>
+        <div className="hidden md:block">
+          <Layout>
+            <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 text-sm text-zinc-400">
+              Loading…
+            </div>
+          </Layout>
+        </div>
+      </>
     );
   }
 
@@ -277,7 +296,15 @@ function OwnerProjects() {
   // ---- Filters ----
   const [chipType, setChipType] = useState<string>("");
   const [chipStatus, setChipStatus] = useState<string>("");
+  // Mobile tab handler sets a fresh chipStatus and then pushes a tab change
+  // through the URL — that tab change should NOT auto-clear the status it
+  // just set. Flag set by the mobile handler, consumed once.
+  const skipFilterResetRef = useRef(false);
   useEffect(() => {
+    if (skipFilterResetRef.current) {
+      skipFilterResetRef.current = false;
+      return;
+    }
     setChipType("");
     setChipStatus("");
   }, [tab]);
@@ -454,7 +481,83 @@ function OwnerProjects() {
 
   const [safetyOpen, setSafetyOpen] = useState(false);
 
+  // ---- Mobile tab derivation ----
+  // Mobile shows All / Live / Completed which we map onto the
+  // existing (tab + chipStatus) pair the API understands.
+  const mobileTab: MobileTab = (() => {
+    if (tab === "completed") return "completed";
+    if (chipStatus === "live") return "live";
+    return "all";
+  })();
+  const handleMobileTabChange = (next: MobileTab) => {
+    // tab is URL-driven (see the router.query.tab effect above) — push the URL
+    // and let the existing sync effect call setTab. Calling setTab directly
+    // races the URL effect and reverts to "mine" on the next render.
+    const targetTab: OwnerTab = next === "completed" ? "completed" : "mine";
+    // Skip the auto-clear-on-tab-change reset: we're applying a status atomically.
+    skipFilterResetRef.current = true;
+    setChipStatus(next === "live" ? "live" : "");
+    const query: Record<string, string> = {};
+    if (targetTab !== "mine") query.tab = targetTab;
+    router.replace({ pathname: "/projects", query }, undefined, { shallow: true });
+  };
+
+  // Mobile sort: map onto the existing (sort, order) pair.
+  const mobileSort: "newest" | "oldest" =
+    sort === "createdAt" && order === "asc" ? "oldest" : "newest";
+  const handleMobileSortChange = (v: "newest" | "oldest") => {
+    setSort("createdAt");
+    setOrder(v === "oldest" ? "asc" : "desc");
+  };
+
+  // ---- Mobile items adapter ----
+  // The same /api/projects endpoint serves every tab and returns p.* rows, so
+  // the mobile cards can render directly from the loaded `items`. We adapt
+  // explicitly here so the contract between the parent and the mobile list is
+  // narrow and obvious — no `as any` slipping through.
+  //
+  // For the Completed view we hardcode `status="completed"` because the row
+  // may have come from `status='archived' AND project_closures.projectId IS
+  // NOT NULL`, but the user closed it intentionally so the pill should read
+  // Completed.
+  const mobileItems: MobileProject[] = useMemo(() => {
+    return items.map((p) => ({
+      id: p.id,
+      name: p.name,
+      type: p.type ?? null,
+      location: p.location ?? null,
+      propertyType: p.propertyType ?? null,
+      bedrooms: p.bedrooms ?? null,
+      status: tab === "completed" ? "completed" : (p.status ?? null),
+      coverPhotoUrl: p.coverPhotoUrl ?? null,
+    }));
+  }, [items, tab]);
+
   return (
+    <>
+      {/* MOBILE — bare, app-like view */}
+      <div className="md:hidden">
+        <ProjectsListMobile
+          tab={mobileTab}
+          onChangeTab={handleMobileTabChange}
+          chipType={chipType}
+          onChangeType={setChipType}
+          chipStatus={chipStatus}
+          onChangeStatus={setChipStatus}
+          sort={mobileSort}
+          onChangeSort={handleMobileSortChange}
+          items={mobileItems}
+          loading={loading}
+          counts={{ all: total }}
+        />
+        {showPushPrompt && (
+          <PushPrompt onComplete={() => setShowPushPrompt(false)} />
+        )}
+      </div>
+
+      {/* DESKTOP — unchanged: original list view inside Layout chrome */}
+      <div className="hidden md:block">
+        <Layout>
     <div className="relative min-h-screen overflow-hidden -mt-14">
 
       <div
@@ -695,5 +798,8 @@ function OwnerProjects() {
         </button>
       )}
     </div>
+        </Layout>
+      </div>
+    </>
   );
 }

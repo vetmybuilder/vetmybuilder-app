@@ -220,6 +220,44 @@ async function ensureChrisMatches() {
   }
 }
 
+// Re-applies scripts/seed-chris-bathroom-project.sql on every boot so Chris's
+// dev account always has a substantial bathroom project for AI-ranker testing:
+// 1 published project + classification, 10 recommendations (5 relevant trades,
+// 5 irrelevant), 15 tradesmen rows, 5 active builder_subscriptions.
+// Idempotent — same pattern as ensureChrisMatches().
+async function ensureChrisBathroomProject() {
+  const sqlPath = path.join(__dirname, "seed-chris-bathroom-project.sql");
+  let sql;
+  try {
+    sql = fs.readFileSync(sqlPath, "utf8");
+  } catch (e) {
+    log(`Chris bathroom seed skipped: cannot read ${sqlPath}: ${e.message}`);
+    return;
+  }
+
+  const mysql2 = require("mysql2/promise");
+  const conn = await mysql2.createConnection({
+    host: process.env.MYSQL_HOST || process.env.TEST_DB_HOST || "localhost",
+    port: Number(process.env.MYSQL_PORT || process.env.TEST_DB_PORT || 3306),
+    user: process.env.MYSQL_USER || process.env.TEST_DB_USER || "root",
+    password: process.env.MYSQL_PASSWORD || process.env.TEST_DB_PASSWORD || "",
+    database:
+      process.env.MYSQL_DATABASE ||
+      process.env.TEST_DB_NAME ||
+      "vetmybuilder_test_s1_4_w0",
+    multipleStatements: true,
+  });
+
+  try {
+    await conn.query(sql);
+    log("Chris bathroom project seeded");
+  } catch (e) {
+    log(`Chris bathroom seed skipped: ${e.message}`);
+  } finally {
+    await conn.end();
+  }
+}
+
 async function ensureEmulatorUsers() {
   const emulatorHost =
     process.env.FIREBASE_AUTH_EMULATOR_HOST || "127.0.0.1:9099";
@@ -302,6 +340,13 @@ function runScript(script, env = {}) {
     await ensureChrisMatches();
   } catch (e) {
     log(`Warning: failed to seed Chris matches: ${e.message}`);
+  }
+
+  // Re-apply Chris's bathroom project + 10 recs + 5 subs for AI-ranker testing.
+  try {
+    await ensureChrisBathroomProject();
+  } catch (e) {
+    log(`Warning: failed to seed Chris bathroom project: ${e.message}`);
   }
 
   // Override the sim-generated Elegant tradesman row with the real

@@ -1,5 +1,6 @@
 import Head from "next/head";
 import AuthedOnly from "@/components/AuthedOnly";
+import Layout from "@/components/Layout";
 import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 import React, { useMemo, useState, useEffect, useRef } from "react";
@@ -11,6 +12,7 @@ import DynamicFieldGroup, {
   validateGroup,
 } from "@/components/forms/DynamicFieldGroup";
 import { getSpecForSelection, type AnswersShape } from "@/config/jobFields";
+import PostJobMobile from "@/components/project/PostJobMobile";
 
 /* ===== Category icons ===== */
 
@@ -471,6 +473,47 @@ export default function NewProject() {
         <title>Post a Job — VetMyBuilder</title>
       </Head>
 
+      {/* MOBILE — bare, app-like wizard */}
+      <div className="md:hidden">
+        <PostJobMobile
+          form={form}
+          set={set as any}
+          setForm={setForm}
+          step={step}
+          setStep={setStep}
+          STEPS={STEPS}
+          currentStep={currentStep}
+          isStepValid={isStepValid}
+          goNext={next}
+          goBack={back}
+          goToStep={goToStep}
+          submit={onCreate}
+          busy={busy}
+          err={err}
+          filteredCategories={filteredCategories}
+          filteredSubtypes={filteredSubtypes}
+          SUBTYPE_OPTIONS={SUBTYPE_OPTIONS}
+          toggleSubtype={toggleSubtype}
+          categorySearch={categorySearch}
+          setCategorySearch={setCategorySearch}
+          subtypeSearch={subtypeSearch}
+          setSubtypeSearch={setSubtypeSearch}
+          categorySpec={categorySpec}
+          answerErrors={answerErrors}
+          CATEGORY_ICONS={CATEGORY_ICONS}
+          PROPERTY_TYPES={PROPERTY_TYPES}
+          BEDROOM_OPTIONS={BEDROOM_OPTIONS}
+          TIMEFRAMES={TIMEFRAMES}
+          BUDGETS={BUDGETS}
+          MATERIALS_OPTIONS={MATERIALS_OPTIONS}
+          getAccessChips={getAccessChips}
+          normalize={normalize}
+        />
+      </div>
+
+      {/* DESKTOP — unchanged: original wizard inside Layout chrome */}
+      <div className="hidden md:block">
+      <Layout>
       <div className="relative min-h-screen overflow-hidden -mt-14">
         <div className="relative z-10 mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 pt-4 sm:pt-20 pb-8">
           <div className="relative w-full overflow-hidden rounded-3xl bg-white shadow-xl shadow-zinc-200/60">
@@ -997,6 +1040,8 @@ export default function NewProject() {
             </div>
           </div>
         </div>
+      </div>
+      </Layout>
       </div>
     </AuthedOnly>
   );

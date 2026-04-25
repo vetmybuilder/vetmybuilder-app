@@ -69,6 +69,8 @@ web/firebase-admin.json
 !docker/mysql/init/*.sql
 !e2e-tests/sql/*.sql
 !mysql_schema.sql
+!scripts/seed-chris-matches.sql
+!scripts/seed-chris-bathroom-project.sql
 
 # Local migration scripts
 scripts/sqlite_to_mysql_schema.js

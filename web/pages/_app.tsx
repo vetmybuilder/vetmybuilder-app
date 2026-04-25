@@ -9,6 +9,8 @@ import AdminLayout from "@/components/AdminLayout";
 import TradesmanLayout from "@/components/TradesmanLayout";
 import CrossTabLogoutWatcher from "@/components/CrossTabLogoutWatcher";
 import PostHogProvider from "@/components/PostHogProvider";
+import { MobileMenuProvider } from "@/utils/mobileMenu";
+import GlobalMobileMenu from "@/components/GlobalMobileMenu";
 
 // ✅ IMPORTANT: adjust this import path to where your initFirebase() file actually is.
 // Example candidates:
@@ -184,12 +186,16 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     "/projects/[id]/shortlist",
     "/matches",
     "/match/[matchId]",
+    "/projects/[id]",
+    "/projects",
+    "/projects/new",
   ]);
   const isBareRoute = NO_LAYOUT_PATHS.has(router.pathname);
 
   return (
     <AuthProvider>
       <PostHogProvider>
+      <MobileMenuProvider>
       {/* Bootstrap GSID + pageview tracking */}
       <AppBootstrap />
 
@@ -213,8 +219,13 @@ export default function MyApp({ Component, pageProps }: AppProps) {
         </Layout>
       )}
 
+      {/* Global mobile menu — single instance for every route, opened
+          via useMobileMenu().openMenu() from any burger button. */}
+      <GlobalMobileMenu />
+
       {/* Global modal portal target (for SignUpGate, etc.) */}
       <div id="modal-root" />
+      </MobileMenuProvider>
       </PostHogProvider>
     </AuthProvider>
   );

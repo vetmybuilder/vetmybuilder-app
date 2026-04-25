@@ -27,17 +27,37 @@ function splitCsv(v) {
     .filter(Boolean);
 }
 
-function rowToCandidate(row, tier) {
+function rowToCandidate(row, tier, recommenderName) {
   const trades = splitCsv(row.trade_types);
+  const cvStatus = String(row.cvStatus || "").toLowerCase();
+  const chStatus = String(row.chStatus || "").toLowerCase();
+  const chVerified =
+    cvStatus === "verified" ||
+    cvStatus === "matched" ||
+    chStatus === "verified" ||
+    chStatus === "matched";
+  const isRec = tier === "recommended";
   return {
     uid: row.user_id,
     displayName: row.company_name || "Builder",
+    companyName: row.company_name || "Builder",
+    photoUrl: row.photoUrl || null,
+    starRating: row.starRating == null ? null : Number(row.starRating),
+    reviewCount: Number(row.reviewCount) || 0,
+    yearsTrading: Number(row.yearsTrading) || 0,
+    chVerified,
+    whyMatch: isRec
+      ? "Recommended · Free to contact"
+      : "Matched on area + trade",
+    tier: isRec ? "recommended" : "ai-matched",
+    recommenderName: isRec ? recommenderName || undefined : undefined,
+    // Internal-only, used by rankBuilders. Returned harmlessly.
     primaryTrade: trades[0] || null,
     secondaryTrades: trades.slice(1),
     serviceAreas: splitCsv(row.service_areas),
     priceBand: null, // not currently modelled on tradesmen
     baseScore: Number(row.vmb_score) || 0,
-    tier,
+    recommendationId: row.recommendationId ?? null,
   };
 }
 
@@ -101,9 +121,26 @@ module.exports = function mountMatchesGet(router, ctx) {
 
     const recRows = await mysqlQuery(
       `SELECT t.user_id, t.company_name, t.trade_types,
-              t.service_areas, t.vmb_score
+              t.service_areas, t.vmb_score,
+              t.profile_picture_url AS photoUrl,
+              t.google_rating AS starRating,
+              COALESCE(t.google_reviews_count, 0) AS reviewCount,
+              GREATEST(0, TIMESTAMPDIFF(YEAR, t.created_at, NOW())) AS yearsTrading,
+              t.ch_status AS chStatus,
+              cv_agg.cvStatus AS cvStatus,
+              r.recommenderUserId AS recommenderUserId,
+              r.id AS recommendationId
          FROM recommendations r
          JOIN tradesmen t ON t.user_id = r.linked_tradesman_uid
+         LEFT JOIN (
+           SELECT companyNumber,
+                  MAX(CASE WHEN LOWER(status) = 'verified' THEN 'verified'
+                           WHEN LOWER(status) = 'matched'  THEN 'matched'
+                           ELSE LOWER(status) END) AS cvStatus
+             FROM company_verifications
+            WHERE companyNumber IS NOT NULL AND companyNumber <> ''
+            GROUP BY companyNumber
+         ) cv_agg ON cv_agg.companyNumber = t.company_number
         WHERE r.projectId = ?
           AND r.linked_tradesman_uid IS NOT NULL`,
       [pid],
@@ -111,15 +148,61 @@ module.exports = function mountMatchesGet(router, ctx) {
 
     const subRows = await mysqlQuery(
       `SELECT t.user_id, t.company_name, t.trade_types,
-              t.service_areas, t.vmb_score
+              t.service_areas, t.vmb_score,
+              t.profile_picture_url AS photoUrl,
+              t.google_rating AS starRating,
+              COALESCE(t.google_reviews_count, 0) AS reviewCount,
+              GREATEST(0, TIMESTAMPDIFF(YEAR, t.created_at, NOW())) AS yearsTrading,
+              t.ch_status AS chStatus,
+              cv_agg.cvStatus AS cvStatus
          FROM tradesmen t
          JOIN builder_subscriptions s ON s.user_id = t.user_id
+         LEFT JOIN (
+           SELECT companyNumber,
+                  MAX(CASE WHEN LOWER(status) = 'verified' THEN 'verified'
+                           WHEN LOWER(status) = 'matched'  THEN 'matched'
+                           ELSE LOWER(status) END) AS cvStatus
+             FROM company_verifications
+            WHERE companyNumber IS NOT NULL AND companyNumber <> ''
+            GROUP BY companyNumber
+         ) cv_agg ON cv_agg.companyNumber = t.company_number
         WHERE s.status = 'active'
           AND s.current_period_end > NOW()`,
     );
 
+    // Batch-resolve recommender first names so the tier badge can read
+    // "Recommended by Alex" rather than "Recommended by your network".
+    const recommenderById = new Map();
+    const recommenderUids = Array.from(
+      new Set(
+        (recRows || [])
+          .map((r) => r.recommenderUserId)
+          .filter((u) => u != null && String(u).length > 0),
+      ),
+    );
+    if (recommenderUids.length > 0) {
+      const placeholders = recommenderUids.map(() => "?").join(",");
+      const userRows = await mysqlQuery(
+        `SELECT uid, firstName FROM users WHERE uid IN (${placeholders})`,
+        recommenderUids,
+      );
+      for (const u of userRows || []) {
+        if (u && u.uid) {
+          recommenderById.set(String(u.uid), u.firstName || null);
+        }
+      }
+    }
+
     const recommendedCandidates = (recRows || [])
-      .map((r) => rowToCandidate(r, "recommended"))
+      .map((r) =>
+        rowToCandidate(
+          r,
+          "recommended",
+          r.recommenderUserId
+            ? recommenderById.get(String(r.recommenderUserId)) || null
+            : null,
+        ),
+      )
       .filter((c) => !swipedSet.has(c.uid));
     const subscribedCandidates = (subRows || [])
       .map((r) => rowToCandidate(r, "subscribed"))

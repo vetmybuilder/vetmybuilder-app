@@ -6,7 +6,7 @@ import { useAuth, signOutUser } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
 import { Home, User, Wrench } from "lucide-react";
-import MobileMenu from "@/components/MobileMenu";
+import { useMobileMenu } from "@/utils/mobileMenu";
 
 const NotificationsBell = dynamic(
   () => import("@/components/NotificationsBell"),
@@ -198,12 +198,11 @@ export default function SiteHeader() {
     } catch {}
   }, []);
 
-  // mobile menu
-  const [mobileOpen, setMobileOpen] = useState(false);
-
-  // Inbox unread count — only for authenticated homeowners. Surfaced on the
-  // "Inbox" entry of MobileMenu as a count pill.
-  const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
+  // mobile menu — global instance lives at the app root; the burger
+  // buttons here just call openMenu() via the shared context. Inbox
+  // unread count is now owned by GlobalMobileMenu too.
+  const { openMenu: openMobileMenu, closeMenu: closeMobileMenu } =
+    useMobileMenu();
 
   // Only call /api/tradesmen/me when we actually have a logged-in user
   useEffect(() => {
@@ -254,29 +253,6 @@ export default function SiteHeader() {
     };
   }, [user, api]);
 
-  // Fetch inbox unread count for authed homeowners. Fire-and-forget — the
-  // menu defaults to 0 until this resolves so rendering is never blocked.
-  useEffect(() => {
-    if (!displayUser || isTrades) {
-      setInboxUnreadCount(0);
-      return;
-    }
-    let alive = true;
-    api
-      .get("/api/inbox")
-      .then((r) => {
-        if (!alive) return;
-        const n = Number(r?.data?.unreadCount);
-        setInboxUnreadCount(Number.isFinite(n) ? n : 0);
-      })
-      .catch(() => {
-        /* default to 0 */
-      });
-    return () => {
-      alive = false;
-    };
-  }, [displayUser, isTrades, api]);
-
   // desktop dropdown menus
   const [openMenu, setOpenMenu] = useState<"trades" | "account" | null>(null);
   const btnTradesRef = useRef<HTMLButtonElement | null>(null);
@@ -298,7 +274,6 @@ export default function SiteHeader() {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         setOpenMenu(null);
-        setMobileOpen(false);
       }
     }
     document.addEventListener("mousedown", onDocClick);
@@ -310,18 +285,6 @@ export default function SiteHeader() {
   }, [openMenu]);
 
   const initials = useMemo(() => computeInitials(displayUser), [displayUser]);
-
-  // Trades-only CTA
-  const tradeCta = useMemo(() => {
-    if (!isTrades) return null;
-    return {
-      href: "/tradesman/projects",
-      label: company || "Trades",
-      className:
-        "inline-flex items-center justify-center rounded-xl px-3.5 h-9 text-sm font-medium bg-red-500 text-white shadow-sm hover:bg-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2",
-      testid: "btn-trades-projects",
-    };
-  }, [isTrades, company]);
 
   async function onLogout() {
     try {
@@ -511,7 +474,7 @@ export default function SiteHeader() {
                   type="button"
                   aria-label="Open navigation menu"
                   className="inline-flex sm:hidden h-9 w-9 items-center justify-center rounded-lg bg-zinc-100 hover:bg-zinc-200 transition-colors"
-                  onClick={() => setMobileOpen(true)}
+                  onClick={openMobileMenu}
                   data-testid="btn-mobile-menu"
                 >
                   <span className="sr-only">Toggle menu</span>
@@ -526,28 +489,6 @@ export default function SiteHeader() {
           </div>
         </header>
 
-        <MobileMenu
-          open={mobileOpen}
-          onClose={() => setMobileOpen(false)}
-          isTrades={isTrades}
-          isAuthed={!!displayUser}
-          firstName={displayUser?.firstName ?? null}
-          tradeCta={tradeCta}
-          onLogout={onLogout}
-          onGoHome={() => router.push("/")}
-          onGoProjectsTab={(key) =>
-            router.push(
-              { pathname: "/projects", query: { tab: key } },
-              undefined,
-              {
-                shallow: true,
-              },
-            )
-          }
-          onGoAccount={() => router.push("/account")}
-          onPostJob={() => router.push("/projects/new")}
-          inboxUnreadCount={inboxUnreadCount}
-        />
       </>
     );
   }
@@ -574,7 +515,7 @@ export default function SiteHeader() {
                 className="inline-flex items-center gap-2"
                 aria-label="Go to your projects or home"
                 data-testid="nav-home"
-                onClick={() => setMobileOpen(false)}
+                onClick={closeMobileMenu}
               >
                 <span
                   aria-hidden
@@ -833,7 +774,7 @@ export default function SiteHeader() {
                 type="button"
                 aria-label="Open navigation menu"
                 className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-100 hover:bg-zinc-200 transition-colors"
-                onClick={() => setMobileOpen(true)}
+                onClick={openMobileMenu}
                 data-testid="btn-mobile-menu"
               >
                 <span className="sr-only">Toggle menu</span>
@@ -848,27 +789,6 @@ export default function SiteHeader() {
         </div>
       </header>
 
-      <MobileMenu
-        open={mobileOpen}
-        onClose={() => setMobileOpen(false)}
-        isTrades={isTrades}
-        isAuthed={!!displayUser}
-        firstName={displayUser?.firstName ?? null}
-        tradeCta={tradeCta}
-        onLogout={onLogout}
-        onGoHome={() => router.push("/")}
-        onGoProjectsTab={(key) =>
-          router.push(
-            { pathname: "/projects", query: { tab: key } },
-            undefined,
-            {
-              shallow: true,
-            },
-          )
-        }
-        onGoAccount={() => router.push("/account")}
-        onPostJob={() => router.push("/projects/new")}
-      />
     </>
   );
 }

@@ -77,6 +77,14 @@ describe("GET /api/projects/:id/matches", () => {
           trade_types: "kitchen_fitter,plumber",
           service_areas: "E4,E10",
           vmb_score: 50,
+          photoUrl: "https://cdn/x.jpg",
+          starRating: 4.7,
+          reviewCount: 23,
+          yearsTrading: 9,
+          chStatus: "matched",
+          cvStatus: null,
+          recommenderUserId: "alex-uid",
+          recommendationId: 4242,
         },
       ]) // recommendations
       .mockResolvedValueOnce([
@@ -86,8 +94,17 @@ describe("GET /api/projects/:id/matches", () => {
           trade_types: "kitchen_fitter",
           service_areas: "E4",
           vmb_score: 60,
+          photoUrl: null,
+          starRating: null,
+          reviewCount: 0,
+          yearsTrading: 3,
+          chStatus: null,
+          cvStatus: "verified",
         },
-      ]); // subscribed pool
+      ]) // subscribed pool
+      .mockResolvedValueOnce([
+        { uid: "alex-uid", firstName: "Alex" },
+      ]); // recommender lookup
     const handler = loadHandler({
       auth: (_q: any, _r: any, n: any) => n(),
       mysqlQuery: q,
@@ -96,13 +113,36 @@ describe("GET /api/projects/:id/matches", () => {
     await handler({ user: { uid: "u1" }, params: { id: "1" } }, res);
     expect(res.status).toHaveBeenCalledWith(200);
     const body = res.json.mock.calls[0][0];
+
     expect(body.recommended).toHaveLength(1);
-    expect(body.recommended[0].uid).toBe("rec1");
-    expect(body.recommended[0].displayName).toBe("Rec Co");
-    expect(body.recommended[0].primaryTrade).toBe("kitchen_fitter");
-    expect(body.recommended[0].secondaryTrades).toEqual(["plumber"]);
-    expect(body.recommended[0].serviceAreas).toEqual(["E4", "E10"]);
+    const rec = body.recommended[0];
+    expect(rec.uid).toBe("rec1");
+    expect(rec.displayName).toBe("Rec Co");
+    expect(rec.companyName).toBe("Rec Co");
+    expect(rec.photoUrl).toBe("https://cdn/x.jpg");
+    expect(rec.starRating).toBe(4.7);
+    expect(rec.reviewCount).toBe(23);
+    expect(rec.yearsTrading).toBe(9);
+    expect(rec.chVerified).toBe(true);
+    expect(rec.tier).toBe("recommended");
+    expect(rec.whyMatch).toMatch(/Recommended/);
+    expect(rec.recommenderName).toBe("Alex");
+    expect(rec.recommendationId).toBe(4242);
+    // Internal-only fields used by rankBuilders are still emitted.
+    expect(rec.primaryTrade).toBe("kitchen_fitter");
+    expect(rec.secondaryTrades).toEqual(["plumber"]);
+    expect(rec.serviceAreas).toEqual(["E4", "E10"]);
+
     expect(body.subscribed).toHaveLength(1);
-    expect(body.subscribed[0].uid).toBe("sub1");
+    const sub = body.subscribed[0];
+    expect(sub.uid).toBe("sub1");
+    expect(sub.tier).toBe("ai-matched");
+    expect(sub.whyMatch).toBe("Matched on area + trade");
+    expect(sub.chVerified).toBe(true);
+    expect(sub.starRating).toBeNull();
+    expect(sub.reviewCount).toBe(0);
+    expect(sub.yearsTrading).toBe(3);
+    expect(sub.recommenderName).toBeUndefined();
+    expect(sub.recommendationId).toBeNull();
   });
 });

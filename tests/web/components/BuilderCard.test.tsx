@@ -17,20 +17,24 @@ const builder = {
 };
 
 describe("BuilderCard", () => {
-  it("renders name, company, stat pills, why-match, and tier badge", () => {
+  it("renders company, stat pills, Friend pill, and recommender", () => {
     render(<BuilderCard builder={builder} />);
-    expect(screen.getByText("James H.")).toBeInTheDocument();
     expect(screen.getByText("Harrow Building Ltd")).toBeInTheDocument();
     expect(screen.getByText(/4\.8/)).toBeInTheDocument();
     expect(screen.getByText(/27/)).toBeInTheDocument();
     expect(screen.getByText(/12 yrs/)).toBeInTheDocument();
-    expect(screen.getByText(/CH/)).toBeInTheDocument();
-    expect(screen.getByText(/Covers E4/)).toBeInTheDocument();
-    expect(screen.getByText(/Recommended by Alex/)).toBeInTheDocument();
+    expect(screen.getByText(/Verified/)).toBeInTheDocument();
+    expect(screen.getByText(/Friend/)).toBeInTheDocument();
+    expect(screen.getByText(/Alex/)).toBeInTheDocument();
   });
 
   it("shows AI match badge when tier is ai-matched", () => {
     render(<BuilderCard builder={{ ...builder, tier: "ai-matched", recommenderName: undefined }} />);
     expect(screen.getByText(/AI match/)).toBeInTheDocument();
+  });
+
+  it("singularises the years pill at 1 year", () => {
+    render(<BuilderCard builder={{ ...builder, yearsTrading: 1 }} />);
+    expect(screen.getByText("1 yr")).toBeInTheDocument();
   });
 });

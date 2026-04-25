@@ -78,7 +78,7 @@ describe("Project shortlist page with SwipeDeck", () => {
   it("renders SwipeDeck seeded from /matches response", async () => {
     render(<ShortlistPage />);
     await waitFor(() =>
-      expect(screen.getByText("James H.")).toBeInTheDocument(),
+      expect(screen.getByText("Harrow")).toBeInTheDocument(),
     );
   });
 });

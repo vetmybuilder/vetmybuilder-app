@@ -4,6 +4,9 @@ import SwipeDeck from "@/components/project/SwipeDeck";
 
 const post = vi.fn(async () => ({ data: { status: "pending" } }));
 vi.mock("@/utils/api", () => ({ useApi: () => ({ post, get: vi.fn() }) }));
+vi.mock("next/router", () => ({
+  useRouter: () => ({ query: {}, isReady: true, push: vi.fn(), back: vi.fn() }),
+}));
 
 const builder = {
   uid: "b1", displayName: "James H.", companyName: "Harrow", photoUrl: null,

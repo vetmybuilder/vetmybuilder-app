@@ -1,10 +1,13 @@
 import { useState, useRef } from "react";
+import { useRouter } from "next/router";
 import { useApi } from "@/utils/api";
 import BuilderCard, { BuilderCardBuilder } from "./BuilderCard";
 import SwipeActionBar from "./SwipeActionBar";
+import ShareProjectModal from "./ShareProjectModal";
 
 export interface SwipeDeckBuilder extends BuilderCardBuilder {
   source?: "recommended" | "subscribed";
+  recommendationId?: string | number | null;
 }
 
 export default function SwipeDeck({
@@ -67,11 +70,7 @@ export default function SwipeDeck({
   }
 
   if (!current) {
-    return (
-      <div className="p-8 text-center text-gray-500">
-        No new builders right now — we'll notify you as new matches come in.
-      </div>
-    );
+    return <SwipeDeckEmpty projectId={projectId} />;
   }
 
   const peek = builders.slice(index + 1, index + 3);
@@ -111,6 +110,83 @@ export default function SwipeDeck({
         onPass={() => commit("left")}
         onInfo={() => onInfo?.(current)}
         onLike={() => commit("right")}
+      />
+    </div>
+  );
+}
+
+const CONFETTI: Array<{ left: string; top: string; bg: string; rot: number }> = [
+  { left: "12%", top: "14%", bg: "#fde047", rot: 15 },
+  { left: "78%", top: "12%", bg: "#6366f1", rot: -25 },
+  { left: "25%", top: "24%", bg: "#f87171", rot: 45 },
+  { left: "65%", top: "30%", bg: "#34d399", rot: 20 },
+  { left: "50%", top: "18%", bg: "#a78bfa", rot: -15 },
+  { left: "18%", top: "78%", bg: "#34d399", rot: 30 },
+  { left: "80%", top: "72%", bg: "#fde047", rot: -10 },
+  { left: "35%", top: "84%", bg: "#6366f1", rot: 50 },
+  { left: "55%", top: "80%", bg: "#f472b6", rot: -30 },
+];
+
+function SwipeDeckEmpty({ projectId }: { projectId: string }) {
+  const router = useRouter();
+  const [shareOpen, setShareOpen] = useState(false);
+
+  return (
+    <div className="relative min-h-[520px] flex flex-col items-center justify-center px-7 py-10 text-center overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+        {CONFETTI.map((c, i) => (
+          <span
+            key={i}
+            className="absolute opacity-70"
+            style={{
+              left: c.left,
+              top: c.top,
+              background: c.bg,
+              width: 7,
+              height: 7,
+              borderRadius: 2,
+              transform: `rotate(${c.rot}deg)`,
+            }}
+          />
+        ))}
+      </div>
+
+      <div
+        className="relative w-24 h-24 rounded-full flex items-center justify-center mb-5"
+        style={{
+          background: "linear-gradient(135deg, #c7d2fe, #a5b4fc)",
+          boxShadow: "0 12px 36px rgba(99,102,241,0.25)",
+        }}
+      >
+        <span className="text-white text-[44px] leading-none font-bold">✓</span>
+      </div>
+
+      <h2 className="relative text-[26px] font-extrabold tracking-[-0.02em] leading-[1.2] text-gray-900">
+        You're all caught up
+      </h2>
+      <p className="relative mt-2.5 text-[14px] text-gray-500 leading-[1.5] max-w-[290px]">
+        You've swiped through every builder we have for this project. We'll ping you the moment a new match comes in.
+      </p>
+
+      <div className="relative mt-7 w-full max-w-[320px] flex flex-col gap-2.5">
+        <button
+          onClick={() => router.push("/matches")}
+          className="flex items-center justify-center gap-2 py-4 px-5 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white font-extrabold text-[15px] tracking-tight shadow-[0_10px_24px_rgba(99,102,241,0.3)]"
+        >
+          See your matches
+        </button>
+        <button
+          onClick={() => setShareOpen(true)}
+          className="flex items-center justify-center gap-2 py-4 px-5 rounded-2xl bg-white border-[1.5px] border-gray-200 text-gray-700 font-extrabold text-[15px] tracking-tight"
+        >
+          Share project to find more
+        </button>
+      </div>
+
+      <ShareProjectModal
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        projectId={projectId}
       />
     </div>
   );
