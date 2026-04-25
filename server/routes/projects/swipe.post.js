@@ -8,7 +8,7 @@ module.exports = function mountSwipe(router, ctx) {
   const { auth, mysqlQuery } = ctx;
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
-  router.post("/api/projects/:id/swipe", auth, async (req, res) => {
+  router.post("/projects/:id/swipe", auth, async (req, res) => {
     const uid = req.user?.uid;
     if (!uid) return res.status(401).json({ error: "Unauthorized" });
 

@@ -6,7 +6,7 @@ module.exports = function mountStripeWebhook(router, ctx) {
   const { mysqlQuery, payments } = ctx;
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
-  router.post("/api/subscriptions/stripe-webhook", async (req, res) => {
+  router.post("/subscriptions/stripe-webhook", async (req, res) => {
     let event;
     try {
       if (!payments?.verifyWebhook) throw new Error("payments.verifyWebhook missing");

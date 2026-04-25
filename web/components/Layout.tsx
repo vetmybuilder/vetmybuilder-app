@@ -19,7 +19,11 @@ const BG_IMAGES = [
 // Chosen once per browser session — stable across re-renders and route changes
 let sessionBg: string | null = null;
 
-export default function Layout({ children }: { children: React.ReactNode }) {
+export default function Layout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   // Start with no URL so SSR and client hydration are identical (no mismatch)
   const [bgUrl, setBgUrl] = useState<string>("");
   const [loaded, setLoaded] = useState(false);
@@ -76,7 +80,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       <SiteHeader />
 
-      <main id="main" className="pt-14" data-testid="main-content">
+      <main
+        id="main"
+        className="pt-14"
+        data-testid="main-content"
+      >
         {children}
       </main>
 

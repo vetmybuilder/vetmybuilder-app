@@ -5,6 +5,9 @@ import { ProjectApi } from "./apiHelper/project/ProjectApi";
 import { RecommendationApi } from "./apiHelper/project/ProjectRecommendationApi";
 import { BasePage } from "./pages/BasePage";
 import PipelineApi from "./apiHelper/pipeline/PipelineApi";
+import SwipeMatchingApi from "./apiHelper/swipeMatching/SwipeMatchingApi";
+import SwipeDeckPage from "./pages/SwipeDeckPage";
+import MatchPage from "./pages/MatchPage";
 
 type ApiClient = ReturnType<typeof api>;
 
@@ -32,6 +35,9 @@ export const test = uiBaseTest.extend<{
   accountApi: AccountApi;
   recommendationApi: RecommendationApi;
   pipelineApi: PipelineApi;
+  swipeMatchingApi: SwipeMatchingApi;
+  swipeDeckPage: SwipeDeckPage;
+  matchPage: MatchPage;
   basePage: BasePage;
 }>({
   login: [
@@ -110,6 +116,18 @@ export const test = uiBaseTest.extend<{
 
   pipelineApi: async ({ adminApiClient, runtime }, use) => {
     await use(new PipelineApi(adminApiClient, runtime.dbName));
+  },
+
+  swipeMatchingApi: async ({ runtime }, use) => {
+    await use(new SwipeMatchingApi(runtime.dbName));
+  },
+
+  swipeDeckPage: async ({ page }, use) => {
+    await use(new SwipeDeckPage(page));
+  },
+
+  matchPage: async ({ page }, use) => {
+    await use(new MatchPage(page));
   },
 });
 

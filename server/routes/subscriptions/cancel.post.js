@@ -8,7 +8,7 @@ module.exports = function mountSubscriptionCancel(router, ctx) {
   const { auth, mysqlQuery, payments } = ctx;
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
-  router.post("/api/subscriptions/cancel", auth, async (req, res) => {
+  router.post("/subscriptions/cancel", auth, async (req, res) => {
     const uid = req.user?.uid;
     if (!uid) return res.status(401).json({ error: "Unauthorized" });
 

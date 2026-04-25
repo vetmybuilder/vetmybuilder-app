@@ -201,6 +201,10 @@ export default function SiteHeader() {
   // mobile menu
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // Inbox unread count — only for authenticated homeowners. Surfaced on the
+  // "Inbox" entry of MobileMenu as a count pill.
+  const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
+
   // Only call /api/tradesmen/me when we actually have a logged-in user
   useEffect(() => {
     let alive = true;
@@ -249,6 +253,29 @@ export default function SiteHeader() {
       alive = false;
     };
   }, [user, api]);
+
+  // Fetch inbox unread count for authed homeowners. Fire-and-forget — the
+  // menu defaults to 0 until this resolves so rendering is never blocked.
+  useEffect(() => {
+    if (!displayUser || isTrades) {
+      setInboxUnreadCount(0);
+      return;
+    }
+    let alive = true;
+    api
+      .get("/api/inbox")
+      .then((r) => {
+        if (!alive) return;
+        const n = Number(r?.data?.unreadCount);
+        setInboxUnreadCount(Number.isFinite(n) ? n : 0);
+      })
+      .catch(() => {
+        /* default to 0 */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [displayUser, isTrades, api]);
 
   // desktop dropdown menus
   const [openMenu, setOpenMenu] = useState<"trades" | "account" | null>(null);
@@ -441,6 +468,9 @@ export default function SiteHeader() {
                     </button>
                     {openMenu === "trades" && (
                       <div ref={menuRef} id="trades-menu" role="menu" className="absolute right-0 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg ring-1 ring-black/5">
+                        <Link role="menuitem" href="/tradesman/matches" className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => setOpenMenu(null)}>
+                          Matches
+                        </Link>
                         <Link role="menuitem" href="/tradesman/profile/edit" className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => setOpenMenu(null)}>
                           Manage profile
                         </Link>
@@ -516,6 +546,7 @@ export default function SiteHeader() {
           }
           onGoAccount={() => router.push("/account")}
           onPostJob={() => router.push("/projects/new")}
+          inboxUnreadCount={inboxUnreadCount}
         />
       </>
     );
@@ -674,6 +705,16 @@ export default function SiteHeader() {
                       data-testid="trades-menu"
                       className="absolute right-0 mt-2 w-52 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg ring-1 ring-black/5"
                     >
+                      <Link
+                        role="menuitem"
+                        href="/tradesman/matches"
+                        className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
+                        onClick={() => setOpenMenu(null)}
+                        aria-label="Matches"
+                        data-testid="menu-matches"
+                      >
+                        Matches
+                      </Link>
                       <Link
                         role="menuitem"
                         href="/tradesman/profile/edit"

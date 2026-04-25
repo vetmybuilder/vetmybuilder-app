@@ -176,6 +176,17 @@ export default function MyApp({ Component, pageProps }: AppProps) {
   ]);
   const isTradesmanRoute = TRADESMAN_AUTH_PATHS.has(router.pathname);
 
+  // Routes that render full-bleed, app-like views without any site chrome
+  // (no SiteHeader, no background strip). The page itself is responsible
+  // for its own min-h-screen / background.
+  const NO_LAYOUT_PATHS = new Set<string>([
+    "/inbox",
+    "/projects/[id]/shortlist",
+    "/matches",
+    "/match/[matchId]",
+  ]);
+  const isBareRoute = NO_LAYOUT_PATHS.has(router.pathname);
+
   return (
     <AuthProvider>
       <PostHogProvider>
@@ -186,7 +197,9 @@ export default function MyApp({ Component, pageProps }: AppProps) {
           in another tab and the current path is privately-scoped. */}
       <CrossTabLogoutWatcher />
 
-      {isAdminRoute ? (
+      {isBareRoute ? (
+        <Component {...pageProps} />
+      ) : isAdminRoute ? (
         <AdminLayout>
           <Component {...pageProps} />
         </AdminLayout>

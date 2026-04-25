@@ -15,6 +15,10 @@ import { GoogleRatingChip } from "@/components/GoogleRatingChip";
 import { chLabel } from "@/components/ui/vmb";
 import HireConfirmModal from "@/components/project/HireConfirmModal";
 import ReportModal from "@/components/ReportModal";
+import SwipeDeck from "@/components/project/SwipeDeck";
+import BuilderInfoModal from "@/components/project/BuilderInfoModal";
+import MatchesList from "@/components/project/MatchesList";
+import SiteHeader from "@/components/SiteHeader";
 
 /* ===== Types ===== */
 type Recommendation = {
@@ -254,6 +258,36 @@ function ShortlistInner() {
   const [hiredRecommendationIds, setHiredRecommendationIds] = useState<Set<number>>(new Set());
   const [hiresRefreshKey, setHiresRefreshKey] = useState(0);
 
+  // Swipe matching (mobile-only UI, see render block)
+  const projectIdStr = Array.isArray(id) ? id[0] : id;
+  const [matches, setMatches] = useState<{ recommended: any[]; subscribed: any[] } | null>(null);
+  const [infoFor, setInfoFor] = useState<any | null>(null);
+  const [matchRows, setMatchRows] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!projectIdStr) return;
+    let alive = true;
+    (async () => {
+      try {
+        const { data } = await api.get(`/api/projects/${projectIdStr}/matches`);
+        if (alive) setMatches(data);
+      } catch {
+        /* noop - mobile swipe deck is additive */
+      }
+    })();
+    return () => { alive = false; };
+  }, [projectIdStr, api]);
+
+  useEffect(() => {
+    if (!projectIdStr) return;
+    let cancelled = false;
+    api.get(`/api/projects/${projectIdStr}/match-rows`)
+      .then((r) => { if (!cancelled) setMatchRows(r.data?.matches ?? []); })
+      .catch(() => { /* T17 will add the endpoint; default to [] */ });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectIdStr]);
+
   const isOwner = !!(user && project && project.ownerUserId === user.uid);
   const canVote = !!user && !!project && !isOwner;
 
@@ -413,7 +447,47 @@ function ShortlistInner() {
         <title>{projectTitle ? `Recommendations · ${projectTitle}` : "Recommendations"} — VetMyBuilder</title>
       </Head>
 
-      <div className="relative min-h-screen overflow-x-hidden -mt-14" data-testid="recommendations-page">
+      {/* Mobile-only swipe deck. Desktop keeps the existing shortlist below. */}
+      <div className="md:hidden fixed inset-0 bg-white overflow-y-auto">
+        <div className="h-[env(safe-area-inset-top)]" />
+        {matches && (
+          <SwipeDeck
+            projectId={String(projectIdStr ?? "")}
+            builders={[...(matches.recommended || []), ...(matches.subscribed || [])]}
+            onInfo={setInfoFor}
+            onMatch={(matchId) => router.push(`/match/${matchId}`)}
+          />
+        )}
+        {infoFor && (
+          <BuilderInfoModal
+            builder={infoFor}
+            onClose={() => setInfoFor(null)}
+            onLike={() => { /* TODO(T7-followup): commit right-swipe via /swipe */ }}
+            onPass={() => { /* TODO(T7-followup): commit left-swipe via /swipe */ }}
+          />
+        )}
+        <div className="mt-4">
+          <MatchesList
+            projectTitle={projectTitle ?? ""}
+            matches={matchRows}
+            onOpen={(m) => router.push(`/match/${m.matchId}`)}
+          />
+        </div>
+      </div>
+
+      <div className="hidden md:block relative min-h-screen overflow-x-hidden -mt-14" data-testid="recommendations-page">
+        {/* Full-page background, same spirit as the default Layout */}
+        <div className="pointer-events-none fixed inset-0 -z-10 bg-slate-900">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="https://images.unsplash.com/photo-1621905252507-b35492cc74b4?w=1920&q=80&auto=format"
+            alt=""
+            aria-hidden="true"
+            className="h-full w-full object-cover opacity-100"
+          />
+          <div className="absolute inset-0 bg-slate-900/15" />
+        </div>
+        <SiteHeader />
 
         <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-16 sm:pt-20 pb-16">
 

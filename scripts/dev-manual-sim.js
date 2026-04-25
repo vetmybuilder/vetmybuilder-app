@@ -5,6 +5,8 @@
 require("dotenv").config({ path: ".env.e2e.local" });
 
 const { spawn } = require("child_process");
+const fs = require("fs");
+const path = require("path");
 
 // Never run sim auto-start during E2E tests
 if (process.env.TEST_ENV === "e2e" || process.env.CI) {
@@ -133,6 +135,91 @@ async function ensureHomeownerProfiles() {
   }
 }
 
+// Aligns the seeded `pLT7...` (Elegant Building Services) tradesman row with
+// the real Elegant Building Services Ltd (company_number 12758227) record so
+// the mobile /matches page shows the same Google rating / review count as the
+// web shortlist (which fetches via Companies House + live Google Places).
+// The sim's `runScript("seed")` step writes sim-generated values for this
+// account; this function overrides them after the seed completes. Errors are
+// swallowed and logged so this never kills the sim.
+async function ensureElegantCanonical() {
+  const mysql2 = require("mysql2/promise");
+  let conn;
+  try {
+    conn = await mysql2.createConnection({
+      host: process.env.MYSQL_HOST || process.env.TEST_DB_HOST || "localhost",
+      port: Number(process.env.MYSQL_PORT || process.env.TEST_DB_PORT || 3306),
+      user: process.env.MYSQL_USER || process.env.TEST_DB_USER || "root",
+      password: process.env.MYSQL_PASSWORD || process.env.TEST_DB_PASSWORD || "",
+      database:
+        process.env.MYSQL_DATABASE ||
+        process.env.TEST_DB_NAME ||
+        "vetmybuilder_test_s1_4_w0",
+    });
+
+    await conn.query(
+      `UPDATE tradesmen
+          SET company_number='12758227',
+              google_rating=4.9,
+              google_reviews_count=137,
+              company_name='Elegant Building Services Ltd',
+              vmb_score=93,
+              vmb_badge='platinum',
+              verification_status='verified',
+              ch_status='verified'
+        WHERE user_id='pLT7RLEYByX6IJWzGAMjAKrW5L93'`,
+    );
+    log("Elegant canonical aligned");
+  } catch (err) {
+    log(`Elegant align skipped: ${err.message}`);
+  } finally {
+    if (conn) {
+      try { await conn.end(); } catch {}
+    }
+  }
+}
+
+// Re-applies scripts/seed-chris-matches.sql on every boot so Chris's dev
+// account always has 2 projects + 6 swipe_interest rows (2 pending, 2 matched,
+// 2 declined_by_builder). The SQL file is idempotent (INSERT ... ON DUPLICATE
+// KEY UPDATE, plus NOT EXISTS guards on project name), so running it on every
+// restart is safe. The sim's seed step recreates projects, which wipes our
+// rows — this function restores them.
+async function ensureChrisMatches() {
+  const sqlPath = path.join(__dirname, "seed-chris-matches.sql");
+  let sql;
+  try {
+    sql = fs.readFileSync(sqlPath, "utf8");
+  } catch (e) {
+    log(`Chris matches seed skipped: cannot read ${sqlPath}: ${e.message}`);
+    return;
+  }
+
+  const mysql2 = require("mysql2/promise");
+  const conn = await mysql2.createConnection({
+    host: process.env.MYSQL_HOST || process.env.TEST_DB_HOST || "localhost",
+    port: Number(process.env.MYSQL_PORT || process.env.TEST_DB_PORT || 3306),
+    user: process.env.MYSQL_USER || process.env.TEST_DB_USER || "root",
+    password: process.env.MYSQL_PASSWORD || process.env.TEST_DB_PASSWORD || "",
+    database:
+      process.env.MYSQL_DATABASE ||
+      process.env.TEST_DB_NAME ||
+      "vetmybuilder_test_s1_4_w0",
+    // Required so the whole seed file (SET @var, multiple INSERTs, SELECTs)
+    // runs in one session over a single round-trip. Local-dev only.
+    multipleStatements: true,
+  });
+
+  try {
+    await conn.query(sql);
+    log("Chris matches seeded");
+  } catch (e) {
+    log(`Chris matches seed skipped: ${e.message}`);
+  } finally {
+    await conn.end();
+  }
+}
+
 async function ensureEmulatorUsers() {
   const emulatorHost =
     process.env.FIREBASE_AUTH_EMULATOR_HOST || "127.0.0.1:9099";
@@ -207,6 +294,23 @@ function runScript(script, env = {}) {
   } catch (e) {
     log(`Seed failed: ${e.message}`);
     process.exit(1);
+  }
+
+  // Re-apply Chris's projects + swipe_interest rows after the sim's seed
+  // (which recreates projects and clears ours). Safe to run on every boot.
+  try {
+    await ensureChrisMatches();
+  } catch (e) {
+    log(`Warning: failed to seed Chris matches: ${e.message}`);
+  }
+
+  // Override the sim-generated Elegant tradesman row with the real
+  // Elegant Building Services Ltd values so /matches matches the web
+  // shortlist's Google + Companies House data.
+  try {
+    await ensureElegantCanonical();
+  } catch (e) {
+    log(`Warning: failed to align Elegant canonical: ${e.message}`);
   }
 
   log("Seed complete. Starting daemon...");

@@ -45,7 +45,7 @@ module.exports = function mountMatchesGet(router, ctx) {
   const { auth, mysqlQuery } = ctx;
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
-  router.get("/api/projects/:id/matches", auth, async (req, res) => {
+  router.get("/projects/:id/matches", auth, async (req, res) => {
     const uid = req.user?.uid;
     if (!uid) return res.status(401).json({ error: "Unauthorized" });
 

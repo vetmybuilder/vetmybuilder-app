@@ -8,7 +8,7 @@ module.exports = function mountSubscriptionsMe(router, ctx) {
   const { auth, mysqlQuery } = ctx;
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
-  router.get("/api/subscriptions/me", auth, async (req, res) => {
+  router.get("/subscriptions/me", auth, async (req, res) => {
     const uid = req.user?.uid;
     if (!uid) return res.status(401).json({ error: "Unauthorized" });
 

@@ -633,6 +633,7 @@ CREATE TABLE IF NOT EXISTS inbox_messages (
   intro_message   TEXT NULL,
   source          ENUM('paid_unlock') NOT NULL DEFAULT 'paid_unlock',
   homeowner_replied_at DATETIME NULL,
+  dismissed_at    DATETIME NULL,
   created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
                   ON UPDATE CURRENT_TIMESTAMP,

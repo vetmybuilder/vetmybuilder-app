@@ -10,7 +10,7 @@ module.exports = function mountInboxReply(router, ctx) {
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
   router.post(
-    "/api/projects/:id/inbox/:messageId/reply",
+    "/projects/:id/inbox/:messageId/reply",
     auth,
     async (req, res) => {
       const uid = req.user?.uid;

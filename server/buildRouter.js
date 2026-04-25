@@ -350,10 +350,17 @@ function buildRouter(ctx) {
 
   // ---------------- Swipe matching ----------------
   require("./routes/projects/matches.get")(router, ctx);
+  require("./routes/projects/match-rows.get.js")(router, ctx);
   require("./routes/projects/swipe.post")(router, ctx);
   require("./routes/projects/inbox.get")(router, ctx);
+  require("./routes/inbox.get.js")(router, ctx);
   require("./routes/projects/inbox-reply.post")(router, ctx);
+  require("./routes/projects/inbox-dismiss.post")(router, ctx);
+  require("./routes/projects/inbox-message.post")(router, ctx);
   require("./routes/swipe/respond.post")(router, ctx);
+  require("./routes/matches/list.get.js")(router, ctx);
+  require("./routes/matches/get.js")(router, ctx);
+  require("./routes/tradesman/incoming-interest.get.js")(router, ctx);
 
   // ---------------- Plans ----------------
   require("./routes/meta/plans.get")(router, ctx);

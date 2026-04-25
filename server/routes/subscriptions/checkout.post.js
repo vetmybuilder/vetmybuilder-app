@@ -10,7 +10,7 @@ module.exports = function mountSubscriptionCheckout(router, ctx) {
   const { auth, payments } = ctx;
   if (!payments) throw new Error("payments not attached to ctx");
 
-  router.post("/api/subscriptions/checkout", auth, async (req, res) => {
+  router.post("/subscriptions/checkout", auth, async (req, res) => {
     const uid = req.user?.uid;
     if (!uid) return res.status(401).json({ error: "Unauthorized" });
 
