@@ -1,5 +1,8 @@
-import { X, Info, Heart } from "lucide-react";
+import { Info, ThumbsDown, Wrench } from "lucide-react";
 
+// Swipe-deck action bar — builder-themed icons so the screen doesn't
+// feel like a dating app. Wrench = trade tool / "let's get to work"
+// (yes/right swipe), ThumbsDown = neutral verdict (no/left swipe).
 export default function SwipeActionBar({
   onPass,
   onInfo,
@@ -19,7 +22,7 @@ export default function SwipeActionBar({
         onClick={onPass}
         className="w-14 h-14 rounded-full border-2 border-red-300 text-red-500 flex items-center justify-center active:scale-95 transition-transform disabled:opacity-40"
       >
-        <X size={26} />
+        <ThumbsDown size={22} />
       </button>
       <button
         aria-label="Info"
@@ -35,7 +38,7 @@ export default function SwipeActionBar({
         onClick={onLike}
         className="w-14 h-14 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-600/30 active:scale-95 transition-transform disabled:opacity-40"
       >
-        <Heart size={24} fill="currentColor" />
+        <Wrench size={22} />
       </button>
     </div>
   );
