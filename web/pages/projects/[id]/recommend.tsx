@@ -4,7 +4,9 @@ import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/utils/auth";
+import Layout from "@/components/Layout";
 import FileGridUploader from "@/components/fileUpload/FileGridUploader";
+import RecommendMobile from "@/components/recommend/RecommendMobile";
 import { trackRecommendationMade } from "@/utils/analytics";
 
 type Project = {
@@ -105,6 +107,17 @@ export default function RecommendOnPlatform() {
     companyEmail: "",
     comment: "",
   });
+  // Per-category star ratings collected on the mobile wizard's Step 1.
+  // 0 = un-rated. Sent through to the API alongside the existing fields.
+  const [ratings, setRatings] = useState({
+    quality: 0,
+    reliability: 0,
+    communication: 0,
+    trust: 0,
+    value: 0,
+  });
+  const setRating = (k: keyof typeof ratings, value: number) =>
+    setRatings((prev) => ({ ...prev, [k]: value }));
   const [lockIdentity, setLockIdentity] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -199,7 +212,11 @@ export default function RecommendOnPlatform() {
     if (form.email.trim() && !isValidEmail(form.email)) errs.email = "Please enter a valid email address.";
     if (!form.company.trim()) errs.company = "Please enter the company name.";
     if (form.companyEmail.trim() && !isValidEmail(form.companyEmail)) errs.companyEmail = "Please enter a valid email address.";
-    if (form.comment.trim().length < 10) errs.comment = "Comment should be at least 10 characters.";
+    // Comment is optional. Only validate the upper bound if the user typed
+    // something - empty / short blanks pass through and the row stores NULL.
+    if (form.comment.trim().length > 2000) {
+      errs.comment = "Comment is too long (max 2000 characters).";
+    }
     return errs;
   };
 
@@ -256,6 +273,18 @@ export default function RecommendOnPlatform() {
       const rating = 5;
       let recommendationId: number | undefined;
 
+      // Mobile wizard collects 5 category ratings (1-5). Desktop leaves them
+      // 0 so we send them as undefined when the user didn't rate that one.
+      const ratingFields: Record<string, number | undefined> = {
+        qualityRating: ratings.quality > 0 ? ratings.quality : undefined,
+        reliabilityRating:
+          ratings.reliability > 0 ? ratings.reliability : undefined,
+        communicationRating:
+          ratings.communication > 0 ? ratings.communication : undefined,
+        trustRating: ratings.trust > 0 ? ratings.trust : undefined,
+        valueRating: ratings.value > 0 ? ratings.value : undefined,
+      };
+
       if (photos.length > 0) {
         const fd = new FormData();
         fd.set("name", form.name);
@@ -265,6 +294,9 @@ export default function RecommendOnPlatform() {
         if (form.companyEmail) fd.set("companyEmail", form.companyEmail);
         fd.set("rating", String(rating));
         fd.set("comment", form.comment);
+        for (const [k, v] of Object.entries(ratingFields)) {
+          if (typeof v === "number") fd.set(k, String(v));
+        }
         photos.forEach((file) => fd.append("photos", file));
         const { data } = await api.post(`/api/projects/${id}/recommendations`, fd);
         recommendationId = data?.recommendationId;
@@ -277,6 +309,7 @@ export default function RecommendOnPlatform() {
           companyEmail: form.companyEmail || undefined,
           rating,
           comment: form.comment,
+          ...ratingFields,
         });
         recommendationId = data?.recommendationId;
       }
@@ -285,20 +318,26 @@ export default function RecommendOnPlatform() {
 
       trackRecommendationMade(Number(id), form.company);
       trackAnonymousRecommendation(recommendationId);
-      setNotice("Thanks! Your recommendation has been submitted.");
+      setNotice(
+        `Thanks! Your recommendation for ${form.company.trim()} has been sent.`,
+      );
       setTimeout(() => successRef.current?.focus(), 0);
 
       try {
         await api.post(`/api/recommendations/${recommendationId}/like`);
       } catch {}
 
+      // Give the user time to read the success state before redirecting.
+      // Mobile renders this as a full-screen success view; desktop keeps the
+      // existing inline banner. 2.5s lands somewhere between "I saw it" and
+      // "I'm waiting".
       setTimeout(() => {
         if (!user) {
           router.replace("/");
         } else {
           router.replace(`/projects/${id}`);
         }
-      }, 500);
+      }, 2500);
     } catch (e: any) {
       const issues: any[] | undefined = e?.response?.data?.issues;
       if (Array.isArray(issues) && issues.length > 0) {
@@ -328,11 +367,65 @@ export default function RecommendOnPlatform() {
   return (
     <>
       <Head>
-        <title>Recommend a tradesperson — VetMyBuilder</title>
+        <title>Recommend a tradesperson - VetMyBuilder</title>
       </Head>
 
+      {/* MOBILE - bare V1 single-page form. Shares state with the desktop
+          branch via the same closure variables (form, set, submit, etc.). */}
+      <div className="md:hidden">
+        {allowed === true && project && (
+          <RecommendMobile
+            projectName={project.name}
+            authed={!!user}
+            form={form}
+            fieldErrors={fieldErrors}
+            formError={formError}
+            notice={notice}
+            submitting={submitting}
+            photos={photos}
+            photoConsent={photoConsent}
+            lockIdentity={lockIdentity}
+            ratings={ratings}
+            setRating={setRating}
+            set={set as any}
+            setPhotos={setPhotos}
+            setPhotoConsent={setPhotoConsent}
+            onSubmit={submit}
+          />
+        )}
+        {!isProjectUnavailable && !project && (
+          <div className="px-6 py-10 text-sm text-gray-500" data-testid="recommend-loading">
+            Loading…
+          </div>
+        )}
+        {isProjectUnavailable && (
+          <div className="px-6 py-10 text-center" data-testid="recommend-project-unavailable">
+            <div className="mx-auto mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full bg-rose-100 text-2xl">
+              🔒
+            </div>
+            <h1 className="text-[20px] font-extrabold tracking-tight text-gray-900">
+              This project isn&apos;t accepting recommendations
+            </h1>
+            <p className="mt-2 text-[13px] text-gray-500 leading-relaxed">
+              The project may have been closed, archived, or might not exist.
+              Double-check the link from the person who shared it with you.
+            </p>
+            <a
+              href="/"
+              className="mt-6 inline-flex items-center justify-center rounded-full bg-rose-500 px-6 py-3 text-[14px] font-bold text-white shadow-lg shadow-rose-500/25"
+              data-testid="recommend-unavailable-home"
+            >
+              Back to homepage
+            </a>
+          </div>
+        )}
+      </div>
+
+      {/* DESKTOP - unchanged, wrapped in Layout because the route is now bare */}
+      <div className="hidden md:block">
+      <Layout>
       <div className="relative min-h-screen overflow-x-hidden -mt-14">
-        {/* Builder background — matches the project detail page */}
+        {/* Builder background - matches the project detail page */}
         <div className="absolute inset-0">
           <img
             src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=1600&q=80&auto=format"
@@ -408,7 +501,7 @@ export default function RecommendOnPlatform() {
               {!user && (
                 <div className="mb-5">
                   <Banner kind="info">
-                    You can submit without an account — or{" "}
+                    You can submit without an account - or{" "}
                     <a href="/signup" className="font-bold underline hover:text-amber-900">sign up</a>{" "}
                     later to track your recommendations.
                   </Banner>
@@ -416,6 +509,13 @@ export default function RecommendOnPlatform() {
               )}
 
               <form onSubmit={submit} noValidate className="space-y-5">
+                <div className="flex items-center gap-3 pb-1">
+                  <span className="flex-1 h-px bg-zinc-200" />
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+                    Your details
+                  </h2>
+                  <span className="flex-1 h-px bg-zinc-200" />
+                </div>
                 <div>
                   <label htmlFor="recommend-name" className={labelClass}>Your name</label>
                   <input
@@ -449,8 +549,15 @@ export default function RecommendOnPlatform() {
                   <FieldError id="recommend-email-error" message={fieldErrors.email} />
                 </div>
 
+                <div className="flex items-center gap-3 pt-3 pb-1">
+                  <span className="flex-1 h-px bg-zinc-200" />
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+                    Tradesperson&apos;s details
+                  </h2>
+                  <span className="flex-1 h-px bg-zinc-200" />
+                </div>
                 <div>
-                  <label htmlFor="recommend-company" className={labelClass}>Company name</label>
+                  <label htmlFor="recommend-company" className={labelClass}>Tradesperson&apos;s name</label>
                   <input
                     id="recommend-company"
                     data-testid="recommend-company"
@@ -465,7 +572,7 @@ export default function RecommendOnPlatform() {
 
                 <div>
                   <label htmlFor="recommend-company-email" className={labelClass}>
-                    Company email <span className="font-normal text-zinc-400">(optional)</span>
+                    Tradesperson&apos;s email <span className="font-normal text-zinc-400">(optional)</span>
                   </label>
                   <input
                     id="recommend-company-email"
@@ -482,14 +589,14 @@ export default function RecommendOnPlatform() {
                     <FieldError id="recommend-company-email-error" message={fieldErrors.companyEmail} />
                   ) : (
                     <p className="mt-1.5 text-xs text-zinc-500">
-                      Optional — we may use this to contact them about jobs.
+                      Optional - we may use this to contact them about jobs.
                     </p>
                   )}
                 </div>
 
                 <div>
                   <label htmlFor="recommend-phone" className={labelClass}>
-                    Company phone number <span className="font-normal text-zinc-400">(optional)</span>
+                    Tradesperson&apos;s number <span className="font-normal text-zinc-400">(optional)</span>
                   </label>
                   <input
                     id="recommend-phone"
@@ -506,8 +613,12 @@ export default function RecommendOnPlatform() {
 
                 <div>
                   <label className={labelClass}>
-                    Photos <span className="font-normal text-zinc-400">(optional)</span>
+                    Photos of their work <span className="font-normal text-zinc-400">(optional)</span>
                   </label>
+                  <p className="-mt-1 mb-2 text-xs text-zinc-500">
+                    Add any recent work they did for you - helps the homeowner
+                    see what they&apos;re capable of.
+                  </p>
                   <FileGridUploader
                     files={photos}
                     onChange={setPhotos}
@@ -519,7 +630,7 @@ export default function RecommendOnPlatform() {
 
                 <div>
                   <label htmlFor="recommend-comment" className={labelClass}>
-                    Comment <span className="font-normal text-zinc-400">(min 10 characters)</span>
+                    Comment <span className="font-normal text-zinc-400">(optional)</span>
                   </label>
                   <textarea
                     id="recommend-comment"
@@ -547,12 +658,14 @@ export default function RecommendOnPlatform() {
                       <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
                     </svg>
                   )}
-                  {submitting ? "Submitting recommendation..." : "Submit recommendation"}
+                  {submitting ? "Sending..." : "Send"}
                 </button>
               </form>
             </div>
           )}
         </div>
+      </div>
+      </Layout>
       </div>
     </>
   );
