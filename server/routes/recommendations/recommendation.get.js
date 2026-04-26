@@ -314,6 +314,10 @@ module.exports = (router, ctx) => {
       }
 
       // ===== Build final response =====
+      const toIntOrNull = (v) => {
+        const n = Number(v);
+        return Number.isFinite(n) && n >= 1 && n <= 5 ? n : null;
+      };
       const recommendation = {
         id: row.id,
         company: row.company,
@@ -326,6 +330,15 @@ module.exports = (router, ctx) => {
         likes: Number(row.likes || 0),
         myLike,
         rating: row.rating ?? null,
+        // Per-category star ratings collected on the mobile recommend wizard.
+        // Each is null when not provided so the UI can hide empty rows.
+        ratings: {
+          quality: toIntOrNull(row.quality_rating),
+          reliability: toIntOrNull(row.reliability_rating),
+          communication: toIntOrNull(row.communication_rating),
+          trust: toIntOrNull(row.trust_rating),
+          value: toIntOrNull(row.value_rating),
+        },
         fromFriend: String(row.source || "").toLowerCase() === "magic" ? 1 : 0,
         fromCommunity,
         photos,

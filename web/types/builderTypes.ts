@@ -53,11 +53,21 @@ export type Builder = {
   isFavourite?: boolean;
 };
 
+export type CategoryRatings = {
+  quality: number | null;
+  reliability: number | null;
+  communication: number | null;
+  trust: number | null;
+  value: number | null;
+};
+
 export type Review = {
   id: number;
   name: string;
   comment: string;
   createdAt?: string | null;
+  ratings?: CategoryRatings | null;
+  isAutoComment?: boolean;
 };
 
 export function shouldUseChName(status?: VerificationStatus) {
