@@ -15,10 +15,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import {
+  Ban,
+  Check,
   ChevronRight,
   FolderOpen,
   Plus,
   ShieldCheck,
+  X,
 } from "lucide-react";
 import BottomSheet from "@/components/BottomSheet";
 import BottomSheetPicker, {
@@ -388,9 +391,7 @@ export default function ProjectsListMobile({
   const { openMenu } = useMobileMenu();
 
   const [safetyOpen, setSafetyOpen] = useState(false);
-  const [openSheet, setOpenSheet] = useState<null | "type" | "status" | "sort">(
-    null,
-  );
+  const [openSheet, setOpenSheet] = useState<null | "type" | "sort">(null);
 
   // ===== Type options =====
   // Compute distinct types from current items so the picker only shows
@@ -410,14 +411,6 @@ export default function ProjectsListMobile({
     ];
   }, [items]);
 
-  // ===== Status options =====
-  const statusOptions: BottomSheetPickerOption[] = [
-    { value: "", label: "All statuses" },
-    { value: "live", label: "Live" },
-    { value: "pending", label: "Draft" },
-    { value: "completed", label: "Completed" },
-  ];
-
   // ===== Sort options =====
   const sortOptions: BottomSheetPickerOption[] = [
     { value: "newest", label: "Newest first" },
@@ -435,15 +428,6 @@ export default function ProjectsListMobile({
         onSelect: onChangeType,
       };
     }
-    if (openSheet === "status") {
-      return {
-        title: "Filter by status",
-        subtitle: "Live, drafts, or completed jobs.",
-        options: statusOptions,
-        selected: chipStatus,
-        onSelect: onChangeStatus,
-      };
-    }
     if (openSheet === "sort") {
       return {
         title: "Sort projects",
@@ -458,13 +442,10 @@ export default function ProjectsListMobile({
   }, [
     openSheet,
     typeOptions,
-    statusOptions,
     sortOptions,
     chipType,
-    chipStatus,
     sort,
     onChangeType,
-    onChangeStatus,
     onChangeSort,
   ]);
 
@@ -566,13 +547,6 @@ export default function ProjectsListMobile({
           testId="chip-type"
         />
         <FilterChip
-          label={chipStatus ? `Status: ${chipStatus}` : "Status"}
-          active={!!chipStatus}
-          open={openSheet === "status"}
-          onClick={() => setOpenSheet("status")}
-          testId="chip-status"
-        />
-        <FilterChip
           label={sort === "oldest" ? "Oldest first" : "Newest first"}
           active={sort !== "newest"}
           open={openSheet === "sort"}
@@ -621,6 +595,9 @@ export default function ProjectsListMobile({
         Post a Job
       </button>
 
+      {/* Close-success toast (driven by ?closed=&name= query) */}
+      <CloseSuccessToast />
+
       {/* Filter bottom sheet picker (single instance, reused) */}
       <BottomSheetPicker
         open={openSheet !== null}
@@ -634,5 +611,106 @@ export default function ProjectsListMobile({
         testId="projects-mobile-picker"
       />
     </main>
+  );
+}
+
+/* ===================================================================== */
+/* Close-success toast                                                   */
+/* ===================================================================== */
+/**
+ * Reads `?closed=completed|archived` and `?name=<projectName>` set by the
+ * close-project page on success. Shows a bottom toast for 4s, mirroring the
+ * desktop flash messages from useProjectView.tsx (completed vs archived).
+ * Auto-clears the query string on dismiss so a refresh doesn't re-trigger.
+ */
+function CloseSuccessToast() {
+  const router = useRouter();
+  const [visible, setVisible] = useState(false);
+  const [closedKind, setClosedKind] = useState<"completed" | "archived" | null>(
+    null,
+  );
+  const [projectName, setProjectName] = useState<string>("");
+
+  useEffect(() => {
+    if (!router.isReady) return;
+    const raw = router.query.closed;
+    const closed = Array.isArray(raw) ? raw[0] : raw;
+    if (closed !== "completed" && closed !== "archived") return;
+    const nameRaw = router.query.name;
+    const name = Array.isArray(nameRaw) ? nameRaw[0] : nameRaw;
+    setClosedKind(closed);
+    setProjectName(typeof name === "string" ? name : "");
+    setVisible(true);
+  }, [router.isReady, router.query.closed, router.query.name]);
+
+  // Auto-dismiss after 4s, and strip the query so refresh doesn't re-show it.
+  useEffect(() => {
+    if (!visible) return;
+    const t = setTimeout(() => dismiss(), 4000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+
+  function dismiss() {
+    setVisible(false);
+    if (router.query.closed || router.query.name) {
+      const next = { ...router.query };
+      delete (next as any).closed;
+      delete (next as any).name;
+      router.replace({ pathname: router.pathname, query: next }, undefined, {
+        shallow: true,
+      });
+    }
+  }
+
+  if (!visible || !closedKind) return null;
+
+  const isCompleted = closedKind === "completed";
+  const headline = isCompleted
+    ? "Project closed (Completed - Community)"
+    : "Project closed and archived";
+  const detail = isCompleted
+    ? `${projectName || "This project"} is now in your Completed tab.`
+    : `${projectName || "This project"} won't appear in your live list.`;
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      data-testid="close-success-toast"
+      className="fixed left-4 right-4 z-50 flex items-center gap-3 rounded-2xl bg-white px-3.5 py-3 border border-gray-200"
+      style={{
+        bottom: "max(80px, env(safe-area-inset-bottom))",
+        boxShadow: "0 14px 36px rgba(15,23,42,0.18)",
+      }}
+    >
+      <span
+        className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+          isCompleted
+            ? "bg-emerald-50 text-emerald-700"
+            : "bg-gray-100 text-gray-600"
+        }`}
+      >
+        {isCompleted ? (
+          <Check className="w-5 h-5" />
+        ) : (
+          <Ban className="w-4 h-4" />
+        )}
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="text-[13px] font-extrabold tracking-tight text-gray-900 truncate">
+          {headline}
+        </div>
+        <div className="text-[11px] text-gray-500 leading-snug">{detail}</div>
+      </div>
+      <button
+        type="button"
+        aria-label="Dismiss"
+        onClick={dismiss}
+        className="text-gray-400 shrink-0 p-1 -mr-1"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
+    </div>
   );
 }

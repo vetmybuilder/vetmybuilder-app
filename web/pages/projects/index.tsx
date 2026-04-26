@@ -15,6 +15,7 @@ import ProjectFilters, {
   type ProjectFiltersValue,
 } from "@/components/filters/ProjectFilters";
 import FavouriteTradesmenSection from "@/components/tradesmen/FavouriteTradesmenSection";
+import FavouritesListMobile from "@/components/tradesmen/FavouritesListMobile";
 import PushPrompt from "@/components/PushPrompt";
 import { Home, Heart, FolderOpen, Shield, Building2, Star, Lightbulb, ChevronDown, ChevronUp, Plus, CheckCircle2 } from "lucide-react";
 import Layout from "@/components/Layout";
@@ -322,6 +323,15 @@ function OwnerProjects() {
   const [loading, setLoading] = useState(true);
   const [announce, setAnnounce] = useState("");
 
+  // Independent per-mobile-tab totals so the All/Live/Completed pill counts
+  // stay correct regardless of which tab is currently selected.
+  const [mobileCounts, setMobileCounts] = useState<{
+    all?: number;
+    live?: number;
+    completed?: number;
+  }>({});
+  const countsSeqRef = useRef(0);
+
   // Cancel / ignore stale responses (tab switching causes overlapping requests)
   const reqSeqRef = useRef(0);
 
@@ -416,6 +426,44 @@ function OwnerProjects() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user, router.isReady, inputsKey]);
+
+  // Fetch per-tab totals for the mobile pill counts. Re-runs whenever the
+  // current items change (covers post / close / archive / status changes) so
+  // the counts stay in sync with the underlying data. Depend on `user?.uid`
+  // (stable string) rather than the `user` object so we don't refire on every
+  // render where the auth context returns a fresh reference.
+  const userUid = user?.uid;
+  useEffect(() => {
+    if (authLoading || !userUid || !router.isReady) return;
+    const mySeq = ++countsSeqRef.current;
+
+    (async () => {
+      try {
+        const fetchTotal = async (qs: string): Promise<number> => {
+          const res = await api.get<ApiList>(
+            `/api/projects?${qs}&page=1&pageSize=1`,
+          );
+          return Number(res.data.total ?? 0);
+        };
+
+        const [allTotal, liveTotal, completedTotal] = await Promise.all([
+          fetchTotal("tab=mine"),
+          fetchTotal("tab=mine&status=live"),
+          fetchTotal("tab=completed"),
+        ]);
+
+        if (mySeq !== countsSeqRef.current) return;
+        setMobileCounts({
+          all: allTotal,
+          live: liveTotal,
+          completed: completedTotal,
+        });
+      } catch {
+        // Counts are decorative — silently leave previous values on failure.
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, userUid, router.isReady, items.length]);
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -537,19 +585,23 @@ function OwnerProjects() {
     <>
       {/* MOBILE — bare, app-like view */}
       <div className="md:hidden">
-        <ProjectsListMobile
-          tab={mobileTab}
-          onChangeTab={handleMobileTabChange}
-          chipType={chipType}
-          onChangeType={setChipType}
-          chipStatus={chipStatus}
-          onChangeStatus={setChipStatus}
-          sort={mobileSort}
-          onChangeSort={handleMobileSortChange}
-          items={mobileItems}
-          loading={loading}
-          counts={{ all: total }}
-        />
+        {tab === "favourites" ? (
+          <FavouritesListMobile />
+        ) : (
+          <ProjectsListMobile
+            tab={mobileTab}
+            onChangeTab={handleMobileTabChange}
+            chipType={chipType}
+            onChangeType={setChipType}
+            chipStatus={chipStatus}
+            onChangeStatus={setChipStatus}
+            sort={mobileSort}
+            onChangeSort={handleMobileSortChange}
+            items={mobileItems}
+            loading={loading}
+            counts={mobileCounts}
+          />
+        )}
         {showPushPrompt && (
           <PushPrompt onComplete={() => setShowPushPrompt(false)} />
         )}
@@ -803,3 +855,4 @@ function OwnerProjects() {
     </>
   );
 }
+

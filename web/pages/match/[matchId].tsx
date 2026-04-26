@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useApi } from "@/utils/api";
 import AuthedOnly from "@/components/AuthedOnly";
-import { Handshake, MessageCircle, Phone as PhoneIcon, Mail } from "lucide-react";
+import { ChevronLeft, Handshake, MessageCircle, Phone as PhoneIcon, Mail } from "lucide-react";
 
 interface MatchData {
   builderName: string;
@@ -57,6 +57,7 @@ export default function MatchPage() {
           }}
         >
           <div className="h-[env(safe-area-inset-top)]" />
+          <BackChevron onClick={() => router.back()} />
           <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 text-center">
             <div className="w-24 h-24 mb-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-500">
               <Handshake size={40} />
@@ -121,6 +122,7 @@ export default function MatchPage() {
         }}
       >
         <div className="h-[env(safe-area-inset-top)]" />
+        <BackChevron onClick={() => router.back()} />
 
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 text-center">
           {/* Animated heart with pulsing rings */}
@@ -232,5 +234,33 @@ export default function MatchPage() {
         <div className="h-[env(safe-area-inset-bottom)]" />
       </main>
     </AuthedOnly>
+  );
+}
+
+/**
+ * Floating top-left back chevron used on every render branch of /match/[matchId].
+ * Matches the affordance on other bare-route pages (close, builder profile,
+ * tradesman profile). Sits absolutely so the centred celebration content stays
+ * visually balanced. router.back() is fine here — when there's no history (deep
+ * link / push notification) the user still has the explicit "Back to your
+ * matches" CTA below.
+ */
+function BackChevron({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label="Back"
+      onClick={onClick}
+      data-testid="match-back"
+      className="absolute left-3.5 w-10 h-10 rounded-full flex items-center justify-center text-gray-700 z-10"
+      style={{
+        top: "calc(env(safe-area-inset-top, 0px) + 8px)",
+        background: "rgba(255,255,255,0.95)",
+        backdropFilter: "blur(8px)",
+        boxShadow: "0 2px 8px rgba(15,23,42,0.08)",
+      }}
+    >
+      <ChevronLeft className="w-5 h-5" />
+    </button>
   );
 }

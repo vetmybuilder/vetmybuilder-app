@@ -89,6 +89,10 @@ module.exports = (router, ctx) => {
       }
 
       // ===== Load recommendation & project =====
+      // LEFT JOIN tradesmen via linked_tradesman_uid so we can surface the
+      // company's external review profiles (Trustpilot/Bark/Checkatrade/etc.)
+      // on the builder profile page. The column is nullable on tradesmen, so
+      // the JSON_EXTRACT returns NULL when no links are configured.
       let recRows;
       try {
         recRows = await mysqlQuery(
@@ -105,10 +109,13 @@ module.exports = (router, ctx) => {
                   FROM recommendation_votes v
                  WHERE v.recommendationId = r.id
                    AND v.value = 1
-              ), 0) AS likes
+              ), 0) AS likes,
+              t.review_links_json AS reviewLinksJson
             FROM recommendations r
             JOIN projects p
               ON p.id = r.projectId
+            LEFT JOIN tradesmen t
+              ON t.user_id = r.linked_tradesman_uid
             WHERE r.id = ?
             LIMIT 1
           `,
@@ -261,6 +268,51 @@ module.exports = (router, ctx) => {
         }
       }
 
+      // ===== Favourite state (from linked tradesman) =====
+      // The recommendation itself isn't favouriteable; we mirror the
+      // tradesman favourite state when the rec is linked to a known
+      // tradesman. The mobile heart icon uses the same toggle endpoint.
+      let isFavourite = false;
+      const linkedTradesmanUid = row.linked_tradesman_uid || null;
+      if (uid && linkedTradesmanUid) {
+        try {
+          const favRows = await mysqlQuery(
+            `SELECT 1 FROM favourite_tradesmen
+              WHERE userId = ? AND builderId = ? LIMIT 1`,
+            [uid, linkedTradesmanUid]
+          );
+          isFavourite = favRows.length > 0;
+        } catch (err) {
+          // table may not exist on older test schemas — treat as not favourited
+        }
+      }
+
+      // ===== External review links (from linked tradesman) =====
+      // Stored on tradesmen.review_links_json as a JSON array of
+      // { platform, url } objects. Parsed here so the client renders a
+      // simple list. Falls back to [] if absent or malformed.
+      let reviewLinks = [];
+      const rawLinks = row.reviewLinksJson;
+      if (rawLinks) {
+        try {
+          const parsed =
+            typeof rawLinks === "string" ? JSON.parse(rawLinks) : rawLinks;
+          if (Array.isArray(parsed)) {
+            reviewLinks = parsed
+              .map((entry) => ({
+                platform: String(entry?.platform || "").trim(),
+                url: String(entry?.url || "").trim(),
+              }))
+              .filter((e) => e.platform && e.url);
+          }
+        } catch (err) {
+          log.warn?.(`${TAG} review_links_json parse failed`, {
+            recId,
+            error: err?.message,
+          });
+        }
+      }
+
       // ===== Build final response =====
       const recommendation = {
         id: row.id,
@@ -277,6 +329,9 @@ module.exports = (router, ctx) => {
         fromFriend: String(row.source || "").toLowerCase() === "magic" ? 1 : 0,
         fromCommunity,
         photos,
+        reviewLinks,
+        linkedTradesmanUid,
+        isFavourite,
 
         // 🔥 NOW MASKED
         project: {

@@ -28,12 +28,19 @@ type Props = {
   recommendationId?: number;
   /** Onboarded tradesman flow (e.g. from /tradesman/[id]). */
   tradesmanUserId?: string;
+  /**
+   * "compact" (default) — small green pill, matches the desktop chrome.
+   * "primary" — full-width indigo-gradient CTA used by the mobile profile
+   * pages where Hire is the page-level primary action.
+   */
+  size?: "compact" | "primary";
 };
 
 export default function HireButton({
   displayName,
   recommendationId,
   tradesmanUserId,
+  size = "compact",
 }: Props) {
   const router = useRouter();
   const api = useApi();
@@ -110,6 +117,22 @@ export default function HireButton({
     await checkAlreadyHired();
   }
 
+  const isPrimary = size === "primary";
+  const baseClass = isPrimary
+    ? "w-full inline-flex items-center justify-center gap-2 rounded-2xl py-3 text-[14px] font-extrabold transition-colors"
+    : "inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-bold transition-colors";
+  const stateClass = alreadyHired
+    ? hireStatus === "pending" || hireStatus === "pending_invite"
+      ? "bg-amber-100 text-amber-700 cursor-default"
+      : "bg-emerald-100 text-emerald-700 cursor-default"
+    : isPrimary
+    ? "text-white shadow-lg shadow-indigo-500/30"
+    : "bg-green-600 text-white shadow-sm hover:bg-green-700";
+  const inlineStyle =
+    !alreadyHired && isPrimary
+      ? { background: "linear-gradient(135deg, #6366f1, #4f46e5)" }
+      : undefined;
+
   return (
     <>
       <button
@@ -117,15 +140,10 @@ export default function HireButton({
         onClick={() => setOpen(true)}
         disabled={alreadyHired}
         data-testid="hire-button"
-        className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-bold transition-colors ${
-          alreadyHired
-            ? hireStatus === "pending" || hireStatus === "pending_invite"
-              ? "bg-amber-100 text-amber-700 cursor-default"
-              : "bg-emerald-100 text-emerald-700 cursor-default"
-            : "bg-green-600 text-white shadow-sm hover:bg-green-700"
-        }`}
+        className={`${baseClass} ${stateClass}`}
+        style={inlineStyle}
       >
-        <CheckCircle2 className="h-3.5 w-3.5" />
+        <CheckCircle2 className={isPrimary ? "h-4 w-4" : "h-3.5 w-3.5"} />
         {alreadyHired ? (hireStatus === "pending" || hireStatus === "pending_invite" ? "Hire pending" : "Hired") : "Hire"}
       </button>
 

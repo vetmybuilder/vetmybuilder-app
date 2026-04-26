@@ -168,7 +168,14 @@ module.exports = (router, ctx) => {
         const baseParams = [uid];
 
         if (rawStatus === "all") {
-          baseParts.push(`p.status <> 'archived'`);
+          // Show everything the user owns except projects archived without a
+          // closure record. Projects closed via the close flow with No (or Yes
+          // without a winner) end up archived but DO have a project_closures
+          // row and should still appear in "All", consistent with the
+          // Completed tab.
+          baseParts.push(
+            `(p.status <> 'archived' OR pc.projectId IS NOT NULL)`
+          );
         } else {
           baseParts.push(`p.status = ?`);
           baseParams.push(rawStatus);
@@ -177,7 +184,10 @@ module.exports = (router, ctx) => {
         const { sql, params } = applyWhere(baseParts, baseParams);
 
         const countRows = await mysqlQuery(
-          `SELECT COUNT(*) AS c FROM projects p ${sql}`,
+          `SELECT COUNT(*) AS c
+           FROM projects p
+           LEFT JOIN project_closures pc ON pc.projectId = p.id
+           ${sql}`,
           params
         );
         const total = countRows[0]?.c || 0;

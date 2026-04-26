@@ -184,6 +184,24 @@ module.exports = (router, ctx) => {
         }
       }
 
+      // ---------------------------------------------------------------
+      // Review snippets
+      // ---------------------------------------------------------------
+      // Production currently only surfaces the rating + count and links
+      // out to Google for full reviews. Mobile design needs short review
+      // write-ups to display 3 snippet cards. Until the real Google
+      // Places `reviews` field is wired up, return deterministic
+      // fixtures in dev so the UI can render. Production stays empty so
+      // we never display fake reviews to real users.
+      let reviews = [];
+      if (
+        process.env.NODE_ENV !== "production" &&
+        String(process.env.TEST_ENV || "").toLowerCase() !== "e2e" &&
+        rating != null
+      ) {
+        reviews = buildFixtureReviews(row.company_name);
+      }
+
       const payload = {
         ok: true,
         tradesmanId: row.id,
@@ -193,7 +211,7 @@ module.exports = (router, ctx) => {
         googlePlaceId,
         rating,
         reviewsCount,
-        reviews: [],
+        reviews,
       };
 
       log.info?.(`${TAG} success`, {
@@ -215,3 +233,37 @@ module.exports = (router, ctx) => {
     log.info?.(`${TAG} mounted route GET /tradesmen/:id/google-reviews`);
   }
 };
+
+// Deterministic mock review snippets keyed off the company name. Only
+// invoked in dev (see guard above) — production returns an empty array
+// until the real Google Places `reviews` integration is wired up.
+function buildFixtureReviews(companyName) {
+  const seed = String(companyName || "Trader").trim();
+  const TEMPLATES = [
+    {
+      author: "Jamie S.",
+      initials: "JS",
+      rating: 5,
+      relativeTime: "2 weeks ago",
+      text:
+        `Brilliant work from ${seed}. Tidy, on time, and fairly priced. Would absolutely use them again.`,
+    },
+    {
+      author: "Marie K.",
+      initials: "MK",
+      rating: 5,
+      relativeTime: "1 month ago",
+      text:
+        "Lovely team, kept the place clean throughout. Great communication from start to finish.",
+    },
+    {
+      author: "Tom W.",
+      initials: "TW",
+      rating: 4,
+      relativeTime: "3 months ago",
+      text:
+        "Good quality work, took a couple of days longer than estimated but the finish was excellent.",
+    },
+  ];
+  return TEMPLATES;
+}

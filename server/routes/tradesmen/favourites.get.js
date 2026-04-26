@@ -149,6 +149,9 @@ module.exports = (router, ctx) => {
           t.likes_count,
           t.trade_types,
           t.status,
+          t.google_rating,
+          t.google_reviews_count,
+          t.ch_status,
           f.createdAt AS fav_created_at
         FROM favourite_tradesmen f
         JOIN tradesmen t ON t.user_id = f.builderId
@@ -180,10 +183,63 @@ module.exports = (router, ctx) => {
     const builderIds = rows.map((r) => String(r.builderId));
     const photosByBuilder = await loadPhotosByBuilder(builderIds);
 
+    // ------------------------------------------------------------
+    // Recommendation back-link
+    // ------------------------------------------------------------
+    // When a homeowner favourited a builder from the recommendation
+    // profile (/builders/:recId), tapping that favourite should bring
+    // them back to that same recommendation view (rich AI summary,
+    // community comments, etc.) rather than the generic tradesman
+    // profile. Look up the most recent recommendation that links to
+    // each favourited tradesman in any project the viewer owns.
+    // Cover photo for the V1 card list comes from the matched
+    // recommendation's photos (so we get the project-specific shot
+    // they saw when favouriting).
+    let recsByBuilder = {};
+    try {
+      const placeholders = builderIds.map(() => "?").join(",");
+      const recRows = await mysqlQuery(
+        `
+        SELECT r.id AS recommendationId,
+               r.linked_tradesman_uid AS builderId,
+               r.projectId,
+               (SELECT rp.filePath FROM recommendation_photos rp
+                  WHERE rp.recommendationId = r.id
+                  ORDER BY rp.id ASC LIMIT 1) AS coverPhoto
+          FROM recommendations r
+          JOIN projects p ON p.id = r.projectId
+         WHERE p.ownerUserId = ?
+           AND r.linked_tradesman_uid IN (${placeholders})
+         ORDER BY r.createdAt DESC, r.id DESC
+        `,
+        [userId, ...builderIds],
+      );
+      for (const rr of recRows) {
+        const key = String(rr.builderId);
+        if (!recsByBuilder[key]) {
+          recsByBuilder[key] = {
+            recommendationId: rr.recommendationId,
+            projectId: rr.projectId,
+            coverPhoto: rr.coverPhoto || null,
+          };
+        }
+      }
+    } catch (e) {
+      log.warn?.(`${TAG} recommendation back-link lookup failed`, {
+        error: e?.message,
+      });
+    }
+
     const items = rows.map((r) => {
       const builderId = String(r.builderId);
       const urls = photosByBuilder[builderId] || [];
-      const avatarUrl = urls.length ? makeAbsolute(urls[0]) : null;
+      const recMatch = recsByBuilder[builderId] || null;
+
+      const avatarUrl = urls.length
+        ? makeAbsolute(urls[0])
+        : recMatch?.coverPhoto
+          ? makeAbsolute(recMatch.coverPhoto)
+          : null;
 
       const photoCountFromTradesmen = Number(r.photo_count);
       const photosCount = Number.isFinite(photoCountFromTradesmen)
@@ -200,6 +256,9 @@ module.exports = (router, ctx) => {
         score: Number(r.vmb_score ?? 0),
         serviceAreas: parseServiceAreas(r.service_areas),
         avatarUrl,
+        coverPhotoUrl: recMatch?.coverPhoto
+          ? makeAbsolute(recMatch.coverPhoto)
+          : avatarUrl,
         stats: {
           completed: Number(r.wins_count || 0),
           photos: Number(photosCount || 0),
@@ -207,6 +266,17 @@ module.exports = (router, ctx) => {
         },
         tradeTypes: r.trade_types || null,
         isFavourite: true,
+        // Back-link to the rich recommendation profile if the
+        // favourite originated from one of the viewer's projects.
+        recommendationId: recMatch?.recommendationId || null,
+        recommendationProjectId: recMatch?.projectId || null,
+        googleRating:
+          typeof r.google_rating === "number" ? r.google_rating : null,
+        googleReviewsCount:
+          typeof r.google_reviews_count === "number"
+            ? r.google_reviews_count
+            : 0,
+        chVerified: String(r.ch_status || "").toLowerCase() === "verified",
       };
     });
 

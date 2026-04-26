@@ -4,11 +4,14 @@ import Toast from "@/components/Toast";
 import ReportModal from "@/components/ReportModal";
 import { useRouter } from "next/router";
 import type { GalleryImage } from "@/components/LightboxGallery";
+import Layout from "@/components/Layout";
 import BuilderHeader from "@/components/builder/BuilderHeader";
 import BuilderReviews from "@/components/builder/BuilderReviews";
 import BuilderPhotos from "@/components/builder/BuilderPhotos";
 import BuilderContactDetails from "@/components/builder/BuilderContactDetails";
+import BuilderProfileMobile from "@/components/builder/BuilderProfileMobile";
 import HireButton from "@/components/project/HireButton";
+import { useApi } from "@/utils/api";
 import { useBuilderProfile } from "@/components/builder/useBuilderProfile";
 import { resolveCompanyNameForBuilder } from "@/types/builderTypes";
 import { useBuilderVoting } from "@/components/builder/useBuilderVoting";
@@ -42,6 +45,8 @@ export default function BuilderProfilePage() {
 
   const [toast, setToast] = useState<string | null>(null);
   const [showReport, setShowReport] = useState(false);
+  const [favBusy, setFavBusy] = useState(false);
+  const api = useApi();
 
   const { voting, voteUpOnce } = useBuilderVoting({
     builder,
@@ -49,8 +54,35 @@ export default function BuilderProfilePage() {
     canVote,
     setBuilder,
     setScore,
-    onVoted: () => setToast("Vote recorded"),
+    onVoted: () => setToast("Endorsement recorded"),
   });
+
+  // Favourite toggle: hits the existing /api/tradesmen/:uid/favourite
+  // endpoint using the recommendation's linked_tradesman_uid. The
+  // recommendation itself isn't favouriteable, so the heart only renders
+  // when there's a linked tradesman to favourite against.
+  async function toggleFavourite() {
+    if (!builder || favBusy) return;
+    const uid = builder.linkedTradesmanUid;
+    if (!uid) return;
+    const currentlyFav = !!builder.isFavourite;
+    setFavBusy(true);
+    try {
+      if (currentlyFav) {
+        await api.delete(`/api/tradesmen/${encodeURIComponent(uid)}/favourite`);
+        setBuilder({ ...builder, isFavourite: false });
+        setToast("Removed from favourites");
+      } else {
+        await api.post(`/api/tradesmen/${encodeURIComponent(uid)}/favourite`);
+        setBuilder({ ...builder, isFavourite: true });
+        setToast("Saved to favourites");
+      }
+    } catch (e) {
+      setToast("Couldn't update favourites");
+    } finally {
+      setFavBusy(false);
+    }
+  }
 
   if (redirecting) return null;
 
@@ -88,6 +120,46 @@ export default function BuilderProfilePage() {
 
   return (
     <>
+      {/* MOBILE — bare V1 hero portrait redesign */}
+      <div className="md:hidden">
+        {!loading && builder && user && (
+          <BuilderProfileMobile
+            builder={builder}
+            companyName={companyName}
+            verification={verification}
+            user={user}
+            score={score ?? null}
+            friendCount={friendCount}
+            photos={aggPhotos}
+            reviews={aggReviews}
+            phones={aggPhones}
+            emails={aggEmails}
+            isOwner={isOwner}
+            canVote={canVote}
+            voting={voting}
+            onVote={voteUpOnce}
+            isFavourite={!!builder.isFavourite}
+            favBusy={favBusy}
+            onToggleFavourite={toggleFavourite}
+          />
+        )}
+        {loading && (
+          <Layout>
+            <div className="px-5 py-8 text-sm text-gray-500">Loading…</div>
+          </Layout>
+        )}
+        {err && !loading && (
+          <Layout>
+            <div className="px-5 py-8 text-sm text-red-600" data-testid="builder-error-mobile">
+              {err}
+            </div>
+          </Layout>
+        )}
+      </div>
+
+      {/* DESKTOP — unchanged: existing layout with site chrome */}
+      <div className="hidden md:block">
+      <Layout>
       <div className="relative min-h-screen overflow-x-hidden -mt-14">
 
         <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-4 sm:pt-10 pb-16">
@@ -162,6 +234,9 @@ export default function BuilderProfilePage() {
           ) : null}
         </div>
       </div>
+      </Layout>
+      </div>
+
       {showReport && builder?.id && (
         <ReportModal
           targetType="profile"

@@ -1,8 +1,10 @@
 // web/components/project/PostJobMobile.tsx
 //
-// Mobile-only shell for /projects/new. Drives the same wizard state
-// (`form`, `step`, etc.) as the desktop view in pages/projects/new.tsx —
-// no business logic lives here, only presentation.
+// Mobile-only wizard shell shared by /projects/new and /projects/[id]/edit.
+// Drives the same wizard state (`form`, `step`, etc.) as the desktop view —
+// no business logic lives here, only presentation. The /edit page passes
+// optional overrides (submitLabel, onCancel, descriptionMax,
+// accessOptionsSingle, ...) to adapt the shell to the update flow.
 
 import { useRouter } from "next/router";
 import { Search, X } from "lucide-react";
@@ -50,6 +52,25 @@ type PostJobMobileProps = {
   MATERIALS_OPTIONS: ReadonlyArray<string>;
   getAccessChips: (category: string | null | undefined) => AccessChip[];
   normalize: (s: string) => string;
+
+  // Optional overrides — let the same shell drive both /new and /edit.
+  /** Submit button label when not busy. Default: "Post job". */
+  submitLabel?: string;
+  /** Submit button label while busy. Default: "Posting...". */
+  busyLabel?: string;
+  /** Cancel/X handler. Default: router.push("/projects"). */
+  onCancel?: () => void;
+  /** Description textarea placeholder. */
+  descriptionPlaceholder?: string;
+  /** Description max length. Default 600. */
+  descriptionMax?: number;
+  /**
+   * If supplied, the "Access" section in the extras step renders
+   * single-select string options instead of the multi-select chip list
+   * with `value`/`label`. Used by the edit wizard whose `form.access`
+   * is a single string parsed from the saved description.
+   */
+  accessOptionsSingle?: ReadonlyArray<string>;
 };
 
 const FONT_STACK =
@@ -89,12 +110,22 @@ export default function PostJobMobile(props: PostJobMobileProps) {
     MATERIALS_OPTIONS,
     getAccessChips,
     normalize,
+    submitLabel,
+    busyLabel,
+    onCancel,
+    descriptionPlaceholder,
+    descriptionMax,
+    accessOptionsSingle,
   } = props;
 
   const router = useRouter();
 
   const isLastStep = step === STEPS.length - 1;
   const canContinue = isStepValid(step) && !busy;
+
+  const submitText = submitLabel ?? "Post job";
+  const busyText = busyLabel ?? "Posting...";
+  const handleCancel = onCancel ?? (() => router.push("/projects"));
 
   return (
     <main
@@ -109,7 +140,7 @@ export default function PostJobMobile(props: PostJobMobileProps) {
       <div className="flex items-center justify-between px-4 py-2.5">
         <button
           type="button"
-          onClick={() => router.push("/projects")}
+          onClick={handleCancel}
           aria-label="Cancel and return"
           className="w-9 h-9 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center"
           data-testid="btn-cancel-mobile"
@@ -245,6 +276,7 @@ export default function PostJobMobile(props: PostJobMobileProps) {
               BUDGETS={BUDGETS}
               MATERIALS_OPTIONS={MATERIALS_OPTIONS}
               getAccessChips={getAccessChips}
+              accessOptionsSingle={accessOptionsSingle}
             />
           )}
 
@@ -252,6 +284,8 @@ export default function PostJobMobile(props: PostJobMobileProps) {
             <DescriptionStep
               value={form.description}
               onChange={(v) => set("description", v)}
+              placeholder={descriptionPlaceholder}
+              max={descriptionMax}
             />
           )}
 
@@ -301,7 +335,7 @@ export default function PostJobMobile(props: PostJobMobileProps) {
             className="flex-1 py-3.5 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white font-extrabold text-[15px] tracking-tight shadow-[0_8px_22px_rgba(99,102,241,0.3)] disabled:opacity-50 disabled:shadow-none"
             data-testid={isLastStep ? "btn-create-mobile" : "btn-next-mobile"}
           >
-            {busy ? "Posting..." : isLastStep ? "Post job" : "Continue"}
+            {busy ? busyText : isLastStep ? submitText : "Continue"}
           </button>
         </div>
       </div>
@@ -592,6 +626,7 @@ function ExtrasStep({
   BUDGETS,
   MATERIALS_OPTIONS,
   getAccessChips,
+  accessOptionsSingle,
 }: {
   form: any;
   set: (k: string, v: any) => void;
@@ -599,6 +634,7 @@ function ExtrasStep({
   BUDGETS: ReadonlyArray<string>;
   MATERIALS_OPTIONS: ReadonlyArray<string>;
   getAccessChips: (cat: string | null | undefined) => AccessChip[];
+  accessOptionsSingle?: ReadonlyArray<string>;
 }) {
   const pillCls = (selected: boolean) =>
     `px-4 py-2.5 rounded-xl text-[13px] font-bold transition-colors ${
@@ -660,26 +696,42 @@ function ExtrasStep({
       <div>
         <div className={FIELD_LABEL_CLS}>Access &amp; constraints</div>
         <div className="mt-2 grid grid-cols-2 gap-2" data-testid="field-access-mobile">
-          {getAccessChips(form.category).map((a) => {
-            const sel = form.access.includes(a.value);
-            return (
-              <button
-                key={a.value}
-                type="button"
-                onClick={() => {
-                  set(
-                    "access",
-                    sel
-                      ? form.access.filter((v: string) => v !== a.value)
-                      : [...form.access, a.value],
-                  );
-                }}
-                className={pillCls(sel)}
-              >
-                {a.label}
-              </button>
-            );
-          })}
+          {accessOptionsSingle ? (
+            accessOptionsSingle.map((opt) => {
+              const sel = form.access === opt;
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => set("access", sel ? "" : opt)}
+                  className={pillCls(sel)}
+                >
+                  {opt}
+                </button>
+              );
+            })
+          ) : (
+            getAccessChips(form.category).map((a) => {
+              const sel = form.access.includes(a.value);
+              return (
+                <button
+                  key={a.value}
+                  type="button"
+                  onClick={() => {
+                    set(
+                      "access",
+                      sel
+                        ? form.access.filter((v: string) => v !== a.value)
+                        : [...form.access, a.value],
+                    );
+                  }}
+                  className={pillCls(sel)}
+                >
+                  {a.label}
+                </button>
+              );
+            })
+          )}
         </div>
       </div>
     </div>
@@ -689,17 +741,24 @@ function ExtrasStep({
 function DescriptionStep({
   value,
   onChange,
+  placeholder,
+  max,
 }: {
   value: string;
   onChange: (v: string) => void;
+  placeholder?: string;
+  max?: number;
 }) {
-  const MAX = 600;
+  const MAX = max ?? 600;
   const len = value.length;
   return (
     <div>
       <textarea
         className="w-full min-h-[180px] bg-gray-100 rounded-2xl p-4 text-[15px] text-gray-900 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-colors leading-relaxed"
-        placeholder="e.g. We have a 3-bed semi and want external wall insulation on the front and side walls..."
+        placeholder={
+          placeholder ??
+          "e.g. We have a 3-bed semi and want external wall insulation on the front and side walls..."
+        }
         value={value}
         maxLength={MAX}
         onChange={(e) => onChange(e.target.value)}
@@ -781,35 +840,49 @@ function ReviewStep({
     }
   }
 
+  const accessText = (() => {
+    const a = form.access;
+    if (Array.isArray(a)) {
+      if (a.length === 0) return "";
+      return a
+        .map((v: string) => {
+          const chip = getAccessChips(form.category).find(
+            (c) => c.value === v,
+          );
+          return chip ? chip.label : v;
+        })
+        .join(", ");
+    }
+    return typeof a === "string" ? a : "";
+  })();
+
   const extrasValue = [
     form.timeframe,
     form.budget ? `Budget: ${form.budget}` : "",
     form.materials,
-    ...(form.access.length > 0
-      ? [
-          form.access
-            .map((v: string) => {
-              const chip = getAccessChips(form.category).find(
-                (c) => c.value === v,
-              );
-              return chip ? chip.label : v;
-            })
-            .join(", "),
-        ]
-      : []),
+    accessText,
   ]
     .filter(Boolean)
     .join(" • ");
+
+  const locationStepIdx = stepIdxOf("location");
+  const locationValue = form.locationDisplay || form.location;
 
   return (
     <div className="space-y-3">
       <Card label="Category" value={form.category || ""} onEdit={() => goToStep(0)} />
       <Card label="Type of work" value={typeOfWork} onEdit={() => goToStep(1)} />
-      <Card
-        label="Location"
-        value={form.locationDisplay || form.location}
-        onEdit={() => goToStep(stepIdxOf("location"))}
-      />
+      {locationValue && (
+        <Card
+          label="Location"
+          value={locationValue}
+          onEdit={
+            locationStepIdx >= 0
+              ? () => goToStep(locationStepIdx)
+              : undefined
+          }
+        />
+      )}
       <Card
         label="Property"
         value={propertyValue}
@@ -845,7 +918,7 @@ function Card({
 }: {
   label: string;
   value: string;
-  onEdit: () => void;
+  onEdit?: () => void;
 }) {
   return (
     <div className="bg-white border border-gray-200 rounded-2xl p-4 flex items-start justify-between gap-3">
@@ -857,13 +930,15 @@ function Card({
           {value || "—"}
         </div>
       </div>
-      <button
-        type="button"
-        onClick={onEdit}
-        className="text-[13px] font-extrabold text-indigo-600 shrink-0 mt-0.5"
-      >
-        Edit
-      </button>
+      {onEdit && (
+        <button
+          type="button"
+          onClick={onEdit}
+          className="text-[13px] font-extrabold text-indigo-600 shrink-0 mt-0.5"
+        >
+          Edit
+        </button>
+      )}
     </div>
   );
 }

@@ -88,6 +88,10 @@ module.exports = function mountGlobalMatches(router, ctx) {
           GROUP BY companyNumber
        ) cv ON cv.companyNumber = t.company_number
        WHERE p.ownerUserId = ?
+         -- Exclude builders the homeowner explicitly swiped left on. Their
+         -- "no" is final and shouldn't crowd the matches page (Tinder-style:
+         -- left-swipes vanish from the user's view).
+         AND (si.status IS NULL OR si.status <> 'declined_by_homeowner')
        ORDER BY si.homeowner_swiped_at DESC, si.created_at DESC`,
       [uid],
     );

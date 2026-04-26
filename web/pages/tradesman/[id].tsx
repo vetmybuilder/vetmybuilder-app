@@ -7,6 +7,8 @@ import StatPill from "@/components/StatPill";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import AuthedOnly from "@/components/AuthedOnly";
+import Layout from "@/components/Layout";
+import TradesmanProfileMobile from "@/components/tradesmen/TradesmanProfileMobile";
 import { useApi } from "@/utils/api";
 import { trackBuilderProfileViewed, trackBuilderFavourited } from "@/utils/analytics";
 import LightboxGallery, { type GalleryImage } from "@/components/LightboxGallery";
@@ -299,6 +301,24 @@ function Inner() {
         <title>{title} — VetMyBuilder</title>
       </Head>
 
+      {/* MOBILE — bare V1 hero portrait redesign */}
+      <div className="md:hidden">
+        <TradesmanProfileMobile
+          item={item}
+          trades={trades}
+          planLabel={planLabel}
+          memberSince={memberSince}
+          projectScore={projectScore}
+          sharedImages={sharedImages}
+          isFavourite={isFavourite}
+          favBusy={favBusy}
+          onToggleFavourite={toggleFavourite}
+        />
+      </div>
+
+      {/* DESKTOP — unchanged: existing content inside Layout chrome */}
+      <div className="hidden md:block">
+      <Layout>
       <div className="relative min-h-screen overflow-x-hidden -mt-14" data-testid="tradesman-page">
 
         <div className="relative z-10 mx-auto max-w-6xl px-2.5 sm:px-6 lg:px-8 pt-3 sm:pt-10 pb-16 space-y-3 sm:space-y-6">
@@ -611,6 +631,8 @@ function Inner() {
             </aside>
           </div>
         </div>
+      </div>
+      </Layout>
       </div>
 
       {showReport && item.builderId && (

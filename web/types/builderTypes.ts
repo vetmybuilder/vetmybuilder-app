@@ -48,6 +48,9 @@ export type Builder = {
   score?: number;
   summary?: { bullets: string[]; recommendationCount: number } | null;
   companyVerification?: Verification | null;
+  reviewLinks?: Array<{ platform: string; url: string }>;
+  linkedTradesmanUid?: string | null;
+  isFavourite?: boolean;
 };
 
 export type Review = {
