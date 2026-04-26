@@ -24,6 +24,7 @@ import {
   ChevronRight,
   Heart,
   ShieldCheck,
+  Sparkles,
   Star,
   ThumbsUp,
   Users,
@@ -32,6 +33,11 @@ import {
 import PhotoLightbox from "@/components/PhotoLightbox";
 import { platformLabelFor } from "@/utils/reviewLinks";
 import type { Builder, Verification, Review, Photo } from "@/types/builderTypes";
+import {
+  CATEGORY_LABELS,
+  CATEGORY_ORDER,
+  hasAnyRating,
+} from "@/utils/ratingSummary";
 
 type Props = {
   builder: Builder;
@@ -546,6 +552,45 @@ function ReviewCard({ review }: { review: Review }) {
           {review.comment}
         </div>
       )}
+      {review.isAutoComment && (
+        <div className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[8.5px] font-extrabold uppercase tracking-wider text-indigo-700">
+          <Sparkles className="h-2.5 w-2.5" />
+          Auto from ratings
+        </div>
+      )}
+      {hasAnyRating(review.ratings) && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {CATEGORY_ORDER.map((key) => {
+            const value = review.ratings?.[key];
+            if (typeof value !== "number") return null;
+            return (
+              <span
+                key={key}
+                className="inline-flex items-center gap-0.5 rounded-full border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[9.5px] font-bold text-gray-700"
+              >
+                <span>{CATEGORY_LABELS[key]}</span>
+                <CompactStars value={value} />
+              </span>
+            );
+          })}
+        </div>
+      )}
     </div>
+  );
+}
+
+function CompactStars({ value }: { value: number }) {
+  return (
+    <span aria-label={`${value} of 5`} className="leading-none">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <span
+          key={i}
+          className={i <= value ? "text-amber-500" : "text-gray-300"}
+          style={{ fontSize: "8.5px", letterSpacing: "0.5px" }}
+        >
+          ★
+        </span>
+      ))}
+    </span>
   );
 }

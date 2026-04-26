@@ -3,6 +3,27 @@
 import { useState } from "react";
 import ReportModal from "@/components/ReportModal";
 import { Review } from "@/types/builderTypes";
+import {
+  CATEGORY_LABELS,
+  CATEGORY_ORDER,
+  hasAnyRating,
+} from "@/utils/ratingSummary";
+
+function CompactStars({ value }: { value: number }) {
+  return (
+    <span aria-label={`${value} of 5`} className="leading-none tracking-wider">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <span
+          key={i}
+          className={i <= value ? "text-amber-500" : "text-zinc-300"}
+          style={{ fontSize: "9px" }}
+        >
+          ★
+        </span>
+      ))}
+    </span>
+  );
+}
 
 const AVATAR_PALETTE = ["bg-violet-500","bg-emerald-500","bg-sky-500","bg-amber-500","bg-pink-500","bg-teal-500","bg-orange-500","bg-indigo-500"];
 
@@ -55,7 +76,32 @@ export default function BuilderReviews({ reviews }: Props) {
                 </time>
               )}
             </div>
-            <p className="mt-2 text-sm text-zinc-500 whitespace-pre-wrap">{rev.comment}</p>
+            {rev.comment && (
+              <p className="mt-2 text-sm text-zinc-500 whitespace-pre-wrap">{rev.comment}</p>
+            )}
+            {rev.isAutoComment && (
+              <div className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[9.5px] font-extrabold uppercase tracking-wider text-indigo-700">
+                <span>✨</span>
+                Auto from ratings
+              </div>
+            )}
+            {hasAnyRating(rev.ratings) && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {CATEGORY_ORDER.map((key) => {
+                  const value = rev.ratings?.[key];
+                  if (typeof value !== "number") return null;
+                  return (
+                    <span
+                      key={key}
+                      className="inline-flex items-center gap-0.5 rounded-full border border-zinc-200 bg-white px-2 py-0.5 text-[10px] font-bold text-zinc-700"
+                    >
+                      <span>{CATEGORY_LABELS[key]}</span>
+                      <CompactStars value={value} />
+                    </span>
+                  );
+                })}
+              </div>
+            )}
             <div className="flex justify-end mt-1">
               <button
                 onClick={() => setReportTarget(rev.id)}

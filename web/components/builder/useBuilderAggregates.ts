@@ -1,13 +1,33 @@
 // web/components/builder/useBuilderAggregates.ts
 
 import { useEffect, useState } from "react";
-import type { Builder, Photo, Review } from "@/types/builderTypes";
+import type { Builder, Photo, Review, CategoryRatings } from "@/types/builderTypes";
 import {
   normalizePhotos,
   companyKey,
   recommenderLabel,
 } from "@/types/builderTypes";
 import { fetchProjectRecommendations } from "./api";
+import {
+  hasAnyRating,
+  deterministicSummary,
+} from "@/utils/ratingSummary";
+
+function normalizeRatings(raw: any): CategoryRatings | null {
+  if (!raw || typeof raw !== "object") return null;
+  const pick = (v: any) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 1 && n <= 5 ? n : null;
+  };
+  const ratings: CategoryRatings = {
+    quality: pick(raw.quality),
+    reliability: pick(raw.reliability),
+    communication: pick(raw.communication),
+    trust: pick(raw.trust),
+    value: pick(raw.value),
+  };
+  return hasAnyRating(ratings) ? ratings : null;
+}
 
 type Params = {
   api: any;
@@ -61,14 +81,23 @@ export function useBuilderAggregates({
         setAggPhotos(normalizePhotos(builder));
         setAggUpdatedAt(builder?.createdAt || null);
         setFriendCount(builder.fromFriend === 1 ? 1 : 0);
+        const fallbackRatings = normalizeRatings((builder as any).ratings);
+        const fallbackComment = String(builder.comment || "").trim();
+        const fallbackAuto = !fallbackComment
+          ? deterministicSummary(fallbackRatings)
+          : null;
+        const fallbackText = fallbackComment || fallbackAuto || "";
+
         setAggReviews(
-          builder.comment
+          fallbackText || fallbackRatings
             ? [
                 {
                   id: builder.id,
                   name: recommenderLabel(builder),
-                  comment: String(builder.comment).trim(),
+                  comment: fallbackText,
                   createdAt: builder.createdAt,
+                  ratings: fallbackRatings,
+                  isAutoComment: !fallbackComment && Boolean(fallbackAuto),
                 },
               ]
             : [],
@@ -150,15 +179,22 @@ export function useBuilderAggregates({
       );
 
       const reviews: Review[] = full
-        .filter(
-          (rec: any) => rec.comment && String(rec.comment).trim().length > 0,
-        )
-        .map((rec: any) => ({
-          id: rec.id,
-          name: recommenderLabel(rec),
-          comment: String(rec.comment).trim(),
-          createdAt: rec.createdAt,
-        }));
+        .map((rec: any) => {
+          const ratings = normalizeRatings(rec?.ratings);
+          const comment = String(rec.comment || "").trim();
+          const auto = !comment ? deterministicSummary(ratings) : null;
+          const text = comment || auto || "";
+          if (!text && !ratings) return null;
+          return {
+            id: rec.id,
+            name: recommenderLabel(rec),
+            comment: text,
+            createdAt: rec.createdAt,
+            ratings,
+            isAutoComment: !comment && Boolean(auto),
+          } as Review;
+        })
+        .filter((r): r is Review => r !== null);
 
       reviews.sort((a, b) => {
         const aTime = a.createdAt ? +new Date(a.createdAt) : 0;
