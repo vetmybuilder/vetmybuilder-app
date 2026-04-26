@@ -123,6 +123,16 @@ function ProjectSwipeMobile({
               );
             }
           }}
+          onInfoPrefetch={(builder) => {
+            // Warm the Next.js route cache for whichever profile the
+            // Info button would navigate to, so the tap feels instant.
+            const recId = (builder as any).recommendationId;
+            if (builder.tier === "recommended" && recId) {
+              router.prefetch(`/builders/${recId}`);
+            } else if (builder.uid) {
+              router.prefetch(`/tradesman/${builder.uid}`);
+            }
+          }}
           onMatch={(matchId) => router.push(`/match/${matchId}`)}
         />
       )}

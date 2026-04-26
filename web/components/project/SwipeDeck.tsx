@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useApi } from "@/utils/api";
 import BuilderCard, { BuilderCardBuilder } from "./BuilderCard";
@@ -15,17 +15,32 @@ export default function SwipeDeck({
   builders,
   onMatch,
   onInfo,
+  onInfoPrefetch,
 }: {
   projectId: string;
   builders: SwipeDeckBuilder[];
   onMatch: (builderUid: string) => void;
   onInfo?: (builder: SwipeDeckBuilder) => void;
+  /**
+   * Optional: called whenever the top card changes. Lets the parent prefetch
+   * the route the Info button would navigate to so the page is already in the
+   * Next.js router cache by the time the user actually taps it.
+   */
+  onInfoPrefetch?: (builder: SwipeDeckBuilder) => void;
 }) {
   const api = useApi();
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
 
   const current = builders[index];
+
+  // Kick off a prefetch for the current card's info target the moment it
+  // becomes the top of the deck. By the time the homeowner taps "i", the
+  // route bundle is already loaded — the navigation feels instant.
+  useEffect(() => {
+    if (!current || !onInfoPrefetch) return;
+    onInfoPrefetch(current);
+  }, [current, onInfoPrefetch]);
 
   async function commit(direction: "left" | "right") {
     if (!current || busy) return;
