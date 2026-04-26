@@ -123,6 +123,12 @@ module.exports = (router, ctx) => {
           companyEmail:
             String(req.body?.companyEmail ?? "").trim() || undefined,
           rating: asNumber(req.body?.rating) ?? 5,
+          // Per-category star ratings from the mobile wizard
+          qualityRating: asNumber(req.body?.qualityRating),
+          reliabilityRating: asNumber(req.body?.reliabilityRating),
+          communicationRating: asNumber(req.body?.communicationRating),
+          trustRating: asNumber(req.body?.trustRating),
+          valueRating: asNumber(req.body?.valueRating),
           comment: String(req.body?.comment ?? "").trim(),
         };
 
@@ -133,8 +139,20 @@ module.exports = (router, ctx) => {
             .json({ error: "Invalid payload", issues: parsed.error.issues });
         }
 
-        const { name, email, phone, company, companyEmail, rating, comment } =
-          parsed.data;
+        const {
+          name,
+          email,
+          phone,
+          company,
+          companyEmail,
+          rating,
+          comment,
+          qualityRating,
+          reliabilityRating,
+          communicationRating,
+          trustRating,
+          valueRating,
+        } = parsed.data;
         const now = new Date(); // ✅ use Date object so mysql2 formats correctly
         const uid = req.user?.uid ?? null;
 
@@ -284,8 +302,13 @@ module.exports = (router, ctx) => {
               rating,
               comment,
               isAnonymous,
-              source)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+              source,
+              quality_rating,
+              reliability_rating,
+              communication_rating,
+              trust_rating,
+              value_rating)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)`,
           [
             projectId,
             uid,
@@ -296,8 +319,13 @@ module.exports = (router, ctx) => {
             resolvedCompany, // canonical name
             companyEmail ?? null,
             rating,
-            comment,
+            comment ?? null,
             source,
+            qualityRating ?? null,
+            reliabilityRating ?? null,
+            communicationRating ?? null,
+            trustRating ?? null,
+            valueRating ?? null,
           ]
         );
 
@@ -535,6 +563,7 @@ module.exports = (router, ctx) => {
           companyName: resolvedCompany || company,
           projectId,
           projectLocation: projectLocationHint || undefined,
+          recommendationId,
         }).catch(() => {});
 
         // IMPORTANT: we DO NOT return name/email/phone of the recommender here.

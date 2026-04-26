@@ -46,6 +46,13 @@ CREATE TABLE IF NOT EXISTS recommendations (
   isAnonymous       INTEGER DEFAULT 0, source VARCHAR(50) DEFAULT 'magic', phone TEXT,
   companyEmail      TEXT NULL,
   linked_tradesman_uid VARCHAR(255) NULL,
+  -- Per-category star ratings (1-5). Nullable so legacy rows stay valid
+  -- and the recommender can leave any category un-rated.
+  quality_rating       TINYINT NULL,
+  reliability_rating   TINYINT NULL,
+  communication_rating TINYINT NULL,
+  trust_rating         TINYINT NULL,
+  value_rating         TINYINT NULL,
 
   FOREIGN KEY(projectId) REFERENCES projects(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
