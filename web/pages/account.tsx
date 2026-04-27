@@ -574,7 +574,7 @@ export default function ManageAccount() {
         {/* ── Profile drill-in ── */}
         {view === "profile" && (
           <>
-            <TopBar title="Profile details" onBack={() => router.push("/account")} />
+            <TopBar title="Profile details" onBack={() => router.back()} />
 
             <div className="flex flex-col gap-3 p-4">
 
@@ -717,7 +717,7 @@ export default function ManageAccount() {
         {/* ── Notifications drill-in ── */}
         {view === "notifications" && (
           <>
-            <TopBar title="Notifications" onBack={() => router.push("/account")} />
+            <TopBar title="Notifications" onBack={() => router.back()} />
 
             <div className="flex flex-col gap-3 p-4">
 
