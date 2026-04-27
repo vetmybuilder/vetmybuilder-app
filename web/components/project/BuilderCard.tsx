@@ -119,9 +119,22 @@ export default function BuilderCard({
           </button>
         )}
 
-        {/* Bottom gradient + name */}
-        <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/70 to-transparent text-white">
-          <div className="text-[20px] font-extrabold leading-tight tracking-tight">{title}</div>
+        {/* Bottom gradient + name. Stronger gradient + text shadow so the
+            name stays legible over photos with bright/white content (logos,
+            light backgrounds). */}
+        <div
+          className="absolute inset-x-0 bottom-0 p-4 text-white"
+          style={{
+            background:
+              "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.55) 50%, rgba(0,0,0,0) 100%)",
+          }}
+        >
+          <div
+            className="text-[20px] font-extrabold leading-tight tracking-tight"
+            style={{ textShadow: "0 1px 3px rgba(0,0,0,0.6)" }}
+          >
+            {title}
+          </div>
         </div>
       </div>
 
