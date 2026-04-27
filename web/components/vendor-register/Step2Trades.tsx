@@ -1,6 +1,6 @@
 // web/components/vendor-register/Step2Trades.tsx
 import { useMemo, useState, useEffect } from "react";
-import { Check, ArrowLeft, ArrowRight, Wrench, Images } from "lucide-react";
+import { Check, Wrench, Images } from "lucide-react";
 import { TRADE_TYPES, type TradeType } from "@/types/tradeTypes";
 import FileGridUploader from "@/components/fileUpload/FileGridUploader";
 
@@ -122,24 +122,32 @@ export default function Step2Trades({
   const clearAll = () => setTradeTypes([]);
 
   return (
-    <form className="bg-white rounded-2xl shadow-lg shadow-zinc-200/60 p-7 sm:p-9 space-y-7" onSubmit={onNext} data-testid="step-2">
+    <form className="space-y-0 pb-4" onSubmit={onNext} data-testid="step-2">
+
+      {/* Step heading */}
+      <div className="px-3.5 pt-4 pb-1">
+        <p className="text-[10.5px] font-extrabold uppercase tracking-wider text-emerald-600 mb-0.5">
+          Trades &amp; photos
+        </p>
+        <h2 className="text-[18px] font-extrabold text-gray-900 leading-tight">What do you do?</h2>
+      </div>
 
       {/* ── Trades section ── */}
-      <div className="space-y-4">
+      <div className="bg-white rounded-xl mx-3 my-2 px-3.5 py-3 space-y-4">
         {/* Header */}
         <div>
           <div className="flex items-center gap-2 mb-0.5">
             <Wrench className="h-4 w-4 text-zinc-400" />
-            <h2 className="text-sm font-bold text-zinc-800">Choose your trades</h2>
+            <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-gray-500">Your trades</span>
             {tradeTypes.length > 0 && (
-              <span className="ml-1 rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
+              <span className="ml-1 rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-bold text-white">
                 {tradeTypes.length}
               </span>
             )}
             {tradeTypes.length > 0 && (
               <button
                 type="button"
-                className="ml-auto text-xs text-zinc-400 hover:text-red-500 transition-colors"
+                className="ml-auto text-xs text-zinc-400 hover:text-emerald-600 transition-colors"
                 onClick={clearAll}
                 data-testid="btn-clear-trades"
               >
@@ -155,7 +163,7 @@ export default function Step2Trades({
         {/* Search */}
         <input
           type="search"
-          className="h-11 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 text-sm placeholder:text-zinc-400 focus:border-red-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-400/20 transition-colors"
+          className="h-11 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 text-sm placeholder:text-zinc-400 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-colors"
           placeholder="Search trades… e.g., electrician, tiler, loft (synonyms supported)"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -169,7 +177,7 @@ export default function Step2Trades({
             onClick={() => setBucket("")}
             className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
               bucket === ""
-                ? "bg-zinc-900 text-white"
+                ? "bg-emerald-600 text-white"
                 : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
             }`}
             data-testid="bucket-all"
@@ -183,7 +191,7 @@ export default function Step2Trades({
               onClick={() => setBucket(b === bucket ? "" : b)}
               className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
                 bucket === b
-                  ? "bg-zinc-900 text-white"
+                  ? "bg-emerald-600 text-white"
                   : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
               }`}
               data-testid={`bucket-${b}`}
@@ -212,8 +220,8 @@ export default function Step2Trades({
                       aria-label={label}
                       className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-all ${
                         checked
-                          ? "bg-red-500 text-white shadow-sm shadow-red-500/30 scale-[1.02]"
-                          : "bg-white text-zinc-600 border border-zinc-200 hover:border-red-300 hover:text-red-500"
+                          ? "border border-emerald-500 bg-emerald-50 text-emerald-700 scale-[1.02]"
+                          : "bg-white text-zinc-600 border border-zinc-200 hover:border-emerald-300 hover:text-emerald-600"
                       }`}
                     >
                       {checked && <Check className="h-3.5 w-3.5 shrink-0" />}
@@ -228,10 +236,10 @@ export default function Step2Trades({
       </div>
 
       {/* ── Work photos ── */}
-      <div data-testid="work-photos" className="space-y-2">
+      <div data-testid="work-photos" className="bg-white rounded-xl mx-3 my-2 px-3.5 py-3 space-y-2">
         <div className="flex items-center gap-2">
           <Images className="h-4 w-4 text-zinc-400" />
-          <label className="text-sm font-bold text-zinc-800">Pictures of your work</label>
+          <label className="text-[10.5px] font-extrabold uppercase tracking-wider text-gray-500">Pictures of your work</label>
         </div>
         <p className="text-xs text-zinc-400 ml-6">
           Upload photos of your completed projects, then choose one as your
@@ -253,7 +261,7 @@ export default function Step2Trades({
                     }
                     className={`w-full rounded-xl overflow-hidden ring-2 transition-all ${
                       isSelected
-                        ? "ring-red-500 ring-offset-1"
+                        ? "ring-emerald-500 ring-offset-1"
                         : "ring-transparent hover:ring-zinc-300"
                     }`}
                     aria-label={
@@ -266,7 +274,7 @@ export default function Step2Trades({
                     <img src={url} alt="" className="h-28 w-full object-cover" />
                   </button>
                   {isSelected && (
-                    <span className="pointer-events-none absolute top-1 left-1 rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white shadow">
+                    <span className="pointer-events-none absolute top-1 left-1 rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-bold text-white shadow">
                       Profile
                     </span>
                   )}
@@ -308,33 +316,11 @@ export default function Step2Trades({
       </div>
 
       {err && (
-        <p className="text-sm text-red-600 font-medium" role="alert">{err}</p>
+        <p className="mx-3 text-sm text-red-600 font-medium" role="alert">{err}</p>
       )}
 
-      <div className="flex items-center justify-between border-t border-zinc-100 pt-6">
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-full border-2 border-zinc-200 bg-white px-5 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 transition-colors"
-          onClick={onBack}
-          data-testid="btn-back"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </button>
-        <button
-          className="inline-flex items-center gap-2 rounded-full bg-red-500 px-6 py-2.5 text-sm font-bold text-white shadow-sm shadow-red-500/25 hover:bg-red-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-          data-testid="btn-continue"
-          disabled={workPhotos.length > 0 && !photoConsent}
-          title={
-            workPhotos.length > 0 && !photoConsent
-              ? "Please confirm the photo upload consent before continuing."
-              : undefined
-          }
-        >
-          Continue
-          <ArrowRight className="h-4 w-4" />
-        </button>
-      </div>
+      {/* Hidden submit — triggered by WizardNavBar onNext via step handler */}
+      <button type="submit" className="sr-only" data-testid="btn-continue" aria-hidden="true">Continue</button>
     </form>
   );
 }

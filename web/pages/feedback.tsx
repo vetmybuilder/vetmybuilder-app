@@ -4,7 +4,9 @@ import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { ChevronLeft, X } from "lucide-react";
+import WizardTopBar from "@/components/wizard/WizardTopBar";
+import WizardProgressBar from "@/components/wizard/WizardProgressBar";
+import WizardNavBar from "@/components/wizard/WizardNavBar";
 
 const EMOJI_SCALE = [
   { value: 1, emoji: "😞", label: "Poor" },
@@ -112,8 +114,6 @@ export default function FeedbackPage() {
 
   const stepValid = step === 1 ? step1Valid : step === 2 ? step2Valid : step3Valid;
 
-  const progressPercent = step === 1 ? 33 : step === 2 ? 66 : 100;
-
   if (submitted) {
     return (
       <main
@@ -157,38 +157,14 @@ export default function FeedbackPage() {
         <div className="h-[env(safe-area-inset-top)]" />
 
         {/* Top bar */}
-        <div className="bg-white border-b border-gray-100 flex items-center gap-3 px-[14px] py-[11px] flex-shrink-0">
-          <button
-            type="button"
-            aria-label="Back"
-            onClick={handleBack}
-            className="w-[30px] h-[30px] rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"
-          >
-            <ChevronLeft className="w-4 h-4 text-gray-900" />
-          </button>
-          <span className="flex-1 text-[15px] font-extrabold text-gray-900">Feedback</span>
-          <button
-            type="button"
-            aria-label="Close feedback"
-            onClick={() => router.back()}
-            className="w-[30px] h-[30px] rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"
-          >
-            <X className="w-4 h-4 text-gray-900" />
-          </button>
-        </div>
+        <WizardTopBar
+          title="Feedback"
+          onBack={handleBack}
+          onClose={() => router.back()}
+        />
 
         {/* Progress bar */}
-        <div className="bg-white px-[14px] pt-3 pb-2 flex-shrink-0">
-          <div className="h-[5px] w-full bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-indigo-600 rounded-full transition-all duration-300"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-          <p className="mt-1.5 text-[11.5px] font-bold text-gray-500">
-            Step {step} of 3
-          </p>
-        </div>
+        <WizardProgressBar step={step} total={3} tone="indigo" />
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto">
@@ -233,30 +209,14 @@ export default function FeedbackPage() {
         </div>
 
         {/* Bottom nav */}
-        <div className="bg-white border-t border-gray-100 px-3 pt-3 flex gap-2 flex-shrink-0"
-          style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}
-        >
-          {step > 1 && (
-            <button
-              type="button"
-              onClick={handleBack}
-              disabled={submitting}
-              className="px-5 py-3 rounded-xl bg-white border-2 border-gray-200 text-[13px] font-extrabold text-gray-600 disabled:opacity-60"
-            >
-              Back
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={handleNext}
-            disabled={!stepValid || submitting}
-            className={`flex-1 py-3 rounded-xl bg-indigo-600 text-white text-[13px] font-extrabold transition-opacity ${
-              !stepValid || submitting ? "opacity-40 cursor-not-allowed" : ""
-            }`}
-          >
-            {step === 3 ? (submitting ? "Sending…" : "Send feedback") : "Next"}
-          </button>
-        </div>
+        <WizardNavBar
+          onBack={step > 1 ? handleBack : undefined}
+          onNext={handleNext}
+          nextLabel={step === 3 ? (submitting ? "Sending…" : "Send feedback") : "Next →"}
+          nextDisabled={!stepValid}
+          busy={submitting}
+          tone="indigo"
+        />
       </main>
     </>
   );

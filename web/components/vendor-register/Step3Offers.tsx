@@ -1,7 +1,7 @@
 // web/components/vendor-register/Step3Offers.tsx
 import React, { useState } from "react";
 import Link from "next/link";
-import { Tag, ShieldCheck, FileText, ArrowRight, ArrowLeft } from "lucide-react";
+import { Tag, ShieldCheck, FileText } from "lucide-react";
 
 type Props = {
   discountMin: number;
@@ -46,11 +46,11 @@ export default function Step3Offers({
 
   return (
     <form
-      className="bg-white rounded-2xl shadow-lg shadow-zinc-200/60 p-7 sm:p-9 space-y-8"
+      className="space-y-0 pb-4"
       onSubmit={onSaveDraft}
       data-testid="step-3"
     >
-      {/* Custom slider styles */}
+      {/* Custom slider styles — emerald palette */}
       <style>{`
         .vmb-slider {
           -webkit-appearance: none;
@@ -62,7 +62,7 @@ export default function Step3Offers({
           cursor: pointer;
           background: linear-gradient(
             to right,
-            #ef4444 var(--pct, 0%),
+            #059669 var(--pct, 0%),
             #f4f4f5 var(--pct, 0%)
           );
         }
@@ -71,7 +71,7 @@ export default function Step3Offers({
           border-radius: 9999px;
           background: linear-gradient(
             to right,
-            #ef4444 var(--pct, 0%),
+            #059669 var(--pct, 0%),
             #f4f4f5 var(--pct, 0%)
           );
         }
@@ -82,14 +82,14 @@ export default function Step3Offers({
           margin-top: -8px;
           border-radius: 50%;
           background: white;
-          border: 2.5px solid #ef4444;
-          box-shadow: 0 2px 8px rgba(239, 68, 68, 0.35), 0 1px 3px rgba(0,0,0,0.1);
+          border: 2.5px solid #059669;
+          box-shadow: 0 2px 8px rgba(5, 150, 105, 0.35), 0 1px 3px rgba(0,0,0,0.1);
           cursor: pointer;
           transition: transform 0.1s, box-shadow 0.1s;
         }
         .vmb-slider::-webkit-slider-thumb:hover {
           transform: scale(1.18);
-          box-shadow: 0 4px 14px rgba(239, 68, 68, 0.45), 0 1px 3px rgba(0,0,0,0.1);
+          box-shadow: 0 4px 14px rgba(5, 150, 105, 0.45), 0 1px 3px rgba(0,0,0,0.1);
         }
         .vmb-slider::-webkit-slider-thumb:active {
           transform: scale(1.25);
@@ -102,40 +102,48 @@ export default function Step3Offers({
         .vmb-slider::-moz-range-progress {
           height: 6px;
           border-radius: 9999px;
-          background: #ef4444;
+          background: #059669;
         }
         .vmb-slider::-moz-range-thumb {
           width: 22px;
           height: 22px;
           border-radius: 50%;
           background: white;
-          border: 2.5px solid #ef4444;
-          box-shadow: 0 2px 8px rgba(239, 68, 68, 0.35);
+          border: 2.5px solid #059669;
+          box-shadow: 0 2px 8px rgba(5, 150, 105, 0.35);
           cursor: pointer;
         }
       `}</style>
 
+      {/* Step heading */}
+      <div className="px-3.5 pt-4 pb-1">
+        <p className="text-[10.5px] font-extrabold uppercase tracking-wider text-emerald-600 mb-0.5">
+          Offers &amp; warranty
+        </p>
+        <h2 className="text-[18px] font-extrabold text-gray-900 leading-tight">Stand out to homeowners</h2>
+      </div>
+
       {/* ── Discount section ── */}
-      <div data-testid="discount-range" className="space-y-4">
+      <div data-testid="discount-range" className="bg-white rounded-xl mx-3 my-2 px-3.5 py-3 space-y-4">
         <div>
           <div className="flex items-center gap-2 mb-0.5">
             <Tag className="h-4 w-4 text-zinc-400" />
-            <span className="text-sm font-bold text-zinc-800">Discount you can offer if hired</span>
+            <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-gray-500">Discount you can offer if hired</span>
           </div>
           <p className="text-xs text-zinc-400 ml-6">Bigger discounts tend to win more work. Choose a realistic range.</p>
         </div>
 
         {/* Value display pill */}
         <div className="flex items-center justify-center">
-          <div className="inline-flex items-center gap-3 rounded-2xl bg-red-50 border border-red-100 px-6 py-3">
+          <div className="inline-flex items-center gap-3 rounded-2xl bg-emerald-50 border border-emerald-100 px-6 py-3">
             <div className="text-center">
-              <div className="text-3xl font-black text-red-500 leading-none">{discountMin}%</div>
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-red-300 mt-1">Min</div>
+              <div className="text-3xl font-black text-emerald-600 leading-none">{discountMin}%</div>
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-emerald-300 mt-1">Min</div>
             </div>
-            <div className="text-xl text-red-200 font-light px-1">—</div>
+            <div className="text-xl text-emerald-200 font-light px-1">—</div>
             <div className="text-center">
-              <div className="text-3xl font-black text-red-500 leading-none">{discountMax}%</div>
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-red-300 mt-1">Max</div>
+              <div className="text-3xl font-black text-emerald-600 leading-none">{discountMax}%</div>
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-emerald-300 mt-1">Max</div>
             </div>
           </div>
         </div>
@@ -145,7 +153,7 @@ export default function Step3Offers({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold uppercase tracking-wider text-zinc-400" htmlFor="discMin">Min %</label>
-              <span className="text-sm font-bold text-red-500">{discountMin}%</span>
+              <span className="text-sm font-bold text-emerald-600">{discountMin}%</span>
             </div>
             <input
               id="discMin"
@@ -166,7 +174,7 @@ export default function Step3Offers({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold uppercase tracking-wider text-zinc-400" htmlFor="discMax">Max %</label>
-              <span className="text-sm font-bold text-red-500">{discountMax}%</span>
+              <span className="text-sm font-bold text-emerald-600">{discountMax}%</span>
             </div>
             <input
               id="discMax"
@@ -187,10 +195,10 @@ export default function Step3Offers({
       </div>
 
       {/* ── Warranty section ── */}
-      <div data-testid="warranty-select" className="space-y-3">
+      <div data-testid="warranty-select" className="bg-white rounded-xl mx-3 my-2 px-3.5 py-3 space-y-3">
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-zinc-400" />
-          <span className="text-sm font-bold text-zinc-800">Warranty on your work</span>
+          <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-gray-500">Warranty on your work</span>
         </div>
         <div className="flex flex-wrap gap-2" role="listbox" aria-label="Warranty options">
           {(["none", "3m", "6m", "12m", "24m+"] as const).map((opt) => (
@@ -200,7 +208,7 @@ export default function Step3Offers({
               onClick={() => setWarranty(opt)}
               className={`px-4 py-2 rounded-full text-sm font-semibold transition-all ${
                 warranty === opt
-                  ? "bg-red-500 text-white shadow-sm shadow-red-500/30"
+                  ? "border border-emerald-500 bg-emerald-50 text-emerald-700"
                   : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
               }`}
               aria-pressed={warranty === opt}
@@ -216,10 +224,10 @@ export default function Step3Offers({
       </div>
 
       {/* ── Supporting docs ── */}
-      <div data-testid="supporting-docs" className="space-y-2">
+      <div data-testid="supporting-docs" className="bg-white rounded-xl mx-3 my-2 px-3.5 py-3 space-y-2">
         <div className="flex items-center gap-2">
           <FileText className="h-4 w-4 text-zinc-400" />
-          <span className="text-sm font-bold text-zinc-800">Supporting documents</span>
+          <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-gray-500">Supporting documents</span>
         </div>
         <p className="text-xs text-zinc-400 ml-6">
           Upload insurance, memberships or certifications (optional). You can return to your profile later to add more.
@@ -228,55 +236,37 @@ export default function Step3Offers({
           type="file"
           multiple
           onChange={onDocs}
-          className="block w-full text-sm file:mr-3 file:rounded-full file:border-0 file:bg-red-50 file:px-4 file:py-1.5 file:text-sm file:font-semibold file:text-red-600 hover:file:bg-red-100 transition-colors"
+          className="block w-full text-sm file:mr-3 file:rounded-full file:border-0 file:bg-emerald-50 file:px-4 file:py-1.5 file:text-sm file:font-semibold file:text-emerald-700 hover:file:bg-emerald-100 transition-colors"
           data-testid="input-docs"
         />
       </div>
 
       {okMsg && (
-        <p className="text-sm text-emerald-600 font-medium" data-testid="join-ok">{okMsg}</p>
+        <p className="mx-3 text-sm text-emerald-600 font-medium" data-testid="join-ok">{okMsg}</p>
       )}
       {err && (
-        <p className="text-sm text-red-600 font-medium" role="alert" data-testid="join-error">{err}</p>
+        <p className="mx-3 text-sm text-red-600 font-medium" role="alert" data-testid="join-error">{err}</p>
       )}
 
       {showTermsCheckbox && (
-        <label className="flex items-start gap-2.5 cursor-pointer" data-testid="agree-terms">
+        <label className="mx-3 flex items-start gap-2.5 cursor-pointer" data-testid="agree-terms">
           <input
             type="checkbox"
             checked={agreedTerms}
             onChange={(e) => setAgreedTerms(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-red-500 focus:ring-red-500"
+            className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
           />
           <span className="text-xs text-zinc-500 leading-relaxed">
             By signing up, I agree to the{" "}
-            <Link href="/terms" target="_blank" className="text-red-500 hover:underline">Terms of Use</Link>
+            <Link href="/terms" target="_blank" className="text-emerald-600 hover:underline">Terms of Use</Link>
             {" "}and{" "}
-            <Link href="/acceptable-use" target="_blank" className="text-red-500 hover:underline">Acceptable Use Policy</Link>.
+            <Link href="/acceptable-use" target="_blank" className="text-emerald-600 hover:underline">Acceptable Use Policy</Link>.
           </span>
         </label>
       )}
 
-      <div className="flex items-center justify-between border-t border-zinc-100 pt-6">
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-full border-2 border-zinc-200 bg-white px-5 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 transition-colors"
-          onClick={onBack}
-          data-testid="btn-back"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </button>
-        <button
-          className={`inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-bold text-white shadow-sm transition-colors disabled:cursor-not-allowed ${busy ? "bg-zinc-400" : "bg-red-500 shadow-red-500/25 hover:bg-red-600 active:scale-95 disabled:opacity-60"}`}
-          disabled={busy || (showTermsCheckbox && !agreedTerms)}
-          data-testid="btn-continue"
-        >
-          {busy ? <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" /><path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" /></svg> : null}
-          {busy ? "Saving…" : primaryLabel}
-          {!busy && <ArrowRight className="h-4 w-4" />}
-        </button>
-      </div>
+      {/* Hidden submit — triggered by WizardNavBar onNext via step handler */}
+      <button type="submit" className="sr-only" data-testid="btn-continue" aria-hidden="true">Next</button>
     </form>
   );
 }
