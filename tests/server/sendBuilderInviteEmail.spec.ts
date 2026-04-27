@@ -79,7 +79,7 @@ describe("sendBuilderInviteEmail", () => {
     expect(updateCall!.params[1]).toBe(42);
   });
 
-  it("returns false and does not throw if RESEND_API_KEY is missing", async () => {
+  it("returns ok=false and does not throw if RESEND_API_KEY is missing", async () => {
     delete process.env.RESEND_API_KEY;
     const { fn } = makeFakeQuery();
     const result = await sendBuilderInviteEmail({
@@ -90,11 +90,11 @@ describe("sendBuilderInviteEmail", () => {
       recommenderFirstName: "Y",
       projectArea: "Z",
     });
-    expect(result).toBe(false);
+    expect(result).toEqual({ ok: false, error: "RESEND_API_KEY not configured" });
     expect(sendMock).not.toHaveBeenCalled();
   });
 
-  it("returns false if recipientEmail is empty", async () => {
+  it("returns ok=false if recipientEmail is empty", async () => {
     const { fn } = makeFakeQuery();
     const result = await sendBuilderInviteEmail({
       mysqlQuery: fn,
@@ -104,7 +104,30 @@ describe("sendBuilderInviteEmail", () => {
       recommenderFirstName: "Y",
       projectArea: "Z",
     });
-    expect(result).toBe(false);
+    expect(result).toEqual({ ok: false, error: "no recipient email" });
     expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it("returns ok=false with the Resend error message when the API rejects", async () => {
+    const { fn } = makeFakeQuery();
+    const fakeResendClient = {
+      emails: {
+        send: vi.fn().mockResolvedValue({
+          data: null,
+          error: { name: "validation_error", message: "domain not verified" },
+        }),
+      },
+    };
+    const result = await sendBuilderInviteEmail({
+      mysqlQuery: fn,
+      recommendationId: 7,
+      recipientEmail: "test@example.com",
+      builderCompanyName: "Test Co",
+      recommenderFirstName: "Sam",
+      projectArea: "E4",
+      _resendClient: fakeResendClient,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("domain not verified");
   });
 });

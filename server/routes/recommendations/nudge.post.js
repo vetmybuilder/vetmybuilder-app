@@ -88,7 +88,11 @@ module.exports = (router, ctx) => {
         projectArea,
       });
 
-      if (!sent) return res.status(502).json({ error: "Failed to send invite" });
+      if (!sent?.ok) {
+        return res.status(502).json({
+          error: sent?.error || "Failed to send invite",
+        });
+      }
 
       await mysqlQuery(
         `UPDATE recommendation_invites

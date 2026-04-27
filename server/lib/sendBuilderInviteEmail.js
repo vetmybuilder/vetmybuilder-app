@@ -42,11 +42,11 @@ async function sendBuilderInviteEmail({
 
   if (!apiKey) {
     log.warn("RESEND_API_KEY missing — skipping invite send");
-    return false;
+    return { ok: false, error: "RESEND_API_KEY not configured" };
   }
   if (!recipientEmail) {
     log.info("no recipient email — skipping invite send");
-    return false;
+    return { ok: false, error: "no recipient email" };
   }
 
   const company = escHtml(builderCompanyName);
@@ -69,7 +69,7 @@ async function sendBuilderInviteEmail({
     const { Resend } = require("resend");
     const resend = _resendClient || new Resend(apiKey);
 
-    await resend.emails.send({
+    const sendResult = await resend.emails.send({
       from: "VetMyBuilder <noreply@vetmybuilder.com>",
       to: recipientEmail,
       subject: `${recommender} recommended you on VetMyBuilder`,
@@ -81,6 +81,14 @@ async function sendBuilderInviteEmail({
       `,
     });
 
+    // Resend SDK v3+ returns { data, error } — error is non-null on API failure
+    // and does NOT throw. We have to detect the error explicitly here.
+    if (sendResult?.error) {
+      const detail = sendResult.error.message || JSON.stringify(sendResult.error);
+      log.error({ resendError: sendResult.error }, "Resend API rejected the send");
+      throw new Error(`Resend: ${detail}`);
+    }
+
     // Mark sent only after Resend confirms delivery
     await mysqlQuery(
       `UPDATE recommendation_invites SET emailSentAt = ? WHERE recommendationId = ?`,
@@ -88,10 +96,10 @@ async function sendBuilderInviteEmail({
     );
 
     log.info({ recipientEmail }, "invite email sent");
-    return true;
+    return { ok: true };
   } catch (err) {
-    log.warn({ err: err?.message }, "invite email send failed");
-    return false;
+    log.warn({ err: err?.message, stack: err?.stack }, "invite email send failed");
+    return { ok: false, error: err?.message || "send failed" };
   }
 }
 

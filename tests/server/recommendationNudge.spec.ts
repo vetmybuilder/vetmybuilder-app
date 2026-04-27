@@ -28,7 +28,7 @@ function setupApp(rows: Record<string, any[]>) {
 
 describe("POST /api/recommendations/:id/nudge", () => {
   it("re-sends the invite and increments nudgeCount", async () => {
-    sendInviteMock.mockResolvedValue(true);
+    sendInviteMock.mockResolvedValue({ ok: true });
     const { app } = setupApp({
       recProject: [
         {
