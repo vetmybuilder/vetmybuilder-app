@@ -176,7 +176,7 @@ export default function MobileMenu({
             aria-label="Go home"
             data-testid="mobile-menu-home"
           >
-            <span className="text-lg font-black tracking-tight">
+            <span className="text-[17px] font-black tracking-tight">
               <span className="text-black">Vet</span>
               <span className="text-indigo-600">My</span>
               <span className="text-black">Builder</span>
