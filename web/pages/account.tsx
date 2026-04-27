@@ -11,7 +11,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
-import { useAuth, signOutUser } from "@/utils/auth";
+import { useAuth } from "@/utils/auth";
 import AccountField from "@/components/forms/AccountField";
 import LocationField from "@/components/forms/LocationField";
 import Link from "next/link";
@@ -414,17 +414,6 @@ export default function ManageAccount() {
 
   const displayEmail = form.email || user?.email || "";
 
-  // ── Sign out ───────────────────────────────────────────────────────────────
-
-  async function handleSignOut() {
-    try {
-      await signOutUser();
-    } catch (e) {
-      console.warn("[account] signOutUser failed", e);
-    }
-    router.replace("/");
-  }
-
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -556,17 +545,6 @@ export default function ManageAccount() {
                 <span className="text-gray-300 text-[18px] shrink-0 ml-1">›</span>
               </button>
 
-            </div>
-
-            {/* Sign out — red button anchored near the bottom of the hub */}
-            <div className="px-3 pb-6 mt-auto">
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="w-full py-3.5 rounded-2xl bg-red-500 text-white font-extrabold text-[14.5px] tracking-tight shadow-[0_8px_22px_rgba(239,68,68,0.25)] active:bg-red-600 transition-colors"
-              >
-                Sign out
-              </button>
             </div>
           </>
         )}
