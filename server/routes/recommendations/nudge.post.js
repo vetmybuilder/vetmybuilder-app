@@ -73,6 +73,12 @@ module.exports = (router, ctx) => {
       const tokens = extractLocationTokens(row.location || "");
       const projectArea = tokens?.outward || tokens?.city || "their area";
 
+      // Order matters: send first, then update the rate-limit row. If we
+      // updated first and the send failed, the homeowner would be locked
+      // out for 24h with no email actually delivered. The current order's
+      // failure mode is "email sent but rate-limit not advanced" — annoying
+      // (homeowner can re-trigger and the builder gets a duplicate) but
+      // strictly better than the alternative.
       const sent = await sendBuilderInviteEmail({
         mysqlQuery,
         recommendationId: recId,

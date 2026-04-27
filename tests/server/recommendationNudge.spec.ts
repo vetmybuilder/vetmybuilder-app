@@ -62,6 +62,7 @@ describe("POST /api/recommendations/:id/nudge", () => {
 
     const res = await request(app).post("/recommendations/80/nudge");
     expect(res.status).toBe(429);
+    expect(Number(res.headers["retry-after"])).toBeGreaterThan(0);
     expect(sendInviteMock).not.toHaveBeenCalled();
   });
 

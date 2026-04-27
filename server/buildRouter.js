@@ -65,6 +65,10 @@ function buildRouter(ctx) {
   }
 
   // Email helpers
+  // sendBuilderInviteEmail is exposed via ctx so tests can inject a mock.
+  // vi.mock() doesn't reliably intercept CJS require() once the module has
+  // been loaded by another test in the same suite. Production gets the real
+  // implementation via the fallback below.
   if (!ctx.sendBuilderInviteEmail) {
     const { sendBuilderInviteEmail } = require("./lib/sendBuilderInviteEmail");
     ctx.sendBuilderInviteEmail = sendBuilderInviteEmail;
