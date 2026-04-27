@@ -36,7 +36,7 @@ export default function BuilderInfoModal({
         </Section>
         <Section title="Stats">
           <div className="flex flex-wrap gap-2">
-            <Pill>★ {builder.starRating.toFixed(1)}</Pill>
+            <Pill>★ {(builder.starRating ?? 0).toFixed(1)}</Pill>
             <Pill>{builder.reviewCount} reviews</Pill>
             <Pill>{builder.yearsTrading} yrs trading</Pill>
             {builder.chVerified && <Pill>CH ✓</Pill>}

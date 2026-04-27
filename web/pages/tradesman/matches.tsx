@@ -5,6 +5,7 @@ import AuthedOnly from "@/components/AuthedOnly";
 import IncomingLeadCard, {
   IncomingLead,
 } from "@/components/project/IncomingLeadCard";
+import IncomingLeadCardBack from "@/components/project/IncomingLeadCardBack";
 import SwipeActionBar from "@/components/project/SwipeActionBar";
 
 export default function TradesmanMatches() {
@@ -14,6 +15,11 @@ export default function TradesmanMatches() {
   const [subActive, setSubActive] = useState(false);
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [flipped, setFlipped] = useState(false);
+
+  useEffect(() => {
+    setFlipped(false);
+  }, [index]);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,7 +71,41 @@ export default function TradesmanMatches() {
         )}
         {current && (
           <>
-            <IncomingLeadCard lead={current} />
+            <div style={{ perspective: "1200px" }}>
+              <div
+                className="relative"
+                style={{
+                  transformStyle: "preserve-3d",
+                  transition: "transform 0.55s cubic-bezier(0.4, 0.0, 0.2, 1)",
+                  transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
+                  minHeight: 360,
+                }}
+              >
+                <div
+                  style={{
+                    backfaceVisibility: "hidden",
+                    WebkitBackfaceVisibility: "hidden",
+                  }}
+                >
+                  <IncomingLeadCard lead={current} />
+                </div>
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    backfaceVisibility: "hidden",
+                    WebkitBackfaceVisibility: "hidden",
+                    transform: "rotateY(180deg)",
+                  }}
+                >
+                  <IncomingLeadCardBack
+                    lead={current}
+                    onViewFull={() =>
+                      router.push(`/projects/${current.projectId}`)
+                    }
+                  />
+                </div>
+              </div>
+            </div>
             {gated ? (
               <div className="mt-4 p-4 rounded-xl bg-yellow-50 border border-yellow-200 text-sm text-yellow-800 text-center">
                 Subscribe to respond to this lead.
@@ -80,7 +120,7 @@ export default function TradesmanMatches() {
               <SwipeActionBar
                 disabled={busy}
                 onPass={() => respond("left")}
-                onInfo={() => router.push(`/projects/${current.projectId}`)}
+                onInfo={() => setFlipped((v) => !v)}
                 onLike={() => respond("right")}
               />
             )}
