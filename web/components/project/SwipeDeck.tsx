@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useApi } from "@/utils/api";
 import BuilderCard, { BuilderCardBuilder } from "./BuilderCard";
+import BuilderCardBack from "./BuilderCardBack";
 import SwipeActionBar from "./SwipeActionBar";
 import ShareProjectModal from "./ShareProjectModal";
 
@@ -35,8 +36,15 @@ export default function SwipeDeck({
   const api = useApi();
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [flipped, setFlipped] = useState(false);
 
   const current = builders[index];
+
+  // Reset the flip state whenever the top card changes — a freshly revealed
+  // card should always start front-facing.
+  useEffect(() => {
+    setFlipped(false);
+  }, [index]);
 
   // Kick off a prefetch for the current card's info target the moment it
   // becomes the top of the deck. By the time the homeowner taps "i", the
@@ -130,21 +138,51 @@ export default function SwipeDeck({
         <div
           ref={cardRef}
           data-testid="swipe-top-card"
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
+          onPointerDown={flipped ? undefined : onPointerDown}
+          onPointerMove={flipped ? undefined : onPointerMove}
+          onPointerUp={flipped ? undefined : onPointerUp}
           className="absolute inset-0 z-10 touch-none"
           style={{
-            transform: `translateX(${drag.dx}px) rotate(${drag.dx / 20}deg)`,
+            transform: flipped
+              ? "none"
+              : `translateX(${drag.dx}px) rotate(${drag.dx / 20}deg)`,
+            perspective: "1200px",
           }}
         >
-          <BuilderCard builder={current} onUnfavouriteRec={unfavouriteRec} />
+          <div
+            className="relative w-full h-full"
+            style={{
+              transformStyle: "preserve-3d",
+              transition: "transform 0.55s cubic-bezier(0.4, 0.0, 0.2, 1)",
+              transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
+            }}
+          >
+            <div
+              className="absolute inset-0"
+              style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
+            >
+              <BuilderCard builder={current} onUnfavouriteRec={unfavouriteRec} />
+            </div>
+            <div
+              className="absolute inset-0"
+              style={{
+                backfaceVisibility: "hidden",
+                WebkitBackfaceVisibility: "hidden",
+                transform: "rotateY(180deg)",
+              }}
+            >
+              <BuilderCardBack
+                builder={current}
+                onViewFull={() => onInfo?.(current)}
+              />
+            </div>
+          </div>
         </div>
       </div>
       <SwipeActionBar
         disabled={busy}
         onPass={() => commit("left")}
-        onInfo={() => onInfo?.(current)}
+        onInfo={() => setFlipped((v) => !v)}
         onLike={() => commit("right")}
       />
     </div>
