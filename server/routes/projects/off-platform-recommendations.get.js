@@ -48,6 +48,7 @@ module.exports = (router, ctx) => {
            r.trust_rating,
            r.value_rating,
            r.isAnonymous,
+           r.name AS recommenderName,
            u.firstName AS recommenderFirstName,
            i.sentToEmail,
            i.emailSentAt,
@@ -75,7 +76,11 @@ module.exports = (router, ctx) => {
           value: toIntOrNull(row.value_rating),
         },
         recommender: {
-          name: row.isAnonymous ? "Anonymous" : (row.recommenderFirstName || "Guest"),
+          name: row.isAnonymous
+            ? "Anonymous"
+            : (row.recommenderFirstName ||
+               (row.recommenderName ? String(row.recommenderName).trim().split(/\s+/)[0] : null) ||
+               "Guest"),
         },
         invite: {
           sent: !!row.emailSentAt,

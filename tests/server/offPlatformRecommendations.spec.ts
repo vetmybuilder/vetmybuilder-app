@@ -24,6 +24,7 @@ describe("GET /api/projects/:id/off-platform-recommendations", () => {
             trust_rating: null,
             value_rating: null,
             recommenderFirstName: "Priya",
+            recommenderName: "Priya Patel",
             isAnonymous: 0,
             companyEmail: "hello@hudsontiling.co.uk",
             sentToEmail: "hello@hudsontiling.co.uk",
@@ -75,5 +76,43 @@ describe("GET /api/projects/:id/off-platform-recommendations", () => {
 
     const res = await request(app).get("/projects/999/off-platform-recommendations");
     expect(res.status).toBe(404);
+  });
+
+  it("falls back to first word of typed name when no user is joined", async () => {
+    const mysqlQuery = vi.fn(async (sql: string) => {
+      if (/FROM\s+projects/i.test(sql)) return [{ ownerUserId: "owner-uid" }];
+      if (/FROM\s+recommendations\s+r/i.test(sql))
+        return [
+          {
+            id: 91,
+            company: "Trade Kitchens",
+            companyEmail: "x@y.com",
+            comment: null,
+            createdAt: new Date(),
+            quality_rating: 5,
+            reliability_rating: 5,
+            communication_rating: 5,
+            trust_rating: 5,
+            value_rating: 5,
+            recommenderFirstName: null,
+            recommenderName: "chris mike morris",
+            isAnonymous: 0,
+            sentToEmail: null,
+            emailSentAt: null,
+            nudgeCount: 0,
+            lastNudgedAt: null,
+          },
+        ];
+      return [];
+    });
+
+    const app = express();
+    app.use(express.json());
+    const route = require("../../server/routes/projects/off-platform-recommendations.get");
+    route(app, { auth: fakeAuth, mysqlQuery });
+
+    const res = await request(app).get("/projects/3/off-platform-recommendations");
+    expect(res.status).toBe(200);
+    expect(res.body.items[0].recommender.name).toBe("chris");
   });
 });
