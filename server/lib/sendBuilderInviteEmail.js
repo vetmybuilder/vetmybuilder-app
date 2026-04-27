@@ -50,9 +50,8 @@ async function sendBuilderInviteEmail({
   }
 
   const company = escHtml(builderCompanyName);
-  const recommender = escHtml(recommenderFirstName || "Someone");
   const area = escHtml(projectArea || "their area");
-  const signupUrl = escHtml(`${appUrl}/tradesmen/join?from=invite`);
+  const signupUrl = escHtml(`${appUrl}/tradesman/login?from=invite`);
 
   try {
     // Insert row first so a failed send leaves a NULL emailSentAt sentinel
@@ -69,12 +68,15 @@ async function sendBuilderInviteEmail({
     const { Resend } = require("resend");
     const resend = _resendClient || new Resend(apiKey);
 
+    // Recommender name is intentionally NOT exposed to the builder for privacy.
+    // The homeowner sees it in their friend-recs view; the builder learns it
+    // only after they claim and see the rec.
     const sendResult = await resend.emails.send({
       from: "VetMyBuilder <noreply@vetmybuilder.com>",
       to: recipientEmail,
-      subject: `${recommender} recommended you on VetMyBuilder`,
+      subject: `Someone recommended you on VetMyBuilder`,
       html: `
-        <p><strong>${recommender}</strong> recommended <strong>${company}</strong> for a project in <strong>${area}</strong>.</p>
+        <p>Someone recommended <strong>${company}</strong> for a project in <strong>${area}</strong>.</p>
         <p>Claim your free profile to see their note, message the homeowner, and get matched with similar projects.</p>
         <p style="margin-top:18px"><a href="${signupUrl}" style="display:inline-block;padding:10px 18px;background:#4338ca;color:white;text-decoration:none;border-radius:8px;font-weight:700">Claim your profile</a></p>
         <p style="margin-top:18px;color:#6b7280;font-size:12px">Free to claim. No credit card. Takes 2 mins.</p>

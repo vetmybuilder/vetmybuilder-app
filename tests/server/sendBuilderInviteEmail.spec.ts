@@ -50,9 +50,9 @@ describe("sendBuilderInviteEmail", () => {
     expect(args.to).toBe("hello@hudsontiling.co.uk");
     expect(args.subject).toMatch(/recommended/i);
     expect(args.html).toContain("Hudson &amp; Sons Tiling");
-    expect(args.html).toContain("Priya");
+    expect(args.html).toContain("Someone");
     expect(args.html).toContain("E4");
-    expect(args.html).toContain("https://vetmybuilder.com/tradesmen/join");
+    expect(args.html).toContain("https://vetmybuilder.com/tradesman/login");
   });
 
   it("inserts the invite row first, then updates emailSentAt after send", async () => {
