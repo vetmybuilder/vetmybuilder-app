@@ -1,10 +1,10 @@
 // server/routes/projects/off-platform-recommendations.get.js
 //
 // GET /api/projects/:id/off-platform-recommendations
-// Owner-only. Returns recs for the project that don't have a linked
-// tradesman (i.e. the recommended builder isn't on VMB yet). Each row is
-// enriched with the recommender's first name, the per-category ratings,
-// and the invite state for nudge UI.
+// Owner-only. Returns recs for the project that came through the friend-recs
+// flow (i.e. have a recommendation_invites row) OR are still unclaimed.
+// Claimed recs that originated via invite are included and returned with
+// tradesman contact details for the "Just joined" card.
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
@@ -49,16 +49,23 @@ module.exports = (router, ctx) => {
            r.value_rating,
            r.isAnonymous,
            r.name AS recommenderName,
+           r.linked_tradesman_uid,
            u.firstName AS recommenderFirstName,
+           i.id AS inviteId,
            i.sentToEmail,
            i.emailSentAt,
            i.nudgeCount,
-           i.lastNudgedAt
+           i.lastNudgedAt,
+           t.profile_picture_url AS tradesmanPhotoUrl,
+           t.phone AS tradesmanPhone,
+           t.email AS tradesmanEmail,
+           t.user_id AS tradesmanUid
          FROM recommendations r
          LEFT JOIN users u ON u.uid = r.recommenderUserId
          LEFT JOIN recommendation_invites i ON i.recommendationId = r.id
+         LEFT JOIN tradesmen t ON t.user_id = r.linked_tradesman_uid
          WHERE r.projectId = ?
-           AND r.linked_tradesman_uid IS NULL
+           AND (r.linked_tradesman_uid IS NULL OR i.id IS NOT NULL)
          ORDER BY r.createdAt DESC`,
         [pid],
       );
@@ -83,35 +90,47 @@ module.exports = (router, ctx) => {
         }, new Map());
       }
 
-      const items = (rows || []).map((row) => ({
-        id: row.id,
-        company: row.company,
-        comment: row.comment,
-        createdAt: row.createdAt,
-        photos: photosByRec.get(row.id) || [],
-        ratings: {
-          quality: toIntOrNull(row.quality_rating),
-          reliability: toIntOrNull(row.reliability_rating),
-          communication: toIntOrNull(row.communication_rating),
-          trust: toIntOrNull(row.trust_rating),
-          value: toIntOrNull(row.value_rating),
-        },
-        recommender: {
-          name: row.isAnonymous
-            ? "Anonymous"
-            : (row.recommenderFirstName ||
-               (row.recommenderName ? String(row.recommenderName).trim().split(/\s+/)[0] : null) ||
-               "Guest"),
-        },
-        invite: {
-          sent: !!row.emailSentAt,
-          sentToEmail: row.sentToEmail || null,
-          emailSentAt: row.emailSentAt || null,
-          companyEmail: row.companyEmail || null,
-          nudgeCount: Number(row.nudgeCount || 0),
-          lastNudgedAt: row.lastNudgedAt || null,
-        },
-      }));
+      const items = (rows || []).map((row) => {
+        const claimed = row.linked_tradesman_uid != null;
+        return {
+          id: row.id,
+          company: row.company,
+          comment: row.comment,
+          createdAt: row.createdAt,
+          photos: photosByRec.get(row.id) || [],
+          ratings: {
+            quality: toIntOrNull(row.quality_rating),
+            reliability: toIntOrNull(row.reliability_rating),
+            communication: toIntOrNull(row.communication_rating),
+            trust: toIntOrNull(row.trust_rating),
+            value: toIntOrNull(row.value_rating),
+          },
+          recommender: {
+            name: row.isAnonymous
+              ? "Anonymous"
+              : (row.recommenderFirstName ||
+                 (row.recommenderName ? String(row.recommenderName).trim().split(/\s+/)[0] : null) ||
+                 "Guest"),
+          },
+          invite: {
+            sent: !!row.emailSentAt,
+            sentToEmail: row.sentToEmail || null,
+            emailSentAt: row.emailSentAt || null,
+            companyEmail: row.companyEmail || null,
+            nudgeCount: Number(row.nudgeCount || 0),
+            lastNudgedAt: row.lastNudgedAt || null,
+          },
+          claimed,
+          tradesman: claimed
+            ? {
+                uid: String(row.tradesmanUid),
+                photoUrl: row.tradesmanPhotoUrl || null,
+                phone: row.tradesmanPhone || null,
+                email: row.tradesmanEmail || null,
+              }
+            : null,
+        };
+      });
 
       return res.json({ items });
     } catch (e) {

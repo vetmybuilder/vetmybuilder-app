@@ -1,12 +1,13 @@
 // web/pages/projects/[id]/friend-recs.tsx
 //
 // Owner-only mobile page that lists off-platform recommendations for the
-// project. Each row shows the company, recommender, comment, compact
-// rating pills, pending-claim badge, and a Send-nudge action.
+// project. Pending recs show a "Pending claim" badge + Send-nudge action.
+// Claimed recs (builder signed up via invite) show a "Just joined" card
+// with Call + Email contact buttons.
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { ChevronLeft, Sparkles } from "lucide-react";
+import { ChevronLeft, Phone, Mail, Sparkles } from "lucide-react";
 import { useApi } from "@/utils/api";
 import { CATEGORY_LABELS, CATEGORY_ORDER, hasAnyRating, deterministicSummary } from "@/utils/ratingSummary";
 import type { CategoryRatings } from "@/types/builderTypes";
@@ -30,6 +31,13 @@ type FriendRec = {
     nudgeCount: number;
     lastNudgedAt: string | null;
   };
+  claimed: boolean;
+  tradesman: {
+    uid: string;
+    photoUrl: string | null;
+    phone: string | null;
+    email: string | null;
+  } | null;
 };
 
 const NUDGE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -50,7 +58,131 @@ function CompactStars({ value }: { value: number }) {
   );
 }
 
-function RecCard({ rec, onNudge, busy }: { rec: FriendRec; onNudge: () => void; busy: boolean }) {
+/** Shared sub-components used by both card variants */
+function RatingPills({ ratings }: { ratings: FriendRec["ratings"] }) {
+  if (!hasAnyRating(ratings)) return null;
+  return (
+    <div className="mt-2 flex flex-wrap gap-1">
+      {CATEGORY_ORDER.map((key) => {
+        const v = ratings?.[key];
+        if (typeof v !== "number") return null;
+        return (
+          <span
+            key={key}
+            className="inline-flex items-center gap-0.5 rounded-full border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[9.5px] font-bold text-gray-700"
+          >
+            <span>{CATEGORY_LABELS[key]}</span>
+            <CompactStars value={v} />
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function PhotoGrid({ photos }: { photos: Photo[] }) {
+  if (photos.length === 0) return null;
+  return (
+    <div className="mt-2 grid grid-cols-3 gap-1">
+      {photos.slice(0, 6).map((p) => (
+        <a
+          key={p.id}
+          href={p.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="aspect-square rounded-lg bg-gray-100 bg-cover bg-center"
+          style={{ backgroundImage: `url(${p.url})` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function CommentBlock({ comment, ratings }: { comment: string | null; ratings: FriendRec["ratings"] }) {
+  const autoLine = !comment && ratings ? deterministicSummary(ratings) : null;
+  const display = comment || autoLine;
+  if (!display) return null;
+  return (
+    <>
+      <div className="mt-2 px-3 py-2 bg-gray-50 rounded-lg text-[12px] text-gray-700 leading-relaxed italic">
+        &ldquo;{display}&rdquo;
+      </div>
+      {!comment && autoLine && (
+        <div className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[8.5px] font-extrabold uppercase tracking-wider text-indigo-700">
+          <Sparkles className="h-2.5 w-2.5" />
+          Auto from ratings
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Claimed card — builder signed up via the invite */
+function ClaimedRecCard({ rec }: { rec: FriendRec }) {
+  const t = rec.tradesman;
+  const initial = t?.photoUrl ? null : (rec.company?.[0] || "?").toUpperCase();
+
+  return (
+    <div
+      className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3.5 mb-2"
+      style={{ background: "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)" }}
+    >
+      <div className="flex items-center gap-2.5">
+        {t?.photoUrl ? (
+          <img
+            src={t.photoUrl}
+            alt={rec.company}
+            className="w-9 h-9 rounded-full object-cover border border-emerald-200"
+          />
+        ) : (
+          <span
+            className="w-9 h-9 rounded-full flex items-center justify-center text-white text-[12px] font-extrabold"
+            style={{ background: "linear-gradient(135deg, #6ee7b7, #059669)" }}
+          >
+            {initial}
+          </span>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="text-[13px] font-extrabold text-gray-900">{rec.company}</div>
+          <div className="text-[10.5px] text-gray-500 mt-0.5">
+            Recommended by {rec.recommender.name}
+          </div>
+        </div>
+        <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-[9.5px] font-extrabold ring-1 ring-inset ring-emerald-200">
+          🎉 Just joined
+        </span>
+      </div>
+      <CommentBlock comment={rec.comment} ratings={rec.ratings} />
+      <RatingPills ratings={rec.ratings} />
+      <PhotoGrid photos={rec.photos} />
+      <div className="mt-3 flex gap-1.5">
+        {t?.phone && (
+          <a
+            href={`tel:${t.phone}`}
+            className="flex-1 py-2 px-3 flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10.5px] font-bold transition-colors"
+            data-testid="btn-call"
+          >
+            <Phone className="w-3.5 h-3.5" />
+            Call
+          </a>
+        )}
+        {t?.email && (
+          <a
+            href={`mailto:${t.email}`}
+            className="flex-1 py-2 px-3 flex items-center justify-center gap-1.5 border border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-800 rounded-lg text-[10.5px] font-bold transition-colors"
+            data-testid="btn-email"
+          >
+            <Mail className="w-3.5 h-3.5" />
+            Email
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Pending card — builder hasn't signed up yet */
+function PendingRecCard({ rec, onNudge, busy }: { rec: FriendRec; onNudge: () => void; busy: boolean }) {
   // Cooldown applies from the most recent send of any kind — auto-invite at
   // submit OR a previous nudge. Mirrors the server-side check in nudge.post.js
   // so the button greys out immediately after submit.
@@ -84,55 +216,9 @@ function RecCard({ rec, onNudge, busy }: { rec: FriendRec; onNudge: () => void; 
           Pending claim
         </span>
       </div>
-      {(() => {
-        const autoLine = !rec.comment && rec.ratings ? deterministicSummary(rec.ratings) : null;
-        const display = rec.comment || autoLine;
-        if (!display) return null;
-        return (
-          <>
-            <div className="mt-2 px-3 py-2 bg-gray-50 rounded-lg text-[12px] text-gray-700 leading-relaxed italic">
-              &ldquo;{display}&rdquo;
-            </div>
-            {!rec.comment && autoLine && (
-              <div className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[8.5px] font-extrabold uppercase tracking-wider text-indigo-700">
-                <Sparkles className="h-2.5 w-2.5" />
-                Auto from ratings
-              </div>
-            )}
-          </>
-        );
-      })()}
-      {hasAnyRating(rec.ratings) && (
-        <div className="mt-2 flex flex-wrap gap-1">
-          {CATEGORY_ORDER.map((key) => {
-            const v = rec.ratings?.[key];
-            if (typeof v !== "number") return null;
-            return (
-              <span
-                key={key}
-                className="inline-flex items-center gap-0.5 rounded-full border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[9.5px] font-bold text-gray-700"
-              >
-                <span>{CATEGORY_LABELS[key]}</span>
-                <CompactStars value={v} />
-              </span>
-            );
-          })}
-        </div>
-      )}
-      {rec.photos.length > 0 && (
-        <div className="mt-2 grid grid-cols-3 gap-1">
-          {rec.photos.slice(0, 6).map((p) => (
-            <a
-              key={p.id}
-              href={p.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="aspect-square rounded-lg bg-gray-100 bg-cover bg-center"
-              style={{ backgroundImage: `url(${p.url})` }}
-            />
-          ))}
-        </div>
-      )}
+      <CommentBlock comment={rec.comment} ratings={rec.ratings} />
+      <RatingPills ratings={rec.ratings} />
+      <PhotoGrid photos={rec.photos} />
       <div className="mt-3 flex gap-1.5">
         <button
           type="button"
@@ -146,6 +232,11 @@ function RecCard({ rec, onNudge, busy }: { rec: FriendRec; onNudge: () => void; 
       </div>
     </div>
   );
+}
+
+function RecCard({ rec, onNudge, busy }: { rec: FriendRec; onNudge: () => void; busy: boolean }) {
+  if (rec.claimed) return <ClaimedRecCard rec={rec} />;
+  return <PendingRecCard rec={rec} onNudge={onNudge} busy={busy} />;
 }
 
 function FriendRecsPage() {
@@ -203,14 +294,16 @@ function FriendRecsPage() {
         </button>
         <div className="flex-1">
           <h1 className="text-[16px] font-extrabold text-gray-900">Friend recs</h1>
-          <p className="text-[11px] text-gray-500">{items.length} pending claim</p>
+          <p className="text-[11px] text-gray-500">
+            {items.length} friend rec{items.length !== 1 ? "s" : ""}
+          </p>
         </div>
       </div>
 
       <div className="px-4 py-3">
         <p className="text-[12px] text-gray-500 leading-relaxed mb-3">
-          These builders aren&apos;t on VetMyBuilder yet. We&apos;ve invited them - we&apos;ll
-          notify you when they claim.
+          Builders recommended by your friends. We invite them to join — you&apos;ll
+          see when they do.
         </p>
         {loading ? (
           <div className="text-center text-[12px] text-gray-500 py-8">Loading...</div>

@@ -142,7 +142,10 @@ module.exports = function mountMatchesGet(router, ctx) {
             GROUP BY companyNumber
          ) cv_agg ON cv_agg.companyNumber = t.company_number
         WHERE r.projectId = ?
-          AND r.linked_tradesman_uid IS NOT NULL`,
+          AND r.linked_tradesman_uid IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM recommendation_invites ri WHERE ri.recommendationId = r.id
+          )`,
       [pid],
     );
 
@@ -225,8 +228,10 @@ module.exports = function mountMatchesGet(router, ctx) {
     });
 
     const offPlatformRows = await mysqlQuery(
-      `SELECT COUNT(*) AS c FROM recommendations
-        WHERE projectId = ? AND linked_tradesman_uid IS NULL`,
+      `SELECT COUNT(*) AS c FROM recommendations r
+        LEFT JOIN recommendation_invites i ON i.recommendationId = r.id
+        WHERE r.projectId = ?
+          AND (r.linked_tradesman_uid IS NULL OR i.id IS NOT NULL)`,
       [pid],
     );
     const offPlatformRecCount = Number(offPlatformRows?.[0]?.c || 0);
