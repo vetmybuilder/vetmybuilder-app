@@ -426,7 +426,7 @@ export default function ManageAccount() {
         <title>Account — VetMyBuilder</title>
       </Head>
 
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 flex flex-col">
 
         {/* ── Hub view ── */}
         {view === "hub" && (
@@ -549,24 +549,17 @@ export default function ManageAccount() {
                 <span className="text-gray-300 text-[18px] shrink-0 ml-1">›</span>
               </button>
 
-              {/* Sign out row */}
+            </div>
+
+            {/* Sign out — red button anchored near the bottom of the hub */}
+            <div className="px-3 pb-6 mt-auto">
               <button
                 type="button"
                 onClick={handleSignOut}
-                className="w-full bg-white rounded-2xl shadow-sm flex items-center gap-3 text-left"
-                style={{ padding: 14 }}
+                className="w-full py-3.5 rounded-2xl bg-red-500 text-white font-extrabold text-[14.5px] tracking-tight shadow-[0_8px_22px_rgba(239,68,68,0.25)] active:bg-red-600 transition-colors"
               >
-                <div
-                  className="rounded-xl flex items-center justify-center shrink-0"
-                  style={{ width: 40, height: 40, borderRadius: 11, background: "#fff1f2", fontSize: 18 }}
-                >
-                  ⏏
-                </div>
-                <span className="flex-1 text-[14.5px] font-extrabold text-red-500">
-                  Sign out
-                </span>
+                Sign out
               </button>
-
             </div>
           </>
         )}
