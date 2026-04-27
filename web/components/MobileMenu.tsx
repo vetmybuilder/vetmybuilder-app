@@ -134,8 +134,8 @@ export default function MobileMenu({
 
   const safeFirstName = (firstName || "").trim();
   const greeting = safeFirstName
-    ? `Welcome back ${safeFirstName},`
-    : "Hi there,";
+    ? `Welcome back ${safeFirstName}`
+    : "Hi there";
   const avatarLetter = safeFirstName
     ? safeFirstName.charAt(0).toUpperCase()
     : "?";
@@ -207,12 +207,9 @@ export default function MobileMenu({
                   {avatarLetter}
                 </span>
               </div>
-              <div className="flex flex-col min-w-0">
+              <div className="flex flex-col min-w-0 justify-center">
                 <span className="text-[17px] font-extrabold tracking-tight text-gray-900 truncate">
                   {greeting}
-                </span>
-                <span className="text-[13px] text-gray-500">
-                  {isTrades ? "Tradesperson" : "Homeowner"}
                 </span>
               </div>
             </div>
