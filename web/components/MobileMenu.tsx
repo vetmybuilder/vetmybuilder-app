@@ -400,7 +400,7 @@ export default function MobileMenu({
                   }}
                   className={[
                     "px-6 py-5 text-left flex items-center gap-3",
-                    "bg-gray-900 hover:bg-gray-800",
+                    "bg-red-500 hover:bg-red-600",
                     "text-white",
                   ].join(" ")}
                   data-testid="mobile-menu-logout"
