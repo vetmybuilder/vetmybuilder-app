@@ -143,6 +143,8 @@ module.exports = function mountMatchesGet(router, ctx) {
          ) cv_agg ON cv_agg.companyNumber = t.company_number
         WHERE r.projectId = ?
           AND r.linked_tradesman_uid IS NOT NULL
+          AND r.deck_dismissed_at IS NULL
+          AND r.homeowner_unfavourited_at IS NULL
           AND NOT EXISTS (
             SELECT 1 FROM recommendation_invites ri WHERE ri.recommendationId = r.id
           )`,
@@ -236,10 +238,59 @@ module.exports = function mountMatchesGet(router, ctx) {
     );
     const offPlatformRecCount = Number(offPlatformRows?.[0]?.c || 0);
 
+    const recCardRows = await mysqlQuery(
+      `SELECT
+         r.id AS recommendationId,
+         r.company,
+         r.recommenderUserId,
+         r.isAnonymous,
+         r.name AS recommenderName,
+         r.companyEmail,
+         r.phone AS recPhone,
+         r.linked_tradesman_uid,
+         u.firstName AS recommenderFirstName,
+         (SELECT rp.filePath FROM recommendation_photos rp
+            WHERE rp.recommendationId = r.id
+            ORDER BY rp.id ASC LIMIT 1) AS coverPhoto,
+         t.user_id AS tradesmanUid,
+         t.company_name AS tradesmanCompanyName,
+         t.profile_picture_url AS tradesmanPhotoUrl,
+         t.phone AS tradesmanPhone,
+         t.email AS tradesmanEmail
+       FROM recommendations r
+       LEFT JOIN users u ON u.uid = r.recommenderUserId
+       LEFT JOIN tradesmen t ON t.user_id = r.linked_tradesman_uid
+       WHERE r.projectId = ?
+         AND r.deck_dismissed_at IS NULL
+         AND r.homeowner_unfavourited_at IS NULL
+       ORDER BY r.createdAt DESC`,
+      [pid],
+    );
+
+    const recommendationCards = (recCardRows || []).map((row) => {
+      const recommenderName = row.isAnonymous
+        ? "Anonymous"
+        : (row.recommenderFirstName ||
+           (row.recommenderName ? String(row.recommenderName).trim().split(/\s+/)[0] : null) ||
+           "Someone");
+      return {
+        recommendationId: row.recommendationId,
+        company: row.tradesmanCompanyName || row.company,
+        coverPhotoUrl: row.coverPhoto || row.tradesmanPhotoUrl || null,
+        recommenderName,
+        linkedTradesmanUid: row.linked_tradesman_uid || null,
+        contact: {
+          phone: row.tradesmanPhone || row.recPhone || null,
+          email: row.tradesmanEmail || row.companyEmail || null,
+        },
+      };
+    });
+
     return res.status(200).json({
       recommended: recRanked,
       subscribed: subRanked,
       offPlatformRecCount,
+      recommendationCards,
     });
   });
 };

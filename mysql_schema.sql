@@ -53,6 +53,8 @@ CREATE TABLE IF NOT EXISTS recommendations (
   communication_rating TINYINT NULL,
   trust_rating         TINYINT NULL,
   value_rating         TINYINT NULL,
+  deck_dismissed_at    DATETIME NULL,
+  homeowner_unfavourited_at DATETIME NULL,
 
   FOREIGN KEY(projectId) REFERENCES projects(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -60,6 +62,7 @@ CREATE TABLE IF NOT EXISTS recommendations (
 CREATE INDEX idx_recs_project ON recommendations(projectId);
 CREATE INDEX idx_recs_user ON recommendations(recommenderUserId);
 CREATE INDEX idx_recs_project_createdAt ON recommendations(projectId, createdAt DESC);
+CREATE INDEX idx_recs_deck_active ON recommendations(projectId, deck_dismissed_at, homeowner_unfavourited_at);
 CREATE TABLE IF NOT EXISTS notifications (
   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   userId VARCHAR(255),                       -- target user

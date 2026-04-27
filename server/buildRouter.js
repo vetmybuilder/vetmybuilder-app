@@ -329,6 +329,8 @@ function buildRouter(ctx) {
   require("./routes/recommendations/recommendation.get")(router, ctx);
   require("./routes/recommendations/verification.get")(router, ctx);
   require("./routes/recommendations/nudge.post")(router, ctx);
+  require("./routes/recommendations/dismiss-from-deck.post")(router, ctx);
+  require("./routes/recommendations/unfavourite.post")(router, ctx);
 
   // ---------------- Companies House helpers ----------------
   require("./routes/verify-company.get")(router, ctx);
