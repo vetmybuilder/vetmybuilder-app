@@ -7,7 +7,6 @@ import {
   X,
   FolderKanban,
   CheckCircle2,
-  Users,
   Heart,
   LogOut,
   PlusSquare,
@@ -279,20 +278,6 @@ export default function MobileMenu({
               >
                 <IconTile Icon={CheckCircle2} />
                 <span>Completed</span>
-                <Chevron />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  onGoProjectsTab("completedCommunity");
-                  onClose();
-                }}
-                className={`${ROW_BASE} text-gray-900`}
-                data-testid="mobile-menu-community"
-              >
-                <IconTile Icon={Users} />
-                <span>Community</span>
                 <Chevron />
               </button>
 
