@@ -110,12 +110,18 @@ module.exports = (router, ctx) => {
                  WHERE v.recommendationId = r.id
                    AND v.value = 1
               ), 0) AS likes,
-              t.review_links_json AS reviewLinksJson
+              t.review_links_json AS reviewLinksJson,
+              t.profile_picture_url AS tradesmanPhotoUrl,
+              t.phone AS tradesmanPhone,
+              t.email AS tradesmanEmail,
+              u.firstName AS recommenderFirstName
             FROM recommendations r
             JOIN projects p
               ON p.id = r.projectId
             LEFT JOIN tradesmen t
               ON t.user_id = r.linked_tradesman_uid
+            LEFT JOIN users u
+              ON u.uid = r.recommenderUserId
             WHERE r.id = ?
             LIMIT 1
           `,
@@ -345,6 +351,31 @@ module.exports = (router, ctx) => {
         reviewLinks,
         linkedTradesmanUid,
         isFavourite,
+
+        // Recommender display name: firstName > first word of typed name > "Guest"
+        recommender: {
+          name: row.isAnonymous
+            ? "Anonymous"
+            : (row.recommenderFirstName ||
+               (row.name ? String(row.name).trim().split(/\s+/)[0] : null) ||
+               "Guest"),
+        },
+
+        // Linked tradesman details (null if no link)
+        tradesman: linkedTradesmanUid
+          ? {
+              uid: linkedTradesmanUid,
+              photoUrl: row.tradesmanPhotoUrl || null,
+              phone: row.tradesmanPhone ? String(row.tradesmanPhone) : null,
+              email: row.tradesmanEmail || null,
+            }
+          : null,
+
+        // Contact fallback: tradesman first, then rec's own fields
+        contact: {
+          phone: (row.tradesmanPhone ? String(row.tradesmanPhone) : null) || (row.phone ? String(row.phone) : null),
+          email: row.tradesmanEmail || row.email || row.companyEmail || null,
+        },
 
         // 🔥 NOW MASKED
         project: {
