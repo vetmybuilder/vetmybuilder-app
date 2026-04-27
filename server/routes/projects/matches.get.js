@@ -122,7 +122,13 @@ module.exports = function mountMatchesGet(router, ctx) {
     const recRows = await mysqlQuery(
       `SELECT t.user_id, t.company_name, t.trade_types,
               t.service_areas, t.vmb_score,
-              t.profile_picture_url AS photoUrl,
+              COALESCE(
+                (SELECT tp.url FROM tradesmen_photos tp
+                  WHERE tp.tradesman_user_id = t.user_id
+                  ORDER BY COALESCE(tp.sort_order, 999999), tp.created_at ASC
+                  LIMIT 1),
+                t.profile_picture_url
+              ) AS photoUrl,
               t.google_rating AS starRating,
               COALESCE(t.google_reviews_count, 0) AS reviewCount,
               GREATEST(0, TIMESTAMPDIFF(YEAR, t.created_at, NOW())) AS yearsTrading,
@@ -154,7 +160,13 @@ module.exports = function mountMatchesGet(router, ctx) {
     const subRows = await mysqlQuery(
       `SELECT t.user_id, t.company_name, t.trade_types,
               t.service_areas, t.vmb_score,
-              t.profile_picture_url AS photoUrl,
+              COALESCE(
+                (SELECT tp.url FROM tradesmen_photos tp
+                  WHERE tp.tradesman_user_id = t.user_id
+                  ORDER BY COALESCE(tp.sort_order, 999999), tp.created_at ASC
+                  LIMIT 1),
+                t.profile_picture_url
+              ) AS photoUrl,
               t.google_rating AS starRating,
               COALESCE(t.google_reviews_count, 0) AS reviewCount,
               GREATEST(0, TIMESTAMPDIFF(YEAR, t.created_at, NOW())) AS yearsTrading,
