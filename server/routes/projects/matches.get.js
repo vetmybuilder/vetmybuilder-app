@@ -125,6 +125,7 @@ module.exports = function mountMatchesGet(router, ctx) {
               COALESCE(
                 (SELECT tp.url FROM tradesmen_photos tp
                   WHERE tp.tradesman_user_id = t.user_id
+                    AND (t.profile_picture_url IS NULL OR tp.url <> t.profile_picture_url)
                   ORDER BY COALESCE(tp.sort_order, 999999), tp.created_at ASC
                   LIMIT 1),
                 t.profile_picture_url
@@ -163,6 +164,7 @@ module.exports = function mountMatchesGet(router, ctx) {
               COALESCE(
                 (SELECT tp.url FROM tradesmen_photos tp
                   WHERE tp.tradesman_user_id = t.user_id
+                    AND (t.profile_picture_url IS NULL OR tp.url <> t.profile_picture_url)
                   ORDER BY COALESCE(tp.sort_order, 999999), tp.created_at ASC
                   LIMIT 1),
                 t.profile_picture_url
