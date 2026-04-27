@@ -298,6 +298,7 @@ function buildRouter(ctx) {
 
   require("./routes/projects/recommendations.get")(router, ctx);
   require("./routes/projects/recommendations.post")(router, ctx);
+  require("./routes/projects/off-platform-recommendations.get")(router, ctx);
 
   // ---------------- Reports ----------------
   require("./routes/reports/reports.post")(router, ctx);
