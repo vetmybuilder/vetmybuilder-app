@@ -20,18 +20,21 @@ const CATEGORY_MAP = {
   hire_cancelled: "hire_updates",
   recommendation_new: "recommendations",
   recommendation_for_tradesman: "recommendations",
-  tradesman_interest: "builder_interest",
-  tradesman_shared_profile: "builder_interest",
+  match_formed: "matches",
+  inbox_message_new: "messages",
   project_live_local: "local_activity",
   project_closed_local: "local_activity",
   project_match: "project_matches",
+  // tradesman_interest / tradesman_shared_profile are no longer fired anywhere
+  // and intentionally absent from the map.
 };
 
 /** Default push preferences when no DB row exists */
 const DEFAULT_PREFERENCES = {
   hire_updates: true,
   recommendations: true,
-  builder_interest: true,
+  matches: true,
+  messages: true,
   local_activity: false,
   project_matches: true,
 };

@@ -33,11 +33,13 @@ describe("pushSender", () => {
     expect(CATEGORY_MAP.hire_cancelled).toBe("hire_updates");
     expect(CATEGORY_MAP.recommendation_new).toBe("recommendations");
     expect(CATEGORY_MAP.recommendation_for_tradesman).toBe("recommendations");
-    expect(CATEGORY_MAP.tradesman_interest).toBe("builder_interest");
-    expect(CATEGORY_MAP.tradesman_shared_profile).toBe("builder_interest");
+    expect(CATEGORY_MAP.match_formed).toBe("matches");
+    expect(CATEGORY_MAP.inbox_message_new).toBe("messages");
     expect(CATEGORY_MAP.project_live_local).toBe("local_activity");
     expect(CATEGORY_MAP.project_closed_local).toBe("local_activity");
     expect(CATEGORY_MAP.project_match).toBe("project_matches");
+    expect(CATEGORY_MAP.tradesman_interest).toBeUndefined();
+    expect(CATEGORY_MAP.tradesman_shared_profile).toBeUndefined();
   });
 
   it("sends push notification when preference is enabled (default)", async () => {

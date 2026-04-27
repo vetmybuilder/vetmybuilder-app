@@ -12,6 +12,8 @@
 //     `status`, `sent_at`, or `unlock_id` column — the row is uniquely
 //     identified by (project_id, builder_uid).
 
+const { sendPushToUser } = require("../../lib/pushSender");
+
 module.exports = function mountInboxMessage(router, ctx) {
   const { auth, mysqlQuery } = ctx;
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
@@ -55,6 +57,44 @@ module.exports = function mountInboxMessage(router, ctx) {
           WHERE project_id = ? AND builder_uid = ?`,
         [body, pid, builderUid],
       );
+
+      // Fire inbox_message_new notification to the homeowner (recipient)
+      try {
+        const msgRows = await mysqlQuery(
+          `SELECT im.homeowner_uid, u.firstName AS builderFirstName
+             FROM inbox_messages im
+             LEFT JOIN users u ON u.uid = im.builder_uid
+            WHERE im.project_id = ? AND im.builder_uid = ?
+            LIMIT 1`,
+          [pid, builderUid],
+        );
+        const msgRow = msgRows?.[0];
+        if (msgRow?.homeowner_uid) {
+          const senderName = msgRow.builderFirstName || "A builder";
+          const notifMessage = `New message from ${senderName}`;
+          const linkPath = `/inbox`;
+
+          await mysqlQuery(
+            `INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
+             VALUES (?, 'inbox_message_new', ?, ?, ?, NOW())`,
+            [msgRow.homeowner_uid, notifMessage, pid, linkPath],
+          );
+          ctx.broadcastNotification?.(msgRow.homeowner_uid, {
+            type: "inbox_message_new", message: notifMessage, projectId: pid, linkPath,
+          });
+          sendPushToUser({
+            uid: msgRow.homeowner_uid,
+            type: "inbox_message_new",
+            title: "VetMyBuilder",
+            body: notifMessage,
+            linkPath,
+            mysqlQuery,
+            logActivity: ctx.logActivity,
+          });
+        }
+      } catch (err) {
+        console.warn("[inbox-message] inbox_message_new notification failed:", err?.message);
+      }
 
       return res.status(200).json({ status: "sent" });
     },

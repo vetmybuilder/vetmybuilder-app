@@ -1,11 +1,9 @@
 // server/routes/tradesmen/interest.post.js
 
-const { enrichMessage } = require("../../lib/ai/enrichNotificationMessage");
-const { sendPushToUser } = require("../../lib/pushSender");
 const analytics = require("../../lib/analytics");
 
 module.exports = (router, ctx) => {
-  const { auth, mysqlQuery, requireTradesman = null, sseSend = null } = ctx;
+  const { auth, mysqlQuery, requireTradesman = null } = ctx;
   const log = ctx.log || console;
   const TAG = "[tradesmen/interest.post]";
 
@@ -140,57 +138,6 @@ module.exports = (router, ctx) => {
           }
           throw e;
         }
-
-        const templateMsg =
-          `${
-            companyName || "A local tradesperson"
-          } is interested in your project.` +
-          (note ? `\n\nMessage: ${note}` : "");
-
-        const msg = await enrichMessage({
-          type: "tradesman_interest",
-          templateMessage: templateMsg,
-          context: { companyName: companyName || "A local tradesperson", projectName: proj.name },
-          mysqlQuery,
-        });
-
-        await mysqlQuery(
-          `
-          INSERT INTO notifications (
-            userId, type, message, projectId, linkPath, createdAt
-          )
-          VALUES (?, 'tradesman_interest', ?, ?, ?, ?)
-        `,
-          [String(proj.owner_uid), msg, projectId, linkPath, createdAt]
-        );
-
-        try {
-          if (typeof sseSend === "function") {
-            sseSend(String(proj.owner_uid), {
-              type: "notification",
-              kind: "tradesman_interest",
-              payload: {
-                projectId,
-                fromUid: uid,
-                companyName,
-                linkPath,
-                createdAt,
-              },
-            });
-          }
-        } catch (e) {
-          log.warn?.(`${TAG} SSE failed`, { error: e?.message });
-        }
-
-        sendPushToUser({
-          uid: String(proj.owner_uid),
-          type: "tradesman_interest",
-          title: "VetMyBuilder",
-          body: msg,
-          linkPath,
-          mysqlQuery,
-          logActivity: ctx.logActivity,
-        });
 
         log.info?.(`${TAG} success`, { recommendationId });
         res.json({ ok: true, recommendationId, linkPath });

@@ -45,7 +45,8 @@ type FieldErrors = Partial<Record<FieldKey, string>>;
 type Preferences = {
   hire_updates: boolean;
   recommendations: boolean;
-  builder_interest: boolean;
+  matches: boolean;
+  messages: boolean;
   local_activity: boolean;
   project_matches: boolean;
 };
@@ -59,12 +60,17 @@ const CATEGORIES: { key: keyof Preferences; label: string; description: string }
   {
     key: "recommendations",
     label: "Recommendations",
-    description: "When someone recommends a builder for your project",
+    description: "When someone recommends a builder for your project, or a recommended builder joins",
   },
   {
-    key: "builder_interest",
-    label: "Builder interest",
-    description: "When a builder shares their profile with your project",
+    key: "matches",
+    label: "Matches",
+    description: "When you and a builder both swipe right and form a match",
+  },
+  {
+    key: "messages",
+    label: "Messages",
+    description: "When you receive a new chat message",
   },
   {
     key: "local_activity",
@@ -317,7 +323,8 @@ export default function ManageAccount() {
   const [prefs, setPrefs] = useState<Preferences>({
     hire_updates: true,
     recommendations: true,
-    builder_interest: true,
+    matches: true,
+    messages: true,
     local_activity: false,
     project_matches: true,
   });

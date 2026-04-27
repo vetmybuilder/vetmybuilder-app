@@ -12,7 +12,8 @@ module.exports = (router, ctx) => {
   const VALID_CATEGORIES = [
     "hire_updates",
     "recommendations",
-    "builder_interest",
+    "matches",
+    "messages",
     "local_activity",
     "project_matches",
   ];

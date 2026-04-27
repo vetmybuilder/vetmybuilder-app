@@ -5,6 +5,8 @@
 // the homeowner's email (+ firstName) to the builder via subsequent
 // calls to getMatchContact-equivalent on the builder side.
 
+const { sendPushToUser } = require("../../lib/pushSender");
+
 module.exports = function mountInboxReply(router, ctx) {
   const { auth, mysqlQuery } = ctx;
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
@@ -37,6 +39,37 @@ module.exports = function mountInboxReply(router, ctx) {
           WHERE id = ?`,
         [mid],
       );
+
+      // Fire inbox_message_new notification to the builder (recipient of the reply)
+      try {
+        const projRows = await mysqlQuery(
+          `SELECT name FROM projects WHERE id = ? LIMIT 1`,
+          [pid],
+        );
+        const projectName = projRows?.[0]?.name || "your project";
+        const notifMessage = `New message about "${projectName}"`;
+        const linkPath = `/inbox`;
+
+        await mysqlQuery(
+          `INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
+           VALUES (?, 'inbox_message_new', ?, ?, ?, NOW())`,
+          [row.builder_uid, notifMessage, pid, linkPath],
+        );
+        ctx.broadcastNotification?.(row.builder_uid, {
+          type: "inbox_message_new", message: notifMessage, projectId: pid, linkPath,
+        });
+        sendPushToUser({
+          uid: row.builder_uid,
+          type: "inbox_message_new",
+          title: "VetMyBuilder",
+          body: notifMessage,
+          linkPath,
+          mysqlQuery,
+          logActivity: ctx.logActivity,
+        });
+      } catch (err) {
+        console.warn("[inbox-reply] inbox_message_new notification failed:", err?.message);
+      }
 
       return res.status(200).json({ ok: true });
     },
