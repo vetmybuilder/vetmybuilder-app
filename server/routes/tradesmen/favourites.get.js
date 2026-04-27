@@ -175,12 +175,7 @@ module.exports = (router, ctx) => {
       return res.status(500).json({ error: "FAILED" });
     }
 
-    if (!rows?.length) {
-      log.info?.(`${TAG} end`, { count: 0 });
-      return res.json({ items: [] });
-    }
-
-    const builderIds = rows.map((r) => String(r.builderId));
+    const builderIds = (rows || []).map((r) => String(r.builderId));
     const photosByBuilder = await loadPhotosByBuilder(builderIds);
 
     // ------------------------------------------------------------
@@ -196,41 +191,43 @@ module.exports = (router, ctx) => {
     // recommendation's photos (so we get the project-specific shot
     // they saw when favouriting).
     let recsByBuilder = {};
-    try {
-      const placeholders = builderIds.map(() => "?").join(",");
-      const recRows = await mysqlQuery(
-        `
-        SELECT r.id AS recommendationId,
-               r.linked_tradesman_uid AS builderId,
-               r.projectId,
-               (SELECT rp.filePath FROM recommendation_photos rp
-                  WHERE rp.recommendationId = r.id
-                  ORDER BY rp.id ASC LIMIT 1) AS coverPhoto
-          FROM recommendations r
-          JOIN projects p ON p.id = r.projectId
-         WHERE p.ownerUserId = ?
-           AND r.linked_tradesman_uid IN (${placeholders})
-         ORDER BY r.createdAt DESC, r.id DESC
-        `,
-        [userId, ...builderIds],
-      );
-      for (const rr of recRows) {
-        const key = String(rr.builderId);
-        if (!recsByBuilder[key]) {
-          recsByBuilder[key] = {
-            recommendationId: rr.recommendationId,
-            projectId: rr.projectId,
-            coverPhoto: rr.coverPhoto || null,
-          };
+    if (builderIds.length > 0) {
+      try {
+        const placeholders = builderIds.map(() => "?").join(",");
+        const recRows = await mysqlQuery(
+          `
+          SELECT r.id AS recommendationId,
+                 r.linked_tradesman_uid AS builderId,
+                 r.projectId,
+                 (SELECT rp.filePath FROM recommendation_photos rp
+                    WHERE rp.recommendationId = r.id
+                    ORDER BY rp.id ASC LIMIT 1) AS coverPhoto
+            FROM recommendations r
+            JOIN projects p ON p.id = r.projectId
+           WHERE p.ownerUserId = ?
+             AND r.linked_tradesman_uid IN (${placeholders})
+           ORDER BY r.createdAt DESC, r.id DESC
+          `,
+          [userId, ...builderIds],
+        );
+        for (const rr of recRows) {
+          const key = String(rr.builderId);
+          if (!recsByBuilder[key]) {
+            recsByBuilder[key] = {
+              recommendationId: rr.recommendationId,
+              projectId: rr.projectId,
+              coverPhoto: rr.coverPhoto || null,
+            };
+          }
         }
+      } catch (e) {
+        log.warn?.(`${TAG} recommendation back-link lookup failed`, {
+          error: e?.message,
+        });
       }
-    } catch (e) {
-      log.warn?.(`${TAG} recommendation back-link lookup failed`, {
-        error: e?.message,
-      });
     }
 
-    const items = rows.map((r) => {
+    const items = (rows || []).map((r) => {
       const builderId = String(r.builderId);
       const urls = photosByBuilder[builderId] || [];
       const recMatch = recsByBuilder[builderId] || null;
@@ -247,6 +244,7 @@ module.exports = (router, ctx) => {
         : urls.length;
 
       return {
+        kind: "tradesman",
         builderId,
         publicId: r.publicId || null,
         companyName: r.company_name || null,
@@ -280,8 +278,67 @@ module.exports = (router, ctx) => {
       };
     });
 
-    log.info?.(`${TAG} end`, { count: items.length });
-    return res.json({ items });
+    // ------------------------------------------------------------
+    // Append active recommendations from the user's projects.
+    // These are recs that have not been dismissed from the deck and
+    // have not been unfavourited by the homeowner.
+    // ------------------------------------------------------------
+    let recItems = [];
+    try {
+      const recRows = await mysqlQuery(
+        `SELECT
+           r.id AS recommendationId,
+           r.projectId,
+           r.company,
+           r.linked_tradesman_uid,
+           r.isAnonymous,
+           r.name AS recommenderName,
+           u.firstName AS recommenderFirstName,
+           (SELECT rp.filePath FROM recommendation_photos rp
+              WHERE rp.recommendationId = r.id
+              ORDER BY rp.id ASC LIMIT 1) AS coverPhoto,
+           t.company_name AS tradesmanCompanyName,
+           t.profile_picture_url AS tradesmanPhotoUrl,
+           t.trade_types AS tradesmanTradeTypes
+         FROM recommendations r
+         JOIN projects p ON p.id = r.projectId
+         LEFT JOIN users u ON u.uid = r.recommenderUserId
+         LEFT JOIN tradesmen t ON t.user_id = r.linked_tradesman_uid
+         WHERE p.ownerUserId = ?
+           AND r.deck_dismissed_at IS NULL
+           AND r.homeowner_unfavourited_at IS NULL
+         ORDER BY r.createdAt DESC`,
+        [userId],
+      );
+
+      recItems = (recRows || []).map((r) => {
+        const recommenderName = r.isAnonymous
+          ? "Anonymous"
+          : (r.recommenderFirstName ||
+             (r.recommenderName ? String(r.recommenderName).trim().split(/\s+/)[0] : null) ||
+             "Someone");
+        const cover = r.coverPhoto
+          ? makeAbsolute(r.coverPhoto)
+          : (r.tradesmanPhotoUrl ? makeAbsolute(r.tradesmanPhotoUrl) : null);
+        return {
+          kind: "recommendation",
+          recommendationId: r.recommendationId,
+          projectId: r.projectId,
+          companyName: r.tradesmanCompanyName || r.company,
+          displayName: r.tradesmanCompanyName || r.company,
+          recommenderName,
+          coverPhotoUrl: cover,
+          tradeTypes: r.tradesmanTradeTypes || null,
+          linkedTradesmanUid: r.linked_tradesman_uid || null,
+          isFavourite: true,
+        };
+      });
+    } catch (e) {
+      log.warn?.(`${TAG} recommendation favourites lookup failed`, { error: e?.message });
+    }
+
+    log.info?.(`${TAG} end`, { count: recItems.length + items.length });
+    return res.json({ items: [...recItems, ...items] });
   });
 
   if (!ctx.__logged_tradesmen_favourites_get) {

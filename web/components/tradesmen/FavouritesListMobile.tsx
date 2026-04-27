@@ -18,7 +18,8 @@ import { useApi } from "@/utils/api";
 import { useMobileMenu } from "@/utils/mobileMenu";
 
 type FavouriteItem = {
-  builderId: string;
+  kind?: "tradesman" | "recommendation";
+  builderId?: string;
   publicId?: string | null;
   companyName?: string | null;
   displayName: string;
@@ -34,7 +35,16 @@ type FavouriteItem = {
   tier?: string | null;
   recommendationId?: number | null;
   recommendationProjectId?: number | null;
+  // recommendation-only fields
+  projectId?: number | null;
+  recommenderName?: string | null;
+  linkedTradesmanUid?: string | null;
 };
+
+function itemKey(item: FavouriteItem): string {
+  if (item.kind === "recommendation") return `rec-${item.recommendationId}`;
+  return `tradesman-${item.builderId}`;
+}
 
 export default function FavouritesListMobile() {
   const api = useApi();
@@ -80,6 +90,11 @@ export default function FavouritesListMobile() {
   }, [api]);
 
   function open(item: FavouriteItem) {
+    if (item.kind === "recommendation") {
+      // Navigate to the rec profile page built in sub-task 3
+      router.push(`/projects/${item.projectId}/recommendations/${item.recommendationId}`);
+      return;
+    }
     // Prefer the recommendation profile when the favourite came from one —
     // surfaces the same AI summary + community comments + photos the user
     // saw when they saved it.
@@ -91,19 +106,24 @@ export default function FavouritesListMobile() {
       return;
     }
     const target = item.publicId || item.builderId;
-    router.push(`/tradesman/${encodeURIComponent(target)}${qs}`);
+    router.push(`/tradesman/${encodeURIComponent(target ?? "")}${qs}`);
   }
 
   async function unfavourite(item: FavouriteItem) {
     if (busy) return;
-    setBusy(item.builderId);
+    const key = itemKey(item);
+    setBusy(key);
     // Optimistic remove
     const previous = items;
-    setItems((prev) => prev.filter((x) => x.builderId !== item.builderId));
+    setItems((prev) => prev.filter((x) => itemKey(x) !== key));
     try {
-      await api.delete(
-        `/api/tradesmen/${encodeURIComponent(item.builderId)}/favourite`,
-      );
+      if (item.kind === "recommendation") {
+        await api.post(`/api/recommendations/${item.recommendationId}/unfavourite`);
+      } else {
+        await api.delete(
+          `/api/tradesmen/${encodeURIComponent(item.builderId ?? "")}/favourite`,
+        );
+      }
     } catch {
       // Roll back if it fails
       setItems(previous);
@@ -151,7 +171,7 @@ export default function FavouritesListMobile() {
             ? "Loading…"
             : items.length === 0
             ? "Nothing saved yet."
-            : `${items.length} tradespeople you've saved.`}
+            : `${items.length} in your favourites.`}
         </p>
       </div>
 
@@ -175,9 +195,9 @@ export default function FavouritesListMobile() {
         {loading && items.length === 0 && [0, 1, 2].map((i) => <SkeletonCard key={i} />)}
         {items.map((item) => (
           <FavouriteCard
-            key={item.builderId}
+            key={itemKey(item)}
             item={item}
-            busy={busy === item.builderId}
+            busy={busy === itemKey(item)}
             onOpen={() => open(item)}
             onUnfavourite={() => unfavourite(item)}
           />
@@ -200,6 +220,9 @@ function FavouriteCard({
   onOpen: () => void;
   onUnfavourite: () => void;
 }) {
+  const key = itemKey(item);
+  const isRec = item.kind === "recommendation";
+
   const photo = item.coverPhotoUrl || item.avatarUrl || null;
   const trades = (item.tradeTypes || "")
     .split(/[,;|]+/)
@@ -229,7 +252,7 @@ function FavouriteCard({
     <button
       type="button"
       onClick={onOpen}
-      data-testid={`favourite-card-${item.builderId}`}
+      data-testid={`favourite-card-${key}`}
       className="block w-full text-left bg-white border border-gray-200 rounded-[18px] overflow-hidden active:scale-[0.99] transition-transform"
     >
       {/* Hero photo (or initials disc fallback) */}
@@ -246,7 +269,9 @@ function FavouriteCard({
           <div
             className="absolute inset-0 flex items-center justify-center text-white text-[30px] font-extrabold"
             style={{
-              background: "linear-gradient(135deg, #6ee7b7, #10b981)",
+              background: isRec
+                ? "linear-gradient(135deg, #fcd34d, #f59e0b)"
+                : "linear-gradient(135deg, #6ee7b7, #10b981)",
             }}
           >
             {initials}
@@ -267,23 +292,36 @@ function FavouriteCard({
             background: "rgba(255,255,255,0.95)",
             backdropFilter: "blur(8px)",
           }}
-          data-testid={`favourite-toggle-${item.builderId}`}
+          data-testid={`favourite-toggle-${key}`}
         >
           <Heart className="w-[18px] h-[18px] fill-rose-500 text-rose-500" />
         </button>
 
-        {/* Badge / plan pill (top-left) */}
-        {badgeLabel && badgeLabel !== "FREE" && (
+        {/* Top-left badge */}
+        {isRec ? (
           <span
             className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full text-[10.5px] font-extrabold"
             style={{
               background: "rgba(255,255,255,0.95)",
               backdropFilter: "blur(8px)",
-              color: "#4338ca",
+              color: "#b45309",
             }}
           >
-            {badgeLabel}
+            ⭐ Recommendation
           </span>
+        ) : (
+          badgeLabel && badgeLabel !== "FREE" && (
+            <span
+              className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full text-[10.5px] font-extrabold"
+              style={{
+                background: "rgba(255,255,255,0.95)",
+                backdropFilter: "blur(8px)",
+                color: "#4338ca",
+              }}
+            >
+              {badgeLabel}
+            </span>
+          )
         )}
       </div>
 
@@ -298,20 +336,32 @@ function FavouriteCard({
           </div>
         )}
         <div className="mt-2.5 flex flex-wrap gap-1.5">
-          {ratingText && (
+          {isRec && item.recommenderName && (
+            <span
+              className="inline-flex items-center rounded-full px-2.5 py-1 border-[1.5px] text-[10.5px] font-bold"
+              style={{
+                background: "#eef2ff",
+                borderColor: "#c7d2fe",
+                color: "#4338ca",
+              }}
+            >
+              By {item.recommenderName}
+            </span>
+          )}
+          {!isRec && ratingText && (
             <StatChip
               icon={<Star className="w-3 h-3 fill-amber-400 text-amber-400" />}
               text={`${ratingText} Google`}
             />
           )}
-          {typeof item.score === "number" && item.score > 0 && (
+          {!isRec && typeof item.score === "number" && item.score > 0 && (
             <StatChip
               tone="trust"
               icon={<Star className="w-3 h-3 fill-rose-400 text-rose-400" />}
               text={`${Math.round(item.score)} Trust`}
             />
           )}
-          {item.chVerified && (
+          {!isRec && item.chVerified && (
             <StatChip
               tone="verified"
               icon={<ShieldCheck className="w-3 h-3" />}
