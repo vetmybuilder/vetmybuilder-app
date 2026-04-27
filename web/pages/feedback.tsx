@@ -4,7 +4,7 @@ import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, X } from "lucide-react";
 
 const EMOJI_SCALE = [
   { value: 1, emoji: "😞", label: "Poor" },
@@ -166,7 +166,15 @@ export default function FeedbackPage() {
           >
             <ChevronLeft className="w-4 h-4 text-gray-900" />
           </button>
-          <span className="text-[15px] font-extrabold text-gray-900">Feedback</span>
+          <span className="flex-1 text-[15px] font-extrabold text-gray-900">Feedback</span>
+          <button
+            type="button"
+            aria-label="Close feedback"
+            onClick={() => router.back()}
+            className="w-[30px] h-[30px] rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"
+          >
+            <X className="w-4 h-4 text-gray-900" />
+          </button>
         </div>
 
         {/* Progress bar */}
