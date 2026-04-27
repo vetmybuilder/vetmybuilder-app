@@ -26,6 +26,7 @@ type FriendRec = {
     sent: boolean;
     sentToEmail: string | null;
     companyEmail: string | null;
+    emailSentAt: string | null;
     nudgeCount: number;
     lastNudgedAt: string | null;
   };
@@ -50,10 +51,14 @@ function CompactStars({ value }: { value: number }) {
 }
 
 function RecCard({ rec, onNudge, busy }: { rec: FriendRec; onNudge: () => void; busy: boolean }) {
-  const lastNudgeAge = rec.invite.lastNudgedAt
-    ? Date.now() - new Date(rec.invite.lastNudgedAt).getTime()
-    : Infinity;
-  const onCooldown = lastNudgeAge < NUDGE_COOLDOWN_MS;
+  // Cooldown applies from the most recent send of any kind — auto-invite at
+  // submit OR a previous nudge. Mirrors the server-side check in nudge.post.js
+  // so the button greys out immediately after submit.
+  const lastSendAt = Math.max(
+    rec.invite.lastNudgedAt ? new Date(rec.invite.lastNudgedAt).getTime() : 0,
+    rec.invite.emailSentAt ? new Date(rec.invite.emailSentAt).getTime() : 0,
+  );
+  const onCooldown = lastSendAt > 0 && Date.now() - lastSendAt < NUDGE_COOLDOWN_MS;
   const initial = (rec.recommender.name?.[0] || "?").toUpperCase();
 
   return (

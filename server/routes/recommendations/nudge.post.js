@@ -48,12 +48,20 @@ module.exports = (router, ctx) => {
       }
 
       const inviteRows = await mysqlQuery(
-        `SELECT lastNudgedAt, nudgeCount FROM recommendation_invites WHERE recommendationId = ? LIMIT 1`,
+        `SELECT emailSentAt, lastNudgedAt, nudgeCount FROM recommendation_invites WHERE recommendationId = ? LIMIT 1`,
         [recId],
       );
-      const lastNudgedAt = inviteRows?.[0]?.lastNudgedAt;
-      if (lastNudgedAt) {
-        const ageMs = Date.now() - new Date(lastNudgedAt).getTime();
+      // Cooldown applies from the most recent SEND of any kind — auto-invite
+      // at rec submit OR a previous nudge. Both write to recommendation_invites,
+      // so taking the max means a homeowner can't immediately spam-nudge after
+      // the auto-invite just went out.
+      const inviteRow = inviteRows?.[0];
+      const lastSendAt = [inviteRow?.lastNudgedAt, inviteRow?.emailSentAt]
+        .filter(Boolean)
+        .map((d) => new Date(d).getTime())
+        .reduce((max, t) => (t > max ? t : max), 0);
+      if (lastSendAt > 0) {
+        const ageMs = Date.now() - lastSendAt;
         if (ageMs < NUDGE_COOLDOWN_MS) {
           const retryAfterSec = Math.ceil((NUDGE_COOLDOWN_MS - ageMs) / 1000);
           res.set("Retry-After", String(retryAfterSec));
