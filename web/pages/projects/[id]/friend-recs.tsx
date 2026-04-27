@@ -6,9 +6,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Sparkles } from "lucide-react";
 import { useApi } from "@/utils/api";
-import { CATEGORY_LABELS, CATEGORY_ORDER, hasAnyRating } from "@/utils/ratingSummary";
+import { CATEGORY_LABELS, CATEGORY_ORDER, hasAnyRating, deterministicSummary } from "@/utils/ratingSummary";
 import type { CategoryRatings } from "@/types/builderTypes";
 import AuthedOnly from "@/components/AuthedOnly";
 
@@ -22,6 +22,7 @@ type FriendRec = {
   invite: {
     sent: boolean;
     sentToEmail: string | null;
+    companyEmail: string | null;
     nudgeCount: number;
     lastNudgedAt: string | null;
   };
@@ -75,11 +76,24 @@ function RecCard({ rec, onNudge, busy }: { rec: FriendRec; onNudge: () => void; 
           Pending claim
         </span>
       </div>
-      {rec.comment && (
-        <div className="mt-2 px-3 py-2 bg-gray-50 rounded-lg text-[12px] text-gray-700 leading-relaxed italic">
-          &ldquo;{rec.comment}&rdquo;
-        </div>
-      )}
+      {(() => {
+        const autoLine = !rec.comment && rec.ratings ? deterministicSummary(rec.ratings) : null;
+        const display = rec.comment || autoLine;
+        if (!display) return null;
+        return (
+          <>
+            <div className="mt-2 px-3 py-2 bg-gray-50 rounded-lg text-[12px] text-gray-700 leading-relaxed italic">
+              &ldquo;{display}&rdquo;
+            </div>
+            {!rec.comment && autoLine && (
+              <div className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[8.5px] font-extrabold uppercase tracking-wider text-indigo-700">
+                <Sparkles className="h-2.5 w-2.5" />
+                Auto from ratings
+              </div>
+            )}
+          </>
+        );
+      })()}
       {hasAnyRating(rec.ratings) && (
         <div className="mt-2 flex flex-wrap gap-1">
           {CATEGORY_ORDER.map((key) => {
@@ -100,7 +114,7 @@ function RecCard({ rec, onNudge, busy }: { rec: FriendRec; onNudge: () => void; 
       <div className="mt-3 flex gap-1.5">
         <button
           type="button"
-          disabled={busy || onCooldown || !rec.invite.sentToEmail}
+          disabled={busy || onCooldown || !rec.invite.companyEmail}
           onClick={onNudge}
           className="flex-1 py-2 px-3 border border-gray-200 rounded-lg text-[10.5px] font-bold text-gray-700 disabled:opacity-50"
           data-testid="btn-nudge"

@@ -25,6 +25,7 @@ describe("GET /api/projects/:id/off-platform-recommendations", () => {
             value_rating: null,
             recommenderFirstName: "Priya",
             isAnonymous: 0,
+            companyEmail: "hello@hudsontiling.co.uk",
             sentToEmail: "hello@hudsontiling.co.uk",
             emailSentAt: new Date("2026-04-26"),
             nudgeCount: 0,
@@ -47,7 +48,7 @@ describe("GET /api/projects/:id/off-platform-recommendations", () => {
       company: "Hudson Tiling",
       ratings: { quality: 5, reliability: 4 },
       recommender: { name: "Priya" },
-      invite: { sent: true, nudgeCount: 0 },
+      invite: { sent: true, companyEmail: "hello@hudsontiling.co.uk", nudgeCount: 0 },
     });
   });
 

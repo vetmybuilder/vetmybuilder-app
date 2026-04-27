@@ -39,6 +39,7 @@ module.exports = (router, ctx) => {
         `SELECT
            r.id,
            r.company,
+           r.companyEmail,
            r.comment,
            r.createdAt,
            r.quality_rating,
@@ -80,6 +81,7 @@ module.exports = (router, ctx) => {
           sent: !!row.emailSentAt,
           sentToEmail: row.sentToEmail || null,
           emailSentAt: row.emailSentAt || null,
+          companyEmail: row.companyEmail || null,
           nudgeCount: Number(row.nudgeCount || 0),
           lastNudgedAt: row.lastNudgedAt || null,
         },
