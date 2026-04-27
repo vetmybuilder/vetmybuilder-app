@@ -232,7 +232,10 @@ function FavouriteCard({
     .join(", ");
   const area = item.serviceAreas?.[0] || null;
   const subline = [trades, area].filter(Boolean).join(" · ");
-  const badgeLabel = (item.badge || item.tier || "").toUpperCase();
+  // Tier comes from the real subscription state (free / spotlight / gold / unlock).
+  // Do NOT fall back to vmb_badge — that field can be a stale marketing label
+  // that misrepresents the builder's actual paid status.
+  const badgeLabel = (item.tier || "").toUpperCase();
   const initials = (item.displayName || "?")
     .trim()
     .split(/\s+/)
