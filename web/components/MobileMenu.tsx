@@ -263,10 +263,6 @@ export default function MobileMenu({
                 )}
               </Link>
 
-              <Separator />
-
-              <SectionHeading>Saved</SectionHeading>
-
               <button
                 type="button"
                 onClick={() => {
