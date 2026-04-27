@@ -40,7 +40,6 @@ function ProjectSwipeMobile({
   const [matches, setMatches] = useState<{
     recommended: any[];
     subscribed: any[];
-    offPlatformRecCount?: number;
     recommendationCards?: any[];
   } | null>(null);
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -134,7 +133,6 @@ function ProjectSwipeMobile({
             ...(matches.recommended || []),
             ...(matches.subscribed || []),
           ]}
-          offPlatformRecCount={matches.offPlatformRecCount ?? 0}
           onInfo={(builder) => {
             if ((builder as any).isRecommendation && (builder as any).recommendationId) {
               router.push(`/projects/${projectId}/recommendations/${(builder as any).recommendationId}`);

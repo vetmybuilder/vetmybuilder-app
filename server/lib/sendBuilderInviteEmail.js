@@ -69,8 +69,8 @@ async function sendBuilderInviteEmail({
     const resend = _resendClient || new Resend(apiKey);
 
     // Recommender name is intentionally NOT exposed to the builder for privacy.
-    // The homeowner sees it in their friend-recs view; the builder learns it
-    // only after they claim and see the rec.
+    // The homeowner sees it in the swipe deck and /favourites; the builder
+    // learns it only after they claim and see the rec.
     const sendResult = await resend.emails.send({
       from: "VetMyBuilder <noreply@vetmybuilder.com>",
       to: recipientEmail,

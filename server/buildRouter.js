@@ -308,7 +308,6 @@ function buildRouter(ctx) {
 
   require("./routes/projects/recommendations.get")(router, ctx);
   require("./routes/projects/recommendations.post")(router, ctx);
-  require("./routes/projects/off-platform-recommendations.get")(router, ctx);
 
   // ---------------- Reports ----------------
   require("./routes/reports/reports.post")(router, ctx);
@@ -328,7 +327,6 @@ function buildRouter(ctx) {
   require("./routes/recommendations/ratings.recommendations.get")(router, ctx);
   require("./routes/recommendations/recommendation.get")(router, ctx);
   require("./routes/recommendations/verification.get")(router, ctx);
-  require("./routes/recommendations/nudge.post")(router, ctx);
   require("./routes/recommendations/dismiss-from-deck.post")(router, ctx);
   require("./routes/recommendations/unfavourite.post")(router, ctx);
 

@@ -101,13 +101,6 @@ async function claimPipelineEntry({ mysqlQuery, uid, companyName, companyNumber,
         for (const rec of allUnlinked) {
           if (normaliseCompanyName(rec.company) !== normNewName) continue;
 
-          // Check whether this rec came via the friend-recs flow (has an invite row)
-          const inviteCheck = await mysqlQuery(
-            `SELECT id FROM recommendation_invites WHERE recommendationId = ? LIMIT 1`,
-            [rec.id],
-          );
-          const isFriendRecOrigin = inviteCheck.length > 0;
-
           await mysqlQuery(
             "UPDATE recommendations SET linked_tradesman_uid = ? WHERE id = ? AND linked_tradesman_uid IS NULL",
             [uid, rec.id],
@@ -122,12 +115,8 @@ async function claimPipelineEntry({ mysqlQuery, uid, companyName, companyNumber,
               );
               const ownerUid = projectRows[0]?.ownerUserId;
               if (ownerUid) {
-                const message = isFriendRecOrigin
-                  ? `"${companyName}" joined VetMyBuilder — view their profile to message them`
-                  : `"${companyName}" has claimed their profile on VetMyBuilder and is now in your recommendations`;
-                const linkPath = isFriendRecOrigin
-                  ? `/projects/${rec.projectId}/friend-recs`
-                  : `/projects/${rec.projectId}`;
+                const message = `"${companyName}" has claimed their profile on VetMyBuilder and is now in your recommendations`;
+                const linkPath = `/projects/${rec.projectId}`;
                 await mysqlQuery(
                   `INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
                    VALUES (?, 'recommendation_new', ?, ?, ?, NOW())`,

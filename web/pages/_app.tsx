@@ -192,7 +192,6 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     "/projects/[id]/edit",
     "/projects/[id]/close",
     "/projects/[id]/recommend",
-    "/projects/[id]/friend-recs",
     "/projects/[id]/recommendations/[recId]",
     "/tradesman/[id]",
     "/builders/[id]",
