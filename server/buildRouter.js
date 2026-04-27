@@ -64,6 +64,12 @@ function buildRouter(ctx) {
     ctx.PUBLIC_API_BASE = ctx.PUBLIC_API_BASE || PUBLIC_API_BASE;
   }
 
+  // Email helpers
+  if (!ctx.sendBuilderInviteEmail) {
+    const { sendBuilderInviteEmail } = require("./lib/sendBuilderInviteEmail");
+    ctx.sendBuilderInviteEmail = sendBuilderInviteEmail;
+  }
+
   // Companies House
   {
     const ch = require("./lib/companiesHouse");
@@ -318,6 +324,7 @@ function buildRouter(ctx) {
   require("./routes/recommendations/ratings.recommendations.get")(router, ctx);
   require("./routes/recommendations/recommendation.get")(router, ctx);
   require("./routes/recommendations/verification.get")(router, ctx);
+  require("./routes/recommendations/nudge.post")(router, ctx);
 
   // ---------------- Companies House helpers ----------------
   require("./routes/verify-company.get")(router, ctx);
