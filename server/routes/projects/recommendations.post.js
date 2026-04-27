@@ -46,6 +46,8 @@ module.exports = (router, ctx) => {
 
   const { computeRecommendationSignals } = require("../../lib/ai/recommendationSignaller");
   const { matchAndNotifyTradesman } = require("../../lib/matchRecommendationToTradesman");
+  const { sendBuilderInviteEmail } = require("../../lib/sendBuilderInviteEmail");
+  const { extractLocationTokens } = require("../../lib/location");
 
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
 
@@ -565,6 +567,65 @@ module.exports = (router, ctx) => {
           projectLocation: projectLocationHint || undefined,
           recommendationId,
         }).catch(() => {});
+
+        // Off-platform invite: if the rec didn't match an active tradesman
+        // (linked_tradesman_uid is still NULL after matchAndNotifyTradesman ran),
+        // and the recommender supplied an email, fire an auto-invite to the
+        // builder. Lookup the recommender's first name for the email greeting.
+        (async () => {
+          try {
+            if (!companyEmail) return;
+
+            const linkedRows = await mysqlQuery(
+              `SELECT linked_tradesman_uid FROM recommendations WHERE id = ?`,
+              [recommendationId],
+            );
+            const isOffPlatform = !linkedRows?.[0]?.linked_tradesman_uid;
+            if (!isOffPlatform) return;
+
+            let recommenderFirstName = "Someone";
+            if (uid) {
+              const userRows = await mysqlQuery(
+                `SELECT firstName FROM users WHERE uid = ? LIMIT 1`,
+                [uid],
+              );
+              recommenderFirstName = userRows?.[0]?.firstName || (name ? String(name).split(" ")[0] : "Someone");
+            } else if (name) {
+              recommenderFirstName = String(name).split(" ")[0] || "Someone";
+            }
+
+            // Always look up project location for the email — projectLocationHint
+            // is only set when the recommender is the project owner.
+            let projectArea = "their area";
+            try {
+              const projRows = await mysqlQuery(
+                `SELECT location FROM projects WHERE id = ? LIMIT 1`,
+                [projectId],
+              );
+              const loc = projRows?.[0]?.location;
+              if (loc) {
+                const tokens = extractLocationTokens(loc);
+                projectArea = tokens?.outward || tokens?.city || "their area";
+              }
+            } catch {
+              // fall through with default "their area"
+            }
+
+            await sendBuilderInviteEmail({
+              mysqlQuery,
+              recommendationId,
+              recipientEmail: companyEmail,
+              builderCompanyName: resolvedCompany || company,
+              recommenderFirstName,
+              projectArea,
+            });
+          } catch (e) {
+            console.warn(
+              "[recommendations.post] off-platform invite failed:",
+              e?.message || e,
+            );
+          }
+        })();
 
         // IMPORTANT: we DO NOT return name/email/phone of the recommender here.
         res.status(201).json({
