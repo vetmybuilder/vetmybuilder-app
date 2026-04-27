@@ -7,6 +7,7 @@ import {
   X,
   FolderKanban,
   CheckCircle2,
+  Handshake,
   Heart,
   LogOut,
   PlusSquare,
@@ -220,7 +221,7 @@ export default function MobileMenu({
           {/* Homeowner nav */}
           {isAuthed && !isTrades && (
             <nav aria-label="Projects navigation" className="flex flex-col">
-              <SectionHeading>Home</SectionHeading>
+              <SectionHeading>Projects</SectionHeading>
 
               <button
                 type="button"
@@ -236,7 +237,35 @@ export default function MobileMenu({
                 <Chevron />
               </button>
 
-              {/* Inbox — new nav entry. Shows count pill if unread, otherwise chevron. */}
+              <button
+                type="button"
+                onClick={() => {
+                  onGoProjectsTab("completed");
+                  onClose();
+                }}
+                className={`${ROW_BASE} text-gray-900`}
+                data-testid="mobile-menu-completed"
+              >
+                <IconTile Icon={CheckCircle2} />
+                <span>Completed</span>
+                <Chevron />
+              </button>
+
+              <Separator />
+
+              <SectionHeading>Connections</SectionHeading>
+
+              <Link
+                href="/matches"
+                onClick={onClose}
+                className={`${ROW_BASE} text-gray-900`}
+                data-testid="mobile-menu-matches"
+              >
+                <IconTile Icon={Handshake} />
+                <span>Matches</span>
+                <Chevron />
+              </Link>
+
               <Link
                 href="/inbox"
                 onClick={onClose}
@@ -252,34 +281,9 @@ export default function MobileMenu({
                 )}
               </Link>
 
-              <Link
-                href="/matches"
-                onClick={onClose}
-                className={`${ROW_BASE} text-gray-900`}
-                data-testid="mobile-menu-matches"
-              >
-                <IconTile Icon={Heart} />
-                <span>Matches</span>
-                <Chevron />
-              </Link>
-
               <Separator />
 
-              <SectionHeading>Projects</SectionHeading>
-
-              <button
-                type="button"
-                onClick={() => {
-                  onGoProjectsTab("completed");
-                  onClose();
-                }}
-                className={`${ROW_BASE} text-gray-900`}
-                data-testid="mobile-menu-completed"
-              >
-                <IconTile Icon={CheckCircle2} />
-                <span>Completed</span>
-                <Chevron />
-              </button>
+              <SectionHeading>Saved</SectionHeading>
 
               <button
                 type="button"
