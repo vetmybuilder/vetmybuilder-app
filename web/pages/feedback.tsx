@@ -24,7 +24,10 @@ const USER_TYPES = [
 const FEATURES = [
   { value: "posting", label: "Posting a job" },
   { value: "sharing", label: "Sharing with friends" },
-  { value: "recommendations", label: "Viewing recommendations" },
+  { value: "swiping", label: "Swiping through builders" },
+  { value: "matching", label: "Matching / messaging a builder" },
+  { value: "recommending", label: "Recommending a tradesperson" },
+  { value: "favourites", label: "Saving favourites" },
 ];
 
 const RECOMMEND_OPTIONS = [
