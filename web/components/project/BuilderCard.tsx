@@ -14,6 +14,8 @@ export interface BuilderCardBuilder {
   whyMatch: string | null;
   tier: BuilderTier;
   recommenderName?: string | null;
+  /** VMB trust score (vmb_score from tradesmen). Used on the back of the card. */
+  baseScore?: number | null;
   // Rec-card fields (populated when isRecommendation is true):
   isRecommendation?: boolean;
   coverPhotoUrl?: string | null;
