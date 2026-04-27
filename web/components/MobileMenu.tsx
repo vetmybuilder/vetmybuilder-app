@@ -218,7 +218,7 @@ export default function MobileMenu({
           {/* Homeowner nav */}
           {isAuthed && !isTrades && (
             <nav aria-label="Projects navigation" className="flex flex-col">
-              <SectionHeading>Projects</SectionHeading>
+              <SectionHeading>Jobs</SectionHeading>
 
               <button
                 type="button"
@@ -230,7 +230,7 @@ export default function MobileMenu({
                 data-testid="mobile-menu-my-projects"
               >
                 <IconTile Icon={FolderKanban} active />
-                <span>My projects</span>
+                <span>My jobs</span>
                 <Chevron />
               </button>
 
