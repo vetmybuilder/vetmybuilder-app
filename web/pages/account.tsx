@@ -493,7 +493,7 @@ export default function ManageAccount() {
               {/* Profile details row */}
               <button
                 type="button"
-                onClick={() => router.push("/account?tab=profile")}
+                onClick={() => router.replace("/account?tab=profile")}
                 className="w-full bg-white rounded-2xl shadow-sm flex items-center gap-3 text-left"
                 style={{ padding: 14 }}
               >
@@ -528,7 +528,7 @@ export default function ManageAccount() {
               {/* Notifications row */}
               <button
                 type="button"
-                onClick={() => router.push("/account?tab=notifications")}
+                onClick={() => router.replace("/account?tab=notifications")}
                 className="w-full bg-white rounded-2xl shadow-sm flex items-center gap-3 text-left"
                 style={{ padding: 14 }}
               >
@@ -574,7 +574,7 @@ export default function ManageAccount() {
         {/* ── Profile drill-in ── */}
         {view === "profile" && (
           <>
-            <TopBar title="Profile details" onBack={() => router.back()} />
+            <TopBar title="Profile details" onBack={() => router.replace("/account")} />
 
             <div className="flex flex-col gap-3 p-4">
 
@@ -717,7 +717,7 @@ export default function ManageAccount() {
         {/* ── Notifications drill-in ── */}
         {view === "notifications" && (
           <>
-            <TopBar title="Notifications" onBack={() => router.back()} />
+            <TopBar title="Notifications" onBack={() => router.replace("/account")} />
 
             <div className="flex flex-col gap-3 p-4">
 
