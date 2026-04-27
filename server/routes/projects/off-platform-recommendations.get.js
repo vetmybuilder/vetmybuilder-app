@@ -63,11 +63,32 @@ module.exports = (router, ctx) => {
         [pid],
       );
 
+      // Fetch all photos for these recs in a single query, then group by rec id
+      const recIds = (rows || []).map((r) => r.id);
+      let photosByRec = new Map();
+      if (recIds.length > 0) {
+        const placeholders = recIds.map(() => "?").join(",");
+        const photoRows = await mysqlQuery(
+          `SELECT id, recommendationId, filePath AS fp
+             FROM recommendation_photos
+            WHERE recommendationId IN (${placeholders})
+            ORDER BY id ASC`,
+          recIds,
+        );
+        photosByRec = (photoRows || []).reduce((map, p) => {
+          const list = map.get(p.recommendationId) || [];
+          list.push({ id: String(p.id), url: p.fp, thumb: p.fp });
+          map.set(p.recommendationId, list);
+          return map;
+        }, new Map());
+      }
+
       const items = (rows || []).map((row) => ({
         id: row.id,
         company: row.company,
         comment: row.comment,
         createdAt: row.createdAt,
+        photos: photosByRec.get(row.id) || [],
         ratings: {
           quality: toIntOrNull(row.quality_rating),
           reliability: toIntOrNull(row.reliability_rating),

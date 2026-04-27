@@ -12,11 +12,14 @@ import { CATEGORY_LABELS, CATEGORY_ORDER, hasAnyRating, deterministicSummary } f
 import type { CategoryRatings } from "@/types/builderTypes";
 import AuthedOnly from "@/components/AuthedOnly";
 
+type Photo = { id: string; url: string; thumb: string };
+
 type FriendRec = {
   id: number;
   company: string;
   comment: string | null;
   createdAt: string;
+  photos: Photo[];
   ratings: CategoryRatings | null;
   recommender: { name: string };
   invite: {
@@ -109,6 +112,20 @@ function RecCard({ rec, onNudge, busy }: { rec: FriendRec; onNudge: () => void; 
               </span>
             );
           })}
+        </div>
+      )}
+      {rec.photos.length > 0 && (
+        <div className="mt-2 grid grid-cols-3 gap-1">
+          {rec.photos.slice(0, 6).map((p) => (
+            <a
+              key={p.id}
+              href={p.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="aspect-square rounded-lg bg-gray-100 bg-cover bg-center"
+              style={{ backgroundImage: `url(${p.url})` }}
+            />
+          ))}
         </div>
       )}
       <div className="mt-3 flex gap-1.5">

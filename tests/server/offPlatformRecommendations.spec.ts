@@ -33,6 +33,7 @@ describe("GET /api/projects/:id/off-platform-recommendations", () => {
             lastNudgedAt: null,
           },
         ];
+      if (/FROM\s+recommendation_photos/i.test(sql)) return [];
       return [];
     });
 
@@ -51,6 +52,48 @@ describe("GET /api/projects/:id/off-platform-recommendations", () => {
       recommender: { name: "Priya" },
       invite: { sent: true, companyEmail: "hello@hudsontiling.co.uk", nudgeCount: 0 },
     });
+    expect(res.body.items[0].photos).toEqual([]);
+  });
+
+  it("returns photos grouped by rec id", async () => {
+    const mysqlQuery = vi.fn(async (sql: string) => {
+      if (/FROM\s+projects/i.test(sql)) return [{ ownerUserId: "owner-uid" }];
+      if (/FROM\s+recommendations\s+r/i.test(sql))
+        return [
+          {
+            id: 80,
+            company: "Hudson Tiling",
+            comment: "Great team",
+            createdAt: new Date("2026-04-26"),
+            quality_rating: 5,
+            reliability_rating: 4,
+            communication_rating: null,
+            trust_rating: null,
+            value_rating: null,
+            recommenderFirstName: "Priya",
+            recommenderName: "Priya Patel",
+            isAnonymous: 0,
+            companyEmail: "hello@hudsontiling.co.uk",
+            sentToEmail: "hello@hudsontiling.co.uk",
+            emailSentAt: new Date("2026-04-26"),
+            nudgeCount: 0,
+            lastNudgedAt: null,
+          },
+        ];
+      if (/FROM\s+recommendation_photos/i.test(sql))
+        return [{ id: 1, recommendationId: 80, fp: "/uploads/abc.jpg" }];
+      return [];
+    });
+
+    const app = express();
+    app.use(express.json());
+    const route = require("../../server/routes/projects/off-platform-recommendations.get");
+    route(app, { auth: fakeAuth, mysqlQuery });
+
+    const res = await request(app).get("/projects/3/off-platform-recommendations");
+    expect(res.status).toBe(200);
+    expect(res.body.items[0].photos).toHaveLength(1);
+    expect(res.body.items[0].photos[0]).toMatchObject({ id: "1", url: "/uploads/abc.jpg" });
   });
 
   it("returns 403 if the caller is not the owner", async () => {
@@ -103,6 +146,7 @@ describe("GET /api/projects/:id/off-platform-recommendations", () => {
             lastNudgedAt: null,
           },
         ];
+      if (/FROM\s+recommendation_photos/i.test(sql)) return [];
       return [];
     });
 
