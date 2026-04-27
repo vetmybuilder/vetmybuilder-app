@@ -224,9 +224,17 @@ module.exports = function mountMatchesGet(router, ctx) {
       candidates: subscribedCandidates,
     });
 
+    const offPlatformRows = await mysqlQuery(
+      `SELECT COUNT(*) AS c FROM recommendations
+        WHERE projectId = ? AND linked_tradesman_uid IS NULL`,
+      [pid],
+    );
+    const offPlatformRecCount = Number(offPlatformRows?.[0]?.c || 0);
+
     return res.status(200).json({
       recommended: recRanked,
       subscribed: subRanked,
+      offPlatformRecCount,
     });
   });
 };
