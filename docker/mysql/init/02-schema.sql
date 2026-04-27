@@ -989,7 +989,7 @@ CREATE TABLE IF NOT EXISTS recommendation_invites (
   id              INT AUTO_INCREMENT PRIMARY KEY,
   recommendationId INT NOT NULL,
   sentToEmail    VARCHAR(255) NOT NULL,
-  emailSentAt    DATETIME NOT NULL,
+  emailSentAt    DATETIME NULL,
   nudgeCount     INT NOT NULL DEFAULT 0,
   lastNudgedAt   DATETIME NULL,
   createdAt      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
