@@ -195,6 +195,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     "/projects/[id]/recommendations/[recId]",
     "/tradesman/[id]",
     "/builders/[id]",
+    "/account",
   ]);
   const isBareRoute = NO_LAYOUT_PATHS.has(router.pathname);
 
