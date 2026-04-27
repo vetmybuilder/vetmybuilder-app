@@ -305,6 +305,7 @@ module.exports = (router, ctx) => {
          LEFT JOIN users u ON u.uid = r.recommenderUserId
          LEFT JOIN tradesmen t ON t.user_id = r.linked_tradesman_uid
          WHERE p.ownerUserId = ?
+           AND r.linked_tradesman_uid IS NULL
            AND r.deck_dismissed_at IS NULL
            AND r.homeowner_unfavourited_at IS NULL
          ORDER BY r.createdAt DESC`,

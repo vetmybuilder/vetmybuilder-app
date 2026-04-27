@@ -168,42 +168,6 @@ describe("GET /api/tradesmen/favourites — recommendation items", () => {
     expect(res.body.items[0].kind).toBe("tradesman");
   });
 
-  it("uses linked tradesman company name when rec is claimed", async () => {
-    const mysqlQuery = vi.fn(async (sql: string) => {
-      if (/FROM\s+favourite_tradesmen/i.test(sql)) return [];
-      if (/information_schema/i.test(sql)) return [];
-      if (/FROM\s+recommendations\s+r/i.test(sql) && /deck_dismissed_at/i.test(sql)) {
-        return [
-          {
-            recommendationId: 90,
-            projectId: 5,
-            company: "Old Name",
-            linked_tradesman_uid: "builder-99",
-            isAnonymous: 0,
-            recommenderName: "Jo Smith",
-            recommenderFirstName: null,
-            coverPhoto: null,
-            tradesmanCompanyName: "Pro Builders Ltd",
-            tradesmanPhotoUrl: "/uploads/pro.jpg",
-            tradesmanTradeTypes: "Bricklaying,Roofing",
-          },
-        ];
-      }
-      return [];
-    });
-
-    const app = buildApp(mysqlQuery);
-    const res = await request(app)
-      .get("/tradesmen/favourites")
-      .set("x-test-uid", "owner-uid");
-
-    expect(res.status).toBe(200);
-    const item = res.body.items[0];
-    expect(item.companyName).toBe("Pro Builders Ltd");
-    expect(item.tradeTypes).toBe("Bricklaying,Roofing");
-    expect(item.recommenderName).toBe("Jo");
-  });
-
   it("uses Anonymous when rec is anonymous", async () => {
     const mysqlQuery = vi.fn(async (sql: string) => {
       if (/FROM\s+favourite_tradesmen/i.test(sql)) return [];
