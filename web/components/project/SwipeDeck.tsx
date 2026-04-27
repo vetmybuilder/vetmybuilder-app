@@ -4,6 +4,7 @@ import { useApi } from "@/utils/api";
 import BuilderCard, { BuilderCardBuilder } from "./BuilderCard";
 import SwipeActionBar from "./SwipeActionBar";
 import ShareProjectModal from "./ShareProjectModal";
+import FriendRecsBanner from "./FriendRecsBanner";
 
 export interface SwipeDeckBuilder extends BuilderCardBuilder {
   source?: "recommended" | "subscribed";
@@ -16,6 +17,7 @@ export default function SwipeDeck({
   onMatch,
   onInfo,
   onInfoPrefetch,
+  offPlatformRecCount,
 }: {
   projectId: string;
   builders: SwipeDeckBuilder[];
@@ -27,6 +29,7 @@ export default function SwipeDeck({
    * Next.js router cache by the time the user actually taps it.
    */
   onInfoPrefetch?: (builder: SwipeDeckBuilder) => void;
+  offPlatformRecCount?: number;
 }) {
   const api = useApi();
   const [index, setIndex] = useState(0);
@@ -85,7 +88,7 @@ export default function SwipeDeck({
   }
 
   if (!current) {
-    return <SwipeDeckEmpty projectId={projectId} />;
+    return <SwipeDeckEmpty projectId={projectId} offPlatformRecCount={offPlatformRecCount ?? 0} />;
   }
 
   const peek = builders.slice(index + 1, index + 3);
@@ -142,7 +145,7 @@ const CONFETTI: Array<{ left: string; top: string; bg: string; rot: number }> = 
   { left: "55%", top: "80%", bg: "#f472b6", rot: -30 },
 ];
 
-function SwipeDeckEmpty({ projectId }: { projectId: string }) {
+function SwipeDeckEmpty({ projectId, offPlatformRecCount }: { projectId: string; offPlatformRecCount: number }) {
   const router = useRouter();
   const [shareOpen, setShareOpen] = useState(false);
 
@@ -184,6 +187,7 @@ function SwipeDeckEmpty({ projectId }: { projectId: string }) {
       </p>
 
       <div className="relative mt-7 w-full max-w-[320px] flex flex-col gap-2.5">
+        <FriendRecsBanner projectId={projectId} count={offPlatformRecCount} />
         <button
           onClick={() => router.push("/matches")}
           className="flex items-center justify-center gap-2 py-4 px-5 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white font-extrabold text-[15px] tracking-tight shadow-[0_10px_24px_rgba(99,102,241,0.3)]"

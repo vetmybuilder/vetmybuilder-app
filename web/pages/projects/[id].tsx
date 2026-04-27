@@ -40,6 +40,7 @@ function ProjectSwipeMobile({
   const [matches, setMatches] = useState<{
     recommended: any[];
     subscribed: any[];
+    offPlatformRecCount?: number;
   } | null>(null);
   const [actionsOpen, setActionsOpen] = useState(false);
 
@@ -111,6 +112,7 @@ function ProjectSwipeMobile({
             ...(matches.recommended || []),
             ...(matches.subscribed || []),
           ]}
+          offPlatformRecCount={matches.offPlatformRecCount ?? 0}
           onInfo={(builder) => {
             const recId = (builder as any).recommendationId;
             if (builder.tier === "recommended" && recId) {
