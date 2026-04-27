@@ -9,6 +9,10 @@ import FriendRecsBanner from "./FriendRecsBanner";
 export interface SwipeDeckBuilder extends BuilderCardBuilder {
   source?: "recommended" | "subscribed";
   recommendationId?: string | number | null;
+  // Rec cards (priority slot at top of deck):
+  isRecommendation?: boolean;
+  recommenderName?: string | null;
+  coverPhotoUrl?: string | null;
 }
 
 export default function SwipeDeck({
@@ -48,16 +52,33 @@ export default function SwipeDeck({
   async function commit(direction: "left" | "right") {
     if (!current || busy) return;
     setBusy(true);
-    const source = current.tier === "recommended" ? "recommended" : "subscribed";
     try {
-      const res = await api.post(`/api/projects/${projectId}/swipe`, {
-        builderUid: current.uid,
-        direction,
-        source,
-      });
-      if (direction === "right" && res.data?.status === "matched") {
-        onMatch(current.uid);
+      if (current.isRecommendation && current.recommendationId) {
+        // Rec card — dismiss from deck. No swipe-interest recorded; the
+        // homeowner has already implicitly endorsed via the friend's rec.
+        await api.post(`/api/recommendations/${current.recommendationId}/dismiss-from-deck`);
+      } else {
+        const source = current.tier === "recommended" ? "recommended" : "subscribed";
+        const res = await api.post(`/api/projects/${projectId}/swipe`, {
+          builderUid: current.uid,
+          direction,
+          source,
+        });
+        if (direction === "right" && res.data?.status === "matched") {
+          onMatch(current.uid);
+        }
       }
+      setIndex(i => i + 1);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function unfavouriteRec() {
+    if (!current || !current.isRecommendation || !current.recommendationId || busy) return;
+    setBusy(true);
+    try {
+      await api.post(`/api/recommendations/${current.recommendationId}/unfavourite`);
       setIndex(i => i + 1);
     } finally {
       setBusy(false);
@@ -120,7 +141,7 @@ export default function SwipeDeck({
             transform: `translateX(${drag.dx}px) rotate(${drag.dx / 20}deg)`,
           }}
         >
-          <BuilderCard builder={current} />
+          <BuilderCard builder={current} onUnfavouriteRec={unfavouriteRec} />
         </div>
       </div>
       <SwipeActionBar

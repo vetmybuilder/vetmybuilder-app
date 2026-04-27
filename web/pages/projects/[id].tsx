@@ -41,6 +41,7 @@ function ProjectSwipeMobile({
     recommended: any[];
     subscribed: any[];
     offPlatformRecCount?: number;
+    recommendationCards?: any[];
   } | null>(null);
   const [actionsOpen, setActionsOpen] = useState(false);
 
@@ -109,11 +110,36 @@ function ProjectSwipeMobile({
         <SwipeDeck
           projectId={String(projectId)}
           builders={[
+            ...((matches.recommendationCards || []).map((rc: any) => ({
+              uid: `rec-${rc.recommendationId}`,
+              displayName: rc.company,
+              companyName: rc.company,
+              photoUrl: rc.coverPhotoUrl,
+              tier: "recommended" as const,
+              chVerified: false,
+              starRating: null,
+              reviewCount: 0,
+              yearsTrading: 0,
+              primaryTrade: null,
+              secondaryTrades: [],
+              serviceAreas: [],
+              priceBand: null,
+              baseScore: 0,
+              whyMatch: `Recommended by ${rc.recommenderName}`,
+              recommenderName: rc.recommenderName,
+              isRecommendation: true,
+              recommendationId: rc.recommendationId,
+              coverPhotoUrl: rc.coverPhotoUrl,
+            }))),
             ...(matches.recommended || []),
             ...(matches.subscribed || []),
           ]}
           offPlatformRecCount={matches.offPlatformRecCount ?? 0}
           onInfo={(builder) => {
+            if ((builder as any).isRecommendation && (builder as any).recommendationId) {
+              router.push(`/projects/${projectId}/recommendations/${(builder as any).recommendationId}`);
+              return;
+            }
             const recId = (builder as any).recommendationId;
             if (builder.tier === "recommended" && recId) {
               router.push(
@@ -128,6 +154,10 @@ function ProjectSwipeMobile({
           onInfoPrefetch={(builder) => {
             // Warm the Next.js route cache for whichever profile the
             // Info button would navigate to, so the tap feels instant.
+            if ((builder as any).isRecommendation && (builder as any).recommendationId) {
+              router.prefetch(`/projects/${projectId}/recommendations/${(builder as any).recommendationId}`);
+              return;
+            }
             const recId = (builder as any).recommendationId;
             if (builder.tier === "recommended" && recId) {
               router.prefetch(`/builders/${recId}`);
