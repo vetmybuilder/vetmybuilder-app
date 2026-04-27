@@ -146,6 +146,30 @@ export class ProjectApi {
   }
 
   // ────────────────────────────────────────────────────────────
+  // Off-platform recommendations + matches
+  // ────────────────────────────────────────────────────────────
+
+  async getOffPlatformRecommendations(projectId: string | number) {
+    const res = await this.apiClient.get(
+      `/api/projects/${projectId}/off-platform-recommendations`,
+    );
+    expect(res.status()).toBe(200);
+    return res.json();
+  }
+
+  async getMatches(projectId: string | number) {
+    const res = await this.apiClient.get(`/api/projects/${projectId}/matches`);
+    expect(res.status()).toBe(200);
+    return res.json();
+  }
+
+  async nudgeRecommendation(recommendationId: string | number) {
+    return this.apiClient.post(
+      `/api/recommendations/${recommendationId}/nudge`,
+    );
+  }
+
+  // ────────────────────────────────────────────────────────────
   // Named assertions — structured answers (category-specific fields)
   // ────────────────────────────────────────────────────────────
 
