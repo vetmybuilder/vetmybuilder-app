@@ -52,6 +52,7 @@ export default function GlobalMobileMenu() {
   // uses, so we share the same cache and don't double-fetch).
   const [isTrades, setIsTrades] = React.useState(false);
   const [company, setCompany] = React.useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     try {
@@ -76,6 +77,7 @@ export default function GlobalMobileMenu() {
     if (!displayUser) {
       setIsTrades(false);
       setCompany(null);
+      setAvatarUrl(null);
       try {
         sessionStorage.setItem("vmb:isTradesman", "0");
         sessionStorage.removeItem("vmb:tradesCo");
@@ -90,9 +92,11 @@ export default function GlobalMobileMenu() {
         const prof = data?.profile || null;
         const isT = role === "tradesman" || !!prof;
         const co = prof?.company_name || prof?.company || prof?.name || null;
+        const avatar = prof?.avatar_url || prof?.profile_picture_url || null;
         if (!alive) return;
         setIsTrades(!!isT);
         setCompany(co || null);
+        setAvatarUrl(avatar || null);
         try {
           sessionStorage.setItem("vmb:isTradesman", isT ? "1" : "0");
           if (co) sessionStorage.setItem("vmb:tradesCo", co);
@@ -101,6 +105,7 @@ export default function GlobalMobileMenu() {
         if (!alive) return;
         setIsTrades(false);
         setCompany(null);
+        setAvatarUrl(null);
         try {
           sessionStorage.setItem("vmb:isTradesman", "0");
         } catch {}
@@ -137,6 +142,7 @@ export default function GlobalMobileMenu() {
       isTrades={isTrades}
       isAuthed={!!displayUser}
       firstName={displayUser?.firstName ?? null}
+      avatarUrl={avatarUrl}
       tradeCta={tradeCta}
       onLogout={onLogout}
       onGoHome={() => router.push("/")}

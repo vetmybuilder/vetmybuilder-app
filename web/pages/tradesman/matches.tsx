@@ -101,7 +101,9 @@ export default function TradesmanMatchesPage() {
 
         {/* Top bar */}
         <div className="px-5 pt-3 pb-3 flex items-center justify-between">
-          <BrandWordmark tone="emerald" />
+          <Link href="/" aria-label="Go to homepage" className="inline-flex items-center">
+            <BrandWordmark tone="emerald" />
+          </Link>
           <button
             type="button"
             aria-label="Open menu"

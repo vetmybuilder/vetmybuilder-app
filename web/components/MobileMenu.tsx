@@ -80,6 +80,7 @@ export default function MobileMenu({
   isTrades,
   isAuthed,
   firstName,
+  avatarUrl,
   tradeCta,
   onLogout,
   onGoHome,
@@ -93,6 +94,7 @@ export default function MobileMenu({
   isAuthed: boolean;
 
   firstName?: string | null;
+  avatarUrl?: string | null;
 
   tradeCta?: { href: string; label: string; testid?: string } | null;
 
@@ -209,17 +211,28 @@ export default function MobileMenu({
               style={{ gap: "14px" }}
               data-testid="mobile-menu-greeting"
             >
-              <div
-                className={`w-[54px] h-[54px] rounded-full bg-gradient-to-br ${
-                  isTrades
-                    ? "from-emerald-400 to-emerald-600"
-                    : "from-indigo-400 to-indigo-600"
-                } flex items-center justify-center flex-shrink-0`}
-              >
-                <span className="text-white font-bold text-[22px] leading-none">
-                  {avatarLetter}
-                </span>
-              </div>
+              {avatarUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={avatarUrl}
+                  alt=""
+                  className={`w-[54px] h-[54px] rounded-full object-cover flex-shrink-0 border-2 ${
+                    isTrades ? "border-emerald-200" : "border-indigo-200"
+                  }`}
+                />
+              ) : (
+                <div
+                  className={`w-[54px] h-[54px] rounded-full bg-gradient-to-br ${
+                    isTrades
+                      ? "from-emerald-400 to-emerald-600"
+                      : "from-indigo-400 to-indigo-600"
+                  } flex items-center justify-center flex-shrink-0`}
+                >
+                  <span className="text-white font-bold text-[22px] leading-none">
+                    {avatarLetter}
+                  </span>
+                </div>
+              )}
               <div className="flex flex-col min-w-0 justify-center">
                 <span className="text-[17px] font-extrabold tracking-tight text-gray-900 truncate">
                   {greeting}
@@ -412,7 +425,7 @@ export default function MobileMenu({
                   await onLogout();
                 }}
                 className={[
-                  "px-6 py-5 text-left flex items-center gap-3",
+                  "px-6 py-5 flex items-center justify-center gap-3",
                   "bg-red-500 hover:bg-red-600",
                   "text-white",
                 ].join(" ")}

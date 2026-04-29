@@ -91,7 +91,7 @@ export default function Footer() {
             />
           </Link>
           <p className="mt-4 mx-auto max-w-xs text-[13px] text-zinc-400 leading-relaxed">
-            The community-powered platform helping UK homeowners find tradespeople they can actually trust.
+            Find a tradesperson the personal way. Hand-picked by your community, smart-ranked, and verified by us.
           </p>
 
           <div className="mt-10 space-y-9">
@@ -113,8 +113,8 @@ export default function Footer() {
               />
             </Link>
             <p className="mt-4 text-sm text-zinc-400 max-w-xs leading-relaxed">
-              The community-powered platform helping UK homeowners find tradespeople
-              they can actually trust.
+              Find a tradesperson the personal way. Hand-picked by your community,
+              smart-ranked, and verified by us.
             </p>
           </div>
 

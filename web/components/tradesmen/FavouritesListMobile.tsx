@@ -16,6 +16,7 @@ import { Heart, ShieldCheck, Star } from "lucide-react";
 
 import { useApi } from "@/utils/api";
 import { useMobileMenu } from "@/utils/mobileMenu";
+import Link from "next/link";
 import BrandWordmark from "@/components/BrandWordmark";
 
 type FavouriteItem = {
@@ -147,7 +148,9 @@ export default function FavouritesListMobile() {
 
       {/* Top nav — wordmark + burger to match /projects */}
       <div className="flex items-center justify-between px-3.5 pt-1.5 pb-1">
-        <BrandWordmark tone="indigo" />
+        <Link href="/" aria-label="Go to homepage" className="inline-flex items-center">
+          <BrandWordmark tone="indigo" />
+        </Link>
         <button
           type="button"
           aria-label="Open menu"

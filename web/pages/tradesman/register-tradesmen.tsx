@@ -69,6 +69,21 @@ export default function TradesmanRegisterV2Page() {
     };
   }, []);
 
+  // Post-OAuth bounce: if a guest clicks "Continue with Google" on Step 1, the
+  // popup completes Firebase sign-in and Next routes them back here. The
+  // multi-step email wizard is no longer the right place to be — send them
+  // to the SSO completion wizard instead.
+  useEffect(() => {
+    if (authLoading || !user) return;
+    let intent: string | null = null;
+    try {
+      intent = sessionStorage.getItem("vmb:oauthIntent");
+    } catch {}
+    if (intent === "tradesman") {
+      router.replace("/tradesman/signup/complete");
+    }
+  }, [user, authLoading, router]);
+
   const [step, setStep] = useState<Step>(1);
 
   const [form, setForm] = useState({
@@ -618,7 +633,7 @@ export default function TradesmanRegisterV2Page() {
         </Head>
 
         <main
-          className="fixed inset-0 bg-gray-50 flex flex-col"
+          className="fixed inset-0 bg-gray-100 flex flex-col"
           data-testid="trades-register-page"
           style={{
             paddingBottom: "env(safe-area-inset-bottom)",
@@ -627,6 +642,9 @@ export default function TradesmanRegisterV2Page() {
           }}
         >
           <div className="h-[env(safe-area-inset-top)]" />
+
+          {/* Mobile: edge-to-edge column. Desktop: centred card with chrome. */}
+          <div className="w-full md:max-w-2xl mx-auto flex-1 flex flex-col min-h-0 bg-gray-50 md:my-6 md:rounded-2xl md:shadow-lg md:overflow-hidden md:border md:border-gray-200">
 
           <WizardTopBar
             title="Tradesperson signup"
@@ -734,6 +752,7 @@ export default function TradesmanRegisterV2Page() {
             busy={busy}
             tone="emerald"
           />
+          </div>
         </main>
       </>
     </GuestOnly>

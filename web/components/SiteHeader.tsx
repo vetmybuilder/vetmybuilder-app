@@ -5,7 +5,6 @@ import React, { useMemo, useRef, useState, useEffect } from "react";
 import { useAuth, signOutUser } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
-import { User, Wrench } from "lucide-react";
 import { useMobileMenu } from "@/utils/mobileMenu";
 import BrandWordmark from "@/components/BrandWordmark";
 
@@ -146,6 +145,17 @@ export default function SiteHeader() {
   // change as soon as signInWithEmailAndPassword resolves, so the avatar would
   // briefly flash before the role check and redirect/reload complete.
   const isLoginPage = router.pathname === "/login";
+  const isSignupPage = router.pathname.startsWith("/signup"); // covers /signup and /signup/complete
+  // Suppress both Sign-in and Join CTAs on any auth-related route — the
+  // page itself owns the auth journey, header pills are just noise.
+  const isAuthPage =
+    isLoginPage ||
+    isSignupPage ||
+    router.pathname === "/forgot-password" ||
+    router.pathname === "/reset-password" ||
+    router.pathname.startsWith("/tradesman/login") ||
+    router.pathname.startsWith("/tradesman/signup") ||
+    router.pathname === "/tradesman/register-tradesmen";
 
   // Suppress the account chrome (avatar, notifications, Post-a-Job) once we
   // KNOW the user is authed at the Firebase layer but hasn't finished
@@ -325,7 +335,6 @@ export default function SiteHeader() {
 
   const showProjectTabsInHeader = !!displayUser && !isTrades && isOwnerProjectsPage;
 
-  const tradesRegisterHref = "/tradesman/login";
   const homeHref = "/";
 
   /* ========= 1) SIMPLE HOMEPAGE HEADER ========= */
@@ -438,29 +447,11 @@ export default function SiteHeader() {
                   </div>
                 )}
 
-                {/* Logged-out (desktop) */}
-                {!displayUser && (
-                  <>
-                    <Link
-                      href={tradesRegisterHref}
-                      className="hidden sm:inline-flex items-center gap-1.5 justify-center rounded-xl px-3 h-9 text-sm font-medium bg-emerald-600 text-white shadow-sm hover:bg-emerald-500"
-                      data-testid="btn-are-you-tradesperson"
-                    >
-                      <Wrench className="h-4 w-4" />
-                      <span>Are you a tradesperson?</span>
-                    </Link>
-
-                    <Link
-                      href="/login"
-                      className="hidden sm:inline-flex items-center gap-1.5 justify-center rounded-xl px-3 h-9 text-sm font-medium bg-red-500 text-white shadow-sm hover:bg-red-600"
-                      aria-label="Homeowner sign in"
-                      data-testid="nav-sign-in"
-                    >
-                      <User className="h-4 w-4" />
-                      <span>Homeowner sign in</span>
-                    </Link>
-                  </>
-                )}
+                {/* Homepage header is intentionally bare for guests - the
+                    "join our growing community" handwritten link inside the
+                    hero is the single Join CTA. The mobile burger below
+                    still gives access to sign-in / signup links for guests
+                    on small screens. */}
 
                 {/* Mobile menu */}
                 <button
@@ -564,14 +555,13 @@ export default function SiteHeader() {
               className="hidden md:flex items-center gap-3"
               data-testid="nav-actions"
             >
-              {!displayUser && (
+              {!displayUser && !isAuthPage && (
                 <Link
-                  href={tradesRegisterHref}
-                  className="hidden sm:inline-flex items-center gap-1.5 justify-center rounded-xl px-3 h-9 text-sm font-medium bg-emerald-600 text-white shadow-sm hover:bg-emerald-500"
-                  data-testid="btn-are-you-tradesperson"
+                  href="/login"
+                  className="hidden sm:inline-flex items-center justify-center rounded-xl px-3 h-9 text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                  data-testid="nav-sign-in"
                 >
-                  <Wrench className="h-4 w-4" />
-                  <span>Are you a tradesperson?</span>
+                  <span>Sign in</span>
                 </Link>
               )}
 
@@ -745,15 +735,14 @@ export default function SiteHeader() {
                 </div>
               )}
 
-              {!displayUser && (
+              {!displayUser && !isAuthPage && (
                 <Link
-                  href="/login"
-                  className="inline-flex items-center gap-1.5 justify-center rounded-xl px-3 h-9 text-sm font-medium bg-red-500 text-white shadow-sm hover:bg-red-600"
-                  aria-label="Homeowner sign in"
-                  data-testid="nav-sign-in"
+                  href="/signup"
+                  className="inline-flex items-center justify-center rounded-xl px-5 h-9 text-sm font-bold text-white shadow-sm transition-colors"
+                  style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
+                  data-testid="nav-join"
                 >
-                  <User className="h-4 w-4" />
-                  <span>Homeowner sign in</span>
+                  <span>Get started</span>
                 </Link>
               )}
             </div>

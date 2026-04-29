@@ -23,25 +23,27 @@ export default function WizardNavBar({
   tone = "indigo",
 }: Props) {
   return (
-    <div className="bg-white border-t border-gray-100 flex items-center gap-2 px-3 py-3 flex-shrink-0">
-      {onBack && (
+    <div className="bg-white border-t border-gray-100 flex-shrink-0">
+      <div className="max-w-sm mx-auto flex items-center gap-2 px-3 py-3">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            disabled={busy}
+            className="px-[18px] py-[11px] rounded-xl bg-white text-gray-900 border-[1.5px] border-gray-200 text-[13px] font-extrabold disabled:opacity-50"
+          >
+            Back
+          </button>
+        )}
         <button
           type="button"
-          onClick={onBack}
-          disabled={busy}
-          className="px-[18px] py-[11px] rounded-xl bg-white text-gray-900 border-[1.5px] border-gray-200 text-[13px] font-extrabold disabled:opacity-50"
+          onClick={onNext}
+          disabled={nextDisabled || busy}
+          className={`flex-1 ${PRIMARY[tone]} text-white px-3 py-[11px] rounded-xl text-[13px] font-extrabold disabled:opacity-40 disabled:cursor-not-allowed`}
         >
-          Back
+          {busy ? "…" : nextLabel}
         </button>
-      )}
-      <button
-        type="button"
-        onClick={onNext}
-        disabled={nextDisabled || busy}
-        className={`flex-1 ${PRIMARY[tone]} text-white px-3 py-[11px] rounded-xl text-[13px] font-extrabold disabled:opacity-40 disabled:cursor-not-allowed`}
-      >
-        {busy ? "…" : nextLabel}
-      </button>
+      </div>
     </div>
   );
 }

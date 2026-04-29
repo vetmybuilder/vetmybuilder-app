@@ -637,7 +637,7 @@ export default function TradesmanSsoOnboardingPage() {
       </Head>
 
       <main
-        className="fixed inset-0 bg-white flex flex-col"
+        className="fixed inset-0 bg-gray-100 flex flex-col"
         data-testid="tradesman-signup-complete-page"
         style={{
           paddingBottom: "env(safe-area-inset-bottom)",
@@ -646,6 +646,9 @@ export default function TradesmanSsoOnboardingPage() {
         }}
       >
         <div className="h-[env(safe-area-inset-top)]" />
+
+        {/* Mobile: edge-to-edge column. Desktop: centred card with chrome. */}
+        <div className="w-full md:max-w-2xl mx-auto flex-1 flex flex-col min-h-0 bg-gray-50 md:my-6 md:rounded-2xl md:shadow-lg md:overflow-hidden md:border md:border-gray-200">
 
         <WizardTopBar
           title="Trade sign-up"
@@ -756,6 +759,7 @@ export default function TradesmanSsoOnboardingPage() {
           busy={busy}
           tone="emerald"
         />
+        </div>
       </main>
     </>
   );

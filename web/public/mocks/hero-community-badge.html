@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Hero corner badge mocks</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Sora:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Sora', system-ui, sans-serif; background: #f4f1ec; }
+  .caveat { font-family: 'Caveat', cursive; }
+  .hero {
+    aspect-ratio: 21/9;
+    background-image: linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.20) 30%, rgba(0,0,0,0.10) 55%, rgba(254,246,233,0.55) 85%, #fef6e9 100%), url('https://images.unsplash.com/photo-1716037991590-c975184b37df?w=1600&q=80&auto=format&fit=crop');
+    background-size: cover;
+    background-position: center;
+    border-radius: 14px;
+    overflow: hidden;
+    position: relative;
+  }
+  .hero-h1 {
+    font-family: 'Sora', sans-serif;
+    font-weight: 900;
+    color: white;
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+    font-size: 56px;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.25);
+  }
+  .hero-eyebrow {
+    color: white;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .hero-cursive {
+    font-family: 'Caveat', cursive;
+    color: #fcd34d;
+    font-size: 120%;
+    font-weight: 700;
+  }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.15); }
+  }
+  .pulse-dot { animation: pulse-dot 1.6s ease-in-out infinite; }
+  @keyframes count-up {
+    from { transform: translateY(8px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .count-up { animation: count-up 0.6s ease-out; }
+</style>
+</head>
+<body class="text-slate-900">
+
+<div class="max-w-[1400px] mx-auto px-6 py-10">
+  <h1 class="text-3xl font-black tracking-tight mb-2">Hero corner badge — visual mocks</h1>
+  <p class="text-slate-600 mb-10 max-w-2xl">Six takes on a "join our growing community" element in the top-right corner of the hero. Pick which feels right.</p>
+
+  <div class="space-y-12">
+
+    <!-- OPTION A — Avatar pile + count -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-indigo-700 mb-2">Option A · Avatar pile</div>
+      <h3 class="text-xl font-extrabold mb-3">"527 neighbours" — pile of overlapping faces</h3>
+      <p class="text-sm text-slate-600 mb-4 max-w-2xl">Classic social-proof badge. Three coloured avatars stack on top of each other, then a count and an arrow link. Glassy white pill so it lifts off the photo. <strong>Most expected, lowest risk.</strong></p>
+
+      <div class="hero">
+        <div class="absolute inset-0 flex flex-col justify-start pt-8 px-8">
+          <div class="hero-eyebrow mb-3">HAND-PICKED</div>
+          <h1 class="hero-h1">Trades,<br/><span class="hero-cursive">made personal.</span></h1>
+        </div>
+        <a class="absolute top-6 right-6 inline-flex items-center gap-3 rounded-full bg-white/90 backdrop-blur-md border border-white/60 shadow-lg pl-2 pr-4 py-2 hover:bg-white transition-colors">
+          <span class="flex -space-x-2">
+            <span class="w-8 h-8 rounded-full bg-amber-500 border-2 border-white text-white font-bold text-xs flex items-center justify-center">S</span>
+            <span class="w-8 h-8 rounded-full bg-emerald-600 border-2 border-white text-white font-bold text-xs flex items-center justify-center">J</span>
+            <span class="w-8 h-8 rounded-full bg-violet-600 border-2 border-white text-white font-bold text-xs flex items-center justify-center">P</span>
+          </span>
+          <span>
+            <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-500 leading-none">527 neighbours</span>
+            <span class="block text-[13px] font-bold text-indigo-700 leading-tight mt-0.5">Join our growing community →</span>
+          </span>
+        </a>
+      </div>
+    </section>
+
+    <!-- OPTION B — Live online dot -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-emerald-700 mb-2">Option B · Live ticker</div>
+      <h3 class="text-xl font-extrabold mb-3">Pulsing green dot — "12 tradies online now"</h3>
+      <p class="text-sm text-slate-600 mb-4 max-w-2xl">Suggests activity and momentum. Pulsing dot draws the eye. Numbers can be wired to a stats endpoint later, or hardcoded for launch. <strong>Most "alive" feeling.</strong></p>
+
+      <div class="hero">
+        <div class="absolute inset-0 flex flex-col justify-start pt-8 px-8">
+          <div class="hero-eyebrow mb-3">HAND-PICKED</div>
+          <h1 class="hero-h1">Trades,<br/><span class="hero-cursive">made personal.</span></h1>
+        </div>
+        <a class="absolute top-6 right-6 inline-flex items-center gap-2.5 rounded-full bg-slate-900/70 backdrop-blur-md border border-white/15 shadow-lg pl-3 pr-4 py-2.5 hover:bg-slate-900/85 transition-colors">
+          <span class="relative inline-flex">
+            <span class="absolute inline-flex w-2.5 h-2.5 rounded-full bg-emerald-400 pulse-dot"></span>
+            <span class="relative inline-flex w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+          </span>
+          <span class="text-[12.5px] font-bold text-white">12 tradies online ·</span>
+          <span class="text-[12.5px] font-bold text-amber-300">Join →</span>
+        </a>
+      </div>
+    </section>
+
+    <!-- OPTION C — Caveat handwritten link with doodle -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-700 mb-2">Option C · Handwritten note</div>
+      <h3 class="text-xl font-extrabold mb-3">Caveat scribble — "join our growing community ↗"</h3>
+      <p class="text-sm text-slate-600 mb-4 max-w-2xl">Pure cursive, no card. Tucked into the corner like a margin note. Matches the "personal" tone of the headline. <strong>Most on-brand, least loud.</strong></p>
+
+      <div class="hero">
+        <div class="absolute inset-0 flex flex-col justify-start pt-8 px-8">
+          <div class="hero-eyebrow mb-3">HAND-PICKED</div>
+          <h1 class="hero-h1">Trades,<br/><span class="hero-cursive">made personal.</span></h1>
+        </div>
+        <a class="absolute top-7 right-8 group inline-flex items-end gap-1 hover:translate-x-0.5 transition-transform" style="font-family:'Caveat',cursive">
+          <span class="text-amber-300 text-[28px] leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.35)] -rotate-[3deg]">join the growing community</span>
+          <svg viewBox="0 0 50 30" class="w-12 h-7 text-amber-300 drop-shadow-[0_2px_4px_rgba(0,0,0,0.35)] -translate-y-1.5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden>
+            <path d="M3 18 C 14 20, 28 18, 42 8" />
+            <path d="M36 5 L 44 8 L 41 16" />
+          </svg>
+        </a>
+      </div>
+    </section>
+
+    <!-- OPTION D — Stat pill: this week growth -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-violet-700 mb-2">Option D · Growth pill</div>
+      <h3 class="text-xl font-extrabold mb-3">"↗ 23 joined this week"</h3>
+      <p class="text-sm text-slate-600 mb-4 max-w-2xl">A bit more analytical. Shows momentum without listing avatars. Two-line layout: stat above, CTA below. <strong>Best when stats look strong.</strong></p>
+
+      <div class="hero">
+        <div class="absolute inset-0 flex flex-col justify-start pt-8 px-8">
+          <div class="hero-eyebrow mb-3">HAND-PICKED</div>
+          <h1 class="hero-h1">Trades,<br/><span class="hero-cursive">made personal.</span></h1>
+        </div>
+        <a class="absolute top-6 right-6 inline-flex flex-col items-start rounded-2xl bg-white/90 backdrop-blur-md border border-white/60 shadow-lg px-4 py-2.5 hover:bg-white transition-colors">
+          <span class="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-emerald-700">
+            <svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden><path d="M5 16 L 12 9 L 16 13 L 20 7" /><path d="M14 7 L 20 7 L 20 13" /></svg>
+            23 joined this week
+          </span>
+          <span class="mt-0.5 text-[13.5px] font-extrabold text-indigo-700">Join our community →</span>
+        </a>
+      </div>
+    </section>
+
+    <!-- OPTION E — Compact community badge -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-rose-700 mb-2">Option E · Community badge</div>
+      <h3 class="text-xl font-extrabold mb-3">Compact circular badge — community-led look</h3>
+      <p class="text-sm text-slate-600 mb-4 max-w-2xl">Mini round logo + Caveat tagline. Reads as a vintage member-club stamp. Most distinctive, hardest to read at a glance. <strong>Highest design risk, highest reward.</strong></p>
+
+      <div class="hero">
+        <div class="absolute inset-0 flex flex-col justify-start pt-8 px-8">
+          <div class="hero-eyebrow mb-3">HAND-PICKED</div>
+          <h1 class="hero-h1">Trades,<br/><span class="hero-cursive">made personal.</span></h1>
+        </div>
+        <a class="absolute top-6 right-6 group inline-flex items-center gap-3 hover:scale-[1.02] transition-transform">
+          <span class="relative w-16 h-16 rounded-full bg-amber-300 text-slate-900 flex items-center justify-center shadow-lg" style="font-family:'Caveat',cursive">
+            <span class="absolute inset-1 rounded-full border-2 border-slate-900/25"></span>
+            <span class="relative text-[26px] leading-none font-bold">join.</span>
+          </span>
+          <span class="text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.35)]">
+            <span class="block text-[10.5px] font-extrabold uppercase tracking-[0.16em] opacity-90">growing community</span>
+            <span class="block text-[15px] font-bold leading-tight">527 homeowners and counting →</span>
+          </span>
+        </a>
+      </div>
+    </section>
+
+    <!-- OPTION F — Avatar pile, dark glass -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-cyan-700 mb-2">Option F · Dark glass</div>
+      <h3 class="text-xl font-extrabold mb-3">Same as A but in dark glass — more drama</h3>
+      <p class="text-sm text-slate-600 mb-4 max-w-2xl">Avatar pile + count + arrow but on translucent slate-900 instead of white. Reads more confident, sits more boldly against the photo. <strong>Best if A feels too soft.</strong></p>
+
+      <div class="hero">
+        <div class="absolute inset-0 flex flex-col justify-start pt-8 px-8">
+          <div class="hero-eyebrow mb-3">HAND-PICKED</div>
+          <h1 class="hero-h1">Trades,<br/><span class="hero-cursive">made personal.</span></h1>
+        </div>
+        <a class="absolute top-6 right-6 inline-flex items-center gap-3 rounded-full bg-slate-900/65 backdrop-blur-md border border-white/15 shadow-xl pl-2 pr-4 py-2 hover:bg-slate-900/80 transition-colors">
+          <span class="flex -space-x-2">
+            <span class="w-8 h-8 rounded-full bg-amber-500 border-2 border-slate-900 text-white font-bold text-xs flex items-center justify-center">S</span>
+            <span class="w-8 h-8 rounded-full bg-emerald-500 border-2 border-slate-900 text-white font-bold text-xs flex items-center justify-center">J</span>
+            <span class="w-8 h-8 rounded-full bg-violet-500 border-2 border-slate-900 text-white font-bold text-xs flex items-center justify-center">P</span>
+          </span>
+          <span>
+            <span class="block text-[10.5px] font-bold uppercase tracking-wider text-white/70 leading-none">growing community</span>
+            <span class="block text-[13px] font-bold text-amber-300 leading-tight mt-0.5">527 joined · Join us →</span>
+          </span>
+        </a>
+      </div>
+    </section>
+
+  </div>
+
+  <section class="mt-14 rounded-3xl bg-white border border-slate-200/70 p-6">
+    <h3 class="text-lg font-extrabold mb-3">Pick guide</h3>
+    <ul class="text-sm text-slate-700 space-y-2">
+      <li><strong>A · Avatar pile (white)</strong> — most familiar, lowest risk, plays nice with cream palette</li>
+      <li><strong>B · Live ticker</strong> — best when stats actually move; needs a real-time feed eventually</li>
+      <li><strong>C · Handwritten note</strong> — most on-brand, least loud, no count needed</li>
+      <li><strong>D · Growth pill</strong> — analytical, only land it once "23 joined this week" is true</li>
+      <li><strong>E · Circular stamp</strong> — most distinctive, biggest design swing</li>
+      <li><strong>F · Avatar pile (dark)</strong> — A but bolder against the photo</li>
+    </ul>
+    <p class="mt-4 text-sm text-slate-600"><strong>My recommendation:</strong> Option A or C. A if you want it to read as classic social proof, C if you want it to feel like a personal note continuing the "made personal" tone of the headline. Both are easy to wire up - the count can come from <code>/api/stats</code> which already exists.</p>
+  </section>
+</div>
+
+</body>
+</html>

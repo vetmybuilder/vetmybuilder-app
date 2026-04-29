@@ -26,10 +26,12 @@ const USER_TYPES = [
 const FEATURES = [
   { value: "posting", label: "Posting a job" },
   { value: "sharing", label: "Sharing with friends" },
-  { value: "swiping", label: "Swiping through builders" },
-  { value: "matching", label: "Matching / messaging a builder" },
+  { value: "swiping", label: "Swiping through tradespeople" },
+  { value: "browsing_jobs", label: "Browsing jobs (tradespeople)" },
+  { value: "chat", label: "Chat with a homeowner / tradesperson" },
   { value: "recommending", label: "Recommending a tradesperson" },
   { value: "favourites", label: "Saving favourites" },
+  { value: "paid_unlock", label: "Paid pass or one-off unlock" },
 ];
 
 const RECOMMEND_OPTIONS = [
@@ -117,25 +119,28 @@ export default function FeedbackPage() {
   if (submitted) {
     return (
       <main
-        className="fixed inset-0 bg-white flex flex-col items-center justify-center px-6"
+        className="fixed inset-0 bg-gray-100 flex flex-col items-center justify-center px-6"
         style={{
           fontFamily:
             "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
         }}
       >
-        <div className="text-6xl mb-4">{"🙏"}</div>
-        <h1 className="text-[22px] font-extrabold tracking-tight text-gray-900 mb-2 text-center">
-          Thanks! We hear you
-        </h1>
-        <p className="text-[13px] text-gray-500 leading-relaxed text-center max-w-xs mb-6">
-          Your feedback helps us build a better platform for everyone.
-        </p>
-        <Link
-          href={user ? "/projects" : "/"}
-          className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-6 py-3 text-sm font-extrabold text-white"
-        >
-          Back to {user ? "projects" : "home"}
-        </Link>
+        <div className="w-full max-w-md bg-white rounded-3xl border border-gray-200 shadow-lg p-8 sm:p-10 text-center">
+          <div className="text-6xl mb-4">{"🙏"}</div>
+          <h1 className="text-[22px] font-extrabold tracking-tight text-gray-900 mb-2">
+            Thanks! We hear you
+          </h1>
+          <p className="text-[13px] text-gray-500 leading-relaxed max-w-xs mx-auto mb-6">
+            Your feedback helps us build a better platform for everyone.
+          </p>
+          <Link
+            href={user ? "/projects" : "/"}
+            className="inline-flex items-center justify-center rounded-2xl px-6 py-3 text-sm font-extrabold text-white shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
+            style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
+          >
+            Back to {user ? "projects" : "home"}
+          </Link>
+        </div>
       </main>
     );
   }
@@ -147,7 +152,7 @@ export default function FeedbackPage() {
       </Head>
 
       <main
-        className="fixed inset-0 bg-gray-50 flex flex-col"
+        className="fixed inset-0 bg-gray-100 flex flex-col"
         style={{
           paddingBottom: "env(safe-area-inset-bottom)",
           fontFamily:
@@ -155,6 +160,9 @@ export default function FeedbackPage() {
         }}
       >
         <div className="h-[env(safe-area-inset-top)]" />
+
+        {/* Mobile: edge-to-edge column. Desktop: centred card with chrome. */}
+        <div className="w-full md:max-w-2xl mx-auto flex-1 flex flex-col min-h-0 bg-gray-50 md:my-6 md:rounded-2xl md:shadow-lg md:overflow-hidden md:border md:border-gray-200">
 
         {/* Top bar */}
         <WizardTopBar
@@ -212,11 +220,12 @@ export default function FeedbackPage() {
         <WizardNavBar
           onBack={step > 1 ? handleBack : undefined}
           onNext={handleNext}
-          nextLabel={step === 3 ? (submitting ? "Sending…" : "Send feedback") : "Next →"}
+          nextLabel={step === 3 ? (submitting ? "Sending..." : "Send feedback") : "Next →"}
           nextDisabled={!stepValid}
           busy={submitting}
           tone="indigo"
         />
+        </div>
       </main>
     </>
   );
@@ -399,7 +408,7 @@ function Step3({
             id="feedback-positives"
             value={positives}
             onChange={(e) => setPositives(e.target.value)}
-            placeholder="Tell us what you like about VetMyBuilder…"
+            placeholder="Tell us what you like about VetMyBuilder..."
             className="w-full rounded-xl border-2 border-gray-200 focus:border-indigo-500 focus:outline-none px-4 py-3 text-gray-900 placeholder:text-gray-400 text-[14px] resize-none"
             style={{ minHeight: 100 }}
           />

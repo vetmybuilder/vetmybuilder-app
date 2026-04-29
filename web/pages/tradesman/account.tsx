@@ -364,10 +364,10 @@ function Inner() {
             {/* Row cards */}
             <div style={{ padding: "14px 12px", display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
 
-              {/* Profile details row */}
+              {/* Profile row */}
               <button
                 type="button"
-                onClick={() => router.push("/tradesman/profile/edit")}
+                onClick={() => router.push("/tradesman/profile")}
                 className="w-full bg-white rounded-2xl shadow-sm flex items-center gap-3 text-left"
                 style={{ padding: 14 }}
               >
@@ -378,7 +378,7 @@ function Inner() {
                   👤
                 </div>
                 <span className="flex-1 text-[14.5px] font-extrabold text-gray-900">
-                  Profile details
+                  Profile
                 </span>
                 {profilePill && (
                   <span

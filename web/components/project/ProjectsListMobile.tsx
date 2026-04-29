@@ -32,6 +32,7 @@ import BottomSheetPicker, {
 import { useMobileMenu } from "@/utils/mobileMenu";
 import { computeProjectPriceRange } from "@/utils/projectPricing";
 import { formatGbp } from "@/utils/formatGbp";
+import Link from "next/link";
 import BrandWordmark from "@/components/BrandWordmark";
 import { parseDescriptionPills } from "@/utils/projectDescription";
 
@@ -642,7 +643,9 @@ export default function ProjectsListMobile({
 
       {/* Top bar */}
       <div className="px-5 pt-3 pb-3 flex items-center justify-between">
-        <BrandWordmark tone="indigo" />
+        <Link href="/" aria-label="Go to homepage" className="inline-flex items-center">
+          <BrandWordmark tone="indigo" />
+        </Link>
         <button
           type="button"
           aria-label="Open menu"

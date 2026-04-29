@@ -10,6 +10,13 @@
 .animate-bounce-slow { animation: bounce-slow 2s ease-in-out infinite; }
 .animate-bounce-slow:hover { animation: none; }
 
+/* ---------- Header Join button gradient drift ---------- */
+@keyframes vmb-join-shift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 /* ---------- Modal animation ---------- */
 @keyframes modalIn {
   from { opacity: 0; transform: scale(0.95) translateY(10px); }

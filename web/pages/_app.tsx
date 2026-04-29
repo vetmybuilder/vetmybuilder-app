@@ -176,7 +176,6 @@ export default function MyApp({ Component, pageProps }: AppProps) {
   // and login/register which have their own backgrounds
   const TRADESMAN_AUTH_PATHS = new Set([
     "/tradesman/projects",
-    "/tradesman/profile",
     "/tradesman/profile/edit",
     "/tradesman/featured",
   ]);
@@ -201,11 +200,13 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     "/account",
     "/feedback",
     "/tradesman/register-tradesmen",
+    "/tradesman/signup/complete",
     "/tradesman/jobs",
     "/tradesman/jobs/list",
     "/tradesman/matches",
     "/tradesman/leads",
     "/tradesman/account",
+    "/tradesman/profile",
     "/tradesman/profile/edit",
     "/chat/[matchId]",
   ]);

@@ -6,6 +6,7 @@ import {
   ChevronDown, ChevronUp, KeyRound,
 } from "lucide-react";
 import LocationField from "@/components/forms/LocationField";
+import OAuthSignInButton from "@/components/forms/OAuthSignInButton";
 import {
   IconInstagram, IconTikTok, IconFacebook, IconX, IconYouTube, IconLinkedIn,
 } from "./icons";
@@ -136,8 +137,24 @@ export default function Step1Company({
       noValidate
       data-testid="step-1"
     >
+      {/* Google SSO shortcut. Guests who'd rather skip the company form can
+          authenticate with Google and finish onboarding via the post-auth
+          completion wizard at /tradesman/signup/complete. */}
+      {!userIsAuthed && (
+        <div className="px-3 pt-4">
+          <div className="max-w-sm mx-auto">
+            <OAuthSignInButton provider="google" intent="tradesman" returnTo="/tradesman/jobs" />
+          </div>
+          <div className="my-3 flex items-center gap-3 text-[10.5px] font-extrabold uppercase tracking-wider text-gray-400 max-w-sm mx-auto">
+            <span className="flex-1 h-px bg-gray-200" />
+            <span>Or sign up with email</span>
+            <span className="flex-1 h-px bg-gray-200" />
+          </div>
+        </div>
+      )}
+
       {/* Step header */}
-      <div className="px-3.5 pt-4 pb-1">
+      <div className="px-3.5 pt-2 pb-1">
         <p className="text-[10.5px] font-extrabold uppercase tracking-wider text-emerald-600 mb-0.5">
           Company
         </p>
