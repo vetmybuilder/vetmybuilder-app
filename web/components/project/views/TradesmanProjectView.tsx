@@ -51,18 +51,20 @@ export default function TradesmanProjectView({ vm }: { vm: VM }) {
     })();
   }, [api, project?.id]);
 
-  // Job is gated if tradesperson is not recommended and hasn't unlocked contact
+  // Job is gated if tradesperson is not recommended and hasn't unlocked
+  // contact. The engagement panels (subscribe vs one-off pitch) live on
+  // /tradesman/jobs/list now (JobDetailsSheet bottom sheet) - this page
+  // just shows full project info + the standard ContactDetailsCard for
+  // unlocked / matched state.
   const jobGated = !isRecommended && !contactUnlocked;
 
   if (!project) return null;
 
   const handleUpgrade =
-    onUpgradeClick || (() => router.push("/tradesman/plans"));
+    onUpgradeClick || (() => router.push("/tradesman/billing"));
 
   const handleUnlockJob = async () => {
-    // For now, use the existing unlock flow via plans page
-    // This will be replaced with direct Stripe/mock checkout
-    router.push(`/tradesman/plans?projectId=${project.id}`);
+    router.push(`/projects/${project.id}/unlock`);
   };
 
   return (
@@ -191,3 +193,4 @@ export default function TradesmanProjectView({ vm }: { vm: VM }) {
     </>
   );
 }
+

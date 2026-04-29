@@ -35,7 +35,7 @@ function EditGate() {
     try {
       if (sessionStorage.getItem("vmb:isTradesman") === "1") {
         setStatus("redirect");
-        router.replace("/tradesman/projects");
+        router.replace("/tradesman/jobs");
         return;
       }
     } catch {}
@@ -47,7 +47,7 @@ function EditGate() {
         if (isT) {
           try { sessionStorage.setItem("vmb:isTradesman", "1"); } catch {}
           setStatus("redirect");
-          router.replace("/tradesman/projects");
+          router.replace("/tradesman/jobs");
           return;
         }
       } catch {}
@@ -387,10 +387,12 @@ function EditProjectInner() {
       if (form.description.trim()) descLines.push(form.description.trim());
       const fullDescription = normalize(descLines.join("\n"));
 
+      // Location is immutable post-creation — the server rejects any incoming
+      // value that doesn't match the stored one. Omitting the field entirely
+      // makes the server preserve the existing value.
       const payload = {
         name: autoName,
         type: primaryType,
-        location: form.location,
         description: fullDescription,
         propertyType: form.propertyType,
         bedrooms: Number(form.bedrooms) || 0,

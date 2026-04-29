@@ -617,7 +617,7 @@ CREATE TABLE IF NOT EXISTS swipe_interest (
   project_id               INT NOT NULL,
   homeowner_uid            VARCHAR(128) NOT NULL,
   builder_uid              VARCHAR(128) NOT NULL,
-  source                   ENUM('recommended', 'subscribed') NOT NULL,
+  source                   ENUM('recommended', 'subscribed', 'paid_unlock') NOT NULL,
   status                   ENUM(
     'pending',
     'matched',
@@ -625,7 +625,7 @@ CREATE TABLE IF NOT EXISTS swipe_interest (
     'declined_by_builder',
     'expired'
   ) NOT NULL DEFAULT 'pending',
-  homeowner_swiped_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  homeowner_swiped_at      DATETIME NULL DEFAULT NULL,
   builder_swiped_at        DATETIME NULL,
   created_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -633,22 +633,6 @@ CREATE TABLE IF NOT EXISTS swipe_interest (
   UNIQUE KEY uq_swipe_interest_pair (project_id, builder_uid),
   KEY idx_swipe_interest_builder_pending (builder_uid, status, homeowner_swiped_at),
   KEY idx_swipe_interest_project_status (project_id, status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS inbox_messages (
-  id              INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  project_id      INT NOT NULL,
-  homeowner_uid   VARCHAR(128) NOT NULL,
-  builder_uid     VARCHAR(128) NOT NULL,
-  intro_message   TEXT NULL,
-  source          ENUM('paid_unlock') NOT NULL DEFAULT 'paid_unlock',
-  homeowner_replied_at DATETIME NULL,
-  dismissed_at    DATETIME NULL,
-  created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-                  ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uq_inbox_pair (project_id, builder_uid),
-  KEY idx_inbox_homeowner (homeowner_uid, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS trade_shares (
@@ -998,4 +982,14 @@ CREATE TABLE IF NOT EXISTS recommendation_invites (
   createdAt      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uk_recommendation_invites_rec (recommendationId),
   INDEX idx_recommendation_invites_lastnudged (lastNudgedAt)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  match_id INT NOT NULL,
+  sender_uid VARCHAR(128) NOT NULL,
+  body TEXT NOT NULL,
+  attachments_json TEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_chat_match (match_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

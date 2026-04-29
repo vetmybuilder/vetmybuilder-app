@@ -4,6 +4,8 @@
  * Sessions persist across server restarts and are shared across shards.
  */
 
+const { syncSubscriptionCache } = require("../subscriptions/syncSubscriptionCache");
+
 const TAG = "[payments.mock]";
 
 function createId(prefix) {
@@ -183,6 +185,9 @@ function createMockPayments(opts = {}) {
          VALUES (?, ?, ?, 'active', ?, ?)`,
         [userId, tier.id, sessionId, now, periodEnd],
       );
+      // Keep tradesmen.subscription_status (denormalised cache) aligned
+      // with the live state so reads from either column agree.
+      await syncSubscriptionCache({ mysqlQuery, userId, log });
     }
 
     log.info?.(
@@ -200,12 +205,28 @@ function createMockPayments(opts = {}) {
 
   async function cancelSubscriptionAtPeriodEnd(stripeSubscriptionId) {
     if (mysqlQuery) {
+      // Look up the user before mutating so we know who to re-sync.
+      let userId = null;
+      try {
+        const rows = await mysqlQuery(
+          `SELECT user_id FROM builder_subscriptions
+            WHERE stripe_subscription_id = ?
+            LIMIT 1`,
+          [stripeSubscriptionId],
+        );
+        userId = rows?.[0]?.user_id || null;
+      } catch (e) {
+        log.warn?.(`${TAG} cancel: lookup failed: ${e?.message || e}`);
+      }
       await mysqlQuery(
         `UPDATE builder_subscriptions
             SET status = 'canceled', canceled_at = NOW()
           WHERE stripe_subscription_id = ?`,
         [stripeSubscriptionId],
       );
+      if (userId) {
+        await syncSubscriptionCache({ mysqlQuery, userId, log });
+      }
     }
     return { id: stripeSubscriptionId, cancelAtPeriodEnd: true };
   }

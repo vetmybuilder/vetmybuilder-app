@@ -11,6 +11,10 @@ import Step1Company, {
 import Step2Trades from "@/components/vendor-register/Step2Trades";
 import Step3Offers from "@/components/vendor-register/Step3Offers";
 
+import WizardTopBar from "@/components/wizard/WizardTopBar";
+import WizardProgressBar from "@/components/wizard/WizardProgressBar";
+import WizardNavBar from "@/components/wizard/WizardNavBar";
+
 import {
   normalizeAsUrl,
   normalizeFacebook,
@@ -274,43 +278,21 @@ function Inner() {
     });
   }, [profile]);
 
-  if (loading) {
-    return (
-      <div className="mx-auto max-w-4xl px-6 py-8 text-sm text-slate-500">
-        Loading…
-      </div>
-    );
-  }
-
-  if (!form || !profile) {
-    return (
-      <div className="mx-auto max-w-4xl px-6 py-8">
-        <p className="text-sm text-rose-600">
-          {err || "No trade profile found."}
-        </p>
-      </div>
-    );
-  }
-
-  const title = form.companyName || "Edit profile";
-
-  // simple setter helper
+  // ---- helpers (mirroring registration) ----
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => {
     setForm((prev) => (prev ? { ...prev, [k]: v } : prev));
   };
 
-  const goToProfile = () => {
-    router.push("/tradesman/profile");
-  };
-
-  // ---- helpers (mirroring registration) ----
   const addServiceAreaOutward = (raw: string) => {
+    if (!form) return;
     set("serviceAreas", addOutward(form.serviceAreas || [], raw));
   };
   const addServiceAreaBorough = (name: string, outwardCodes: string[]) => {
+    if (!form) return;
     set("serviceAreas", addBorough(form.serviceAreas || [], name, outwardCodes));
   };
   const removeServiceAreaAt = (index: number) => {
+    if (!form) return;
     set("serviceAreas", removeAt(form.serviceAreas || [], index));
   };
 
@@ -336,6 +318,7 @@ function Inner() {
 
   const onNextFromStep1 = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form) return;
     setErr(null);
     setEmailErr(null);
 
@@ -370,6 +353,7 @@ function Inner() {
 
   const onSaveChanges = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form) return;
     setErr(null);
     setBusy(true);
     setOkMsg(null);
@@ -499,7 +483,7 @@ function Inner() {
       }
 
       setTimeout(() => {
-        router.push("/tradesman/projects");
+        router.replace("/tradesman/account");
       }, 600);
     } catch (e: any) {
       const msg =
@@ -516,210 +500,226 @@ function Inner() {
     return onSaveChanges(e);
   };
 
+  // ---- wizard nav helpers ----
+  // Each step has a hidden <button type="submit"> inside its form.
+  // WizardNavBar's onNext programmatically clicks it, which fires the
+  // native form submit → the step handler above.
+  const triggerStepSubmit = () => {
+    const testId =
+      step === 1 ? "btn-next"
+      : step === 2 ? "btn-continue"
+      : "btn-continue";
+    const btn = document.querySelector<HTMLButtonElement>(
+      `[data-testid="${testId}"]`
+    );
+    btn?.click();
+  };
+
+  const handleBack = () => {
+    if (step === 1) {
+      // Pop the history entry so we land on whatever the user came from
+      // (typically /tradesman/account). Avoids the account <-> edit loop
+      // that router.push("/tradesman/account") used to create.
+      router.back();
+    } else {
+      setStep((s) => (s - 1) as Step);
+    }
+  };
+
+  const handleClose = () => {
+    router.back();
+  };
+
   // ===== RENDER =====
 
-  const STEPS = [
-    { n: 1 as Step, label: "Company details" },
-    { n: 2 as Step, label: "Trades & photos" },
-    { n: 3 as Step, label: "Offers & documents" },
-  ];
+  if (loading) {
+    return (
+      <main
+        className="fixed inset-0 bg-gray-50 flex flex-col"
+        style={{
+          paddingBottom: "env(safe-area-inset-bottom)",
+          fontFamily:
+            "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
+        }}
+      >
+        <div className="h-[env(safe-area-inset-top)]" />
+        <WizardTopBar
+          title="Edit profile"
+          onBack={handleBack}
+          onClose={handleClose}
+        />
+        <WizardProgressBar step={step} total={3} tone="emerald" />
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-sm text-zinc-400">Loading…</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!form || !profile) {
+    return (
+      <main
+        className="fixed inset-0 bg-gray-50 flex flex-col"
+        style={{
+          paddingBottom: "env(safe-area-inset-bottom)",
+          fontFamily:
+            "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
+        }}
+      >
+        <div className="h-[env(safe-area-inset-top)]" />
+        <WizardTopBar
+          title="Edit profile"
+          onBack={handleBack}
+          onClose={handleClose}
+        />
+        <div className="flex-1 flex items-center justify-center px-6">
+          <p className="text-sm text-rose-600">{err || "No trade profile found."}</p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <>
       <Head>
         <title>Edit profile • VetMyBuilder</title>
-        <style>{`body { background: #fafaf9 !important; }`}</style>
       </Head>
 
-      <div className="relative min-h-screen overflow-hidden bg-stone-50">
-        {/* Background bands */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
-          <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
-        </div>
+      <main
+        className="fixed inset-0 bg-gray-50 flex flex-col"
+        data-testid="trades-edit-profile-page"
+        style={{
+          paddingBottom: "env(safe-area-inset-bottom)",
+          fontFamily:
+            "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
+        }}
+      >
+        <div className="h-[env(safe-area-inset-top)]" />
 
-        <div className="relative z-10 flex min-h-screen flex-col lg:flex-row" data-testid="trades-edit-profile-page">
+        <WizardTopBar
+          title="Edit profile"
+          onBack={handleBack}
+          onClose={handleClose}
+        />
 
-          {/* ── Left sidebar ── */}
-          <aside className="shrink-0 lg:sticky lg:top-0 lg:h-screen lg:w-72 xl:w-80 bg-white/85 backdrop-blur-sm border-b border-zinc-200 lg:border-b-0 lg:border-r flex flex-col">
-            {/* scrollable top */}
-            <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-4 sm:py-8">
-              <button
-                type="button"
-                onClick={goToProfile}
-                className="inline-flex items-center gap-1.5 mb-6 text-xs font-medium text-zinc-400 hover:text-rose-500 transition-colors"
-              >
-                <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 shrink-0">
-                  <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd"/>
-                </svg>
-                Back to profile
-              </button>
-              <h1 className="text-2xl font-black text-zinc-900 mb-1.5">{title}</h1>
-              <p className="text-sm text-zinc-500 mb-10 leading-relaxed">
-                Update the key details project owners will see.
+        <WizardProgressBar step={step} total={3} tone="emerald" />
+
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto">
+          {err && (
+            <p className="mx-3 mt-3 text-sm text-red-500 font-medium whitespace-pre-line" role="alert">
+              {err}
+            </p>
+          )}
+
+          {tips.length > 0 && step === 1 && (
+            <div className="mx-3 mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-sm font-semibold text-amber-900">
+                Boost your profile — {tips.length} quick win{tips.length === 1 ? "" : "s"}
               </p>
-
-              {/* Vertical step indicator */}
-              <nav aria-label="Edit profile steps">
-                {STEPS.map((s, i) => {
-                  const done = step > s.n;
-                  const active = step === s.n;
-                  const isLast = i === STEPS.length - 1;
-                  return (
-                    <div key={s.n} className="flex items-start gap-3">
-                      <div className="flex flex-col items-center">
-                        <button
-                          type="button"
-                          onClick={() => setStep(s.n)}
-                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold transition-colors ${
-                            done ? "border-red-500 bg-red-500 text-white" :
-                            active ? "border-red-500 bg-white text-red-500" :
-                            "border-zinc-300 bg-white text-zinc-400"
-                          }`}
-                          aria-current={active ? "step" : undefined}
-                        >
-                          {done ? (
-                            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
-                          ) : s.n}
-                        </button>
-                        {!isLast && (
-                          <div className={`w-0.5 h-9 transition-colors ${done ? "bg-red-400" : "bg-zinc-200"}`} />
-                        )}
-                      </div>
-                      <div className={`pt-1.5 ${!isLast ? "pb-9" : ""}`}>
-                        <button
-                          type="button"
-                          onClick={() => setStep(s.n)}
-                          className={`text-sm font-medium transition-colors text-left ${
-                            active ? "text-zinc-900" : done ? "text-zinc-500" : "text-zinc-300"
-                          }`}
-                        >
-                          {s.label}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </nav>
+              <ul className="mt-1.5 space-y-1">
+                {tips.map((tip) => (
+                  <li key={tip.key} className="flex items-start gap-2 text-sm text-amber-800">
+                    <span className="mt-0.5 text-amber-500">•</span>
+                    {tip.message}
+                  </li>
+                ))}
+              </ul>
             </div>
+          )}
 
-          </aside>
+          {/* STEP 1 */}
+          {step === 1 && (
+            <Step1Company
+              form={form as unknown as Step1Form}
+              set={(k, v) => {
+                // we DO NOT allow changing companyName or email on edit
+                if (k === "companyName" || k === "email") return;
+                if (k === "email") setEmailErr(null);
+                // Step1Form keys are subset of FormState
+                // @ts-expect-error
+                set(k, v);
+              }}
+              addServiceAreaOutward={addServiceAreaOutward}
+              addServiceAreaBorough={addServiceAreaBorough}
+              removeServiceAreaAt={removeServiceAreaAt}
+              areaQuery={areaQuery}
+              setAreaQuery={setAreaQuery}
+              websiteInput={websiteInput}
+              setWebsiteInput={setWebsiteInput}
+              commitWebsite={commitWebsite}
+              onWebsiteKey={onWebsiteKey}
+              clearWebsite={clearWebsite}
+              canProceed={true}
+              onNext={onNextFromStep1}
+              userIsAuthed={true}
+              nextQuery={"?next=/tradesman/account"}
+              errors={{ email: emailErr }}
+              disableCompanyName
+              disableBusinessEmail
+            />
+          )}
 
-          {/* ── Right panel ── */}
-          <div className="flex-1 px-6 py-10 lg:px-10 xl:px-16 lg:py-12">
-            <div className="mx-auto max-w-2xl">
-              {okMsg && (
-                <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800">
-                  {okMsg}
-                </div>
-              )}
+          {/* STEP 2 */}
+          {step === 2 && (
+            <Step2Trades
+              tradeTypes={form.tradeTypes}
+              setTradeTypes={(v) => set("tradeTypes", v)}
+              workPhotos={form.workPhotos}
+              setWorkPhotos={(files) => set("workPhotos", files)}
+              onBack={() => setStep(1)}
+              onNext={onNextFromStep2}
+              err={err || undefined}
+              existingPhotoUrls={form.existingPhotoUrls}
+              profilePictureKey={form.profilePictureKey}
+              onProfilePictureKeyChange={(key) => set("profilePictureKey", key)}
+              onRemoveExistingPhoto={(url) =>
+                set(
+                  "existingPhotoUrls",
+                  form.existingPhotoUrls.filter((u) => u !== url)
+                )
+              }
+            />
+          )}
 
-              {err && (
-                <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 whitespace-pre-line">
-                  {err}
-                </div>
-              )}
+          {/* STEP 3 */}
+          {step === 3 && (
+            <Step3Offers
+              discountMin={form.discountMin}
+              discountMax={form.discountMax}
+              setDiscountMin={(v) => set("discountMin", v)}
+              setDiscountMax={(v) => set("discountMax", v)}
+              warranty={form.warranty}
+              setWarranty={(v) => set("warranty", v)}
+              onDocs={(e) => {
+                const files = Array.from(e.target.files || []);
+                const mapped: Doc[] = files.map((f) => ({
+                  name: f.name,
+                  size: f.size,
+                  type: f.type || "application/octet-stream",
+                }));
+                set("docs", mapped);
+              }}
+              onBack={() => setStep(2)}
+              onSaveDraft={onSubmitStep3}
+              busy={busy}
+              okMsg={okMsg || undefined}
+              err={err || undefined}
+              primaryLabel="Save changes"
+            />
+          )}
 
-              {tips.length > 0 && (
-                <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
-                  <p className="text-sm font-semibold text-amber-900">
-                    Boost your profile — {tips.length} quick win{tips.length === 1 ? "" : "s"}
-                  </p>
-                  <ul className="mt-2 space-y-1">
-                    {tips.map((tip) => (
-                      <li key={tip.key} className="flex items-start gap-2 text-sm text-amber-800">
-                        <span className="mt-0.5 text-amber-500">•</span>
-                        {tip.message}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-        {/* STEP 1 – same component as registration, but company/email disabled */}
-        {step === 1 && (
-          <Step1Company
-            form={form as unknown as Step1Form}
-            set={(k, v) => {
-              // we DO NOT allow changing companyName or email on edit
-              if (k === "companyName" || k === "email") return;
-              if (k === "email") setEmailErr(null);
-              // Step1Form keys are subset of FormState
-              // @ts-expect-error
-              set(k, v);
-            }}
-            addServiceAreaOutward={addServiceAreaOutward}
-            addServiceAreaBorough={addServiceAreaBorough}
-            removeServiceAreaAt={removeServiceAreaAt}
-            areaQuery={areaQuery}
-            setAreaQuery={setAreaQuery}
-            websiteInput={websiteInput}
-            setWebsiteInput={setWebsiteInput}
-            commitWebsite={commitWebsite}
-            onWebsiteKey={onWebsiteKey}
-            clearWebsite={clearWebsite}
-            canProceed={true}
-            onNext={onNextFromStep1}
-            userIsAuthed={true}
-            nextQuery={"?next=/tradesman/projects"}
-            errors={{ email: emailErr }}
-            disableCompanyName
-            disableBusinessEmail
-          />
-        )}
-
-        {/* STEP 2 – trades & photos */}
-        {step === 2 && (
-          <Step2Trades
-            tradeTypes={form.tradeTypes}
-            setTradeTypes={(v) => set("tradeTypes", v)}
-            workPhotos={form.workPhotos}
-            setWorkPhotos={(files) => set("workPhotos", files)}
-            onBack={() => setStep(1)}
-            onNext={onNextFromStep2}
-            err={err || undefined}
-            existingPhotoUrls={form.existingPhotoUrls}
-            profilePictureKey={form.profilePictureKey}
-            onProfilePictureKeyChange={(key) => set("profilePictureKey", key)}
-            onRemoveExistingPhoto={(url) =>
-              set(
-                "existingPhotoUrls",
-                form.existingPhotoUrls.filter((u) => u !== url)
-              )
-            }
-          />
-        )}
-
-        {/* STEP 3 – offers & docs (final save happens here) */}
-        {step === 3 && (
-          <Step3Offers
-            discountMin={form.discountMin}
-            discountMax={form.discountMax}
-            setDiscountMin={(v) => set("discountMin", v)}
-            setDiscountMax={(v) => set("discountMax", v)}
-            warranty={form.warranty}
-            setWarranty={(v) => set("warranty", v)}
-            onDocs={(e) => {
-              const files = Array.from(e.target.files || []);
-              const mapped: Doc[] = files.map((f) => ({
-                name: f.name,
-                size: f.size,
-                type: f.type || "application/octet-stream",
-              }));
-              set("docs", mapped);
-            }}
-            onBack={() => setStep(2)}
-            onSaveDraft={onSubmitStep3}
-            busy={busy}
-            okMsg={okMsg || undefined}
-            err={err || undefined}
-            primaryLabel="Save"
-          />
-        )}
-            </div>
-          </div>
+          <div className="h-4" />
         </div>
-      </div>
+
+        <WizardNavBar
+          onBack={step > 1 ? handleBack : undefined}
+          onNext={triggerStepSubmit}
+          nextLabel={step === 3 ? "Save changes" : "Next →"}
+          busy={busy}
+          tone="emerald"
+        />
+      </main>
     </>
   );
 }

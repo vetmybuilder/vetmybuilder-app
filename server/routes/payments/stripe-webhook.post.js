@@ -75,27 +75,70 @@ module.exports = (router, ctx) => {
             log.info({ uid, projectId, sessionId: session.id }, "Unlock activated via Stripe webhook");
             ctx.logActivity?.("payment.stripe.unlock", "info", uid, `Stripe unlock for project #${projectId}`);
 
-            // Insert inbox_messages row so the homeowner sees the profile share + builder intro.
+            // Create a matched swipe_interest row (source='paid_unlock') so the
+            // builder lands directly in /chat/:matchId. If the metadata carried
+            // an introMessage, post it as the first chat_messages row.
             try {
-              const introMessage = metadata.introMessage || "";
+              const introMessage = String(metadata.introMessage || "").trim();
               const pRows = await mysqlQuery(
                 `SELECT ownerUserId FROM projects WHERE id = ? LIMIT 1`,
                 [projectId]
               );
               const ownerUid = pRows?.[0]?.ownerUserId;
               if (ownerUid) {
-                await mysqlQuery(
-                  `INSERT INTO inbox_messages
-                     (project_id, homeowner_uid, builder_uid, intro_message, source)
-                   VALUES (?, ?, ?, ?, 'paid_unlock')
+                const result = await mysqlQuery(
+                  `INSERT INTO swipe_interest
+                     (project_id, homeowner_uid, builder_uid, source, status,
+                      builder_swiped_at, created_at)
+                   VALUES (?, ?, ?, 'paid_unlock', 'matched', NOW(), NOW())
                    ON DUPLICATE KEY UPDATE
-                     intro_message = VALUES(intro_message),
-                     updated_at = NOW()`,
-                  [projectId, ownerUid, uid, introMessage]
+                     status = 'matched',
+                     source = 'paid_unlock',
+                     builder_swiped_at = COALESCE(builder_swiped_at, NOW())`,
+                  [projectId, ownerUid, uid]
                 );
+
+                let matchId = result?.insertId || 0;
+                if (!matchId) {
+                  const m = await mysqlQuery(
+                    `SELECT id FROM swipe_interest
+                      WHERE project_id = ? AND builder_uid = ?
+                      LIMIT 1`,
+                    [projectId, uid]
+                  );
+                  matchId = m?.[0]?.id || 0;
+                }
+
+                if (matchId && introMessage) {
+                  await mysqlQuery(
+                    `INSERT INTO chat_messages (match_id, sender_uid, body, created_at)
+                     VALUES (?, ?, ?, NOW())`,
+                    [matchId, uid, introMessage]
+                  );
+                }
+
+                if (matchId) {
+                  try {
+                    const linkPath = `/chat/${matchId}`;
+                    const notifMessage = `New message - paid unlock`;
+                    await mysqlQuery(
+                      `INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
+                       VALUES (?, 'chat_message_new', ?, ?, ?, NOW())`,
+                      [ownerUid, notifMessage, projectId, linkPath]
+                    );
+                    ctx.broadcastNotification?.(ownerUid, {
+                      type: "chat_message_new",
+                      message: notifMessage,
+                      projectId,
+                      linkPath,
+                    });
+                  } catch (notifErr) {
+                    log.warn({ err: notifErr?.message }, "chat_message_new notification failed in stripe webhook");
+                  }
+                }
               }
-            } catch (inboxErr) {
-              log.warn({ err: inboxErr?.message }, "inbox_messages insert failed in stripe webhook");
+            } catch (matchErr) {
+              log.warn({ err: matchErr?.message }, "paid_unlock match/chat insert failed in stripe webhook");
             }
           } catch (err) {
             log.error({ err: err?.message }, "Failed to process unlock webhook");

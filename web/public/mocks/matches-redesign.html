@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <title>/matches redesign</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif; }
+    .phone {
+      width: 380px; height: 780px;
+      border-radius: 44px;
+      box-shadow: 0 30px 80px rgba(15,23,42,0.18), 0 0 0 10px #111 inset, 0 0 0 12px #333 inset;
+      overflow: hidden; position: relative; background: #f8fafc;
+    }
+    .phone-inner { position:absolute; inset: 12px; border-radius: 32px; overflow: hidden; background:#fff; }
+    .grad-emerald { background: linear-gradient(135deg,#10b981,#059669); }
+    .grad-violet  { background: linear-gradient(135deg,#6366f1,#4f46e5); }
+    .grad-amber   { background: linear-gradient(135deg,#fbbf24,#f59e0b); }
+    .grad-rose    { background: linear-gradient(135deg,#fda4af,#f43f5e); }
+    .grad-teal    { background: linear-gradient(135deg,#5eead4,#0d9488); }
+    .scroll-y { overflow-y: auto; }
+    .scroll-y::-webkit-scrollbar { width: 0; }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+  <header class="px-8 pt-10 pb-6 text-center">
+    <h1 class="text-2xl font-extrabold tracking-tight text-slate-900">/matches redesign · three options</h1>
+    <p class="mt-2 text-sm text-slate-500 max-w-3xl mx-auto">
+      Current page is too marketing-heavy and tabs read as a broken 2x2 grid. Each option is a tighter, list-first treatment.
+      Same data; different organising principle.
+    </p>
+  </header>
+
+  <main class="px-6 pb-16">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-10 justify-items-center">
+
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <!-- OPTION A — Conversation list (WhatsApp / iMessage style)         -->
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <section>
+        <div class="text-center mb-3">
+          <div class="text-xs uppercase font-extrabold tracking-widest text-emerald-700">Option A · my pick</div>
+          <h2 class="text-base font-extrabold text-slate-900">Conversation list</h2>
+          <p class="text-xs text-slate-500 max-w-[280px] mx-auto">WhatsApp/iMessage feel. One row per thread. Last message preview + time + unread dot. Filter pills replace tabs.</p>
+        </div>
+
+        <div class="phone">
+          <div class="phone-inner bg-white flex flex-col">
+            <!-- top bar -->
+            <div class="px-5 pt-3 pb-2 flex items-center justify-between border-b border-slate-100 shrink-0">
+              <div class="flex items-center gap-2">
+                <h1 class="text-[22px] font-extrabold tracking-tight text-slate-900">Messages</h1>
+                <span class="text-[12px] text-slate-400 font-bold">5</span>
+              </div>
+              <button class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-700">≡</button>
+            </div>
+
+            <!-- filter pills -->
+            <div class="px-3 pt-2 pb-2 flex gap-1.5 overflow-x-auto shrink-0" style="scrollbar-width: none;">
+              <button class="shrink-0 px-3 py-1 rounded-full bg-slate-900 text-white text-[11.5px] font-extrabold">All <span class="opacity-70 ml-0.5">5</span></button>
+              <button class="shrink-0 px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-[11.5px] font-bold">Matched <span class="text-slate-400 ml-0.5">2</span></button>
+              <button class="shrink-0 px-3 py-1 rounded-full bg-amber-50 text-amber-800 text-[11.5px] font-bold">⚡ Pitches <span class="text-amber-500 ml-0.5">1</span></button>
+              <button class="shrink-0 px-3 py-1 rounded-full bg-slate-100 text-slate-500 text-[11.5px] font-bold">Waiting <span class="text-slate-400 ml-0.5">2</span></button>
+            </div>
+
+            <div class="scroll-y flex-1">
+
+              <!-- ⚡ Paid pitch row -->
+              <div class="px-5 py-3 border-b border-slate-100 active:bg-slate-50 flex items-start gap-3">
+                <div class="relative w-12 h-12 shrink-0">
+                  <div class="w-12 h-12 rounded-full grad-emerald flex items-center justify-center text-white font-extrabold text-[15px]">EB</div>
+                  <span class="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full grad-amber text-white text-[9px] font-black flex items-center justify-center border-2 border-white" title="Paid pitch">⚡</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="text-[14.5px] font-extrabold text-slate-900 truncate">Elegant Building Services</div>
+                    <span class="text-[10.5px] text-amber-700 font-bold shrink-0">12:48</span>
+                  </div>
+                  <div class="text-[10.5px] text-amber-700 font-bold uppercase tracking-wider mt-0.5">⚡ Paid pitch · External wall insulation</div>
+                  <div class="flex items-start gap-2 mt-1">
+                    <p class="flex-1 text-[12.5px] text-slate-600 leading-snug truncate">
+                      Hi - I'm Adam from Elegant. We've done EWI on five 1930s terraces in E4…
+                    </p>
+                    <span class="w-2 h-2 rounded-full bg-indigo-500 shrink-0 mt-1.5" aria-label="Unread"></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Matched row -->
+              <div class="px-5 py-3 border-b border-slate-100 active:bg-slate-50 flex items-start gap-3">
+                <div class="relative w-12 h-12 shrink-0">
+                  <div class="w-12 h-12 rounded-full grad-violet flex items-center justify-center text-white font-extrabold text-[15px]">JD</div>
+                  <span class="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full grad-emerald text-white text-[10px] font-black flex items-center justify-center border-2 border-white" title="Matched">♥</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="text-[14.5px] font-extrabold text-slate-900 truncate">JD Kitchens</div>
+                    <span class="text-[10.5px] text-slate-400 font-semibold shrink-0">Yesterday</span>
+                  </div>
+                  <div class="text-[10.5px] text-emerald-700 font-bold uppercase tracking-wider mt-0.5">♥ Matched · Kitchen refresh</div>
+                  <p class="mt-1 text-[12.5px] text-slate-500 leading-snug truncate">
+                    You: Brilliant - Thursday 6 pm works perfectly.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Recommended (★) match row -->
+              <div class="px-5 py-3 border-b border-slate-100 active:bg-slate-50 flex items-start gap-3">
+                <div class="relative w-12 h-12 shrink-0">
+                  <div class="w-12 h-12 rounded-full grad-teal flex items-center justify-center text-white font-extrabold text-[15px]">MC</div>
+                  <span class="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full grad-violet text-white text-[10px] font-black flex items-center justify-center border-2 border-white" title="Recommended">★</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="text-[14.5px] font-extrabold text-slate-900 truncate">McAllister Bros</div>
+                    <span class="text-[10.5px] text-slate-400 font-semibold shrink-0">Tue</span>
+                  </div>
+                  <div class="text-[10.5px] text-indigo-700 font-bold uppercase tracking-wider mt-0.5">★ Recommended by Sarah · Loft conversion</div>
+                  <p class="mt-1 text-[12.5px] text-slate-500 leading-snug truncate">
+                    They: We can pop round Saturday morning if that suits.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Waiting row (no chat - greyed) -->
+              <div class="px-5 py-3 border-b border-slate-100 opacity-70 flex items-start gap-3">
+                <div class="relative w-12 h-12 shrink-0">
+                  <div class="w-12 h-12 rounded-full grad-rose flex items-center justify-center text-white font-extrabold text-[15px]">RB</div>
+                  <span class="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-slate-300 text-slate-700 text-[10px] font-black flex items-center justify-center border-2 border-white" title="Waiting">⏳</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="text-[14.5px] font-extrabold text-slate-900 truncate">RB Renovations</div>
+                    <span class="text-[10.5px] text-slate-400 font-semibold shrink-0">23 Apr</span>
+                  </div>
+                  <div class="text-[10.5px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">⏳ Pending your match · Bathroom remodel</div>
+                  <p class="mt-1 text-[12.5px] text-slate-400 leading-snug truncate italic">
+                    Builder swiped right - swipe back to start chatting.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Waiting row 2 -->
+              <div class="px-5 py-3 border-b border-slate-100 opacity-70 flex items-start gap-3">
+                <div class="relative w-12 h-12 shrink-0">
+                  <div class="w-12 h-12 rounded-full grad-emerald flex items-center justify-center text-white font-extrabold text-[15px]">SP</div>
+                  <span class="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-slate-300 text-slate-700 text-[10px] font-black flex items-center justify-center border-2 border-white">⏳</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="text-[14.5px] font-extrabold text-slate-900 truncate">Stone & Pollok</div>
+                    <span class="text-[10.5px] text-slate-400 font-semibold shrink-0">21 Apr</span>
+                  </div>
+                  <div class="text-[10.5px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">⏳ Awaiting builder · External wall insulation</div>
+                  <p class="mt-1 text-[12.5px] text-slate-400 leading-snug truncate italic">
+                    You swiped right - waiting for them to swipe back.
+                  </p>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <ul class="mt-3 text-[11.5px] text-slate-500 max-w-[280px] mx-auto space-y-1">
+          <li>+ Familiar (WhatsApp / iMessage)</li>
+          <li>+ Last message + unread dot tells you what's actionable</li>
+          <li>+ Tiny corner badge per row distinguishes paid / matched / recommended / waiting</li>
+        </ul>
+      </section>
+
+
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <!-- OPTION B — Sectioned list (no tabs)                              -->
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <section>
+        <div class="text-center mb-3">
+          <div class="text-xs uppercase font-extrabold tracking-widest text-violet-700">Option B</div>
+          <h2 class="text-base font-extrabold text-slate-900">Sectioned, no tabs</h2>
+          <p class="text-xs text-slate-500 max-w-[280px] mx-auto">All three relationship types on one scroll. Visually banded so paid pitches don't get lost in the matched section.</p>
+        </div>
+
+        <div class="phone">
+          <div class="phone-inner bg-white flex flex-col">
+            <div class="px-5 pt-3 pb-2 flex items-center justify-between border-b border-slate-100 shrink-0">
+              <h1 class="text-[22px] font-extrabold tracking-tight text-slate-900">Messages</h1>
+              <button class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-700">≡</button>
+            </div>
+
+            <div class="scroll-y flex-1">
+
+              <!-- ⚡ Pitches section (paid) - amber tint -->
+              <div class="px-5 pt-4 pb-1 flex items-center justify-between">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-amber-500">⚡</span>
+                  <span class="text-[11px] font-extrabold uppercase tracking-[0.08em] text-amber-700">Paid pitches</span>
+                </div>
+                <span class="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">1 new</span>
+              </div>
+              <div class="mx-5 mb-1 rounded-2xl border border-amber-200 bg-amber-50/30">
+                <div class="p-3 flex items-start gap-3">
+                  <div class="w-12 h-12 rounded-full grad-emerald flex items-center justify-center text-white font-extrabold text-[15px] shrink-0">EB</div>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between gap-2">
+                      <div class="text-[14px] font-extrabold text-slate-900 truncate">Elegant Building Services</div>
+                      <span class="text-[10.5px] text-amber-700 font-bold shrink-0">12:48</span>
+                    </div>
+                    <div class="text-[10.5px] text-amber-700 font-semibold mt-0.5">External wall insulation · paid £14.99</div>
+                    <p class="mt-1 text-[12.5px] text-slate-700 leading-snug truncate">
+                      Hi - I'm Adam from Elegant. We've done EWI on five 1930s terraces…
+                    </p>
+                  </div>
+                  <span class="w-2 h-2 rounded-full bg-indigo-500 shrink-0 mt-1.5" aria-label="Unread"></span>
+                </div>
+              </div>
+
+              <!-- ♥ Matched section -->
+              <div class="px-5 pt-5 pb-1 flex items-center justify-between">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-emerald-500">♥</span>
+                  <span class="text-[11px] font-extrabold uppercase tracking-[0.08em] text-emerald-700">Mutual matches</span>
+                </div>
+                <span class="text-[10px] font-bold text-slate-400">2</span>
+              </div>
+              <div class="mx-5 mb-1 rounded-2xl border border-emerald-100 bg-white">
+                <div class="p-3 flex items-start gap-3">
+                  <div class="w-12 h-12 rounded-full grad-violet flex items-center justify-center text-white font-extrabold text-[15px] shrink-0">JD</div>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between gap-2">
+                      <div class="text-[14px] font-extrabold text-slate-900 truncate">JD Kitchens</div>
+                      <span class="text-[10.5px] text-slate-400 font-semibold shrink-0">Yesterday</span>
+                    </div>
+                    <div class="text-[10.5px] text-emerald-700 font-semibold mt-0.5">Kitchen refresh · ✨ AI-matched</div>
+                    <p class="mt-1 text-[12.5px] text-slate-500 leading-snug truncate">
+                      You: Brilliant - Thursday 6 pm works perfectly.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div class="mx-5 mb-1 rounded-2xl border border-indigo-100 bg-gradient-to-br from-[#fafbff] via-white to-white">
+                <div class="p-3 flex items-start gap-3">
+                  <div class="w-12 h-12 rounded-full grad-teal flex items-center justify-center text-white font-extrabold text-[15px] shrink-0">MC</div>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between gap-2">
+                      <div class="text-[14px] font-extrabold text-slate-900 truncate">McAllister Bros</div>
+                      <span class="text-[10.5px] text-slate-400 font-semibold shrink-0">Tue</span>
+                    </div>
+                    <div class="text-[10.5px] text-indigo-700 font-semibold mt-0.5">Loft conversion · ★ Recommended by Sarah</div>
+                    <p class="mt-1 text-[12.5px] text-slate-500 leading-snug truncate">
+                      They: We can pop round Saturday morning.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ⏳ Waiting section -->
+              <div class="px-5 pt-5 pb-1 flex items-center justify-between">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-slate-400">⏳</span>
+                  <span class="text-[11px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Waiting on a match</span>
+                </div>
+                <span class="text-[10px] font-bold text-slate-400">2</span>
+              </div>
+              <div class="mx-5 mb-1 rounded-2xl border border-slate-200 bg-slate-50/40 opacity-80">
+                <div class="p-3 flex items-start gap-3">
+                  <div class="w-12 h-12 rounded-full grad-rose flex items-center justify-center text-white font-extrabold text-[15px] shrink-0">RB</div>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between gap-2">
+                      <div class="text-[14px] font-extrabold text-slate-900 truncate">RB Renovations</div>
+                      <span class="text-[10.5px] text-slate-400 font-semibold shrink-0">23 Apr</span>
+                    </div>
+                    <div class="text-[10.5px] text-slate-500 font-semibold mt-0.5">Bathroom remodel · pending your match</div>
+                    <p class="mt-1 text-[12.5px] text-slate-400 leading-snug truncate italic">
+                      Builder swiped right. Swipe back to start chatting.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div class="mx-5 mb-4 rounded-2xl border border-slate-200 bg-slate-50/40 opacity-80">
+                <div class="p-3 flex items-start gap-3">
+                  <div class="w-12 h-12 rounded-full grad-emerald flex items-center justify-center text-white font-extrabold text-[15px] shrink-0">SP</div>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between gap-2">
+                      <div class="text-[14px] font-extrabold text-slate-900 truncate">Stone & Pollok</div>
+                      <span class="text-[10.5px] text-slate-400 font-semibold shrink-0">21 Apr</span>
+                    </div>
+                    <div class="text-[10.5px] text-slate-500 font-semibold mt-0.5">External wall insulation · awaiting builder</div>
+                    <p class="mt-1 text-[12.5px] text-slate-400 leading-snug truncate italic">
+                      You swiped right. Waiting for them to swipe back.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <ul class="mt-3 text-[11.5px] text-slate-500 max-w-[280px] mx-auto space-y-1">
+          <li>+ See everything at once - no tab switching</li>
+          <li>+ Banding makes paid stand out without screaming</li>
+          <li>- Long lists scroll past quieter sections</li>
+        </ul>
+      </section>
+
+
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <!-- OPTION C — Tabbed but compact (current improved)                 -->
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <section>
+        <div class="text-center mb-3">
+          <div class="text-xs uppercase font-extrabold tracking-widest text-amber-700">Option C</div>
+          <h2 class="text-base font-extrabold text-slate-900">Compact tabs · keep it close</h2>
+          <p class="text-xs text-slate-500 max-w-[280px] mx-auto">Today's structure but trimmed: hero gone, tabs as a single horizontal pill row, cards as compact list rows with chat preview.</p>
+        </div>
+
+        <div class="phone">
+          <div class="phone-inner bg-white flex flex-col">
+            <div class="px-5 pt-3 pb-3 flex items-center justify-between border-b border-slate-100 shrink-0">
+              <div>
+                <h1 class="text-[20px] font-extrabold tracking-tight text-slate-900">Messages</h1>
+                <p class="text-[11px] text-slate-400">3 active conversations</p>
+              </div>
+              <button class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-700">≡</button>
+            </div>
+
+            <!-- segmented tab control -->
+            <div class="px-3 pt-3 pb-2 shrink-0">
+              <div class="bg-slate-100 rounded-xl p-1 flex">
+                <button class="flex-1 py-1.5 rounded-lg bg-white shadow-sm text-[12px] font-extrabold text-slate-900">
+                  Matched <span class="text-slate-400 ml-0.5">2</span>
+                </button>
+                <button class="flex-1 py-1.5 rounded-lg text-[12px] font-bold text-amber-700">
+                  ⚡ Pitches <span class="text-amber-500 ml-0.5">1</span>
+                </button>
+                <button class="flex-1 py-1.5 rounded-lg text-[12px] font-bold text-slate-500">
+                  Waiting <span class="text-slate-400 ml-0.5">2</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="scroll-y flex-1">
+
+              <div class="px-5 py-3 border-b border-slate-100 active:bg-slate-50 flex items-start gap-3">
+                <div class="relative w-11 h-11 shrink-0">
+                  <div class="w-11 h-11 rounded-full grad-violet flex items-center justify-center text-white font-extrabold text-[14px]">JD</div>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="text-[14px] font-extrabold text-slate-900 truncate">JD Kitchens</div>
+                    <span class="text-[10.5px] text-slate-400 font-semibold shrink-0">Yesterday</span>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-500">
+                    <span class="inline-flex items-center gap-1 text-slate-700 font-bold">
+                      <span class="text-amber-500">★</span> 4.7 <span class="text-slate-400">(89)</span>
+                    </span>
+                    <span class="text-emerald-600 font-bold">✓ Verified</span>
+                  </div>
+                  <p class="mt-1 text-[12.5px] text-slate-500 leading-snug truncate">
+                    You: Brilliant - Thursday 6 pm works perfectly.
+                  </p>
+                  <div class="text-[10px] mt-1 text-slate-400 font-semibold">Kitchen refresh · ✨ AI-matched</div>
+                </div>
+              </div>
+
+              <div class="px-5 py-3 border-b border-slate-100 active:bg-slate-50 flex items-start gap-3">
+                <div class="relative w-11 h-11 shrink-0">
+                  <div class="w-11 h-11 rounded-full grad-teal flex items-center justify-center text-white font-extrabold text-[14px]">MC</div>
+                  <span class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full grad-violet text-white text-[8px] font-black flex items-center justify-center border-2 border-white">★</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="text-[14px] font-extrabold text-slate-900 truncate">McAllister Bros</div>
+                    <span class="text-[10.5px] text-slate-400 font-semibold shrink-0">Tue</span>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-500">
+                    <span class="inline-flex items-center gap-1 text-slate-700 font-bold">
+                      <span class="text-amber-500">★</span> 4.9 <span class="text-slate-400">(146)</span>
+                    </span>
+                    <span class="text-emerald-600 font-bold">✓ Verified</span>
+                  </div>
+                  <p class="mt-1 text-[12.5px] text-slate-500 leading-snug truncate">
+                    They: We can pop round Saturday morning.
+                  </p>
+                  <div class="text-[10px] mt-1 text-indigo-700 font-bold">Loft conversion · ★ Recommended by Sarah</div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Empty-state hint when on Pitches -->
+            <div class="px-5 py-3 bg-amber-50/30 border-t border-amber-100 text-center">
+              <p class="text-[11px] text-amber-700 font-semibold">⚡ 1 new paid pitch waiting in the Pitches tab</p>
+            </div>
+          </div>
+        </div>
+
+        <ul class="mt-3 text-[11.5px] text-slate-500 max-w-[280px] mx-auto space-y-1">
+          <li>+ Smallest deviation from current code</li>
+          <li>+ Cross-tab nudge keeps paid pitches visible</li>
+          <li>- Three tabs always feel cramped on iPhone widths</li>
+        </ul>
+      </section>
+
+    </div>
+
+
+    <!-- Notes -->
+    <div class="max-w-3xl mx-auto mt-12 rounded-2xl bg-white border border-slate-200 p-5">
+      <h3 class="text-base font-extrabold text-slate-900">What I'd change regardless of which you pick</h3>
+      <ul class="mt-2 text-[13px] text-slate-600 leading-snug space-y-1.5">
+        <li><strong>Drop the "Your matches" hero.</strong> Title in the top bar is enough. Hero ate ~120px and didn't tell the user anything they didn't know.</li>
+        <li><strong>Page name → "Messages"</strong> (or "Inbox" but you just retired that word). Reflects what the page actually is now: a list of conversations.</li>
+        <li><strong>Show the last message preview + timestamp</strong> on every row. The current "Matched on area + trade" rationale is interesting once but burns space on every row.</li>
+        <li><strong>Unread dot</strong> next to the timestamp on rows with unread messages. Currently nothing tells you what's new.</li>
+        <li><strong>Tap-anywhere-on-row</strong> opens the chat. Drop the separate "Chat →" button - it's redundant.</li>
+        <li><strong>Single small badge</strong> per row indicates relationship: ⚡ paid · ♥ matched · ★ recommended · ⏳ waiting. Same vocabulary across tabs and sections.</li>
+      </ul>
+
+      <h3 class="mt-5 text-base font-extrabold text-slate-900">My pick: Option A</h3>
+      <p class="mt-2 text-[13px] text-slate-600 leading-snug">
+        Most familiar pattern (every messaging app on Earth uses it). One scroll, everything visible, filter pills give you the slice you want. Paid pitches get an amber pill in the filter row + an amber pill on the row itself - hard to miss without dominating the layout. Mutual matches and recommended sit in the same list because they're functionally the same (you can chat with both right now).
+      </p>
+
+      <h3 class="mt-5 text-base font-extrabold text-slate-900">Tell me which</h3>
+      <p class="mt-2 text-[13px] text-slate-600 leading-snug">A / B / C - or remix ("A but with B's section bands", etc).</p>
+    </div>
+  </main>
+</body>
+</html>

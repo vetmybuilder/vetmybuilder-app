@@ -4,6 +4,8 @@
 // Body: { builderUid, direction: 'right' | 'left', source: 'recommended' | 'subscribed' }
 // Upserts a swipe_interest row for the (project, builder) pair.
 
+const { fireMatchFormed } = require("../../lib/fireMatchFormed");
+
 module.exports = function mountSwipe(router, ctx) {
   const { auth, mysqlQuery } = ctx;
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
@@ -50,17 +52,48 @@ module.exports = function mountSwipe(router, ctx) {
 
     const status = direction === "right" ? "pending" : "declined_by_homeowner";
 
+    // Terminal states are sticky - see swipe.post.js for tradesman side
+    // for the symmetric race-condition fix.
     await mysqlQuery(
       `INSERT INTO swipe_interest
          (project_id, homeowner_uid, builder_uid, source, status,
           homeowner_swiped_at)
        VALUES (?, ?, ?, ?, ?, NOW())
        ON DUPLICATE KEY UPDATE
-         status = VALUES(status),
+         status = CASE
+           WHEN status IN ('declined_by_homeowner','declined_by_builder','matched','expired')
+             THEN status
+           ELSE VALUES(status)
+         END,
          source = VALUES(source),
          homeowner_swiped_at = VALUES(homeowner_swiped_at)`,
       [pid, uid, builderUid, source, status],
     );
+
+    // Match formation: only when current row state is 'pending' and the
+    // builder has actually swiped right (builder_swiped_at non-null AND
+    // status is pending - timestamp alone isn't enough since the builder
+    // could have left-swiped, which also sets the timestamp).
+    if (direction === "right") {
+      const rowCheck = await mysqlQuery(
+        `SELECT status, builder_swiped_at FROM swipe_interest
+          WHERE project_id = ? AND builder_uid = ?
+          LIMIT 1`,
+        [pid, builderUid],
+      );
+      const cur = rowCheck?.[0];
+      const builderSwiped = cur?.builder_swiped_at != null;
+      const isPending = cur?.status === "pending";
+      if (isPending && builderSwiped) {
+        await mysqlQuery(
+          `UPDATE swipe_interest SET status = 'matched'
+            WHERE project_id = ? AND builder_uid = ?`,
+          [pid, builderUid],
+        );
+        await fireMatchFormed({ projectId: pid, mysqlQuery, ctx });
+        return res.status(200).json({ ok: true, status: "matched", matched: true });
+      }
+    }
 
     return res.status(200).json({ ok: true, status });
   });

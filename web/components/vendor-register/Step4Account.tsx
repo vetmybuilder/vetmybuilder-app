@@ -112,7 +112,7 @@ export default function Step4Account({
         Already have an account?{" "}
         <a
           className="font-bold text-emerald-600 hover:text-emerald-700"
-          href={`/login?next=${encodeURIComponent("/tradesman/projects")}&email=${encodeURIComponent(email || "")}`}
+          href={`/login?next=${encodeURIComponent("/tradesman/jobs")}&email=${encodeURIComponent(email || "")}`}
           data-testid="link-vendor-signin-3"
         >
           Sign in

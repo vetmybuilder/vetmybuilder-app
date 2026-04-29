@@ -323,7 +323,7 @@ export default function HowItWorksTrades() {
                   Free to join. No commission. No bidding wars.
                 </p>
                 <Link
-                  href={user && isTradesman ? "/tradesman/projects" : "/tradesman/register-tradesmen"}
+                  href={user && isTradesman ? "/tradesman/jobs" : "/tradesman/register-tradesmen"}
                   className="inline-flex items-center justify-center gap-2 rounded-full bg-red-500 px-10 py-5 text-lg font-bold text-white hover:scale-[1.02] hover:shadow-xl transition-all"
                 >
                   {user && isTradesman ? "Browse jobs" : "Create your free profile"}

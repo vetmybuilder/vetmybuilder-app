@@ -16,6 +16,14 @@ type Props = {
   // flows that don't need it.
   requireConsent?: boolean;
   onConsentChange?: (consented: boolean) => void;
+  // Visual tone for the empty-state dropzone. "slate" (default) keeps the
+  // dashed neutral look used on homeowner pages. "emerald" matches the
+  // tradesman signup docs uploader: clean white card, centered uppercase
+  // eyebrow, big emerald "+ Upload" CTA.
+  tone?: "slate" | "emerald";
+  // When `tone="emerald"`, this is the small uppercase eyebrow shown
+  // inside the white card above the "+ Upload" CTA.
+  emeraldLabel?: string;
 };
 
 /**
@@ -43,6 +51,8 @@ export default function FileGridUploader({
   onProfilePictureKeyChange,
   requireConsent = true,
   onConsentChange,
+  tone = "slate",
+  emeraldLabel = "Project photos",
 }: Props) {
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -128,7 +138,11 @@ export default function FileGridUploader({
   return (
     <div>
       <div
-        className="rounded-2xl border-2 border-dashed border-slate-300 p-6 text-center hover:border-slate-400 transition-colors"
+        className={
+          tone === "emerald"
+            ? "rounded-xl bg-white px-4 py-5 text-center cursor-pointer"
+            : "rounded-2xl border-2 border-dashed border-slate-300 p-6 text-center hover:border-slate-400 transition-colors"
+        }
         onDrop={onDrop}
         onDragOver={onDragOver}
         role="button"
@@ -139,12 +153,28 @@ export default function FileGridUploader({
         }}
         aria-label="Upload photos"
       >
-        <p className="text-sm text-slate-600">
-          Drag & drop photos here, or <span className="underline">browse</span>
-        </p>
-        <p className="mt-1 text-xs text-slate-500">
-          Up to {maxFiles} files · Max {maxSizeMB}MB each
-        </p>
+        {tone === "emerald" ? (
+          <>
+            <div className="text-[10.5px] font-extrabold uppercase tracking-wider text-zinc-500">
+              {emeraldLabel}
+            </div>
+            <div className="mt-2 text-sm font-bold text-emerald-600">
+              + Upload
+            </div>
+            <p className="mt-1 text-[11px] text-zinc-400">
+              Up to {maxFiles} files · Max {maxSizeMB}MB each
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-slate-600">
+              Drag & drop photos here, or <span className="underline">browse</span>
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Up to {maxFiles} files · Max {maxSizeMB}MB each
+            </p>
+          </>
+        )}
         <input
           ref={inputRef}
           type="file"

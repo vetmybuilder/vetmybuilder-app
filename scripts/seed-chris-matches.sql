@@ -23,7 +23,7 @@ ON DUPLICATE KEY UPDATE
 INSERT INTO projects (name, type, location, description, propertyType, bedrooms, ownerUserId, status)
 SELECT
   'Kitchen extension with bifolds',
-  'extension',
+  'Rear/Side Return Extension',
   'E4 6AB',
   'Single-storey rear kitchen extension, ~20sqm, with aluminium bifold doors opening onto the garden. Looking for a builder who can handle structural, glazing and finishes.',
   'house',
@@ -40,7 +40,7 @@ WHERE NOT EXISTS (
 INSERT INTO projects (name, type, location, description, propertyType, bedrooms, ownerUserId, status)
 SELECT
   'Roof repair',
-  'repair',
+  'Roof Repair',
   'E17 4BN',
   'Slipped tiles and a small leak above the upstairs bedroom. Need a roofer to inspect, re-bed the ridge and replace missing tiles.',
   'house',

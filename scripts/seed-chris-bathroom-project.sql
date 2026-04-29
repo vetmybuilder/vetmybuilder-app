@@ -185,7 +185,7 @@ ON DUPLICATE KEY UPDATE
 INSERT INTO projects (name, type, location, description, propertyType, bedrooms, ownerUserId, status)
 SELECT
   'Bathroom fitting',
-  'bathroom',
+  'New Bathroom Installation',
   'E4 6AB',
   'Need a full bathroom refit — strip out, new tiling, walk-in shower, vanity unit, toilet swap. House is a 1930s semi, so plumbing is older. Looking for a bathroom specialist who can manage all trades.',
   'house',

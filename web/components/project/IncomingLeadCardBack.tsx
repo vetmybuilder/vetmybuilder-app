@@ -1,7 +1,7 @@
 // web/components/project/IncomingLeadCardBack.tsx
 //
-// Back face of an incoming-lead card on /tradesman/matches. Shown when the
-// tradesman taps (i) — the card flips on the Y axis to reveal the full
+// Back face of an incoming-lead card on /tradesman/leads. Shown when the
+// tradesman taps (i) - the card flips on the Y axis to reveal the full
 // project description plus a CTA to open the canonical project page.
 
 import React from "react";

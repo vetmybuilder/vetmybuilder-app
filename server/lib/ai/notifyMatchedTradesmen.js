@@ -20,6 +20,7 @@ async function notifyMatchedTradesmen({
   mysqlQuery,
   projectId,
   sseBroadcast,
+  broadcastEvent,
   projectName,
   projectType,
   projectLocation,
@@ -93,6 +94,17 @@ async function notifyMatchedTradesmen({
             message,
             projectId,
             linkPath,
+          });
+        }
+        // Also broadcast a typed "new_project_match" event so the tradesman
+        // deck/list can update in real-time without full page reload.
+        if (typeof broadcastEvent === "function") {
+          broadcastEvent(t.user_id, "new_project_match", {
+            projectId,
+            projectName: projectName || "",
+            projectType: projectType || "",
+            location: projectLocation || "",
+            recommendedTrades,
           });
         }
 

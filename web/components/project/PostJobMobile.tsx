@@ -6,6 +6,7 @@
 // optional overrides (submitLabel, onCancel, descriptionMax,
 // accessOptionsSingle, ...) to adapt the shell to the update flow.
 
+import { useState } from "react";
 import { useRouter } from "next/router";
 import { Search, X } from "lucide-react";
 import LocationField from "@/components/forms/LocationField";
@@ -120,6 +121,14 @@ export default function PostJobMobile(props: PostJobMobileProps) {
 
   const router = useRouter();
 
+  // Local typed query for the location field. Kept separate from
+  // `form.location` (the committed value) so a single keystroke doesn't
+  // immediately treat the typed text as a chosen location and dismiss
+  // the input. We only commit to form.location when LocationField fires
+  // an onChange with structured `meta` (i.e. user picked a suggestion
+  // or typed a complete postcode that resolved).
+  const [locationQuery, setLocationQuery] = useState("");
+
   const isLastStep = step === STEPS.length - 1;
   const canContinue = isStepValid(step) && !busy;
 
@@ -215,14 +224,60 @@ export default function PostJobMobile(props: PostJobMobileProps) {
 
           {currentStep.key === "location" && (
             <div className="text-left" data-testid="field-location-wrap-mobile">
-              <LocationField
-                id="np-location-mobile"
-                label=""
-                value={form.location}
-                onChange={(v) => set("location", v.toUpperCase())}
-                onDisplayChange={(display) => set("locationDisplay", display)}
-                dataTestId="field-location-mobile"
-              />
+              {/* Pill renders only after the user picks a suggestion (or
+                  types a full postcode that resolves). Typing alone keeps
+                  the input visible so single keystrokes don't dismiss it. */}
+              {form.location ? (
+                <div className="flex items-center gap-2 rounded-2xl border-2 border-indigo-500 bg-indigo-50 px-3 py-3">
+                  <span className="flex-1 text-[15px] font-bold text-indigo-700">
+                    {form.locationDisplay || form.location}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="Clear location"
+                    onClick={() => {
+                      set("location", "");
+                      set("locationDisplay", "");
+                      setLocationQuery("");
+                    }}
+                    className="w-7 h-7 rounded-full bg-white text-indigo-700 flex items-center justify-center font-bold"
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : (
+                <LocationField
+                  id="np-location-mobile"
+                  label=""
+                  value={locationQuery}
+                  onChange={(v, meta) => {
+                    setLocationQuery(v);
+                    // Only commit to form.location when a structured
+                    // selection arrives (suggestion clicked or full
+                    // postcode resolved).
+                    if (
+                      meta &&
+                      (meta.borough ||
+                        meta.outward ||
+                        meta.sector ||
+                        meta.postcode)
+                    ) {
+                      const display = meta.borough
+                        ? meta.borough.name
+                        : meta.outward ?? meta.sector ?? meta.postcode ?? v;
+                      const stored = display.toUpperCase();
+                      set("location", stored);
+                      set("locationDisplay", display);
+                      // Clear input so the pill takes over visually.
+                      setLocationQuery("");
+                    }
+                  }}
+                  onDisplayChange={(display) =>
+                    set("locationDisplay", display)
+                  }
+                  dataTestId="field-location-mobile"
+                />
+              )}
             </div>
           )}
 
@@ -345,8 +400,10 @@ export default function PostJobMobile(props: PostJobMobileProps) {
 
 /* ===== Per-step bodies ===== */
 
+// 16px font is the iOS Safari threshold below which the page auto-zooms
+// when the input gets focus. Keep this at >= 16 to suppress that behaviour.
 const SEARCH_INPUT_CLS =
-  "w-full bg-gray-100 rounded-xl pl-10 pr-4 py-3 text-[14px] text-gray-900 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-colors";
+  "w-full bg-gray-100 rounded-xl pl-10 pr-4 py-3 text-[16px] text-gray-900 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-colors";
 
 const TILE_BASE =
   "bg-white border rounded-2xl p-3 flex flex-col items-center justify-center text-center gap-2 transition-colors";
@@ -531,7 +588,7 @@ function SubtypesStep({
         </button>
         {otherEnabled && (
           <input
-            className="mt-3 w-full bg-gray-100 rounded-xl px-4 py-3 text-[14px] text-gray-900 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            className="mt-3 w-full bg-gray-100 rounded-xl px-4 py-3 text-[16px] text-gray-900 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
             placeholder="Describe another type of work"
             value={otherText}
             onChange={(e) => setOtherText(e.target.value)}
@@ -754,7 +811,7 @@ function DescriptionStep({
   return (
     <div>
       <textarea
-        className="w-full min-h-[180px] bg-gray-100 rounded-2xl p-4 text-[15px] text-gray-900 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-colors leading-relaxed"
+        className="w-full min-h-[180px] bg-gray-100 rounded-2xl p-4 text-[16px] text-gray-900 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-colors leading-relaxed"
         placeholder={
           placeholder ??
           "e.g. We have a 3-bed semi and want external wall insulation on the front and side walls..."

@@ -11,6 +11,37 @@ import { useRole } from "@/utils/useRole";
 import { trackLogin } from "@/utils/analytics";
 import OAuthSignInButton from "@/components/forms/OAuthSignInButton";
 
+/**
+ * Whitelist of dynamic-route patterns that target a specific resource by
+ * id/slug. Only paths matching one of these get to override the role
+ * default after sign-in via `?next=`. Everything else (top-level lists,
+ * dashboards, settings) drops the captured path so a fresh login lands on
+ * `/projects` for homeowners and `/tradesman/jobs` for tradespeople.
+ *
+ * Decision: the user wants a fresh-login experience that always opens the
+ * primary surface for their role, and only deep-links when there's a real
+ * reason to (a specific match, project, chat, builder, or public profile).
+ */
+const DEEP_ROUTE_PATTERNS: RegExp[] = [
+  /^\/match\/[^/?#]+/, // /match/<matchId>
+  /^\/projects\/\d+(\/|$)/, // /projects/<id> + sub-paths (edit, close, shortlist, recommend, recommendations/[recId])
+  /^\/chat\/[^/?#]+/, // /chat/<matchId>
+  /^\/builders\/\d+/, // /builders/<recId>
+  // Public tradesperson profile is /tradesman/<slugOrId>. Exclude every
+  // known authenticated tradesman list/dashboard path so they're treated
+  // as non-deep and fall back to the role default.
+  /^\/tradesman\/(?!jobs(\/|$|\?)|matches(\/|$|\?)|leads(\/|$|\?)|account(\/|$|\?)|profile(\/|$|\?)|featured(\/|$|\?)|register-tradesmen(\/|$|\?)|signup(\/|$|\?)|login(\/|$|\?)|billing(\/|$|\?))[^/?#]+/,
+];
+
+function isDeepRoute(path: string): boolean {
+  if (!path || !path.startsWith("/")) return false;
+  return DEEP_ROUTE_PATTERNS.some((re) => re.test(path));
+}
+
+function roleDefault(role: string | null | undefined): string {
+  return role === "tradesman" ? "/tradesman/jobs" : "/projects";
+}
+
 export default function Login() {
   const auth = initFirebase();
   const router = useRouter();
@@ -93,10 +124,10 @@ export default function Login() {
     // Tradesman-intent OAuth flow. The OAuthSignInButton stashes
     // "vmb:oauthIntent" before opening the provider popup; we read it here
     // once /api/me has resolved so role is known too. Decision tree:
-    //   - already a tradesman        → /tradesman/projects
+    //   - already a tradesman        → /tradesman/jobs
     //   - not yet a tradesman        → /tradesman/signup/complete
     //     (this page collects the minimum tradesman profile fields and
-    //      then bounces to /tradesman/projects)
+    //      then bounces to /tradesman/jobs)
     // Homeowner completion is irrelevant in this branch — a signed-in
     // user who intends to be a tradesman does not need a homeowner profile
     // to proceed.
@@ -111,7 +142,7 @@ export default function Login() {
       // through to the homeowner /signup/complete branch.
       redirectFiredRef.current = true;
       if (role === "tradesman") {
-        router.replace("/tradesman/projects");
+        router.replace("/tradesman/jobs");
       } else {
         router.replace("/tradesman/signup/complete");
       }
@@ -128,7 +159,11 @@ export default function Login() {
       typeof window !== "undefined"
         ? new URLSearchParams(window.location.search).get("next")
         : null;
-    if (nextParam && nextParam.startsWith("/")) {
+    // Only deep-link routes (e.g. /match/123, /projects/45, /chat/7) get
+    // to override the role default. Top-level surfaces like /matches,
+    // /tradesman/matches, /tradesman/jobs/list etc. drop through to the
+    // role-specific landing page below.
+    if (nextParam && isDeepRoute(nextParam)) {
       redirectFiredRef.current = true;
       router.replace(nextParam);
       return;
@@ -137,24 +172,20 @@ export default function Login() {
     // Honour a sessionStorage `vmb:oauthReturnTo` set by the OAuth sign-in
     // button. Dedicated key (NOT vmb:returnTo) so the auto-stash from
     // _app.tsx (which can hold values like "/?signedOut=1") can't poison
-    // the post-signup redirect target.
+    // the post-signup redirect target. Apply the same deep-route gate.
     let stashedReturnTo: string | null = null;
     try {
       stashedReturnTo = sessionStorage.getItem("vmb:oauthReturnTo");
       if (stashedReturnTo) sessionStorage.removeItem("vmb:oauthReturnTo");
     } catch {}
-    if (stashedReturnTo && stashedReturnTo.startsWith("/")) {
+    if (stashedReturnTo && isDeepRoute(stashedReturnTo)) {
       redirectFiredRef.current = true;
       router.replace(stashedReturnTo);
       return;
     }
 
     redirectFiredRef.current = true;
-    if (role === "tradesman") {
-      router.replace("/tradesman/projects");
-    } else {
-      router.replace("/projects");
-    }
+    router.replace(roleDefault(role));
   }, [authLoading, roleLoading, user, role, router, roleErrorMsg, profileComplete]);
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -164,16 +195,8 @@ export default function Login() {
     setErr(null);
 
     const nextParam = new URLSearchParams(window.location.search).get("next") ?? "";
-    const resolvedNextPath =
-      nextParam && nextParam.startsWith("/") ? nextParam : "/projects";
 
     try {
-      try {
-        sessionStorage.setItem("vmb:returnTo", resolvedNextPath);
-      } catch {
-        // ignore storage errors
-      }
-
       const credential = await signInWithEmailAndPassword(auth, email, password);
       trackLogin("email");
       const token = await credential.user.getIdToken();
@@ -206,6 +229,22 @@ export default function Login() {
         try { sessionStorage.setItem("vmb:expect-signout", "1"); } catch {}
         window.location.replace(`${window.location.pathname}?role_error=not-homeowner`);
         return;
+      }
+
+      // Resolve destination AFTER role detection so the role default lines
+      // up with the actual signed-in user. Only honour `?next=` when it
+      // points at a deep-link route (a specific match / project / chat /
+      // builder / public profile); top-level lists drop through to the
+      // role default.
+      const resolvedNextPath =
+        nextParam && isDeepRoute(nextParam)
+          ? nextParam
+          : roleDefault(isTradesman ? "tradesman" : "user");
+
+      try {
+        sessionStorage.setItem("vmb:returnTo", resolvedNextPath);
+      } catch {
+        // ignore storage errors
       }
 
       await router.replace(resolvedNextPath);

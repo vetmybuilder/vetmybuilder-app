@@ -35,6 +35,10 @@ function buildRouter(ctx) {
     const sse = require("./lib/sse");
     ctx.broadcastNotification = sse.broadcastNotification;
   }
+  if (!ctx.broadcastEvent) {
+    const sse = require("./lib/sse");
+    ctx.broadcastEvent = sse.broadcastEvent;
+  }
 
   // Uploads
   if (!ctx.upload || !ctx.UPLOAD_DIR) {
@@ -217,6 +221,33 @@ function buildRouter(ctx) {
   for (const sql of ensureTables) {
     ctx.mysqlQuery(sql).catch(() => {});
   }
+
+  // Self-healing schema patches for pre-existing dev/prod DBs.
+  // - chat_messages.attachments_json: image attachments on chat
+  // - swipe_interest.source: add 'paid_unlock' as a third source value
+  // Errors are logged but never block boot; the schema files (mysql_schema.sql
+  // + docker/mysql/init/02-schema.sql) carry the canonical column shape.
+  (async () => {
+    try {
+      await ctx.mysqlQuery(
+        `ALTER TABLE chat_messages ADD COLUMN attachments_json TEXT NULL`,
+      );
+    } catch (e) {
+      const msg = String(e?.message || "").toLowerCase();
+      if (!msg.includes("duplicate column") && !msg.includes("already exists")) {
+        // eslint-disable-next-line no-console
+        console.warn("[buildRouter] chat_messages.attachments_json ALTER:", e?.message);
+      }
+    }
+    try {
+      await ctx.mysqlQuery(
+        `ALTER TABLE swipe_interest MODIFY source ENUM('recommended', 'subscribed', 'paid_unlock') NOT NULL`,
+      );
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn("[buildRouter] swipe_interest.source MODIFY:", e?.message);
+    }
+  })();
   {
     const { makeLogActivity } = require("./lib/activityLog");
     ctx.logActivity = ctx.logActivity || makeLogActivity(ctx.mysqlQuery);
@@ -329,6 +360,7 @@ function buildRouter(ctx) {
   require("./routes/recommendations/verification.get")(router, ctx);
   require("./routes/recommendations/dismiss-from-deck.post")(router, ctx);
   require("./routes/recommendations/unfavourite.post")(router, ctx);
+  require("./routes/recommendations/inbox.get")(router, ctx);
 
   // ---------------- Companies House helpers ----------------
   require("./routes/verify-company.get")(router, ctx);
@@ -342,6 +374,7 @@ function buildRouter(ctx) {
 
   // ---------------- Tradesmen / Builders ----------------
   require("./routes/tradesmen/jobs.get")(router, ctx);
+  require("./routes/tradesmen/jobs/swipe.post")(router, ctx);
   require("./routes/tradesmen/me.get")(router, ctx);
   require("./routes/tradesmen/me.put")(router, ctx);
   require("./routes/tradesmen/join.post")(router, ctx);
@@ -364,15 +397,15 @@ function buildRouter(ctx) {
   require("./routes/projects/matches.get")(router, ctx);
   require("./routes/projects/match-rows.get.js")(router, ctx);
   require("./routes/projects/swipe.post")(router, ctx);
-  require("./routes/projects/inbox.get")(router, ctx);
-  require("./routes/inbox.get.js")(router, ctx);
-  require("./routes/projects/inbox-reply.post")(router, ctx);
-  require("./routes/projects/inbox-dismiss.post")(router, ctx);
-  require("./routes/projects/inbox-message.post")(router, ctx);
   require("./routes/swipe/respond.post")(router, ctx);
   require("./routes/matches/list.get.js")(router, ctx);
   require("./routes/matches/get.js")(router, ctx);
   require("./routes/tradesman/incoming-interest.get.js")(router, ctx);
+  require("./routes/tradesman/matches.get.js")(router, ctx);
+
+  // ---------------- Chat ----------------
+  require("./routes/chat/messages.get.js")(router, ctx);
+  require("./routes/chat/messages.post.js")(router, ctx);
 
   // ---------------- Plans ----------------
   require("./routes/meta/plans.get")(router, ctx);
@@ -403,6 +436,8 @@ function buildRouter(ctx) {
   require("./routes/admin/tradesman.status.post")(router, ctx);
   require("./routes/admin/tradesman.flag.post")(router, ctx);
   require("./routes/admin/subscriptions.post")(router, ctx);
+  require("./routes/admin/builder-subscriptions.post")(router, ctx);
+  require("./routes/admin/oneoff-unlocks.post")(router, ctx);
   require("./routes/admin/tradesmen.unlocks.post")(router, ctx);
   require("./routes/admin/subscription.sweep.post")(router, ctx);
   require("./routes/admin/subscriptions.cancel.post")(router, ctx);

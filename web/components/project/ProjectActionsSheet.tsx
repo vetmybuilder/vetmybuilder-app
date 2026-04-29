@@ -7,7 +7,7 @@
 // whether the work went ahead and a winner was picked).
 
 import { useRouter } from "next/router";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Pencil } from "lucide-react";
 
 import BottomSheet from "@/components/BottomSheet";
 
@@ -24,6 +24,11 @@ export default function ProjectActionsSheet({
   projectId,
 }: Props) {
   const router = useRouter();
+
+  function pickEdit() {
+    onClose();
+    router.push(`/projects/${projectId}/edit`);
+  }
 
   function pickClose() {
     onClose();
@@ -42,11 +47,30 @@ export default function ProjectActionsSheet({
           Project actions
         </h3>
         <p className="mt-1.5 mx-2 text-[13px] text-gray-500 leading-snug">
-          Close this project once the work is done or didn't go ahead.
+          Edit the details or close the project once the work is done.
         </p>
       </div>
 
       <div className="px-5 pt-4 flex flex-col gap-2.5">
+        <button
+          type="button"
+          onClick={pickEdit}
+          data-testid="project-actions-edit"
+          className="bg-white border-[1.5px] border-gray-200 rounded-[18px] p-4 flex items-center gap-3 active:scale-[0.99] transition-transform text-left"
+        >
+          <span className="w-11 h-11 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+            <Pencil className="w-5 h-5" />
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="block text-[15px] font-extrabold tracking-tight text-gray-900">
+              Edit project
+            </span>
+            <span className="block text-[12.5px] text-gray-500 leading-snug">
+              Change details, description, photos.
+            </span>
+          </span>
+        </button>
+
         <button
           type="button"
           onClick={pickClose}
@@ -74,7 +98,7 @@ export default function ProjectActionsSheet({
         <button
           type="button"
           onClick={onClose}
-          className="w-full py-3.5 rounded-2xl bg-white border-[1.5px] border-gray-200 text-gray-600 font-bold text-[14px]"
+          className="w-full py-3.5 rounded-2xl bg-red-500 hover:bg-red-600 text-white font-bold text-[14px] transition-colors"
         >
           Cancel
         </button>

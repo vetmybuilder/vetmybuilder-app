@@ -7,6 +7,7 @@ import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
 import { Home, User, Wrench } from "lucide-react";
 import { useMobileMenu } from "@/utils/mobileMenu";
+import BrandWordmark from "@/components/BrandWordmark";
 
 const NotificationsBell = dynamic(
   () => import("@/components/NotificationsBell"),
@@ -355,9 +356,7 @@ export default function SiteHeader() {
                   >
                     <Home className="h-4 w-4" />
                   </span>
-                  <span className="text-2xl font-black tracking-tight text-zinc-900">
-                    Vet<span className="text-red-500" style={{ fontFamily: "'Caveat', cursive", fontWeight: 700, fontSize: "130%", WebkitTextStroke: "0.5px currentColor" }}>My</span>Builder
-                  </span>
+                  <BrandWordmark tone={isTrades || isTradesPage ? "emerald" : "indigo"} />
                   {(isTrades || isTradesPage) && (
                     <span className="ml-1.5 text-sm font-semibold text-red-500">Trade</span>
                   )}
@@ -433,6 +432,9 @@ export default function SiteHeader() {
                       <div ref={menuRef} id="trades-menu" role="menu" className="absolute right-0 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg ring-1 ring-black/5">
                         <Link role="menuitem" href="/tradesman/matches" className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => setOpenMenu(null)}>
                           Matches
+                        </Link>
+                        <Link role="menuitem" href="/tradesman/leads" className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => setOpenMenu(null)}>
+                          Incoming interest
                         </Link>
                         <Link role="menuitem" href="/tradesman/profile/edit" className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => setOpenMenu(null)}>
                           Manage profile
@@ -523,9 +525,7 @@ export default function SiteHeader() {
                 >
                   <Home className="h-4 w-4" />
                 </span>
-                <span className="text-2xl font-black tracking-tight text-zinc-900">
-                  Vet<span className="text-red-500" style={{ fontFamily: "'Caveat', cursive", fontWeight: 700, fontSize: "130%", WebkitTextStroke: "0.5px currentColor" }}>My</span>Builder
-                </span>
+                <BrandWordmark tone={isTrades || isTradesPage ? "emerald" : "indigo"} />
                 {(isTrades || isTradesPage) && (
                   <span className="ml-1.5 text-sm font-semibold text-red-500">Trade</span>
                 )}
@@ -655,6 +655,16 @@ export default function SiteHeader() {
                         data-testid="menu-matches"
                       >
                         Matches
+                      </Link>
+                      <Link
+                        role="menuitem"
+                        href="/tradesman/leads"
+                        className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
+                        onClick={() => setOpenMenu(null)}
+                        aria-label="Incoming interest"
+                        data-testid="menu-leads"
+                      >
+                        Incoming interest
                       </Link>
                       <Link
                         role="menuitem"

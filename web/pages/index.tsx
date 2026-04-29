@@ -332,7 +332,7 @@ export default function Home() {
 
                 <div className="mt-10 flex flex-col sm:flex-row gap-4">
                   <Link
-                    href={isTrades ? "/tradesman/projects" : user ? "/projects/new" : "/signup"}
+                    href={isTrades ? "/tradesman/jobs" : user ? "/projects/new" : "/signup"}
                     onClick={!user ? rememberReturnTo : undefined}
                     className="inline-flex items-center justify-center gap-2 rounded-full bg-red-500 px-8 py-4 text-lg font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/30 hover:scale-[1.02] transition-all"
                     data-testid="hero-cta"
@@ -500,7 +500,7 @@ export default function Home() {
             {/* CTA */}
             <div className="mt-16 text-center">
               <Link
-                href={isTrades ? "/tradesman/projects" : user ? "/projects/new" : "/signup"}
+                href={isTrades ? "/tradesman/jobs" : user ? "/projects/new" : "/signup"}
                 onClick={!user ? rememberReturnTo : undefined}
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-zinc-900 px-10 py-5 text-lg font-bold text-white hover:scale-[1.02] hover:shadow-xl transition-all"
               >

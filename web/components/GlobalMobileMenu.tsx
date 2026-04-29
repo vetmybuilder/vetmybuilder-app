@@ -6,12 +6,12 @@
 //   const { openMenu } = useMobileMenu();
 //
 // This component owns the auth-derived props (isTrades / firstName /
-// tradeCta / inboxUnreadCount / onLogout / onGoHome / onGoProjectsTab /
-// onGoAccount / onPostJob). The logic mirrors what SiteHeader used to
-// compute when it owned the menu inline; lifting it here means bare
-// routes (/projects, /matches, /inbox, /match/[matchId],
-// /projects/[id], /projects/[id]/shortlist) can now open the menu
-// without their own duplicate prop computation.
+// tradeCta / onLogout / onGoHome / onGoProjectsTab / onGoAccount). The
+// logic mirrors what SiteHeader used to compute when it owned the menu
+// inline; lifting it here means bare routes (/projects, /matches,
+// /match/[matchId], /projects/[id], /projects/[id]/shortlist,
+// /chat/[matchId]) can now open the menu without their own duplicate
+// prop computation.
 import * as React from "react";
 import { useRouter } from "next/router";
 import { useAuth, signOutUser } from "@/utils/auth";
@@ -112,33 +112,10 @@ export default function GlobalMobileMenu() {
     };
   }, [displayUser, api]);
 
-  // Inbox unread count — homeowners only.
-  const [inboxUnreadCount, setInboxUnreadCount] = React.useState(0);
-  React.useEffect(() => {
-    if (!displayUser || isTrades) {
-      setInboxUnreadCount(0);
-      return;
-    }
-    let alive = true;
-    api
-      .get("/api/inbox")
-      .then((r) => {
-        if (!alive) return;
-        const n = Number(r?.data?.unreadCount);
-        setInboxUnreadCount(Number.isFinite(n) ? n : 0);
-      })
-      .catch(() => {
-        /* default to 0 */
-      });
-    return () => {
-      alive = false;
-    };
-  }, [displayUser, isTrades, api]);
-
   const tradeCta = React.useMemo(() => {
     if (!isTrades) return null;
     return {
-      href: "/tradesman/projects",
+      href: "/tradesman/jobs",
       label: company || "Trades",
       testid: "btn-trades-projects",
     };
@@ -171,8 +148,6 @@ export default function GlobalMobileMenu() {
         )
       }
       onGoAccount={() => router.push("/account")}
-      onPostJob={() => router.push("/projects/new")}
-      inboxUnreadCount={inboxUnreadCount}
     />
   );
 }

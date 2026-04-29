@@ -206,7 +206,7 @@ function ShortlistGate() {
     try {
       if (sessionStorage.getItem("vmb:isTradesman") === "1") {
         setStatus("redirect");
-        router.replace("/tradesman/projects");
+        router.replace("/tradesman/jobs");
         return;
       }
     } catch {}
@@ -218,7 +218,7 @@ function ShortlistGate() {
         if (isT) {
           sessionStorage.setItem("vmb:isTradesman", "1");
           setStatus("redirect");
-          router.replace("/tradesman/projects");
+          router.replace("/tradesman/jobs");
           return;
         }
       } catch {}

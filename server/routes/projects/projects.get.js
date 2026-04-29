@@ -99,10 +99,138 @@ module.exports = (router, ctx) => {
       return { sql, params };
     };
 
-    const respond = (rows, total) => {
+    // Enrich rows with priceBandEstimate + urgency (parsed from
+    // classificationJson) and answersJson (already in p.* but needs
+    // parsing). Mutates rows in-place.
+    function enrichPricing(rows) {
+      for (const r of rows) {
+        // Parse answers_json if it came back as a string
+        if (r.answers_json != null) {
+          try {
+            r.answersJson = typeof r.answers_json === "string"
+              ? JSON.parse(r.answers_json)
+              : r.answers_json;
+          } catch {
+            r.answersJson = null;
+          }
+        } else {
+          r.answersJson = null;
+        }
+
+        // Parse classificationJson (present when JOIN was used)
+        if (r.classificationJson != null) {
+          try {
+            const parsed = typeof r.classificationJson === "string"
+              ? JSON.parse(r.classificationJson)
+              : r.classificationJson;
+            r.priceBandEstimate = parsed?.price_band_estimate
+              ? String(parsed.price_band_estimate).trim() || null
+              : null;
+            r.urgency = parsed?.urgency
+              ? String(parsed.urgency).trim() || null
+              : null;
+          } catch {
+            r.priceBandEstimate = null;
+            r.urgency = null;
+          }
+          delete r.classificationJson;
+        } else {
+          r.priceBandEstimate = null;
+          r.urgency = null;
+        }
+      }
+    }
+
+    // Attach a `recommendationCount` field to each row so homeowner cards
+    // can show "★ N recommendations". One batched query per response,
+    // counting only recommendations the homeowner hasn't dismissed or
+    // unfavourited (matching what the Recommendations inbox surfaces).
+    async function attachRecommendationCounts(rows) {
+      if (!rows || rows.length === 0) return;
+      const ids = rows.map((r) => r.id).filter((id) => Number.isFinite(id));
+      if (ids.length === 0) {
+        for (const r of rows) r.recommendationCount = 0;
+        return;
+      }
+      try {
+        const placeholders = ids.map(() => "?").join(",");
+        const countRows = await mysqlQuery(
+          `SELECT projectId, COUNT(*) AS c
+             FROM recommendations
+            WHERE projectId IN (${placeholders})
+              AND deck_dismissed_at IS NULL
+              AND homeowner_unfavourited_at IS NULL
+            GROUP BY projectId`,
+          ids,
+        );
+        const byId = new Map(
+          countRows.map((row) => [Number(row.projectId), Number(row.c) || 0]),
+        );
+        for (const r of rows) {
+          r.recommendationCount = byId.get(Number(r.id)) || 0;
+        }
+      } catch (e) {
+        log.warn?.("[projects.get] recommendation count enrichment failed", {
+          error: e?.message,
+        });
+        for (const r of rows) r.recommendationCount = 0;
+      }
+    }
+
+    // Attach `matchedCount` and `waitingCount` so the homeowner card can
+    // surface live activity ("1 matched · 2 waiting"). matched = both sides
+    // swiped right; waiting = pending bilateral swipe (one side has acted).
+    // Final-state rows (declined / expired) don't count - they're not
+    // actionable for the homeowner.
+    async function attachMatchCounts(rows) {
+      if (!rows || rows.length === 0) return;
+      const ids = rows.map((r) => r.id).filter((id) => Number.isFinite(id));
+      if (ids.length === 0) {
+        for (const r of rows) {
+          r.matchedCount = 0;
+          r.waitingCount = 0;
+        }
+        return;
+      }
+      try {
+        const placeholders = ids.map(() => "?").join(",");
+        const countRows = await mysqlQuery(
+          `SELECT project_id, status, COUNT(*) AS c
+             FROM swipe_interest
+            WHERE project_id IN (${placeholders})
+              AND status IN ('matched', 'pending')
+            GROUP BY project_id, status`,
+          ids,
+        );
+        const matchedById = new Map();
+        const waitingById = new Map();
+        for (const row of countRows) {
+          const pid = Number(row.project_id);
+          const c = Number(row.c) || 0;
+          if (row.status === "matched") matchedById.set(pid, c);
+          else if (row.status === "pending") waitingById.set(pid, c);
+        }
+        for (const r of rows) {
+          r.matchedCount = matchedById.get(Number(r.id)) || 0;
+          r.waitingCount = waitingById.get(Number(r.id)) || 0;
+        }
+      } catch (e) {
+        log.warn?.("[projects.get] match count enrichment failed", {
+          error: e?.message,
+        });
+        for (const r of rows) {
+          r.matchedCount = 0;
+          r.waitingCount = 0;
+        }
+      }
+    }
+
+    const respond = async (rows, total) => {
       rows.forEach((r) => {
         r.location = formatPostcode(r.location);
       });
+      await attachRecommendationCounts(rows);
+      await attachMatchCounts(rows);
       log.info?.("[projects.get] end");
       return res.json({ items: rows, total, page, pageSize });
     };
@@ -195,16 +323,21 @@ module.exports = (router, ctx) => {
         const rows = await mysqlQuery(
           `SELECT p.*,
                   CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite,
-                  0 AS canFavourite
+                  0 AS canFavourite,
+                  cls.structured AS classificationJson
            FROM projects p
            LEFT JOIN project_closures pc ON pc.projectId = p.id
            LEFT JOIN favourites f ON f.projectId = p.id AND f.userId = ?
+           LEFT JOIN project_classifications cls ON cls.id = (
+             SELECT MAX(id) FROM project_classifications WHERE project_id = p.id
+           )
            ${sql}
            ORDER BY p.${sort} ${order}
            LIMIT ${pageSize} OFFSET ${offset}`,
           [uid, ...params]
         );
 
+        enrichPricing(rows);
         return respond(rows, total);
       }
 
@@ -417,14 +550,19 @@ module.exports = (router, ctx) => {
         const rows = await mysqlQuery(
           `SELECT p.*,
                   0 AS isFavourite,
-                  1 AS canFavourite
+                  1 AS canFavourite,
+                  cls.structured AS classificationJson
            FROM projects p
+           LEFT JOIN project_classifications cls ON cls.id = (
+             SELECT MAX(id) FROM project_classifications WHERE project_id = p.id
+           )
            ${sql}
            ORDER BY p.${sort} ${order}
            LIMIT ${pageSize} OFFSET ${offset}`,
           params
         );
 
+        enrichPricing(rows);
         return respond(rows, total);
       }
 
@@ -447,9 +585,13 @@ module.exports = (router, ctx) => {
         const rows = await mysqlQuery(
           `SELECT p.*,
                   1 AS isFavourite,
-                  0 AS canFavourite
+                  0 AS canFavourite,
+                  cls.structured AS classificationJson
            FROM favourites f
            JOIN projects p ON p.id = f.projectId
+           LEFT JOIN project_classifications cls ON cls.id = (
+             SELECT MAX(id) FROM project_classifications WHERE project_id = p.id
+           )
            WHERE f.userId = ?
            ${whereSQL}
            ORDER BY p.${sort} ${order}
@@ -457,6 +599,7 @@ module.exports = (router, ctx) => {
           [uid, ...whereParams]
         );
 
+        enrichPricing(rows);
         return respond(rows, total);
       }
 
@@ -486,11 +629,15 @@ module.exports = (router, ctx) => {
         const rows = await mysqlQuery(
           `SELECT p.*,
                   CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite,
-                  0 AS canFavourite
+                  0 AS canFavourite,
+                  cls.structured AS classificationJson
            FROM recommendations r
            JOIN projects p ON p.id = r.projectId
            LEFT JOIN favourites f
            ON f.projectId = p.id AND f.userId = ?
+           LEFT JOIN project_classifications cls ON cls.id = (
+             SELECT MAX(id) FROM project_classifications WHERE project_id = p.id
+           )
            WHERE r.recommenderUserId = ?
            ${whereSql}
            ORDER BY p.${sort} ${order}
@@ -498,6 +645,7 @@ module.exports = (router, ctx) => {
           [uid, uid, ...extraParams, ...whereParams]
         );
 
+        enrichPricing(rows);
         return respond(rows, total);
       }
 

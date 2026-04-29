@@ -530,7 +530,7 @@ export default function TradesmanRegisterV2Page() {
         sessionStorage.removeItem(DRAFT_KEY);
       } catch {}
       try {
-        sessionStorage.setItem("vmb:returnTo", "/tradesman/projects");
+        sessionStorage.setItem("vmb:returnTo", "/tradesman/jobs");
       } catch {}
 
       // Prime the role cache for the upcoming full-page reload.
@@ -565,7 +565,7 @@ export default function TradesmanRegisterV2Page() {
           sessionStorage.setItem("vmb:showPushPrompt", "1");
         }
       } catch {}
-      router.replace("/tradesman/projects");
+      router.replace("/tradesman/jobs");
     } catch (e: any) {
       const msg =
         e?.response?.data?.error ||
@@ -661,7 +661,7 @@ export default function TradesmanRegisterV2Page() {
                 canProceed={true}
                 onNext={onNextFromStep1}
                 userIsAuthed={!!user || !!authLoading}
-                nextQuery={"?next=/tradesman/projects"}
+                nextQuery={"?next=/tradesman/jobs"}
                 errors={step1Errors}
                 betaRequired={betaRequired}
                 betaCode={form.betaCode}

@@ -16,7 +16,7 @@ const { query: mysqlQuery } = require("./lib/mysql");
 const { authMiddleware } = require("./lib/middleware");
 
 // Shared libs used by routes
-const { clientsByUser, sseSend } = require("./lib/sse");
+const { clientsByUser, sseSend, broadcastEvent } = require("./lib/sse");
 const { upload, UPLOAD_DIR } = require("./lib/uploads");
 const { extractLocationTokens } = require("./lib/location");
 const { RecSchema } = require("./lib/validation");
@@ -320,6 +320,7 @@ const router = buildRouter({
   wipeAllRows,
   clientsByUser,
   sseSend,
+  broadcastEvent,
   notifyUsers,
   fetch: global.fetch,
   upload,

@@ -111,18 +111,6 @@ describe("GET /api/matches", () => {
         source: "subscribed",
         status: "matched",
       }),
-      baseRow({
-        matchId: 13,
-        projectId: 4,
-        projectTitle: "Roof repair",
-        builderUid: "lead_qqq",
-        companyName: "Pimlico Plumbers",
-        photoUrl: null,
-        tradesCsv: null,
-        yearsTrading: 0,
-        source: "subscribed",
-        status: "declined_by_builder",
-      }),
     ]);
 
     const req = { user: { uid: "ho1" } };
@@ -135,7 +123,7 @@ describe("GET /api/matches", () => {
     await handler(req, res);
 
     const out = res.json.mock.calls[0][0];
-    expect(out.matches).toHaveLength(3);
+    expect(out.matches).toHaveLength(2);
 
     expect(out.matches[0]).toMatchObject({
       matchId: "11",
@@ -155,7 +143,7 @@ describe("GET /api/matches", () => {
       likesCount: 24,
       winsCount: 7,
       source: "recommended",
-      status: "new",
+      status: "waiting",
       whyMatch: "Recommended · Free to contact",
     });
     // googleRating should be a number, not a string
@@ -171,19 +159,11 @@ describe("GET /api/matches", () => {
       chVerified: false,
       chMatchScore: null,
       source: "ai-matched",
-      status: "contacted",
+      status: "matched",
       whyMatch: "Matched on area + trade",
       trades: ["Roofing"],
     });
 
-    expect(out.matches[2]).toMatchObject({
-      matchId: "13",
-      photoUrl: null,
-      source: "ai-matched",
-      status: "archived",
-      whyMatch: "Matched on area + trade",
-      trades: [],
-    });
     // builderFirstName is gone
     expect(out.matches[0]).not.toHaveProperty("builderFirstName");
   });
@@ -227,14 +207,15 @@ describe("GET /api/matches", () => {
     expect(out.matches[2].chVerified).toBe(false);
   });
 
-  it("derives counts correctly across buckets", async () => {
+  it("derives counts correctly across waiting and matched buckets", async () => {
+    // The SQL filter excludes declined_by_builder / expired upstream so
+    // those statuses never reach mapStatus in production. Mock only the
+    // statuses the DB would return.
     mockMatchRows(mysqlQuery, [
       baseRow({ matchId: 1, source: "recommended", status: "pending" }),
       baseRow({ matchId: 2, source: "subscribed", status: "pending" }),
       baseRow({ matchId: 3, source: "recommended", status: "matched" }),
       baseRow({ matchId: 4, source: "subscribed", status: "matched" }),
-      baseRow({ matchId: 5, source: "subscribed", status: "declined_by_builder" }),
-      baseRow({ matchId: 6, source: "subscribed", status: "expired" }),
     ]);
 
     const req = { user: { uid: "ho1" } };
@@ -247,7 +228,7 @@ describe("GET /api/matches", () => {
     await handler(req, res);
 
     const out = res.json.mock.calls[0][0];
-    expect(out.counts).toEqual({ new: 2, contacted: 2, archived: 2 });
+    expect(out.counts).toEqual({ matched: 2, waiting: 2 });
   });
 
   it("returns 401 when req.user?.uid is missing", async () => {

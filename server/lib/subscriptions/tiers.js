@@ -7,21 +7,21 @@
 const TIERS = Object.freeze({
   week_1: Object.freeze({
     id: "week_1",
-    displayName: "1 week",
+    displayName: "7-day",
     amountPence: 399,
     interval: "week",
     intervalCount: 1,
   }),
   week_2: Object.freeze({
     id: "week_2",
-    displayName: "2 weeks",
-    amountPence: 599,
+    displayName: "14-day",
+    amountPence: 699,
     interval: "week",
     intervalCount: 2,
   }),
   month_1: Object.freeze({
     id: "month_1",
-    displayName: "1 month",
+    displayName: "30-day",
     amountPence: 999,
     interval: "month",
     intervalCount: 1,

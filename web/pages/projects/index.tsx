@@ -16,6 +16,7 @@ import ProjectFilters, {
 } from "@/components/filters/ProjectFilters";
 import FavouriteTradesmenSection from "@/components/tradesmen/FavouriteTradesmenSection";
 import FavouritesListMobile from "@/components/tradesmen/FavouritesListMobile";
+import RecommendationsListMobile from "@/components/tradesmen/RecommendationsListMobile";
 import PushPrompt from "@/components/PushPrompt";
 import { Home, Heart, FolderOpen, Shield, Building2, Star, Lightbulb, ChevronDown, ChevronUp, Plus, CheckCircle2 } from "lucide-react";
 import Layout from "@/components/Layout";
@@ -64,6 +65,8 @@ type Project = {
   _hasClosurePhotos?: 0 | 1 | boolean;
   hasClosurePhotos?: boolean | number | null;
   closurePhotoCount?: number | null;
+  priceBandEstimate?: string | null;
+  answersJson?: Record<string, any> | null;
 };
 
 type ApiList = {
@@ -73,8 +76,8 @@ type ApiList = {
   pageSize: number;
 };
 
-// local tab type so we can include "favourites"
-type OwnerTab = ProjectTabKey | "favourites";
+// local tab type so we can include "favourites" and "recommendations"
+type OwnerTab = ProjectTabKey | "favourites" | "recommendations";
 
 /* ===== Outer page: auth + gate ===== */
 export default function ProjectsPage() {
@@ -107,7 +110,7 @@ function ProjectsGate() {
     try {
       if (sessionStorage.getItem("vmb:isTradesman") === "1") {
         setStatus("redirect");
-        router.replace("/tradesman/projects");
+        router.replace("/tradesman/jobs");
         return;
       }
     } catch {}
@@ -125,7 +128,7 @@ function ProjectsGate() {
             sessionStorage.setItem("vmb:isTradesman", "1");
           } catch {}
           setStatus("redirect");
-          router.replace("/tradesman/projects");
+          router.replace("/tradesman/jobs");
           return;
         }
       } catch {
@@ -224,6 +227,11 @@ const TAB_META: Partial<
     desc: "Tradespeople you've saved",
     color: "bg-indigo-500",
   },
+  recommendations: {
+    title: "Recommendations",
+    desc: "Tradespeople recommended for your jobs",
+    color: "bg-amber-500",
+  },
 };
 
 function ProjectsTabHelperBanner({ tab }: { tab: OwnerTab }) {
@@ -284,6 +292,7 @@ function OwnerProjects() {
       "completedCommunity",
       "recommended",
       "favourites",
+      "recommendations",
     ];
     const next: OwnerTab = allowed.includes(t as OwnerTab)
       ? (t as OwnerTab)
@@ -315,7 +324,7 @@ function OwnerProjects() {
   const [order, setOrder] = useState<"asc" | "desc">("desc");
 
   // Progressive loading
-  const PAGE_SIZE = 12;
+  const PAGE_SIZE = 10;
   const [items, setItems] = useState<Project[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -348,8 +357,8 @@ function OwnerProjects() {
   async function fetchPage(p = 1) {
     const mySeq = ++reqSeqRef.current;
 
-    // Never fetch projects for favourites tab
-    if (tab === "favourites") {
+    // Never fetch projects for non-projects tabs
+    if (tab === "favourites" || tab === "recommendations") {
       setLoading(false);
       setItems([]);
       setTotal(0);
@@ -408,8 +417,8 @@ function OwnerProjects() {
   useEffect(() => {
     if (authLoading || !user || !router.isReady) return;
 
-    if (tab === "favourites") {
-      // No project fetch for favourites tab
+    if (tab === "favourites" || tab === "recommendations") {
+      // No project fetch for favourites / recommendations tabs
       reqSeqRef.current += 1; // invalidate in-flight
       setLoading(false);
       setItems([]);
@@ -465,9 +474,27 @@ function OwnerProjects() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, userUid, router.isReady, items.length]);
 
+  // Live: when a recommendation lands for one of the homeowner's projects,
+  // refetch page 1 so the recommendationCount pill on the matching card
+  // updates without a manual reload. GlobalSseDispatcher (mounted in
+  // _app.tsx) re-broadcasts every server notification as `vmb:notification`.
+  useEffect(() => {
+    if (tab === "favourites" || tab === "recommendations") return;
+    function onNotif(e: Event) {
+      const data = (e as CustomEvent).detail || {};
+      const t = String(data?.type || "").toLowerCase();
+      if (t === "recommendation_new") {
+        fetchPage(1);
+      }
+    }
+    window.addEventListener("vmb:notification", onNotif);
+    return () => window.removeEventListener("vmb:notification", onNotif);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, inputsKey]);
+
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    if (tab === "favourites") return; // no infinite scroll for favourites
+    if (tab === "favourites" || tab === "recommendations") return; // no infinite scroll for favourites / recommendations
     if (!sentinelRef.current) return;
 
     const io = new IntersectionObserver(
@@ -578,6 +605,14 @@ function OwnerProjects() {
       bedrooms: p.bedrooms ?? null,
       status: tab === "completed" ? "completed" : (p.status ?? null),
       coverPhotoUrl: p.coverPhotoUrl ?? null,
+      priceBandEstimate: p.priceBandEstimate ?? null,
+      answersJson: p.answersJson ?? null,
+      recommendationCount: (p as any).recommendationCount ?? null,
+      description: (p as any).description ?? null,
+      createdAt: p.createdAt ?? null,
+      urgency: (p as any).urgency ?? null,
+      matchedCount: (p as any).matchedCount ?? null,
+      waitingCount: (p as any).waitingCount ?? null,
     }));
   }, [items, tab]);
 
@@ -587,6 +622,8 @@ function OwnerProjects() {
       <div className="md:hidden">
         {tab === "favourites" ? (
           <FavouritesListMobile />
+        ) : tab === "recommendations" ? (
+          <RecommendationsListMobile />
         ) : (
           <ProjectsListMobile
             tab={mobileTab}
@@ -600,6 +637,8 @@ function OwnerProjects() {
             items={mobileItems}
             loading={loading}
             counts={mobileCounts}
+            hasMore={hasMore}
+            onLoadMore={() => fetchPage(page + 1)}
           />
         )}
         {showPushPrompt && (
@@ -681,7 +720,7 @@ function OwnerProjects() {
         </section>
 
         {/* Filters row */}
-        {tab !== "favourites" && (
+        {tab !== "favourites" && tab !== "recommendations" && (
           <div className="mb-6">
             <ProjectFilters
               typeOptions={typeOptions}
@@ -700,6 +739,10 @@ function OwnerProjects() {
         {tab === "favourites" ? (
           <div data-testid="projects-list-favourites">
             <FavouriteTradesmenSection />
+          </div>
+        ) : tab === "recommendations" ? (
+          <div data-testid="projects-list-recommendations">
+            <RecommendationsListMobile />
           </div>
         ) : (
           <div data-testid="projects-list">

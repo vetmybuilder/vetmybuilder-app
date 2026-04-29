@@ -12,14 +12,18 @@ const {
   ageInDays,
 } = require("../../lib/recommendationScoring");
 
+// Map raw swipe_interest.status to a UI bucket the matches page renders.
+// The SQL filter limits rows to ('pending', 'matched'), so this only ever
+// returns one of "waiting" or "matched".
 function mapStatus(dbStatus) {
-  if (dbStatus === "pending") return "new";
-  if (dbStatus === "matched") return "contacted";
-  return "archived";
+  if (dbStatus === "matched") return "matched";
+  return "waiting";
 }
 
 function mapSource(dbSource) {
-  return dbSource === "recommended" ? "recommended" : "ai-matched";
+  if (dbSource === "recommended") return "recommended";
+  if (dbSource === "paid_unlock") return "paid-unlock";
+  return "ai-matched";
 }
 
 function splitTrades(csv) {
@@ -88,11 +92,15 @@ module.exports = function mountGlobalMatches(router, ctx) {
           GROUP BY companyNumber
        ) cv ON cv.companyNumber = t.company_number
        WHERE p.ownerUserId = ?
-         -- Exclude builders the homeowner explicitly swiped left on. Their
-         -- "no" is final and shouldn't crowd the matches page (Tinder-style:
-         -- left-swipes vanish from the user's view).
-         AND (si.status IS NULL OR si.status <> 'declined_by_homeowner')
-       ORDER BY si.homeowner_swiped_at DESC, si.created_at DESC`,
+         -- Only surface actionable rows: pending (waiting on the other
+         -- side to swipe) or matched (both swiped right, contact revealed).
+         -- declined_by_homeowner is the homeowner's own "no" - hidden
+         -- Tinder-style. declined_by_builder and expired don't need a
+         -- list view: there's nothing the homeowner can do with them.
+         AND si.status IN ('pending', 'matched')
+       ORDER BY si.status = 'matched' DESC,
+                si.homeowner_swiped_at DESC,
+                si.created_at DESC`,
       [uid],
     );
 
@@ -362,6 +370,90 @@ module.exports = function mountGlobalMatches(router, ctx) {
       }
     }
 
+    // Pull last-message + unread counts for every match in this list. Two
+    // batched queries keep this O(1) round-trips. If chat_messages is missing
+    // or the queries throw (older test mocks, schema not yet migrated),
+    // gracefully degrade to lastMessage:null + unreadCount:0 - the page still
+    // renders, just without preview text.
+    const matchIds = (rows || [])
+      .map((r) => Number(r.matchId))
+      .filter((n) => Number.isFinite(n));
+    const lastMessageByMatch = new Map();
+    const unreadByMatch = new Map();
+    if (matchIds.length > 0) {
+      const ph = matchIds.map(() => "?").join(",");
+
+      // Latest message per match_id. We pull the full per-match list ordered
+      // by created_at DESC and pick the first row we see for each match_id.
+      try {
+        const msgRows = await mysqlQuery(
+          `SELECT match_id AS matchId,
+                  body,
+                  attachments_json AS attachmentsJson,
+                  sender_uid AS senderUid,
+                  created_at AS createdAt
+             FROM chat_messages
+            WHERE match_id IN (${ph})
+            ORDER BY match_id, created_at DESC, id DESC`,
+          matchIds,
+        );
+        for (const m of msgRows || []) {
+          const id = Number(m.matchId);
+          if (lastMessageByMatch.has(id)) continue;
+          let attachmentCount = 0;
+          if (m.attachmentsJson) {
+            try {
+              const parsed = JSON.parse(m.attachmentsJson);
+              if (Array.isArray(parsed)) attachmentCount = parsed.length;
+            } catch {
+              attachmentCount = 0;
+            }
+          }
+          lastMessageByMatch.set(id, {
+            body: m.body == null ? null : String(m.body),
+            attachmentCount,
+            senderUid: m.senderUid ? String(m.senderUid) : null,
+            createdAt:
+              m.createdAt instanceof Date
+                ? m.createdAt.toISOString()
+                : m.createdAt
+                  ? String(m.createdAt)
+                  : null,
+          });
+        }
+      } catch {
+        // chat_messages absent / mock didn't supply - leave map empty.
+      }
+
+      // Unread = messages from the OTHER party newer than the most recent
+      // message I (the viewer) sent. If I've never sent anything, every
+      // message from the other side counts as unread. If they haven't sent
+      // anything, unread is 0. Single batched correlated count below.
+      try {
+        const unreadRows = await mysqlQuery(
+          `SELECT cm.match_id AS matchId, COUNT(*) AS c
+             FROM chat_messages cm
+             LEFT JOIN (
+               SELECT match_id, MAX(created_at) AS myLast
+                 FROM chat_messages
+                WHERE sender_uid = ?
+                  AND match_id IN (${ph})
+                GROUP BY match_id
+             ) mine ON mine.match_id = cm.match_id
+            WHERE cm.match_id IN (${ph})
+              AND cm.sender_uid <> ?
+              AND (mine.myLast IS NULL OR cm.created_at > mine.myLast)
+            GROUP BY cm.match_id`,
+          [uid, ...matchIds, ...matchIds, uid],
+        );
+        for (const r of unreadRows || []) {
+          unreadByMatch.set(Number(r.matchId), Number(r.c) || 0);
+        }
+      } catch {
+        // chat_messages absent / mock didn't supply - leave map empty.
+      }
+    }
+
     const matches = (rows || []).map((r) => {
       const status = mapStatus(r.status);
       const source = mapSource(r.source);
@@ -404,6 +496,10 @@ module.exports = function mountGlobalMatches(router, ctx) {
           ? recScore
           : Math.max(0, Number(r.profileScore) || 0);
 
+      const matchKey = Number(r.matchId);
+      const lastMessage = lastMessageByMatch.get(matchKey) || null;
+      const unreadCount = unreadByMatch.get(matchKey) || 0;
+
       return {
         matchId: String(r.matchId),
         projectId: String(r.projectId),
@@ -424,10 +520,12 @@ module.exports = function mountGlobalMatches(router, ctx) {
         source,
         status,
         whyMatch,
+        lastMessage,
+        unreadCount,
       };
     });
 
-    const counts = { new: 0, contacted: 0, archived: 0 };
+    const counts = { matched: 0, waiting: 0 };
     for (const m of matches) {
       counts[m.status] = (counts[m.status] || 0) + 1;
     }

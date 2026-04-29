@@ -1,330 +1,262 @@
+// web/pages/tradesman/jobs.tsx
+//
+// Mobile-first swipe deck for builders — /tradesman/jobs.
+// Bare layout (no site chrome); mirrors the homeowner swipe deck at /projects/[id].
 import Head from "next/head";
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/router";
 import { useApi } from "@/utils/api";
-import { useAuth } from "@/utils/auth";
+import { useMobileMenu } from "@/utils/mobileMenu";
+import { useSseEvent } from "@/utils/useSseEvent";
 import TradesmanOnly from "@/components/TradesmanOnly";
+import JobSwipeDeck from "@/components/tradesmen/JobSwipeDeck";
+import type { JobCardData } from "@/components/tradesmen/JobCard";
 
-/** Simple helper to load role/profile */
-async function getTradesMe(api: any) {
-  try {
-    const { data } = await api.get("/api/tradesmen/me");
-    return {
-      role: String(data?.role || "user").toLowerCase(),
-      hasProfile: !!data?.profile,
-    };
-  } catch {
-    return { role: "user", hasProfile: false };
-  }
+/** Map a raw deck item + builder trade_types → JobCardData */
+function toCardData(item: any, builderTrades: string[]): JobCardData {
+  const projectTrades: string[] =
+    Array.isArray(item.trades) && item.trades.length > 0
+      ? item.trades
+      : item.type
+        ? [item.type]
+        : [];
+
+  const builderSet = new Set(
+    builderTrades.map((t: string) => t.toLowerCase()),
+  );
+  const matchedTrades = projectTrades.filter((t) =>
+    builderSet.has(t.toLowerCase()),
+  );
+
+  return {
+    projectId: item.projectId ?? item.id,
+    title: item.title ?? item.name ?? "Untitled job",
+    type: item.type ?? "",
+    location: item.location ?? "",
+    distanceMiles: item.distanceMiles ?? undefined,
+    budget: item.budget ?? null,
+    propertyType: item.propertyType ?? null,
+    bedrooms: item.bedrooms ?? null,
+    description: item.description ?? "",
+    trades: projectTrades,
+    matchedTrades,
+    ownerFirstName: item.ownerFirstName ?? null,
+    postedAt: item.postedAt ?? item.createdAt ?? new Date().toISOString(),
+    aiScore: item.aiScore ?? null,
+    priceBandEstimate: item.priceBandEstimate ?? null,
+    answersJson: item.answersJson ?? null,
+    aiSummary: item.aiSummary ?? null,
+    aiKeyConcerns: Array.isArray(item.aiKeyConcerns) ? item.aiKeyConcerns : [],
+  };
 }
 
-type Job = {
-  id: number;
-  name: string;
-  type: string;
-  location: string;
-  description?: string;
-  propertyType?: string;
-  bedrooms?: number;
-  createdAt: string;
-};
-
-export default function TradesJobsPage() {
+export default function TradesmanJobsDeckPage() {
   const api = useApi();
-  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const { openMenu } = useMobileMenu();
 
-  // query state
-  const [near, setNear] = useState<string>("");
-  const [items, setItems] = useState<Job[]>([]);
-  const [total, setTotal] = useState(0);
-  const [offset, setOffset] = useState(0);
-  const [limit, setLimit] = useState(10);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [jobs, setJobs] = useState<JobCardData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  // remaining count after swipes (starts at jobs.length, decremented per swipe)
+  const [remaining, setRemaining] = useState(0);
+  // True when there are zero live projects in the system at all - drives a
+  // different empty-state copy than the regular "you've swiped everything".
+  const [noJobsYet, setNoJobsYet] = useState(false);
+  // Toast message for new project arrivals
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Keep builder trades in a ref for SSE callback (avoid stale closure)
+  const builderTradesRef = useRef<string[]>([]);
 
-  // role/prof gate
-  const [isTrades, setIsTrades] = useState<boolean | null>(null);
-
-  // Kick non-trades to register (soft gate)
   useEffect(() => {
+    if (!router.isReady) return;
     let alive = true;
     (async () => {
-      if (authLoading) return;
-      if (!user) {
-        setIsTrades(false);
-        return;
+      setLoading(true);
+      setError(null);
+      try {
+        // Fetch builder's own trades so we can compute matchedTrades per card
+        const [deckRes, meRes] = await Promise.allSettled([
+          api.get("/api/tradesmen/jobs?mode=deck&limit=20"),
+          api.get("/api/tradesmen/me"),
+        ]);
+
+        if (!alive) return;
+
+        const deckData =
+          deckRes.status === "fulfilled" ? deckRes.value.data : null;
+        const meData =
+          meRes.status === "fulfilled" ? meRes.value.data : null;
+
+        // Builder's trade_types — MySQL stores it as a CSV string;
+        // /api/tradesmen/me may return it as that string, an array, or null.
+        const rawTrades =
+          meData?.profile?.trade_types ??
+          meData?.trade_types ??
+          meData?.tradeTypes ??
+          null;
+        const builderTrades: string[] = Array.isArray(rawTrades)
+          ? rawTrades.map(String)
+          : typeof rawTrades === "string"
+            ? rawTrades.split(",").map((s) => s.trim()).filter(Boolean)
+            : [];
+
+        const rawItems: any[] = deckData?.items ?? deckData?.jobs ?? [];
+        let cards = rawItems.map((item) => toCardData(item, builderTrades));
+
+        // Honour ?focus=N from /tradesman/jobs/list — when the builder taps
+        // "Open in deck →" on a list row we want THAT job on top of the
+        // stack, not whatever the AI score order happens to put first.
+        const focusRaw = router.query.focus;
+        const focusId = Number(
+          Array.isArray(focusRaw) ? focusRaw[0] : focusRaw,
+        );
+        if (Number.isFinite(focusId) && focusId > 0) {
+          const idx = cards.findIndex((c) => c.projectId === focusId);
+          if (idx > 0) {
+            cards = [cards[idx], ...cards.slice(0, idx), ...cards.slice(idx + 1)];
+          }
+        }
+
+        setJobs(cards);
+        setRemaining(cards.length);
+        setNoJobsYet((deckData?.totalLive ?? 0) === 0);
+        builderTradesRef.current = builderTrades;
+      } catch (e: any) {
+        if (alive) {
+          setError(
+            e?.response?.data?.error || e?.message || "Failed to load jobs",
+          );
+        }
+      } finally {
+        if (alive) setLoading(false);
       }
-      const me = await getTradesMe(api);
-      if (!alive) return;
-      setIsTrades(me.role === "tradesman" || me.hasProfile);
     })();
     return () => {
       alive = false;
     };
-  }, [user, authLoading, api]);
-
-  const page = useMemo(() => Math.floor(offset / limit) + 1, [offset, limit]);
-  const pages = useMemo(
-    () => (total > 0 ? Math.ceil(total / Math.max(1, limit)) : 1),
-    [total, limit]
-  );
-
-  async function load() {
-    setBusy(true);
-    setErr(null);
-    try {
-      const q = new URLSearchParams();
-      if (near.trim()) q.set("near", near.trim());
-      q.set("limit", String(limit));
-      q.set("offset", String(offset));
-
-      const { data } = await api.get(`/api/tradesmen/jobs?${q.toString()}`);
-      setItems(data?.items || []);
-      setTotal(Number.isFinite(data?.total) ? data.total : 0);
-    } catch (e: any) {
-      setErr(e?.response?.data?.error || e?.message || "Failed to load jobs");
-      setItems([]);
-      setTotal(0);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  useEffect(() => {
-    if (isTrades) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isTrades, near, limit, offset]);
+  }, [router.isReady, router.query.focus]);
 
-  function resetAndSearch(e: React.FormEvent) {
-    e.preventDefault();
-    setOffset(0);
-    load();
-  }
+  // ── SSE: listen for new project matches ────────────────────────────────────
+  useSseEvent<{ projectId: number; projectName: string; projectType: string; location: string }>(
+    "new_project_match",
+    async (data) => {
+      // Refetch the deck and merge in any new cards
+      try {
+        const deckRes = await api.get("/api/tradesmen/jobs?mode=deck&limit=20");
+        const rawItems: any[] = deckRes.data?.items ?? deckRes.data?.jobs ?? [];
+        const newCards = rawItems.map((item) =>
+          toCardData(item, builderTradesRef.current),
+        );
+        setJobs((prev) => {
+          const existingIds = new Set(prev.map((c) => c.projectId));
+          const added = newCards.filter((c) => !existingIds.has(c.projectId));
+          if (added.length === 0) return prev;
+          // Append new cards at the BOTTOM of the stack so the current top is undisturbed
+          return [...prev, ...added];
+        });
+      } catch {
+        /* ignore refetch errors */
+      }
+      // Show toast
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      setToast(`New job posted — just added`);
+      toastTimerRef.current = setTimeout(() => setToast(null), 4000);
+    },
+    !loading,
+  );
 
   return (
     <TradesmanOnly>
       <>
-      <Head>
-        <title>Jobs for Trades • Vetmybuilder</title>
-      </Head>
+        <Head>
+          <title>Jobs near you • VetMyBuilder</title>
+        </Head>
 
-      <div
-        className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-4"
-        data-testid="trades-jobs-page"
-      >
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold">Jobs</h1>
-          <Link
-            href="/tradesman/profile"
-            className="text-sm text-indigo-700 hover:text-indigo-600"
-            data-testid="link-edit-trades-profile"
-            title="Edit trades profile"
-          >
-            Edit trades profile
-          </Link>
-        </div>
+        <main
+          className="fixed inset-0 overflow-y-auto"
+          data-testid="tradesman-jobs-deck"
+          style={{
+            background:
+              "linear-gradient(160deg, #ecfdf5 0%, #d1fae5 40%, #f0fdf4 100%)",
+            paddingBottom: "env(safe-area-inset-bottom)",
+            fontFamily:
+              "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
+          }}
+        >
+          {/* Safe-area top spacer */}
+          <div style={{ height: "env(safe-area-inset-top)" }} />
 
-        {/* Gate for non-trades */}
-        {isTrades === false && (
-          <div className="card" data-testid="trades-gate">
-            <h2 className="text-lg font-medium mb-1">
-              For verified trades only
-            </h2>
-            <p className="text-sm text-slate-600">
-              Create a free trades profile to view and contact jobs. Homeowners
-              stay free; pros fund the platform.
-            </p>
-            <div className="mt-3 flex gap-2">
-              {!user ? (
-                <>
-                  <a
-                    className="btn"
-                    href={`/login?next=${encodeURIComponent(
-                      "/tradesman/register-tradesmen"
-                    )}`}
-                    data-testid="gate-login"
-                  >
-                    Log in
-                  </a>
-                  <a
-                    className="btn btn-secondary"
-                    href={`/register?next=${encodeURIComponent(
-                      "/tradesman/register-tradesmen"
-                    )}`}
-                    data-testid="gate-register"
-                  >
-                    Create account
-                  </a>
-                </>
-              ) : (
-                <Link
-                  className="btn"
-                  href="/tradesman/register-tradesmen"
-                  data-testid="gate-go-register"
-                >
-                  Create trades profile
-                </Link>
+          {/* New-job toast */}
+          {toast && (
+            <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-emerald-600 text-white text-[12px] font-bold shadow-lg pointer-events-none">
+              {toast}
+            </div>
+          )}
+
+          {/* Top bar */}
+          <div className="px-4 pt-2 pb-3 flex items-center justify-between">
+            {/* Title + badge */}
+            <div className="flex items-center gap-2">
+              <span className="text-[16px] font-extrabold tracking-tight text-gray-900">
+                Jobs near you
+              </span>
+              {remaining > 0 && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[11px] font-extrabold">
+                  {remaining} new
+                </span>
               )}
             </div>
-          </div>
-        )}
 
-        {/* Filters */}
-        {isTrades && (
-          <form
-            onSubmit={resetAndSearch}
-            className="mb-3 flex flex-wrap items-end gap-2"
-            data-testid="jobs-filters"
-          >
-            <div>
-              <label htmlFor="near" className="block text-sm text-slate-700">
-                Near (postcode/city)
-              </label>
-              <input
-                id="near"
-                className="input"
-                placeholder="e.g. E4 or Chingford"
-                value={near}
-                onChange={(e) => setNear(e.target.value)}
-                data-testid="input-near"
+            {/* Hamburger / menu */}
+            <button
+              type="button"
+              aria-label="Open menu"
+              onClick={openMenu}
+              className="w-10 h-10 rounded-full bg-white/70 flex items-center justify-center shadow-sm"
+              style={{ backdropFilter: "blur(8px)" }}
+            >
+              <span className="text-[20px] leading-none text-gray-700">☰</span>
+            </button>
+          </div>
+
+          {/* Card N of M hint */}
+          {!loading && !error && jobs.length > 0 && (
+            <div className="text-center text-[12px] font-semibold text-emerald-700 mb-1">
+              Card {Math.min(jobs.length - remaining + 1, jobs.length)} of{" "}
+              {jobs.length}
+            </div>
+          )}
+
+          {/* Loading */}
+          {loading && (
+            <div className="flex items-center justify-center pt-24">
+              <span className="text-[14px] font-semibold text-emerald-600 animate-pulse">
+                Loading jobs…
+              </span>
+            </div>
+          )}
+
+          {/* Error */}
+          {!loading && error && (
+            <div className="mx-4 mt-6 rounded-2xl bg-white/80 px-4 py-5 text-center text-[13px] text-rose-600 font-semibold shadow-sm">
+              {error}
+            </div>
+          )}
+
+          {/* Deck */}
+          {!loading && !error && (
+            <div className="px-4">
+              <JobSwipeDeck
+                jobs={jobs}
+                noJobsYet={noJobsYet}
+                onConsumed={() => setRemaining((n) => Math.max(0, n - 1))}
               />
             </div>
-            <div>
-              <label htmlFor="limit" className="block text-sm text-slate-700">
-                Page size
-              </label>
-              <select
-                id="limit"
-                className="input"
-                value={limit}
-                onChange={(e) => {
-                  setLimit(parseInt(e.target.value, 10));
-                  setOffset(0);
-                }}
-                data-testid="select-limit"
-              >
-                {[10, 20, 30, 50].map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              className="btn"
-              disabled={busy}
-              data-testid="btn-apply-filters"
-            >
-              {busy ? "Searching…" : "Search"}
-            </button>
-          </form>
-        )}
-
-        {/* Results */}
-        {isTrades && (
-          <div className="space-y-3" data-testid="jobs-results">
-            {err && (
-              <div
-                className="card text-rose-700"
-                role="alert"
-                data-testid="jobs-error"
-              >
-                {err}
-              </div>
-            )}
-
-            {!busy && items.length === 0 && !err ? (
-              <div className="card text-slate-600" data-testid="jobs-empty">
-                No jobs found{near ? ` near “${near}”` : ""}.
-              </div>
-            ) : null}
-
-            {items.map((j) => (
-              <article key={j.id} className="card" data-testid={`job-${j.id}`}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h3 className="text-lg font-semibold">{j.name}</h3>
-                    <div className="mt-1 text-sm text-slate-600">
-                      <span className="mr-2">{j.type}</span>
-                      <span aria-hidden>•</span>
-                      <span className="ml-2">{j.location}</span>
-                      {j.propertyType ? (
-                        <>
-                          <span aria-hidden className="mx-2">
-                            •
-                          </span>
-                          <span>{j.propertyType}</span>
-                        </>
-                      ) : null}
-                      {Number.isFinite(j.bedrooms) ? (
-                        <>
-                          <span aria-hidden className="mx-2">
-                            •
-                          </span>
-                          <span>{j.bedrooms} bed</span>
-                        </>
-                      ) : null}
-                    </div>
-                    {j.description && (
-                      <p className="mt-2 text-sm text-slate-700 line-clamp-2">
-                        {j.description}
-                      </p>
-                    )}
-                  </div>
-                  <time
-                    className="shrink-0 text-sm text-slate-500"
-                    title={new Date(j.createdAt).toLocaleString()}
-                  >
-                    {new Date(j.createdAt).toLocaleDateString()}
-                  </time>
-                </div>
-
-                <div className="mt-3">
-                  <button
-                    className="btn btn-secondary"
-                    disabled
-                    title="Contact flow coming soon"
-                    data-testid={`btn-contact-${j.id}`}
-                  >
-                    View / contact
-                  </button>
-                </div>
-              </article>
-            ))}
-
-            {total > limit && (
-              <div
-                className="flex items-center justify-between gap-3 pt-2"
-                data-testid="jobs-pagination"
-              >
-                <div className="text-sm text-slate-600">
-                  Page <span className="tabular-nums">{page}</span> /{" "}
-                  <span className="tabular-nums">{pages}</span> •{" "}
-                  <span className="tabular-nums">{total}</span> jobs
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    className="btn"
-                    onClick={() => setOffset(Math.max(0, offset - limit))}
-                    disabled={offset <= 0 || busy}
-                    data-testid="btn-prev"
-                  >
-                    Prev
-                  </button>
-                  <button
-                    className="btn"
-                    onClick={() => setOffset(offset + limit)}
-                    disabled={offset + limit >= total || busy}
-                    data-testid="btn-next"
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+          )}
+        </main>
       </>
     </TradesmanOnly>
   );

@@ -62,10 +62,15 @@ const EMULATOR_USERS = [
   {
     localId: "pLT7RLEYByX6IJWzGAMjAKrW5L93",
     email: "info@elegantbuilding.co.uk",
-    password: "o8hSUU8vagHTyuaOY0ov1w==",
+    password: "password",
     displayName: "Elegant Building Services",
   },
   {
+    // Chris is both a homeowner (used for the project-side test journeys)
+    // and an admin (so admin tools are reachable from the same login).
+    // ensureHomeownerProfiles writes the users row first; ensureAdminRole
+    // then only adds the user_roles entry, leaving the homeowner-profile
+    // fields intact.
     localId: "chris-morris-homeowner-dev",
     email: "morris27sky@icloud.com",
     password: "password",
@@ -76,15 +81,16 @@ const EMULATOR_USERS = [
       username: "chris.morris",
       location: "E4",
     },
+    adminProfile: true,
   },
   {
-    // Local admin account. The matching `user_roles` row (uid → 'admin')
-    // is already in MySQL, so we only need to ensure the Firebase emulator
-    // user exists with this email/password on every startup.
+    // Local fallback admin account. Useful when QA needs an isolated
+    // admin login that has no homeowner state.
     localId: "BpSvMxVYpnQeG211hiY8cNPbDCW2",
     email: "admin@example.com",
     password: "password",
     displayName: "Local Admin",
+    adminProfile: true,
   },
 ];
 
@@ -142,6 +148,68 @@ async function ensureHomeownerProfiles() {
 // The sim's `runScript("seed")` step writes sim-generated values for this
 // account; this function overrides them after the seed completes. Errors are
 // swallowed and logged so this never kills the sim.
+// Idempotent upsert of every EMULATOR_USERS entry tagged with
+// `adminProfile: true`: writes the users row + the user_roles 'admin' row.
+// Required because preflight wipes the DB on every restart.
+async function ensureAdminRole() {
+  const adminUsers = EMULATOR_USERS.filter((u) => u.adminProfile);
+  if (adminUsers.length === 0) return;
+
+  const mysql2 = require("mysql2/promise");
+  let conn;
+  try {
+    conn = await mysql2.createConnection({
+      host: process.env.MYSQL_HOST || process.env.TEST_DB_HOST || "localhost",
+      port: Number(process.env.MYSQL_PORT || process.env.TEST_DB_PORT || 3306),
+      user: process.env.MYSQL_USER || process.env.TEST_DB_USER || "root",
+      password: process.env.MYSQL_PASSWORD || process.env.TEST_DB_PASSWORD || "",
+      database:
+        process.env.MYSQL_DATABASE ||
+        process.env.TEST_DB_NAME ||
+        "vetmybuilder_test_s1_4_w0",
+    });
+
+    for (const u of adminUsers) {
+      // When the same EMULATOR_USERS entry also has a homeownerProfile,
+      // ensureHomeownerProfiles already wrote the canonical users row -
+      // including username + locationRaw fields the admin pass doesn't
+      // know about. Skip the users INSERT in that case to avoid
+      // clobbering them; just upsert the user_roles 'admin' row.
+      if (!u.homeownerProfile) {
+        const parts = String(u.displayName || "").trim().split(/\s+/);
+        const firstName = parts[0] || "Admin";
+        const lastName = parts.slice(1).join(" ") || "Admin";
+        const username = u.email.split("@")[0];
+
+        await conn.query(
+          `INSERT INTO users (uid, email, firstName, lastName, username, createdAt)
+           VALUES (?, ?, ?, ?, ?, NOW())
+           ON DUPLICATE KEY UPDATE
+             email = VALUES(email),
+             firstName = VALUES(firstName),
+             lastName  = VALUES(lastName)`,
+          [u.localId, u.email, firstName, lastName, username],
+        );
+      }
+
+      await conn.query(
+        `INSERT IGNORE INTO user_roles (uid, role) VALUES (?, 'admin')`,
+        [u.localId],
+      );
+    }
+
+    log(`Admin role upserted (${adminUsers.length} user${adminUsers.length === 1 ? "" : "s"})`);
+  } catch (err) {
+    log(`Admin upsert skipped: ${err.message}`);
+  } finally {
+    if (conn) {
+      try { await conn.end(); } catch {}
+    }
+  }
+}
+
+// Idempotent upsert of the canonical Elegant tradesman row.
+// Works in both minimal-seed (no prior runScript("seed")) and full-sim modes.
 async function ensureElegantCanonical() {
   const mysql2 = require("mysql2/promise");
   let conn;
@@ -157,21 +225,441 @@ async function ensureElegantCanonical() {
         "vetmybuilder_test_s1_4_w0",
     });
 
+    const ELEGANT_UID = "pLT7RLEYByX6IJWzGAMjAKrW5L93";
+
+    // Make sure Elegant exists in the users table too (auth user lives in
+    // Firebase emulator; we need the MySQL row for joins).
     await conn.query(
-      `UPDATE tradesmen
-          SET company_number='12758227',
-              google_rating=4.9,
-              google_reviews_count=137,
-              company_name='Elegant Building Services Ltd',
-              vmb_score=93,
-              vmb_badge='platinum',
-              verification_status='verified',
-              ch_status='verified'
-        WHERE user_id='pLT7RLEYByX6IJWzGAMjAKrW5L93'`,
+      `INSERT INTO users (uid, email, firstName, lastName, username, locationRaw, postcodeOutward, createdAt)
+       VALUES (?, 'info@elegantbuilding.co.uk', 'Elegant', 'Building', 'elegant.building', 'E4', 'E4', NOW())
+       ON DUPLICATE KEY UPDATE
+         firstName = VALUES(firstName),
+         lastName  = VALUES(lastName)`,
+      [ELEGANT_UID],
     );
-    log("Elegant canonical aligned");
+
+    const ELEGANT_TRADES = [
+      "General Builder",
+      "New Build",
+      "Extension Builder",
+      "Painter / Decorator",
+      "Bathroom Fitter",
+      "Flooring Specialist",
+      "Tiler",
+      "Plasterer",
+      "External Wall Insulation",
+      "Handyman",
+      "Roofer",
+      "New Kitchen Installation",
+      "Kitchen Refresh (Partial)",
+      "Kitchen Remodel (Full)",
+    ].join(",");
+
+    const ELEGANT_SOCIALS = JSON.stringify([
+      "https://www.facebook.com/profile.php?id=100077500594253",
+      "https://www.instagram.com/elegantbuildingservices/",
+    ]);
+
+    // Showcase photos pulled from elegantbuilding.co.uk (real portfolio
+    // shots) so the profile feels populated end-to-end.
+    const ELEGANT_PHOTO_URLS = [
+      "https://elegantbuilding.co.uk/wp-content/uploads/2024/09/Kitchen-after.jpg",
+      "https://elegantbuilding.co.uk/wp-content/uploads/2024/09/Kitchen-after-2.jpg",
+      "https://elegantbuilding.co.uk/wp-content/uploads/2024/09/Kitchen-tiles.jpg",
+      "https://elegantbuilding.co.uk/wp-content/uploads/2024/09/Bathroom-2a.jpg",
+      "https://elegantbuilding.co.uk/wp-content/uploads/2024/09/Bathroom-2b.jpg",
+      "https://elegantbuilding.co.uk/wp-content/uploads/2024/08/Wall-Insullation-10a.jpg",
+      "https://elegantbuilding.co.uk/wp-content/uploads/2024/08/After1b.jpg",
+      "https://elegantbuilding.co.uk/wp-content/uploads/2024/08/Wall-Stone-1.jpg",
+    ];
+
+    await conn.query(
+      `INSERT INTO tradesmen
+         (user_id, company_name, contact_name, phone, email,
+          trade_types, service_areas,
+          subscription_status, verification_status,
+          company_number, ch_status, ch_name,
+          google_rating, google_reviews_count,
+          vmb_score, vmb_badge, status,
+          web_url, social_links_json,
+          photo_count, supporting_doc_count,
+          warranty_months, discount_min_percent, discount_max_percent,
+          offers_discount, profile_picture_url)
+       VALUES (?, 'Elegant Building Services Ltd', 'Adam',
+               '07000000000', 'info@elegantbuilding.co.uk',
+               ?,
+               'E1,E2,E3,E4,E5,N1,N7,NW1,SE1,SW1,W1,WC1,EC1,N4,N5,E10,E11,E17',
+               'free', 'verified',
+               '12758227', 'verified', 'Elegant Building Services Ltd',
+               4.9, 137,
+               93, 'platinum', 'active',
+               'https://elegantbuilding.co.uk/', ?,
+               ?, 1,
+               12, 0, 5,
+               1, ?)
+       ON DUPLICATE KEY UPDATE
+         company_name = VALUES(company_name),
+         trade_types = VALUES(trade_types),
+         service_areas = VALUES(service_areas),
+         subscription_status = VALUES(subscription_status),
+         verification_status = VALUES(verification_status),
+         company_number = VALUES(company_number),
+         ch_status = VALUES(ch_status),
+         ch_name = VALUES(ch_name),
+         google_rating = VALUES(google_rating),
+         google_reviews_count = VALUES(google_reviews_count),
+         vmb_score = VALUES(vmb_score),
+         vmb_badge = VALUES(vmb_badge),
+         status = VALUES(status),
+         web_url = VALUES(web_url),
+         social_links_json = VALUES(social_links_json),
+         photo_count = VALUES(photo_count),
+         supporting_doc_count = VALUES(supporting_doc_count),
+         warranty_months = VALUES(warranty_months),
+         discount_min_percent = VALUES(discount_min_percent),
+         discount_max_percent = VALUES(discount_max_percent),
+         offers_discount = VALUES(offers_discount),
+         profile_picture_url = VALUES(profile_picture_url)`,
+      [
+        ELEGANT_UID,
+        ELEGANT_TRADES,
+        ELEGANT_SOCIALS,
+        ELEGANT_PHOTO_URLS.length,
+        ELEGANT_PHOTO_URLS[0],
+      ],
+    );
+
+    // Replace photos so we don't accumulate duplicates across restarts.
+    await conn.query(`DELETE FROM tradesmen_photos WHERE tradesman_user_id = ?`, [ELEGANT_UID]);
+    for (let i = 0; i < ELEGANT_PHOTO_URLS.length; i++) {
+      await conn.query(
+        `INSERT INTO tradesmen_photos (tradesman_user_id, url, sort_order)
+         VALUES (?, ?, ?)`,
+        [ELEGANT_UID, ELEGANT_PHOTO_URLS[i], i],
+      );
+    }
+
+    // Elegant ships unsubscribed in the dev seed - subscription state is
+    // managed manually (admin UI, billing flow, or direct SQL) so test
+    // paths can exercise both "subscribed" and "unsubscribed" branches
+    // without seed churn.
+    await conn.query(
+      `DELETE FROM builder_subscriptions WHERE user_id = ?`,
+      [ELEGANT_UID],
+    );
+
+    // Insurance placeholder PDF lives at web/public/seed-files - served
+    // by Next.js at /seed-files/elegant-insurance-placeholder.pdf.
+    await conn.query(
+      `DELETE FROM tradesmen_insurance_policies WHERE user_id = ?`,
+      [ELEGANT_UID],
+    );
+    await conn.query(
+      `INSERT INTO tradesmen_insurance_policies
+         (user_id, provider, policy_number, coverage_type,
+          public_liability_pennies, certificate_path, verified_status)
+       VALUES (?, 'Placeholder Insurance Co.', 'POL-DEV-0001',
+               'public_liability', 200000000,
+               '/seed-files/elegant-insurance-placeholder.pdf', 'queued')`,
+      [ELEGANT_UID],
+    );
+
+    log("Elegant canonical upserted (with photos + insurance + socials)");
   } catch (err) {
-    log(`Elegant align skipped: ${err.message}`);
+    log(`Elegant upsert skipped: ${err.message}`);
+  } finally {
+    if (conn) {
+      try { await conn.end(); } catch {}
+    }
+  }
+}
+
+// Idempotent upsert of 20 demo projects owned by Chris (homeowner). The
+// first 15 align with Elegant's trade_types so they surface in Elegant's
+// swipe deck; the last 5 (cleaning + pest control) intentionally do not.
+// Each project gets a unique E4 postcode so the location filter has
+// something to bite on. Re-runs are safe: rows are matched by
+// (ownerUserId, name) and updated in place; classification rows are
+// rebuilt each run from the seed data.
+async function ensureSeedProjects() {
+  const OWNER_UID = "chris-morris-homeowner-dev";
+  const SEED_TAG = "dev-fixtures-v1";
+
+  // Mapping from approximate budget tier to a price band the AI ranker
+  // / homeowner UI can render. Keeps the surfaced "Estimated cost" badge
+  // varied across the deck.
+  const BAND = {
+    low:    { low_pence: 80000,    high_pence: 350000 },
+    mid:    { low_pence: 350000,   high_pence: 900000 },
+    high:   { low_pence: 900000,   high_pence: 2500000 },
+    xhigh:  { low_pence: 2500000,  high_pence: 6000000 },
+  };
+
+  const SEED_PROJECTS = [
+    // ----- 5 Insulation (matches Elegant via "External Wall Insulation") -----
+    {
+      name: "External wall insulation for end-of-terrace",
+      type: "External Wall Insulation",
+      postcode: "E4 6AA",
+      description: "Timeframe: Within 2 months. Budget: £15k-£30k. Materials: EPS render system, mesh, basecoat, topcoat in soft white.",
+      propertyType: "Terraced", bedrooms: 3,
+      area_m2: 90, urgency: "soon", band: "high",
+    },
+    {
+      name: "Cavity wall insulation full house",
+      type: "Cavity Wall Insulation",
+      postcode: "E4 6BD",
+      description: "Timeframe: Next 3 weeks. Budget: £1k-£3k. Materials: Bonded bead cavity fill, certified installer required.",
+      propertyType: "Semi-detached", bedrooms: 4,
+      area_m2: 110, urgency: "soon", band: "low",
+    },
+    {
+      name: "Loft insulation top-up to current standard",
+      type: "Loft Insulation",
+      postcode: "E4 6QH",
+      description: "Timeframe: Flexible. Budget: £500-£1.5k. Materials: 270mm mineral wool roll, loft boarding over walkway.",
+      propertyType: "Semi-detached", bedrooms: 3,
+      area_m2: 60, urgency: "flexible", band: "low",
+    },
+    {
+      name: "Floor insulation for ground-floor lounge",
+      type: "Floor Insulation",
+      postcode: "E4 7AA",
+      description: "Timeframe: Within a month. Budget: £2k-£5k. Materials: PIR boards between joists, vapour membrane, lift and relay floorboards.",
+      propertyType: "Terraced", bedrooms: 2,
+      area_m2: 30, urgency: "soon", band: "mid",
+    },
+    {
+      name: "Underfloor insulation suspended timber floor",
+      type: "Underfloor Insulation",
+      postcode: "E4 7HF",
+      description: "Timeframe: Next 6 weeks. Budget: £3k-£6k. Materials: Mineral wool batts in netting, breathable membrane, full house ground floor.",
+      propertyType: "Detached", bedrooms: 4,
+      area_m2: 75, urgency: "flexible", band: "mid",
+    },
+
+    // ----- 4 Kitchen (matches Elegant via "New Kitchen Installation" etc.) -----
+    {
+      name: "New kitchen installation - L-shaped layout",
+      type: "New Kitchen Installation",
+      postcode: "E4 7BS",
+      description: "Timeframe: Within 2 months. Budget: £15k-£30k. Materials: Howdens Greenwich shaker, quartz worktops, integrated Bosch appliances.",
+      propertyType: "Terraced", bedrooms: 3,
+      urgency: "soon", band: "high",
+    },
+    {
+      name: "Kitchen refresh - paint cabinets and replace worktops",
+      type: "Kitchen Refresh (Partial)",
+      postcode: "E4 7JT",
+      description: "Timeframe: Within 4 weeks. Budget: £3k-£6k. Materials: Cabinet respray Farrow & Ball Hague Blue, laminate worktop, new handles.",
+      propertyType: "Flat", bedrooms: 2,
+      urgency: "soon", band: "mid",
+    },
+    {
+      name: "Full kitchen remodel - knock through to dining room",
+      type: "Kitchen Remodel (Full)",
+      postcode: "E4 8AB",
+      description: "Timeframe: 3-4 months. Budget: £30k-£60k. Materials: Bespoke shaker, granite island, RSJ for opening, induction hob and double oven.",
+      propertyType: "Semi-detached", bedrooms: 4,
+      urgency: "flexible", band: "xhigh",
+    },
+    {
+      name: "Kitchen splashback tiling - metro tiles",
+      type: "Kitchen Tiling & Splashback",
+      postcode: "E4 8RY",
+      description: "Timeframe: Within 2 weeks. Budget: £500-£1.5k. Materials: White bevelled metro tiles, dark grey grout, 4m run plus return.",
+      propertyType: "Terraced", bedrooms: 2,
+      urgency: "urgent", band: "low",
+    },
+
+    // ----- 6 Bathroom (matches Elegant via "Bathroom Fitter") -----
+    {
+      name: "Bathroom refresh - new suite same layout",
+      type: "Bathroom Refresh (Partial)",
+      postcode: "E4 8DJ",
+      description: "Timeframe: Within 6 weeks. Budget: £3k-£6k. Materials: Roca close-coupled WC, basin and pedestal, P-shape bath, chrome thermostatic shower.",
+      propertyType: "Flat", bedrooms: 1,
+      urgency: "soon", band: "mid",
+    },
+    {
+      name: "Full bathroom remodel - move bath, add shower enclosure",
+      type: "Bathroom Remodel (Full)",
+      postcode: "E4 9AT",
+      description: "Timeframe: Within 2 months. Budget: £6k-£15k. Materials: Walk-in shower enclosure, freestanding bath, vanity unit, large-format porcelain tiles.",
+      propertyType: "Semi-detached", bedrooms: 3,
+      urgency: "soon", band: "high",
+    },
+    {
+      name: "New bathroom installation in loft conversion",
+      type: "New Bathroom Installation",
+      postcode: "E4 9JJ",
+      description: "Timeframe: 4-6 weeks. Budget: £6k-£15k. Materials: Compact suite, electric shower, Velux roof light, full waterproofing.",
+      propertyType: "Detached", bedrooms: 4,
+      urgency: "flexible", band: "high",
+    },
+    {
+      name: "Bathroom wall and floor tiling",
+      type: "Bathroom Tiling",
+      postcode: "E4 9JB",
+      description: "Timeframe: Within 3 weeks. Budget: £1k-£3k. Materials: 600x300 marble-effect porcelain on walls, 300x300 anti-slip on floor, anthracite grout.",
+      propertyType: "Terraced", bedrooms: 2,
+      urgency: "soon", band: "low",
+    },
+    {
+      name: "Wet room conversion ground floor",
+      type: "Wet Room Installation",
+      postcode: "E4 9DH",
+      description: "Timeframe: Within 8 weeks. Budget: £6k-£15k. Materials: Linear drain, full tank waterproofing, glass screen, accessible thermostatic shower.",
+      propertyType: "Bungalow", bedrooms: 2,
+      urgency: "flexible", band: "high",
+    },
+    {
+      name: "Replace bathroom flooring with LVT",
+      type: "Bathroom Flooring",
+      postcode: "E4 7BE",
+      description: "Timeframe: Within 2 weeks. Budget: £500-£1.5k. Materials: Karndean Knight Tile LVT, plywood subfloor, silicone perimeter seal.",
+      propertyType: "Flat", bedrooms: 1,
+      urgency: "urgent", band: "low",
+    },
+
+    // ----- 5 Unrelated (will not match Elegant) -----
+    {
+      name: "Oven deep clean before tenancy inspection",
+      type: "Oven Cleaning",
+      postcode: "E4 6PH",
+      description: "Timeframe: This week. Budget: £80-£200. Materials: N/A - bring own non-caustic cleaning kit, single fan oven plus hob.",
+      propertyType: "Flat", bedrooms: 2,
+      urgency: "urgent", band: "low",
+    },
+    {
+      name: "Carpet cleaning living room and stairs",
+      type: "Carpet Cleaning",
+      postcode: "E4 7BT",
+      description: "Timeframe: Within 2 weeks. Budget: £100-£300. Materials: Hot water extraction, pet-safe products, two pet stains in living room.",
+      propertyType: "Terraced", bedrooms: 3,
+      urgency: "soon", band: "low",
+    },
+    {
+      name: "End of tenancy clean for 2-bed flat",
+      type: "End-of-Tenancy Cleaning",
+      postcode: "E4 8NJ",
+      description: "Timeframe: Friday this week. Budget: £200-£400. Materials: Full deep clean inc. oven, fridge, inside cupboards, professional standard checklist.",
+      propertyType: "Flat", bedrooms: 2,
+      urgency: "urgent", band: "low",
+    },
+    {
+      name: "Gutter clean and downpipe check whole house",
+      type: "Gutter Cleaning",
+      postcode: "E4 6JN",
+      description: "Timeframe: Within 2 weeks. Budget: £80-£200. Materials: Vacuum system, photo report of any cracked sections.",
+      propertyType: "Semi-detached", bedrooms: 3,
+      urgency: "soon", band: "low",
+    },
+    {
+      name: "Mouse infestation in kitchen and loft",
+      type: "Mouse/Rat Control",
+      postcode: "E4 9FG",
+      description: "Timeframe: This week. Budget: £150-£400. Materials: Bait stations, entry-point sealing, two follow-up visits.",
+      propertyType: "Terraced", bedrooms: 3,
+      urgency: "urgent", band: "low",
+    },
+  ];
+
+  // Map relative budget descriptor to a clean string for the price-band
+  // estimate. The PriceRangeBadge prefers the low-high pence pair, so
+  // those go in the structured JSON; this label is just human-readable
+  // backup for any consumer that wants a string.
+  function bandLabel(band) {
+    const b = BAND[band];
+    return `£${(b.low_pence / 100).toLocaleString("en-GB")} - £${(b.high_pence / 100).toLocaleString("en-GB")}`;
+  }
+
+  const mysql2 = require("mysql2/promise");
+  let conn;
+  try {
+    conn = await mysql2.createConnection({
+      host: process.env.MYSQL_HOST || process.env.TEST_DB_HOST || "localhost",
+      port: Number(process.env.MYSQL_PORT || process.env.TEST_DB_PORT || 3306),
+      user: process.env.MYSQL_USER || process.env.TEST_DB_USER || "root",
+      password: process.env.MYSQL_PASSWORD || process.env.TEST_DB_PASSWORD || "",
+      database:
+        process.env.MYSQL_DATABASE ||
+        process.env.TEST_DB_NAME ||
+        "vetmybuilder_test_s1_4_w0",
+    });
+
+    let inserted = 0;
+    let updated = 0;
+
+    for (const p of SEED_PROJECTS) {
+      const answers = {
+        _seed: SEED_TAG,
+        ...(p.area_m2 ? { insulation: { area_m2: p.area_m2 } } : {}),
+      };
+      const answersJson = JSON.stringify(answers);
+
+      // Match-or-create by (ownerUserId, name).
+      const [existing] = await conn.query(
+        `SELECT id FROM projects WHERE ownerUserId = ? AND name = ? LIMIT 1`,
+        [OWNER_UID, p.name],
+      );
+
+      let projectId;
+      if (existing.length > 0) {
+        projectId = existing[0].id;
+        await conn.query(
+          `UPDATE projects
+              SET type = ?, location = ?, description = ?,
+                  answers_json = ?, propertyType = ?, bedrooms = ?,
+                  status = 'live'
+            WHERE id = ?`,
+          [p.type, p.postcode, p.description, answersJson, p.propertyType, p.bedrooms, projectId],
+        );
+        updated++;
+      } else {
+        const [res] = await conn.query(
+          `INSERT INTO projects
+             (name, type, location, description, answers_json,
+              propertyType, bedrooms, ownerUserId, status, createdAt)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'live', NOW())`,
+          [p.name, p.type, p.postcode, p.description, answersJson, p.propertyType, p.bedrooms, OWNER_UID],
+        );
+        projectId = res.insertId;
+        inserted++;
+      }
+
+      // Rebuild classification so it always matches the seed data.
+      // price_band_estimate is consumed as a *string* by the API enricher
+      // (see server/routes/projects/projects.get.js — it does
+      // String(parsed.price_band_estimate).trim()). Storing an object
+      // here renders as "[object Object]" in the Guide pill.
+      const structured = {
+        type: p.type,
+        scope: "medium",
+        complexity: "moderate",
+        urgency: p.urgency,
+        materials: [],
+        recommended_trades: [p.type],
+        key_concerns: ["quality of finish"],
+        summary: p.description,
+        price_band_estimate: bandLabel(p.band),
+      };
+
+      await conn.query(
+        `DELETE FROM project_classifications WHERE project_id = ?`,
+        [projectId],
+      );
+      await conn.query(
+        `INSERT INTO project_classifications
+           (project_id, classifier_version, raw_description, structured)
+         VALUES (?, 'seed-v1', ?, ?)`,
+        [projectId, p.description, JSON.stringify(structured)],
+      );
+    }
+
+    log(`Seed projects ensured (${inserted} new, ${updated} updated)`);
+  } catch (err) {
+    log(`Seed projects skipped: ${err.message}`);
   } finally {
     if (conn) {
       try { await conn.end(); } catch {}
@@ -258,6 +746,35 @@ async function ensureChrisBathroomProject() {
   }
 }
 
+// Runs scripts/backfill-project-classifications.js as a child process. We run
+// it as a subprocess so any LLM/HTTP setup it does (dotenv loading, retries,
+// long timeouts) stays isolated from this orchestrator.
+function runBackfillClassifications() {
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      "node",
+      ["scripts/backfill-project-classifications.js"],
+      { stdio: ["ignore", "pipe", "pipe"] },
+    );
+    let buf = "";
+    child.stdout.on("data", (d) => (buf += d.toString()));
+    child.stderr.on("data", (d) => (buf += d.toString()));
+    child.on("exit", (code) => {
+      if (code === 0) {
+        const summary = buf
+          .trim()
+          .split("\n")
+          .find((l) => /price band|already have/i.test(l));
+        log(summary || "Classification backfill complete");
+        resolve();
+      } else {
+        reject(new Error(`backfill exited with code ${code}\n${buf}`));
+      }
+    });
+    child.on("error", reject);
+  });
+}
+
 async function ensureEmulatorUsers() {
   const emulatorHost =
     process.env.FIREBASE_AUTH_EMULATOR_HOST || "127.0.0.1:9099";
@@ -326,40 +843,72 @@ function runScript(script, env = {}) {
     log(`Warning: failed to ensure homeowner profiles: ${e.message}`);
   }
 
-  log("Server ready. Running seed...");
-  try {
-    await runScript("seed");
-  } catch (e) {
-    log(`Seed failed: ${e.message}`);
-    process.exit(1);
+  // FULL_SIM=1 brings back the noisy seed (lots of fake builders + projects +
+  // recommendations + a daemon that creates more activity continuously).
+  // Default is the minimal seed: just the canonical Elegant tradesman so the
+  // homeowner can create a project and see Elegant surface in the matching
+  // pipeline, and Elegant can swipe back. No noise.
+  const FULL_SIM = process.env.FULL_SIM === "1";
+
+  if (FULL_SIM) {
+    log("Server ready. Running full sim seed...");
+    try {
+      await runScript("seed");
+    } catch (e) {
+      log(`Seed failed: ${e.message}`);
+      process.exit(1);
+    }
+
+    try {
+      await ensureChrisMatches();
+    } catch (e) {
+      log(`Warning: failed to seed Chris matches: ${e.message}`);
+    }
+
+    try {
+      await ensureChrisBathroomProject();
+    } catch (e) {
+      log(`Warning: failed to seed Chris bathroom project: ${e.message}`);
+    }
+
+    try {
+      await runBackfillClassifications();
+    } catch (e) {
+      log(`Warning: classification backfill failed: ${e.message}`);
+    }
+  } else {
+    log("Server ready. Minimal seed (FULL_SIM=1 to enable full sim).");
   }
 
-  // Re-apply Chris's projects + swipe_interest rows after the sim's seed
-  // (which recreates projects and clears ours). Safe to run on every boot.
-  try {
-    await ensureChrisMatches();
-  } catch (e) {
-    log(`Warning: failed to seed Chris matches: ${e.message}`);
-  }
-
-  // Re-apply Chris's bathroom project + 10 recs + 5 subs for AI-ranker testing.
-  try {
-    await ensureChrisBathroomProject();
-  } catch (e) {
-    log(`Warning: failed to seed Chris bathroom project: ${e.message}`);
-  }
-
-  // Override the sim-generated Elegant tradesman row with the real
-  // Elegant Building Services Ltd values so /matches matches the web
-  // shortlist's Google + Companies House data.
+  // Always upsert the canonical Elegant tradesman row.
   try {
     await ensureElegantCanonical();
   } catch (e) {
-    log(`Warning: failed to align Elegant canonical: ${e.message}`);
+    log(`Warning: failed to upsert Elegant canonical: ${e.message}`);
+  }
+
+  // Always upsert the local admin row + role so /admin works after wipe.
+  try {
+    await ensureAdminRole();
+  } catch (e) {
+    log(`Warning: failed to upsert admin role: ${e.message}`);
+  }
+
+  // Seed 20 demo projects owned by Chris (15 matching Elegant + 5 unrelated).
+  // Idempotent - runs on every restart whether FULL_SIM is on or off.
+  try {
+    await ensureSeedProjects();
+  } catch (e) {
+    log(`Warning: failed to seed projects: ${e.message}`);
+  }
+
+  if (!FULL_SIM) {
+    log("Minimal seed complete. Skipping daemon.");
+    return;
   }
 
   log("Seed complete. Starting daemon...");
-  // Daemon runs forever — inherit its stdio so logs appear in the terminal
+  // Daemon runs forever - inherit its stdio so logs appear in the terminal
   const daemon = spawn("node", ["scripts/simulate.js", "daemon"], {
     stdio: "inherit",
     env: { ...process.env, SIM_MODE: "auto" },

@@ -81,6 +81,8 @@ module.exports = (router, ctx) => {
       const total = Number(countRows?.[0]?.c || 0);
 
       // ---- fetch rows ----
+      // Also LEFT JOIN the most recent active builder_subscriptions row
+      // so the admin UI can show the live tier + expiry per tradesman.
       const rows = await mysqlQuery(
         `
         SELECT
@@ -98,6 +100,11 @@ module.exports = (router, ctx) => {
           u.email     AS user_email,
           u.firstName,
           u.lastName,
+
+          -- live subscription tier + expiry (NULL if not subscribed)
+          bs.tier_id              AS subscriptionTierId,
+          bs.status               AS subscriptionRowStatus,
+          bs.current_period_end   AS subscriptionPeriodEnd,
 
           -- unresolved flags count
           (
@@ -124,6 +131,10 @@ module.exports = (router, ctx) => {
 
         FROM tradesmen t
         LEFT JOIN users u ON u.uid = t.user_id
+        LEFT JOIN builder_subscriptions bs
+          ON bs.user_id = t.user_id
+         AND bs.status = 'active'
+         AND bs.current_period_end > NOW()
         ${where}
         ORDER BY t.created_at DESC
         LIMIT ${pageSize} OFFSET ${offset}

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Home } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/utils/auth";
+import BrandWordmark from "@/components/BrandWordmark";
 
 export default function Footer() {
   const year = new Date().getFullYear();
@@ -22,7 +23,7 @@ export default function Footer() {
   const tradesLinks = user && isTrades
     ? [
         { label: "Your Profile", href: "/tradesman/profile" },
-        { label: "My Jobs", href: "/tradesman/projects" },
+        { label: "My Jobs", href: "/tradesman/jobs" },
       ]
     : !user
     ? [
@@ -41,9 +42,10 @@ export default function Footer() {
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-500">
                 <Home className="h-5 w-5 text-white" />
               </div>
-              <span className="text-xl font-black text-white">
-                Vet<span className="text-red-400" style={{ fontFamily: "'Caveat', cursive", fontWeight: 700, fontSize: "130%", WebkitTextStroke: "0.5px currentColor" }}>My</span>Builder
-              </span>
+              <BrandWordmark
+                tone={isTrades ? "emerald" : "indigo"}
+                className="text-xl font-black tracking-tight text-white"
+              />
             </Link>
             <p className="mt-4 text-sm text-zinc-400 max-w-xs leading-relaxed">
               The community-powered platform helping UK homeowners find tradespeople

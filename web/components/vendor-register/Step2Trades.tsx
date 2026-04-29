@@ -1,6 +1,6 @@
 // web/components/vendor-register/Step2Trades.tsx
 import { useMemo, useState, useEffect } from "react";
-import { Check, Wrench, Images } from "lucide-react";
+import { Check, Wrench } from "lucide-react";
 import { TRADE_TYPES, type TradeType } from "@/types/tradeTypes";
 import FileGridUploader from "@/components/fileUpload/FileGridUploader";
 
@@ -236,16 +236,10 @@ export default function Step2Trades({
       </div>
 
       {/* ── Work photos ── */}
-      <div data-testid="work-photos" className="bg-white rounded-xl mx-3 my-2 px-3.5 py-3 space-y-2">
-        <div className="flex items-center gap-2">
-          <Images className="h-4 w-4 text-zinc-400" />
-          <label className="text-[10.5px] font-extrabold uppercase tracking-wider text-gray-500">Pictures of your work</label>
-        </div>
-        <p className="text-xs text-zinc-400 ml-6">
-          Upload photos of your completed projects, then choose one as your
-          profile picture. Homeowners are far more likely to reach out when they
-          can see who they&rsquo;d be hiring.
-        </p>
+      <p className="px-3.5 pt-3 pb-1 text-[10.5px] font-extrabold uppercase tracking-wider text-zinc-500">
+        Pictures of your work
+      </p>
+      <div data-testid="work-photos" className="mx-3 my-2 space-y-2">
 
         {/* Existing photos (edit flow) — selectable as profile picture */}
         {onProfilePictureKeyChange && existingPhotoUrls.length > 0 && (
@@ -312,6 +306,8 @@ export default function Step2Trades({
           }
           onProfilePictureKeyChange={onProfilePictureKeyChange}
           onConsentChange={setPhotoConsent}
+          tone="emerald"
+          emeraldLabel="Add photos of your work"
         />
       </div>
 

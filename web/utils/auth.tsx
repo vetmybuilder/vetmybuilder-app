@@ -332,7 +332,20 @@ export function useAuth() {
   return useContext(AuthCtx);
 }
 
+// Module-level flag set for the duration of an explicit user-initiated
+// sign-out. AuthedOnly checks this before reacting to `user === null` so
+// the protected route doesn't capture itself as `vmb:returnTo` /
+// `?next=...` and bounce the user back to it after they sign in again.
+// The caller (GlobalMobileMenu.onLogout) issues a hard nav to "/" right
+// after signOutUser resolves, which tears the page down before the flag
+// would need clearing.
+let __signOutInProgress = false;
+export function isSignOutInProgress(): boolean {
+  return __signOutInProgress;
+}
+
 export async function signOutUser() {
+  __signOutInProgress = true;
   const auth = initFirebase();
   try {
     await signOut(auth);

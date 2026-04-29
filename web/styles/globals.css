@@ -39,12 +39,31 @@
 
 html {
   scroll-behavior: smooth;
+  /* Pin text size at the page-author value. Without this, iOS Safari
+     scales text up automatically on longer lines (especially after
+     orientation changes or when content runs near the viewport edge),
+     which feels exactly like an unwanted zoom. The setting only affects
+     text — pinch and double-tap zoom still work. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 html,
 body,
 #__next {
   height: 100%;
+}
+
+/* Belt-and-braces against accidental horizontal overflow. If any single
+   element renders wider than the viewport (long unbroken text, a fixed
+   pixel width, an over-sized image), iOS Safari shrinks the whole page
+   to fit - which is the most common cause of a "zoomed in / zoomed out"
+   look on mobile after a navigation. We don't lose anything by clipping:
+   nothing in the design legitimately needs to scroll horizontally. */
+html,
+body {
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
 }
 
 body {
@@ -98,10 +117,26 @@ h3 {
   border-radius: 12px;
   padding: 0.7rem 0.9rem;
   width: 100%;
+  /* 16px is the iOS Safari threshold below which the page auto-zooms
+     when the input gains focus. Lock at 16px so we never trip it. */
+  font-size: 16px;
   color: var(--text);
   outline: none;
   transition: box-shadow 0.15s ease, border-color 0.15s ease;
   box-shadow: inset 0 1px 0 rgba(15, 23, 42, 0.03);
+}
+
+/* iOS Safari auto-zooms the page whenever a focused input has a
+   computed font-size < 16px. Force 16px on every form control on
+   touch devices (phones / iPads) so the zoom never triggers. Desktop
+   browsers don't zoom regardless, so the design's smaller font sizes
+   remain intact at >= md breakpoints with mouse pointer. */
+@media (hover: none) and (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }
 .input:focus {
   border-color: var(--brand);

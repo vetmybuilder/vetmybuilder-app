@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <title>Swipe → Pay → Chat flow</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif; }
+    .phone {
+      width: 350px; height: 720px;
+      border-radius: 40px;
+      box-shadow: 0 28px 70px rgba(15,23,42,0.18), 0 0 0 9px #111 inset, 0 0 0 11px #333 inset;
+      overflow: hidden; position: relative; background: #f8fafc;
+    }
+    .phone-inner { position:absolute; inset: 11px; border-radius: 29px; overflow: hidden; background:#fff; }
+    .grad-emerald { background: linear-gradient(135deg,#10b981,#059669); }
+    .grad-violet  { background: linear-gradient(135deg,#6366f1,#4f46e5); }
+    .grad-best    { background: linear-gradient(135deg,#7c3aed,#4f46e5); }
+    .scroll-y { overflow-y: auto; }
+    .scroll-y::-webkit-scrollbar { width: 0; }
+    .ph-1 { background: linear-gradient(135deg,#fde68a,#f59e0b); }
+    .ph-2 { background: linear-gradient(135deg,#bbf7d0,#10b981); }
+    .ph-3 { background: linear-gradient(135deg,#bae6fd,#0284c7); }
+    .step-num {
+      width: 28px; height: 28px; border-radius: 999px;
+      background: linear-gradient(135deg,#6366f1,#4f46e5);
+      color: white; font-weight: 900; font-size: 13px;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .arrow {
+      font-size: 32px; color: #94a3b8; line-height: 1;
+    }
+    @keyframes pulse-ring {
+      0%,100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.05); opacity: 0.7; }
+    }
+    .pulse { animation: pulse-ring 1.4s ease-in-out infinite; }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+  <header class="px-8 pt-10 pb-6 text-center">
+    <h1 class="text-2xl font-extrabold tracking-tight text-slate-900">Swipe → Pay → Chat journey</h1>
+    <p class="mt-2 text-sm text-slate-500 max-w-3xl mx-auto">
+      Option 1 (auto-create matched swipe_interest row on pay) flow visualised. Inbox concept gone.
+      Tradesman pays one-off, lands directly in the chat thread. Same UI homeowner sees for a real swipe match,
+      with a "paid unlock" badge so it's distinguishable.
+    </p>
+  </header>
+
+  <main class="px-6 pb-20">
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <!-- TRADESMAN SIDE                                                    -->
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <div class="max-w-7xl mx-auto">
+      <div class="flex items-center gap-3 mb-6">
+        <span class="step-num">T</span>
+        <h2 class="text-lg font-extrabold text-slate-900">Tradesman side</h2>
+        <span class="text-[12px] text-slate-500">Adam from Elegant Building Services</span>
+      </div>
+
+      <div class="flex items-start gap-4 overflow-x-auto pb-6">
+
+        <!-- ─── Step 1 : Swipe deck ─── -->
+        <section class="shrink-0">
+          <div class="text-center mb-3">
+            <span class="step-num">1</span>
+            <h3 class="mt-2 text-sm font-extrabold text-slate-900">Browse the deck</h3>
+            <p class="text-[11px] text-slate-500 max-w-[260px]">Tradesman is on /tradesman/jobs. Swipes right on a card.</p>
+          </div>
+          <div class="phone">
+            <div class="phone-inner deck-bg flex flex-col" style="background: linear-gradient(180deg,#fafafa 0%,#f1f5f9 100%);">
+              <div class="px-5 pt-3 pb-2 flex items-center justify-between">
+                <span class="font-extrabold tracking-tight text-slate-800">Browse jobs</span>
+                <span class="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 text-sm">≡</span>
+              </div>
+
+              <div class="px-6 pt-6">
+                <div class="rounded-3xl overflow-hidden bg-white shadow-md transform rotate-[6deg] translate-x-6">
+                  <div class="grad-emerald px-4 pt-4 pb-3 text-white">
+                    <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-[0.04em] bg-white/20">EXTERNAL WALL INSULATION</span>
+                    <div class="mt-1.5 text-[18px] font-extrabold leading-tight">External wall insulation - 3-bed terrace</div>
+                    <div class="mt-1.5 text-[12px] text-white/85">📍 E4 6AA · Within 2 months · £15k-£30k</div>
+                  </div>
+                  <div class="px-4 py-3 text-[12px] text-slate-600 leading-relaxed">
+                    Looking for an experienced EWI installer for our 1930s terrace. Soft white render preferred. Surveys welcome.
+                  </div>
+                  <div class="px-4 pb-4 flex flex-wrap gap-1.5">
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">External Wall Insulation ✓</span>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">Renderer ✓</span>
+                  </div>
+                </div>
+                <!-- swipe right chevron -->
+                <div class="absolute top-1/2 right-2 -translate-y-1/2 grad-emerald w-12 h-12 rounded-full text-white flex items-center justify-center text-2xl font-black shadow-xl pulse">
+                  ♥
+                </div>
+              </div>
+
+              <div class="absolute bottom-6 left-0 right-0 flex items-center justify-center gap-4">
+                <button class="w-12 h-12 rounded-full bg-white border-2 border-rose-200 text-rose-500 text-xl font-black shadow">✕</button>
+                <button class="w-10 h-10 rounded-full bg-white border-2 border-slate-200 text-slate-500">👁</button>
+                <button class="w-12 h-12 rounded-full grad-emerald text-white text-xl font-black shadow-xl">♥</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <span class="arrow self-center mt-32" aria-hidden>→</span>
+
+        <!-- ─── Step 2 : Pay-gate ─── -->
+        <section class="shrink-0">
+          <div class="text-center mb-3">
+            <span class="step-num">2</span>
+            <h3 class="mt-2 text-sm font-extrabold text-slate-900">Pay-gate opens</h3>
+            <p class="text-[11px] text-slate-500 max-w-[260px]">Server returns 403 (no active pass). Pay-gate slides in over the deck.</p>
+          </div>
+          <div class="phone">
+            <div class="phone-inner bg-white flex flex-col">
+              <div class="px-4 pt-3 pb-2 flex items-center justify-between border-b border-slate-100 shrink-0">
+                <button class="text-slate-500 text-[12px] font-bold flex items-center gap-1">← Back</button>
+                <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Pitch this job</span>
+                <span class="w-10" />
+              </div>
+
+              <div class="scroll-y flex-1">
+                <div class="px-5 pt-4 pb-3 text-center">
+                  <div class="w-11 h-11 rounded-full grad-emerald text-white flex items-center justify-center mx-auto text-lg font-black">♥</div>
+                  <h2 class="mt-2 text-[20px] font-extrabold tracking-tight text-slate-900 leading-tight">You like this one!</h2>
+                  <p class="mt-1 text-[11.5px] text-slate-500 leading-snug max-w-[280px] mx-auto">
+                    Pick a pass to pitch this job - and every other matching job while it's active.
+                  </p>
+                </div>
+
+                <div class="mx-5 rounded-2xl overflow-hidden border border-slate-200 bg-slate-50">
+                  <div class="grad-emerald px-3 pt-2.5 pb-2 text-white">
+                    <div class="text-[13px] font-extrabold leading-tight">External wall insulation - 3-bed terrace</div>
+                    <div class="mt-0.5 text-[10.5px] text-white/85">External Wall Insulation · E4 6AA · £15k-£30k</div>
+                  </div>
+                </div>
+
+                <div class="px-5 mt-3 space-y-1.5">
+                  <button class="w-full rounded-2xl border-[1.5px] border-slate-200 bg-white p-2.5 flex items-center gap-3 text-left">
+                    <span class="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center text-[12px] font-black">7</span>
+                    <div class="flex-1">
+                      <div class="text-[13px] font-extrabold text-slate-900">7-day pass</div>
+                      <div class="text-[10px] text-slate-500">Unlimited swipes for 7 days</div>
+                    </div>
+                    <div class="text-right">
+                      <div class="text-[14px] font-extrabold text-slate-900">£3.99</div>
+                    </div>
+                  </button>
+                  <button class="w-full rounded-2xl border-[1.5px] border-slate-200 bg-white p-2.5 flex items-center gap-3 text-left">
+                    <span class="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center text-[12px] font-black">14</span>
+                    <div class="flex-1">
+                      <div class="text-[13px] font-extrabold text-slate-900">14-day pass</div>
+                      <div class="text-[10px] text-slate-500">Unlimited swipes for 14 days</div>
+                    </div>
+                    <div class="text-right">
+                      <div class="text-[14px] font-extrabold text-slate-900">£6.99</div>
+                    </div>
+                  </button>
+                  <button class="relative w-full rounded-2xl border-[2px] border-violet-500 bg-violet-50/60 p-2.5 flex items-center gap-3 text-left ring-2 ring-violet-100">
+                    <span class="absolute -top-2 right-3 grad-best text-white text-[8.5px] font-black tracking-wider px-2 py-0.5 rounded-full">BEST VALUE</span>
+                    <span class="w-8 h-8 rounded-xl grad-violet text-white flex items-center justify-center text-[12px] font-black">30</span>
+                    <div class="flex-1">
+                      <div class="text-[13px] font-extrabold text-slate-900">30-day pass</div>
+                      <div class="text-[10px] text-violet-700 font-bold">Lowest daily cost</div>
+                    </div>
+                    <div class="text-right">
+                      <div class="text-[14px] font-extrabold text-slate-900">£9.99</div>
+                    </div>
+                  </button>
+                </div>
+
+                <div class="mx-5 mt-4 mb-4 rounded-2xl bg-amber-50/60 border border-amber-200/70 p-3">
+                  <div class="flex items-center gap-2 text-[10px] font-extrabold text-amber-700 uppercase tracking-wider">
+                    <span>⚡</span> One-off, no pass
+                  </div>
+                  <div class="mt-1 text-[12.5px] font-extrabold text-slate-900 leading-tight">Just pitch this one job</div>
+                  <div class="text-[10.5px] text-slate-600 leading-snug mt-1">
+                    Unlock the homeowner's contact for this job only. Price scales with project value.
+                  </div>
+                  <button class="mt-2 w-full py-2 rounded-xl bg-white border-[1.5px] border-amber-400 text-amber-700 font-extrabold text-[12px] ring-2 ring-amber-200">
+                    Pay £14.99 one-off &nbsp;👈
+                  </button>
+                </div>
+              </div>
+
+              <div class="px-5 py-2.5 border-t border-slate-100 bg-white shrink-0">
+                <button class="w-full py-2.5 rounded-2xl grad-violet text-white font-extrabold text-[13px] shadow-lg shadow-indigo-200 opacity-60">
+                  Get 30-day pass · £9.99
+                </button>
+                <p class="text-[9px] text-slate-400 text-center mt-1.5 leading-snug">
+                  One-time purchase. No auto-renewal.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <span class="arrow self-center mt-32" aria-hidden>→</span>
+
+        <!-- ─── Step 3 : Paying ─── -->
+        <section class="shrink-0">
+          <div class="text-center mb-3">
+            <span class="step-num">3</span>
+            <h3 class="mt-2 text-sm font-extrabold text-slate-900">Pay (mock or Stripe)</h3>
+            <p class="text-[11px] text-slate-500 max-w-[260px]">Spinner stays on the gate while server records the unlock and creates the chat thread.</p>
+          </div>
+          <div class="phone">
+            <div class="phone-inner bg-white flex items-center justify-center">
+              <div class="text-center px-8">
+                <div class="w-16 h-16 rounded-full grad-emerald flex items-center justify-center mx-auto mb-4">
+                  <svg class="w-9 h-9 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" class="opacity-25" />
+                    <path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+                  </svg>
+                </div>
+                <h2 class="text-[18px] font-extrabold text-slate-900">Activating your unlock…</h2>
+                <p class="mt-2 text-[12px] text-slate-500 leading-snug max-w-[260px] mx-auto">
+                  Server inserts a project_contact_unlocks row and a swipe_interest row tagged source='paid_unlock' so the chat thread exists.
+                </p>
+                <div class="mt-6 inline-flex items-center gap-1.5 text-[10.5px] font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full">
+                  <span>✓</span> £14.99 charged
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <span class="arrow self-center mt-32" aria-hidden>→</span>
+
+        <!-- ─── Step 4 : Empty chat ─── -->
+        <section class="shrink-0">
+          <div class="text-center mb-3">
+            <span class="step-num">4</span>
+            <h3 class="mt-2 text-sm font-extrabold text-slate-900">Lands in chat</h3>
+            <p class="text-[11px] text-slate-500 max-w-[260px]">Same /chat/:matchId page as a real swipe match. Empty thread, ready to type.</p>
+          </div>
+          <div class="phone">
+            <div class="phone-inner bg-white flex flex-col">
+              <div class="px-4 pt-3 pb-2 border-b border-slate-100 flex items-center gap-3">
+                <button class="text-slate-500 text-[16px] font-bold w-7 h-7">←</button>
+                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-amber-200 to-rose-300 flex items-center justify-center font-extrabold text-rose-900">🏠</div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-[13.5px] font-extrabold text-slate-900 truncate">Homeowner</div>
+                  <div class="text-[10px] text-slate-500 truncate">External wall insulation · E4</div>
+                </div>
+              </div>
+
+              <div class="px-4 pt-2">
+                <span class="inline-flex items-center gap-1 text-[9.5px] font-extrabold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">⚡ Paid unlock</span>
+              </div>
+
+              <div class="flex-1 overflow-y-auto px-4 py-4 flex flex-col items-center justify-center text-center">
+                <div class="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3 text-2xl">💬</div>
+                <h2 class="text-[15px] font-extrabold text-slate-900">Say hello</h2>
+                <p class="mt-1 text-[11.5px] text-slate-500 leading-snug max-w-[240px]">
+                  Introduce yourself and the homeowner will get a notification. They'll reply right here.
+                </p>
+              </div>
+
+              <div class="px-3 py-2 border-t border-slate-100 flex items-end gap-2 bg-white">
+                <button class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-base shrink-0">📷</button>
+                <textarea class="flex-1 border border-slate-200 rounded-2xl px-3 py-2 text-[12.5px] resize-none" rows="1" placeholder="Type a message…"></textarea>
+                <button class="w-9 h-9 rounded-full grad-violet text-white shrink-0 flex items-center justify-center font-extrabold text-sm">↑</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <span class="arrow self-center mt-32" aria-hidden>→</span>
+
+        <!-- ─── Step 5 : Sent message + photos ─── -->
+        <section class="shrink-0">
+          <div class="text-center mb-3">
+            <span class="step-num">5</span>
+            <h3 class="mt-2 text-sm font-extrabold text-slate-900">Send pitch + photos</h3>
+            <p class="text-[11px] text-slate-500 max-w-[260px]">Photos via the 📷 button. Same FileGridUploader pattern in a popover.</p>
+          </div>
+          <div class="phone">
+            <div class="phone-inner bg-white flex flex-col">
+              <div class="px-4 pt-3 pb-2 border-b border-slate-100 flex items-center gap-3">
+                <button class="text-slate-500 text-[16px] font-bold w-7 h-7">←</button>
+                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-amber-200 to-rose-300 flex items-center justify-center font-extrabold text-rose-900">🏠</div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-[13.5px] font-extrabold text-slate-900 truncate">Homeowner</div>
+                  <div class="text-[10px] text-slate-500 truncate">External wall insulation · E4</div>
+                </div>
+              </div>
+
+              <div class="px-4 pt-2">
+                <span class="inline-flex items-center gap-1 text-[9.5px] font-extrabold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">⚡ Paid unlock</span>
+              </div>
+
+              <div class="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-2">
+                <!-- builder bubble: pitch + photos -->
+                <div class="flex justify-end">
+                  <div class="max-w-[78%]">
+                    <div class="grad-violet text-white rounded-2xl rounded-br-md px-3 py-2 text-[12.5px] leading-relaxed">
+                      Hi - I'm Adam from Elegant Building Services. We've done EWI on five 1930s terraces in E4 over the last 18 months. Happy to come and have a look any evening this week.
+                    </div>
+                    <div class="mt-1 grid grid-cols-3 gap-1">
+                      <div class="aspect-square rounded-xl ph-1"></div>
+                      <div class="aspect-square rounded-xl ph-2"></div>
+                      <div class="aspect-square rounded-xl ph-3"></div>
+                    </div>
+                    <div class="text-[9px] text-slate-400 mt-1 text-right">11:48 · Sent</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="px-3 py-2 border-t border-slate-100 flex items-end gap-2 bg-white">
+                <button class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-base shrink-0">📷</button>
+                <textarea class="flex-1 border border-slate-200 rounded-2xl px-3 py-2 text-[12.5px] resize-none text-slate-400" rows="1">Type a message…</textarea>
+                <button class="w-9 h-9 rounded-full bg-slate-200 text-slate-400 shrink-0 flex items-center justify-center font-extrabold text-sm">↑</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <!-- HOMEOWNER SIDE                                                    -->
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <div class="max-w-7xl mx-auto mt-12">
+      <div class="flex items-center gap-3 mb-6">
+        <span class="step-num" style="background: linear-gradient(135deg,#10b981,#059669);">H</span>
+        <h2 class="text-lg font-extrabold text-slate-900">Homeowner side</h2>
+        <span class="text-[12px] text-slate-500">Sarah, who posted the EWI job</span>
+      </div>
+
+      <div class="flex items-start gap-4 overflow-x-auto pb-6">
+
+        <!-- ─── Step 6 : Notification ─── -->
+        <section class="shrink-0">
+          <div class="text-center mb-3">
+            <span class="step-num" style="background: linear-gradient(135deg,#10b981,#059669);">6</span>
+            <h3 class="mt-2 text-sm font-extrabold text-slate-900">Push + in-app notification</h3>
+            <p class="text-[11px] text-slate-500 max-w-[260px]">SSE fires to the homeowner. Same plumbing as a real match.</p>
+          </div>
+          <div class="phone">
+            <div class="phone-inner bg-slate-100 flex flex-col">
+              <!-- iOS-style lock screen-->
+              <div class="flex-1 flex flex-col items-center pt-12">
+                <div class="text-white text-[60px] font-thin tracking-tight" style="text-shadow: 0 2px 12px rgba(0,0,0,0.3);">12:48</div>
+                <div class="text-white/80 text-[13px] mt-1" style="text-shadow: 0 1px 6px rgba(0,0,0,0.3);">Tuesday, 29 April</div>
+              </div>
+              <div class="px-3 pb-6">
+                <div class="rounded-2xl bg-white/90 backdrop-blur p-3 shadow-xl">
+                  <div class="flex items-start gap-2">
+                    <div class="w-9 h-9 rounded-lg grad-violet flex items-center justify-center text-white font-extrabold text-[13px] shrink-0">VMB</div>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center justify-between">
+                        <span class="text-[11.5px] font-extrabold text-slate-900">VetMyBuilder</span>
+                        <span class="text-[10px] text-slate-500">now</span>
+                      </div>
+                      <div class="text-[12.5px] font-bold text-slate-900 mt-0.5">New message from Adam</div>
+                      <div class="text-[11px] text-slate-600 leading-snug mt-0.5">Hi - I'm Adam from Elegant Building Services. We've done EWI on five 1930s terraces… (3 photos)</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="absolute inset-0 -z-10" style="background: linear-gradient(180deg,#0f172a 0%,#312e81 100%);"></div>
+            </div>
+          </div>
+        </section>
+
+        <span class="arrow self-center mt-32" aria-hidden>→</span>
+
+        <!-- ─── Step 7 : Homeowner sees chat ─── -->
+        <section class="shrink-0">
+          <div class="text-center mb-3">
+            <span class="step-num" style="background: linear-gradient(135deg,#10b981,#059669);">7</span>
+            <h3 class="mt-2 text-sm font-extrabold text-slate-900">Sarah sees the chat</h3>
+            <p class="text-[11px] text-slate-500 max-w-[260px]">"Paid unlock" badge tells her this builder paid - she didn't pick him in the deck.</p>
+          </div>
+          <div class="phone">
+            <div class="phone-inner bg-white flex flex-col">
+              <div class="px-4 pt-3 pb-2 border-b border-slate-100 flex items-center gap-3">
+                <button class="text-slate-500 text-[16px] font-bold w-7 h-7">←</button>
+                <div class="w-9 h-9 rounded-full grad-emerald flex items-center justify-center text-white font-extrabold">A</div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-[13.5px] font-extrabold text-slate-900 truncate">Adam · Elegant Building</div>
+                  <div class="text-[10px] text-slate-500 truncate">External wall insulation</div>
+                </div>
+                <button class="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">⋯</button>
+              </div>
+
+              <div class="px-4 pt-2 flex items-center gap-2">
+                <span class="inline-flex items-center gap-1 text-[9.5px] font-extrabold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">⚡ Paid unlock</span>
+                <span class="text-[10px] text-slate-500">Builder paid £14.99 to message you</span>
+              </div>
+
+              <div class="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-2">
+                <!-- builder bubble (left side from homeowner POV) -->
+                <div class="flex justify-start">
+                  <div class="max-w-[78%]">
+                    <div class="bg-slate-100 text-slate-900 rounded-2xl rounded-bl-md px-3 py-2 text-[12.5px] leading-relaxed">
+                      Hi - I'm Adam from Elegant Building Services. We've done EWI on five 1930s terraces in E4 over the last 18 months. Happy to come and have a look any evening this week.
+                    </div>
+                    <div class="mt-1 grid grid-cols-3 gap-1">
+                      <div class="aspect-square rounded-xl ph-1"></div>
+                      <div class="aspect-square rounded-xl ph-2"></div>
+                      <div class="aspect-square rounded-xl ph-3"></div>
+                    </div>
+                    <div class="text-[9px] text-slate-400 mt-1">11:48</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="px-3 py-2 border-t border-slate-100 flex items-end gap-2 bg-white">
+                <button class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-base shrink-0">📷</button>
+                <textarea class="flex-1 border border-slate-200 rounded-2xl px-3 py-2 text-[12.5px] resize-none" rows="1" placeholder="Reply…"></textarea>
+                <button class="w-9 h-9 rounded-full grad-emerald text-white shrink-0 flex items-center justify-center font-extrabold text-sm">↑</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <span class="arrow self-center mt-32" aria-hidden>→</span>
+
+        <!-- ─── Step 8 : Reply received ─── -->
+        <section class="shrink-0">
+          <div class="text-center mb-3">
+            <span class="step-num" style="background: linear-gradient(135deg,#10b981,#059669);">8</span>
+            <h3 class="mt-2 text-sm font-extrabold text-slate-900">Sarah replies in real time</h3>
+            <p class="text-[11px] text-slate-500 max-w-[260px]">Adam's chat updates instantly via SSE - same as today's matched chat.</p>
+          </div>
+          <div class="phone">
+            <div class="phone-inner bg-white flex flex-col">
+              <div class="px-4 pt-3 pb-2 border-b border-slate-100 flex items-center gap-3">
+                <button class="text-slate-500 text-[16px] font-bold w-7 h-7">←</button>
+                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-amber-200 to-rose-300 flex items-center justify-center font-extrabold text-rose-900">🏠</div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-[13.5px] font-extrabold text-slate-900 truncate">Sarah · Homeowner</div>
+                  <div class="text-[10px] text-emerald-600 font-bold truncate">● Active now</div>
+                </div>
+              </div>
+
+              <div class="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-2">
+                <div class="flex justify-end">
+                  <div class="max-w-[78%]">
+                    <div class="grad-violet text-white rounded-2xl rounded-br-md px-3 py-2 text-[12.5px] leading-relaxed">
+                      Hi - I'm Adam from Elegant Building Services. We've done EWI on five 1930s terraces in E4…
+                    </div>
+                    <div class="mt-1 grid grid-cols-3 gap-1">
+                      <div class="aspect-square rounded-xl ph-1"></div>
+                      <div class="aspect-square rounded-xl ph-2"></div>
+                      <div class="aspect-square rounded-xl ph-3"></div>
+                    </div>
+                    <div class="text-[9px] text-slate-400 mt-1 text-right">11:48 · Read</div>
+                  </div>
+                </div>
+
+                <!-- typing indicator -->
+                <div class="flex justify-start">
+                  <div class="bg-slate-100 rounded-2xl rounded-bl-md px-3 py-2 inline-flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse"></span>
+                    <span class="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse" style="animation-delay: 0.15s;"></span>
+                    <span class="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse" style="animation-delay: 0.3s;"></span>
+                  </div>
+                </div>
+
+                <div class="flex justify-start">
+                  <div class="max-w-[78%]">
+                    <div class="bg-slate-100 text-slate-900 rounded-2xl rounded-bl-md px-3 py-2 text-[12.5px] leading-relaxed">
+                      Brilliant - Thursday evening 6 pm work?
+                    </div>
+                    <div class="text-[9px] text-slate-400 mt-1">11:51</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="px-3 py-2 border-t border-slate-100 flex items-end gap-2 bg-white">
+                <button class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-base shrink-0">📷</button>
+                <textarea class="flex-1 border border-slate-200 rounded-2xl px-3 py-2 text-[12.5px] resize-none" rows="1" placeholder="Type a reply…"></textarea>
+                <button class="w-9 h-9 rounded-full bg-slate-200 text-slate-400 shrink-0 flex items-center justify-center font-extrabold text-sm">↑</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <!-- Architecture notes                                                -->
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <div class="max-w-3xl mx-auto mt-12 rounded-2xl bg-white border border-slate-200 p-5">
+      <h3 class="text-base font-extrabold text-slate-900">What's new vs today</h3>
+      <ul class="mt-2 text-[13px] text-slate-600 leading-snug space-y-2">
+        <li><strong>/projects/[id]/unlock/compose page goes away.</strong> Builders pay → land directly in /chat/:matchId.</li>
+        <li><strong>Inbox concept retired.</strong> /inbox page hidden from menus; <code>inbox_messages</code> table left in place but unused (can drop in a follow-up).</li>
+        <li><strong>swipe_interest gets a third source: 'paid_unlock'.</strong> Today's enum is ('recommended', 'subscribed') - we add this case so the unlock auto-creates a matched row without faking a swipe.</li>
+        <li><strong>chat_messages gets <code>attachments_json</code></strong> - the same JSON-array-of-URLs pattern used on the inbox attachments fix earlier.</li>
+        <li><strong>Image upload via 📷</strong> in the chat input bar. Same FileGridUploader pattern, opens as a popover above the input. Per-message attachment cap of 6.</li>
+        <li><strong>"Paid unlock" badge</strong> on the chat header for the homeowner so they know this builder paid rather than was picked in their deck. Badge hidden on the builder's view.</li>
+      </ul>
+
+      <h3 class="mt-5 text-base font-extrabold text-slate-900">Server changes</h3>
+      <ul class="mt-2 text-[13px] text-slate-600 leading-snug space-y-1.5">
+        <li><code>unlock-contact.checkout</code> + <code>mock.pay</code>: after writing the active project_contact_unlocks row, also INSERT a swipe_interest row (status='matched', source='paid_unlock'). Returns matchId so the client can route to /chat/:id.</li>
+        <li><code>chat/messages.post</code>: extend to accept multipart with <code>photos[]</code> (max 6, 10MB each), reuse the close.photos.post.js pipeline (HEIC → JPEG, EXIF strip).</li>
+        <li><code>chat/messages.get</code>: include <code>attachments</code> on each message in the response.</li>
+        <li><code>matches</code> list endpoint: surface <code>source</code> so the homeowner-side UI can render the badge.</li>
+      </ul>
+
+      <h3 class="mt-5 text-base font-extrabold text-slate-900">What I want to confirm before building</h3>
+      <ul class="mt-2 text-[13px] text-slate-600 leading-snug space-y-1.5">
+        <li>OK to add <strong>'paid_unlock'</strong> to the swipe_interest source enum?</li>
+        <li>"Paid unlock" badge wording / colour OK, or hide entirely?</li>
+        <li>Per-message photo cap of <strong>6</strong> sound right for chat?</li>
+        <li>For now I'd leave the inbox_messages table in place (just stop writing to it) - any in-flight unreplied pitches stay readable. OK to drop in a follow-up?</li>
+      </ul>
+    </div>
+  </main>
+</body>
+</html>

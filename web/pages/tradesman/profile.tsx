@@ -294,7 +294,7 @@ function Inner() {
             <div className="flex flex-wrap sm:flex-col items-start gap-2 shrink-0">
               <button
                 type="button"
-                onClick={() => router.push("/tradesman/projects")}
+                onClick={() => router.push("/tradesman/jobs")}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-emerald-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-500/30 hover:bg-emerald-600 hover:shadow-xl hover:scale-[1.02] transition-all"
                 data-testid="btn-view-tradesman-jobs"
               >

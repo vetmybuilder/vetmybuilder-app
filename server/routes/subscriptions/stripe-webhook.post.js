@@ -2,9 +2,29 @@
 //
 // POST /api/subscriptions/stripe-webhook
 
+const { syncSubscriptionCache } = require("../../lib/subscriptions/syncSubscriptionCache");
+
 module.exports = function mountStripeWebhook(router, ctx) {
   const { mysqlQuery, payments } = ctx;
+  const log = ctx.log || console;
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
+
+  // Look up the user_id behind a stripe_subscription_id - needed for the
+  // updated/deleted webhook events which only carry the subscription id.
+  async function userIdFromSubId(subId) {
+    if (!subId) return null;
+    try {
+      const rows = await mysqlQuery(
+        `SELECT user_id FROM builder_subscriptions
+          WHERE stripe_subscription_id = ?
+          LIMIT 1`,
+        [subId],
+      );
+      return rows?.[0]?.user_id || null;
+    } catch {
+      return null;
+    }
+  }
 
   router.post("/subscriptions/stripe-webhook", async (req, res) => {
     let event;
@@ -34,6 +54,7 @@ module.exports = function mountStripeWebhook(router, ctx) {
                user_id = VALUES(user_id)`,
             [userId, tier, subId],
           );
+          await syncSubscriptionCache({ mysqlQuery, userId, log });
         }
       } else if (type === "customer.subscription.updated") {
         const subId = obj.id;
@@ -46,14 +67,20 @@ module.exports = function mountStripeWebhook(router, ctx) {
             WHERE stripe_subscription_id = ?`,
           [status, start, end, subId],
         );
+        const userId = await userIdFromSubId(subId);
+        if (userId) await syncSubscriptionCache({ mysqlQuery, userId, log });
       } else if (type === "customer.subscription.deleted") {
         const subId = obj.id;
+        // Look up the user before mutating so we still have it after the
+        // status flip.
+        const userId = await userIdFromSubId(subId);
         await mysqlQuery(
           `UPDATE builder_subscriptions
               SET status = 'canceled', canceled_at = NOW()
             WHERE stripe_subscription_id = ?`,
           [subId],
         );
+        if (userId) await syncSubscriptionCache({ mysqlQuery, userId, log });
       }
       return res.status(200).json({ received: true });
     } catch (e) {

@@ -1,6 +1,7 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import BrandWordmark from "@/components/BrandWordmark";
 import {
   User,
   Wrench,
@@ -9,18 +10,19 @@ import {
   Handshake,
   Heart,
   LogOut,
-  PlusSquare,
   Sparkles,
-  Inbox,
+  Star,
   ChevronRight,
   MessageSquare,
+  LayoutList,
 } from "lucide-react";
 
 type ProjectsTabKey =
   | "mine"
   | "completed"
   | "completedCommunity"
-  | "favourites";
+  | "favourites"
+  | "recommendations";
 
 const FONT_STACK =
   "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif";
@@ -30,26 +32,24 @@ type IconComponent = React.ComponentType<{ className?: string }>;
 function IconTile({
   Icon,
   active,
+  tone = "indigo",
 }: {
   Icon: IconComponent;
   active?: boolean;
+  tone?: "indigo" | "emerald";
 }) {
   return (
     <span
       className={[
         "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0",
-        active ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-600",
+        active
+          ? tone === "emerald"
+            ? "bg-emerald-600 text-white"
+            : "bg-indigo-600 text-white"
+          : "bg-gray-100 text-gray-600",
       ].join(" ")}
     >
       <Icon className="h-5 w-5" />
-    </span>
-  );
-}
-
-function CountPill({ count }: { count: number }) {
-  return (
-    <span className="ml-auto bg-indigo-600 text-white text-[11px] font-extrabold px-2.5 py-0.5 rounded-full">
-      {count}
     </span>
   );
 }
@@ -84,8 +84,6 @@ export default function MobileMenu({
   onGoHome,
   onGoProjectsTab,
   onGoAccount,
-  onPostJob,
-  inboxUnreadCount,
 }: {
   open: boolean;
   onClose: () => void;
@@ -101,9 +99,6 @@ export default function MobileMenu({
   onGoHome: () => void;
   onGoProjectsTab: (key: ProjectsTabKey) => void;
   onGoAccount: () => void;
-  onPostJob: () => void;
-
-  inboxUnreadCount?: number;
 }) {
   const [mounted, setMounted] = React.useState(false);
 
@@ -147,9 +142,6 @@ export default function MobileMenu({
     fontFamily: FONT_STACK,
   };
 
-  const hasInboxCount =
-    typeof inboxUnreadCount === "number" && inboxUnreadCount > 0;
-
   return createPortal(
     <div
       className="fixed inset-0 z-[9999] md:hidden w-screen h-[100dvh] bg-white"
@@ -175,11 +167,7 @@ export default function MobileMenu({
             aria-label="Go home"
             data-testid="mobile-menu-home"
           >
-            <span className="text-[17px] font-black tracking-tight">
-              <span className="text-black">Vet</span>
-              <span className="text-indigo-600">My</span>
-              <span className="text-black">Builder</span>
-            </span>
+            <BrandWordmark tone={isTrades ? "emerald" : "indigo"} />
           </button>
 
           <button
@@ -197,11 +185,21 @@ export default function MobileMenu({
         <div className="flex-1 overflow-y-auto flex flex-col">
           {isAuthed && (
             <div
-              className="mx-5 mb-6 p-5 bg-indigo-50/60 border border-indigo-100 rounded-[22px] flex items-center"
+              className={`mx-5 mb-6 p-5 ${
+                isTrades
+                  ? "bg-emerald-50/60 border border-emerald-100"
+                  : "bg-indigo-50/60 border border-indigo-100"
+              } rounded-[22px] flex items-center`}
               style={{ gap: "14px" }}
               data-testid="mobile-menu-greeting"
             >
-              <div className="w-[54px] h-[54px] rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center flex-shrink-0">
+              <div
+                className={`w-[54px] h-[54px] rounded-full bg-gradient-to-br ${
+                  isTrades
+                    ? "from-emerald-400 to-emerald-600"
+                    : "from-indigo-400 to-indigo-600"
+                } flex items-center justify-center flex-shrink-0`}
+              >
                 <span className="text-white font-bold text-[22px] leading-none">
                   {avatarLetter}
                 </span>
@@ -248,21 +246,6 @@ export default function MobileMenu({
                 <Chevron />
               </Link>
 
-              <Link
-                href="/inbox"
-                onClick={onClose}
-                className={`${ROW_BASE} text-gray-900`}
-                data-testid="mobile-menu-inbox"
-              >
-                <IconTile Icon={Inbox} />
-                <span>Inbox</span>
-                {hasInboxCount ? (
-                  <CountPill count={inboxUnreadCount as number} />
-                ) : (
-                  <Chevron />
-                )}
-              </Link>
-
               <button
                 type="button"
                 onClick={() => {
@@ -274,6 +257,20 @@ export default function MobileMenu({
               >
                 <IconTile Icon={Heart} />
                 <span>Favourites</span>
+                <Chevron />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onGoProjectsTab("recommendations");
+                  onClose();
+                }}
+                className={`${ROW_BASE} text-gray-900`}
+                data-testid="mobile-menu-recommendations"
+              >
+                <IconTile Icon={Star} />
+                <span>Recommendations</span>
                 <Chevron />
               </button>
 
@@ -316,14 +313,25 @@ export default function MobileMenu({
                 <Link
                   href={tradeCta.href}
                   onClick={onClose}
-                  className={`${ROW_BASE} bg-indigo-50 text-gray-900`}
+                  className={`${ROW_BASE} bg-emerald-50 text-gray-900`}
                   data-testid={tradeCta.testid || "mobile-menu-trades-projects"}
                 >
-                  <IconTile Icon={Wrench} active />
+                  <IconTile Icon={Wrench} active tone="emerald" />
                   <span>{tradeCta.label}</span>
                   <Chevron />
                 </Link>
               )}
+
+              <Link
+                href="/tradesman/jobs/list"
+                onClick={onClose}
+                className={ROW_BASE}
+                data-testid="mobile-menu-trades-jobs-list"
+              >
+                <IconTile Icon={LayoutList} />
+                <span>Browse all jobs</span>
+                <Chevron />
+              </Link>
 
               <Link
                 href="/tradesman/matches"
@@ -331,8 +339,19 @@ export default function MobileMenu({
                 className={`${ROW_BASE} text-gray-900`}
                 data-testid="mobile-menu-trades-matches"
               >
-                <IconTile Icon={Sparkles} />
+                <IconTile Icon={Handshake} />
                 <span>Matches</span>
+                <Chevron />
+              </Link>
+
+              <Link
+                href="/tradesman/leads"
+                onClick={onClose}
+                className={`${ROW_BASE} text-gray-900`}
+                data-testid="mobile-menu-trades-leads"
+              >
+                <IconTile Icon={Sparkles} />
+                <span>Incoming interest</span>
                 <Chevron />
               </Link>
 
@@ -341,13 +360,13 @@ export default function MobileMenu({
               <SectionHeading>Account</SectionHeading>
 
               <Link
-                href="/tradesman/profile/edit"
+                href="/tradesman/account"
                 onClick={onClose}
                 className={`${ROW_BASE} text-gray-900`}
                 data-testid="mobile-menu-trades-profile"
               >
                 <IconTile Icon={User} />
-                <span>Manage profile</span>
+                <span>Account</span>
                 <Chevron />
               </Link>
             </nav>
@@ -367,52 +386,27 @@ export default function MobileMenu({
         {/* Bottom actions */}
         <div className="sticky bottom-0 left-0 right-0 shrink-0">
           <div
-            className={`grid ${
-              isAuthed && isTrades ? "grid-cols-1" : "grid-cols-2"
-            }`}
+            className={`grid ${isAuthed ? "grid-cols-1" : "grid-cols-2"}`}
           >
             {isAuthed ? (
-              <>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    onClose();
-                    await onLogout();
-                  }}
-                  className={[
-                    "px-6 py-5 text-left flex items-center gap-3",
-                    "bg-red-500 hover:bg-red-600",
-                    "text-white",
-                  ].join(" ")}
-                  data-testid="mobile-menu-logout"
-                >
-                  <LogOut className="h-5 w-5" />
-                  <span className="block text-[18px] leading-tight font-bold">
-                    Sign out
-                  </span>
-                </button>
-
-                {!isTrades && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onPostJob();
-                      onClose();
-                    }}
-                    className={[
-                      "px-6 py-5 text-left flex items-center gap-3",
-                      "bg-indigo-600 hover:bg-indigo-500",
-                      "text-white",
-                    ].join(" ")}
-                    data-testid="mobile-menu-post-job"
-                  >
-                    <PlusSquare className="h-5 w-5" />
-                    <span className="block text-[18px] leading-tight font-bold">
-                      Post a Job
-                    </span>
-                  </button>
-                )}
-              </>
+              <button
+                type="button"
+                onClick={async () => {
+                  onClose();
+                  await onLogout();
+                }}
+                className={[
+                  "px-6 py-5 text-left flex items-center gap-3",
+                  "bg-red-500 hover:bg-red-600",
+                  "text-white",
+                ].join(" ")}
+                data-testid="mobile-menu-logout"
+              >
+                <LogOut className="h-5 w-5" />
+                <span className="block text-[18px] leading-tight font-bold">
+                  Sign out
+                </span>
+              </button>
             ) : (
               <>
                 <Link

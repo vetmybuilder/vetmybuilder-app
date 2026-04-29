@@ -485,8 +485,15 @@ export default function LocationField({
             <li key={`borough-${b.name}`} role="option">
               <button
                 type="button"
+                // Match the postcode/sector suggestion behaviour: prevent
+                // the input from blurring before our onClick can run, so
+                // the dropdown isn't dismissed first.
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
-                  onChange("", {
+                  // Pass the borough name as the displayed value so the
+                  // input shows "Waltham Forest" (and the parent stores it
+                  // as form.location) instead of going blank.
+                  onChange(b.name, {
                     postcode: "",
                     outward: null,
                     sector: null,

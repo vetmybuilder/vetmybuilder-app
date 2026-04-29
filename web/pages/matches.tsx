@@ -1,21 +1,31 @@
 // web/pages/matches.tsx
 //
-// Cross-project matches page for homeowners. Fetches /api/matches and
-// renders a mobile-first, full-screen list with New/Contacted/Archived
-// tabs. On "new" and "contacted" tabs, matches are grouped by source
-// (recommended vs. ai-matched). Tapping a card navigates to the per-match
-// page at /match/:matchId.
+// Homeowner-side conversation list. WhatsApp / iMessage style: one row per
+// match, last message preview, timestamp, unread dot, filter pills replacing
+// the old tabs. Visual target lives in
+// web/public/mocks/matches-redesign.html (Option A).
 //
-// Visual language mirrors /inbox exactly — same hero structure, same tab
-// pills, same card rounding, same indigo accents.
-import { useEffect, useState } from "react";
+// Tradesmen who land here get bounced to /tradesman/matches because
+// /api/matches filters by p.ownerUserId.
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import { ChevronLeft } from "lucide-react";
 import { useApi } from "@/utils/api";
 import AuthedOnly from "@/components/AuthedOnly";
+import EnableNotificationsBanner from "@/components/EnableNotificationsBanner";
+import { useMobileMenu } from "@/utils/mobileMenu";
+import { useRole } from "@/utils/useRole";
+import { useAuth } from "@/utils/auth";
 
-type MatchStatus = "new" | "contacted" | "archived";
-type MatchSource = "recommended" | "ai-matched";
+type MatchStatus = "waiting" | "matched";
+type MatchSource = "recommended" | "ai-matched" | "paid-unlock";
+type Filter = "all" | "matched" | "pitches" | "waiting";
+
+interface LastMessage {
+  body: string | null;
+  attachmentCount: number;
+  senderUid: string | null;
+  createdAt: string | null;
+}
 
 interface MatchRow {
   matchId: string;
@@ -35,6 +45,8 @@ interface MatchRow {
   source: MatchSource;
   status: MatchStatus;
   whyMatch: string;
+  lastMessage: LastMessage | null;
+  unreadCount: number;
 }
 
 const AVATAR_GRADIENTS = [
@@ -51,207 +63,436 @@ function pickAvatarGradient(seed: string): string {
   return AVATAR_GRADIENTS[idx] || AVATAR_GRADIENTS[0]!;
 }
 
-type Tab = MatchStatus;
+const MONTHS_SHORT = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
-const EMPTY_COPY: Record<Tab, { emoji: string; title: string; sub: string }> = {
-  new: {
-    emoji: "💫",
-    title: "No matches yet",
-    sub: "Keep swiping — we'll notify you when a builder matches with you.",
+const WEEKDAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+// Same-day -> HH:mm. Yesterday -> "Yesterday". Same week -> short weekday.
+// Older -> "D MMM".
+function formatRowTime(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const now = new Date();
+  const startOfToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+  );
+  const startOfMsg = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diffDays = Math.round(
+    (startOfToday.getTime() - startOfMsg.getTime()) / 86_400_000,
+  );
+  if (diffDays <= 0) {
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    return `${hh}:${mm}`;
+  }
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return WEEKDAYS_SHORT[d.getDay()] || "";
+  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`;
+}
+
+type RowKind = "paid" | "matched" | "recommended" | "waiting";
+
+function rowKind(row: MatchRow): RowKind {
+  if (row.status === "waiting") return "waiting";
+  if (row.source === "paid-unlock") return "paid";
+  if (row.source === "recommended") return "recommended";
+  return "matched";
+}
+
+const KIND_BADGE: Record<
+  RowKind,
+  { glyph: string; classes: string; label: string }
+> = {
+  paid: {
+    glyph: "⚡",
+    classes:
+      "bg-gradient-to-br from-amber-400 to-amber-500 text-white border-2 border-white",
+    label: "Paid pitch",
   },
-  contacted: {
-    emoji: "📞",
-    title: "No active follow-ups",
-    sub: "Matches you've reached out to will show up here.",
+  matched: {
+    glyph: "♥",
+    classes:
+      "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-2 border-white",
+    label: "Matched",
   },
-  archived: {
-    emoji: "📦",
-    title: "No archived matches",
-    sub: "Matches you archive will appear here.",
+  recommended: {
+    glyph: "★",
+    classes:
+      "bg-gradient-to-br from-violet-500 to-indigo-600 text-white border-2 border-white",
+    label: "Recommended",
+  },
+  waiting: {
+    glyph: "⏳",
+    classes: "bg-slate-300 text-slate-700 border-2 border-white",
+    label: "Waiting",
   },
 };
 
-// Mirrors desktop ShortlistSection scoreColor: green ≥55, amber ≥30, red otherwise.
-function scoreColorClass(score: number): string {
-  if (score >= 55) return "bg-gradient-to-br from-emerald-500 to-emerald-600";
-  if (score >= 30) return "bg-gradient-to-br from-amber-500 to-amber-600";
-  return "bg-gradient-to-br from-red-500 to-red-600";
+function contextLine(row: MatchRow): { text: string; tone: string } {
+  const kind = rowKind(row);
+  const project = row.projectTitle || "this project";
+  if (kind === "paid") {
+    return {
+      text: `⚡ Paid pitch · ${project}`,
+      tone: "text-amber-700",
+    };
+  }
+  if (kind === "recommended") {
+    // whyMatch already says "Recommended ..." but for the conversation list we
+    // want a tighter line. Fall back to a generic recommended label - the
+    // detail page surfaces who recommended.
+    return {
+      text: `★ Recommended · ${project}`,
+      tone: "text-indigo-700",
+    };
+  }
+  if (kind === "matched") {
+    return {
+      text: `♥ Matched · ${project}`,
+      tone: "text-emerald-700",
+    };
+  }
+  // waiting
+  return {
+    text: `⏳ Pending match · ${project}`,
+    tone: "text-slate-500",
+  };
 }
 
-function ScoreBadge({ score }: { score: number }) {
-  return (
-    <div
-      className={`w-full h-full rounded-full ${scoreColorClass(score)} flex items-center justify-center text-white text-[11px] font-extrabold shadow`}
-      aria-label={`Score: ${score}`}
-      data-testid="match-score-badge"
-    >
-      {score}
-    </div>
-  );
+function previewText(
+  row: MatchRow,
+  viewerUid: string | null,
+): { text: string; italic: boolean; truncate: boolean } {
+  const lm = row.lastMessage;
+  if (!lm || (!lm.body && lm.attachmentCount === 0)) {
+    if (row.status === "waiting") {
+      return {
+        text: "Builder swiped right - swipe back to start chatting.",
+        italic: true,
+        truncate: true,
+      };
+    }
+    return { text: "No messages yet", italic: true, truncate: true };
+  }
+  const isMine = !!(viewerUid && lm.senderUid && lm.senderUid === viewerUid);
+  let body = lm.body || "";
+  if (!body && lm.attachmentCount > 0) {
+    body = lm.attachmentCount === 1 ? "Photo" : `${lm.attachmentCount} photos`;
+  }
+  const prefix = isMine ? "You: " : "";
+  return { text: `${prefix}${body}`, italic: false, truncate: true };
 }
 
-function MatchCard({
+function ConversationRow({
   row,
+  viewerUid,
   onOpen,
 }: {
   row: MatchRow;
-  onOpen: (matchId: string) => void;
+  viewerUid: string | null;
+  onOpen: (row: MatchRow) => void;
 }) {
-  const isRec = row.source === "recommended";
+  const kind = rowKind(row);
   const initial = (row.companyName || "?").charAt(0).toUpperCase();
   const avatarStyle = {
     backgroundImage: pickAvatarGradient(row.companyName || "?"),
   };
+  const badge = KIND_BADGE[kind];
+  const context = contextLine(row);
+  const preview = previewText(row, viewerUid);
+  const time = formatRowTime(row.lastMessage?.createdAt || null);
+  const isWaiting = kind === "waiting";
+  const hasUnread = row.unreadCount > 0;
+
   return (
     <div
       role="button"
       tabIndex={0}
       aria-label={row.companyName}
-      onClick={() => onOpen(row.matchId)}
+      onClick={() => onOpen(row)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          onOpen(row.matchId);
+          onOpen(row);
         }
       }}
-      className={`mx-5 mb-3 p-4 rounded-[20px] border cursor-pointer ${
-        isRec
-          ? "border-indigo-200 bg-gradient-to-br from-[#fafbff] via-white to-white"
-          : "border-gray-200 bg-white"
+      className={`px-5 py-3 border-b border-slate-100 active:bg-slate-50 flex items-start gap-3 cursor-pointer ${
+        isWaiting ? "opacity-70" : ""
       }`}
+      data-testid="match-row"
     >
-      <div className="flex items-start gap-3">
-        <div className="relative w-14 h-14 shrink-0">
-          <div
-            className="w-14 h-14 rounded-full overflow-hidden flex items-center justify-center text-white font-extrabold text-[17px]"
-            style={avatarStyle}
-            aria-hidden
-          >
-            {row.photoUrl ? (
-              <img
-                src={row.photoUrl}
-                alt=""
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              initial
-            )}
-          </div>
-          {typeof row.vmbScore === "number" && row.vmbScore > 0 && (
-            <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-white p-[2px] shadow">
-              <ScoreBadge score={row.vmbScore} />
-            </div>
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-[15px] font-extrabold tracking-tight text-gray-900 truncate">
-            {row.companyName}
-          </div>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[11px] text-gray-500">
-            {row.googleRating != null && (
-              <span className="inline-flex items-center gap-1 text-gray-700 font-bold">
-                <span className="text-amber-500">★</span>
-                {row.googleRating.toFixed(1)}
-                <span className="text-gray-400 font-semibold">
-                  ({row.googleReviewCount})
-                </span>
-              </span>
-            )}
-            {row.yearsTrading > 0 && (
-              <span className="font-semibold">{row.yearsTrading} yrs</span>
-            )}
-            {row.chVerified && (
-              <span className="inline-flex items-center gap-0.5 text-emerald-600 font-bold">
-                ✓ Verified
-              </span>
-            )}
-          </div>
-          <div
-            className={`text-[11px] font-bold mt-1.5 ${
-              isRec ? "text-indigo-700" : "text-gray-500"
-            }`}
-          >
-            {isRec ? "★ " : "✨ "}
-            {row.whyMatch}
-          </div>
-        </div>
+      <div className="relative w-12 h-12 shrink-0">
         <div
-          className="text-gray-400 text-[22px] font-semibold self-center"
+          className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center text-white font-extrabold text-[15px]"
+          style={avatarStyle}
           aria-hidden
         >
-          ›
+          {row.photoUrl ? (
+            <img
+              src={row.photoUrl}
+              alt=""
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            initial
+          )}
         </div>
+        <span
+          className={`absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${badge.classes}`}
+          title={badge.label}
+          aria-label={badge.label}
+        >
+          {badge.glyph}
+        </span>
       </div>
-      <div className="inline-flex items-center gap-1 mt-2.5 bg-gray-100 text-gray-700 text-[11px] font-bold px-2.5 py-1 rounded-full max-w-full whitespace-nowrap overflow-hidden text-ellipsis">
-        {row.projectTitle}
-      </div>
-      {row.trades.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          {row.trades.slice(0, 4).map((t) => (
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-[14.5px] font-extrabold text-slate-900 truncate">
+            {row.companyName}
+          </div>
+          {time && (
             <span
-              key={t}
-              className="bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-0.5 rounded-full"
+              className={`text-[10.5px] font-semibold shrink-0 ${
+                hasUnread ? "text-indigo-600" : "text-slate-400"
+              }`}
             >
-              {t}
+              {time}
             </span>
-          ))}
+          )}
         </div>
-      )}
+        <div
+          className={`text-[10.5px] font-bold uppercase tracking-wider mt-0.5 ${context.tone}`}
+        >
+          {context.text}
+        </div>
+        <div className="flex items-start gap-2 mt-1">
+          <p
+            className={`flex-1 text-[12.5px] leading-snug truncate ${
+              preview.italic ? "italic text-slate-400" : "text-slate-600"
+            }`}
+          >
+            {preview.text}
+          </p>
+          {hasUnread && (
+            <span
+              className="w-2 h-2 rounded-full bg-indigo-500 shrink-0 mt-1.5"
+              aria-label={`${row.unreadCount} unread`}
+            />
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
+const FILTER_EMPTY: Record<
+  Filter,
+  { emoji: string; title: string; sub: string }
+> = {
+  all: {
+    emoji: "📬",
+    title: "No conversations yet",
+    sub: "When a builder matches with you, or pays to pitch, the thread shows up here.",
+  },
+  matched: {
+    emoji: "🤝",
+    title: "No matches yet",
+    sub: "When you and a builder both swipe right, they appear here with chat and contact details.",
+  },
+  pitches: {
+    emoji: "⚡",
+    title: "No pitches yet",
+    sub: "Builders who pay to message you about a job land here.",
+  },
+  waiting: {
+    emoji: "⏳",
+    title: "Nothing waiting",
+    sub: "Pending swipes show up here until both sides have picked.",
+  },
+};
+
 function MatchesPageInner() {
   const router = useRouter();
+  const { openMenu } = useMobileMenu();
   const api = useApi();
+  const { role, loading: roleLoading } = useRole();
+  const { user } = useAuth();
+  const viewerUid = user?.uid || null;
   const [matches, setMatches] = useState<MatchRow[]>([]);
-  const [tab, setTab] = useState<Tab>("new");
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<Filter>("all");
+
+  // /matches is the homeowner-side cross-project list. /api/matches filters
+  // by `p.ownerUserId = uid`, so a tradesman who lands here would just see
+  // an empty list. Send them to /tradesman/matches.
+  useEffect(() => {
+    if (roleLoading) return;
+    if (role === "tradesman") {
+      router.replace("/tradesman/matches");
+    }
+  }, [role, roleLoading, router]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
+    if (roleLoading || role === "tradesman") return;
     let cancelled = false;
-    api
-      .get("/api/matches")
-      .then((res) => {
+
+    async function load() {
+      try {
+        const res = await api.get("/api/matches");
         if (cancelled) return;
         const rows: MatchRow[] = Array.isArray(res.data?.matches)
           ? res.data.matches
           : [];
         setMatches(rows);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setMatches([]);
-      });
+      } catch {
+        if (!cancelled) setMatches([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    // Background refresh every 30s keeps timestamps + unread counts fresh
+    // without making the page feel laggy. Setting state from a stale fetch
+    // after unmount is guarded by the cancelled flag.
+    const timer = setInterval(load, 30_000);
     return () => {
       cancelled = true;
+      clearInterval(timer);
     };
-  }, []);
+  }, [role, roleLoading]);
 
-  const counts: Record<Tab, number> = {
-    new: matches.filter((m) => m.status === "new").length,
-    contacted: matches.filter((m) => m.status === "contacted").length,
-    archived: matches.filter((m) => m.status === "archived").length,
-  };
+  const isPaid = (m: MatchRow) => m.source === "paid-unlock";
+  const counts = useMemo(() => {
+    const matched = matches.filter(
+      (m) => m.status === "matched" && !isPaid(m),
+    ).length;
+    const pitches = matches.filter(
+      (m) => m.status === "matched" && isPaid(m),
+    ).length;
+    const waiting = matches.filter((m) => m.status === "waiting").length;
+    return {
+      all: matches.length,
+      matched,
+      pitches,
+      waiting,
+    };
+  }, [matches]);
 
-  const visible = matches.filter((m) => m.status === tab);
+  // Unread paid-pitch count drives the amber tint on the Pitches pill.
+  const unreadPitches = useMemo(
+    () =>
+      matches.filter(
+        (m) => m.status === "matched" && isPaid(m) && m.unreadCount > 0,
+      ).length,
+    [matches],
+  );
 
-  const tabDefs: { key: Tab; label: string }[] = [
-    { key: "new", label: "New" },
-    { key: "contacted", label: "Contacted" },
-    { key: "archived", label: "Archived" },
-  ];
+  const visible = useMemo(() => {
+    return matches.filter((m) => {
+      if (filter === "all") return true;
+      if (filter === "matched") return m.status === "matched" && !isPaid(m);
+      if (filter === "pitches") return m.status === "matched" && isPaid(m);
+      return m.status === "waiting";
+    });
+  }, [matches, filter]);
 
-  function openMatch(matchId: string) {
-    router.push(`/match/${matchId}`);
+  // Sort: unread first, then most recent message, then waiting rows last.
+  const ordered = useMemo(() => {
+    const arr = [...visible];
+    arr.sort((a, b) => {
+      // Waiting always sinks below active threads in the unfiltered view.
+      const aWait = a.status === "waiting" ? 1 : 0;
+      const bWait = b.status === "waiting" ? 1 : 0;
+      if (aWait !== bWait) return aWait - bWait;
+      // Unread first.
+      const aUnread = a.unreadCount > 0 ? 0 : 1;
+      const bUnread = b.unreadCount > 0 ? 0 : 1;
+      if (aUnread !== bUnread) return aUnread - bUnread;
+      // Most recent message wins.
+      const aT = a.lastMessage?.createdAt
+        ? Date.parse(a.lastMessage.createdAt)
+        : 0;
+      const bT = b.lastMessage?.createdAt
+        ? Date.parse(b.lastMessage.createdAt)
+        : 0;
+      return bT - aT;
+    });
+    return arr;
+  }, [visible]);
+
+  function openRow(row: MatchRow) {
+    if (row.status === "matched") {
+      router.push(`/chat/${row.matchId}`);
+    } else {
+      router.push(`/match/${row.matchId}`);
+    }
   }
 
-  const grouped = {
-    recommended: visible.filter((m) => m.source === "recommended"),
-    aiMatched: visible.filter((m) => m.source === "ai-matched"),
+  type Pill = {
+    key: Filter;
+    label: string;
+    count: number;
+    glyph?: string;
+    activeClass: string;
+    inactiveClass: string;
+    countClass: string;
   };
-
-  const showGroups = tab !== "archived";
+  const pills: Pill[] = [
+    {
+      key: "all",
+      label: "All",
+      count: counts.all,
+      activeClass: "bg-slate-900 text-white",
+      inactiveClass: "bg-slate-100 text-slate-700",
+      countClass: "opacity-70",
+    },
+    {
+      key: "matched",
+      label: "Matched",
+      count: counts.matched,
+      activeClass: "bg-slate-900 text-white",
+      inactiveClass: "bg-slate-100 text-slate-700",
+      countClass: "text-slate-400",
+    },
+    {
+      key: "pitches",
+      label: "Pitches",
+      count: counts.pitches,
+      glyph: "⚡",
+      activeClass: "bg-amber-500 text-white",
+      inactiveClass:
+        unreadPitches > 0
+          ? "bg-amber-50 text-amber-800"
+          : "bg-slate-100 text-slate-700",
+      countClass: filter === "pitches" ? "opacity-70" : "text-amber-500",
+    },
+    {
+      key: "waiting",
+      label: "Waiting",
+      count: counts.waiting,
+      activeClass: "bg-slate-900 text-white",
+      inactiveClass: "bg-slate-100 text-slate-500",
+      countClass: "text-slate-400",
+    },
+  ];
 
   return (
     <main
@@ -266,111 +507,91 @@ function MatchesPageInner() {
       <div style={{ height: "env(safe-area-inset-top)" }} />
 
       {/* Top bar */}
-      <div className="px-4 pt-2 pb-3 flex items-center justify-between">
+      <div className="px-5 pt-3 pb-2 flex items-center justify-between border-b border-slate-100">
+        <div className="flex items-center gap-2">
+          <h1 className="text-[22px] font-extrabold tracking-tight text-slate-900">
+            Messages
+          </h1>
+          <span className="text-[12px] text-slate-400 font-bold">
+            {counts.all}
+          </span>
+        </div>
         <button
           type="button"
-          aria-label="Back"
-          onClick={() => router.back()}
-          className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center"
+          aria-label="Open menu"
+          onClick={openMenu}
+          className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-700"
         >
-          <ChevronLeft className="w-5 h-5 text-gray-700" />
+          <span aria-hidden className="text-[18px] leading-none">
+            ≡
+          </span>
         </button>
-        <div className="text-[15px] font-bold text-gray-500 tracking-tight">
-          Matches
-        </div>
-        <div className="w-10" />
       </div>
 
-      {/* Hero */}
-      <section className="px-6 pt-2 pb-4 text-center">
-        <div className="text-[34px] leading-none mb-2.5" aria-hidden>
-          ♥
-        </div>
-        <h1 className="text-[28px] font-extrabold tracking-[-0.02em] leading-[1.15] text-gray-900">
-          Your matches
-        </h1>
-        <p className="mt-2.5 mx-4 text-[14px] text-gray-500 leading-[1.5]">
-          Builders who picked you back. Tap a card to call, message, or WhatsApp
-          them.
-        </p>
-      </section>
+      {/* "Turn on notifications" banner - hides itself when push is
+          already granted, dismissed for the session, or unsupported. */}
+      <EnableNotificationsBanner />
 
-      {/* Tabs */}
+      {/* Filter pills */}
       <div
-        role="tablist"
-        className="grid grid-cols-3 gap-1 bg-gray-100 rounded-2xl p-1 mx-5 mb-4"
+        className="px-3 pt-2 pb-2 flex gap-1.5 overflow-x-auto"
+        style={{ scrollbarWidth: "none" }}
       >
-        {tabDefs.map((t) => {
-          const active = tab === t.key;
-          const count = counts[t.key];
+        {pills.map((p) => {
+          const active = filter === p.key;
           return (
             <button
-              key={t.key}
-              role="tab"
+              key={p.key}
               type="button"
-              aria-selected={active}
-              onClick={() => setTab(t.key)}
-              className={`py-2 rounded-xl text-[13px] font-extrabold flex items-center justify-center ${
-                active ? "bg-white shadow text-gray-900" : "text-gray-500"
-              }`}
+              onClick={() => setFilter(p.key)}
+              className={`shrink-0 px-3 py-1 rounded-full text-[11.5px] font-bold ${
+                active ? p.activeClass : p.inactiveClass
+              } ${active ? "font-extrabold" : ""}`}
+              aria-pressed={active}
             >
-              <span>{t.label}</span>
-              {count > 0 && (
-                <span
-                  className={`ml-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-                    active
-                      ? "bg-indigo-600 text-white"
-                      : "bg-indigo-50 text-indigo-700"
-                  }`}
-                >
-                  {count}
-                </span>
-              )}
+              {p.glyph ? <span className="mr-0.5">{p.glyph}</span> : null}
+              {p.label}{" "}
+              <span className={`ml-0.5 ${p.countClass}`}>{p.count}</span>
             </button>
           );
         })}
       </div>
 
       {/* List */}
-      {visible.length === 0 ? (
-        <div className="py-16 text-center">
+      {loading && matches.length === 0 ? (
+        <div className="px-5 py-6 space-y-3" aria-busy="true">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="flex items-start gap-3 animate-pulse">
+              <div className="w-12 h-12 rounded-full bg-slate-100" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3 bg-slate-100 rounded w-2/3" />
+                <div className="h-2.5 bg-slate-100 rounded w-1/2" />
+                <div className="h-3 bg-slate-100 rounded w-5/6" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : ordered.length === 0 ? (
+        <div className="py-16 text-center px-6">
           <div className="text-[32px] opacity-60" aria-hidden>
-            {EMPTY_COPY[tab].emoji}
+            {FILTER_EMPTY[filter].emoji}
           </div>
           <div className="text-[16px] font-extrabold text-gray-900 mt-2.5">
-            {EMPTY_COPY[tab].title}
+            {FILTER_EMPTY[filter].title}
           </div>
-          <div className="text-[13px] text-gray-500 mt-1.5 mx-6">
-            {EMPTY_COPY[tab].sub}
+          <div className="text-[13px] text-gray-500 mt-1.5">
+            {FILTER_EMPTY[filter].sub}
           </div>
-        </div>
-      ) : showGroups ? (
-        <div>
-          {grouped.recommended.length > 0 && (
-            <>
-              <div className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-indigo-600 px-6 pt-2 pb-2.5">
-                ★ Recommended by your network
-              </div>
-              {grouped.recommended.map((row) => (
-                <MatchCard key={row.matchId} row={row} onOpen={openMatch} />
-              ))}
-            </>
-          )}
-          {grouped.aiMatched.length > 0 && (
-            <>
-              <div className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-gray-400 px-6 pt-2 pb-2.5">
-                ✨ AI-matched
-              </div>
-              {grouped.aiMatched.map((row) => (
-                <MatchCard key={row.matchId} row={row} onOpen={openMatch} />
-              ))}
-            </>
-          )}
         </div>
       ) : (
         <div>
-          {visible.map((row) => (
-            <MatchCard key={row.matchId} row={row} onOpen={openMatch} />
+          {ordered.map((row) => (
+            <ConversationRow
+              key={row.matchId}
+              row={row}
+              viewerUid={viewerUid}
+              onOpen={openRow}
+            />
           ))}
         </div>
       )}

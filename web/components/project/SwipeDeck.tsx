@@ -114,7 +114,15 @@ export default function SwipeDeck({
   }
 
   if (!current) {
-    return <SwipeDeckEmpty projectId={projectId} />;
+    // Differentiate "freshly posted, no candidates yet" from "you've
+    // swiped through every candidate". If the array is empty from the
+    // start, it's the former; otherwise the user worked through it.
+    return (
+      <SwipeDeckEmpty
+        projectId={projectId}
+        noBuildersYet={builders.length === 0}
+      />
+    );
   }
 
   const peek = builders.slice(index + 1, index + 3);
@@ -201,9 +209,23 @@ const CONFETTI: Array<{ left: string; top: string; bg: string; rot: number }> = 
   { left: "55%", top: "80%", bg: "#f472b6", rot: -30 },
 ];
 
-function SwipeDeckEmpty({ projectId }: { projectId: string }) {
+function SwipeDeckEmpty({
+  projectId,
+  noBuildersYet = false,
+}: {
+  projectId: string;
+  noBuildersYet?: boolean;
+}) {
   const router = useRouter();
   const [shareOpen, setShareOpen] = useState(false);
+
+  const heading = noBuildersYet
+    ? "Searching for tradespeople"
+    : "You're all caught up";
+  const sub = noBuildersYet
+    ? "We're finding tradespeople in your area who match this job - usually within minutes. Tap Share below to speed it up, or open ⋯ to edit the project details."
+    : "You've swiped through every tradesperson we have for this project. We'll ping you the moment a new match comes in.";
+  const icon = noBuildersYet ? "🔎" : "✓";
 
   return (
     <div className="relative min-h-[520px] flex flex-col items-center justify-center px-7 py-10 text-center overflow-hidden">
@@ -232,28 +254,36 @@ function SwipeDeckEmpty({ projectId }: { projectId: string }) {
           boxShadow: "0 12px 36px rgba(99,102,241,0.25)",
         }}
       >
-        <span className="text-white text-[44px] leading-none font-bold">✓</span>
+        <span className={noBuildersYet ? "text-[44px] leading-none" : "text-white text-[44px] leading-none font-bold"}>
+          {icon}
+        </span>
       </div>
 
       <h2 className="relative text-[26px] font-extrabold tracking-[-0.02em] leading-[1.2] text-gray-900">
-        You're all caught up
+        {heading}
       </h2>
       <p className="relative mt-2.5 text-[14px] text-gray-500 leading-[1.5] max-w-[290px]">
-        You've swiped through every builder we have for this project. We'll ping you the moment a new match comes in.
+        {sub}
       </p>
 
       <div className="relative mt-7 w-full max-w-[320px] flex flex-col gap-2.5">
-        <button
-          onClick={() => router.push("/matches")}
-          className="flex items-center justify-center gap-2 py-4 px-5 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white font-extrabold text-[15px] tracking-tight shadow-[0_10px_24px_rgba(99,102,241,0.3)]"
-        >
-          See your matches
-        </button>
+        {!noBuildersYet && (
+          <button
+            onClick={() => router.push("/matches")}
+            className="flex items-center justify-center gap-2 py-4 px-5 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white font-extrabold text-[15px] tracking-tight shadow-[0_10px_24px_rgba(99,102,241,0.3)]"
+          >
+            See your matches
+          </button>
+        )}
         <button
           onClick={() => setShareOpen(true)}
-          className="flex items-center justify-center gap-2 py-4 px-5 rounded-2xl bg-white border-[1.5px] border-gray-200 text-gray-700 font-extrabold text-[15px] tracking-tight"
+          className={
+            noBuildersYet
+              ? "flex items-center justify-center gap-2 py-4 px-5 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white font-extrabold text-[15px] tracking-tight shadow-[0_10px_24px_rgba(99,102,241,0.3)]"
+              : "flex items-center justify-center gap-2 py-4 px-5 rounded-2xl bg-white border-[1.5px] border-gray-200 text-gray-700 font-extrabold text-[15px] tracking-tight"
+          }
         >
-          Share project to find more
+          {noBuildersYet ? "Share project to speed it up" : "Share project to find more"}
         </button>
       </div>
 

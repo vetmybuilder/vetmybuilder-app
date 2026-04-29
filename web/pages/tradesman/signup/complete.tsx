@@ -9,7 +9,7 @@
 // (password creation) — we already have a Firebase user from Google. Data
 // we can read from the token (email, contact name) is pre-filled and
 // disabled. On Step 3 submit we PUT /api/tradesmen/me and route to
-// /tradesman/projects.
+// /tradesman/jobs.
 
 import Head from "next/head";
 import { useEffect, useState, useCallback } from "react";
@@ -145,7 +145,7 @@ export default function TradesmanSsoOnboardingPage() {
           String(data?.role || "").toLowerCase() === "tradesman" ||
           !!data?.profile;
         if (isTradesman) {
-          router.replace("/tradesman/projects");
+          router.replace("/tradesman/jobs");
           return;
         }
       } catch {
@@ -535,7 +535,7 @@ export default function TradesmanSsoOnboardingPage() {
           sessionStorage.setItem("vmb:showPushPrompt", "1");
         }
       } catch {}
-      router.replace("/tradesman/projects");
+      router.replace("/tradesman/jobs");
     } catch (ex: any) {
       const msg =
         ex?.response?.data?.error ||
@@ -556,7 +556,7 @@ export default function TradesmanSsoOnboardingPage() {
 
   // profileComplete is true when the user has a homeowner postcode OR is
   // already a tradesman. The tradesman case is already handled above (redirect
-  // to /tradesman/projects). So if we get here and profileComplete is true,
+  // to /tradesman/jobs). So if we get here and profileComplete is true,
   // the user is an existing homeowner trying to create a second role — block it.
   if (profileComplete === true) {
     return (
@@ -706,7 +706,7 @@ export default function TradesmanSsoOnboardingPage() {
                   canProceed={true}
                   onNext={onNextFromStep1}
                   userIsAuthed={!!user || !!authLoading}
-                  nextQuery={"?next=/tradesman/projects"}
+                  nextQuery={"?next=/tradesman/jobs"}
                   // We already know this email — it's the Firebase identity
                   // for this session, so we must not let the user change it.
                   disableBusinessEmail

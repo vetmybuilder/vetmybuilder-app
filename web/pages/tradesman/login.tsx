@@ -3,9 +3,9 @@
 // Entry point when a visitor clicks "Tradesperson" in the site header.
 //
 // Branches on auth state:
-//   - Guest                           → /login?next=/tradesman/projects
-//   - Signed-in tradesperson          → /tradesman/projects
-//   - Signed-in completed homeowner   → /login?next=/tradesman/projects
+//   - Guest                           → /login?next=/tradesman/jobs
+//   - Signed-in tradesperson          → /tradesman/jobs
+//   - Signed-in completed homeowner   → /login?next=/tradesman/jobs
 //   - Signed-in mid-homeowner signup  → render the interstitial below, so
 //     the user can explicitly choose between continuing as a tradesperson,
 //     finishing their homeowner signup, or signing out.
@@ -35,12 +35,12 @@ export default function TradesmanLoginAlias() {
 
     if (!user) {
       try {
-        sessionStorage.setItem("vmb:returnTo", "/tradesman/projects");
+        sessionStorage.setItem("vmb:returnTo", "/tradesman/jobs");
       } catch {}
       setPhase("redirecting");
       router.replace({
         pathname: "/login",
-        query: { next: "/tradesman/projects" },
+        query: { next: "/tradesman/jobs" },
       });
       return;
     }
@@ -64,7 +64,7 @@ export default function TradesmanLoginAlias() {
 
       if (isTradesman) {
         setPhase("redirecting");
-        router.replace("/tradesman/projects");
+        router.replace("/tradesman/jobs");
         return;
       }
 
@@ -74,7 +74,7 @@ export default function TradesmanLoginAlias() {
         setPhase("redirecting");
         router.replace({
           pathname: "/login",
-          query: { next: "/tradesman/projects" },
+          query: { next: "/tradesman/jobs" },
         });
         return;
       }

@@ -3,7 +3,7 @@ import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
-import { ChevronLeft, Home, MoreHorizontal, Pencil } from "lucide-react";
+import { ChevronLeft, Home, MoreHorizontal } from "lucide-react";
 import { useProjectView } from "@/components/project/views/useProjectView";
 import OwnerProjectView from "@/components/project/views/OwnerProjectView";
 import TradesmanProjectView from "@/components/project/views/TradesmanProjectView";
@@ -84,25 +84,14 @@ function ProjectSwipeMobile({
         <div className="text-[15px] font-bold text-gray-500 tracking-tight truncate max-w-[60%] text-center">
           {projectTitle || "Find your builder"}
         </div>
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            aria-label="Edit project"
-            onClick={() => router.push(`/projects/${projectId}/edit`)}
-            className="inline-flex items-center gap-1.5 px-3 h-10 rounded-full bg-indigo-50 text-indigo-700 font-bold text-[13px] tracking-tight"
-          >
-            <Pencil className="w-[14px] h-[14px]" />
-            Edit
-          </button>
-          <button
-            type="button"
-            aria-label="More project actions"
-            onClick={() => setActionsOpen(true)}
-            className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center"
-          >
-            <MoreHorizontal className="w-5 h-5 text-gray-700" />
-          </button>
-        </div>
+        <button
+          type="button"
+          aria-label="More project actions"
+          onClick={() => setActionsOpen(true)}
+          className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center"
+        >
+          <MoreHorizontal className="w-5 h-5 text-gray-700" />
+        </button>
       </div>
 
       {matches && (

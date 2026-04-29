@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mock - Where to put the Pitch CTA</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --indigo:#4f46e5; --indigo-50:#eef2ff; --indigo-100:#e0e7ff; --indigo-700:#4338ca;
+    --emerald:#10b981; --emerald-50:#ecfdf5; --emerald-100:#d1fae5; --emerald-700:#047857;
+    --amber-50:#fffbeb; --amber-700:#b45309; --amber-400:#fbbf24;
+    --rose:#f43f5e;
+    --gray-50:#f8fafc; --gray-100:#f1f5f9; --gray-200:#e2e8f0; --gray-300:#cbd5e1;
+    --gray-400:#94a3b8; --gray-500:#64748b; --gray-600:#475569; --gray-700:#334155; --gray-900:#0f172a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px; font-family: 'Sora', -apple-system, system-ui, sans-serif;
+    background: #f1f5f9; color: var(--gray-900);
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .lede { font-size: 13px; color: var(--gray-500); margin: 0 0 24px; max-width: 720px; line-height: 1.5; }
+  .row {
+    display: grid; gap: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  }
+  .card-wrap {
+    background: white; border-radius: 18px; padding: 18px; box-shadow: 0 1px 4px rgba(15,23,42,.08);
+  }
+  .card-wrap h2 {
+    font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--gray-500); margin: 0 0 4px;
+  }
+  .card-wrap .opt-tag {
+    font-size: 11px; font-weight: 700; color: var(--indigo-700);
+    background: var(--indigo-50); padding: 2px 8px; border-radius: 999px;
+    display: inline-block; margin-bottom: 12px;
+  }
+  .frame {
+    width: 360px; max-width: 100%;
+    margin: 0 auto;
+    background: white; border-radius: 24px; border: 8px solid #1f2937;
+    overflow: hidden; min-height: 640px;
+    display: flex; flex-direction: column;
+    position: relative;
+  }
+  .topbar {
+    background: white; padding: 14px 16px; border-bottom: 1px solid var(--gray-100);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .crumb { font-size: 13px; font-weight: 700; color: var(--gray-700); }
+  .menu-icon { font-size: 18px; color: var(--gray-500); }
+  .body { padding: 16px; flex: 1; overflow: auto; background: #f9fafb; }
+
+  /* shared CTA styles */
+  .compare-card {
+    border: 1.5px solid var(--gray-200); border-radius: 14px; padding: 12px;
+    background: white; position: relative; margin-bottom: 8px;
+  }
+  .compare-card.recommended { border-color: var(--indigo); border-width: 2px; }
+  .compare-card.recommended::before {
+    content: 'Recommended'; position: absolute; top: -8px; left: 12px;
+    background: var(--indigo); color: white; font-size: 9px; font-weight: 800;
+    padding: 2px 7px; border-radius: 999px; letter-spacing: .04em; text-transform: uppercase;
+  }
+  .compare-card .price {
+    font-size: 18px; font-weight: 800; margin: 2px 0;
+  }
+  .compare-card .price .sub { font-size: 11px; font-weight: 600; color: var(--gray-500); }
+  .compare-card .feature {
+    font-size: 11px; color: var(--gray-700); padding: 1.5px 0;
+  }
+  .compare-card .feature::before {
+    content: '✓'; color: var(--emerald); font-weight: 800; margin-right: 5px;
+  }
+  .btn {
+    width: 100%; padding: 9px; border-radius: 10px;
+    font-weight: 800; font-size: 12px; text-align: center; border: 0;
+    margin-top: 8px;
+  }
+  .btn-primary { background: var(--indigo); color: white; }
+  .btn-secondary { background: white; border: 2px solid var(--indigo-100); color: var(--indigo-700); }
+
+  /* ───────── OPTION 1 - Deck card back face ───────── */
+  .deck-card {
+    background: white; border-radius: 16px; padding: 14px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.08), 0 2px 6px rgba(0,0,0,.04);
+  }
+  .deck-card .ai {
+    border: 1px solid var(--emerald-100); background: var(--emerald-50);
+    border-radius: 12px; padding: 10px; margin-bottom: 12px;
+  }
+  .deck-card .ai .eyebrow {
+    font-size: 9.5px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .06em; color: var(--emerald-700); margin-bottom: 4px;
+  }
+  .deck-card .ai p { font-size: 11.5px; color: var(--gray-700); margin: 0; line-height: 1.45; }
+  .deck-card .pillrow { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+  .deck-card .pill {
+    background: white; border: 1px solid var(--gray-200);
+    padding: 3px 7px; border-radius: 999px; font-size: 10px; font-weight: 700;
+    color: var(--gray-700);
+  }
+  .deck-card .pill .lbl { color: var(--gray-400); font-weight: 600; margin-right: 3px; }
+  .swipebar {
+    display: flex; justify-content: space-around; padding: 12px;
+    border-top: 1px solid var(--gray-100); margin-top: 12px;
+  }
+  .swipebar .b {
+    width: 48px; height: 48px; border-radius: 50%; display: flex;
+    align-items: center; justify-content: center; font-size: 18px;
+    background: white; box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  }
+
+  /* ───────── OPTION 2 - List inline expand ───────── */
+  .list-row {
+    background: white; border: 1px solid var(--gray-200); border-radius: 14px;
+    padding: 12px; margin-bottom: 8px;
+  }
+  .list-row .head {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .list-row .thumb {
+    width: 44px; height: 44px; border-radius: 10px;
+    background: linear-gradient(135deg, #fcd34d, #f59e0b);
+    flex-shrink: 0;
+  }
+  .list-row .thumb.flooring { background: linear-gradient(135deg, #6ee7b7, #10b981); }
+  .list-row .thumb.bath { background: linear-gradient(135deg, #93c5fd, #3b82f6); }
+  .list-row .meta { flex: 1; min-width: 0; }
+  .list-row .meta .title {
+    font-size: 13px; font-weight: 800; color: var(--gray-900); margin: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .list-row .meta .sub {
+    font-size: 11px; color: var(--gray-500); margin: 2px 0 0;
+  }
+  .list-row .chev {
+    color: var(--gray-300); font-size: 18px; flex-shrink: 0;
+    transition: transform .15s ease;
+  }
+  .list-row.expanded .chev { transform: rotate(90deg); }
+  .list-row .expand-body {
+    margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--gray-100);
+    display: none;
+  }
+  .list-row.expanded .expand-body { display: block; }
+
+  /* ───────── OPTION 3 - List bottom sheet ───────── */
+  .sheet-overlay {
+    position: absolute; inset: 0;
+    background: rgba(15,23,42,.4);
+  }
+  .sheet {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    background: white; border-top-left-radius: 20px; border-top-right-radius: 20px;
+    padding: 16px; max-height: 80%; overflow-y: auto;
+  }
+  .sheet .grabber {
+    width: 36px; height: 4px; background: var(--gray-300); border-radius: 2px;
+    margin: 0 auto 12px;
+  }
+  .sheet .pillrow { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 12px; }
+  .sheet .pill {
+    background: var(--gray-100); padding: 3px 8px; border-radius: 999px;
+    font-size: 10.5px; font-weight: 700; color: var(--gray-700);
+  }
+  .sheet .pill .lbl { color: var(--gray-400); font-weight: 600; margin-right: 3px; }
+
+  .legend {
+    margin-top: 12px; font-size: 11.5px; color: var(--gray-500); line-height: 1.5;
+  }
+  .legend strong { color: var(--gray-700); }
+</style>
+</head>
+<body>
+  <h1>Where should the "Pitch this homeowner" CTA live?</h1>
+  <p class="lede">
+    Three placements for the same flow — none of them require a dedicated /projects/[id]
+    landing page. Pick the one (or hybrid) that feels most natural for the tradesman's
+    actual journey: deck swipe vs. list browse.
+  </p>
+
+  <div class="row">
+
+    <!-- ──────────────────────── OPTION 1 ──────────────────────── -->
+    <div class="card-wrap">
+      <span class="opt-tag">Option 1</span>
+      <h2>Deck card · back face</h2>
+      <p class="legend">Tap card to flip → AI summary, job details, then dual CTA. The whole purchase decision happens on one card. <strong>Best when the deck is the primary surface.</strong></p>
+      <div class="frame">
+        <div class="topbar">
+          <span class="crumb">Incoming jobs</span>
+          <span class="menu-icon">≡</span>
+        </div>
+        <div class="body">
+          <div class="deck-card">
+            <div class="ai">
+              <div class="eyebrow">✨ Job summary</div>
+              <p>Bathroom flooring across one room in a 4-bed semi-detached property in E4. Mixed materials, urgent timeframe.</p>
+            </div>
+
+            <div class="pillrow">
+              <span class="pill"><span class="lbl">Property:</span>4-bed semi</span>
+              <span class="pill"><span class="lbl">Posted:</span>2h ago</span>
+              <span class="pill"><span class="lbl">Timeframe:</span>Urgent</span>
+              <span class="pill"><span class="lbl">Budget:</span>1k - 5k</span>
+            </div>
+
+            <div style="font-size:10px; font-weight:800; color:var(--gray-400); text-transform:uppercase; letter-spacing:.06em; margin: 8px 0 4px;">Want to talk to Chris?</div>
+
+            <div class="compare-card recommended">
+              <div style="font-size:9px; font-weight:800; color:var(--gray-400); text-transform:uppercase; letter-spacing:.06em; margin-top:4px;">Best for regular work</div>
+              <div class="price">£3.99<span class="sub"> / week</span></div>
+              <div class="feature">Unlimited swipes &amp; matches</div>
+              <div class="feature">Free chat on every match</div>
+              <button class="btn btn-primary">Subscribe — Week / £3.99</button>
+            </div>
+
+            <div class="compare-card">
+              <div style="font-size:9px; font-weight:800; color:var(--gray-400); text-transform:uppercase; letter-spacing:.06em; margin-top:4px;">One-off</div>
+              <div class="price">£4.99<span class="sub"> · this job</span></div>
+              <div class="feature">Send Chris a pitch right now</div>
+              <button class="btn btn-secondary">Pitch Chris — £4.99</button>
+            </div>
+          </div>
+
+          <div class="swipebar">
+            <div class="b" style="color:var(--rose);">×</div>
+            <div class="b" style="color:var(--gray-500);">↻</div>
+            <div class="b" style="color:var(--emerald);">♥</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ──────────────────────── OPTION 2 ──────────────────────── -->
+    <div class="card-wrap">
+      <span class="opt-tag">Option 2</span>
+      <h2>List · inline expand</h2>
+      <p class="legend">Tap a row → row expands in place to reveal AI summary + pills + dual CTA. Tap again to collapse. <strong>Best when the tradesman wants to scan multiple jobs and compare before committing.</strong></p>
+      <div class="frame">
+        <div class="topbar">
+          <span class="crumb">Browse all jobs</span>
+          <span class="menu-icon">≡</span>
+        </div>
+        <div class="body">
+
+          <div class="list-row">
+            <div class="head">
+              <div class="thumb"></div>
+              <div class="meta">
+                <div class="title">External Wall Insulation in E4</div>
+                <div class="sub">£1,500-£15,000 · E4 · 4-bed semi</div>
+              </div>
+              <div class="chev">›</div>
+            </div>
+          </div>
+
+          <div class="list-row expanded">
+            <div class="head">
+              <div class="thumb flooring"></div>
+              <div class="meta">
+                <div class="title">Bathroom Flooring in E4</div>
+                <div class="sub">£2,000-£6,000 · E4 · 4-bed semi</div>
+              </div>
+              <div class="chev">›</div>
+            </div>
+
+            <div class="expand-body">
+              <div class="pillrow" style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px;">
+                <span class="pill" style="background:var(--gray-100); padding:3px 7px; border-radius:999px; font-size:10px; font-weight:700; color:var(--gray-700);">Timeframe: Urgent</span>
+                <span class="pill" style="background:var(--gray-100); padding:3px 7px; border-radius:999px; font-size:10px; font-weight:700; color:var(--gray-700);">Budget: 1k-5k</span>
+                <span class="pill" style="background:var(--gray-100); padding:3px 7px; border-radius:999px; font-size:10px; font-weight:700; color:var(--gray-700);">Materials: Mixed</span>
+              </div>
+              <div style="font-size:11.5px; color:var(--gray-700); line-height:1.45; margin-bottom:10px;">
+                Bathroom flooring across one room in a 4-bed semi-detached property in E4. Mixed materials, urgent timeframe.
+              </div>
+
+              <div class="compare-card recommended">
+                <div class="price">£3.99<span class="sub"> / week</span></div>
+                <div class="feature">Unlimited matches · free chat</div>
+                <button class="btn btn-primary">Subscribe — Week / £3.99</button>
+              </div>
+
+              <div class="compare-card">
+                <div class="price">£4.99<span class="sub"> · this job</span></div>
+                <div class="feature">Pitch Chris right now</div>
+                <button class="btn btn-secondary">Pitch Chris — £4.99</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="list-row">
+            <div class="head">
+              <div class="thumb bath"></div>
+              <div class="meta">
+                <div class="title">Kitchen Refresh in E10</div>
+                <div class="sub">£3,000-£8,000 · E10 · 3-bed terrace</div>
+              </div>
+              <div class="chev">›</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ──────────────────────── OPTION 3 ──────────────────────── -->
+    <div class="card-wrap">
+      <span class="opt-tag">Option 3</span>
+      <h2>List · bottom sheet</h2>
+      <p class="legend">Tap a row → bottom sheet slides up over the list with details + dual CTA. Modal feel, very mobile-native, doesn't push the row layout around. <strong>Best when the tradesman commits to one job at a time.</strong></p>
+      <div class="frame">
+        <div class="topbar">
+          <span class="crumb">Browse all jobs</span>
+          <span class="menu-icon">≡</span>
+        </div>
+        <div class="body" style="position:relative;">
+
+          <div class="list-row">
+            <div class="head">
+              <div class="thumb"></div>
+              <div class="meta">
+                <div class="title">External Wall Insulation in E4</div>
+                <div class="sub">£1,500-£15,000 · E4</div>
+              </div>
+              <div class="chev">›</div>
+            </div>
+          </div>
+          <div class="list-row">
+            <div class="head">
+              <div class="thumb flooring"></div>
+              <div class="meta">
+                <div class="title">Bathroom Flooring in E4</div>
+                <div class="sub">£2,000-£6,000 · E4</div>
+              </div>
+              <div class="chev">›</div>
+            </div>
+          </div>
+          <div class="list-row">
+            <div class="head">
+              <div class="thumb bath"></div>
+              <div class="meta">
+                <div class="title">Kitchen Refresh in E10</div>
+                <div class="sub">£3,000-£8,000 · E10</div>
+              </div>
+              <div class="chev">›</div>
+            </div>
+          </div>
+
+          <div class="sheet-overlay"></div>
+          <div class="sheet">
+            <div class="grabber"></div>
+            <div style="font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--gray-400); margin-bottom:4px;">Bathroom Flooring</div>
+            <div style="font-size:16px; font-weight:800;">Bathroom Flooring in E4</div>
+            <div style="font-size:11.5px; color:var(--gray-500); margin-top:2px;">£2,000-£6,000 · 4-bed semi · Posted 2h ago</div>
+
+            <div class="pillrow">
+              <span class="pill"><span class="lbl">Timeframe:</span>Urgent</span>
+              <span class="pill"><span class="lbl">Budget:</span>1k-5k</span>
+              <span class="pill"><span class="lbl">Materials:</span>Mixed</span>
+            </div>
+
+            <div style="font-size:11.5px; color:var(--gray-700); line-height:1.45; margin: 8px 0 14px;">
+              Bathroom flooring across one room in a 4-bed semi-detached property in E4. Mixed materials, urgent timeframe.
+            </div>
+
+            <div class="compare-card recommended">
+              <div class="price">£3.99<span class="sub"> / week</span></div>
+              <div class="feature">Unlimited matches · free chat</div>
+              <button class="btn btn-primary">Subscribe — Week / £3.99</button>
+            </div>
+
+            <div class="compare-card">
+              <div class="price">£4.99<span class="sub"> · this job</span></div>
+              <div class="feature">Pitch Chris right now</div>
+              <button class="btn btn-secondary">Pitch Chris — £4.99</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <p class="lede" style="margin-top:32px;">
+    Pick one (or a hybrid like 1 + 3) and I'll wire it up. The dedicated /projects/[id]
+    tradesman page can become a thin redirect to the deck or list, and the
+    /projects/[id]/unlock page can shrink to just the compose-pitch step
+    (since the price + decision happens on the surface above).
+  </p>
+</body>
+</html>

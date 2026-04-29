@@ -4,8 +4,8 @@
   "description": "Find a tradesperson you can trust, recommended by your neighbours.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#ef4444",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
   "icons": [
     {
       "src": "/apple-touch-icon.png",

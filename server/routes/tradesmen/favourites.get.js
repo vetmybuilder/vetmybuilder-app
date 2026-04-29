@@ -278,68 +278,13 @@ module.exports = (router, ctx) => {
       };
     });
 
-    // ------------------------------------------------------------
-    // Append active recommendations from the user's projects.
-    // These are recs that have not been dismissed from the deck and
-    // have not been unfavourited by the homeowner.
-    // ------------------------------------------------------------
-    let recItems = [];
-    try {
-      const recRows = await mysqlQuery(
-        `SELECT
-           r.id AS recommendationId,
-           r.projectId,
-           r.company,
-           r.linked_tradesman_uid,
-           r.isAnonymous,
-           r.name AS recommenderName,
-           u.firstName AS recommenderFirstName,
-           (SELECT rp.filePath FROM recommendation_photos rp
-              WHERE rp.recommendationId = r.id
-              ORDER BY rp.id ASC LIMIT 1) AS coverPhoto,
-           t.company_name AS tradesmanCompanyName,
-           t.profile_picture_url AS tradesmanPhotoUrl,
-           t.trade_types AS tradesmanTradeTypes
-         FROM recommendations r
-         JOIN projects p ON p.id = r.projectId
-         LEFT JOIN users u ON u.uid = r.recommenderUserId
-         LEFT JOIN tradesmen t ON t.user_id = r.linked_tradesman_uid
-         WHERE p.ownerUserId = ?
-           AND r.linked_tradesman_uid IS NULL
-           AND r.deck_dismissed_at IS NULL
-           AND r.homeowner_unfavourited_at IS NULL
-         ORDER BY r.createdAt DESC`,
-        [userId],
-      );
+    // Recommendations live under their own tab now - they used to be
+    // auto-injected here but that conflated "saved by user" with "any
+    // active recommendation on my projects". The dedicated /api/
+    // recommendations/inbox endpoint surfaces them separately.
 
-      recItems = (recRows || []).map((r) => {
-        const recommenderName = r.isAnonymous
-          ? "Anonymous"
-          : (r.recommenderFirstName ||
-             (r.recommenderName ? String(r.recommenderName).trim().split(/\s+/)[0] : null) ||
-             "Someone");
-        const cover = r.coverPhoto
-          ? makeAbsolute(r.coverPhoto)
-          : (r.tradesmanPhotoUrl ? makeAbsolute(r.tradesmanPhotoUrl) : null);
-        return {
-          kind: "recommendation",
-          recommendationId: r.recommendationId,
-          projectId: r.projectId,
-          companyName: r.tradesmanCompanyName || r.company,
-          displayName: r.tradesmanCompanyName || r.company,
-          recommenderName,
-          coverPhotoUrl: cover,
-          tradeTypes: r.tradesmanTradeTypes || null,
-          linkedTradesmanUid: r.linked_tradesman_uid || null,
-          isFavourite: true,
-        };
-      });
-    } catch (e) {
-      log.warn?.(`${TAG} recommendation favourites lookup failed`, { error: e?.message });
-    }
-
-    log.info?.(`${TAG} end`, { count: recItems.length + items.length });
-    return res.json({ items: [...recItems, ...items] });
+    log.info?.(`${TAG} end`, { count: items.length });
+    return res.json({ items });
   });
 
   if (!ctx.__logged_tradesmen_favourites_get) {

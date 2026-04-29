@@ -12,15 +12,17 @@
 // Filter values are passed up to the parent fetch hook via props so the same
 // /api/projects endpoint serves both desktop & mobile.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import {
   Ban,
   Check,
   ChevronRight,
+  Eye,
   FolderOpen,
   Plus,
   ShieldCheck,
+  Star,
   X,
 } from "lucide-react";
 import BottomSheet from "@/components/BottomSheet";
@@ -28,6 +30,10 @@ import BottomSheetPicker, {
   type BottomSheetPickerOption,
 } from "@/components/project/BottomSheetPicker";
 import { useMobileMenu } from "@/utils/mobileMenu";
+import { computeProjectPriceRange } from "@/utils/projectPricing";
+import { formatGbp } from "@/utils/formatGbp";
+import BrandWordmark from "@/components/BrandWordmark";
+import { parseDescriptionPills } from "@/utils/projectDescription";
 
 type Status = "pending" | "live" | "completed";
 
@@ -40,7 +46,32 @@ export type MobileProject = {
   bedrooms?: number | null;
   status?: Status | null;
   coverPhotoUrl?: string | null;
+  priceBandEstimate?: string | null;
+  answersJson?: Record<string, any> | null;
+  recommendationCount?: number | null;
+  description?: string | null;
+  createdAt?: string | null;
+  urgency?: string | null;
+  matchedCount?: number | null;
+  waitingCount?: number | null;
 };
+
+/** "Posted Xs ago" / "Posted Xm ago" / "Posted Xh ago" / "Posted Xd ago". */
+function relativeTime(iso?: string | null): string | null {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return null;
+  const diffSec = Math.max(0, (Date.now() - t) / 1000);
+  if (diffSec < 60) return "just now";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 30) return `${diffDay}d ago`;
+  const diffMo = Math.floor(diffDay / 30);
+  return `${diffMo}mo ago`;
+}
 
 export type MobileTab = "all" | "live" | "completed";
 
@@ -60,18 +91,11 @@ export type ProjectsListMobileProps = {
   loading: boolean;
   /** Counts shown next to each tab — undefined hides the count. */
   counts?: Partial<Record<MobileTab, number>>;
+  /** True when there are more pages available; sentinel is rendered while true. */
+  hasMore?: boolean;
+  /** Called when the bottom sentinel scrolls into view. */
+  onLoadMore?: () => void;
 };
-
-/** ===== Word-mark (matches /matches and /inbox) ===== */
-function VmbWordmark() {
-  return (
-    <span className="text-[17px] font-black tracking-tight text-gray-900">
-      Vet
-      <span className="text-indigo-600">My</span>
-      Builder
-    </span>
-  );
-}
 
 /** ===== Status pill on a project card ===== */
 function StatusPill({ status }: { status?: Status | null }) {
@@ -225,7 +249,7 @@ function SafetySheet({ open, onClose }: { open: boolean; onClose: () => void }) 
         <SafetyStep
           n={3}
           title="Stay sharp"
-          body="Always ask for a written quote, check proof of insurance, and keep all messages and agreements in writing."
+          body="Always ask for a written quote and check proof of insurance. Use the in-app chat for all messages - it keeps a permanent record you can refer back to."
         />
       </div>
 
@@ -282,14 +306,56 @@ function ProjectCard({
   const fallbackImg =
     "https://cdn.home-designing.com/wp-content/uploads/2024/08/Graceful-Mid-Century-Modern-Living-Rooms.jpg";
 
-  const meta = [
-    project.location || null,
-    project.propertyType
-      ? [project.propertyType, project.bedrooms ? `${project.bedrooms} bed` : null]
-          .filter(Boolean)
-          .join(" · ")
-      : null,
-  ].filter(Boolean) as string[];
+  // Compute price string: deterministic range > AI fallback > null
+  const priceRange = computeProjectPriceRange(project.type, project.answersJson);
+  const priceString: string | null = priceRange
+    ? `${formatGbp(priceRange.min)}–${formatGbp(priceRange.max)}`
+    : project.priceBandEstimate && project.priceBandEstimate.trim()
+      ? project.priceBandEstimate.trim()
+      : null;
+
+  const meta: Array<{
+    text: string;
+    label?: string;
+    tone?: "violet" | "emerald" | "amber" | "rose";
+  }> = [];
+  if (priceString) meta.push({ text: priceString, label: "Guide", tone: "violet" });
+  if (project.location) meta.push({ text: project.location });
+  if (project.propertyType) {
+    const propText = [project.propertyType, project.bedrooms ? `${project.bedrooms} bed` : null]
+      .filter(Boolean)
+      .join(" · ");
+    meta.push({ text: propText });
+  }
+  if (project.urgency) {
+    // Capitalize first letter for display ("flexible" → "Flexible").
+    const value =
+      project.urgency.charAt(0).toUpperCase() + project.urgency.slice(1);
+    const isUrgent = /^urgent|asap/i.test(project.urgency);
+    meta.push({
+      text: value,
+      label: "Urgency",
+      tone: isUrgent ? "rose" : undefined,
+    });
+  }
+  // Activity counts - matched > waiting in priority. Skipped entirely when
+  // both are zero so a brand-new project doesn't carry zero-pills.
+  const matchedCount = Number(project.matchedCount) || 0;
+  const waitingCount = Number(project.waitingCount) || 0;
+  if (matchedCount > 0) {
+    meta.push({
+      text: String(matchedCount),
+      label: "Matched",
+      tone: "emerald",
+    });
+  }
+  if (waitingCount > 0) {
+    meta.push({
+      text: String(waitingCount),
+      label: "Waiting",
+      tone: "amber",
+    });
+  }
 
   return (
     <button
@@ -307,6 +373,24 @@ function ProjectCard({
         <div className="absolute top-2.5 right-2.5">
           <StatusPill status={project.status ?? undefined} />
         </div>
+        {typeof project.recommendationCount === "number" &&
+          project.recommendationCount > 0 && (
+            <div
+              className="absolute bottom-2.5 left-2.5 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold shadow-sm"
+              style={{
+                background: "rgba(255,255,255,0.95)",
+                backdropFilter: "blur(8px)",
+                color: "#b45309",
+              }}
+              data-testid={`mobile-project-card-recs-${project.id}`}
+            >
+              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+              {project.recommendationCount}{" "}
+              {project.recommendationCount === 1
+                ? "recommendation"
+                : "recommendations"}
+            </div>
+          )}
       </div>
 
       <div className="p-3.5">
@@ -315,23 +399,81 @@ function ProjectCard({
         </h3>
         {meta.length > 0 && (
           <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {meta.map((m, i) => (
-              <span
-                key={i}
-                className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[11px] font-bold"
-              >
-                {m}
-              </span>
-            ))}
+            {meta.map((m, i) => {
+              const tones: Record<
+                string,
+                { wrap: string; label: string }
+              > = {
+                violet: {
+                  wrap: "bg-violet-50 text-violet-700",
+                  label: "text-violet-400",
+                },
+                emerald: {
+                  wrap: "bg-emerald-50 text-emerald-700",
+                  label: "text-emerald-400",
+                },
+                amber: {
+                  wrap: "bg-amber-50 text-amber-800",
+                  label: "text-amber-500",
+                },
+                rose: {
+                  wrap: "bg-rose-50 text-rose-700",
+                  label: "text-rose-400",
+                },
+                gray: {
+                  wrap: "bg-gray-100 text-gray-600",
+                  label: "text-gray-400",
+                },
+              };
+              const tone = tones[m.tone || "gray"]!;
+              return (
+                <span
+                  key={i}
+                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${tone.wrap}`}
+                >
+                  {m.label && (
+                    <span className={`mr-1 font-semibold ${tone.label}`}>
+                      {m.label}:
+                    </span>
+                  )}
+                  {m.text}
+                </span>
+              );
+            })}
           </div>
         )}
 
-        <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
-          <span className="text-[12px] text-gray-500 font-semibold">
-            {project.type || "Project"}
-          </span>
-          <span className="text-[12px] text-indigo-600 font-extrabold">
-            View →
+        {(() => {
+          const descPills = parseDescriptionPills(project.description);
+          if (descPills.length === 0) return null;
+          return (
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {descPills.map((p, i) => (
+                <span
+                  key={`${p.label}-${i}`}
+                  className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[11px] font-bold"
+                >
+                  <span className="text-gray-400 mr-1 font-semibold">
+                    {p.label}:
+                  </span>
+                  {p.value}
+                </span>
+              ))}
+            </div>
+          );
+        })()}
+
+        <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+          {relativeTime(project.createdAt) ? (
+            <span className="text-[11.5px] text-gray-400 font-semibold">
+              Posted {relativeTime(project.createdAt)}
+            </span>
+          ) : (
+            <span />
+          )}
+          <span className="inline-flex items-center gap-1.5 text-[12px] text-indigo-600 font-extrabold">
+            <Eye className="w-3.5 h-3.5" />
+            View
           </span>
         </div>
       </div>
@@ -386,6 +528,8 @@ export default function ProjectsListMobile({
   items,
   loading,
   counts,
+  hasMore,
+  onLoadMore,
 }: ProjectsListMobileProps) {
   const router = useRouter();
   const { openMenu } = useMobileMenu();
@@ -462,6 +606,23 @@ export default function ProjectsListMobile({
     // No-op; left for future use.
   }, []);
 
+  // Infinite-scroll sentinel: when the bottom marker enters the viewport,
+  // ask the parent for the next page. Re-attach when paging signals change
+  // so we don't keep firing after the list ends.
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+    if (!hasMore || loading || !onLoadMore) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) onLoadMore();
+      },
+      { rootMargin: "200px" },
+    );
+    io.observe(sentinelRef.current);
+    return () => io.disconnect();
+  }, [hasMore, loading, onLoadMore, items.length]);
+
   const sheetTitle = sheetConfig?.title ?? "";
   const sheetSubtitle = sheetConfig?.subtitle;
   const sheetOptions = sheetConfig?.options ?? [];
@@ -480,8 +641,8 @@ export default function ProjectsListMobile({
       <div className="h-[env(safe-area-inset-top)]" />
 
       {/* Top bar */}
-      <div className="px-5 pt-2 pb-1 flex items-center justify-between">
-        <VmbWordmark />
+      <div className="px-5 pt-3 pb-3 flex items-center justify-between">
+        <BrandWordmark tone="indigo" />
         <button
           type="button"
           aria-label="Open menu"
@@ -496,11 +657,11 @@ export default function ProjectsListMobile({
       </div>
 
       {/* Hero */}
-      <div className="px-5 pt-1 pb-2">
+      <div className="px-5 pt-5 pb-3">
         <h1 className="text-[28px] font-extrabold tracking-[-0.02em] text-gray-900 leading-tight">
-          My projects
+          My jobs
         </h1>
-        <p className="text-[13px] text-gray-500 mt-0.5">
+        <p className="text-[13px] text-gray-500 mt-1">
           Your live and draft jobs in one place.
         </p>
       </div>
@@ -569,13 +730,22 @@ export default function ProjectsListMobile({
         ) : items.length === 0 ? (
           <EmptyFiltered onClear={clearFilters} />
         ) : (
-          items.map((p) => (
-            <ProjectCard
-              key={p.id}
-              project={p}
-              onOpen={() => router.push(`/projects/${p.id}`)}
-            />
-          ))
+          <>
+            {items.map((p) => (
+              <ProjectCard
+                key={p.id}
+                project={p}
+                onOpen={() => router.push(`/projects/${p.id}`)}
+              />
+            ))}
+            {hasMore && loading && items.length > 0 && (
+              <>
+                <CardSkeleton />
+                <CardSkeleton />
+              </>
+            )}
+            <div ref={sentinelRef} aria-hidden className="h-1" />
+          </>
         )}
       </div>
 

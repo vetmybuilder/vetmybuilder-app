@@ -4,6 +4,13 @@ export default function Document() {
   return (
     <Html lang="en">
       <Head>
+        {/* Viewport: locks the page to the device width and disables the
+            iOS Safari auto-zoom-out-when-content-overflows behaviour, but
+            keeps maximum-scale and user-scalable at their defaults so
+            pinch-to-zoom and double-tap zoom remain available. iOS still
+            won't auto-zoom on input focus because every form control is
+            forced to >=16px in globals.css. */}
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         {/* Establish connection to Unsplash CDN early so background images
             load faster — browser opens the TCP/TLS handshake before the
             <img> request fires */}
@@ -20,6 +27,10 @@ export default function Document() {
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="VetMyBuilder" />
+        {/* Paint the iOS Safari URL bar / safe-area zones white so the
+            keyboard-open gap below the page doesn't flash a different
+            colour. Mirrors the manifest theme_color for installed PWA. */}
+        <meta name="theme-color" content="#ffffff" />
       </Head>
       <body>
         <Main />

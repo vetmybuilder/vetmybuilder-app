@@ -5,6 +5,10 @@
 // Creates a mock checkout session to unlock THIS project's owner contact.
 // Returns { ok, sessionId, url }
 
+const {
+  isBuilderSubscribed,
+} = require("../../lib/subscriptions/isBuilderSubscribed");
+
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery, payments } = ctx;
   const log = ctx.log || console;
@@ -76,6 +80,27 @@ module.exports = (router, ctx) => {
             .json({ error: "Only live projects can be unlocked" });
         }
 
+        // --- Subscription supersedes paid-unlock ---
+        // Subscribers already have unlimited swipe / chat access via the
+        // bilateral match flow, so charging them again per project would
+        // be double-billing. Reject before creating the checkout session
+        // and tell the client where to send the user instead. The UI
+        // gates the CTA on the same condition; this is the API safety
+        // net for direct calls.
+        const subscribed = await isBuilderSubscribed(uid, mysqlQuery);
+        if (subscribed) {
+          log.info?.(`${TAG} blocked: subscriber attempted paid unlock`, {
+            uid,
+            pid,
+          });
+          return res.status(409).json({
+            error: "already_subscribed",
+            alreadySubscribed: true,
+            message:
+              "You're already subscribed - swipe right to chat free once the homeowner picks you back.",
+          });
+        }
+
         // --- Already unlocked? ---
         const existingRows = await mysqlQuery(
           `SELECT 1 AS ok
@@ -88,9 +113,19 @@ module.exports = (router, ctx) => {
         );
         if (existingRows.length > 0) {
           log.info?.(`${TAG} already unlocked`, { uid, pid });
+          // Surface the matched swipe_interest row created at activation so
+          // the client can route directly to /chat/:matchId.
+          const m = await mysqlQuery(
+            `SELECT id FROM swipe_interest
+              WHERE project_id = ? AND builder_uid = ? AND source = 'paid_unlock'
+              LIMIT 1`,
+            [pid, uid]
+          );
+          const matchId = m?.[0]?.id || null;
           return res.json({
             ok: true,
             alreadyUnlocked: true,
+            matchId,
             message: "Contact already unlocked for this project",
           });
         }

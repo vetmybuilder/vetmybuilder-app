@@ -182,7 +182,7 @@ export default function NewProject() {
       const data = res?.data ?? res;
       const role = String(data?.role || "user").toLowerCase();
       if (role === "tradesman" || !!data?.profile) {
-        router.replace("/tradesman/projects");
+        router.replace("/tradesman/jobs");
       } else {
         setRoleChecked(true);
       }

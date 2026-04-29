@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <title>Compose redesign — reusing FileGridUploader</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif; }
+    .phone {
+      width: 390px; height: 800px;
+      border-radius: 44px;
+      box-shadow: 0 30px 80px rgba(15,23,42,0.18), 0 0 0 10px #111 inset, 0 0 0 12px #333 inset;
+      overflow: hidden; position: relative; background: #f8fafc;
+    }
+    .phone-inner { position:absolute; inset: 12px; border-radius: 32px; overflow: hidden; background:#fff; }
+    .grad-violet  { background: linear-gradient(135deg,#6366f1,#4f46e5); }
+    .scroll-y { overflow-y: auto; }
+    .scroll-y::-webkit-scrollbar { width: 0; }
+    .ph-1 { background: linear-gradient(135deg,#fde68a,#f59e0b); }
+    .ph-2 { background: linear-gradient(135deg,#bbf7d0,#10b981); }
+    .ph-3 { background: linear-gradient(135deg,#bae6fd,#0284c7); }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+  <header class="px-8 pt-10 pb-6 text-center">
+    <h1 class="text-2xl font-extrabold tracking-tight text-slate-900">Compose redesign · reusing FileGridUploader</h1>
+    <p class="mt-2 text-sm text-slate-500 max-w-3xl mx-auto">
+      Same compact composer layout, but the photo block is the existing
+      <code>web/components/fileUpload/FileGridUploader.tsx</code> dropped in - exactly as it renders on
+      project-close, recommend, and vendor-register today. Showing both tones the component supports
+      (slate / emerald) so you can pick one.
+    </p>
+  </header>
+
+  <main class="px-6 pb-16">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-12 justify-items-center">
+
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <!-- Tone A — slate (dashed dropzone, default look)                   -->
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <section>
+        <div class="text-center mb-3">
+          <div class="text-xs uppercase font-extrabold tracking-widest text-slate-600">Tone option · slate</div>
+          <h2 class="text-base font-extrabold text-slate-900">Dashed dropzone</h2>
+          <p class="text-xs text-slate-500 max-w-[300px] mx-auto">
+            Matches CloseProjectModal + recommend page. Neutral feel. Pass <code>tone="slate"</code> (default).
+          </p>
+        </div>
+
+        <div class="phone">
+          <div class="phone-inner bg-white flex flex-col">
+
+            <!-- top bar -->
+            <div class="px-4 pt-3 pb-2 flex items-center gap-2 border-b border-slate-100">
+              <button class="text-slate-500 text-[18px] font-bold w-8 h-8 -ml-1">←</button>
+              <div class="flex-1 text-center">
+                <div class="text-[15px] font-extrabold text-slate-900 leading-tight">New pitch</div>
+                <div class="text-[10.5px] text-slate-500 leading-tight">to Sarah</div>
+              </div>
+              <span class="w-8" />
+            </div>
+
+            <div class="scroll-y flex-1">
+              <!-- unlocked + job context -->
+              <div class="mx-4 mt-3 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2 flex items-center gap-2 text-[12.5px] text-emerald-800">
+                <span class="text-emerald-600">✓</span>
+                <span>Contact unlocked - Sarah will see this in her inbox</span>
+              </div>
+
+              <div class="mx-4 mt-3 rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5 flex items-center gap-3">
+                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-amber-200 to-rose-300 flex items-center justify-center font-extrabold text-rose-900 shrink-0">S</div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-[13px] font-extrabold text-slate-900 truncate">External wall insulation</div>
+                  <div class="text-[11px] text-slate-500">Sarah · £15k-£30k · E4</div>
+                </div>
+              </div>
+
+              <!-- ▼▼▼ FileGridUploader · slate tone (drop in as-is) ▼▼▼ -->
+              <div class="px-4 pt-4">
+                <div class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-2">Photos of similar work (optional)</div>
+
+                <!-- empty-state dashed dropzone -->
+                <div class="rounded-2xl border-2 border-dashed border-slate-300 p-6 text-center hover:border-slate-400 transition-colors cursor-pointer">
+                  <p class="text-sm text-slate-600">Drag &amp; drop photos here, or <span class="underline">browse</span></p>
+                  <p class="mt-1 text-xs text-slate-500">Up to 6 files · Max 10MB each</p>
+                </div>
+
+                <!-- preview grid (3-up) -->
+                <ul class="mt-4 grid grid-cols-3 gap-3">
+                  <li class="relative">
+                    <div class="w-full rounded-xl overflow-hidden ring-1 ring-slate-200">
+                      <div class="h-24 w-full ph-1"></div>
+                    </div>
+                    <button class="absolute right-1 top-1 rounded-full bg-white/90 px-2 py-1 text-xs shadow hover:bg-white">✕</button>
+                    <div class="mt-1 truncate text-xs text-slate-600">ewi-render-1.jpg</div>
+                  </li>
+                  <li class="relative">
+                    <div class="w-full rounded-xl overflow-hidden ring-1 ring-slate-200">
+                      <div class="h-24 w-full ph-2"></div>
+                    </div>
+                    <button class="absolute right-1 top-1 rounded-full bg-white/90 px-2 py-1 text-xs shadow hover:bg-white">✕</button>
+                    <div class="mt-1 truncate text-xs text-slate-600">topcoat-finish.jpg</div>
+                  </li>
+                  <li class="relative">
+                    <div class="w-full rounded-xl overflow-hidden ring-1 ring-slate-200">
+                      <div class="h-24 w-full ph-3"></div>
+                    </div>
+                    <button class="absolute right-1 top-1 rounded-full bg-white/90 px-2 py-1 text-xs shadow hover:bg-white">✕</button>
+                    <div class="mt-1 truncate text-xs text-slate-600">corner-detail.jpg</div>
+                  </li>
+                </ul>
+
+                <!-- consent checkbox (component default) -->
+                <label class="mt-4 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-[12.5px] text-slate-700 cursor-pointer">
+                  <input type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-red-500" />
+                  <span class="leading-snug">
+                    I confirm I have the right to share these photos. Anyone clearly visible has agreed, and the
+                    photos do not contain children or reveal someone else's home address.
+                    (<a class="underline">Acceptable Use Policy</a>)
+                  </span>
+                </label>
+              </div>
+              <!-- ▲▲▲ FileGridUploader · slate tone ▲▲▲ -->
+
+              <!-- prompt chips -->
+              <div class="px-4 pt-4">
+                <div class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">Quick prompts</div>
+                <div class="flex flex-wrap gap-1.5">
+                  <button class="text-[11.5px] font-bold px-2.5 py-1.5 rounded-full bg-indigo-600 text-white border border-indigo-700">Introduce myself ✓</button>
+                  <button class="text-[11.5px] font-bold px-2.5 py-1.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">Recent similar work</button>
+                  <button class="text-[11.5px] font-bold px-2.5 py-1.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">Ask about timing</button>
+                  <button class="text-[11.5px] font-bold px-2.5 py-1.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">Rough estimate</button>
+                </div>
+              </div>
+
+              <!-- textarea -->
+              <div class="px-4 pt-4 pb-3">
+                <div class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">Your pitch</div>
+                <div class="border-2 border-indigo-200 rounded-2xl p-3 text-[13px] text-slate-800 leading-relaxed min-h-[120px]">
+                  Hi Sarah,<br><br>
+                  I'm Adam from Elegant Building Services - we've done EWI on five 1930s terraces in E4 over the last 18 months.
+                </div>
+                <div class="flex items-center justify-between mt-1 text-[10.5px] text-slate-400">
+                  <span>Your phone stays hidden until Sarah replies</span>
+                  <span>118 / 600</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="px-4 py-3 border-t border-slate-100 bg-white">
+              <button class="w-full py-3 rounded-2xl grad-violet text-white font-extrabold text-[14px] shadow-lg shadow-indigo-200">
+                Send to Sarah · 3 photos
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <!-- Tone B — emerald (white card + "+ Upload", matches signup docs)  -->
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <section>
+        <div class="text-center mb-3">
+          <div class="text-xs uppercase font-extrabold tracking-widest text-emerald-700">Tone option · emerald</div>
+          <h2 class="text-base font-extrabold text-slate-900">"+ Upload" card · my pick</h2>
+          <p class="text-xs text-slate-500 max-w-[300px] mx-auto">
+            Matches the tradesman signup docs uploader (<code>tone="emerald"</code>). Cleaner card,
+            on-brand for the tradesman side of the app.
+          </p>
+        </div>
+
+        <div class="phone">
+          <div class="phone-inner bg-white flex flex-col">
+
+            <div class="px-4 pt-3 pb-2 flex items-center gap-2 border-b border-slate-100">
+              <button class="text-slate-500 text-[18px] font-bold w-8 h-8 -ml-1">←</button>
+              <div class="flex-1 text-center">
+                <div class="text-[15px] font-extrabold text-slate-900 leading-tight">New pitch</div>
+                <div class="text-[10.5px] text-slate-500 leading-tight">to Sarah</div>
+              </div>
+              <span class="w-8" />
+            </div>
+
+            <div class="scroll-y flex-1">
+              <div class="mx-4 mt-3 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2 flex items-center gap-2 text-[12.5px] text-emerald-800">
+                <span class="text-emerald-600">✓</span>
+                <span>Contact unlocked - Sarah will see this in her inbox</span>
+              </div>
+
+              <div class="mx-4 mt-3 rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5 flex items-center gap-3">
+                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-amber-200 to-rose-300 flex items-center justify-center font-extrabold text-rose-900 shrink-0">S</div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-[13px] font-extrabold text-slate-900 truncate">External wall insulation</div>
+                  <div class="text-[11px] text-slate-500">Sarah · £15k-£30k · E4</div>
+                </div>
+              </div>
+
+              <!-- ▼▼▼ FileGridUploader · emerald tone (drop in as-is) ▼▼▼ -->
+              <div class="px-4 pt-4">
+                <!-- emerald empty-state card -->
+                <div class="rounded-xl bg-white border border-slate-200 px-4 py-5 text-center cursor-pointer">
+                  <div class="text-[10.5px] font-extrabold uppercase tracking-wider text-zinc-500">
+                    Photos of similar work
+                  </div>
+                  <div class="mt-2 text-sm font-bold text-emerald-600">+ Upload</div>
+                  <p class="mt-1 text-[11px] text-zinc-400">Up to 6 files · Max 10MB each</p>
+                </div>
+
+                <!-- preview grid (3-up) -->
+                <ul class="mt-4 grid grid-cols-3 gap-3">
+                  <li class="relative">
+                    <div class="w-full rounded-xl overflow-hidden ring-1 ring-slate-200">
+                      <div class="h-24 w-full ph-1"></div>
+                    </div>
+                    <button class="absolute right-1 top-1 rounded-full bg-white/90 px-2 py-1 text-xs shadow hover:bg-white">✕</button>
+                    <div class="mt-1 truncate text-xs text-slate-600">ewi-render-1.jpg</div>
+                  </li>
+                  <li class="relative">
+                    <div class="w-full rounded-xl overflow-hidden ring-1 ring-slate-200">
+                      <div class="h-24 w-full ph-2"></div>
+                    </div>
+                    <button class="absolute right-1 top-1 rounded-full bg-white/90 px-2 py-1 text-xs shadow hover:bg-white">✕</button>
+                    <div class="mt-1 truncate text-xs text-slate-600">topcoat-finish.jpg</div>
+                  </li>
+                  <li class="relative">
+                    <div class="w-full rounded-xl overflow-hidden ring-1 ring-slate-200">
+                      <div class="h-24 w-full ph-3"></div>
+                    </div>
+                    <button class="absolute right-1 top-1 rounded-full bg-white/90 px-2 py-1 text-xs shadow hover:bg-white">✕</button>
+                    <div class="mt-1 truncate text-xs text-slate-600">corner-detail.jpg</div>
+                  </li>
+                </ul>
+
+                <label class="mt-4 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-[12.5px] text-slate-700 cursor-pointer">
+                  <input type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-red-500" />
+                  <span class="leading-snug">
+                    I confirm I have the right to share these photos. Anyone clearly visible has agreed, and the
+                    photos do not contain children or reveal someone else's home address.
+                    (<a class="underline">Acceptable Use Policy</a>)
+                  </span>
+                </label>
+              </div>
+              <!-- ▲▲▲ FileGridUploader · emerald tone ▲▲▲ -->
+
+              <div class="px-4 pt-4">
+                <div class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">Quick prompts</div>
+                <div class="flex flex-wrap gap-1.5">
+                  <button class="text-[11.5px] font-bold px-2.5 py-1.5 rounded-full bg-indigo-600 text-white border border-indigo-700">Introduce myself ✓</button>
+                  <button class="text-[11.5px] font-bold px-2.5 py-1.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">Recent similar work</button>
+                  <button class="text-[11.5px] font-bold px-2.5 py-1.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">Ask about timing</button>
+                  <button class="text-[11.5px] font-bold px-2.5 py-1.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">Rough estimate</button>
+                </div>
+              </div>
+
+              <div class="px-4 pt-4 pb-3">
+                <div class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">Your pitch</div>
+                <div class="border-2 border-indigo-200 rounded-2xl p-3 text-[13px] text-slate-800 leading-relaxed min-h-[120px]">
+                  Hi Sarah,<br><br>
+                  I'm Adam from Elegant Building Services - we've done EWI on five 1930s terraces in E4 over the last 18 months.
+                </div>
+                <div class="flex items-center justify-between mt-1 text-[10.5px] text-slate-400">
+                  <span>Your phone stays hidden until Sarah replies</span>
+                  <span>118 / 600</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="px-4 py-3 border-t border-slate-100 bg-white">
+              <button class="w-full py-3 rounded-2xl grad-violet text-white font-extrabold text-[14px] shadow-lg shadow-indigo-200">
+                Send to Sarah · 3 photos
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+
+    <div class="max-w-3xl mx-auto mt-12 rounded-2xl bg-white border border-slate-200 p-5">
+      <h3 class="text-base font-extrabold text-slate-900">What this is</h3>
+      <p class="mt-2 text-[13px] text-slate-600 leading-snug">
+        The shaded blocks marked <code>FileGridUploader</code> above are the actual existing component
+        from <code>web/components/fileUpload/FileGridUploader.tsx</code>, dropped into the compose page
+        with no UI changes - just different props (<code>maxFiles=6</code>, <code>maxSizeMB=10</code>,
+        plus tone). Same dashed dropzone or "+ Upload" card. Same 3-column preview grid. Same X-to-remove
+        affordance. Same Acceptable-Use consent checkbox.
+      </p>
+
+      <h3 class="mt-5 text-base font-extrabold text-slate-900">Wiring</h3>
+      <p class="mt-2 text-[13px] text-slate-600 leading-snug">
+        On submit, the photos go in the same POST as the message. <code>/api/projects/:id/inbox-message</code>
+        gets extended to accept multipart with up to 6 image attachments. The page disables Send until
+        the consent checkbox is ticked when there's at least one photo (the component already
+        emits this via <code>onConsentChange</code>).
+      </p>
+
+      <h3 class="mt-5 text-base font-extrabold text-slate-900">Pick one</h3>
+      <ul class="mt-2 text-[13px] text-slate-600 leading-snug space-y-1.5">
+        <li><strong>Slate</strong> - same look as CloseProjectModal + the homeowner recommend flow. Reads as "neutral form field".</li>
+        <li><strong>Emerald</strong> - same look as the tradesman signup docs uploader. Cleaner card, more on-brand for the tradesman side. <strong>My pick.</strong></li>
+      </ul>
+
+      <p class="mt-5 text-[12.5px] text-slate-500 italic">
+        I'll also still fix the broken quick-prompt chips (today they leak <code>{firstName}</code> placeholders) and add the "Phone stays hidden" reassurance line - those changes are independent of which tone we pick.
+      </p>
+    </div>
+  </main>
+</body>
+</html>

@@ -11,6 +11,8 @@ import CrossTabLogoutWatcher from "@/components/CrossTabLogoutWatcher";
 import PostHogProvider from "@/components/PostHogProvider";
 import { MobileMenuProvider } from "@/utils/mobileMenu";
 import GlobalMobileMenu from "@/components/GlobalMobileMenu";
+import MatchCelebrationToast from "@/components/MatchCelebrationToast";
+import GlobalSseDispatcher from "@/components/GlobalSseDispatcher";
 
 // ✅ IMPORTANT: adjust this import path to where your initFirebase() file actually is.
 // Example candidates:
@@ -89,15 +91,18 @@ function AppBootstrap() {
       /* noop */
     }
 
-    // --- remember last non-auth route for cleaner post-login redirect
+    // --- remember last non-auth route for cleaner post-login redirect.
+    // Store the PATH ONLY (no query string). Tabs/filters/sort are
+    // transient UI state that's stale by the time the user is back;
+    // resource paths (/projects/123, /match/45) are what we actually
+    // want to restore.
     try {
       const here = router.asPath || "/";
       const pathname = new URL(here, window.location.origin).pathname;
       if (!isAuthPath(pathname)) {
-        sessionStorage.setItem("vmb:lastNonAuth", here);
-        // If no explicit returnTo set yet, default it to the current non-auth page
+        sessionStorage.setItem("vmb:lastNonAuth", pathname);
         if (!sessionStorage.getItem("vmb:returnTo")) {
-          sessionStorage.setItem("vmb:returnTo", here);
+          sessionStorage.setItem("vmb:returnTo", pathname);
         }
       }
     } catch {
@@ -107,15 +112,15 @@ function AppBootstrap() {
     // Initial page view
     dispatchPageView(router.asPath, gsid);
 
-    // Track subsequent route changes
+    // Track subsequent route changes. Path-only capture — see comment above.
     const onRoute = (url: string) => {
       // url is usually a path like "/projects?tab=mine"
       try {
         const pathname = new URL(url, window.location.origin).pathname;
         if (!isAuthPath(pathname)) {
-          sessionStorage.setItem("vmb:lastNonAuth", url);
+          sessionStorage.setItem("vmb:lastNonAuth", pathname);
           if (!sessionStorage.getItem("vmb:returnTo")) {
-            sessionStorage.setItem("vmb:returnTo", url);
+            sessionStorage.setItem("vmb:returnTo", pathname);
           }
         }
       } catch {
@@ -173,7 +178,6 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     "/tradesman/projects",
     "/tradesman/profile",
     "/tradesman/profile/edit",
-    "/tradesman/jobs",
     "/tradesman/featured",
   ]);
   const isTradesmanRoute = TRADESMAN_AUTH_PATHS.has(router.pathname);
@@ -182,7 +186,6 @@ export default function MyApp({ Component, pageProps }: AppProps) {
   // (no SiteHeader, no background strip). The page itself is responsible
   // for its own min-h-screen / background.
   const NO_LAYOUT_PATHS = new Set<string>([
-    "/inbox",
     "/projects/[id]/shortlist",
     "/matches",
     "/match/[matchId]",
@@ -198,6 +201,13 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     "/account",
     "/feedback",
     "/tradesman/register-tradesmen",
+    "/tradesman/jobs",
+    "/tradesman/jobs/list",
+    "/tradesman/matches",
+    "/tradesman/leads",
+    "/tradesman/account",
+    "/tradesman/profile/edit",
+    "/chat/[matchId]",
   ]);
   const isBareRoute = NO_LAYOUT_PATHS.has(router.pathname);
 
@@ -211,6 +221,14 @@ export default function MyApp({ Component, pageProps }: AppProps) {
       {/* Cross-tab logout: redirect to homepage when the user logs out
           in another tab and the current path is privately-scoped. */}
       <CrossTabLogoutWatcher />
+
+      {/* Single app-wide SSE connection. Re-broadcasts every server
+          notification as a `vmb:notification` DOM CustomEvent so any
+          component anywhere can react without each one opening its own
+          EventSource. Required for live updates on bare-route pages
+          where SiteHeader (and therefore NotificationsBell) is not
+          rendered. */}
+      <GlobalSseDispatcher />
 
       {isBareRoute ? (
         <Component {...pageProps} />
@@ -231,6 +249,12 @@ export default function MyApp({ Component, pageProps }: AppProps) {
       {/* Global mobile menu — single instance for every route, opened
           via useMobileMenu().openMenu() from any burger button. */}
       <GlobalMobileMenu />
+
+      {/* Global match-formed celebration toast: SSE-driven, shows the
+          moment a match_formed notification arrives, regardless of which
+          page the user is on. Closes the gap where the first-mover
+          doesn't get the celebration screen automatically. */}
+      <MatchCelebrationToast />
 
       {/* Global modal portal target (for SignUpGate, etc.) */}
       <div id="modal-root" />

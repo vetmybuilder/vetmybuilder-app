@@ -6,7 +6,7 @@
 const {
   isBuilderSubscribed,
 } = require("../../lib/subscriptions/isBuilderSubscribed");
-const { sendPushToUser } = require("../../lib/pushSender");
+const { fireMatchFormed } = require("../../lib/fireMatchFormed");
 
 module.exports = function mountRespond(router, ctx) {
   const { auth, mysqlQuery } = ctx;
@@ -66,63 +66,7 @@ module.exports = function mountRespond(router, ctx) {
     );
 
     if (newStatus === "matched") {
-      try {
-        const detailRows = await mysqlQuery(
-          `SELECT p.id AS projectId, p.name AS projectName, p.ownerUserId,
-                  t.user_id AS tradesmanUid, t.company_name AS tradesmanName
-             FROM swipe_interest si
-             JOIN projects p ON p.id = si.project_id
-             JOIN tradesmen t ON t.user_id = si.builder_uid
-            WHERE si.id = ? LIMIT 1`,
-          [siId],
-        );
-        const detail = detailRows?.[0];
-        if (detail) {
-          const linkPath = `/projects/${detail.projectId}`;
-          const homeownerMessage = `🎉 You matched with ${detail.tradesmanName} on "${detail.projectName}"`;
-          const tradesmanMessage = `🎉 You matched with a homeowner on "${detail.projectName}"`;
-
-          // Insert + push for homeowner
-          await mysqlQuery(
-            `INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
-             VALUES (?, 'match_formed', ?, ?, ?, NOW())`,
-            [detail.ownerUserId, homeownerMessage, detail.projectId, linkPath],
-          );
-          ctx.broadcastNotification?.(detail.ownerUserId, {
-            type: "match_formed", message: homeownerMessage, projectId: detail.projectId, linkPath,
-          });
-          sendPushToUser({
-            uid: detail.ownerUserId,
-            type: "match_formed",
-            title: "VetMyBuilder",
-            body: homeownerMessage,
-            linkPath,
-            mysqlQuery,
-            logActivity: ctx.logActivity,
-          });
-
-          // Insert + push for tradesman
-          await mysqlQuery(
-            `INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
-             VALUES (?, 'match_formed', ?, ?, ?, NOW())`,
-            [detail.tradesmanUid, tradesmanMessage, detail.projectId, linkPath],
-          );
-          ctx.broadcastNotification?.(detail.tradesmanUid, {
-            type: "match_formed", message: tradesmanMessage, projectId: detail.projectId, linkPath,
-          });
-          sendPushToUser({
-            uid: detail.tradesmanUid,
-            type: "match_formed",
-            title: "VetMyBuilder",
-            body: tradesmanMessage,
-            linkPath: `/tradesman/projects`,
-            mysqlQuery,
-            logActivity: ctx.logActivity,
-          });
-        }
-      } catch (err) {
-        console.warn("[swipe.respond] match_formed notification failed:", err?.message);
-      }
+      await fireMatchFormed({ projectId: row.project_id, mysqlQuery, ctx });
     }
 
     return res.status(200).json({ ok: true, status: newStatus });

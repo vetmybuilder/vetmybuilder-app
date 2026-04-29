@@ -22,6 +22,7 @@ const CATEGORY_MAP = {
   recommendation_for_tradesman: "recommendations",
   match_formed: "matches",
   inbox_message_new: "messages",
+  chat_message_new: "messages",
   project_live_local: "local_activity",
   project_closed_local: "local_activity",
   project_match: "project_matches",
