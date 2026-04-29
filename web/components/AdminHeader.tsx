@@ -126,17 +126,12 @@ export default function AdminHeader() {
     <header className="sticky top-0 z-40 border-b border-slate-500/60 bg-slate-700/90 backdrop-blur">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
         {/* Left: brand logo */}
-        <Link href="/admin/tradesmen-leaderboard" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500">
-            <svg className="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-          </div>
-          <div className="leading-tight">
-            <BrandWordmark
-              tone="auto"
-              className="text-xl font-black tracking-tight text-white"
-            />
-            <span className="ml-2 text-xs font-bold text-amber-400 tracking-wide">Admin</span>
-          </div>
+        <Link href="/admin/tradesmen-leaderboard" className="flex items-center gap-2">
+          <BrandWordmark
+            tone="auto"
+            className="text-xl font-black tracking-tight text-white"
+          />
+          <span className="text-xs font-bold text-amber-400 tracking-wide">Admin</span>
         </Link>
 
         {/* Right: pill navigation */}

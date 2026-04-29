@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <title>Header logo mark options</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif; }
+    .header-frame {
+      width: 380px;
+      border-radius: 0;
+      background: #f8fafc;
+      box-shadow: 0 6px 18px rgba(15,23,42,0.08);
+    }
+    .grad-indigo { background: linear-gradient(135deg,#6366f1,#4f46e5); }
+    .grad-emerald { background: linear-gradient(135deg,#10b981,#059669); }
+    .grad-violet  { background: linear-gradient(135deg,#7c3aed,#4f46e5); }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+  <header class="px-8 pt-10 pb-6 text-center">
+    <h1 class="text-2xl font-extrabold tracking-tight text-slate-900">Header logo mark · six options</h1>
+    <p class="mt-2 text-sm text-slate-500 max-w-3xl mx-auto">
+      Today's mark is a red square with a generic house icon. The red is off-brand vs the indigo/emerald rest of the app.
+      Each option below shows the homeowner-side header (indigo accents) and the tradesman-side header (emerald accents).
+    </p>
+  </header>
+
+  <main class="px-6 pb-16 max-w-2xl mx-auto space-y-8">
+
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <!-- Option A — Drop the tile entirely                                -->
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <section>
+      <div class="mb-3">
+        <span class="text-xs uppercase font-extrabold tracking-widest text-emerald-700">Option A · my pick</span>
+        <h2 class="text-base font-extrabold text-slate-900">Wordmark only</h2>
+        <p class="text-xs text-slate-500">Drop the tile. The "VetMyBuilder" wordmark with the colour accent on "My" is already a strong, distinctive lockup. This is what the mobile menu top bar already does, so the app stays consistent everywhere.</p>
+      </div>
+
+      <div class="header-frame border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+        <div class="flex items-baseline gap-0">
+          <span class="text-[18px] font-black tracking-tight text-slate-900">Vet</span>
+          <span class="text-[18px] font-black tracking-tight text-indigo-600">My</span>
+          <span class="text-[18px] font-black tracking-tight text-slate-900">Builder</span>
+        </div>
+        <span class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-base">≡</span>
+      </div>
+
+      <div class="header-frame border-b border-slate-200 px-4 py-3 flex items-center justify-between mt-2">
+        <div class="flex items-baseline gap-0">
+          <span class="text-[18px] font-black tracking-tight text-slate-900">Vet</span>
+          <span class="text-[18px] font-black tracking-tight text-emerald-600">My</span>
+          <span class="text-[18px] font-black tracking-tight text-slate-900">Builder</span>
+        </div>
+        <span class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-base">≡</span>
+      </div>
+    </section>
+
+
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <!-- Option B — Indigo/emerald tile, brand-matched                    -->
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <section>
+      <div class="mb-3">
+        <span class="text-xs uppercase font-extrabold tracking-widest text-violet-700">Option B</span>
+        <h2 class="text-base font-extrabold text-slate-900">Same tile, brand colour</h2>
+        <p class="text-xs text-slate-500">Keep the rounded-square tile but recolour to match the side: indigo gradient for homeowner, emerald gradient for tradesman.</p>
+      </div>
+
+      <div class="header-frame border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl grad-indigo text-white shadow-sm">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 11l9-8 9 8" /><path d="M5 10v10h14V10" />
+            </svg>
+          </span>
+          <div class="flex items-baseline gap-0">
+            <span class="text-[18px] font-black tracking-tight text-slate-900">Vet</span>
+            <span class="text-[18px] font-black tracking-tight text-indigo-600">My</span>
+            <span class="text-[18px] font-black tracking-tight text-slate-900">Builder</span>
+          </div>
+        </div>
+        <span class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-base">≡</span>
+      </div>
+
+      <div class="header-frame border-b border-slate-200 px-4 py-3 flex items-center justify-between mt-2">
+        <div class="flex items-center gap-2.5">
+          <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl grad-emerald text-white shadow-sm">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 11l9-8 9 8" /><path d="M5 10v10h14V10" />
+            </svg>
+          </span>
+          <div class="flex items-baseline gap-0">
+            <span class="text-[18px] font-black tracking-tight text-slate-900">Vet</span>
+            <span class="text-[18px] font-black tracking-tight text-emerald-600">My</span>
+            <span class="text-[18px] font-black tracking-tight text-slate-900">Builder</span>
+          </div>
+        </div>
+        <span class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-base">≡</span>
+      </div>
+    </section>
+
+
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <!-- Option C — Circle tile, brand colour                             -->
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <section>
+      <div class="mb-3">
+        <span class="text-xs uppercase font-extrabold tracking-widest text-slate-600">Option C</span>
+        <h2 class="text-base font-extrabold text-slate-900">Circular tile</h2>
+        <p class="text-xs text-slate-500">Round mark. Softer than the square. Same brand-coloured fill.</p>
+      </div>
+
+      <div class="header-frame border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <span class="inline-flex h-9 w-9 items-center justify-center rounded-full grad-indigo text-white shadow-sm">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 11l9-8 9 8" /><path d="M5 10v10h14V10" />
+            </svg>
+          </span>
+          <div class="flex items-baseline gap-0">
+            <span class="text-[18px] font-black tracking-tight text-slate-900">Vet</span>
+            <span class="text-[18px] font-black tracking-tight text-indigo-600">My</span>
+            <span class="text-[18px] font-black tracking-tight text-slate-900">Builder</span>
+          </div>
+        </div>
+        <span class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-base">≡</span>
+      </div>
+
+      <div class="header-frame border-b border-slate-200 px-4 py-3 flex items-center justify-between mt-2">
+        <div class="flex items-center gap-2.5">
+          <span class="inline-flex h-9 w-9 items-center justify-center rounded-full grad-emerald text-white shadow-sm">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 11l9-8 9 8" /><path d="M5 10v10h14V10" />
+            </svg>
+          </span>
+          <div class="flex items-baseline gap-0">
+            <span class="text-[18px] font-black tracking-tight text-slate-900">Vet</span>
+            <span class="text-[18px] font-black tracking-tight text-emerald-600">My</span>
+            <span class="text-[18px] font-black tracking-tight text-slate-900">Builder</span>
+          </div>
+        </div>
+        <span class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-base">≡</span>
+      </div>
+    </section>
+
+
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <!-- Option D — Custom monogram                                       -->
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <section>
+      <div class="mb-3">
+        <span class="text-xs uppercase font-extrabold tracking-widest text-slate-600">Option D</span>
+        <h2 class="text-base font-extrabold text-slate-900">"VMB" monogram</h2>
+        <p class="text-xs text-slate-500">Letter mark instead of an icon. Reads as "VMB" - a common short for VetMyBuilder. More distinctive than a generic house glyph, and works as a favicon / app icon too.</p>
+      </div>
+
+      <div class="header-frame border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl grad-indigo text-white text-[10px] font-black tracking-[0.04em] shadow-sm">VMB</span>
+          <div class="flex items-baseline gap-0">
+            <span class="text-[18px] font-black tracking-tight text-slate-900">Vet</span>
+            <span class="text-[18px] font-black tracking-tight text-indigo-600">My</span>
+            <span class="text-[18px] font-black tracking-tight text-slate-900">Builder</span>
+          </div>
+        </div>
+        <span class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-base">≡</span>
+      </div>
+
+      <div class="header-frame border-b border-slate-200 px-4 py-3 flex items-center justify-between mt-2">
+        <div class="flex items-center gap-2.5">
+          <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl grad-emerald text-white text-[10px] font-black tracking-[0.04em] shadow-sm">VMB</span>
+          <div class="flex items-baseline gap-0">
+            <span class="text-[18px] font-black tracking-tight text-slate-900">Vet</span>
+            <span class="text-[18px] font-black tracking-tight text-emerald-600">My</span>
+            <span class="text-[18px] font-black tracking-tight text-slate-900">Builder</span>
+          </div>
+        </div>
+        <span class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-base">≡</span>
+      </div>
+    </section>
+
+
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <!-- Option E — Tick + roof glyph                                      -->
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <section>
+      <div class="mb-3">
+        <span class="text-xs uppercase font-extrabold tracking-widest text-slate-600">Option E</span>
+        <h2 class="text-base font-extrabold text-slate-900">Vetted tick + roof</h2>
+        <p class="text-xs text-slate-500">Custom mark that reads as "house with a tick" - referencing both the house and the "vetted" promise that the brand name emphasises. Distinctive and on-message.</p>
+      </div>
+
+      <div class="header-frame border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl grad-indigo text-white shadow-sm">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 11l9-8 9 8" />
+              <path d="M7 13l3 3 7-7" />
+            </svg>
+          </span>
+          <div class="flex items-baseline gap-0">
+            <span class="text-[18px] font-black tracking-tight text-slate-900">Vet</span>
+            <span class="text-[18px] font-black tracking-tight text-indigo-600">My</span>
+            <span class="text-[18px] font-black tracking-tight text-slate-900">Builder</span>
+          </div>
+        </div>
+        <span class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-base">≡</span>
+      </div>
+
+      <div class="header-frame border-b border-slate-200 px-4 py-3 flex items-center justify-between mt-2">
+        <div class="flex items-center gap-2.5">
+          <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl grad-emerald text-white shadow-sm">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 11l9-8 9 8" />
+              <path d="M7 13l3 3 7-7" />
+            </svg>
+          </span>
+          <div class="flex items-baseline gap-0">
+            <span class="text-[18px] font-black tracking-tight text-slate-900">Vet</span>
+            <span class="text-[18px] font-black tracking-tight text-emerald-600">My</span>
+            <span class="text-[18px] font-black tracking-tight text-slate-900">Builder</span>
+          </div>
+        </div>
+        <span class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-base">≡</span>
+      </div>
+    </section>
+
+
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <!-- Option F — Brand-coloured "V" badge                              -->
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <section>
+      <div class="mb-3">
+        <span class="text-xs uppercase font-extrabold tracking-widest text-slate-600">Option F</span>
+        <h2 class="text-base font-extrabold text-slate-900">"V" mark</h2>
+        <p class="text-xs text-slate-500">Single-letter mark. Subtle, modern (think Vimeo / Vercel). Pairs cleanly with the "Vet" prefix in the wordmark.</p>
+      </div>
+
+      <div class="header-frame border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl grad-indigo text-white text-[18px] font-black shadow-sm">V</span>
+          <div class="flex items-baseline gap-0">
+            <span class="text-[18px] font-black tracking-tight text-slate-900">Vet</span>
+            <span class="text-[18px] font-black tracking-tight text-indigo-600">My</span>
+            <span class="text-[18px] font-black tracking-tight text-slate-900">Builder</span>
+          </div>
+        </div>
+        <span class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-base">≡</span>
+      </div>
+
+      <div class="header-frame border-b border-slate-200 px-4 py-3 flex items-center justify-between mt-2">
+        <div class="flex items-center gap-2.5">
+          <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl grad-emerald text-white text-[18px] font-black shadow-sm">V</span>
+          <div class="flex items-baseline gap-0">
+            <span class="text-[18px] font-black tracking-tight text-slate-900">Vet</span>
+            <span class="text-[18px] font-black tracking-tight text-emerald-600">My</span>
+            <span class="text-[18px] font-black tracking-tight text-slate-900">Builder</span>
+          </div>
+        </div>
+        <span class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-base">≡</span>
+      </div>
+    </section>
+
+
+    <!-- Notes -->
+    <div class="rounded-2xl bg-white border border-slate-200 p-5 mt-10">
+      <h3 class="text-base font-extrabold text-slate-900">Recommendation</h3>
+      <p class="mt-2 text-[13px] text-slate-600 leading-snug">
+        <strong>Option A (wordmark only)</strong>. The "VetMyBuilder" wordmark with the brand-coloured "My" is already distinctive
+        on its own - that's what the mobile menu top bar uses. Removing the tile gives the header more breathing room and lets the wordmark do the work it's already doing well.
+      </p>
+      <p class="mt-2 text-[13px] text-slate-600 leading-snug">
+        If you want to keep a graphical mark, <strong>Option E (vetted tick + roof)</strong> is the most on-message - it visually
+        carries the "vetted builder" promise the brand is built around. Most distinctive at small sizes too (favicon, app icon).
+      </p>
+      <p class="mt-2 text-[13px] text-slate-600 leading-snug italic">
+        Option B / C / D / F are safe but generic. Stick with A or E.
+      </p>
+    </div>
+  </main>
+</body>
+</html>

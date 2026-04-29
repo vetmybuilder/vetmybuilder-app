@@ -13,7 +13,7 @@
 import { useEffect, useRef, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { Wrench, User, LogOut } from "lucide-react";
+import { Wrench, LogOut } from "lucide-react";
 import { useAuth, signOutUser } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 
@@ -94,10 +94,6 @@ export default function TradesmanLoginAlias() {
     router.replace("/tradesman/signup/complete");
   };
 
-  const finishHomeowner = () => {
-    router.replace("/signup/complete");
-  };
-
   const signOutAndStartOver = async () => {
     // Block the guest-redirect effect from firing once Firebase flips
     // user → null during signOutUser. We own the post-signout navigation.
@@ -121,61 +117,53 @@ export default function TradesmanLoginAlias() {
       </Head>
       {phase === "interstitial" ? (
         <div
-          className="min-h-[70vh] flex items-center justify-center p-6"
+          className="fixed inset-0 top-14 bg-white overflow-y-auto"
           data-testid="tradesman-login-interstitial"
         >
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-lg shadow-zinc-200/60 p-7 sm:p-9 space-y-6">
-            <div className="space-y-2">
-              <h1 className="text-xl font-bold tracking-tight text-zinc-900">
-                You haven&apos;t finished setting up your homeowner account
+          <div className="mx-auto max-w-md px-5 pt-10 pb-8 flex flex-col min-h-full">
+            {/* Heading block. The visitor reached this page via the
+                "Tradesperson" entry point and has a part-finished
+                profile - the primary action is to pick up where they
+                left off on the trade signup. */}
+            <div className="mb-8">
+              <h1 className="text-[26px] font-extrabold tracking-[-0.01em] text-slate-900 leading-[1.15]">
+                Pick up where you left off
               </h1>
-              <p className="text-sm text-zinc-600">
-                You&apos;re currently in the middle of a homeowner signup.
-                What would you like to do?
+              <p className="mt-2 text-[13.5px] text-slate-500 leading-snug">
+                Your trade signup isn't finished yet. Carry on from where you stopped.
               </p>
             </div>
 
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={continueAsTradesperson}
-                data-testid="interstitial-continue-as-tradesperson"
-                className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-6 py-3 text-sm font-bold text-white shadow-sm shadow-emerald-600/25 hover:bg-emerald-500 transition-colors"
-              >
-                <Wrench className="h-4 w-4" />
-                Continue as a tradesperson
-              </button>
+            {/* Primary CTA - resume the trade signup */}
+            <button
+              type="button"
+              onClick={continueAsTradesperson}
+              data-testid="interstitial-continue-as-tradesperson"
+              className="w-full inline-flex items-center justify-center gap-2 py-4 rounded-2xl text-white font-extrabold text-[15px] tracking-tight shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
+              style={{ background: "linear-gradient(135deg,#10b981,#059669)" }}
+            >
+              <Wrench className="h-4 w-4" />
+              Continue trade signup
+            </button>
 
-              <button
-                type="button"
-                onClick={finishHomeowner}
-                data-testid="interstitial-finish-homeowner"
-                className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-indigo-600 px-6 py-3 text-sm font-bold text-white shadow-sm shadow-indigo-600/25 hover:bg-indigo-500 transition-colors"
-              >
-                <User className="h-4 w-4" />
-                Finish setting up my homeowner account
-              </button>
-            </div>
-
-            <div className="pt-2 border-t border-zinc-100">
-              <button
-                type="button"
-                onClick={signOutAndStartOver}
-                data-testid="interstitial-sign-out"
-                className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-900 transition-colors"
-              >
-                <LogOut className="h-4 w-4" />
-                Sign out and start over
-              </button>
-            </div>
+            {/* Tertiary - sign out and start over (text only) */}
+            <button
+              type="button"
+              onClick={signOutAndStartOver}
+              data-testid="interstitial-sign-out"
+              className="mt-6 inline-flex items-center justify-center gap-1.5 self-center text-[12.5px] font-bold text-slate-500 hover:text-slate-900 transition-colors"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Sign out and start over
+            </button>
           </div>
         </div>
       ) : (
         <div
-          className="min-h-[50vh] flex items-center justify-center"
+          className="fixed inset-0 top-14 bg-white flex items-center justify-center"
           data-testid="tradesman-login-loading"
         >
-          <div className="h-8 w-8 rounded-full border-2 border-zinc-200 border-t-zinc-500 animate-spin" />
+          <div className="h-8 w-8 rounded-full border-2 border-slate-200 border-t-emerald-600 animate-spin" />
           <span className="sr-only">Loading…</span>
         </div>
       )}

@@ -6,7 +6,7 @@
 //
 // Uses the same Step1Company / Step2Trades / Step3Offers components as
 // /tradesman/register-tradesmen so the UX is identical, but drops Step 4
-// (password creation) — we already have a Firebase user from Google. Data
+// (password creation) - we already have a Firebase user from Google. Data
 // we can read from the token (email, contact name) is pre-filled and
 // disabled. On Step 3 submit we PUT /api/tradesmen/me and route to
 // /tradesman/jobs.
@@ -14,9 +14,8 @@
 import Head from "next/head";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/router";
-import { Check } from "lucide-react";
 import { useApi } from "@/utils/api";
-import { useAuth } from "@/utils/auth";
+import { useAuth, signOutUser } from "@/utils/auth";
 import { initFirebase } from "@/utils/firebase";
 
 import Step1Company, {
@@ -24,6 +23,10 @@ import Step1Company, {
 } from "@/components/vendor-register/Step1Company";
 import Step2Trades from "@/components/vendor-register/Step2Trades";
 import Step3Offers from "@/components/vendor-register/Step3Offers";
+
+import WizardTopBar from "@/components/wizard/WizardTopBar";
+import WizardProgressBar from "@/components/wizard/WizardProgressBar";
+import WizardNavBar from "@/components/wizard/WizardNavBar";
 
 import {
   normalizeAsUrl,
@@ -172,7 +175,7 @@ export default function TradesmanSsoOnboardingPage() {
 
   // Pre-fill email + contact name from the Firebase token. We leave the
   // fields in the form so users can edit the contact name, but disable
-  // the email field — it's the identity we'll be talking to.
+  // the email field - it's the identity we'll be talking to.
   useEffect(() => {
     if (!user) return;
     setForm((p) => {
@@ -185,7 +188,7 @@ export default function TradesmanSsoOnboardingPage() {
     });
   }, [user]);
 
-  // Draft persistence — lets users bail out and resume later on the
+  // Draft persistence - lets users bail out and resume later on the
   // same device.
   const parseCsv = (val: unknown): string[] =>
     Array.isArray(val)
@@ -368,7 +371,7 @@ export default function TradesmanSsoOnboardingPage() {
     setStep1Errors({});
 
     // Beta gate. We can't reuse ensureEmailAvailable here because the
-    // Firebase user already exists (that's the point of the SSO flow) —
+    // Firebase user already exists (that's the point of the SSO flow) -
     // it would always trip the "account with this email already exists"
     // branch. Instead we hit /api/auth/check-email ourselves; the
     // endpoint validates the beta code BEFORE the email lookup, so a
@@ -390,7 +393,7 @@ export default function TradesmanSsoOnboardingPage() {
           setBetaCodeErr("Invalid beta access code.");
           return;
         }
-        // Any other error is non-fatal here — the definitive save path on
+        // Any other error is non-fatal here - the definitive save path on
         // Step 3 will surface a real problem. Don't block Step 1 on a
         // transient network issue.
       }
@@ -408,7 +411,7 @@ export default function TradesmanSsoOnboardingPage() {
   // Step 3 submit: the terminal action in this flow. We skip the
   // password-creation step from register-tradesmen.tsx because the user
   // is already Firebase-authed via Google. No client-side Companies
-  // House precheck here — PUT /api/tradesmen/me runs its own CH lookup
+  // House precheck here - PUT /api/tradesmen/me runs its own CH lookup
   // server-side, and keeping the check on the critical path made this
   // click occasionally wait 20s+ in CI.
   const onFinishSignup = async (e: React.FormEvent) => {
@@ -467,7 +470,7 @@ export default function TradesmanSsoOnboardingPage() {
           }
         }
       } catch (uploadErr: any) {
-        // Same tolerance as register-tradesmen.tsx — don't hard-fail the
+        // Same tolerance as register-tradesmen.tsx - don't hard-fail the
         // whole signup on photo-upload failure.
         console.error(
           "[tradesman/signup/complete] photo upload failed:",
@@ -546,18 +549,46 @@ export default function TradesmanSsoOnboardingPage() {
     }
   };
 
-  const STEPS: Array<{ id: Step; label: string }> = [
-    { id: 1, label: "Company & contact" },
-    { id: 2, label: "Trades & photos" },
-    { id: 3, label: "Offers & documents" },
-  ];
+  // ---- wizard nav helpers ----
+  // Each step has a hidden <button type="submit"> inside its form.
+  // WizardNavBar's onNext programmatically clicks it, which fires the
+  // native form submit -> the step handler above.
+  const triggerStepSubmit = () => {
+    const testId =
+      step === 1 ? "btn-next" : "btn-continue";
+    const btn = document.querySelector<HTMLButtonElement>(
+      `[data-testid="${testId}"]`,
+    );
+    btn?.click();
+  };
+
+  const handleBack = async () => {
+    if (step === 1) {
+      // Step 1 back exits the SSO flow entirely. Sign the user out (their
+      // Firebase identity is the only artefact created so far) and bounce
+      // back to /login so they can pick a different account or method.
+      try {
+        sessionStorage.removeItem("vmb:tradesmanSignupInProgress");
+      } catch {}
+      try {
+        await signOutUser();
+      } catch {}
+      router.push("/login");
+    } else {
+      setStep((s) => (s - 1) as Step);
+    }
+  };
+
+  const handleClose = () => {
+    router.push("/");
+  };
 
   if (authLoading || hydrating) return null;
 
   // profileComplete is true when the user has a homeowner postcode OR is
   // already a tradesman. The tradesman case is already handled above (redirect
   // to /tradesman/jobs). So if we get here and profileComplete is true,
-  // the user is an existing homeowner trying to create a second role — block it.
+  // the user is an existing homeowner trying to create a second role - block it.
   if (profileComplete === true) {
     return (
       <>
@@ -580,14 +611,14 @@ export default function TradesmanSsoOnboardingPage() {
                 account or contact us at{" "}
                 <a
                   href="mailto:hello@vetmybuilder.com"
-                  className="text-red-500 hover:underline font-semibold"
+                  className="text-emerald-600 hover:underline font-semibold"
                 >
                   hello@vetmybuilder.com
                 </a>.
               </p>
               <a
                 href="/"
-                className="inline-flex items-center justify-center rounded-full bg-red-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:scale-[1.02] transition-all"
+                className="inline-flex items-center justify-center rounded-full bg-emerald-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/25 hover:scale-[1.02] transition-all"
               >
                 Back to home
               </a>
@@ -601,173 +632,131 @@ export default function TradesmanSsoOnboardingPage() {
   return (
     <>
       <Head>
-        <title>Finish tradesperson signup — VetMyBuilder</title>
-        <style>{`body { background: #fafaf9 !important; }`}</style>
+        <title>Finish tradesperson signup - VetMyBuilder</title>
+        <style>{`body { background: #ffffff !important; }`}</style>
       </Head>
 
-      <div className="relative min-h-screen overflow-hidden bg-stone-50">
-        {/* Background bands — lifted from register-tradesmen.tsx so the
-            visual treatment matches. */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
-          <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
-        </div>
+      <main
+        className="fixed inset-0 bg-white flex flex-col"
+        data-testid="tradesman-signup-complete-page"
+        style={{
+          paddingBottom: "env(safe-area-inset-bottom)",
+          fontFamily:
+            "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
+        }}
+      >
+        <div className="h-[env(safe-area-inset-top)]" />
 
-        <div
-          className="relative z-10 flex min-h-screen flex-col lg:flex-row"
-          data-testid="tradesman-signup-complete-page"
-        >
-          {/* Sidebar stepper */}
-          <aside className="shrink-0 lg:sticky lg:top-0 lg:h-screen lg:w-72 xl:w-80 bg-white/85 backdrop-blur-sm border-b border-zinc-200 lg:border-b-0 lg:border-r lg:overflow-y-auto px-8 py-8 flex flex-col">
-            <h1 className="text-2xl font-black text-zinc-900 mb-1.5">
-              Finish signing up
-            </h1>
-            <p className="text-sm text-zinc-500 mb-10 leading-relaxed">
-              We&apos;ve got your Google account — tell us about your business
-              so homeowners can find you.
+        <WizardTopBar
+          title="Trade sign-up"
+          onBack={handleBack}
+          onClose={handleClose}
+        />
+
+        <WizardProgressBar step={step} total={3} tone="emerald" />
+
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto">
+          {err && (
+            <p
+              className="mx-3 mt-3 text-sm text-red-500 font-medium"
+              role="alert"
+              data-testid="tradesman-signup-complete-error"
+            >
+              {err}
             </p>
+          )}
 
-            <nav aria-label="Registration steps">
-              {STEPS.map((s, i) => {
-                const done = step > s.id;
-                const active = step === s.id;
-                const isLast = i === STEPS.length - 1;
-                return (
-                  <div key={s.id} className="flex items-start gap-3">
-                    <div className="flex flex-col items-center">
-                      <div
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold transition-colors ${
-                          done
-                            ? "border-red-500 bg-red-500 text-white"
-                            : active
-                            ? "border-red-500 bg-white text-red-500"
-                            : "border-zinc-300 bg-white text-zinc-400"
-                        }`}
-                      >
-                        {done ? <Check className="h-4 w-4" /> : s.id}
-                      </div>
-                      {!isLast && (
-                        <div
-                          className={`w-0.5 h-9 transition-colors ${
-                            done ? "bg-red-400" : "bg-zinc-200"
-                          }`}
-                        />
-                      )}
-                    </div>
-                    <div className={`pt-1.5 ${!isLast ? "pb-9" : ""}`}>
-                      <p
-                        className={`text-sm font-medium transition-colors ${
-                          active
-                            ? "text-zinc-900"
-                            : done
-                            ? "text-zinc-500"
-                            : "text-zinc-300"
-                        }`}
-                      >
-                        {s.label}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </nav>
-          </aside>
+          {step === 1 && (
+            <Step1Company
+              form={form as Step1Form}
+              set={(k, v) => {
+                if ((k as string) === "betaCode") setBetaCodeErr(null);
+                setAndClear(k as any, v as any);
+              }}
+              addServiceAreaOutward={addServiceAreaOutward}
+              addServiceAreaBorough={addServiceAreaBorough}
+              removeServiceAreaAt={removeServiceAreaAt}
+              areaQuery={areaQuery}
+              setAreaQuery={setAreaQuery}
+              websiteInput={websiteInput}
+              setWebsiteInput={setWebsiteInput}
+              commitWebsite={commitWebsite}
+              onWebsiteKey={onWebsiteKey}
+              clearWebsite={clearWebsite}
+              canProceed={true}
+              onNext={onNextFromStep1}
+              userIsAuthed={!!user || !!authLoading}
+              nextQuery={"?next=/tradesman/jobs"}
+              // We already know this email - it's the Firebase identity
+              // for this session, so we must not let the user change it.
+              disableBusinessEmail
+              errors={step1Errors}
+              betaRequired={betaRequired}
+              betaCode={form.betaCode}
+              setBetaCode={(v) => {
+                setBetaCodeErr(null);
+                set("betaCode", v);
+              }}
+              betaCodeError={betaCodeErr}
+            />
+          )}
 
-          {/* Right panel */}
-          <div className="flex-1 px-6 py-10 lg:px-10 xl:px-16 lg:py-12">
-            <div className="mx-auto max-w-2xl">
-              {err && (
-                <p
-                  className="mb-4 text-sm text-red-500 font-medium"
-                  role="alert"
-                  data-testid="tradesman-signup-complete-error"
-                >
-                  {err}
-                </p>
-              )}
+          {step === 2 && (
+            <Step2Trades
+              tradeTypes={form.tradeTypes}
+              setTradeTypes={(v) => set("tradeTypes", v)}
+              workPhotos={form.workPhotos}
+              setWorkPhotos={(files) => set("workPhotos", files)}
+              onBack={() => setStep(1)}
+              onNext={onNextFromStep2}
+              err={err}
+              existingPhotoUrls={[]}
+              profilePictureKey={form.profilePictureKey}
+              onProfilePictureKeyChange={(key) =>
+                set("profilePictureKey", key)
+              }
+            />
+          )}
 
-              {step === 1 && (
-                <Step1Company
-                  form={form as Step1Form}
-                  set={(k, v) => {
-                    if ((k as string) === "betaCode") setBetaCodeErr(null);
-                    setAndClear(k as any, v as any);
-                  }}
-                  addServiceAreaOutward={addServiceAreaOutward}
-                  addServiceAreaBorough={addServiceAreaBorough}
-                  removeServiceAreaAt={removeServiceAreaAt}
-                  areaQuery={areaQuery}
-                  setAreaQuery={setAreaQuery}
-                  websiteInput={websiteInput}
-                  setWebsiteInput={setWebsiteInput}
-                  commitWebsite={commitWebsite}
-                  onWebsiteKey={onWebsiteKey}
-                  clearWebsite={clearWebsite}
-                  canProceed={true}
-                  onNext={onNextFromStep1}
-                  userIsAuthed={!!user || !!authLoading}
-                  nextQuery={"?next=/tradesman/jobs"}
-                  // We already know this email — it's the Firebase identity
-                  // for this session, so we must not let the user change it.
-                  disableBusinessEmail
-                  errors={step1Errors}
-                  betaRequired={betaRequired}
-                  betaCode={form.betaCode}
-                  setBetaCode={(v) => {
-                    setBetaCodeErr(null);
-                    set("betaCode", v);
-                  }}
-                  betaCodeError={betaCodeErr}
-                />
-              )}
+          {step === 3 && (
+            <Step3Offers
+              discountMin={form.discountMin}
+              discountMax={form.discountMax}
+              setDiscountMin={(v) => set("discountMin", v)}
+              setDiscountMax={(v) => set("discountMax", v)}
+              warranty={form.warranty}
+              setWarranty={(v) => set("warranty", v)}
+              onDocs={(e) => {
+                const files = Array.from(e.target.files || []);
+                const mapped: Doc[] = files.map((f) => ({
+                  name: f.name,
+                  size: f.size,
+                  type: f.type || "application/octet-stream",
+                }));
+                set("docs", mapped);
+              }}
+              onBack={() => setStep(2)}
+              onSaveDraft={onFinishSignup}
+              busy={busy}
+              okMsg={okMsg}
+              err={err}
+              primaryLabel="Finish sign up"
+              showTermsCheckbox
+            />
+          )}
 
-              {step === 2 && (
-                <Step2Trades
-                  tradeTypes={form.tradeTypes}
-                  setTradeTypes={(v) => set("tradeTypes", v)}
-                  workPhotos={form.workPhotos}
-                  setWorkPhotos={(files) => set("workPhotos", files)}
-                  onBack={() => setStep(1)}
-                  onNext={onNextFromStep2}
-                  err={err}
-                  existingPhotoUrls={[]}
-                  profilePictureKey={form.profilePictureKey}
-                  onProfilePictureKeyChange={(key) =>
-                    set("profilePictureKey", key)
-                  }
-                />
-              )}
-
-              {step === 3 && (
-                <Step3Offers
-                  discountMin={form.discountMin}
-                  discountMax={form.discountMax}
-                  setDiscountMin={(v) => set("discountMin", v)}
-                  setDiscountMax={(v) => set("discountMax", v)}
-                  warranty={form.warranty}
-                  setWarranty={(v) => set("warranty", v)}
-                  onDocs={(e) => {
-                    const files = Array.from(e.target.files || []);
-                    const mapped: Doc[] = files.map((f) => ({
-                      name: f.name,
-                      size: f.size,
-                      type: f.type || "application/octet-stream",
-                    }));
-                    set("docs", mapped);
-                  }}
-                  onBack={() => setStep(2)}
-                  onSaveDraft={onFinishSignup}
-                  busy={busy}
-                  okMsg={okMsg}
-                  err={err}
-                  primaryLabel="Finish sign up"
-                  showTermsCheckbox
-                />
-              )}
-            </div>
-          </div>
+          <div className="h-4" />
         </div>
-      </div>
+
+        <WizardNavBar
+          onBack={step > 1 ? handleBack : undefined}
+          onNext={triggerStepSubmit}
+          nextLabel={step === 3 ? "Finish" : "Next →"}
+          busy={busy}
+          tone="emerald"
+        />
+      </main>
     </>
   );
 }

@@ -1,6 +1,5 @@
 // web/components/Footer.tsx
 import Link from "next/link";
-import { Home } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/utils/auth";
 import BrandWordmark from "@/components/BrandWordmark";
@@ -32,16 +31,82 @@ export default function Footer() {
       ]
     : null; // homeowner logged in - hide tradespeople section
 
+  // Item lists per section - extracted so the same set drives both
+  // the mobile (stacked) and desktop (5-column) layouts.
+  const platformLinks = [
+    isTrades
+      ? { label: "How it Works", href: "/how-it-works-trades" }
+      : { label: "How it Works", href: "/how-it-works" },
+    ...(user && !isTrades ? [{ label: "Post a Job", href: "/projects/new" }] : []),
+    ...(!user ? [{ label: "Sign Up", href: "/signup" }] : []),
+  ];
+  const policiesLinks = [
+    { label: "Privacy Policy", href: "/privacy" },
+    { label: "Terms of Service", href: "/terms" },
+    { label: "Cookie Policy", href: "/cookies" },
+    { label: "All policies", href: "/legal" },
+  ];
+  const supportLinks = [
+    { label: "Contact", href: "/contact" },
+    { label: "Feedback", href: "/feedback" },
+    { label: "Complaints", href: "/complaints" },
+  ];
+
+  // Render helper - one column per section. Centred on mobile,
+  // left-aligned on sm+ to match the desktop grid.
+  const Section = ({
+    title,
+    items,
+  }: {
+    title: string;
+    items: { label: string; href: string }[];
+  }) => (
+    <div>
+      <h4 className="font-bold text-white mb-4 text-[15px]">{title}</h4>
+      <ul className="space-y-3">
+        {items.map((item) => (
+          <li key={item.label}>
+            <Link
+              href={item.href}
+              className="text-sm text-zinc-400 hover:text-white transition-colors"
+            >
+              {item.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+
   return (
     <footer className="bg-zinc-900">
-      <div className="mx-auto max-w-6xl px-6 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 lg:gap-12 text-center sm:text-left">
+      <div className="mx-auto max-w-6xl px-6 sm:px-6 lg:px-8 py-14 sm:py-16">
+        {/* MOBILE layout (single column, centred, well-spaced).
+            Hidden on sm+ where the desktop grid takes over. */}
+        <div className="sm:hidden text-center">
+          <Link href="/" className="inline-flex items-center justify-center">
+            <BrandWordmark
+              tone={isTrades ? "emerald" : "indigo"}
+              className="text-xl font-black tracking-tight text-white"
+            />
+          </Link>
+          <p className="mt-4 mx-auto max-w-xs text-[13px] text-zinc-400 leading-relaxed">
+            The community-powered platform helping UK homeowners find tradespeople they can actually trust.
+          </p>
+
+          <div className="mt-10 space-y-9">
+            <Section title="Platform" items={platformLinks} />
+            {tradesLinks && <Section title="Tradespeople" items={tradesLinks} />}
+            <Section title="Policies" items={policiesLinks} />
+            <Section title="Support" items={supportLinks} />
+          </div>
+        </div>
+
+        {/* DESKTOP layout (5-column grid, left-aligned). */}
+        <div className="hidden sm:grid grid-cols-2 md:grid-cols-5 gap-8 lg:gap-12 text-left">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-500">
-                <Home className="h-5 w-5 text-white" />
-              </div>
+            <Link href="/" className="flex items-center">
               <BrandWordmark
                 tone={isTrades ? "emerald" : "indigo"}
                 className="text-xl font-black tracking-tight text-white"
@@ -53,90 +118,10 @@ export default function Footer() {
             </p>
           </div>
 
-          {/* Platform */}
-          <div>
-            <h4 className="font-bold text-white mb-4">Platform</h4>
-            <ul className="space-y-3">
-              {[
-                isTrades
-                  ? { label: "How it Works", href: "/how-it-works-trades" }
-                  : { label: "How it Works", href: "/how-it-works" },
-                ...(user && !isTrades ? [{ label: "Post a Job", href: "/projects/new" }] : []),
-                ...(!user ? [{ label: "Sign Up", href: "/signup" }] : []),
-              ].map((item) => (
-                <li key={item.label}>
-                  <Link
-                    href={item.href}
-                    className="text-sm text-zinc-400 hover:text-white transition-colors"
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Tradespeople - hidden for logged-in homeowners */}
-          {tradesLinks && (
-            <div>
-              <h4 className="font-bold text-white mb-4">Tradespeople</h4>
-              <ul className="space-y-3">
-                {tradesLinks.map((item) => (
-                  <li key={item.label}>
-                    <Link
-                      href={item.href}
-                      className="text-sm text-zinc-400 hover:text-white transition-colors"
-                    >
-                      {item.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Policies */}
-          <div>
-            <h4 className="font-bold text-white mb-4">Policies</h4>
-            <ul className="space-y-3">
-              {[
-                { label: "Privacy Policy", href: "/privacy" },
-                { label: "Terms of Service", href: "/terms" },
-                { label: "Cookie Policy", href: "/cookies" },
-                { label: "All policies", href: "/legal" },
-              ].map((item) => (
-                <li key={item.label}>
-                  <Link
-                    href={item.href}
-                    className="text-sm text-zinc-400 hover:text-white transition-colors"
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Support */}
-          <div>
-            <h4 className="font-bold text-white mb-4">Support</h4>
-            <ul className="space-y-3">
-              {[
-                { label: "Contact", href: "/contact" },
-                { label: "Feedback", href: "/feedback" },
-                { label: "Complaints", href: "/complaints" },
-              ].map((item) => (
-                <li key={item.label}>
-                  <Link
-                    href={item.href}
-                    className="text-sm text-zinc-400 hover:text-white transition-colors"
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <Section title="Platform" items={platformLinks} />
+          {tradesLinks && <Section title="Tradespeople" items={tradesLinks} />}
+          <Section title="Policies" items={policiesLinks} />
+          <Section title="Support" items={supportLinks} />
         </div>
 
         {/* Bottom bar */}

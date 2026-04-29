@@ -8,31 +8,27 @@ export default function Signup() {
     <GuestOnly>
       <>
       <Head>
-        <title>Create account — VetMyBuilder</title>
+        <title>Create account - VetMyBuilder</title>
         <meta name="description" content="Create your free VetMyBuilder homeowner account." />
       </Head>
 
-      <div className="overflow-x-hidden -mt-14 min-h-screen">
-        <div className="relative min-h-screen flex items-center justify-center overflow-hidden py-24">
-
-          <div className="relative z-10 w-full max-w-md px-4 sm:px-0" data-testid="register-page">
-            <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-8 sm:p-10">
-              <div className="mb-8">
-                <h1
-                  className="text-3xl font-black tracking-tight text-zinc-900"
-                  id="register-title"
-                  data-testid="register-title"
-                >
-                  Create account
-                </h1>
-                <p className="mt-2 text-zinc-500 text-sm">
-                  Join VetMyBuilder — free for homeowners.
-                </p>
-              </div>
-
-              <SignupForm />
-            </div>
+      <div className="fixed inset-0 top-14 bg-white overflow-y-auto">
+        <div className="mx-auto max-w-md px-5 pt-6 pb-16" data-testid="register-page">
+          {/* Heading block - VMB wordmark already shown by SiteHeader */}
+          <div className="mb-6">
+            <h1
+              className="text-[28px] font-extrabold tracking-[-0.01em] text-slate-900 leading-[1.1]"
+              id="register-title"
+              data-testid="register-title"
+            >
+              Find your builder
+            </h1>
+            <p className="mt-2 text-[13.5px] text-slate-500 leading-snug">
+              Free for homeowners. Takes a minute.
+            </p>
           </div>
+
+          <SignupForm />
         </div>
       </div>
       </>

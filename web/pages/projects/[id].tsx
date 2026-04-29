@@ -3,7 +3,8 @@ import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
-import { ChevronLeft, Home, MoreHorizontal } from "lucide-react";
+import { ChevronLeft, MoreHorizontal } from "lucide-react";
+import BrandWordmark from "@/components/BrandWordmark";
 import { useProjectView } from "@/components/project/views/useProjectView";
 import OwnerProjectView from "@/components/project/views/OwnerProjectView";
 import TradesmanProjectView from "@/components/project/views/TradesmanProjectView";
@@ -678,25 +679,11 @@ export default function ProjectViewPage() {
             <div className="overflow-x-hidden min-h-screen">
               <div className="-mt-14 relative min-h-screen flex items-center justify-center overflow-hidden">
                 <div className="relative z-10 w-full max-w-lg px-4 sm:px-0 text-center">
-                  <Link href="/" className="inline-flex items-center gap-2.5 mb-10">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500">
-                      <Home className="h-5 w-5 text-white" />
-                    </div>
-                    <span className="text-xl font-black text-zinc-900">
-                      Vet
-                      <span
-                        className="text-red-500"
-                        style={{
-                          fontFamily: "'Caveat', cursive",
-                          fontWeight: 700,
-                          fontSize: "130%",
-                          WebkitTextStroke: "0.5px currentColor",
-                        }}
-                      >
-                        My
-                      </span>
-                      Builder
-                    </span>
+                  <Link href="/" className="inline-flex items-center mb-10">
+                    <BrandWordmark
+                      tone="indigo"
+                      className="text-xl font-black tracking-tight text-zinc-900"
+                    />
                   </Link>
                   <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-10 sm:p-14">
                     <p className="text-8xl font-black text-red-500 leading-none mb-4">

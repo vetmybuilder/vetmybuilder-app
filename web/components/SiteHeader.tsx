@@ -5,7 +5,7 @@ import React, { useMemo, useRef, useState, useEffect } from "react";
 import { useAuth, signOutUser } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
-import { Home, User, Wrench } from "lucide-react";
+import { User, Wrench } from "lucide-react";
 import { useMobileMenu } from "@/utils/mobileMenu";
 import BrandWordmark from "@/components/BrandWordmark";
 
@@ -346,20 +346,11 @@ export default function SiteHeader() {
               <div className="flex items-center gap-3">
                 <Link
                   href={homeHref}
-                  className="inline-flex items-center gap-2 group"
+                  className="inline-flex items-center group"
                   aria-label="Go to homepage"
                   data-testid="nav-home"
                 >
-                  <span
-                    aria-hidden
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-red-500 text-white shadow-sm transition-transform group-hover:rotate-3"
-                  >
-                    <Home className="h-4 w-4" />
-                  </span>
                   <BrandWordmark tone={isTrades || isTradesPage ? "emerald" : "indigo"} />
-                  {(isTrades || isTradesPage) && (
-                    <span className="ml-1.5 text-sm font-semibold text-red-500">Trade</span>
-                  )}
                 </Link>
               </div>
 
@@ -514,21 +505,12 @@ export default function SiteHeader() {
             <div className="flex items-center gap-3">
               <Link
                 href={homeHref}
-                className="inline-flex items-center gap-2"
+                className="inline-flex items-center"
                 aria-label="Go to your projects or home"
                 data-testid="nav-home"
                 onClick={closeMobileMenu}
               >
-                <span
-                  aria-hidden
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-red-500 text-white shadow-sm"
-                >
-                  <Home className="h-4 w-4" />
-                </span>
                 <BrandWordmark tone={isTrades || isTradesPage ? "emerald" : "indigo"} />
-                {(isTrades || isTradesPage) && (
-                  <span className="ml-1.5 text-sm font-semibold text-red-500">Trade</span>
-                )}
               </Link>
             </div>
 

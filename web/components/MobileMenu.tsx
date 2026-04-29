@@ -2,6 +2,7 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import BrandWordmark from "@/components/BrandWordmark";
+import { getSessionBg } from "@/utils/sessionBackground";
 import {
   User,
   Wrench,
@@ -101,8 +102,12 @@ export default function MobileMenu({
   onGoAccount: () => void;
 }) {
   const [mounted, setMounted] = React.useState(false);
+  const [bgUrl, setBgUrl] = React.useState<string>("");
 
-  React.useEffect(() => setMounted(true), []);
+  React.useEffect(() => {
+    setMounted(true);
+    setBgUrl(getSessionBg());
+  }, []);
 
   // lock scroll while open
   React.useEffect(() => {
@@ -144,15 +149,26 @@ export default function MobileMenu({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] md:hidden w-screen h-[100dvh] bg-white"
+      className="fixed inset-0 z-[9999] md:hidden w-screen h-[100dvh] bg-slate-900"
       role="dialog"
       aria-modal="true"
       aria-label="Mobile navigation menu"
       data-testid="mobile-menu"
       style={{ fontFamily: FONT_STACK }}
     >
+      {/* Hero photo (same one Layout shows behind the rest of the app)
+          plus a soft white veil so menu rows stay legible. */}
+      {bgUrl && (
+        <img
+          src={bgUrl}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      )}
+      <div className="absolute inset-0 bg-white/70" />
       <div
-        className="absolute inset-0 flex flex-col w-screen h-[100dvh] bg-white"
+        className="absolute inset-0 flex flex-col w-screen h-[100dvh]"
         style={safeAreaStyle}
       >
         {/* Top bar — wordmark + close */}

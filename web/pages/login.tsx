@@ -74,7 +74,18 @@ export default function Login() {
     !!nextRaw &&
     (nextRaw.startsWith("/tradesman/") || nextRaw.startsWith("/trades/"));
 
+  // Pre-fill email from ?email= query param.
+  const initialEmail = useMemo(() => {
+    if (!router.isReady) return "";
+    const e = router.query.email;
+    return typeof e === "string" ? e : Array.isArray(e) ? e[0] : "";
+  }, [router.isReady, router.query.email]);
+
   const [email, setEmail] = useState("");
+  useEffect(() => {
+    if (initialEmail) setEmail(initialEmail);
+  }, [initialEmail]);
+
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -118,17 +129,17 @@ export default function Login() {
     // Wait until /api/me has resolved so we know whether the user has
     // finished homeowner signup. Without this gate, a mid-signup user would
     // briefly land on /projects before auth.tsx's hard-nav to
-    // /signup/complete kicked in — a visible flash.
+    // /signup/complete kicked in - a visible flash.
     if (profileComplete === null) return;
 
     // Tradesman-intent OAuth flow. The OAuthSignInButton stashes
     // "vmb:oauthIntent" before opening the provider popup; we read it here
     // once /api/me has resolved so role is known too. Decision tree:
-    //   - already a tradesman        → /tradesman/jobs
-    //   - not yet a tradesman        → /tradesman/signup/complete
+    //   - already a tradesman        -> /tradesman/jobs
+    //   - not yet a tradesman        -> /tradesman/signup/complete
     //     (this page collects the minimum tradesman profile fields and
     //      then bounces to /tradesman/jobs)
-    // Homeowner completion is irrelevant in this branch — a signed-in
+    // Homeowner completion is irrelevant in this branch - a signed-in
     // user who intends to be a tradesman does not need a homeowner profile
     // to proceed.
     let oauthIntent: string | null = null;
@@ -206,7 +217,7 @@ export default function Login() {
         (nextParam.startsWith("/tradesman/") || nextParam.startsWith("/trades/"));
 
       // Use a relative URL so this always goes through the Next.js rewrite
-      // proxy — works in every environment (local, Docker CI, production).
+      // proxy - works in every environment (local, Docker CI, production).
       const meRes = await fetch("/api/tradesmen/me", {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -272,164 +283,191 @@ export default function Login() {
   if (authLoading) return null;
   if (user && !busy && !roleErrorMsg) return null;
 
+  // Brand selection: emerald for tradesperson sign-in, indigo for
+  // homeowner. Admin keeps a neutral slate look (no SSO, no role pill).
+  const brand: "indigo" | "emerald" | "admin" = isAdminFlow
+    ? "admin"
+    : isVendorFlow
+    ? "emerald"
+    : "indigo";
+
+
+  const focusRing =
+    brand === "emerald"
+      ? "focus:border-emerald-500 focus:ring-emerald-500/15"
+      : brand === "indigo"
+      ? "focus:border-indigo-500 focus:ring-indigo-500/15"
+      : "focus:border-slate-500 focus:ring-slate-500/15";
+
+  const linkColor =
+    brand === "emerald"
+      ? "text-emerald-600 hover:text-emerald-700"
+      : brand === "indigo"
+      ? "text-indigo-600 hover:text-indigo-700"
+      : "text-slate-700 hover:text-slate-900";
+
+  const submitGradient =
+    brand === "emerald"
+      ? "linear-gradient(135deg,#10b981,#059669)"
+      : brand === "indigo"
+      ? "linear-gradient(135deg,#6366f1,#4f46e5)"
+      : "linear-gradient(135deg,#475569,#334155)";
+
+  const submitShadow =
+    brand === "emerald"
+      ? "shadow-emerald-500/25"
+      : brand === "indigo"
+      ? "shadow-indigo-500/25"
+      : "shadow-slate-500/25";
+
+  const heading = isAdminFlow
+    ? "Admin sign in"
+    : "Welcome back";
+
+  const subcopy = isAdminFlow
+    ? "Sign in with your admin account."
+    : isVendorFlow
+    ? "Sign in to see new jobs, manage your pass, and reply to homeowners."
+    : "Sign in to chat with builders and pick up where you left off.";
+
   return (
     <>
       <Head>
-        <title>Sign in — VetMyBuilder</title>
+        <title>Sign in - VetMyBuilder</title>
         <meta name="description" content="Sign in to your VetMyBuilder account." />
       </Head>
 
-      <div className="overflow-x-hidden -mt-14 min-h-screen">
-        <div className="relative min-h-screen flex items-center justify-center overflow-hidden py-24">
-
-          <div className="relative z-10 w-full max-w-md px-4 sm:px-0" data-testid="login-page">
-            <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-8 sm:p-10" data-testid="login-card">
-              <div className="mb-8">
-                <h1 className="text-3xl font-black tracking-tight text-zinc-900" data-testid="login-title">
-                  {isAdminFlow ? "Admin sign in" : isVendorFlow ? "Tradesperson sign in" : "Welcome back"}
-                </h1>
-                <p className="mt-2 text-zinc-500 text-sm">
-                  {isAdminFlow
-                    ? "Sign in with your admin account."
-                    : isVendorFlow
-                      ? "Sign in to your tradesperson account."
-                      : "Sign in to your homeowner account."}
-                </p>
-              </div>
-
-              {/* OAuth buttons: shown for homeowners AND tradespeople,
-                  hidden for admin flow (admins sign in via password only). */}
-              {!isAdminFlow && (
-                <>
-                  <div className="grid gap-3">
-                    <OAuthSignInButton
-                      provider="google"
-                      returnTo={nextRaw && nextRaw.startsWith("/") ? nextRaw : undefined}
-                      intent={isVendorFlow ? "tradesman" : "homeowner"}
-                      onError={(msg) => setErr(msg)}
-                    />
-                    {process.env.NEXT_PUBLIC_FACEBOOK_LOGIN === "1" && (
-                      <OAuthSignInButton
-                        provider="facebook"
-                        returnTo={nextRaw && nextRaw.startsWith("/") ? nextRaw : undefined}
-                        intent={isVendorFlow ? "tradesman" : "homeowner"}
-                        onError={(msg) => setErr(msg)}
-                      />
-                    )}
-                  </div>
-
-                  <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-wide text-zinc-400">
-                    <div className="h-px flex-1 bg-zinc-200" />
-                    <span>or</span>
-                    <div className="h-px flex-1 bg-zinc-200" />
-                  </div>
-                </>
-              )}
-
-              <form
-                onSubmit={onSubmit}
-                className="space-y-5"
-                aria-label="Sign in form"
-                data-testid="login-form"
-              >
-                <div>
-                  <label
-                    className="block text-sm font-bold text-zinc-900 mb-2"
-                    htmlFor="login-email"
-                    data-testid="label-login-email"
-                  >
-                    Email address
-                  </label>
-                  <input
-                    id="login-email"
-                    className="w-full rounded-2xl border-2 border-zinc-200 px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:border-red-400 focus:outline-none transition-colors"
-                    placeholder="you@example.com"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    autoComplete="email"
-                    aria-required="true"
-                    data-testid="input-login-email"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    className="block text-sm font-bold text-zinc-900 mb-2"
-                    htmlFor="login-password"
-                    data-testid="label-login-password"
-                  >
-                    Password
-                  </label>
-                  <input
-                    id="login-password"
-                    className="w-full rounded-2xl border-2 border-zinc-200 px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:border-red-400 focus:outline-none transition-colors"
-                    placeholder="••••••••"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    autoComplete="current-password"
-                    aria-required="true"
-                    data-testid="input-login-password"
-                  />
-                  <div className="mt-2 text-right">
-                    <Link href="/forgot-password" className="text-xs text-zinc-400 hover:text-red-500 transition-colors">
-                      Forgot password?
-                    </Link>
-                  </div>
-                </div>
-
-                {displayErr && (
-                  <p
-                    className="text-red-500 text-sm font-medium"
-                    role="alert"
-                    data-testid="login-error"
-                  >
-                    {displayErr}
-                  </p>
-                )}
-
-                <button
-                  className={`w-full inline-flex items-center justify-center gap-2 rounded-full px-8 py-4 text-base font-bold text-white shadow-lg transition-all ${
-                    busy ? "bg-zinc-400 cursor-not-allowed shadow-none" : "bg-red-500 shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] active:scale-95"
-                  } disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100`}
-                  disabled={busy}
-                  aria-label="Sign in"
-                  data-testid="btn-login"
-                >
-                  {busy && (
-                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
-                      <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
-                    </svg>
-                  )}
-                  {busy ? "Signing in..." : "Sign in"}
-                </button>
-              </form>
-
-              {!isAdminFlow && (
-                <p
-                  className="text-sm text-zinc-500 mt-6 text-center"
-                  data-testid="login-to-register"
-                >
-                  Don&apos;t have an account?{" "}
-                  <Link
-                    href={
-                      isVendorFlow
-                        ? { pathname: "/tradesman/register-tradesmen" }
-                        : { pathname: "/signup" }
-                    }
-                    className="font-bold text-red-500 hover:text-red-600"
-                    data-testid="link-to-register"
-                  >
-                    Create one
-                  </Link>
-                </p>
-              )}
-            </div>
+      <div className="fixed inset-0 top-14 bg-white overflow-y-auto">
+        <div className="mx-auto max-w-md px-5 pt-6 pb-16" data-testid="login-page">
+          {/* Heading block - VMB wordmark already shown by SiteHeader */}
+          <div className="mb-7">
+            <h1 className="text-[28px] font-extrabold tracking-[-0.01em] text-slate-900 leading-[1.1]" data-testid="login-title">
+              {heading}
+            </h1>
+            <p className="mt-2 text-[13.5px] text-slate-500 leading-snug">
+              {subcopy}
+            </p>
           </div>
+
+          {/* OAuth: Google only. Hidden on admin flow. */}
+          {!isAdminFlow && (
+            <>
+              <OAuthSignInButton
+                provider="google"
+                returnTo={nextRaw && nextRaw.startsWith("/") ? nextRaw : undefined}
+                intent={isVendorFlow ? "tradesman" : "homeowner"}
+                onError={(msg) => setErr(msg)}
+              />
+
+              <div className="my-5 flex items-center gap-3 text-[10.5px] uppercase tracking-wider text-slate-400 font-bold">
+                <div className="h-px flex-1 bg-slate-200" />
+                <span>or</span>
+                <div className="h-px flex-1 bg-slate-200" />
+              </div>
+            </>
+          )}
+
+          <form
+            onSubmit={onSubmit}
+            className="space-y-3"
+            aria-label="Sign in form"
+            data-testid="login-form"
+          >
+            <div>
+              <label
+                className="block text-[10.5px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5"
+                htmlFor="login-email"
+                data-testid="label-login-email"
+              >
+                Email
+              </label>
+              <input
+                id="login-email"
+                className={`w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-900 placeholder:text-slate-400 text-[14px] focus:bg-white focus:outline-none focus:ring-4 transition-colors ${focusRing}`}
+                placeholder="you@example.com"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                aria-required="true"
+                data-testid="input-login-email"
+              />
+            </div>
+
+            <div>
+              <label
+                className="block text-[10.5px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5"
+                htmlFor="login-password"
+                data-testid="label-login-password"
+              >
+                Password
+              </label>
+              <input
+                id="login-password"
+                className={`w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-900 placeholder:text-slate-400 text-[14px] focus:bg-white focus:outline-none focus:ring-4 transition-colors ${focusRing}`}
+                placeholder="••••••••"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                aria-required="true"
+                data-testid="input-login-password"
+              />
+              <div className="mt-1.5 text-right">
+                <Link href="/forgot-password" className={`text-[12px] font-bold ${linkColor}`}>
+                  Forgot password?
+                </Link>
+              </div>
+            </div>
+
+            {displayErr && (
+              <p
+                className="text-red-500 text-sm font-medium"
+                role="alert"
+                data-testid="login-error"
+              >
+                {displayErr}
+              </p>
+            )}
+
+            <button
+              className={`w-full inline-flex items-center justify-center gap-2 py-4 rounded-2xl text-white font-extrabold text-[15px] tracking-tight shadow-lg ${submitShadow} hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100`}
+              style={{ background: submitGradient }}
+              disabled={busy}
+              aria-label="Sign in"
+              data-testid="btn-login"
+            >
+              {busy && (
+                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+                  <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
+                </svg>
+              )}
+              {busy ? "Signing in..." : "Sign in"}
+            </button>
+          </form>
+
+          {!isAdminFlow && (
+            <p
+              className="mt-6 text-center text-[13px] text-slate-500"
+              data-testid="login-to-register"
+            >
+              {isVendorFlow ? "New tradesperson?" : "New to VetMyBuilder?"}
+              <Link
+                href={
+                  isVendorFlow
+                    ? { pathname: "/tradesman/register-tradesmen" }
+                    : { pathname: "/signup" }
+                }
+                className={`font-extrabold ml-1 ${linkColor}`}
+                data-testid="link-to-register"
+              >
+                {isVendorFlow ? "Register your business" : "Create an account"}
+              </Link>
+            </p>
+          )}
         </div>
       </div>
     </>

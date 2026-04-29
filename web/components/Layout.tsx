@@ -10,14 +10,7 @@ const AddToHomeScreenToast = dynamic(
   { ssr: false },
 );
 
-const BG_IMAGES = [
-  "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?w=1920&q=80&auto=format",
-  "https://images.unsplash.com/photo-1716037991590-c975184b37df?w=1920&q=80&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1646324554833-f0b6a479fa5d?w=1920&q=80&auto=format&fit=crop",
-];
-
-// Chosen once per browser session — stable across re-renders and route changes
-let sessionBg: string | null = null;
+import { getSessionBg } from "@/utils/sessionBackground";
 
 export default function Layout({
   children,
@@ -29,11 +22,7 @@ export default function Layout({
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    // Pick once and reuse for the whole session
-    if (!sessionBg) {
-      sessionBg = BG_IMAGES[Math.floor(Math.random() * BG_IMAGES.length)];
-    }
-    setBgUrl(sessionBg);
+    setBgUrl(getSessionBg());
   }, []);
 
   useEffect(() => {
