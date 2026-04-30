@@ -627,12 +627,15 @@ CREATE TABLE IF NOT EXISTS swipe_interest (
   ) NOT NULL DEFAULT 'pending',
   homeowner_swiped_at      DATETIME NULL DEFAULT NULL,
   builder_swiped_at        DATETIME NULL,
+  intro_message            TEXT NULL,
+  boost_expires_at         DATETIME NULL,
   created_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
                            ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uq_swipe_interest_pair (project_id, builder_uid),
   KEY idx_swipe_interest_builder_pending (builder_uid, status, homeowner_swiped_at),
-  KEY idx_swipe_interest_project_status (project_id, status)
+  KEY idx_swipe_interest_project_status (project_id, status),
+  KEY idx_swipe_interest_boost_expires (boost_expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS trade_shares (

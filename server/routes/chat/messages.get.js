@@ -38,7 +38,10 @@ module.exports = function mountChatMessagesGet(router, ctx) {
       return res.status(400).json({ error: "Invalid match id" });
     }
 
-    // Look up the swipe_interest row with all needed joins
+    // Look up the swipe_interest row with all needed joins. Trade
+    // avatar prefers tradesmen.profile_picture_url, falling back to the
+    // first uploaded gallery photo so the chat header isn't always
+    // initials when the trade has cover work imagery but no headshot.
     const rows = await mysqlQuery(
       `SELECT si.id AS matchId,
               si.homeowner_uid, si.builder_uid, si.status, si.source,
@@ -46,7 +49,14 @@ module.exports = function mountChatMessagesGet(router, ctx) {
               p.name AS projectName,
               hu.firstName AS homeownerFirstName,
               t.company_name AS builderCompanyName,
-              bu.firstName AS builderFirstName
+              bu.firstName AS builderFirstName,
+              COALESCE(
+                t.profile_picture_url,
+                (SELECT tp.url FROM tradesmen_photos tp
+                  WHERE tp.tradesman_user_id = t.user_id
+                  ORDER BY COALESCE(tp.sort_order, 999999), tp.created_at ASC
+                  LIMIT 1)
+              ) AS builderAvatarUrl
          FROM swipe_interest si
          JOIN projects p ON p.id = si.project_id
          LEFT JOIN users hu ON hu.uid = si.homeowner_uid
@@ -101,7 +111,9 @@ module.exports = function mountChatMessagesGet(router, ctx) {
       };
     });
 
-    // Resolve other party
+    // Resolve other party. avatarUrl is populated for the trade only
+    // (homeowners have no avatar field on users) - chat header falls
+    // back to initials when null.
     let otherParty;
     if (viewerIsHomeowner) {
       otherParty = {
@@ -109,6 +121,7 @@ module.exports = function mountChatMessagesGet(router, ctx) {
         uid: si.builder_uid,
         name: builderName,
         firstName: si.builderFirstName || null,
+        avatarUrl: si.builderAvatarUrl || null,
       };
     } else {
       otherParty = {
@@ -116,6 +129,7 @@ module.exports = function mountChatMessagesGet(router, ctx) {
         uid: si.homeowner_uid,
         name: homeownerName,
         firstName: si.homeownerFirstName || null,
+        avatarUrl: null,
       };
     }
 

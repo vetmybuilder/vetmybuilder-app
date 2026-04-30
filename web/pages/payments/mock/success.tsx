@@ -189,33 +189,11 @@ export default function MockSuccess() {
         );
 
         if (typ === "unlock_contact") {
-          // After a one-off contact unlock, drop the tradesman straight
-          // into the unified chat thread (the inbox compose page is
-          // gone). The mock.pay handler has already created a matched
-          // swipe_interest row source='paid_unlock'; we resolve the
-          // matchId by re-hitting unlock-contact/checkout, which now
-          // short-circuits with { alreadyUnlocked: true, matchId }.
-          if (Number.isFinite(projectId) && projectId > 0) {
-            let matchId: number | string | undefined;
-            try {
-              const lookup = await api.post(
-                `/api/projects/${projectId}/unlock-contact/checkout`,
-                {},
-              );
-              matchId = lookup.data?.matchId;
-            } catch {
-              /* fall through */
-            }
-            if (matchId) {
-              router.replace(`/chat/${matchId}`);
-            } else {
-              // eslint-disable-next-line no-console
-              console.warn("Could not resolve matchId after unlock_contact");
-              router.replace("/tradesman/jobs/list");
-            }
-          } else {
-            router.replace("/tradesman/jobs/list");
-          }
+          // Boost-slot model: payment creates a 'pending' swipe_interest
+          // row, NOT a 'matched' one. There's no chat yet - the homeowner
+          // still has to right-swipe to form the match. Route to the
+          // confirmation page so the trade understands what happens next.
+          router.replace("/tradesman/unlock/sent");
           return;
         }
         // -------------------------------------------------------

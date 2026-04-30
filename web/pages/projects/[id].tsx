@@ -12,10 +12,13 @@ import NeighbourProjectView from "@/components/project/views/NeighbourProjectVie
 import Layout from "@/components/Layout";
 import SwipeDeck from "@/components/project/SwipeDeck";
 import ProjectActionsSheet from "@/components/project/ProjectActionsSheet";
+import ShareProjectModal from "@/components/project/ShareProjectModal";
 import PhotoLightbox from "@/components/PhotoLightbox";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
 import { useRouter } from "next/router";
+import { useSseEvent } from "@/utils/useSseEvent";
 
 type ViewerRole = "unknown" | "owner" | "trades" | "home";
 
@@ -29,6 +32,524 @@ function getShortProjectTitle(name?: string | null): string {
   return base;
 }
 
+/* =====================================================================
+ * Desktop swipe-deck view (homeowner picking from their shortlist)
+ * --------------------------------------------------------------------
+ * Option C - Side-rail layout. Two-column grid:
+ *   - Left rail: project summary card + persistent share card
+ *   - Main canvas: "Pick your tradesperson" headline + SwipeDeck or
+ *     empty state. Same layout filled or empty so the homeowner always
+ *     knows where they are and how to grow the list.
+ * ===================================================================== */
+function postedAgo(iso?: string | null): string {
+  if (!iso) return "";
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return "";
+  const mins = Math.floor(ms / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins} min${mins === 1 ? "" : "s"} ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hour${hrs === 1 ? "" : "s"} ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days} day${days === 1 ? "" : "s"} ago`;
+  return new Date(iso).toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+  });
+}
+
+function ProjectSwipeDesktop({
+  projectId,
+  projectTitle,
+  project,
+}: {
+  projectId: string;
+  projectTitle: string;
+  project: {
+    id: number | string;
+    name?: string | null;
+    location?: string | null;
+    type?: string | null;
+    createdAt?: string | null;
+  };
+}) {
+  const api = useApi();
+  const router = useRouter();
+  const [matches, setMatches] = useState<{
+    recommended: any[];
+    paidUnlock?: any[];
+    subscribed: any[];
+    recommendationCards?: any[];
+  } | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [paidUnlockToast, setPaidUnlockToast] = useState<string | null>(null);
+  const [matchCelebration, setMatchCelebration] = useState<string | null>(null);
+
+  const refreshMatches = React.useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const { data } = await api.get(`/api/projects/${projectId}/matches`);
+      setMatches(data);
+    } catch {
+      /* noop */
+    }
+  }, [projectId, api]);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { data } = await api.get(`/api/projects/${projectId}/matches`);
+        if (alive) setMatches(data);
+      } catch {
+        /* noop */
+      }
+    })();
+    return () => { alive = false; };
+  }, [projectId, api]);
+
+
+  // Real-time deck update: a tradesperson just paid the per-project
+  // unlock fee for this job. Refetch matches so the new card flows
+  // into the deck via SwipeDeck's queue-splice logic, then surface a
+  // toast so the homeowner notices something arrived.
+  useSseEvent<{ type: string; projectId?: number; builderUid?: string }>(
+    "deck_card_added",
+    (data) => {
+      if (!data || String(data.projectId) !== String(projectId)) return;
+      refreshMatches();
+      setPaidUnlockToast("A tradesperson just paid to pitch on this job");
+      setTimeout(() => setPaidUnlockToast(null), 4500);
+    },
+  );
+
+  const builders = useMemo(() => {
+    if (!matches) return [] as any[];
+    // Merge order: recommendation cards (off-platform) -> recommended ->
+    // paid_unlock (most recent payer first) -> subscribed (smart-ranked).
+    return [
+      ...((matches.recommendationCards || []).map((rc: any) => ({
+        uid: `rec-${rc.recommendationId}`,
+        displayName: rc.company,
+        companyName: rc.company,
+        photoUrl: rc.coverPhotoUrl,
+        tier: "recommended" as const,
+        chVerified: false,
+        starRating: null,
+        reviewCount: 0,
+        yearsTrading: 0,
+        primaryTrade: null,
+        secondaryTrades: [],
+        serviceAreas: [],
+        priceBand: null,
+        baseScore: 0,
+        whyMatch: `Recommended by ${rc.recommenderName}`,
+        recommenderName: rc.recommenderName,
+        isRecommendation: true,
+        recommendationId: rc.recommendationId,
+        coverPhotoUrl: rc.coverPhotoUrl,
+      }))),
+      ...(matches.recommended || []),
+      ...(matches.paidUnlock || []),
+      ...(matches.subscribed || []),
+    ];
+  }, [matches]);
+
+  const shareUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/projects/${projectId}/recommend`
+      : "";
+  const projectLabel = project?.name ? `my "${project.name}" project` : "my project";
+  const messageBody = `Hey - I'm looking for a tradesperson for ${projectLabel}. If you know someone you'd recommend, please add them via VetMyBuilder: ${shareUrl}`;
+
+  function viaWhatsApp() {
+    window.open(`https://wa.me/?text=${encodeURIComponent(messageBody)}`, "_blank");
+  }
+  function viaEmail() {
+    const subject = project?.name
+      ? `Recommendation for ${project.name}`
+      : "Recommendation request";
+    window.location.href = `mailto:?subject=${encodeURIComponent(
+      subject,
+    )}&body=${encodeURIComponent(messageBody)}`;
+  }
+  function viaSms() {
+    window.location.href = `sms:?body=${encodeURIComponent(messageBody)}`;
+  }
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      /* noop */
+    }
+  }
+
+  const posted = postedAgo(project?.createdAt);
+
+  return (
+    <>
+      <Head>
+        <style>{`body { background: #fef6e9 !important; }`}</style>
+      </Head>
+      <Layout>
+        <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-6 relative overflow-hidden">
+          <BrandWatermarkScatter />
+          <div className="mx-auto max-w-6xl px-6 pt-3 relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <a
+                href="/projects"
+                className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span>My jobs</span>
+              </a>
+              <div className="text-center">
+                <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-indigo-700 mb-0.5">
+                  Your shortlist
+                </div>
+                <h1
+                  className="text-[22px] font-black tracking-tight text-slate-900 leading-tight"
+                  style={{ fontFamily: "'Sora', sans-serif" }}
+                >
+                  Pick your{" "}
+                  <span
+                    className="text-indigo-600"
+                    style={{ fontFamily: "'Caveat', cursive", fontSize: "120%" }}
+                  >
+                    tradesperson
+                  </span>
+                </h1>
+              </div>
+              {/* Spacer to balance the back-link so headline stays centred */}
+              <div className="w-[80px]" aria-hidden />
+            </div>
+
+            <div className="grid md:grid-cols-[280px_1fr] gap-6">
+              {/* LEFT RAIL */}
+              <aside className="space-y-4">
+                {/* Project summary card */}
+                <div className="bg-white border border-amber-100 rounded-3xl p-5 shadow-sm">
+                  <div className="text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-indigo-700 mb-1.5">
+                    Live job
+                  </div>
+                  <h2
+                    className="text-[19px] font-black tracking-tight leading-tight text-slate-900"
+                    style={{ fontFamily: "'Sora', sans-serif" }}
+                  >
+                    {project?.name || projectTitle || "Project"}
+                  </h2>
+                  <div className="mt-3 space-y-2 text-[13px] text-slate-600">
+                    {project?.location && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-400">{"\u{1F4CD}"}</span>
+                        <span className="truncate">{project.location}</span>
+                      </div>
+                    )}
+                    {project?.type && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-400">{"\u{1F527}"}</span>
+                        <span className="truncate capitalize">{project.type}</span>
+                      </div>
+                    )}
+                    {posted && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-400">{"\u{1F551}"}</span>
+                        <span>Posted {posted}</span>
+                      </div>
+                    )}
+                  </div>
+                  <Link
+                    href={`/projects/${projectId}/edit`}
+                    className="mt-4 block w-full text-center rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[12px] font-bold py-2 hover:bg-amber-100 transition-colors"
+                  >
+                    Edit job details
+                  </Link>
+                </div>
+
+                {/* Share card */}
+                <div className="bg-white border-2 border-indigo-400 rounded-3xl p-5 shadow-md relative">
+                  <span className="absolute -top-2.5 left-5 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white bg-indigo-600 px-2 py-0.5 rounded-full">
+                    Grow your shortlist
+                  </span>
+                  <h3
+                    className="text-[16px] font-black tracking-tight text-slate-900"
+                    style={{ fontFamily: "'Sora', sans-serif" }}
+                  >
+                    Invite your{" "}
+                    <span
+                      className="text-indigo-600"
+                      style={{ fontFamily: "'Caveat', cursive", fontSize: "115%" }}
+                    >
+                      community
+                    </span>
+                  </h3>
+                  <p className="mt-1 text-[12.5px] text-slate-600 leading-relaxed">
+                    Friends and neighbours can recommend a tradesperson they trust.
+                  </p>
+                  {/* Three icon buttons (WhatsApp / Email / SMS), then a
+                      full-width Copy share link button below. The legacy
+                      "Share job" sheet trigger is removed on desktop -
+                      these direct channels cover the same intent without
+                      a second click. */}
+                  <div className="mt-4 grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={viaWhatsApp}
+                      aria-label="Share via WhatsApp"
+                      className="aspect-square rounded-2xl border border-amber-100 bg-white flex flex-col items-center justify-center gap-1 hover:border-emerald-300 hover:bg-emerald-50 transition-colors"
+                    >
+                      <span
+                        className="w-9 h-9 rounded-full text-white flex items-center justify-center"
+                        style={{ background: "linear-gradient(135deg,#25d366,#128c7e)" }}
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347zM12.05 21.785h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982 1.0-3.648-.235-.374A9.86 9.86 0 0 1 2.15 11.892c.002-5.45 4.436-9.884 9.9-9.884 2.643 0 5.127 1.03 6.994 2.901a9.825 9.825 0 0 1 2.893 6.992c-.003 5.45-4.437 9.884-9.886 9.884zm8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0 0 20.463 3.488z" />
+                        </svg>
+                      </span>
+                      <span className="text-[10.5px] font-bold text-slate-700">WhatsApp</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={viaEmail}
+                      aria-label="Share via email"
+                      className="aspect-square rounded-2xl border border-amber-100 bg-white flex flex-col items-center justify-center gap-1 hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
+                    >
+                      <span
+                        className="w-9 h-9 rounded-full text-white flex items-center justify-center"
+                        style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="5" width="18" height="14" rx="2" />
+                          <polyline points="3 7 12 13 21 7" />
+                        </svg>
+                      </span>
+                      <span className="text-[10.5px] font-bold text-slate-700">Email</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={viaSms}
+                      aria-label="Share via SMS"
+                      className="aspect-square rounded-2xl border border-amber-100 bg-white flex flex-col items-center justify-center gap-1 hover:border-amber-400 hover:bg-amber-50 transition-colors"
+                    >
+                      <span
+                        className="w-9 h-9 rounded-full text-white flex items-center justify-center"
+                        style={{ background: "linear-gradient(135deg,#fbbf24,#d97706)" }}
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                        </svg>
+                      </span>
+                      <span className="text-[10.5px] font-bold text-slate-700">SMS</span>
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={copyLink}
+                    className="mt-2.5 w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2.5 text-[12.5px] font-bold hover:bg-amber-100 transition-colors"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="9" y="9" width="13" height="13" rx="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                    {copied ? "Link copied" : "Copy share link"}
+                  </button>
+                </div>
+
+                <div className="text-[11.5px] text-slate-500 leading-relaxed px-1">
+                  <span className="text-emerald-600 font-bold">{"✓"}</span>{" "}
+                  Every tradesperson is verified before joining VetMyBuilder.
+                </div>
+              </aside>
+
+              {/* MAIN CANVAS */}
+              <main>
+                <div className="mx-auto max-w-xl">
+                  {matches && builders.length > 0 ? (
+                    <SwipeDeck
+                      projectId={String(projectId)}
+                      builders={builders}
+                      onInfo={(builder) => {
+                        if ((builder as any).isRecommendation && (builder as any).recommendationId) {
+                          router.push(`/projects/${projectId}/recommendations/${(builder as any).recommendationId}`);
+                          return;
+                        }
+                        const recId = (builder as any).recommendationId;
+                        if (builder.tier === "recommended" && recId) {
+                          router.push(`/builders/${recId}?projectId=${projectId}`);
+                        } else {
+                          router.push(`/tradesman/${builder.uid}?projectId=${projectId}`);
+                        }
+                      }}
+                      onInfoPrefetch={(builder) => {
+                        if ((builder as any).isRecommendation && (builder as any).recommendationId) {
+                          router.prefetch(`/projects/${projectId}/recommendations/${(builder as any).recommendationId}`);
+                          return;
+                        }
+                        const recId = (builder as any).recommendationId;
+                        if (builder.tier === "recommended" && recId) {
+                          router.prefetch(`/builders/${recId}`);
+                        } else if (builder.uid) {
+                          router.prefetch(`/tradesman/${builder.uid}`);
+                        }
+                      }}
+                      onMatch={(matchId) => {
+                        // Desktop: keep the homeowner on this page. The
+                        // new conversation appears in the global
+                        // MessagingDock at the bottom-right; we also fire
+                        // an event so the dock can pop the chat window
+                        // open without the user having to click in.
+                        const id = Number(matchId);
+                        if (Number.isFinite(id)) {
+                          window.dispatchEvent(
+                            new CustomEvent("vmb:openChat", { detail: { matchId: id } }),
+                          );
+                          setMatchCelebration("It's a match");
+                          setTimeout(() => setMatchCelebration(null), 5000);
+                        }
+                      }}
+                    />
+                  ) : matches && builders.length === 0 ? (
+                    <div className="bg-white rounded-3xl border border-amber-100 shadow-sm p-10 text-center min-h-[380px] flex flex-col justify-center">
+                      <div className="mx-auto w-20 h-20 rounded-full bg-indigo-50 border-2 border-dashed border-indigo-300 flex items-center justify-center text-3xl">
+                        {"\u{1F50D}"}
+                      </div>
+                      <h3
+                        className="mt-5 text-[18px] font-black text-slate-900"
+                        style={{ fontFamily: "'Sora', sans-serif" }}
+                      >
+                        Waiting for your first match
+                      </h3>
+                      <p className="mt-2 text-[13.5px] text-slate-600 max-w-md mx-auto leading-relaxed">
+                        Recommendations from your community land here. We'll also smart-rank verified tradespeople nearby - usually within a few hours.
+                      </p>
+                      <div className="mt-5 flex justify-center text-[11.5px] text-slate-400">
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                          Searching nearby
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-3xl border border-amber-100 p-10 text-center shadow-sm min-h-[380px] flex items-center justify-center">
+                      <p className="text-slate-400 text-sm">Loading...</p>
+                    </div>
+                  )}
+                </div>
+              </main>
+
+              {/* Chat moved to the global LinkedIn-style MessagingDock
+                  in _app.tsx so multiple matched conversations live in
+                  floating windows at the bottom-right of every page. */}
+            </div>
+          </div>
+        </div>
+
+        <ShareProjectModal
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          projectId={String(projectId)}
+          projectName={project?.name}
+        />
+
+        {/* Match-formed celebration overlay: takes over the centre of the
+            screen briefly when both sides have right-swiped. The chat panel
+            on the right activates at the same moment so as soon as this
+            fades, the homeowner can start chatting. */}
+        {matchCelebration && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center"
+            style={{ background: "rgba(15,23,42,0.45)", backdropFilter: "blur(4px)" }}
+            onClick={() => setMatchCelebration(null)}
+            role="dialog"
+            aria-label="Match formed"
+          >
+            <div
+              className="relative bg-white rounded-3xl px-10 py-8 text-center shadow-2xl max-w-sm mx-4"
+              style={{ animation: "vmbMatchPop 0.4s cubic-bezier(.2,1.4,.4,1)" }}
+            >
+              <style>{`
+                @keyframes vmbMatchPop {
+                  0% { transform: scale(0.5); opacity: 0; }
+                  100% { transform: scale(1); opacity: 1; }
+                }
+              `}</style>
+              <div
+                className="mx-auto w-20 h-20 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/40"
+                style={{
+                  backgroundImage: "linear-gradient(135deg, #10b981, #059669)",
+                }}
+                aria-hidden
+              >
+                <svg
+                  width="36"
+                  height="36"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M12 21s-7-4.5-7-10a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 5.5-7 10-7 10h-4z" />
+                </svg>
+              </div>
+              <div
+                className="mt-5 text-[12px] font-extrabold uppercase tracking-[0.2em] text-emerald-700"
+              >
+                Mutual interest
+              </div>
+              <h2
+                className="mt-1 text-[34px] font-black tracking-tight text-slate-900 leading-none"
+                style={{ fontFamily: "'Sora', sans-serif" }}
+              >
+                It's a{" "}
+                <span
+                  className="text-indigo-600"
+                  style={{ fontFamily: "'Caveat', cursive", fontSize: "115%" }}
+                >
+                  match
+                </span>
+              </h2>
+              <p className="mt-3 text-[14px] text-slate-600 leading-relaxed">
+                Your conversation just opened on the right. Tap anywhere to dismiss and start chatting.
+              </p>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMatchCelebration(null);
+                }}
+                className="mt-5 w-full rounded-full text-white px-5 py-3 text-[14px] font-bold shadow-md shadow-indigo-500/30 hover:brightness-110"
+                style={{
+                  backgroundImage: "linear-gradient(135deg, #6366f1, #4f46e5)",
+                }}
+              >
+                Open chat
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Paid-unlock toast: surfaces real-time when a tradesperson pays
+            to pitch on this job. Auto-dismisses after 4.5s. */}
+        {paidUnlockToast && (
+          <div
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 inline-flex items-center gap-2 rounded-full px-5 py-3 text-white text-[13.5px] font-bold shadow-lg shadow-indigo-500/30"
+            style={{
+              backgroundImage: "linear-gradient(135deg, #6366f1, #4f46e5)",
+            }}
+            role="status"
+          >
+            <span>{paidUnlockToast}</span>
+          </div>
+        )}
+      </Layout>
+    </>
+  );
+}
+
 function ProjectSwipeMobile({
   projectId,
   projectTitle,
@@ -40,10 +561,12 @@ function ProjectSwipeMobile({
   const router = useRouter();
   const [matches, setMatches] = useState<{
     recommended: any[];
+    paidUnlock?: any[];
     subscribed: any[];
     recommendationCards?: any[];
   } | null>(null);
   const [actionsOpen, setActionsOpen] = useState(false);
+  const [paidUnlockToast, setPaidUnlockToast] = useState<string | null>(null);
 
   useEffect(() => {
     if (!projectId) return;
@@ -60,6 +583,23 @@ function ProjectSwipeMobile({
       alive = false;
     };
   }, [projectId, api]);
+
+  useSseEvent<{ type: string; projectId?: number; builderUid?: string }>(
+    "deck_card_added",
+    async (data) => {
+      if (!data || String(data.projectId) !== String(projectId)) return;
+      try {
+        const { data: fresh } = await api.get(
+          `/api/projects/${projectId}/matches`,
+        );
+        setMatches(fresh);
+      } catch {
+        /* noop */
+      }
+      setPaidUnlockToast("A tradesperson just paid to pitch on this job");
+      setTimeout(() => setPaidUnlockToast(null), 4500);
+    },
+  );
 
   return (
     <main
@@ -121,6 +661,7 @@ function ProjectSwipeMobile({
               coverPhotoUrl: rc.coverPhotoUrl,
             }))),
             ...(matches.recommended || []),
+            ...(matches.paidUnlock || []),
             ...(matches.subscribed || []),
           ]}
           onInfo={(builder) => {
@@ -163,6 +704,18 @@ function ProjectSwipeMobile({
         projectId={projectId}
         projectName={projectTitle}
       />
+
+      {paidUnlockToast && (
+        <div
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 inline-flex items-center gap-2 rounded-full px-5 py-3 text-white text-[13px] font-bold shadow-lg shadow-indigo-500/30 max-w-[calc(100vw-32px)]"
+          style={{
+            backgroundImage: "linear-gradient(135deg, #6366f1, #4f46e5)",
+          }}
+          role="status"
+        >
+          <span>{paidUnlockToast}</span>
+        </div>
+      )}
     </main>
   );
 }
@@ -771,20 +1324,29 @@ export default function ProjectViewPage() {
           )}
         </div>
 
-        {/* DESKTOP — unchanged: existing OwnerProjectView with site chrome */}
+        {/* DESKTOP - live projects show the swipe deck (matches mobile UX);
+            closed projects keep the existing read-only OwnerProjectView. */}
         <div className="hidden md:block">
-          <Layout>
-            <div className="-mt-14 relative min-h-screen overflow-hidden">
-              <div
-                className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-4 sm:pt-10"
-                data-testid="project-view-page"
-              >
-                <OwnerProjectView vm={vm} />
-                {vm.closeProjectModal}
-                {vm.plansModal}
+          {vm.isClosed || !vm.project ? (
+            <Layout>
+              <div className="-mt-14 relative min-h-screen overflow-hidden">
+                <div
+                  className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-4 sm:pt-10"
+                  data-testid="project-view-page"
+                >
+                  <OwnerProjectView vm={vm} />
+                  {vm.closeProjectModal}
+                  {vm.plansModal}
+                </div>
               </div>
-            </div>
-          </Layout>
+            </Layout>
+          ) : (
+            <ProjectSwipeDesktop
+              projectId={projectIdStr}
+              projectTitle={projectTitle}
+              project={vm.project as any}
+            />
+          )}
         </div>
       </>
     );

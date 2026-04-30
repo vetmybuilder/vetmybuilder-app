@@ -28,10 +28,14 @@ module.exports = function mountSwipe(router, ctx) {
         .status(400)
         .json({ error: "direction must be 'right' or 'left'" });
     }
-    if (source !== "recommended" && source !== "subscribed") {
-      return res
-        .status(400)
-        .json({ error: "source must be 'recommended' or 'subscribed'" });
+    if (
+      source !== "recommended" &&
+      source !== "subscribed" &&
+      source !== "paid_unlock"
+    ) {
+      return res.status(400).json({
+        error: "source must be 'recommended', 'subscribed', or 'paid_unlock'",
+      });
     }
 
     const proj = await mysqlQuery(
@@ -52,8 +56,23 @@ module.exports = function mountSwipe(router, ctx) {
 
     const status = direction === "right" ? "pending" : "declined_by_homeowner";
 
+    // Read the existing row's source BEFORE upserting so we can branch on
+    // it for the paid_unlock_passed trade notification below. If no row
+    // exists yet, the homeowner is initiating - source is whatever the
+    // frontend sent.
+    const existing = await mysqlQuery(
+      `SELECT source FROM swipe_interest
+        WHERE project_id = ? AND builder_uid = ?
+        LIMIT 1`,
+      [pid, builderUid],
+    );
+    const existingSource = existing?.[0]?.source || null;
+    const effectiveSource = existingSource || source;
+
     // Terminal states are sticky - see swipe.post.js for tradesman side
-    // for the symmetric race-condition fix.
+    // for the symmetric race-condition fix. Source is preserved on update
+    // so a homeowner left-swipe doesn't clobber a paid_unlock row's
+    // origin tag.
     await mysqlQuery(
       `INSERT INTO swipe_interest
          (project_id, homeowner_uid, builder_uid, source, status,
@@ -65,10 +84,45 @@ module.exports = function mountSwipe(router, ctx) {
              THEN status
            ELSE VALUES(status)
          END,
-         source = VALUES(source),
          homeowner_swiped_at = VALUES(homeowner_swiped_at)`,
       [pid, uid, builderUid, source, status],
     );
+
+    // Trade notification when a paid_unlock card is left-swiped by the
+    // homeowner. Their boost slot is consumed - we owe them a polite
+    // signal so silence isn't the answer.
+    if (direction === "left" && effectiveSource === "paid_unlock") {
+      try {
+        const ownerRows = await mysqlQuery(
+          `SELECT firstName FROM users WHERE uid = ? LIMIT 1`,
+          [uid],
+        );
+        const homeownerFirst = ownerRows?.[0]?.firstName || "The homeowner";
+        const projRows = await mysqlQuery(
+          `SELECT name FROM projects WHERE id = ? LIMIT 1`,
+          [pid],
+        );
+        const projectName = projRows?.[0]?.name || "the project";
+        const notifMessage = `${homeownerFirst} passed on your unlock for "${projectName}"`;
+        await mysqlQuery(
+          `INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
+           VALUES (?, 'paid_unlock_passed', ?, ?, ?, NOW())`,
+          [builderUid, notifMessage, pid, "/tradesman/jobs"],
+        );
+        ctx.broadcastNotification?.(builderUid, {
+          type: "paid_unlock_passed",
+          message: notifMessage,
+          projectId: pid,
+          linkPath: "/tradesman/jobs",
+        });
+      } catch (notifErr) {
+        // Notification failure shouldn't block the swipe response.
+        const log = ctx.log || console;
+        log.warn?.(`paid_unlock_passed notification failed`, {
+          err: notifErr?.message,
+        });
+      }
+    }
 
     // Match formation: only when current row state is 'pending' and the
     // builder has actually swiped right (builder_swiped_at non-null AND
@@ -91,7 +145,20 @@ module.exports = function mountSwipe(router, ctx) {
           [pid, builderUid],
         );
         await fireMatchFormed({ projectId: pid, mysqlQuery, ctx });
-        return res.status(200).json({ ok: true, status: "matched", matched: true });
+        // Look up the row id so the client can route directly into the
+        // freshly-formed match (e.g. activate the inline chat panel).
+        const idRow = await mysqlQuery(
+          `SELECT id FROM swipe_interest
+            WHERE project_id = ? AND builder_uid = ? LIMIT 1`,
+          [pid, builderUid],
+        );
+        const matchId = idRow?.[0]?.id ?? null;
+        return res.status(200).json({
+          ok: true,
+          status: "matched",
+          matched: true,
+          matchId,
+        });
       }
     }
 

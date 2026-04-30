@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>/projects/[id] background - cartoon caricatures</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Sora:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Sora', system-ui, sans-serif; background: #ece8e1; }
+  .caveat { font-family: 'Caveat', cursive; font-weight: 700; }
+  .browser { background:white; border-radius:14px; box-shadow:0 30px 60px -20px rgba(15,23,42,0.25); overflow:hidden; }
+  .browser-bar { background:#f3f4f6; border-bottom:1px solid #e5e7eb; height:38px; display:flex; align-items:center; gap:6px; padding:0 12px; }
+  .browser-bar span { width:12px; height:12px; border-radius:9999px; }
+
+  /* Wobbly hand-drawn feel: applied to whole illustration groups */
+  .doodle { font-family: 'Caveat', cursive; }
+  .scatter { position: absolute; pointer-events: none; }
+</style>
+</head>
+<body class="text-slate-900">
+
+<div class="max-w-[1500px] mx-auto px-6 py-10">
+  <h1 class="text-3xl font-black tracking-tight mb-2">/projects/[id] cartoon background</h1>
+  <p class="text-slate-600 mb-10 max-w-3xl">Friendly, hand-drawn caricatures scattered around the edges of the homeowner project page. Indigo line, soft amber + cream fill, slightly wobbly. Four directions varying density and style.</p>
+
+  <!-- ===== Reusable cartoon characters as SVG symbols ===== -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden>
+    <defs>
+      <!-- Builder: hardhat, big smile, holds hammer -->
+      <symbol id="char-builder" viewBox="0 0 100 130">
+        <g fill="none" stroke="#4338ca" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <!-- hardhat -->
+          <path d="M28 38 Q50 16 72 38 L72 42 L28 42 Z" fill="#fbbf24" stroke="#4338ca"/>
+          <line x1="50" y1="20" x2="50" y2="38" stroke="#4338ca"/>
+          <!-- head -->
+          <circle cx="50" cy="56" r="14" fill="#fef6e9"/>
+          <!-- eyes -->
+          <circle cx="44" cy="55" r="1.5" fill="#4338ca" stroke="none"/>
+          <circle cx="56" cy="55" r="1.5" fill="#4338ca" stroke="none"/>
+          <!-- smile -->
+          <path d="M44 61 Q50 66 56 61"/>
+          <!-- body -->
+          <path d="M36 71 L36 110 L64 110 L64 71" fill="#a5b4fc"/>
+          <!-- overall straps -->
+          <line x1="44" y1="71" x2="44" y2="80"/>
+          <line x1="56" y1="71" x2="56" y2="80"/>
+          <!-- pocket -->
+          <rect x="44" y="90" width="12" height="10" fill="#fef6e9"/>
+          <!-- left arm -->
+          <path d="M36 78 Q24 90 28 102"/>
+          <!-- right arm holding hammer -->
+          <path d="M64 78 Q78 84 82 96"/>
+          <!-- hammer head -->
+          <rect x="74" y="92" width="14" height="6" rx="1" fill="#475569" stroke="#4338ca"/>
+          <line x1="80" y1="98" x2="84" y2="106"/>
+          <!-- legs -->
+          <line x1="42" y1="110" x2="40" y2="124"/>
+          <line x1="58" y1="110" x2="60" y2="124"/>
+          <!-- boots -->
+          <path d="M36 124 L46 124 L46 122" fill="#475569" stroke="#4338ca"/>
+          <path d="M54 124 L64 124 L64 122" fill="#475569" stroke="#4338ca"/>
+        </g>
+      </symbol>
+
+      <!-- Painter: cap + paint roller, splatter -->
+      <symbol id="char-painter" viewBox="0 0 100 130">
+        <g fill="none" stroke="#4338ca" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <!-- cap -->
+          <path d="M30 36 Q50 24 70 36 L70 42 L30 42 Z" fill="#fef6e9" stroke="#4338ca"/>
+          <path d="M70 38 L82 40 L82 44 L70 42" fill="#fef6e9" stroke="#4338ca"/>
+          <!-- head -->
+          <circle cx="50" cy="56" r="14" fill="#fef6e9"/>
+          <circle cx="44" cy="55" r="1.5" fill="#4338ca" stroke="none"/>
+          <circle cx="56" cy="55" r="1.5" fill="#4338ca" stroke="none"/>
+          <path d="M44 61 Q50 66 56 61"/>
+          <!-- body -->
+          <path d="M36 71 L36 110 L64 110 L64 71" fill="#fde68a"/>
+          <!-- left arm holding roller -->
+          <path d="M36 78 Q22 86 18 100"/>
+          <rect x="14" y="98" width="14" height="8" rx="2" fill="#fef6e9" stroke="#4338ca"/>
+          <line x1="21" y1="106" x2="21" y2="118"/>
+          <!-- right arm -->
+          <path d="M64 78 Q72 86 70 100"/>
+          <!-- splatter dots -->
+          <circle cx="22" cy="80" r="2" fill="#fbbf24" stroke="#4338ca" stroke-width="1.5"/>
+          <circle cx="78" cy="68" r="1.5" fill="#fbbf24" stroke="#4338ca" stroke-width="1.5"/>
+          <circle cx="84" cy="86" r="2" fill="#fbbf24" stroke="#4338ca" stroke-width="1.5"/>
+          <!-- legs + boots -->
+          <line x1="42" y1="110" x2="40" y2="124"/>
+          <line x1="58" y1="110" x2="60" y2="124"/>
+          <path d="M36 124 L46 124 L46 122" fill="#475569" stroke="#4338ca"/>
+          <path d="M54 124 L64 124 L64 122" fill="#475569" stroke="#4338ca"/>
+        </g>
+      </symbol>
+
+      <!-- Plumber: cap turned backwards, big wrench -->
+      <symbol id="char-plumber" viewBox="0 0 100 130">
+        <g fill="none" stroke="#4338ca" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <!-- cap (bill behind) -->
+          <path d="M30 36 Q50 24 70 36 L70 42 L30 42 Z" fill="#a5b4fc" stroke="#4338ca"/>
+          <path d="M30 38 L18 40 L18 44 L30 42" fill="#a5b4fc" stroke="#4338ca"/>
+          <!-- head -->
+          <circle cx="50" cy="56" r="14" fill="#fef6e9"/>
+          <circle cx="44" cy="55" r="1.5" fill="#4338ca" stroke="none"/>
+          <circle cx="56" cy="55" r="1.5" fill="#4338ca" stroke="none"/>
+          <!-- moustache -->
+          <path d="M42 61 Q50 64 58 61" stroke-width="2.5"/>
+          <!-- body (singlet) -->
+          <path d="M36 71 L36 110 L64 110 L64 71" fill="#fef6e9"/>
+          <!-- belt -->
+          <line x1="36" y1="98" x2="64" y2="98" stroke-width="3"/>
+          <!-- right arm holding wrench -->
+          <path d="M64 78 Q80 88 78 104"/>
+          <path d="M70 100 L84 114 M75 102 L84 109 L88 113 L82 119" fill="#475569" stroke="#4338ca"/>
+          <!-- left arm -->
+          <path d="M36 78 Q24 88 26 104"/>
+          <!-- legs + boots -->
+          <line x1="42" y1="110" x2="40" y2="124"/>
+          <line x1="58" y1="110" x2="60" y2="124"/>
+          <path d="M36 124 L46 124 L46 122" fill="#475569" stroke="#4338ca"/>
+          <path d="M54 124 L64 124 L64 122" fill="#475569" stroke="#4338ca"/>
+        </g>
+      </symbol>
+
+      <!-- Tiny cottage with scaffold -->
+      <symbol id="ill-house" viewBox="0 0 140 110">
+        <g fill="none" stroke="#4338ca" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <!-- body -->
+          <rect x="32" y="46" width="68" height="44" fill="#fef6e9" stroke="#4338ca"/>
+          <!-- roof -->
+          <path d="M28 46 L66 18 L104 46 Z" fill="#fbbf24" stroke="#4338ca"/>
+          <!-- chimney -->
+          <rect x="84" y="22" width="8" height="14" fill="#a5b4fc" stroke="#4338ca"/>
+          <!-- smoke (3 puffs) -->
+          <circle cx="88" cy="14" r="3" fill="#fef6e9" stroke="#4338ca"/>
+          <circle cx="93" cy="8" r="2" fill="#fef6e9" stroke="#4338ca"/>
+          <circle cx="98" cy="3" r="2" fill="#fef6e9" stroke="#4338ca"/>
+          <!-- window -->
+          <rect x="42" y="56" width="14" height="14" fill="#a5b4fc" stroke="#4338ca"/>
+          <line x1="49" y1="56" x2="49" y2="70"/>
+          <line x1="42" y1="63" x2="56" y2="63"/>
+          <!-- door -->
+          <rect x="74" y="66" width="14" height="24" fill="#c2410c" stroke="#4338ca"/>
+          <circle cx="84" cy="78" r="1" fill="#4338ca"/>
+          <!-- scaffold pole right -->
+          <line x1="108" y1="36" x2="108" y2="92"/>
+          <line x1="108" y1="50" x2="120" y2="50"/>
+          <line x1="108" y1="68" x2="120" y2="68"/>
+          <line x1="120" y1="36" x2="120" y2="92"/>
+        </g>
+      </symbol>
+
+      <!-- Paint can with brushes -->
+      <symbol id="ill-paintcan" viewBox="0 0 90 100">
+        <g fill="none" stroke="#4338ca" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <ellipse cx="45" cy="38" rx="26" ry="6" fill="#fef6e9" stroke="#4338ca"/>
+          <path d="M19 38 L19 82 Q19 90 45 90 Q71 90 71 82 L71 38" fill="#fde68a" stroke="#4338ca"/>
+          <ellipse cx="45" cy="38" rx="20" ry="4" fill="#a5b4fc" stroke="#4338ca"/>
+          <!-- handle -->
+          <path d="M22 30 Q45 14 68 30"/>
+          <!-- brush 1 -->
+          <line x1="50" y1="22" x2="56" y2="6"/>
+          <rect x="48" y="2" width="12" height="6" rx="1" fill="#475569" stroke="#4338ca" transform="rotate(20 54 5)"/>
+          <!-- brush 2 -->
+          <line x1="38" y1="24" x2="32" y2="10"/>
+          <rect x="26" y="6" width="12" height="6" rx="1" fill="#fbbf24" stroke="#4338ca" transform="rotate(-15 32 9)"/>
+        </g>
+      </symbol>
+
+      <!-- Toolbox -->
+      <symbol id="ill-toolbox" viewBox="0 0 110 80">
+        <g fill="none" stroke="#4338ca" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="14" y="34" width="82" height="36" rx="3" fill="#a5b4fc" stroke="#4338ca"/>
+          <line x1="14" y1="48" x2="96" y2="48"/>
+          <rect x="44" y="42" width="22" height="8" rx="2" fill="#fef6e9" stroke="#4338ca"/>
+          <!-- handle -->
+          <path d="M30 34 Q30 20 55 20 Q80 20 80 34" fill="none"/>
+          <line x1="30" y1="34" x2="30" y2="22" stroke-width="2"/>
+          <line x1="80" y1="34" x2="80" y2="22" stroke-width="2"/>
+          <!-- hammer poking out -->
+          <line x1="20" y1="34" x2="20" y2="20"/>
+          <rect x="14" y="14" width="14" height="6" rx="1" fill="#475569" stroke="#4338ca"/>
+        </g>
+      </symbol>
+
+      <!-- Ladder -->
+      <symbol id="ill-ladder" viewBox="0 0 60 130">
+        <g fill="none" stroke="#4338ca" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="14" y1="8" x2="20" y2="120"/>
+          <line x1="46" y1="8" x2="40" y2="120"/>
+          <line x1="15" y1="28" x2="45" y2="28"/>
+          <line x1="16" y1="50" x2="44" y2="50"/>
+          <line x1="17" y1="72" x2="43" y2="72"/>
+          <line x1="18" y1="94" x2="42" y2="94"/>
+          <line x1="19" y1="116" x2="41" y2="116"/>
+        </g>
+      </symbol>
+
+      <!-- Speech bubble with star (review marker) -->
+      <symbol id="ill-bubble" viewBox="0 0 90 80">
+        <g fill="none" stroke="#4338ca" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 10 Q14 6 18 6 L72 6 Q76 6 76 10 L76 50 Q76 54 72 54 L40 54 L30 66 L30 54 L18 54 Q14 54 14 50 Z" fill="#fef6e9" stroke="#4338ca"/>
+          <path d="M45 18 L48 26 L57 26 L50 31 L52 39 L45 34 L38 39 L40 31 L33 26 L42 26 Z" fill="#fbbf24" stroke="#4338ca"/>
+        </g>
+      </symbol>
+
+      <!-- Hand-drawn dotted arrow -->
+      <symbol id="ill-arrow" viewBox="0 0 80 60">
+        <g fill="none" stroke="#4338ca" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 5">
+          <path d="M6 50 Q40 6 70 30"/>
+        </g>
+        <g fill="none" stroke="#4338ca" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="62 22 70 30 62 38"/>
+        </g>
+      </symbol>
+    </defs>
+  </svg>
+
+  <div class="space-y-12">
+
+    <!-- ============================================ -->
+    <!-- A — Friendly tradespeople in the corners    -->
+    <!-- ============================================ -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-indigo-700 mb-2">Option A &middot; Friendly tradespeople</div>
+      <h3 class="text-xl font-extrabold mb-3">"Three little caricatures - builder, painter, plumber - in the corners."</h3>
+      <p class="text-sm text-slate-600 mb-5 max-w-3xl">Hand-drawn cartoon people at ~16% opacity, scattered in the page edges. Indigo line, soft amber/lilac fills. Friendly, warm, says "real humans do real jobs". Won't compete with the swipe-deck card centred between them.</p>
+
+      <div class="browser">
+        <div class="browser-bar"><span class="bg-red-400"></span><span class="bg-amber-400"></span><span class="bg-emerald-400"></span><div class="ml-3 text-xs text-slate-500">localhost:3000/projects/6</div></div>
+        <div class="relative h-[640px] overflow-hidden bg-[#fef6e9]">
+          <div class="scatter" style="bottom:30px;left:24px;width:120px;height:160px;opacity:0.20;transform:rotate(-6deg)"><svg class="w-full h-full"><use href="#char-builder"/></svg></div>
+          <div class="scatter" style="top:60px;right:30px;width:110px;height:150px;opacity:0.20;transform:rotate(8deg)"><svg class="w-full h-full"><use href="#char-painter"/></svg></div>
+          <div class="scatter" style="bottom:40px;right:60px;width:115px;height:150px;opacity:0.18;transform:rotate(-4deg)"><svg class="w-full h-full"><use href="#char-plumber"/></svg></div>
+
+          <div class="relative px-6 pt-4">
+            <div class="text-center mb-3">
+              <div class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-indigo-700">Your shortlist</div>
+              <div class="text-[20px] font-black tracking-tight">Pick your <span class="caveat text-indigo-600" style="font-size:120%">tradesperson</span></div>
+            </div>
+            <div class="grid grid-cols-[280px_1fr] gap-6 relative z-10">
+              <div class="space-y-3">
+                <div class="bg-white border border-amber-100 rounded-3xl p-4 shadow-sm h-32"></div>
+                <div class="bg-white border-2 border-indigo-400 rounded-3xl p-4 shadow-md h-44"></div>
+              </div>
+              <div class="bg-white border border-amber-100 rounded-3xl shadow-sm h-[460px] flex items-center justify-center text-slate-400 text-sm">Empty state card</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================ -->
+    <!-- B — Construction-scene props (no people)    -->
+    <!-- ============================================ -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-indigo-700 mb-2">Option B &middot; Construction-scene props</div>
+      <h3 class="text-xl font-extrabold mb-3">"Cartoon house being built, paint can, ladder, toolbox."</h3>
+      <p class="text-sm text-slate-600 mb-5 max-w-3xl">Object-only doodles instead of people: a tiny cottage with scaffold, a paint can with brushes poking out, a stepladder, a toolbox with a hammer. Friendlier than icons, less character-heavy than people.</p>
+
+      <div class="browser">
+        <div class="browser-bar"><span class="bg-red-400"></span><span class="bg-amber-400"></span><span class="bg-emerald-400"></span><div class="ml-3 text-xs text-slate-500">localhost:3000/projects/6</div></div>
+        <div class="relative h-[640px] overflow-hidden bg-[#fef6e9]">
+          <div class="scatter" style="top:30px;left:30px;width:160px;height:120px;opacity:0.22;transform:rotate(-3deg)"><svg class="w-full h-full"><use href="#ill-house"/></svg></div>
+          <div class="scatter" style="top:40px;right:40px;width:100px;height:110px;opacity:0.22;transform:rotate(8deg)"><svg class="w-full h-full"><use href="#ill-paintcan"/></svg></div>
+          <div class="scatter" style="bottom:30px;left:60px;width:60px;height:160px;opacity:0.20;transform:rotate(-12deg)"><svg class="w-full h-full"><use href="#ill-ladder"/></svg></div>
+          <div class="scatter" style="bottom:40px;right:30px;width:130px;height:90px;opacity:0.22;transform:rotate(4deg)"><svg class="w-full h-full"><use href="#ill-toolbox"/></svg></div>
+
+          <div class="relative px-6 pt-4">
+            <div class="text-center mb-3">
+              <div class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-indigo-700">Your shortlist</div>
+              <div class="text-[20px] font-black tracking-tight">Pick your <span class="caveat text-indigo-600" style="font-size:120%">tradesperson</span></div>
+            </div>
+            <div class="grid grid-cols-[280px_1fr] gap-6 relative z-10">
+              <div class="space-y-3">
+                <div class="bg-white border border-amber-100 rounded-3xl p-4 shadow-sm h-32"></div>
+                <div class="bg-white border-2 border-indigo-400 rounded-3xl p-4 shadow-md h-44"></div>
+              </div>
+              <div class="bg-white border border-amber-100 rounded-3xl shadow-sm h-[460px] flex items-center justify-center text-slate-400 text-sm">Empty state card</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================ -->
+    <!-- C — People + props (maximalist)             -->
+    <!-- ============================================ -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-indigo-700 mb-2">Option C &middot; People + props (maximalist)</div>
+      <h3 class="text-xl font-extrabold mb-3">"Builder + painter + house + toolbox + scattered hand-drawn arrows and stars."</h3>
+      <p class="text-sm text-slate-600 mb-5 max-w-3xl">Most expressive. Two characters in opposing corners, a house being built top-left, toolbox bottom-right, plus a few caveat-style arrows / star bubbles linking them. Lively, playful, on-brand if you want to lean fully into the cartoon look.</p>
+
+      <div class="browser">
+        <div class="browser-bar"><span class="bg-red-400"></span><span class="bg-amber-400"></span><span class="bg-emerald-400"></span><div class="ml-3 text-xs text-slate-500">localhost:3000/projects/6</div></div>
+        <div class="relative h-[640px] overflow-hidden bg-[#fef6e9]">
+          <div class="scatter" style="top:20px;left:24px;width:140px;height:110px;opacity:0.22;transform:rotate(-3deg)"><svg class="w-full h-full"><use href="#ill-house"/></svg></div>
+          <div class="scatter" style="bottom:24px;left:24px;width:115px;height:155px;opacity:0.22;transform:rotate(-6deg)"><svg class="w-full h-full"><use href="#char-builder"/></svg></div>
+          <div class="scatter" style="top:50px;right:30px;width:115px;height:155px;opacity:0.22;transform:rotate(8deg)"><svg class="w-full h-full"><use href="#char-painter"/></svg></div>
+          <div class="scatter" style="bottom:40px;right:36px;width:130px;height:90px;opacity:0.22;transform:rotate(4deg)"><svg class="w-full h-full"><use href="#ill-toolbox"/></svg></div>
+          <!-- caveat doodle accents -->
+          <div class="scatter" style="top:170px;left:200px;width:80px;height:60px;opacity:0.30;transform:rotate(-12deg)"><svg class="w-full h-full"><use href="#ill-arrow"/></svg></div>
+          <div class="scatter doodle text-indigo-700" style="top:140px;right:200px;font-size:36px;opacity:0.30;transform:rotate(-6deg)">nice!</div>
+          <div class="scatter" style="bottom:150px;right:240px;width:70px;height:60px;opacity:0.30"><svg class="w-full h-full"><use href="#ill-bubble"/></svg></div>
+
+          <div class="relative px-6 pt-4">
+            <div class="text-center mb-3">
+              <div class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-indigo-700">Your shortlist</div>
+              <div class="text-[20px] font-black tracking-tight">Pick your <span class="caveat text-indigo-600" style="font-size:120%">tradesperson</span></div>
+            </div>
+            <div class="grid grid-cols-[280px_1fr] gap-6 relative z-10">
+              <div class="space-y-3">
+                <div class="bg-white border border-amber-100 rounded-3xl p-4 shadow-sm h-32"></div>
+                <div class="bg-white border-2 border-indigo-400 rounded-3xl p-4 shadow-md h-44"></div>
+              </div>
+              <div class="bg-white border border-amber-100 rounded-3xl shadow-sm h-[460px] flex items-center justify-center text-slate-400 text-sm">Empty state card</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================ -->
+    <!-- D — Tiny tools doodled along the borders    -->
+    <!-- ============================================ -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-indigo-700 mb-2">Option D &middot; Doodle border</div>
+      <h3 class="text-xl font-extrabold mb-3">"Small tools doodled around the page perimeter only."</h3>
+      <p class="text-sm text-slate-600 mb-5 max-w-3xl">No people. Lots of tiny doodled props (paint can, ladder, hammer, bubble, arrow) along the page edges, roughly evenly spaced. Reads more like notebook margin doodles than centred illustrations.</p>
+
+      <div class="browser">
+        <div class="browser-bar"><span class="bg-red-400"></span><span class="bg-amber-400"></span><span class="bg-emerald-400"></span><div class="ml-3 text-xs text-slate-500">localhost:3000/projects/6</div></div>
+        <div class="relative h-[640px] overflow-hidden bg-[#fef6e9]">
+          <div class="scatter" style="top:20px;left:30px;width:60px;height:70px;opacity:0.22;transform:rotate(-15deg)"><svg class="w-full h-full"><use href="#ill-paintcan"/></svg></div>
+          <div class="scatter" style="top:80px;right:50px;width:50px;height:50px;opacity:0.22;transform:rotate(20deg)"><svg class="w-full h-full"><use href="#ill-bubble"/></svg></div>
+          <div class="scatter" style="top:200px;left:20px;width:42px;height:90px;opacity:0.22;transform:rotate(-25deg)"><svg class="w-full h-full"><use href="#ill-ladder"/></svg></div>
+          <div class="scatter" style="top:280px;right:30px;width:80px;height:60px;opacity:0.22;transform:rotate(8deg)"><svg class="w-full h-full"><use href="#ill-toolbox"/></svg></div>
+          <div class="scatter" style="bottom:80px;left:50px;width:60px;height:50px;opacity:0.22;transform:rotate(-10deg)"><svg class="w-full h-full"><use href="#ill-arrow"/></svg></div>
+          <div class="scatter" style="bottom:30px;right:60px;width:70px;height:60px;opacity:0.22;transform:rotate(15deg)"><svg class="w-full h-full"><use href="#ill-paintcan"/></svg></div>
+          <div class="scatter" style="bottom:120px;right:20px;width:110px;height:80px;opacity:0.20;transform:rotate(-3deg)"><svg class="w-full h-full"><use href="#ill-house"/></svg></div>
+
+          <div class="relative px-6 pt-4">
+            <div class="text-center mb-3">
+              <div class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-indigo-700">Your shortlist</div>
+              <div class="text-[20px] font-black tracking-tight">Pick your <span class="caveat text-indigo-600" style="font-size:120%">tradesperson</span></div>
+            </div>
+            <div class="grid grid-cols-[280px_1fr] gap-6 relative z-10">
+              <div class="space-y-3">
+                <div class="bg-white border border-amber-100 rounded-3xl p-4 shadow-sm h-32"></div>
+                <div class="bg-white border-2 border-indigo-400 rounded-3xl p-4 shadow-md h-44"></div>
+              </div>
+              <div class="bg-white border border-amber-100 rounded-3xl shadow-sm h-[460px] flex items-center justify-center text-slate-400 text-sm">Empty state card</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="mt-16 mb-4 text-sm text-slate-600 max-w-3xl">
+    <p class="font-bold mb-2">Notes</p>
+    <ul class="list-disc list-inside space-y-1 text-[13px]">
+      <li>All four use the same hand-drawn cartoon style: indigo line, soft amber/lilac fills, slight rotations for wobbliness.</li>
+      <li><strong>A</strong> = three friendly tradespeople in the corners. People-led.</li>
+      <li><strong>B</strong> = props only (house, paint can, ladder, toolbox). Object-led.</li>
+      <li><strong>C</strong> = both, plus caveat doodles and arrows. Maximalist, playful.</li>
+      <li><strong>D</strong> = small doodles around the perimeter only - notebook-margin feel, no centred illustrations.</li>
+    </ul>
+    <p class="mt-3 text-[13px]">Pick whichever fits the brand mood you want.</p>
+  </div>
+
+</div>
+
+</body>
+</html>

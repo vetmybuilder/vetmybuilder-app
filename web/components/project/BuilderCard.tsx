@@ -1,6 +1,6 @@
 import Image from "next/image";
 
-export type BuilderTier = "recommended" | "ai-matched";
+export type BuilderTier = "recommended" | "ai-matched" | "paid_unlock";
 
 export interface BuilderCardBuilder {
   uid: string;
@@ -14,6 +14,9 @@ export interface BuilderCardBuilder {
   whyMatch: string | null;
   tier: BuilderTier;
   recommenderName?: string | null;
+  /** Free-text intro the trade wrote at paid_unlock checkout. Surfaced
+   *  on the back of the card / in the Info modal for paid_unlock tier. */
+  introMessage?: string | null;
   /** VMB trust score (vmb_score from tradesmen). Used on the back of the card. */
   baseScore?: number | null;
   // Rec-card fields (populated when isRecommendation is true):
@@ -30,6 +33,7 @@ export default function BuilderCard({
 }) {
   const isRecCard = !!builder.isRecommendation;
   const isRec = builder.tier === "recommended";
+  const isPaid = builder.tier === "paid_unlock";
   const title = builder.companyName || builder.displayName || "Builder";
   const initial = (title || "?").trim().charAt(0).toUpperCase();
   const yrLabel =
@@ -85,6 +89,16 @@ export default function BuilderCard({
             }}
           >
             ⭐ Recommendation
+          </span>
+        ) : isPaid ? (
+          <span
+            className="absolute top-3 left-3 inline-flex items-center gap-1 text-[11px] font-extrabold tracking-tight px-2.5 py-1 rounded-full text-white"
+            style={{
+              background: "linear-gradient(135deg, #6366f1, #4f46e5)",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
+            }}
+          >
+            Wants this job
           </span>
         ) : isRec ? (
           <span
@@ -155,7 +169,7 @@ export default function BuilderCard({
       </div>
 
       {/* Attribution / why-match line */}
-      {(isRecCard || isRec || builder.whyMatch) && (
+      {(isRecCard || isRec || isPaid || builder.whyMatch) && (
         <div className="px-3.5 pb-3 text-[12px] text-gray-600 leading-snug">
           {isRecCard ? (
             <span className="text-amber-700 font-bold">
@@ -163,6 +177,11 @@ export default function BuilderCard({
                 ? `Recommended by ${builder.recommenderName}`
                 : "Recommended by a friend"}
             </span>
+          ) : isPaid ? (
+            <>
+              <span className="text-indigo-700 font-bold">Paid to pitch</span>
+              {builder.introMessage ? ` - "${builder.introMessage}"` : ""}
+            </>
           ) : isRec ? (
             <>
               <span className="text-sky-700 font-bold">Recommended</span>

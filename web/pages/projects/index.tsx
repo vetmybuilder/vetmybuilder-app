@@ -646,82 +646,77 @@ function OwnerProjects() {
         )}
       </div>
 
-      {/* DESKTOP — unchanged: original list view inside Layout chrome */}
+      {/* DESKTOP - Option C: toolbar (title + tabs + filters + Post-a-Job)
+          + safety accordion + 4-col dense grid, all on a cream backdrop. */}
       <div className="hidden md:block">
         <Layout>
-    <div className="relative min-h-screen overflow-hidden -mt-14">
-
+    <Head>
+      <style>{`body { background: #fef6e9 !important; }`}</style>
+    </Head>
+    <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-12">
       <div
-        className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-12 pt-4 sm:pt-10"
+        className="mx-auto max-w-7xl px-6 lg:px-8 pt-6"
         data-testid="projects-page"
       >
 
-        {/* Tab title pill */}
-        <ProjectsTabHelperBanner tab={tab} />
-
-        {/* Safety & verification collapsible card */}
-        <section
-          aria-label="Safety and verification"
-          data-testid="projects-safety-card"
-          className="mb-6"
-        >
-          <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
-            <button
-              onClick={() => setSafetyOpen((v) => !v)}
-              className="flex w-full items-center justify-between px-5 py-4 text-left hover:bg-zinc-50 transition-colors"
+        {/* TOOLBAR - title + tabs + filters + Post-a-Job */}
+        <div className="bg-white rounded-2xl border border-amber-100 shadow-sm px-4 py-3 mb-5 flex items-center gap-4 flex-wrap">
+          <h1
+            className="text-xl font-black tracking-tight text-slate-900"
+            style={{ fontFamily: "'Sora', sans-serif" }}
+          >
+            My{" "}
+            <span
+              className="text-indigo-600"
+              style={{ fontFamily: "'Caveat', cursive", fontSize: "120%" }}
             >
-              <div className="flex items-center gap-4">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50">
-                  <Shield className="h-5 w-5 text-emerald-600" />
-                </div>
-                <div>
-                  <h2 className="font-semibold text-zinc-900">Safety &amp; verification</h2>
-                  <p className="text-sm text-zinc-500">We combine official checks with community signals to help you hire with confidence.</p>
-                </div>
-              </div>
-              {safetyOpen
-                ? <ChevronUp className="h-5 w-5 text-zinc-400 shrink-0 ml-4" />
-                : <ChevronDown className="h-5 w-5 text-zinc-400 shrink-0 ml-4" />
-              }
-            </button>
+              jobs
+            </span>
+          </h1>
 
-            {safetyOpen && (
-              <div className="border-t border-zinc-200 px-5 pb-5 pt-4 space-y-4">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100">
-                    <Building2 className="h-4 w-4 text-zinc-500" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-zinc-900">Verified businesses</p>
-                    <p className="text-sm text-zinc-500">We check tradespeople against official UK business registers and show a verified badge when we confirm a match.</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-4">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100">
-                    <Star className="h-4 w-4 text-amber-500" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-zinc-900">Trust score</p>
-                    <p className="text-sm text-zinc-500">Every tradesperson is scored based on real signals: neighbour recommendations, completed work, photos, and responsiveness - not who pays the most.</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-4">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50">
-                    <Lightbulb className="h-4 w-4 text-emerald-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-emerald-700">Tip</p>
-                    <p className="text-sm text-zinc-500">Always ask for a written quote, check proof of insurance, and keep all messages and agreements in writing.</p>
-                  </div>
-                </div>
-              </div>
-            )}
+          <div className="h-6 w-px bg-amber-200 hidden lg:block" />
+
+          {/* Tabs */}
+          <div className="inline-flex rounded-full bg-amber-50 p-1">
+            {[
+              { key: "mine" as OwnerTab, label: "Live" },
+              { key: "completed" as OwnerTab, label: "Completed" },
+              { key: "favourites" as OwnerTab, label: "Favourites" },
+              { key: "recommendations" as OwnerTab, label: "Recommendations" },
+            ].map((t) => {
+              const active = tab === t.key;
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() =>
+                    router.push(
+                      { pathname: "/projects", query: { tab: t.key } },
+                      undefined,
+                      { shallow: true },
+                    )
+                  }
+                  className={`rounded-full px-3 py-1 text-[12.5px] font-bold transition-colors ${
+                    active
+                      ? "text-white shadow-sm"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                  style={
+                    active
+                      ? { background: "linear-gradient(135deg,#6366f1,#4f46e5)" }
+                      : {}
+                  }
+                >
+                  {t.label}
+                </button>
+              );
+            })}
           </div>
-        </section>
 
-        {/* Filters row */}
-        {tab !== "favourites" && tab !== "recommendations" && (
-          <div className="mb-6">
+          <div className="flex-1" />
+
+          {/* Filters */}
+          {tab !== "favourites" && tab !== "recommendations" && (
             <ProjectFilters
               typeOptions={typeOptions}
               statusOptions={statusOptions as any}
@@ -732,8 +727,79 @@ function OwnerProjects() {
                 setChipStatus(next.status);
               }}
             />
+          )}
+
+          {/* Post a Job */}
+          <Link
+            href="/projects/new"
+            className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-extrabold text-white shadow-md hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] transition-all"
+            style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
+            data-testid="btn-post-a-job"
+          >
+            <Plus className="h-4 w-4" />
+            Post a job
+          </Link>
+        </div>
+
+        {/* SAFETY & VERIFICATION - kept, brand-toned to amber/emerald cream palette */}
+        <section
+          aria-label="Safety and verification"
+          data-testid="projects-safety-card"
+          className="mb-5"
+        >
+          <div className="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
+            <button
+              onClick={() => setSafetyOpen((v) => !v)}
+              className="flex w-full items-center justify-between px-5 py-4 text-left hover:bg-amber-50/50 transition-colors"
+            >
+              <div className="flex items-center gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50">
+                  <Shield className="h-5 w-5 text-emerald-600" />
+                </div>
+                <div>
+                  <h2 className="font-extrabold text-slate-900">Safety &amp; verification</h2>
+                  <p className="text-sm text-slate-500">We combine official checks with community signals to help you hire with confidence.</p>
+                </div>
+              </div>
+              {safetyOpen
+                ? <ChevronUp className="h-5 w-5 text-amber-500 shrink-0 ml-4" />
+                : <ChevronDown className="h-5 w-5 text-amber-500 shrink-0 ml-4" />
+              }
+            </button>
+
+            {safetyOpen && (
+              <div className="border-t border-amber-100 px-5 pb-5 pt-4 space-y-4">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50">
+                    <Building2 className="h-4 w-4 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="font-extrabold text-slate-900">Verified businesses</p>
+                    <p className="text-sm text-slate-500">We check tradespeople against official UK business registers and show a verified badge when we confirm a match.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50">
+                    <Star className="h-4 w-4 text-amber-500" />
+                  </div>
+                  <div>
+                    <p className="font-extrabold text-slate-900">Trust score</p>
+                    <p className="text-sm text-slate-500">Every tradesperson is scored based on real signals: community recommendations, completed work, photos, and responsiveness - not who pays the most.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50">
+                    <Lightbulb className="h-4 w-4 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="font-extrabold text-emerald-700">Tip</p>
+                    <p className="text-sm text-slate-500">Always ask for a written quote, check proof of insurance, and keep all messages and agreements in writing.</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </section>
 
         {/* Main content */}
         {tab === "favourites" ? (
@@ -748,7 +814,7 @@ function OwnerProjects() {
           <div data-testid="projects-list">
             {tab === "completed" || tab === "completedCommunity" ? (
               <div
-                className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5"
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
                 data-testid="projects-card-grid-completed"
               >
                 {items.map((p) => {
@@ -816,19 +882,17 @@ function OwnerProjects() {
               </div>
             ) : (
               <div
-                className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5"
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
                 data-testid="projects-card-grid"
               >
                 {items.map((p) => (
-                  <div className="contents" key={p.id}>
+                  <div key={p.id} className="flex flex-col gap-3">
                     <Link href={`/projects/${p.id}`} className="block hover:shadow-md transition-shadow rounded-3xl">
                       <ProjectImageCard
                         id={p.id}
                         status={p.status}
-                        imageUrl={
-                          p.coverPhotoUrl ||
-                          "https://cdn.home-designing.com/wp-content/uploads/2024/08/Graceful-Mid-Century-Modern-Living-Rooms.jpg"
-                        }
+                        imageUrl={p.coverPhotoUrl}
+                        type={p.type}
                         name={p.name}
                       />
                     </Link>
@@ -879,18 +943,6 @@ function OwnerProjects() {
 
       {showPushPrompt && (
         <PushPrompt onComplete={() => setShowPushPrompt(false)} />
-      )}
-
-      {/* Floating Post a Job button */}
-      {items.length > 0 && (
-        <button
-          type="button"
-          onClick={() => router.push("/projects/new")}
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-amber-400 px-6 py-4 text-base font-bold text-zinc-900 shadow-xl shadow-amber-400/40 hover:bg-amber-300 hover:scale-105 transition-all animate-bounce-slow"
-        >
-          <Plus className="h-5 w-5" />
-          Post a Job
-        </button>
       )}
     </div>
         </Layout>

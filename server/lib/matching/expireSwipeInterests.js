@@ -9,18 +9,38 @@ const EXPIRY_DAYS = 14;
 
 async function expireSwipeInterests(mysqlQuery) {
   if (typeof mysqlQuery !== "function") return 0;
+  let total = 0;
   try {
-    const result = await mysqlQuery(
+    // Standard expiry: homeowner-initiated pending rows the builder didn't
+    // respond to within EXPIRY_DAYS.
+    const stale = await mysqlQuery(
       `UPDATE swipe_interest
           SET status = 'expired'
         WHERE status = 'pending'
           AND homeowner_swiped_at < (NOW() - INTERVAL ? DAY)`,
       [EXPIRY_DAYS],
     );
-    return result?.affectedRows || 0;
+    total += stale?.affectedRows || 0;
   } catch {
-    return 0;
+    /* swallow */
   }
+  try {
+    // Paid-unlock boost expiry: the trade paid for a slot with a hard
+    // ceiling. When boost_expires_at passes, the row flips to 'expired'
+    // and disappears from the homeowner's deck. No refund.
+    const expired = await mysqlQuery(
+      `UPDATE swipe_interest
+          SET status = 'expired'
+        WHERE status = 'pending'
+          AND source = 'paid_unlock'
+          AND boost_expires_at IS NOT NULL
+          AND boost_expires_at < NOW()`,
+    );
+    total += expired?.affectedRows || 0;
+  } catch {
+    /* swallow */
+  }
+  return total;
 }
 
 module.exports = { expireSwipeInterests, EXPIRY_DAYS };

@@ -199,19 +199,12 @@ export default function SwipePayGate({
       // to { ok: true, alreadyUnlocked: true, matchId } - route straight
       // into chat.
       if (res.data?.alreadyUnlocked) {
-        const matchId = res.data?.matchId;
-        // Already-unlocked is a no-op for the wallet but the UX should
-        // still feel deliberate: flash the activated state for 600ms
-        // then route into the existing chat.
+        // Already-unlocked: surface the confirmation page rather than
+        // chat - under the boost-slot model the swipe_interest is still
+        // 'pending' until the homeowner reciprocates.
         setPayState("activated");
         await new Promise((r) => setTimeout(r, 600));
-        if (matchId) {
-          await router.push(`/chat/${matchId}`);
-        } else {
-          await router.push("/tradesman/jobs/list");
-          // eslint-disable-next-line no-console
-          console.warn("Already-unlocked response missing matchId");
-        }
+        await router.push("/tradesman/unlock/sent");
         onClose();
         return;
       }
@@ -223,37 +216,19 @@ export default function SwipePayGate({
       }
 
       // Mock-mode shortcut: trigger the mock pay endpoint server-side
-      // (which now creates a matched swipe_interest row source='paid_unlock')
-      // then route the builder straight into the chat thread. Real Stripe
-      // still gets the full external redirect.
+      // (which now writes a 'pending' swipe_interest row source='paid_unlock')
+      // then route to the confirmation page so the trade understands their
+      // card has landed in the homeowner's deck and they're awaiting a
+      // mutual right-swipe before chat opens.
       const isMock = String(url).includes("/payments/mock/");
       if (isMock && sessionId) {
         await api.post("/api/payments/mock/pay", { sessionId });
-        // mock.pay does not currently return matchId, so re-hit the
-        // checkout endpoint - it now sees the active unlock and replies
-        // with { alreadyUnlocked: true, matchId }.
-        let matchId: number | string | undefined;
-        try {
-          const lookup = await api.post(
-            `/api/projects/${subject.projectId}/unlock-contact/checkout`,
-            {},
-          );
-          matchId = lookup.data?.matchId;
-        } catch {
-          /* fall through to fallback */
-        }
         // Flash the "Unlock activated" state for ~1.2s so the builder
         // sees confirmation that the £X.XX charge succeeded before the
-        // chat thread takes over the screen.
+        // confirmation page takes over.
         setPayState("activated");
         await new Promise((r) => setTimeout(r, 1200));
-        if (matchId) {
-          await router.push(`/chat/${matchId}`);
-        } else {
-          // eslint-disable-next-line no-console
-          console.warn("Could not resolve matchId after paid unlock");
-          await router.push("/tradesman/jobs/list");
-        }
+        await router.push("/tradesman/unlock/sent");
         onClose();
         return;
       }

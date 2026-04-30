@@ -61,7 +61,8 @@ const Menu: React.FC<{ label: string; children: React.ReactNode }> = ({
 
       {open && (
         <div
-          className="absolute left-0 mt-2 min-w-[220px] rounded-xl border border-slate-200 bg-white shadow-lg p-2 z-20"
+          className="absolute left-0 mt-2 max-w-[calc(100vw-32px)] rounded-xl border border-slate-200 bg-white shadow-lg p-2 z-20 max-h-[60vh] overflow-y-auto"
+          style={{ minWidth: "260px" }}
           role="menu"
         >
           {React.Children.map(children, (c) =>
@@ -90,14 +91,24 @@ const MenuItem: React.FC<{
       close?.();
     }}
     className={[
-      "w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg",
-      active ? "bg-red-500 text-white" : "hover:bg-zinc-50 text-zinc-900",
+      "w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-left",
+      active
+        ? "bg-indigo-600 text-white"
+        : "hover:bg-indigo-50 text-zinc-900",
     ].join(" ")}
     role="menuitem"
   >
-    <span className="text-[14px]">{label}</span>
-    {typeof count === "number" && (
-      <span className={active ? "text-white/80" : "text-zinc-400"}>
+    <span className="text-[14px] whitespace-nowrap">{label}</span>
+    {/* Hide the count when it's 1 - it's just noise. Show "All types: 20"
+        and any genuinely repeated counts; skip the rest. */}
+    {typeof count === "number" && count > 1 && (
+      <span
+        className={
+          active
+            ? "text-white/80 text-[12px] font-bold"
+            : "text-zinc-400 text-[12px] font-bold"
+        }
+      >
         {count}
       </span>
     )}

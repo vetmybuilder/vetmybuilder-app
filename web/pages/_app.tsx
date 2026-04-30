@@ -13,6 +13,7 @@ import { MobileMenuProvider } from "@/utils/mobileMenu";
 import GlobalMobileMenu from "@/components/GlobalMobileMenu";
 import MatchCelebrationToast from "@/components/MatchCelebrationToast";
 import GlobalSseDispatcher from "@/components/GlobalSseDispatcher";
+import MessagingDock from "@/components/messaging/MessagingDock";
 
 // ✅ IMPORTANT: adjust this import path to where your initFirebase() file actually is.
 // Example candidates:
@@ -29,10 +30,25 @@ const AUTH_PATHS = new Set([
   "/tradesman/login",
 ]);
 
+// Transient confirmation / success pages we never want to land a user
+// back on after a session restart. Treated like auth paths for the
+// returnTo capture: they don't get stashed as the last-visited route.
+const NO_RETURN_TO_PATHS = new Set([
+  "/tradesman/unlock/sent",
+  "/payments/success",
+  "/payments/mock/success",
+  "/payments/mock/cancel",
+  "/match",
+]);
+
 function isAuthPath(pathname: string) {
   // strip any query/hash
   const p = pathname.split("?")[0].split("#")[0];
-  return AUTH_PATHS.has(p);
+  if (AUTH_PATHS.has(p)) return true;
+  if (NO_RETURN_TO_PATHS.has(p)) return true;
+  // /match/<id> dynamic route
+  if (p.startsWith("/match/")) return true;
+  return false;
 }
 
 /**
@@ -208,6 +224,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     "/tradesman/account",
     "/tradesman/profile",
     "/tradesman/profile/edit",
+    "/tradesman/unlock/sent",
     "/chat/[matchId]",
   ]);
   const isBareRoute = NO_LAYOUT_PATHS.has(router.pathname);
@@ -256,6 +273,11 @@ export default function MyApp({ Component, pageProps }: AppProps) {
           page the user is on. Closes the gap where the first-mover
           doesn't get the celebration screen automatically. */}
       <MatchCelebrationToast />
+
+      {/* LinkedIn-style messaging dock: bottom-right pill that expands
+          into a conversation list and floats individual chat windows.
+          Desktop only - mobile uses /matches + /chat/:id full pages. */}
+      <MessagingDock />
 
       {/* Global modal portal target (for SignUpGate, etc.) */}
       <div id="modal-root" />

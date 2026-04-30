@@ -32,6 +32,7 @@ import BottomSheetPicker, {
 import { useMobileMenu } from "@/utils/mobileMenu";
 import { computeProjectPriceRange } from "@/utils/projectPricing";
 import { formatGbp } from "@/utils/formatGbp";
+import { getJobCategoryImage } from "@/utils/jobCategoryImage";
 import Link from "next/link";
 import BrandWordmark from "@/components/BrandWordmark";
 import { parseDescriptionPills } from "@/utils/projectDescription";
@@ -304,8 +305,7 @@ function ProjectCard({
   project: MobileProject;
   onOpen: () => void;
 }) {
-  const fallbackImg =
-    "https://cdn.home-designing.com/wp-content/uploads/2024/08/Graceful-Mid-Century-Modern-Living-Rooms.jpg";
+  const fallbackImg = getJobCategoryImage(project.type);
 
   // Compute price string: deterministic range > AI fallback > null
   const priceRange = computeProjectPriceRange(project.type, project.answersJson);

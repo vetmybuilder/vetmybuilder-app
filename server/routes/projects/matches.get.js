@@ -37,6 +37,7 @@ function rowToCandidate(row, tier, recommenderName) {
     chStatus === "verified" ||
     chStatus === "matched";
   const isRec = tier === "recommended";
+  const isPaid = tier === "paid_unlock";
   return {
     uid: row.user_id,
     displayName: row.company_name || "Builder",
@@ -48,9 +49,12 @@ function rowToCandidate(row, tier, recommenderName) {
     chVerified,
     whyMatch: isRec
       ? "Recommended · Free to contact"
-      : "Matched on area + trade",
-    tier: isRec ? "recommended" : "ai-matched",
+      : isPaid
+        ? "Wants this job"
+        : "Matched on area + trade",
+    tier: isRec ? "recommended" : isPaid ? "paid_unlock" : "ai-matched",
     recommenderName: isRec ? recommenderName || undefined : undefined,
+    introMessage: isPaid ? row.introMessage || null : undefined,
     // Internal-only, used by rankBuilders. Returned harmlessly.
     primaryTrade: trades[0] || null,
     secondaryTrades: trades.slice(1),
@@ -111,10 +115,15 @@ module.exports = function mountMatchesGet(router, ctx) {
       }
     }
 
+    // Exclude tradespeople the homeowner has already responded to, plus
+    // anyone the trade has actively declined or whose row has expired.
+    // Trade-initiated 'pending' rows (homeowner_swiped_at IS NULL) are
+    // KEPT in the deck so the homeowner can reciprocate.
     const swiped = await mysqlQuery(
       `SELECT builder_uid
          FROM swipe_interest
-        WHERE project_id = ?`,
+        WHERE project_id = ?
+          AND (homeowner_swiped_at IS NOT NULL OR status <> 'pending')`,
       [pid],
     );
     const swipedSet = new Set((swiped || []).map((r) => r.builder_uid));
@@ -189,6 +198,47 @@ module.exports = function mountMatchesGet(router, ctx) {
           AND s.current_period_end > NOW()`,
     );
 
+    // Paid-unlock boosted slots: trades who paid the per-project unlock
+    // fee. Pending until the homeowner reciprocates. Ordered by who paid
+    // most recently so the freshest interest sits on top.
+    const paidRows = await mysqlQuery(
+      `SELECT t.user_id, t.company_name, t.trade_types,
+              t.service_areas, t.vmb_score,
+              COALESCE(
+                (SELECT tp.url FROM tradesmen_photos tp
+                  WHERE tp.tradesman_user_id = t.user_id
+                    AND (t.profile_picture_url IS NULL OR tp.url <> t.profile_picture_url)
+                  ORDER BY COALESCE(tp.sort_order, 999999), tp.created_at ASC
+                  LIMIT 1),
+                t.profile_picture_url
+              ) AS photoUrl,
+              t.google_rating AS starRating,
+              COALESCE(t.google_reviews_count, 0) AS reviewCount,
+              GREATEST(0, TIMESTAMPDIFF(YEAR, t.created_at, NOW())) AS yearsTrading,
+              t.ch_status AS chStatus,
+              cv_agg.cvStatus AS cvStatus,
+              si.intro_message AS introMessage,
+              si.builder_swiped_at AS builderSwipedAt
+         FROM swipe_interest si
+         JOIN tradesmen t ON t.user_id = si.builder_uid
+         LEFT JOIN (
+           SELECT companyNumber,
+                  MAX(CASE WHEN LOWER(status) = 'verified' THEN 'verified'
+                           WHEN LOWER(status) = 'matched'  THEN 'matched'
+                           ELSE LOWER(status) END) AS cvStatus
+             FROM company_verifications
+            WHERE companyNumber IS NOT NULL AND companyNumber <> ''
+            GROUP BY companyNumber
+         ) cv_agg ON cv_agg.companyNumber = t.company_number
+        WHERE si.project_id = ?
+          AND si.source = 'paid_unlock'
+          AND si.status = 'pending'
+          AND si.homeowner_swiped_at IS NULL
+          AND (si.boost_expires_at IS NULL OR si.boost_expires_at > NOW())
+        ORDER BY si.builder_swiped_at DESC`,
+      [pid],
+    );
+
     // Batch-resolve recommender first names so the tier badge can read
     // "Recommended by Alex" rather than "Recommended by your network".
     const recommenderById = new Map();
@@ -223,10 +273,17 @@ module.exports = function mountMatchesGet(router, ctx) {
         ),
       )
       .filter((c) => !swipedSet.has(c.uid));
+    // Paid-unlock candidates are kept in payment-recency order and never
+    // re-ranked - they paid for the slot, not for an algorithm to judge them.
+    const paidUnlockCandidates = (paidRows || []).map((r) =>
+      rowToCandidate(r, "paid_unlock"),
+    );
+    const paidUidSet = new Set(paidUnlockCandidates.map((c) => c.uid));
     const subscribedCandidates = (subRows || [])
       .map((r) => rowToCandidate(r, "subscribed"))
       .filter((c) => !swipedSet.has(c.uid))
-      .filter((c) => !recommendedCandidates.some((r) => r.uid === c.uid));
+      .filter((c) => !recommendedCandidates.some((r) => r.uid === c.uid))
+      .filter((c) => !paidUidSet.has(c.uid));
 
     const projectCtx = {
       id: project.id,
@@ -294,6 +351,7 @@ module.exports = function mountMatchesGet(router, ctx) {
 
     return res.status(200).json({
       recommended: recRanked,
+      paidUnlock: paidUnlockCandidates,
       subscribed: subRanked,
       recommendationCards,
     });

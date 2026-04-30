@@ -140,73 +140,76 @@ module.exports = (router, ctx) => {
           "Unlock payment completed - contact now active"
         );
 
-        // Create a matched swipe_interest row (source='paid_unlock') so the
-        // builder lands directly in /chat/:matchId. If the metadata carried
-        // an introMessage, post it as the first chat_messages row.
+        // Paid unlock = boosted slot in the homeowner's swipe deck.
+        // Mirrors a trade-initiated right-swipe: row is 'pending' until the
+        // homeowner reciprocates. No auto-match, no chat_messages write -
+        // the homeowner has to right-swipe to form the match.
         try {
-          const introMessage = String(md.introMessage || "").trim();
+          const introMessage = String(md.introMessage || "").trim() || null;
           const pRows = await mysqlQuery(
             `SELECT ownerUserId FROM projects WHERE id = ? LIMIT 1`,
             [projectId]
           );
           const ownerUid = pRows?.[0]?.ownerUserId;
           if (ownerUid) {
-            const result = await mysqlQuery(
+            // Terminal states stay sticky via the CASE - if the homeowner
+            // had already declined this trade, the row is preserved (the
+            // checkout route's already-declined guard should prevent us
+            // ever reaching here, but defence in depth).
+            await mysqlQuery(
               `INSERT INTO swipe_interest
                  (project_id, homeowner_uid, builder_uid, source, status,
-                  builder_swiped_at, created_at)
-               VALUES (?, ?, ?, 'paid_unlock', 'matched', NOW(), NOW())
+                  builder_swiped_at, intro_message, boost_expires_at, created_at)
+               VALUES (?, ?, ?, 'paid_unlock', 'pending', NOW(), ?,
+                       DATE_ADD(NOW(), INTERVAL 14 DAY), NOW())
                ON DUPLICATE KEY UPDATE
-                 status = 'matched',
+                 status = CASE
+                   WHEN status IN ('declined_by_homeowner','declined_by_builder','matched','expired')
+                     THEN status
+                   ELSE 'pending'
+                 END,
                  source = 'paid_unlock',
-                 builder_swiped_at = COALESCE(builder_swiped_at, NOW())`,
-              [projectId, ownerUid, uid]
+                 builder_swiped_at = COALESCE(builder_swiped_at, NOW()),
+                 intro_message = COALESCE(VALUES(intro_message), intro_message),
+                 boost_expires_at = VALUES(boost_expires_at)`,
+              [projectId, ownerUid, uid, introMessage]
             );
 
-            // INSERT ... ON DUPLICATE KEY UPDATE returns insertId=0 on update;
-            // look the row up by the unique pair in that case.
-            let matchId = result?.insertId || 0;
-            if (!matchId) {
-              const m = await mysqlQuery(
-                `SELECT id FROM swipe_interest
-                  WHERE project_id = ? AND builder_uid = ?
-                  LIMIT 1`,
-                [projectId, uid]
-              );
-              matchId = m?.[0]?.id || 0;
-            }
+            const tRows = await mysqlQuery(
+              `SELECT company_name FROM tradesmen WHERE user_id = ? LIMIT 1`,
+              [uid]
+            );
+            const companyName = tRows?.[0]?.company_name || "A tradesperson";
 
-            if (matchId && introMessage) {
+            try {
+              const linkPath = `/projects/${projectId}`;
+              const notifMessage = `${companyName} wants to work on your project`;
               await mysqlQuery(
-                `INSERT INTO chat_messages (match_id, sender_uid, body, created_at)
-                 VALUES (?, ?, ?, NOW())`,
-                [matchId, uid, introMessage]
+                `INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
+                 VALUES (?, 'paid_unlock_card', ?, ?, ?, NOW())`,
+                [ownerUid, notifMessage, projectId, linkPath]
               );
-            }
-
-            // Notify the homeowner that there's a new chat to read.
-            if (matchId) {
-              try {
-                const linkPath = `/chat/${matchId}`;
-                const notifMessage = `New message - paid unlock`;
-                await mysqlQuery(
-                  `INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
-                   VALUES (?, 'chat_message_new', ?, ?, ?, NOW())`,
-                  [ownerUid, notifMessage, projectId, linkPath]
-                );
-                ctx.broadcastNotification?.(ownerUid, {
-                  type: "chat_message_new",
-                  message: notifMessage,
-                  projectId,
-                  linkPath,
-                });
-              } catch (notifErr) {
-                log.warn({ err: notifErr?.message }, "chat_message_new notification failed in mock.pay");
-              }
+              ctx.broadcastNotification?.(ownerUid, {
+                type: "paid_unlock_card",
+                message: notifMessage,
+                projectId,
+                linkPath,
+              });
+              // Real-time deck update: tells any open /projects/:id page
+              // to refetch matches and splice the new card in at currentIndex+1.
+              // Uses broadcastEvent (custom SSE event name) rather than
+              // broadcastNotification (which always sends as "notification").
+              ctx.broadcastEvent?.(ownerUid, "deck_card_added", {
+                type: "deck_card_added",
+                projectId,
+                builderUid: uid,
+              });
+            } catch (notifErr) {
+              log.warn({ err: notifErr?.message }, "paid_unlock notification failed");
             }
           }
         } catch (e) {
-          log.warn({ err: e?.message }, "paid_unlock match/chat insert failed in mock.pay");
+          log.warn({ err: e?.message }, "paid_unlock swipe_interest insert failed");
         }
 
         res.json({

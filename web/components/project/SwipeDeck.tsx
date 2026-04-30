@@ -7,7 +7,7 @@ import SwipeActionBar from "./SwipeActionBar";
 import ShareProjectModal from "./ShareProjectModal";
 
 export interface SwipeDeckBuilder extends BuilderCardBuilder {
-  source?: "recommended" | "subscribed";
+  source?: "recommended" | "subscribed" | "paid_unlock";
   recommendationId?: string | number | null;
   // Rec cards (priority slot at top of deck):
   isRecommendation?: boolean;
@@ -24,7 +24,10 @@ export default function SwipeDeck({
 }: {
   projectId: string;
   builders: SwipeDeckBuilder[];
-  onMatch: (builderUid: string) => void;
+  /** Fired when a mutual right-swipe forms a match. Receives the
+   *  swipe_interest row id from the server (the canonical "match id"),
+   *  not the builder's UID. */
+  onMatch: (matchId: number | string) => void;
   onInfo?: (builder: SwipeDeckBuilder) => void;
   /**
    * Optional: called whenever the top card changes. Lets the parent prefetch
@@ -38,7 +41,27 @@ export default function SwipeDeck({
   const [busy, setBusy] = useState(false);
   const [flipped, setFlipped] = useState(false);
 
-  const current = builders[index];
+  // Internal queue snapshot. Parent prop updates (e.g. when a paid_unlock
+  // SSE event triggers a matches refetch) are treated as additions and
+  // spliced at currentIndex+1 so a new card appears immediately after the
+  // one the homeowner is looking at - never replacing it mid-gesture.
+  const [queue, setQueue] = useState<SwipeDeckBuilder[]>(builders);
+
+  useEffect(() => {
+    setQueue((prev) => {
+      if (prev.length === 0) return builders;
+      const prevUids = new Set(prev.map((b) => b.uid));
+      const additions = builders.filter((b) => !prevUids.has(b.uid));
+      if (additions.length === 0) return prev;
+      return [
+        ...prev.slice(0, index + 1),
+        ...additions,
+        ...prev.slice(index + 1),
+      ];
+    });
+  }, [builders, index]);
+
+  const current = queue[index];
 
   // Reset the flip state whenever the top card changes — a freshly revealed
   // card should always start front-facing.
@@ -63,14 +86,23 @@ export default function SwipeDeck({
         // homeowner has already implicitly endorsed via the friend's rec.
         await api.post(`/api/recommendations/${current.recommendationId}/dismiss-from-deck`);
       } else {
-        const source = current.tier === "recommended" ? "recommended" : "subscribed";
+        const source =
+          current.tier === "recommended"
+            ? "recommended"
+            : current.tier === "paid_unlock"
+              ? "paid_unlock"
+              : "subscribed";
         const res = await api.post(`/api/projects/${projectId}/swipe`, {
           builderUid: current.uid,
           direction,
           source,
         });
         if (direction === "right" && res.data?.status === "matched") {
-          onMatch(current.uid);
+          // Server returns the swipe_interest row id; fall back to uid
+          // so older paths that don't surface matchId still navigate
+          // (the legacy /match/:id route accepts either).
+          const id = res.data?.matchId ?? current.uid;
+          onMatch(id);
         }
       }
       setIndex(i => i + 1);
@@ -120,16 +152,23 @@ export default function SwipeDeck({
     return (
       <SwipeDeckEmpty
         projectId={projectId}
-        noBuildersYet={builders.length === 0}
+        noBuildersYet={queue.length === 0}
       />
     );
   }
 
-  const peek = builders.slice(index + 1, index + 3);
+  const peek = queue.slice(index + 1, index + 3);
 
   return (
     <div className="relative">
-      <div className="relative h-[520px]">
+      {/* Card height clamps with the viewport so the action bar below
+          stays visible without scrolling on shorter screens. Min 380 to
+          keep the card readable, cap at 520 so it doesn't grow huge on
+          tall monitors. */}
+      <div
+        className="relative"
+        style={{ height: "clamp(380px, 58vh, 520px)" }}
+      >
         {peek.map((b, i) => (
           <div
             key={b.uid}

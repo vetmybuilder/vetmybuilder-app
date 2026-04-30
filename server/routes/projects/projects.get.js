@@ -332,7 +332,7 @@ module.exports = (router, ctx) => {
              SELECT MAX(id) FROM project_classifications WHERE project_id = p.id
            )
            ${sql}
-           ORDER BY p.${sort} ${order}
+           ORDER BY p.${sort} ${order}, p.id ${order}
            LIMIT ${pageSize} OFFSET ${offset}`,
           [uid, ...params]
         );
@@ -361,7 +361,7 @@ module.exports = (router, ctx) => {
            LEFT JOIN project_closures pc ON pc.projectId = p.id
            LEFT JOIN favourites f ON f.projectId = p.id AND f.userId = ?
            ${sql}
-           ORDER BY p.${sort} ${order}
+           ORDER BY p.${sort} ${order}, p.id ${order}
            LIMIT ${pageSize} OFFSET ${offset}`,
           [uid, ...params]
         );
@@ -430,7 +430,7 @@ module.exports = (router, ctx) => {
            LEFT JOIN project_closures pc ON pc.projectId = p.id
            LEFT JOIN favourites f ON f.projectId = p.id AND f.userId = ?
            ${completedSql}
-           ORDER BY p.${sort} ${order}
+           ORDER BY p.${sort} ${order}, p.id ${order}
            LIMIT ${pageSize} OFFSET ${offset}`,
           [uid, ...params]
         );
@@ -507,7 +507,7 @@ module.exports = (router, ctx) => {
            LEFT JOIN project_closures pc ON pc.projectId = p.id
            LEFT JOIN favourites f ON f.projectId = p.id AND f.userId = ?
            ${completedSql}
-           ORDER BY p.${sort} ${order}
+           ORDER BY p.${sort} ${order}, p.id ${order}
            LIMIT ${pageSize} OFFSET ${offset}`,
           [uid, ...params]
         );
@@ -557,7 +557,7 @@ module.exports = (router, ctx) => {
              SELECT MAX(id) FROM project_classifications WHERE project_id = p.id
            )
            ${sql}
-           ORDER BY p.${sort} ${order}
+           ORDER BY p.${sort} ${order}, p.id ${order}
            LIMIT ${pageSize} OFFSET ${offset}`,
           params
         );
@@ -594,7 +594,7 @@ module.exports = (router, ctx) => {
            )
            WHERE f.userId = ?
            ${whereSQL}
-           ORDER BY p.${sort} ${order}
+           ORDER BY p.${sort} ${order}, p.id ${order}
            LIMIT ${pageSize} OFFSET ${offset}`,
           [uid, ...whereParams]
         );
@@ -640,7 +640,7 @@ module.exports = (router, ctx) => {
            )
            WHERE r.recommenderUserId = ?
            ${whereSql}
-           ORDER BY p.${sort} ${order}
+           ORDER BY p.${sort} ${order}, p.id ${order}
            LIMIT ${pageSize} OFFSET ${offset}`,
           [uid, uid, ...extraParams, ...whereParams]
         );

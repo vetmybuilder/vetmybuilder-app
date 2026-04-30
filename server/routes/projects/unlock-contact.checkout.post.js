@@ -80,6 +80,33 @@ module.exports = (router, ctx) => {
             .json({ error: "Only live projects can be unlocked" });
         }
 
+        // --- Already-declined guard ---
+        // Paid-unlock buys a boosted slot in the homeowner's swipe deck.
+        // If the homeowner has already left-swiped this trade for this
+        // project, they're not getting a second look - block at checkout
+        // so the trade doesn't burn a payment. Terminal swipe states
+        // ('declined_by_homeowner') are sticky in matches.get.js too.
+        const declinedRows = await mysqlQuery(
+          `SELECT 1 AS ok
+             FROM swipe_interest
+            WHERE project_id = ?
+              AND builder_uid = ?
+              AND status = 'declined_by_homeowner'
+            LIMIT 1`,
+          [pid, uid]
+        );
+        if (declinedRows.length > 0) {
+          log.info?.(`${TAG} blocked: homeowner already declined`, {
+            uid,
+            pid,
+          });
+          return res.status(409).json({
+            error: "homeowner_already_declined",
+            message:
+              "This homeowner has already passed on your card for this project. You can't unlock again.",
+          });
+        }
+
         // --- Subscription supersedes paid-unlock ---
         // Subscribers already have unlimited swipe / chat access via the
         // bilateral match flow, so charging them again per project would

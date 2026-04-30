@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>/projects/[id] background - illustration directions</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Sora:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Sora', system-ui, sans-serif; background: #ece8e1; }
+  .caveat { font-family: 'Caveat', cursive; font-weight: 700; }
+  .browser { background:white; border-radius:14px; box-shadow:0 30px 60px -20px rgba(15,23,42,0.25); overflow:hidden; }
+  .browser-bar { background:#f3f4f6; border-bottom:1px solid #e5e7eb; height:38px; display:flex; align-items:center; gap:6px; padding:0 12px; }
+  .browser-bar span { width:12px; height:12px; border-radius:9999px; }
+  .indigo-grad { background-image: linear-gradient(135deg,#6366f1,#4f46e5); }
+
+  /* Option A - subtle indigo line icons scattered */
+  .bg-A {
+    background-color: #fef6e9;
+    background-image:
+      radial-gradient(circle at 12% 18%, rgba(99,102,241,0.06) 0, rgba(99,102,241,0.06) 0.5px, transparent 0.5px),
+      radial-gradient(circle at 75% 12%, rgba(99,102,241,0.06) 0, rgba(99,102,241,0.06) 0.5px, transparent 0.5px);
+  }
+
+  /* Option B - dotted grid pattern */
+  .bg-B {
+    background-color: #fef6e9;
+    background-image: radial-gradient(circle at 1px 1px, rgba(99,102,241,0.08) 1px, transparent 0);
+    background-size: 28px 28px;
+  }
+
+  /* Option D - blueprint grid */
+  .bg-D {
+    background-color: #fef6e9;
+    background-image:
+      linear-gradient(rgba(99,102,241,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(99,102,241,0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* Common scattered illustration container */
+  .scatter { position: absolute; opacity: 0.16; pointer-events: none; }
+  .scatter svg { width: 100%; height: 100%; }
+</style>
+</head>
+<body class="text-slate-900">
+
+<div class="max-w-[1500px] mx-auto px-6 py-10">
+  <h1 class="text-3xl font-black tracking-tight mb-2">/projects/[id] background - illustration directions</h1>
+  <p class="text-slate-600 mb-10 max-w-3xl">Four ways to fill the empty space on the homeowner project page. All keep the cream backdrop and the indigo brand. Each varies how loud the construction illustrations are.</p>
+
+  <!-- shared SVGs as defs we can reuse across options -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden>
+    <defs>
+      <symbol id="ic-hammer" viewBox="0 0 24 24"><path d="M14.7 4.7l4.6 4.6-2.1 2.1-1.4-1.4L7.6 18.2 5.5 16l8.2-8.2-1.4-1.4 2.4-1.7zm-9 12L8 19l-2 2-2.3-2.3 2-2z" fill="currentColor"/></symbol>
+      <symbol id="ic-wrench" viewBox="0 0 24 24"><path d="M22 6.92l-3.85-1.5-1.6 1.6 2.97 2.97-1.41 1.41-2.97-2.97L10.42 12l1.5 3.85L7.79 19.92l-3.71-3.71 4.07-4.13L4.3 10.6c-.78-.78-.78-2.05 0-2.83l3.5-3.5c.78-.78 2.05-.78 2.83 0l1.61 1.86 4.13-4.07 3.71 3.71-4.13 4.07L18.17 11l3.83-1.58z" fill="currentColor"/></symbol>
+      <symbol id="ic-paintbrush" viewBox="0 0 24 24"><path d="M18.85 1.5l3.65 3.65-1.4 1.4-3.65-3.65 1.4-1.4zM3 21v-3.59c0-.53.21-1.04.59-1.41L13.5 6.09 17.91 10.5 8 20.41c-.37.38-.88.59-1.41.59H3z" fill="currentColor"/></symbol>
+      <symbol id="ic-saw" viewBox="0 0 24 24"><path d="M2 19l3.5-3.5 1.5 1.5L9 15l-1.5-1.5L9 12l1.5 1.5L12 12l-1.5-1.5L12 9l1.5 1.5L15 9l-1.5-1.5L15 6l3.5 3.5L9 19H2z" fill="currentColor"/></symbol>
+      <symbol id="ic-ruler" viewBox="0 0 24 24"><path d="M21 6.41L17.59 3l-15 15L6 21.41 21 6.41zM5.21 17.07l11.8-11.8 1.7 1.7-1.4 1.4-.86-.85-.7.7.85.86-1.4 1.4-.86-.85-.7.7.85.86-1.4 1.4-.86-.85-.7.7.85.86-1.4 1.4z" fill="currentColor"/></symbol>
+      <symbol id="ic-hardhat" viewBox="0 0 24 24"><path d="M5 18v-2h14v2H5zm6.5-13c-3.59 0-6.5 2.91-6.5 6.5V14h13v-2.5C18 7.91 15.09 5 11.5 5zM10 7h3v4h-3V7z" fill="currentColor"/></symbol>
+      <symbol id="ic-drill" viewBox="0 0 24 24"><path d="M21 7h-3V5h-2v2H8v6h8v2h-2v6h-2v-6H8v6H6v-6c-1.1 0-2-.9-2-2V7c0-1.1.9-2 2-2h12c1.1 0 2 .9 2 2v2z" fill="currentColor"/></symbol>
+      <symbol id="ic-trowel" viewBox="0 0 24 24"><path d="M14 2L6 10v9l3-3 3 3v-6l8-8-6-3z" fill="currentColor"/></symbol>
+      <symbol id="ic-roller" viewBox="0 0 24 24"><path d="M18 2H4c-1.1 0-2 .9-2 2v4h16V6h2c1.1 0 2-.9 2-2s-.9-2-2-2zM2 10v2h11v8h2v-8c0-1.1-.9-2-2-2H2z" fill="currentColor"/></symbol>
+    </defs>
+  </svg>
+
+  <div class="space-y-12">
+
+    <!-- ============================================ -->
+    <!-- Option A — Subtle scattered icons           -->
+    <!-- ============================================ -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-indigo-700 mb-2">Option A &middot; Subtle scattered tool icons</div>
+      <h3 class="text-xl font-extrabold mb-3">"Faded line icons sprinkled around the page edges."</h3>
+      <p class="text-sm text-slate-600 mb-5 max-w-3xl">8 hand-picked construction icons (hammer, wrench, paintbrush, saw, hardhat, trowel, drill, roller) placed in the page corners and gutters at 16% opacity in indigo. Stays out of the way of content; just hints at the trade context.</p>
+
+      <div class="browser">
+        <div class="browser-bar"><span class="bg-red-400"></span><span class="bg-amber-400"></span><span class="bg-emerald-400"></span><div class="ml-3 text-xs text-slate-500">localhost:3000/projects/6</div></div>
+        <div class="relative h-[600px] overflow-hidden bg-[#fef6e9]">
+          <!-- scattered icons -->
+          <div class="scatter text-indigo-700" style="top:60px;left:50px;width:42px;height:42px;transform:rotate(-12deg)"><svg><use href="#ic-hammer"/></svg></div>
+          <div class="scatter text-indigo-700" style="top:120px;right:60px;width:48px;height:48px;transform:rotate(8deg)"><svg><use href="#ic-wrench"/></svg></div>
+          <div class="scatter text-indigo-700" style="top:280px;left:30px;width:38px;height:38px;transform:rotate(-22deg)"><svg><use href="#ic-paintbrush"/></svg></div>
+          <div class="scatter text-indigo-700" style="bottom:200px;right:40px;width:44px;height:44px;transform:rotate(20deg)"><svg><use href="#ic-saw"/></svg></div>
+          <div class="scatter text-indigo-700" style="bottom:80px;left:60px;width:40px;height:40px;transform:rotate(15deg)"><svg><use href="#ic-hardhat"/></svg></div>
+          <div class="scatter text-indigo-700" style="top:380px;left:140px;width:34px;height:34px;transform:rotate(-30deg)"><svg><use href="#ic-trowel"/></svg></div>
+          <div class="scatter text-indigo-700" style="top:200px;right:160px;width:36px;height:36px;transform:rotate(45deg)"><svg><use href="#ic-drill"/></svg></div>
+          <div class="scatter text-indigo-700" style="bottom:300px;right:200px;width:38px;height:38px;transform:rotate(-15deg)"><svg><use href="#ic-roller"/></svg></div>
+
+          <!-- mocked page content -->
+          <div class="relative px-6 pt-4">
+            <div class="text-center mb-3">
+              <div class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-indigo-700">Your shortlist</div>
+              <div class="text-[20px] font-black tracking-tight">Pick your <span class="caveat text-indigo-600" style="font-size:120%">tradesperson</span></div>
+            </div>
+            <div class="grid grid-cols-[280px_1fr] gap-6">
+              <div class="space-y-3">
+                <div class="bg-white border border-amber-100 rounded-3xl p-4 shadow-sm h-32"></div>
+                <div class="bg-white border-2 border-indigo-400 rounded-3xl p-4 shadow-md h-44"></div>
+              </div>
+              <div class="bg-white border border-amber-100 rounded-3xl shadow-sm h-[420px] flex items-center justify-center text-slate-400 text-sm">Empty state card</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================ -->
+    <!-- Option B — Dotted grid pattern              -->
+    <!-- ============================================ -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-indigo-700 mb-2">Option B &middot; Dotted grid + small icons</div>
+      <h3 class="text-xl font-extrabold mb-3">"Soft dot pattern across the whole page, with a few tool icons floating on top."</h3>
+      <p class="text-sm text-slate-600 mb-5 max-w-3xl">Adds gentle texture (dotted grid) so the cream backdrop isn't flat, with 3-4 tool icons floating in. More texture than A, less busy than C. Reads as "professional / planned" rather than "scrapbook".</p>
+
+      <div class="browser">
+        <div class="browser-bar"><span class="bg-red-400"></span><span class="bg-amber-400"></span><span class="bg-emerald-400"></span><div class="ml-3 text-xs text-slate-500">localhost:3000/projects/6</div></div>
+        <div class="relative h-[600px] overflow-hidden bg-B">
+          <div class="scatter text-indigo-700" style="top:80px;left:80px;width:42px;height:42px;transform:rotate(-12deg);opacity:0.18"><svg><use href="#ic-hammer"/></svg></div>
+          <div class="scatter text-indigo-700" style="top:140px;right:80px;width:46px;height:46px;transform:rotate(8deg);opacity:0.18"><svg><use href="#ic-paintbrush"/></svg></div>
+          <div class="scatter text-indigo-700" style="bottom:140px;left:100px;width:40px;height:40px;transform:rotate(15deg);opacity:0.18"><svg><use href="#ic-hardhat"/></svg></div>
+          <div class="scatter text-indigo-700" style="bottom:90px;right:90px;width:44px;height:44px;transform:rotate(-20deg);opacity:0.18"><svg><use href="#ic-wrench"/></svg></div>
+
+          <div class="relative px-6 pt-4">
+            <div class="text-center mb-3">
+              <div class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-indigo-700">Your shortlist</div>
+              <div class="text-[20px] font-black tracking-tight">Pick your <span class="caveat text-indigo-600" style="font-size:120%">tradesperson</span></div>
+            </div>
+            <div class="grid grid-cols-[280px_1fr] gap-6">
+              <div class="space-y-3">
+                <div class="bg-white border border-amber-100 rounded-3xl p-4 shadow-sm h-32"></div>
+                <div class="bg-white border-2 border-indigo-400 rounded-3xl p-4 shadow-md h-44"></div>
+              </div>
+              <div class="bg-white border border-amber-100 rounded-3xl shadow-sm h-[420px] flex items-center justify-center text-slate-400 text-sm">Empty state card</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================ -->
+    <!-- Option C — Bigger colourful illustrations   -->
+    <!-- ============================================ -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-indigo-700 mb-2">Option C &middot; Bigger colour illustrations</div>
+      <h3 class="text-xl font-extrabold mb-3">"Larger filled illustrations in the corners, in soft amber + indigo."</h3>
+      <p class="text-sm text-slate-600 mb-5 max-w-3xl">More expressive: 4 large filled illustrations (paint roller, hardhat with tools, blueprint stack, paint splash) anchored in the page corners. Uses both amber and indigo at higher opacity. Friendly and warm; risks competing with content.</p>
+
+      <div class="browser">
+        <div class="browser-bar"><span class="bg-red-400"></span><span class="bg-amber-400"></span><span class="bg-emerald-400"></span><div class="ml-3 text-xs text-slate-500">localhost:3000/projects/6</div></div>
+        <div class="relative h-[600px] overflow-hidden bg-[#fef6e9]">
+          <!-- top-left: hardhat + paintbrush bundle in amber -->
+          <div class="absolute" style="top:30px;left:20px;width:140px;height:140px;opacity:0.55">
+            <svg viewBox="0 0 200 200" class="w-full h-full">
+              <circle cx="100" cy="100" r="70" fill="#fde68a"/>
+              <g transform="translate(100,100) rotate(-8)" fill="#d97706">
+                <use href="#ic-hardhat" x="-50" y="-50" width="100" height="100"/>
+              </g>
+            </svg>
+          </div>
+          <!-- top-right: paintbrush in indigo -->
+          <div class="absolute" style="top:50px;right:30px;width:120px;height:120px;opacity:0.50">
+            <svg viewBox="0 0 200 200" class="w-full h-full">
+              <circle cx="100" cy="100" r="60" fill="#c7d2fe"/>
+              <g fill="#4338ca">
+                <use href="#ic-paintbrush" x="50" y="50" width="100" height="100"/>
+              </g>
+            </svg>
+          </div>
+          <!-- bottom-left: drill -->
+          <div class="absolute" style="bottom:40px;left:30px;width:130px;height:130px;opacity:0.45">
+            <svg viewBox="0 0 200 200" class="w-full h-full">
+              <circle cx="100" cy="100" r="65" fill="#fed7aa"/>
+              <g fill="#c2410c">
+                <use href="#ic-drill" x="50" y="50" width="100" height="100"/>
+              </g>
+            </svg>
+          </div>
+          <!-- bottom-right: ruler + saw bundle -->
+          <div class="absolute" style="bottom:60px;right:40px;width:140px;height:140px;opacity:0.50">
+            <svg viewBox="0 0 200 200" class="w-full h-full">
+              <circle cx="100" cy="100" r="68" fill="#c7d2fe"/>
+              <g fill="#4338ca">
+                <use href="#ic-saw" x="50" y="50" width="100" height="100"/>
+              </g>
+            </svg>
+          </div>
+
+          <div class="relative px-6 pt-4">
+            <div class="text-center mb-3">
+              <div class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-indigo-700">Your shortlist</div>
+              <div class="text-[20px] font-black tracking-tight">Pick your <span class="caveat text-indigo-600" style="font-size:120%">tradesperson</span></div>
+            </div>
+            <div class="grid grid-cols-[280px_1fr] gap-6">
+              <div class="space-y-3">
+                <div class="bg-white border border-amber-100 rounded-3xl p-4 shadow-sm h-32"></div>
+                <div class="bg-white border-2 border-indigo-400 rounded-3xl p-4 shadow-md h-44"></div>
+              </div>
+              <div class="bg-white border border-amber-100 rounded-3xl shadow-sm h-[420px] flex items-center justify-center text-slate-400 text-sm">Empty state card</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================ -->
+    <!-- Option D — Blueprint grid background        -->
+    <!-- ============================================ -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-indigo-700 mb-2">Option D &middot; Blueprint grid + faint icons</div>
+      <h3 class="text-xl font-extrabold mb-3">"Architect's blueprint grid, with measuring rule and trowel as accent icons."</h3>
+      <p class="text-sm text-slate-600 mb-5 max-w-3xl">Faint indigo grid lines (40px squares) evoke a blueprint/plan, with a couple of architectural-feeling icons (ruler, trowel) tucked in. Cleanest of the four; reads as "we plan things properly". Best if you want texture without iconography noise.</p>
+
+      <div class="browser">
+        <div class="browser-bar"><span class="bg-red-400"></span><span class="bg-amber-400"></span><span class="bg-emerald-400"></span><div class="ml-3 text-xs text-slate-500">localhost:3000/projects/6</div></div>
+        <div class="relative h-[600px] overflow-hidden bg-D">
+          <div class="scatter text-indigo-700" style="top:60px;right:60px;width:50px;height:50px;transform:rotate(-12deg);opacity:0.20"><svg><use href="#ic-ruler"/></svg></div>
+          <div class="scatter text-indigo-700" style="bottom:90px;left:60px;width:46px;height:46px;transform:rotate(15deg);opacity:0.20"><svg><use href="#ic-trowel"/></svg></div>
+
+          <div class="relative px-6 pt-4">
+            <div class="text-center mb-3">
+              <div class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-indigo-700">Your shortlist</div>
+              <div class="text-[20px] font-black tracking-tight">Pick your <span class="caveat text-indigo-600" style="font-size:120%">tradesperson</span></div>
+            </div>
+            <div class="grid grid-cols-[280px_1fr] gap-6">
+              <div class="space-y-3">
+                <div class="bg-white border border-amber-100 rounded-3xl p-4 shadow-sm h-32"></div>
+                <div class="bg-white border-2 border-indigo-400 rounded-3xl p-4 shadow-md h-44"></div>
+              </div>
+              <div class="bg-white border border-amber-100 rounded-3xl shadow-sm h-[420px] flex items-center justify-center text-slate-400 text-sm">Empty state card</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="mt-16 mb-4 text-sm text-slate-600 max-w-3xl">
+    <p class="font-bold mb-2">Notes</p>
+    <ul class="list-disc list-inside space-y-1 text-[13px]">
+      <li><strong>A</strong> is the lightest touch - 8 line icons at 16% opacity. Easy to ignore, never competes.</li>
+      <li><strong>B</strong> is dot-pattern + a few icons. Adds texture so the page reads "designed", not "blank".</li>
+      <li><strong>C</strong> is the most expressive - rounded coloured medallions in the corners. Friendly, but loudest.</li>
+      <li><strong>D</strong> is blueprint grid - clean, architectural, calm. Hints at construction without illustrations.</li>
+    </ul>
+    <p class="mt-3 text-[13px]">My recommendation: <strong>A</strong> as primary, with the optional dotted grid from <strong>B</strong> as a backdrop layer. Gives the page texture + theme without ever competing with the swipe deck or chat dock.</p>
+  </div>
+
+</div>
+
+</body>
+</html>
