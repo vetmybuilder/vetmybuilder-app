@@ -96,3 +96,7 @@ project-vault/
 .superpowers/
 docs/
 e2e-tests/test-results-pw-ui-1/
+
+# Local-only design exploration mocks - never committed.
+# Anything under web/pages/mocks/ is throwaway page-level mock work.
+web/pages/mocks/

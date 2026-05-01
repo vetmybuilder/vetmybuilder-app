@@ -37,7 +37,13 @@ async function fireMatchFormed({ projectId, mysqlQuery, ctx }) {
     const detail = detailRows?.[0];
     if (!detail) return;
 
-    const homeownerLinkPath = `/match/${detail.matchId}`;
+    // Homeowner notification deep-links to the project page with an
+    // openChat hand-off so the bottom messaging dock pops the chat
+    // window straight away (web/pages/projects/[id].tsx reads the
+    // ?openChat= query and dispatches `vmb:openChat`). Skips the
+    // separate /match/:matchId celebration screen for the click-through
+    // path - that page still exists for the MatchCelebrationToast flow.
+    const homeownerLinkPath = `/projects/${detail.projectId}?openChat=${detail.matchId}`;
     const tradesmanLinkPath = `/chat/${detail.matchId}`;
     const homeownerMessage = `🎉 You matched with ${detail.tradesmanName} on "${detail.projectName}"`;
     const tradesmanMessage = `🎉 You matched with a homeowner on "${detail.projectName}"`;

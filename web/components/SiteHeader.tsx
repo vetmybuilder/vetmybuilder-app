@@ -7,9 +7,7 @@ import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
 import { useMobileMenu } from "@/utils/mobileMenu";
 import BrandWordmark from "@/components/BrandWordmark";
-import MessagesDropdown, {
-  placeholderUnreadCount,
-} from "@/components/MessagesDropdown";
+import InboxDropdown, { useInboxUnread } from "@/components/InboxDropdown";
 
 // Owner project tabs - rendered in the centre of the header for any
 // signed-in homeowner. Clicking a tab from anywhere routes to /projects
@@ -301,7 +299,10 @@ export default function SiteHeader() {
     );
   }
 
-  const messagesUnread = placeholderUnreadCount();
+  // Combined unread count across Messages + Activity tabs of the inbox.
+  // Only fetched for signed-in homeowners (the only viewers who see the
+  // inbox icon).
+  const { total: inboxUnread } = useInboxUnread(!!displayUser && !isTrades);
 
   /* ========= 1) SIMPLE HOMEPAGE HEADER ========= */
   if (isHome) {
@@ -545,16 +546,16 @@ export default function SiteHeader() {
                     className="relative inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-amber-100 transition-colors"
                   >
                     <MessageSquare className="h-5 w-5 text-slate-600" />
-                    {messagesUnread > 0 && (
+                    {inboxUnread > 0 && (
                       <span className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-indigo-600 text-white text-[10px] font-bold px-1 ring-2 ring-stone-50">
-                        {messagesUnread}
+                        {inboxUnread > 99 ? "99+" : inboxUnread}
                       </span>
                     )}
                   </button>
 
                   {openMenu === "messages" && (
                     <div ref={menuRef}>
-                      <MessagesDropdown onClose={() => setOpenMenu(null)} />
+                      <InboxDropdown onClose={() => setOpenMenu(null)} />
                     </div>
                   )}
                 </div>

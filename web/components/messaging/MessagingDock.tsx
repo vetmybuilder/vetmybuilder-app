@@ -1,10 +1,17 @@
 // web/components/messaging/MessagingDock.tsx
 //
-// LinkedIn-style messaging dock for desktop homeowner pages.
-// - Collapsed: small pill at bottom-right showing "Messaging" + unread badge
-// - Expanded: pill grows UP into a 320x500 inbox panel listing matches
+// LinkedIn-style messaging dock for the homeowner project detail page.
+// - Collapsed: small pill at bottom-right showing "Chats on this job" + unread badge
+// - Expanded: pill grows UP into a 320x500 inbox panel listing the
+//   matches *for this project only*
 // - Click a row: opens a ChatWindow floating to the LEFT of the dock
 // - Multiple ChatWindows stack horizontally, dock stays anchored right
+//
+// Project-scoped: the underlying /api/matches call returns matches across
+// all projects, but the dock filters to the current project (router
+// query id). The header inbox icon is the global view; the dock is the
+// contextual quick-access for the project the user is currently viewing.
+// Hidden entirely when there are no matches for this project.
 //
 // Mobile is hidden entirely (`hidden md:block`); mobile uses the
 // existing /matches list + /chat/:id full-page view.
@@ -168,10 +175,27 @@ export default function MessagingDock() {
     });
   }
 
-  // Sort: unread first, then most recent message
+  // Project the dock is contextually scoped to. _app.tsx only mounts the
+  // dock on /projects/[id], so router.query.id is always present here -
+  // but we coerce defensively in case the route ever changes.
+  const currentProjectId = useMemo(() => {
+    const raw = router.query?.id;
+    const v = Array.isArray(raw) ? raw[0] : raw;
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }, [router.query?.id]);
+
+  // Sort: unread first, then most recent message. Filter to ACTIONABLE
+  // statuses AND to the current project only - the global inbox up in
+  // the header is what shows everything across projects.
   const sortedMatches = useMemo(() => {
     return [...matches]
       .filter((m) => m.status === "matched" || m.status === "contacted")
+      .filter(
+        (m) =>
+          currentProjectId == null ||
+          Number(m.projectId) === currentProjectId,
+      )
       .sort((a, b) => {
         const aUnread = a.unreadCount > 0 ? 0 : 1;
         const bUnread = b.unreadCount > 0 ? 0 : 1;
@@ -184,14 +208,22 @@ export default function MessagingDock() {
           : 0;
         return bt - at;
       });
-  }, [matches]);
+  }, [matches, currentProjectId]);
 
   const totalUnread = sortedMatches.reduce(
     (sum, m) => sum + (m.unreadCount || 0),
     0,
   );
 
+  // Project title pulled from the first match for this project. Falls
+  // back to a generic label if we can't read it from a row.
+  const projectTitle =
+    sortedMatches.find((m) => m.projectTitle)?.projectTitle || "this job";
+
+  // Hide entirely when there's nothing to show. The global inbox in the
+  // header is still available for everything else.
   if (hidden || authLoading || !user) return null;
+  if (sortedMatches.length === 0 && openWindows.length === 0) return null;
 
   return (
     <>
@@ -225,10 +257,11 @@ export default function MessagingDock() {
               style={{ backgroundImage: "linear-gradient(135deg, #6366f1, #4f46e5)" }}
             >
               <span
-                className="text-[14px] font-extrabold tracking-tight"
+                className="text-[14px] font-extrabold tracking-tight truncate max-w-[220px]"
                 style={{ fontFamily: "'Sora', sans-serif" }}
+                title={`Chats - ${projectTitle}`}
               >
-                Messaging
+                Chats - {projectTitle}
                 {totalUnread > 0 && (
                   <span className="ml-2 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-white text-indigo-700 text-[10px] font-black">
                     {totalUnread}
@@ -327,7 +360,7 @@ export default function MessagingDock() {
                 className="text-[14px] font-extrabold tracking-tight"
                 style={{ fontFamily: "'Sora', sans-serif" }}
               >
-                Messaging
+                Chats on this job
               </span>
               {totalUnread > 0 && (
                 <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-white text-indigo-700 text-[10px] font-black">

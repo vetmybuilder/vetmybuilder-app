@@ -1,12 +1,16 @@
 // web/pages/matches.tsx
 //
-// Homeowner-side conversation list. WhatsApp / iMessage style: one row per
-// match, last message preview, timestamp, unread dot, filter pills replacing
-// the old tabs. Visual target lives in
-// web/public/mocks/matches-redesign.html (Option A).
+// Homeowner inbox.
+//
+// - Mobile (<md): WhatsApp/iMessage-style fullscreen list - the original
+//   MatchesPageInner below, untouched.
+// - Desktop (>=md): two-pane inbox with Messages and Activity tabs,
+//   rendered through Layout so the global header chrome shows. Lives
+//   in web/components/messaging/DesktopInbox.tsx.
 //
 // Tradesmen who land here get bounced to /tradesman/matches because
 // /api/matches filters by p.ownerUserId.
+import Head from "next/head";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useApi } from "@/utils/api";
@@ -15,6 +19,9 @@ import EnableNotificationsBanner from "@/components/EnableNotificationsBanner";
 import { useMobileMenu } from "@/utils/mobileMenu";
 import { useRole } from "@/utils/useRole";
 import { useAuth } from "@/utils/auth";
+import Layout from "@/components/Layout";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
+import DesktopInbox from "@/components/messaging/DesktopInbox";
 
 type MatchStatus = "waiting" | "matched";
 type MatchSource = "recommended" | "ai-matched" | "paid-unlock";
@@ -602,7 +609,29 @@ function MatchesPageInner() {
 export default function MatchesPage() {
   return (
     <AuthedOnly>
-      <MatchesPageInner />
+      {/* Mobile: existing fullscreen WhatsApp-style list. The inner
+          <main> uses fixed inset-0; wrapping in md:hidden removes it
+          from the desktop render entirely. */}
+      <div className="md:hidden">
+        <MatchesPageInner />
+      </div>
+
+      {/* Desktop: new two-pane inbox inside the standard Layout chrome
+          (SiteHeader, cream bg, watermark) so /matches looks like the
+          rest of the homeowner pages. */}
+      <div className="hidden md:block">
+        <Head>
+          <style>{`body { background: #fef6e9 !important; }`}</style>
+        </Head>
+        <Layout>
+          <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-12 relative overflow-hidden">
+            <BrandWatermarkScatter />
+            <div className="relative z-10">
+              <DesktopInbox />
+            </div>
+          </div>
+        </Layout>
+      </div>
     </AuthedOnly>
   );
 }

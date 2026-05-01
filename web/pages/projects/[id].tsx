@@ -109,6 +109,37 @@ function ProjectSwipeDesktop({
     return () => { alive = false; };
   }, [projectId, api]);
 
+  // ?openChat=<matchId> hand-off from the global header inbox. When the
+  // user clicks a thread that belongs to this project (and they weren't
+  // already on this page), the inbox dropdown navigates here with that
+  // query param. We dispatch the dock's open event and strip the param
+  // so it doesn't re-fire on a refresh. Small timeout so the dock has a
+  // chance to mount and bind its event listener.
+  useEffect(() => {
+    const raw = router.query?.openChat;
+    const v = Array.isArray(raw) ? raw[0] : raw;
+    const matchId = Number(v);
+    if (!Number.isFinite(matchId) || matchId <= 0) return;
+
+    const t = setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("vmb:openChat", { detail: { matchId } }),
+      );
+    }, 100);
+
+    const { openChat: _drop, ...rest } = router.query;
+    router.replace(
+      { pathname: router.pathname, query: rest },
+      undefined,
+      { shallow: true },
+    );
+
+    return () => clearTimeout(t);
+    // Intentionally only watching openChat - the rest of router.query
+    // changes shouldn't re-trigger this hand-off.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.query?.openChat]);
+
 
   // Real-time deck update: a tradesperson just paid the per-project
   // unlock fee for this job. Refetch matches so the new card flows

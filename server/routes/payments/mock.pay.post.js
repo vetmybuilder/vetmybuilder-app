@@ -182,7 +182,12 @@ module.exports = (router, ctx) => {
             const companyName = tRows?.[0]?.company_name || "A tradesperson";
 
             try {
-              const linkPath = `/projects/${projectId}`;
+              // Click-through goes to the tradesperson's profile so the
+              // homeowner can review who paid to pitch (their photos,
+              // verified status, etc.) before deciding to engage. The
+              // ?projectId= param keeps the project context for any
+              // back-link/breadcrumb the profile renders.
+              const linkPath = `/tradesman/${uid}?projectId=${projectId}`;
               const notifMessage = `${companyName} wants to work on your project`;
               await mysqlQuery(
                 `INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
