@@ -213,7 +213,13 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     "/projects/[id]/recommendations/[recId]",
     "/tradesman/[id]",
     "/builders/[id]",
+    "/mocks/tradesman",
+    "/mocks/favourites",
+    "/mocks/header-v1",
+    "/mocks/header-v2",
+    "/mocks/header-v3",
     "/account",
+    "/favourites",
     "/feedback",
     "/tradesman/register-tradesmen",
     "/tradesman/signup/complete",
@@ -276,8 +282,11 @@ export default function MyApp({ Component, pageProps }: AppProps) {
 
       {/* LinkedIn-style messaging dock: bottom-right pill that expands
           into a conversation list and floats individual chat windows.
-          Desktop only - mobile uses /matches + /chat/:id full pages. */}
-      <MessagingDock />
+          Desktop only - mobile uses /matches + /chat/:id full pages.
+          Scoped to the project detail page only - that's the one place
+          where homeowners actively manage conversations with shortlisted
+          tradespeople, so the dock would be visual noise everywhere else. */}
+      {router.pathname === "/projects/[id]" && <MessagingDock />}
 
       {/* Global modal portal target (for SignUpGate, etc.) */}
       <div id="modal-root" />

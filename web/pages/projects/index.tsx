@@ -20,6 +20,7 @@ import RecommendationsListMobile from "@/components/tradesmen/RecommendationsLis
 import PushPrompt from "@/components/PushPrompt";
 import { Home, Heart, FolderOpen, Shield, Building2, Star, Lightbulb, ChevronDown, ChevronUp, Plus, CheckCircle2 } from "lucide-react";
 import Layout from "@/components/Layout";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import ProjectsListMobile, {
   type MobileTab,
   type MobileProject,
@@ -653,19 +654,24 @@ function OwnerProjects() {
     <Head>
       <style>{`body { background: #fef6e9 !important; }`}</style>
     </Head>
-    <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-12">
+    <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-12 relative overflow-hidden">
+      <BrandWatermarkScatter />
       <div
-        className="mx-auto max-w-7xl px-6 lg:px-8 pt-6"
+        className="mx-auto max-w-7xl px-6 lg:px-8 pt-3 relative z-10"
         data-testid="projects-page"
       >
 
-        {/* TOOLBAR - title + tabs + filters + Post-a-Job */}
+        {/* TOOLBAR + Safety section are job-specific - hidden when the
+            user is on the Favourites or Recommendations tab, both of
+            which render their own self-contained heading + content. */}
+        {tab !== "favourites" && tab !== "recommendations" && (
+        <>
         <div className="bg-white rounded-2xl border border-amber-100 shadow-sm px-4 py-3 mb-5 flex items-center gap-4 flex-wrap">
           <h1
             className="text-xl font-black tracking-tight text-slate-900"
             style={{ fontFamily: "'Sora', sans-serif" }}
           >
-            My{" "}
+            {tab === "completed" || tab === "completedCommunity" ? "Completed " : "My "}
             <span
               className="text-indigo-600"
               style={{ fontFamily: "'Caveat', cursive", fontSize: "120%" }}
@@ -674,71 +680,20 @@ function OwnerProjects() {
             </span>
           </h1>
 
-          <div className="h-6 w-px bg-amber-200 hidden lg:block" />
-
-          {/* Tabs */}
-          <div className="inline-flex rounded-full bg-amber-50 p-1">
-            {[
-              { key: "mine" as OwnerTab, label: "Live" },
-              { key: "completed" as OwnerTab, label: "Completed" },
-              { key: "favourites" as OwnerTab, label: "Favourites" },
-              { key: "recommendations" as OwnerTab, label: "Recommendations" },
-            ].map((t) => {
-              const active = tab === t.key;
-              return (
-                <button
-                  key={t.key}
-                  type="button"
-                  onClick={() =>
-                    router.push(
-                      { pathname: "/projects", query: { tab: t.key } },
-                      undefined,
-                      { shallow: true },
-                    )
-                  }
-                  className={`rounded-full px-3 py-1 text-[12.5px] font-bold transition-colors ${
-                    active
-                      ? "text-white shadow-sm"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                  style={
-                    active
-                      ? { background: "linear-gradient(135deg,#6366f1,#4f46e5)" }
-                      : {}
-                  }
-                >
-                  {t.label}
-                </button>
-              );
-            })}
-          </div>
-
           <div className="flex-1" />
 
           {/* Filters */}
-          {tab !== "favourites" && tab !== "recommendations" && (
-            <ProjectFilters
-              typeOptions={typeOptions}
-              statusOptions={statusOptions as any}
-              items={items as any}
-              value={{ type: chipType, status: chipStatus }}
-              onChange={(next: ProjectFiltersValue) => {
-                setChipType(next.type);
-                setChipStatus(next.status);
-              }}
-            />
-          )}
+          <ProjectFilters
+            typeOptions={typeOptions}
+            statusOptions={statusOptions as any}
+            items={items as any}
+            value={{ type: chipType, status: chipStatus }}
+            onChange={(next: ProjectFiltersValue) => {
+              setChipType(next.type);
+              setChipStatus(next.status);
+            }}
+          />
 
-          {/* Post a Job */}
-          <Link
-            href="/projects/new"
-            className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-extrabold text-white shadow-md hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] transition-all"
-            style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
-            data-testid="btn-post-a-job"
-          >
-            <Plus className="h-4 w-4" />
-            Post a job
-          </Link>
         </div>
 
         {/* SAFETY & VERIFICATION - kept, brand-toned to amber/emerald cream palette */}
@@ -800,6 +755,8 @@ function OwnerProjects() {
             )}
           </div>
         </section>
+        </>
+        )}
 
         {/* Main content */}
         {tab === "favourites" ? (
@@ -868,14 +825,27 @@ function OwnerProjects() {
                 {loading && [...Array(4)].map((_, i) => <SkeletonCard key={`skc-${i}`} />)}
                 {items.length === 0 && !loading && (
                   <div className="col-span-full" data-testid="projects-empty">
-                    <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm flex flex-col items-center justify-center py-20 px-6 text-center">
-                      <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-zinc-100">
-                        <FolderOpen className="h-10 w-10 text-zinc-400" />
+                    <div className="rounded-3xl bg-white border border-amber-100 shadow-sm px-6 py-12 text-center">
+                      <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 mx-auto mb-4">
+                        <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+                      </span>
+                      <div
+                        className="text-[16px] font-black tracking-tight text-slate-900"
+                        style={{ fontFamily: "'Sora', sans-serif" }}
+                      >
+                        No completed jobs yet
                       </div>
-                      <h3 className="mb-2 text-lg font-semibold text-zinc-900">No completed projects yet</h3>
-                      <p className="max-w-sm text-sm text-zinc-500">
-                        Projects you mark as complete will appear here.
+                      <p className="mt-1.5 text-[13px] text-slate-500 leading-relaxed max-w-md mx-auto">
+                        Once a job is wrapped up and marked as complete, it'll
+                        live here as a record of work done by your community.
                       </p>
+                      <Link
+                        href="/projects?tab=mine"
+                        className="mt-5 inline-flex items-center justify-center rounded-full px-5 py-2.5 text-[13px] font-extrabold text-white shadow-sm hover:shadow-md transition-all"
+                        style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
+                      >
+                        View live jobs
+                      </Link>
                     </div>
                   </div>
                 )}
@@ -944,6 +914,18 @@ function OwnerProjects() {
       {showPushPrompt && (
         <PushPrompt onComplete={() => setShowPushPrompt(false)} />
       )}
+
+      {/* Floating Post-a-Job button: fixed bottom-right of the viewport so
+          it's always reachable while the user scrolls a long jobs list. */}
+      <Link
+        href="/projects/new"
+        className="fixed bottom-6 right-6 z-30 inline-flex items-center gap-2 rounded-full pl-5 pr-6 py-3 text-sm font-extrabold text-white shadow-xl hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all"
+        style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
+        data-testid="btn-post-a-job"
+      >
+        <Plus className="h-5 w-5" />
+        Post a job
+      </Link>
     </div>
         </Layout>
       </div>

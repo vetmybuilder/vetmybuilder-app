@@ -46,11 +46,11 @@ const Menu: React.FC<{ label: string; children: React.ReactNode }> = ({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-2 rounded-xl px-4 py-2 border bg-white text-slate-900 border-slate-200 shadow-sm hover:bg-slate-50 transition-colors"
+        className="inline-flex items-center gap-1.5 rounded-full border border-amber-100 bg-amber-50 px-3 py-1 text-[12.5px] font-bold text-slate-700 hover:text-slate-900 hover:bg-amber-100/70 transition-colors"
       >
-        <span className="font-semibold">{label}</span>
+        <span>{label}</span>
         <svg
-          className="h-4 w-4"
+          className="h-3.5 w-3.5 text-slate-400"
           viewBox="0 0 20 20"
           fill="currentColor"
           aria-hidden
@@ -61,7 +61,7 @@ const Menu: React.FC<{ label: string; children: React.ReactNode }> = ({
 
       {open && (
         <div
-          className="absolute left-0 mt-2 max-w-[calc(100vw-32px)] rounded-xl border border-slate-200 bg-white shadow-lg p-2 z-20 max-h-[60vh] overflow-y-auto"
+          className="absolute right-0 mt-2 max-w-[calc(100vw-32px)] rounded-xl border border-slate-200 bg-white shadow-lg p-2 z-20 max-h-[60vh] overflow-y-auto"
           style={{ minWidth: "260px" }}
           role="menu"
         >
@@ -148,9 +148,9 @@ export default function ProjectFilters({
   const { typeCounts, statusCounts } = useCounts(items);
 
   return (
-    <div className={["mb-4", className].filter(Boolean).join(" ")}>
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="text-white/90 text-[15px] font-medium shrink-0 drop-shadow">Filter by</span>
+    <div className={className}>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-slate-500 text-[12.5px] font-semibold shrink-0">Filter by</span>
 
         {/* Type */}
         <Menu label={value.type ? `Type: ${value.type}` : "Type"}>
@@ -205,7 +205,7 @@ export default function ProjectFilters({
         {(value.type || value.status) && (
           <button
             onClick={() => onChange({ type: "", status: "" })}
-            className="ml-1 text-[13px] text-white/80 hover:text-white underline drop-shadow"
+            className="ml-1 text-[12.5px] font-semibold text-slate-500 hover:text-slate-900 underline"
           >
             Reset
           </button>

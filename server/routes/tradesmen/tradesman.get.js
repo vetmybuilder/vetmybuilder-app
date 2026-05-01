@@ -304,6 +304,7 @@ module.exports = (router, ctx) => {
         serviceAreas,
         avatarUrl,
         gallery,
+        about: row.about || null,
 
         stats: {
           completed: Number(row.wins_count || 0),

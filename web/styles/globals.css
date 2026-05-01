@@ -58,7 +58,13 @@ html {
 html,
 body,
 #__next {
-  height: 100%;
+  /* min-height (not height) so body grows with content. iOS Safari has a
+     long-standing bug where body { height: 100% } + overflow-y: auto traps
+     the scroll on body and refuses to activate it - and inside that
+     constrained body, next/image layers sometimes fail to composite even
+     when positioned correctly. min-height keeps the "background fills the
+     viewport even on short pages" guarantee without locking scroll. */
+  min-height: 100%;
 }
 
 /* Belt-and-braces against accidental horizontal overflow. If any single
@@ -66,8 +72,15 @@ body,
    pixel width, an over-sized image), iOS Safari shrinks the whole page
    to fit - which is the most common cause of a "zoomed in / zoomed out"
    look on mobile after a navigation. We don't lose anything by clipping:
-   nothing in the design legitimately needs to scroll horizontally. */
-html,
+   nothing in the design legitimately needs to scroll horizontally.
+
+   Apply to <body> only, NEVER to <html>. Setting overflow on <html>
+   turns it into a scroll container on iOS Safari; combined with
+   body height/min-height, you get nested scroll containers and iOS
+   refuses to activate touch scroll on either. (Symptom: page won't
+   scroll at all, and next/image hero layers fail to composite. Bug
+   surfaced after this rule was added; reverting the html half fixed
+   it without losing the shrink-to-fit protection.) */
 body {
   overflow-x: hidden;
   overscroll-behavior-x: none;

@@ -1,5 +1,5 @@
 // web/components/Layout.tsx
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import CookieConsent from "react-cookie-consent";
 import dynamic from "next/dynamic";
@@ -10,21 +10,11 @@ const AddToHomeScreenToast = dynamic(
   { ssr: false },
 );
 
-import { getSessionBg } from "@/utils/sessionBackground";
-
 export default function Layout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Start with no URL so SSR and client hydration are identical (no mismatch)
-  const [bgUrl, setBgUrl] = useState<string>("");
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    setBgUrl(getSessionBg());
-  }, []);
-
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
@@ -41,31 +31,6 @@ export default function Layout({
       >
         Skip to content
       </a>
-
-      {/* Full-page background — hidden until image fully loads to prevent flicker */}
-      <div className="pointer-events-none fixed inset-0 -z-10 bg-slate-900">
-        {bgUrl && (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={bgUrl}
-              alt=""
-              aria-hidden="true"
-              fetchPriority="high"
-              decoding="async"
-              onLoad={() => setLoaded(true)}
-              className={`h-full w-full object-cover transition-opacity duration-700 ${
-                loaded ? "opacity-100" : "opacity-0"
-              }`}
-            />
-            <div
-              className={`absolute inset-0 bg-slate-900/15 transition-opacity duration-700 ${
-                loaded ? "opacity-100" : "opacity-0"
-              }`}
-            />
-          </>
-        )}
-      </div>
 
       <SiteHeader />
 

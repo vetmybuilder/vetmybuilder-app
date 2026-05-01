@@ -1,5 +1,7 @@
 // web/components/tradesmen/FavouriteTradesmenSection.tsx
 import * as React from "react";
+import Link from "next/link";
+import { Heart } from "lucide-react";
 import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
 
@@ -108,34 +110,56 @@ export default function FavouriteTradesmenSection() {
       aria-label="Favourite tradesmen"
       data-testid="favourites-tradesmen-section"
     >
-      <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-6">
-        <h2 className="text-lg font-bold tracking-tight text-zinc-900 mb-4">
-          Favourite builders
-        </h2>
+      <div className="pb-3">
+        <h1
+          className="text-3xl font-black tracking-tight text-slate-900"
+          style={{ fontFamily: "'Sora', sans-serif" }}
+        >
+          Favourites
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">
+          {loading
+            ? "Loading…"
+            : items.length === 0
+              ? "Tradespeople you save from your shortlists will appear here."
+              : `${items.length} saved.`}
+        </p>
+      </div>
 
-        {loading && (
-          <p className="text-sm text-zinc-500" data-testid="favourites-loading">
-            Loading favourites&hellip;
+      {error && !loading && (
+        <p className="text-sm text-rose-600" data-testid="favourites-error">
+          {error}
+        </p>
+      )}
+
+      {!loading && !error && items.length === 0 && (
+        <div className="rounded-3xl bg-white border border-amber-100 shadow-sm px-6 py-12 text-center" data-testid="favourites-empty">
+          <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-rose-50 mx-auto mb-4">
+            <Heart className="w-6 h-6 text-rose-500" />
+          </span>
+          <div
+            className="text-[16px] font-black tracking-tight text-slate-900"
+            style={{ fontFamily: "'Sora', sans-serif" }}
+          >
+            Nothing saved yet
+          </div>
+          <p className="mt-1.5 text-[13px] text-slate-500 leading-relaxed max-w-md mx-auto">
+            Tap the heart on any tradesperson&apos;s profile to keep them
+            handy here - perfect for the shortlist you keep coming back to.
           </p>
-        )}
+          <Link
+            href="/projects?tab=mine"
+            className="mt-5 inline-flex items-center justify-center rounded-full px-5 py-2.5 text-[13px] font-extrabold text-white shadow-sm hover:shadow-md transition-all"
+            style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
+          >
+            Open a shortlist
+          </Link>
+        </div>
+      )}
 
-        {error && !loading && (
-          <p className="text-sm text-rose-600" data-testid="favourites-error">
-            {error}
-          </p>
-        )}
-
-        {!loading && !error && items.length === 0 && (
-          <p className="text-sm text-zinc-500" data-testid="favourites-empty">
-            You haven&apos;t saved any builders yet. Tap the &ldquo;Save to
-            favourites&rdquo; button on a builder profile to see them here.
-          </p>
-        )}
-
-        {!loading && !error && items.length > 0 && (
-          <>
-            <p className="text-xs text-zinc-400 mb-3">{items.length} in your favourites</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {!loading && !error && items.length > 0 && (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {items.map((t) => {
                 const isRec = t.kind === "recommendation";
                 const name = t.companyName || t.displayName;
@@ -224,10 +248,9 @@ export default function FavouriteTradesmenSection() {
                   </div>
                 );
               })}
-            </div>
-          </>
-        )}
-      </div>
+          </div>
+        </>
+      )}
     </section>
   );
 }

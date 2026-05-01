@@ -66,6 +66,12 @@ const EMULATOR_USERS = [
     displayName: "Elegant Building Services",
   },
   {
+    localId: "pimlico-plumbers-tradesman-dev",
+    email: "info@pimlicoplumbers.com",
+    password: "password",
+    displayName: "Pimlico Plumbers",
+  },
+  {
     // Chris is both a homeowner (used for the project-side test journeys)
     // and an admin (so admin tools are reachable from the same login).
     // ensureHomeownerProfiles writes the users row first; ensureAdminRole
@@ -273,6 +279,11 @@ async function ensureElegantCanonical() {
       "https://elegantbuilding.co.uk/wp-content/uploads/2024/08/Wall-Stone-1.jpg",
     ];
 
+    const ELEGANT_ABOUT = [
+      "Family-run building firm based in north-east London. We handle full kitchen and bathroom fits, external wall insulation, and end-to-end refurbs across E4 and the surrounding boroughs.",
+      "Most of our work comes from word of mouth — neighbours recommending us to neighbours. We turn up when we say we will, leave the place tidier than we found it, and stand behind the work for a year after we hand the keys back.",
+    ].join("\n\n");
+
     await conn.query(
       `INSERT INTO tradesmen
          (user_id, company_name, contact_name, phone, email,
@@ -284,7 +295,7 @@ async function ensureElegantCanonical() {
           web_url, social_links_json,
           photo_count, supporting_doc_count,
           warranty_months, discount_min_percent, discount_max_percent,
-          offers_discount, profile_picture_url)
+          offers_discount, profile_picture_url, about)
        VALUES (?, 'Elegant Building Services Ltd', 'Adam',
                '07000000000', 'info@elegantbuilding.co.uk',
                ?,
@@ -296,7 +307,7 @@ async function ensureElegantCanonical() {
                'https://elegantbuilding.co.uk/', ?,
                ?, 1,
                12, 0, 5,
-               1, ?)
+               1, ?, ?)
        ON DUPLICATE KEY UPDATE
          company_name = VALUES(company_name),
          trade_types = VALUES(trade_types),
@@ -319,13 +330,15 @@ async function ensureElegantCanonical() {
          discount_min_percent = VALUES(discount_min_percent),
          discount_max_percent = VALUES(discount_max_percent),
          offers_discount = VALUES(offers_discount),
-         profile_picture_url = VALUES(profile_picture_url)`,
+         profile_picture_url = VALUES(profile_picture_url),
+         about = VALUES(about)`,
       [
         ELEGANT_UID,
         ELEGANT_TRADES,
         ELEGANT_SOCIALS,
         ELEGANT_PHOTO_URLS.length,
         ELEGANT_PHOTO_URLS[0],
+        ELEGANT_ABOUT,
       ],
     );
 
@@ -367,6 +380,170 @@ async function ensureElegantCanonical() {
     log("Elegant canonical upserted (with photos + insurance + socials)");
   } catch (err) {
     log(`Elegant upsert skipped: ${err.message}`);
+  } finally {
+    if (conn) {
+      try { await conn.end(); } catch {}
+    }
+  }
+}
+
+// Idempotent upsert of the canonical Pimlico Plumbers tradesman row.
+// Real London plumbing firm (founded 1979, HQ Lambeth/Pimlico). Used as a
+// second seeded tradesperson so the dev environment isn't a one-builder
+// world - useful for testing shortlists, messaging dock, comparison views.
+async function ensurePimlicoCanonical() {
+  const mysql2 = require("mysql2/promise");
+  let conn;
+  try {
+    conn = await mysql2.createConnection({
+      host: process.env.MYSQL_HOST || process.env.TEST_DB_HOST || "localhost",
+      port: Number(process.env.MYSQL_PORT || process.env.TEST_DB_PORT || 3306),
+      user: process.env.MYSQL_USER || process.env.TEST_DB_USER || "root",
+      password: process.env.MYSQL_PASSWORD || process.env.TEST_DB_PASSWORD || "",
+      database:
+        process.env.MYSQL_DATABASE ||
+        process.env.TEST_DB_NAME ||
+        "vetmybuilder_test_s1_4_w0",
+    });
+
+    const PIMLICO_UID = "pimlico-plumbers-tradesman-dev";
+
+    await conn.query(
+      `INSERT INTO users (uid, email, firstName, lastName, username, locationRaw, postcodeOutward, createdAt)
+       VALUES (?, 'info@pimlicoplumbers.com', 'Scott', 'Mullins', 'pimlico.plumbers', 'SE11', 'SE11', NOW())
+       ON DUPLICATE KEY UPDATE
+         firstName = VALUES(firstName),
+         lastName  = VALUES(lastName)`,
+      [PIMLICO_UID],
+    );
+
+    const PIMLICO_TRADES = [
+      "Plumber",
+      "Gas Engineer",
+      "Heating Engineer",
+      "Boiler Installer",
+      "Drainage Specialist",
+      "Bathroom Fitter",
+      "Electrician",
+      "Bathroom Refresh (Partial)",
+      "Bathroom Remodel (Full)",
+      "New Bathroom Installation",
+    ].join(",");
+
+    const PIMLICO_SOCIALS = JSON.stringify([
+      "https://www.facebook.com/PimlicoPlumbers",
+      "https://www.instagram.com/pimlicoplumbers/",
+      "https://twitter.com/pimlicoplumbers",
+      "https://www.linkedin.com/company/pimlico-plumbers/",
+      "https://www.youtube.com/user/PimlicoPlumbersLtd",
+    ]);
+
+    // Local job-image stock photos so the gallery renders without external
+    // network dependency. Swap for real Pimlico portfolio shots if/when
+    // their site exposes stable image URLs.
+    const PIMLICO_PHOTO_URLS = [
+      "/job-images/plumbing.jpg",
+      "/job-images/heating-and-cooling.jpg",
+      "/job-images/bathroom.jpg",
+      "/job-images/kitchen.jpg",
+      "/job-images/electrical.jpg",
+      "/job-images/repairs-and-maintenance.jpg",
+    ];
+
+    const PIMLICO_ABOUT = [
+      "London's largest independent plumbing and heating service. Engineers on call across all 32 boroughs, with a fleet of branded vans and a 24/7 dispatch team for emergencies.",
+      "We've been a family-run firm since 1979 and put every engineer through our in-house training before they get behind the wheel. Plumbing, heating, drains, electrical and bathroom fits — done properly first time.",
+    ].join("\n\n");
+
+    await conn.query(
+      `INSERT INTO tradesmen
+         (user_id, company_name, contact_name, phone, email,
+          trade_types, service_areas,
+          subscription_status, verification_status,
+          company_number, ch_status, ch_name,
+          google_rating, google_reviews_count,
+          vmb_score, vmb_badge, status,
+          web_url, social_links_json,
+          photo_count, supporting_doc_count,
+          warranty_months, discount_min_percent, discount_max_percent,
+          offers_discount, profile_picture_url, about)
+       VALUES (?, 'Pimlico Plumbers Ltd', 'Scott Mullins',
+               '02079288888', 'info@pimlicoplumbers.com',
+               ?,
+               'SE1,SE5,SE11,SE15,SE17,SW1,SW3,SW6,SW7,SW8,SW11,W1,W2,W6,W11,WC1,WC2,EC1,EC2,N1,NW1,NW3,NW8,E1,E2,E8,E14',
+               'free', 'verified',
+               '02437437', 'verified', 'PIMLICO PLUMBERS LIMITED',
+               4.7, 5800,
+               91, 'platinum', 'active',
+               'https://www.pimlicoplumbers.com/', ?,
+               ?, 1,
+               12, 0, 10,
+               1, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         company_name = VALUES(company_name),
+         trade_types = VALUES(trade_types),
+         service_areas = VALUES(service_areas),
+         subscription_status = VALUES(subscription_status),
+         verification_status = VALUES(verification_status),
+         company_number = VALUES(company_number),
+         ch_status = VALUES(ch_status),
+         ch_name = VALUES(ch_name),
+         google_rating = VALUES(google_rating),
+         google_reviews_count = VALUES(google_reviews_count),
+         vmb_score = VALUES(vmb_score),
+         vmb_badge = VALUES(vmb_badge),
+         status = VALUES(status),
+         web_url = VALUES(web_url),
+         social_links_json = VALUES(social_links_json),
+         photo_count = VALUES(photo_count),
+         supporting_doc_count = VALUES(supporting_doc_count),
+         warranty_months = VALUES(warranty_months),
+         discount_min_percent = VALUES(discount_min_percent),
+         discount_max_percent = VALUES(discount_max_percent),
+         offers_discount = VALUES(offers_discount),
+         profile_picture_url = VALUES(profile_picture_url),
+         about = VALUES(about)`,
+      [
+        PIMLICO_UID,
+        PIMLICO_TRADES,
+        PIMLICO_SOCIALS,
+        PIMLICO_PHOTO_URLS.length,
+        PIMLICO_PHOTO_URLS[0],
+        PIMLICO_ABOUT,
+      ],
+    );
+
+    await conn.query(`DELETE FROM tradesmen_photos WHERE tradesman_user_id = ?`, [PIMLICO_UID]);
+    for (let i = 0; i < PIMLICO_PHOTO_URLS.length; i++) {
+      await conn.query(
+        `INSERT INTO tradesmen_photos (tradesman_user_id, url, sort_order)
+         VALUES (?, ?, ?)`,
+        [PIMLICO_UID, PIMLICO_PHOTO_URLS[i], i],
+      );
+    }
+
+    await conn.query(
+      `DELETE FROM builder_subscriptions WHERE user_id = ?`,
+      [PIMLICO_UID],
+    );
+
+    await conn.query(
+      `DELETE FROM tradesmen_insurance_policies WHERE user_id = ?`,
+      [PIMLICO_UID],
+    );
+    await conn.query(
+      `INSERT INTO tradesmen_insurance_policies
+         (user_id, provider, policy_number, coverage_type,
+          public_liability_pennies, certificate_path, verified_status)
+       VALUES (?, 'Placeholder Insurance Co.', 'POL-PIMLICO-DEV-0001',
+               'public_liability', 1000000000,
+               '/seed-files/elegant-insurance-placeholder.pdf', 'queued')`,
+      [PIMLICO_UID],
+    );
+
+    log("Pimlico canonical upserted (with photos + insurance + socials)");
+  } catch (err) {
+    log(`Pimlico upsert skipped: ${err.message}`);
   } finally {
     if (conn) {
       try { await conn.end(); } catch {}
@@ -885,6 +1062,13 @@ function runScript(script, env = {}) {
     await ensureElegantCanonical();
   } catch (e) {
     log(`Warning: failed to upsert Elegant canonical: ${e.message}`);
+  }
+
+  // Always upsert the canonical Pimlico Plumbers tradesman row.
+  try {
+    await ensurePimlicoCanonical();
+  } catch (e) {
+    log(`Warning: failed to upsert Pimlico canonical: ${e.message}`);
   }
 
   // Always upsert the local admin row + role so /admin works after wipe.

@@ -3,18 +3,19 @@ import Head from "next/head";
 import Toast from "@/components/Toast";
 import ReportModal from "@/components/ReportModal";
 import { useRouter } from "next/router";
-import StatPill from "@/components/StatPill";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import AuthedOnly from "@/components/AuthedOnly";
 import Layout from "@/components/Layout";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import TradesmanProfileMobile from "@/components/tradesmen/TradesmanProfileMobile";
 import { useApi } from "@/utils/api";
 import { trackBuilderProfileViewed, trackBuilderFavourited } from "@/utils/analytics";
 import LightboxGallery, { type GalleryImage } from "@/components/LightboxGallery";
 import { platformLabelFor } from "@/utils/reviewLinks";
 import {
-  CheckCircle2, ShieldCheck, Heart,
+  CheckCircle2, ShieldCheck, Heart, ChevronLeft, Sparkles,
+  Phone, Mail, Globe, Flag,
   Hammer, Home, PaintBucket, Layers, Wrench, Bath, Building2,
   Zap, Droplets, Flame, TreePine, Wind, Lightbulb, Shovel,
   HardHat, Ruler, Square, Fence, DoorOpen, Sun,
@@ -90,6 +91,7 @@ type TradesmanDetail = {
   warrantyMonths?: number;
   tradeTypes?: string | null;
   createdAt?: string | null;
+  about?: string | null;
   isFavourite?: boolean | 0 | 1;
   googlePlaceId?: string | null;
   googleRating?: number | null;
@@ -316,163 +318,327 @@ function Inner() {
         />
       </div>
 
-      {/* DESKTOP — unchanged: existing content inside Layout chrome */}
+      {/* DESKTOP - cream backdrop with brand watermark scatter, sticky 300px
+          identity rail + main content column. Matches the visual language
+          of /projects/[id] for consistency across the homeowner journey. */}
       <div className="hidden md:block">
+      <Head>
+        <style>{`body { background: #fef6e9 !important; }`}</style>
+      </Head>
       <Layout>
-      <div className="relative min-h-screen overflow-x-hidden -mt-14" data-testid="tradesman-page">
+      <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-12 relative overflow-hidden" data-testid="tradesman-page">
+        <BrandWatermarkScatter />
 
-        <div className="relative z-10 mx-auto max-w-6xl px-2.5 sm:px-6 lg:px-8 pt-3 sm:pt-10 pb-16 space-y-3 sm:space-y-6">
-
+        <div className="relative z-10 mx-auto max-w-6xl px-6 pt-3">
           {/* Back link */}
           <button
             type="button"
             onClick={() => window.history.length > 1 ? router.back() : router.push(backHref)}
-            className="hidden sm:inline-flex items-center gap-2 mb-3 rounded-xl bg-slate-800/90 backdrop-blur-sm px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition-colors"
+            className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-slate-600 hover:text-slate-900 transition-colors mb-4"
             data-testid="btn-back-to-projects"
           >
-            ← Back to Jobs
+            <ChevronLeft className="w-4 h-4" />
+            <span>Back</span>
           </button>
 
-          {/* Header card */}
-          <header className="relative bg-white rounded-xl sm:rounded-3xl shadow-sm px-3.5 py-4 sm:px-8 sm:py-7">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 pr-10 sm:pr-0">
-              {/* Left: avatar + info */}
-              <div className="flex items-start gap-2.5 sm:gap-5">
-                <div className="h-12 w-12 sm:h-24 sm:w-24 flex-shrink-0 overflow-hidden rounded-lg sm:rounded-2xl bg-zinc-200 grid place-items-center text-base sm:text-xl font-black text-white">
+          <div className="grid lg:grid-cols-[300px_1fr] gap-6 items-start">
+
+            {/* LEFT RAIL */}
+            <aside className="lg:sticky lg:top-20 space-y-4">
+              {/* Identity card with indigo accent border + floating Verified pill */}
+              <div className="bg-white border-2 border-indigo-400 rounded-3xl p-5 shadow-md relative">
+                <span className="absolute -top-2.5 left-5 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white bg-indigo-600 px-2 py-0.5 rounded-full">
+                  Verified
+                </span>
+
+                <button
+                  type="button"
+                  onClick={toggleFavourite}
+                  disabled={favBusy}
+                  aria-pressed={isFavourite}
+                  aria-label={isFavourite ? "Remove from favourites" : "Save to favourites"}
+                  title={isFavourite ? "Saved to favourites" : "Save to favourites"}
+                  className={[
+                    "absolute top-3 right-3 inline-flex items-center justify-center h-9 w-9 rounded-full border transition",
+                    isFavourite
+                      ? "bg-rose-50 border-rose-200 hover:bg-rose-100"
+                      : "bg-amber-50 border-amber-100 hover:bg-amber-100",
+                    favBusy ? "opacity-70 cursor-wait" : "",
+                  ].join(" ")}
+                  data-testid="btn-favourite-tradesman"
+                >
+                  <Heart className={`h-4 w-4 ${isFavourite ? "fill-rose-500 text-rose-500" : "text-zinc-400"}`} />
+                </button>
+
+                <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white text-xl font-black shadow-md overflow-hidden mb-4">
                   {item.avatarUrl ? (
-                    <img src={item.avatarUrl} alt={title} className="h-full w-full object-cover" />
+                    <img src={item.avatarUrl} alt={title} className="w-full h-full object-cover" />
                   ) : (
                     <span>{initials(title)}</span>
                   )}
                 </div>
 
-                <div className="min-w-0">
-                  <h1
-                    className="text-base sm:text-3xl font-black tracking-tight text-zinc-900 leading-tight"
-                    title={title}
-                    data-testid="tradesman-name"
-                  >
-                    {title}
-                  </h1>
+                <h1
+                  className="text-[19px] font-black tracking-tight leading-tight text-slate-900 pr-10"
+                  style={{ fontFamily: "'Sora', sans-serif" }}
+                  title={title}
+                  data-testid="tradesman-name"
+                >
+                  {title}
+                </h1>
 
-                  {/* Badges */}
-                  <div className="mt-1.5 sm:mt-2 flex flex-wrap items-center gap-1.5 sm:gap-2">
-                    {item.badges?.companiesHouseVerified && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-700 px-2 sm:px-3 py-0.5 text-[10px] sm:text-xs font-bold">
-                        <ShieldCheck className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-                        Verified
-                      </span>
-                    )}
-                    {item.badges?.insuranceValid && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 text-sky-700 px-2 sm:px-3 py-0.5 text-[10px] sm:text-xs font-bold">
-                        <ShieldCheck className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-                        Insured
-                      </span>
-                    )}
-                    {planLabel && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-800 px-2 sm:px-3 py-0.5 text-[10px] sm:text-xs font-bold">
-                        {planLabel}
-                      </span>
-                    )}
-                    {memberSince && (
-                      <span className="text-[10px] sm:text-xs text-zinc-400">{memberSince}</span>
-                    )}
-                  </div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {item.badges?.companiesHouseVerified && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-700 px-2.5 py-0.5 text-[11px] font-extrabold">
+                      <ShieldCheck className="h-3 w-3" />
+                      Verified
+                    </span>
+                  )}
+                  {item.badges?.insuranceValid && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 text-sky-700 px-2.5 py-0.5 text-[11px] font-extrabold">
+                      <ShieldCheck className="h-3 w-3" />
+                      Insured
+                    </span>
+                  )}
+                  {planLabel && (
+                    <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 px-2.5 py-0.5 text-[11px] font-extrabold">
+                      {planLabel}
+                    </span>
+                  )}
+                </div>
 
-                  {/* Stats */}
-                  <div className="mt-2 sm:mt-3 flex flex-wrap items-center gap-1.5 sm:gap-2">
+                {item.googleRating != null && (
+                  <div className="mt-2.5">
                     <GoogleRatingChip
                       rating={item.stats?.stars}
                       count={item.googleReviewsCount}
                       placeId={item.googlePlaceId || undefined}
                     />
-                    <StatPill
-                      testId="tradesman-likes"
-                      icon={<svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-rose-400"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd"/></svg>}
-                      label="Likes"
-                      value={item.stats?.reviews ?? 0}
-                    />
-                    <StatPill
-                      testId="tradesman-completed"
-                      icon={<svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-emerald-500"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/></svg>}
-                      label="Completed"
-                      value={item.stats?.completed ?? 0}
-                    />
-                    <StatPill
-                      testId="tradesman-photos"
-                      icon={<svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-sky-400"><path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"/></svg>}
-                      label="Photos"
-                      value={item.stats?.photos ?? item.gallery?.length ?? 0}
-                    />
-                    {(() => {
-                      const displayScore = projectScore ?? (item.score != null && item.score > 0 ? item.score : null);
-                      if (displayScore == null) return null;
-                      return (
-                        <StatPill
-                          testId="tradesman-vmb-score"
-                          icon={<svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-red-500"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>}
-                          label="Trust score"
-                          value={Math.round(displayScore)}
-                        />
-                      );
-                    })()}
                   </div>
+                )}
 
-                  {/* Hire button */}
-                  {item.builderId && (
-                    <div className="mt-3 sm:mt-4">
-                      <HireButton
-                        tradesmanUserId={item.builderId}
-                        displayName={title}
+                {memberSince && (
+                  <div className="mt-2 text-[11px] text-zinc-500">{memberSince}</div>
+                )}
+
+                {/* Mini stats grid (2x2) */}
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <MiniStat label="Likes" value={String(item.stats?.reviews ?? 0)} testId="tradesman-likes" />
+                  <MiniStat label="Completed" value={String(item.stats?.completed ?? 0)} testId="tradesman-completed" />
+                  <MiniStat label="Photos" value={String(item.stats?.photos ?? item.gallery?.length ?? 0)} testId="tradesman-photos" />
+                  {(() => {
+                    const displayScore = projectScore ?? (item.score != null && item.score > 0 ? item.score : null);
+                    return (
+                      <MiniStat
+                        label="Trust"
+                        value={displayScore != null ? String(Math.round(displayScore)) : "—"}
+                        testId="tradesman-vmb-score"
                       />
+                    );
+                  })()}
+                </div>
+
+                {item.builderId && (
+                  <div className="mt-4">
+                    <HireButton
+                      tradesmanUserId={item.builderId}
+                      displayName={title}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Contact details card */}
+              <div className="bg-white border border-amber-100 rounded-3xl p-5 shadow-sm" data-testid="tradesman-contact-card">
+                <SectionHeading>Contact details</SectionHeading>
+                <div className="mt-3 space-y-2.5" data-testid="tradesman-contact-details-section">
+                  <ContactLink
+                    icon={<Phone className="w-4 h-4" />}
+                    value={item.phone}
+                    href={item.phone ? `tel:${item.phone}` : undefined}
+                    testId="tradesman-phone"
+                  />
+                  <ContactLink
+                    icon={<Mail className="w-4 h-4" />}
+                    value={item.email}
+                    href={item.email ? `mailto:${item.email}` : undefined}
+                    testId="tradesman-email"
+                  />
+                  <ContactLink
+                    icon={<Globe className="w-4 h-4" />}
+                    value={item.website ? prettyDomain(item.website) : null}
+                    href={item.website ? (item.website.startsWith("http") ? item.website : `https://${item.website}`) : undefined}
+                    testId="tradesman-website"
+                  />
+                  {item.companyNumber && (
+                    <div
+                      className="flex items-center gap-2.5 text-[13px] text-slate-600"
+                      data-testid="tradesman-company-number"
+                    >
+                      <span className="text-amber-500">
+                        <ShieldCheck className="w-4 h-4" />
+                      </span>
+                      <span>
+                        Co. no. <span className="font-bold text-slate-700">{item.companyNumber}</span>
+                      </span>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Favourite heart — absolute top-right */}
-              <button
-                type="button"
-                onClick={toggleFavourite}
-                disabled={favBusy}
-                aria-pressed={isFavourite}
-                aria-label={isFavourite ? "Remove from favourites" : "Save to favourites"}
-                title={isFavourite ? "Saved to favourites" : "Save to favourites"}
-                className={[
-                  "absolute top-3 right-3 sm:top-6 sm:right-6 inline-flex items-center justify-center h-8 w-8 sm:h-10 sm:w-10 rounded-full border transition",
-                  isFavourite
-                    ? "bg-rose-50 border-rose-200 hover:bg-rose-100"
-                    : "bg-white border-zinc-200 hover:bg-zinc-50",
-                  favBusy ? "opacity-70 cursor-wait" : "",
-                ].join(" ")}
-                data-testid="btn-favourite-tradesman"
-              >
-                <Heart className={`h-4 w-4 sm:h-6 sm:w-6 ${isFavourite ? "fill-rose-500 text-rose-500" : "text-zinc-400"}`} />
-              </button>
-            </div>
-          </header>
+              {/* Online / socials card */}
+              {item.socials && item.socials.length > 0 && (
+                <div className="bg-white border border-amber-100 rounded-3xl p-5 shadow-sm">
+                  <SectionHeading>Online</SectionHeading>
+                  <ul className="mt-3 space-y-1.5 text-[13px]">
+                    {item.socials.map((s) => (
+                      <li key={s}>
+                        <a
+                          href={s}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-bold text-indigo-600 hover:text-indigo-700 hover:underline"
+                        >
+                          {socialLabel(s)} →
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
-          {/* Main layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)] gap-3 sm:gap-6">
-            {/* Left: trades + photos + portfolio */}
-            <div className="space-y-3 sm:space-y-6">
+              {/* External review profiles - tradesperson-supplied plain-text
+                  links to their own profiles on Trustpilot, Bark, MyBuilder,
+                  Checkatrade, Houzz, Yell. We do NOT replicate the platforms'
+                  brand visuals or display star counts; that's their UI's job.
+                  The link text is "View on <Platform>" so the homeowner
+                  clicks through and forms their own opinion at the source. */}
+              {Array.isArray(item.reviewLinks) && item.reviewLinks.length > 0 && (
+                <div
+                  className="bg-white border border-amber-100 rounded-3xl p-5 shadow-sm"
+                  data-testid="tradesman-review-links-section"
+                >
+                  <SectionHeading>External reviews</SectionHeading>
+                  <ul className="mt-3 space-y-1.5 text-[13px]">
+                    {item.reviewLinks.map((entry) => (
+                      <li
+                        key={`${entry.platform}-${entry.url}`}
+                        data-testid={`tradesman-review-link-${entry.platform}`}
+                      >
+                        <a
+                          href={entry.url}
+                          target="_blank"
+                          rel="noopener noreferrer nofollow"
+                          className="font-bold text-indigo-600 hover:text-indigo-700 hover:underline"
+                        >
+                          View on {platformLabelFor(entry)} →
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Discounts & warranty */}
+              <div
+                className="bg-white border border-amber-100 rounded-3xl p-5 shadow-sm"
+                data-testid="tradesman-extras"
+              >
+                <SectionHeading>Discounts &amp; warranty</SectionHeading>
+                {item.offersDiscount || item.warrantyMonths ? (
+                  <div className="mt-3 space-y-2">
+                    {item.offersDiscount && (
+                      <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 px-2.5 py-0.5 text-[11px] font-extrabold">
+                        Offers discounts
+                      </span>
+                    )}
+                    {item.warrantyMonths ? (
+                      <div className="text-[12.5px] text-slate-700">
+                        Warranty: <span className="font-bold">{item.warrantyMonths} months</span>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-[12.5px] text-slate-400">No discounts listed.</p>
+                )}
+              </div>
+
+              {/* Areas covered */}
+              <div
+                className="bg-white border border-amber-100 rounded-3xl p-5 shadow-sm"
+                data-testid="tradesman-areas"
+              >
+                <SectionHeading>Areas covered</SectionHeading>
+                {item.serviceAreas && item.serviceAreas.length > 0 ? (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {item.serviceAreas.map((area, i) => (
+                      <span
+                        key={`${area}-${i}`}
+                        className="inline-flex items-center rounded-full bg-amber-50 border border-amber-100 text-amber-800 px-2.5 py-0.5 text-[11px] font-bold"
+                      >
+                        {area}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-[12.5px] text-slate-400">Not provided.</p>
+                )}
+              </div>
+
+              <button
+                onClick={() => setShowReport(true)}
+                className="w-full inline-flex items-center justify-center gap-1.5 text-[12px] font-semibold text-slate-400 hover:text-rose-500 transition-colors py-2"
+                data-testid="btn-report-profile"
+              >
+                <Flag className="w-3.5 h-3.5" />
+                Report this profile
+              </button>
+            </aside>
+
+            {/* RIGHT MAIN */}
+            <div className="space-y-6">
+              {/* Hello banner: visual chrome only. The body paragraph used
+                  to auto-stitch warranty / discount / registration facts but
+                  it read like LLM filler, so we dropped the copy and kept
+                  just the eyebrow + headline as a friendly section opener. */}
+              <div className="bg-white rounded-3xl border border-amber-100 shadow-sm px-8 py-7 relative overflow-hidden">
+                <Sparkles className="absolute top-5 right-7 w-5 h-5 text-amber-400/70" />
+                <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-indigo-700 mb-1.5">
+                  About
+                </div>
+                <h2
+                  className="text-[28px] font-black tracking-tight text-slate-900 leading-tight"
+                  style={{ fontFamily: "'Sora', sans-serif" }}
+                >
+                  Get to know{" "}
+                  <span
+                    className="text-indigo-600"
+                    style={{ fontFamily: "'Caveat', cursive", fontSize: "118%" }}
+                  >
+                    {firstWord(title)}
+                  </span>
+                </h2>
+              </div>
 
               {/* Trades offered */}
-              <section className="bg-white rounded-2xl sm:rounded-3xl shadow-sm p-4 sm:p-7" data-testid="tradesman-trades-card">
-                <h2 className="text-base sm:text-lg font-black text-zinc-900 mb-2.5 sm:mb-4">Trades offered</h2>
+              <section
+                className="bg-white rounded-3xl border border-amber-100 shadow-sm p-7"
+                data-testid="tradesman-trades-card"
+              >
+                <SectionHeading>Trades offered</SectionHeading>
                 {trades.length === 0 ? (
-                  <p className="text-sm text-zinc-400">No trades listed yet.</p>
+                  <p className="mt-3 text-sm text-slate-400">No trades listed yet.</p>
                 ) : (
-                  <ul className="flex flex-wrap gap-2">
+                  <ul className="mt-4 flex flex-wrap gap-2">
                     {trades.map((t, i) => {
                       const Icon = TRADE_ICONS[t.toLowerCase()] ?? Hammer;
                       return (
                         <li
                           key={`${t}-${i}`}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-sm font-medium text-zinc-700"
+                          className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-100 px-3.5 py-1.5 text-[13px] font-bold text-slate-700"
                           data-testid="tradesman-trade-item"
                         >
-                          <Icon className="h-3.5 w-3.5 text-red-400 flex-shrink-0" />
+                          <Icon className="h-3.5 w-3.5 text-indigo-500 flex-shrink-0" />
                           {t}
                         </li>
                       );
@@ -483,152 +649,50 @@ function Inner() {
 
               {/* Shared photos */}
               {sharedLoading ? (
-                <section className="bg-white rounded-2xl sm:rounded-3xl shadow-sm p-4 sm:p-6" data-testid="tradesman-shared-photos-loading">
-                  <p className="text-sm text-zinc-400">Loading shared photos…</p>
+                <section
+                  className="bg-white rounded-3xl border border-amber-100 shadow-sm p-6"
+                  data-testid="tradesman-shared-photos-loading"
+                >
+                  <p className="text-sm text-slate-400">Loading shared photos…</p>
                 </section>
               ) : (
                 sharedImages.length > 0 && <SharedProfilePhotosSection images={sharedImages} />
               )}
 
-              {/* View portfolio button */}
+              {/* View portfolio button (when hidden) */}
               {!sharedLoading && galleryImages.length > 0 && !showPortfolio && (
                 <div className="flex justify-end">
                   <button
                     type="button"
                     onClick={() => setShowPortfolio(true)}
-                    className="inline-flex items-center rounded-lg bg-black/40 px-3 py-1.5 text-xs sm:text-sm font-bold text-white hover:bg-black/60 transition-colors backdrop-blur-sm"
+                    className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-4 py-2 text-[12px] font-bold text-amber-800 hover:bg-amber-100 transition-colors"
                     data-testid="btn-view-builder-work"
                   >
-                    View builder&apos;s work →
+                    View their work →
                   </button>
                 </div>
               )}
 
               {/* Portfolio gallery */}
               {showPortfolio && galleryImages.length > 0 && (
-                <section className="bg-white rounded-2xl sm:rounded-3xl shadow-sm p-4 sm:p-7" data-testid="tradesman-portfolio-card">
+                <section
+                  className="bg-white rounded-3xl border border-amber-100 shadow-sm p-7"
+                  data-testid="tradesman-portfolio-card"
+                >
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-base sm:text-lg font-black text-zinc-900">Builder portfolio</h2>
+                    <SectionHeading>Recent work</SectionHeading>
                     <button
                       type="button"
                       onClick={() => setShowPortfolio(false)}
-                      className="text-sm text-zinc-400 hover:text-zinc-700 transition-colors"
+                      className="text-[12px] font-semibold text-slate-400 hover:text-slate-700 transition-colors"
                     >
                       Hide
                     </button>
                   </div>
-                  <LightboxGallery images={galleryImages} cols={3} rounded="rounded-xl" />
+                  <LightboxGallery images={galleryImages} cols={3} rounded="rounded-2xl" />
                 </section>
               )}
-
             </div>
-
-            {/* Right: contact card */}
-            <aside className="bg-white rounded-2xl sm:rounded-3xl shadow-sm p-4 sm:p-7 h-fit" data-testid="tradesman-contact-card">
-              <h2 className="text-base sm:text-lg font-black text-zinc-900 mb-3 sm:mb-5">Profile details</h2>
-
-              <div className="space-y-4 sm:space-y-6">
-                {/* Contact details */}
-                <section data-testid="tradesman-contact-details-section">
-                  <h3 className="hidden sm:block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-3">Contact details</h3>
-                  <div className="space-y-3 sm:space-y-4">
-                    <ContactRow label="Phone" value={item.phone} dataTestId="tradesman-phone"
-                      render={(v) => <a href={`tel:${v}`} className="text-red-500 hover:underline font-semibold break-all">{v}</a>}
-                    />
-                    <ContactRow label="Email" value={item.email} dataTestId="tradesman-email"
-                      render={(v) => <a href={`mailto:${v}`} className="text-red-500 break-all hover:underline font-semibold">{v}</a>}
-                    />
-                    <ContactRow label="Website" value={item.website} dataTestId="tradesman-website"
-                      render={(v) => (
-                        <a href={v.startsWith("http") ? v : `https://${v}`} target="_blank" rel="noopener noreferrer" className="text-red-500 break-all hover:underline font-semibold">
-                          {prettyDomain(v)}
-                        </a>
-                      )}
-                    />
-                    <ContactRow label="Company no" value={item.companyNumber} dataTestId="tradesman-company-number" />
-                  </div>
-                </section>
-
-                {/* External review profiles - tradesperson-supplied
-                    plain-text links to their own profiles on Trustpilot,
-                    Bark, MyBuilder, Checkatrade, Houzz, Yell. We do NOT
-                    replicate the platforms' brand visuals or display
-                    star counts; that's their UI's job. The link text is
-                    "View on <Platform>" so the homeowner clicks through
-                    and forms their own opinion at the source. */}
-                {Array.isArray(item.reviewLinks) && item.reviewLinks.length > 0 && (
-                  <section data-testid="tradesman-review-links-section">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-3">
-                      External reviews
-                    </h3>
-                    <ul className="space-y-2">
-                      {item.reviewLinks.map((entry) => (
-                        <li
-                          key={`${entry.platform}-${entry.url}`}
-                          data-testid={`tradesman-review-link-${entry.platform}`}
-                        >
-                          <a
-                            href={entry.url}
-                            target="_blank"
-                            rel="noopener noreferrer nofollow"
-                            className="text-red-500 hover:underline font-semibold text-sm"
-                          >
-                            View on {platformLabelFor(entry)} →
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                )}
-
-                {/* Discounts & warranty */}
-                <section data-testid="tradesman-extras">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">Discounts &amp; warranty</h3>
-                  {item.offersDiscount || item.warrantyMonths ? (
-                    <div className="space-y-2">
-                      {item.offersDiscount && (
-                        <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 px-3 py-1 text-sm sm:text-xs font-bold">
-                          Offers discounts
-                        </span>
-                      )}
-                      {item.warrantyMonths ? (
-                        <div className="text-sm sm:text-xs text-zinc-600">Warranty: {item.warrantyMonths} months</div>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <p className="text-sm sm:text-xs text-zinc-400">No discounts listed.</p>
-                  )}
-                </section>
-
-                {/* Areas covered */}
-                <section data-testid="tradesman-areas">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">Areas covered</h3>
-                  {item.serviceAreas && item.serviceAreas.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {item.serviceAreas.map((area, i) => (
-                        <span key={`${area}-${i}`} className="inline-flex items-center rounded-full bg-zinc-100 text-zinc-700 px-3 py-1 text-sm sm:text-xs font-semibold">
-                          {area}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm sm:text-xs text-zinc-400">Not provided.</p>
-                  )}
-                </section>
-
-                <button
-                  onClick={() => setShowReport(true)}
-                  className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-red-500 transition-colors pt-2 border-t border-zinc-100"
-                  data-testid="btn-report-profile"
-                >
-                  <svg className="h-3.5 w-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2z" />
-                  </svg>
-                  Report this profile
-                </button>
-              </div>
-
-            </aside>
           </div>
         </div>
       </div>
@@ -675,4 +739,100 @@ function ContactRow({ label, value, dataTestId, render }: ContactRowProps) {
       </div>
     </div>
   );
+}
+
+function SectionHeading({ children }: { children: ReactNode }) {
+  return (
+    <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-indigo-700">
+      {children}
+    </div>
+  );
+}
+
+function MiniStat({
+  label,
+  value,
+  testId,
+}: {
+  label: string;
+  value: string;
+  testId?: string;
+}) {
+  return (
+    <div
+      className="bg-amber-50 border border-amber-100 rounded-2xl px-3 py-2 text-center"
+      data-testid={testId}
+    >
+      <div className="text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-slate-500">
+        {label}
+      </div>
+      <div
+        className="text-[16px] font-black tracking-tight text-slate-900 leading-none mt-0.5"
+        style={{ fontFamily: "'Sora', sans-serif" }}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function ContactLink({
+  icon,
+  value,
+  href,
+  testId,
+}: {
+  icon: ReactNode;
+  value?: string | null;
+  href?: string;
+  testId?: string;
+}) {
+  if (!value) {
+    return (
+      <div className="flex items-center gap-2.5 text-[13px] text-slate-400" data-testid={testId}>
+        <span className="text-amber-500">{icon}</span>
+        <span>Not provided</span>
+      </div>
+    );
+  }
+  if (!href) {
+    return (
+      <div className="flex items-center gap-2.5 text-[13px] font-semibold text-slate-700" data-testid={testId}>
+        <span className="text-amber-500">{icon}</span>
+        <span className="truncate">{value}</span>
+      </div>
+    );
+  }
+  const external = href.startsWith("http");
+  return (
+    <a
+      href={href}
+      target={external ? "_blank" : undefined}
+      rel={external ? "noopener noreferrer" : undefined}
+      className="flex items-center gap-2.5 text-[13px] font-bold text-indigo-600 hover:text-indigo-700 hover:underline"
+      data-testid={testId}
+    >
+      <span className="text-amber-500">{icon}</span>
+      <span className="truncate">{value}</span>
+    </a>
+  );
+}
+
+function firstWord(s: string): string {
+  return s.split(/\s+/)[0] || s;
+}
+
+function socialLabel(url: string): string {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "");
+    if (host.includes("facebook")) return "Facebook";
+    if (host.includes("instagram")) return "Instagram";
+    if (host.includes("twitter") || host.includes("x.com")) return "Twitter / X";
+    if (host.includes("linkedin")) return "LinkedIn";
+    if (host.includes("youtube")) return "YouTube";
+    if (host.includes("tiktok")) return "TikTok";
+    return host;
+  } catch {
+    return url;
+  }
 }

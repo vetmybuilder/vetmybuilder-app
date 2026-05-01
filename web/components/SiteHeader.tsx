@@ -1,17 +1,27 @@
 // web/components/SiteHeader.tsx
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import React, { useMemo, useRef, useState, useEffect } from "react";
+import { MessageSquare, UserCog, LogOut } from "lucide-react";
 import { useAuth, signOutUser } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
 import { useMobileMenu } from "@/utils/mobileMenu";
 import BrandWordmark from "@/components/BrandWordmark";
+import MessagesDropdown, {
+  placeholderUnreadCount,
+} from "@/components/MessagesDropdown";
 
-const NotificationsBell = dynamic(
-  () => import("@/components/NotificationsBell"),
-  { ssr: false, loading: () => null },
-);
+// Owner project tabs - rendered in the centre of the header for any
+// signed-in homeowner. Clicking a tab from anywhere routes to /projects
+// with the right ?tab= query, so the user can jump to favourites or
+// recommendations without first walking to /projects.
+const OWNER_TABS = [
+  { key: "mine", label: "Live" },
+  { key: "completed", label: "Completed" },
+  { key: "favourites", label: "Favourites" },
+  { key: "recommendations", label: "Recommendations" },
+] as const;
+type OwnerTabKey = (typeof OWNER_TABS)[number]["key"];
 
 function computeInitials(u: any | null | undefined): string | undefined {
   if (!u) return undefined;
@@ -67,54 +77,6 @@ function InitialsBadge({
       </span>
     </button>
   );
-}
-
-// Owner-only project tabs shown in the header when on /projects
-const PROJECT_HEADER_TABS: Array<{
-  key: "mine" | "favourites" | "completed" | "completedCommunity";
-  label: string;
-  testId: string;
-  activeColor: string;
-  hoverColor: string;
-}> = [
-  {
-    key: "mine",
-    label: "MY JOBS",
-    testId: "tab-my-projects",
-    activeColor: "#22c55e",
-    hoverColor: "#bbf7d0",
-  },
-  {
-    key: "completed",
-    label: "COMPLETED",
-    testId: "tab-my-completed-projects",
-    activeColor: "#0ea5e9",
-    hoverColor: "#bae6fd",
-  },
-  {
-    key: "completedCommunity",
-    label: "COMMUNITY",
-    testId: "tab-completed-community-projects",
-    activeColor: "#f97316",
-    hoverColor: "#fed7aa",
-  },
-  {
-    key: "favourites",
-    label: "FAVOURITES",
-    testId: "tab-favourites",
-    activeColor: "#6366f1",
-    hoverColor: "#e0e7ff",
-  },
-];
-
-function getProjectsTabKey(
-  raw: any,
-): "mine" | "completed" | "completedCommunity" | "favourites" {
-  const t = String(raw || "mine");
-  if (t === "completed") return "completed";
-  if (t === "completedCommunity") return "completedCommunity";
-  if (t === "favourites") return "favourites";
-  return "mine";
 }
 
 export default function SiteHeader() {
@@ -265,9 +227,12 @@ export default function SiteHeader() {
   }, [user, api]);
 
   // desktop dropdown menus
-  const [openMenu, setOpenMenu] = useState<"trades" | "account" | null>(null);
+  const [openMenu, setOpenMenu] = useState<
+    "trades" | "account" | "messages" | null
+  >(null);
   const btnTradesRef = useRef<HTMLButtonElement | null>(null);
   const btnAccountRef = useRef<HTMLButtonElement | null>(null);
+  const btnMessagesRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -277,6 +242,7 @@ export default function SiteHeader() {
       if (
         btnTradesRef.current?.contains(t) ||
         btnAccountRef.current?.contains(t) ||
+        btnMessagesRef.current?.contains(t) ||
         menuRef.current?.contains(t)
       )
         return;
@@ -306,36 +272,36 @@ export default function SiteHeader() {
     window.location.href = "/";
   }
 
-  // ---- Owner project tabs in header ----
-  const isOwnerProjectsPage = router.pathname === "/projects";
-  const currentProjectsTab = isOwnerProjectsPage
-    ? getProjectsTabKey(
-        Array.isArray(router.query?.tab)
+  const homeHref = "/";
+
+  // Owner tabs visible whenever the viewer is a signed-in homeowner and
+  // not on an auth screen. Hidden for tradespeople and on /admin/*
+  // (admin uses its own AdminLayout shell).
+  const showOwnerTabs =
+    !!displayUser && !isTrades && !isAuthPage && !router.pathname.startsWith("/admin");
+
+  const onProjectsListPage = router.pathname === "/projects";
+  const activeOwnerTab: OwnerTabKey | null = onProjectsListPage
+    ? (() => {
+        const raw = Array.isArray(router.query?.tab)
           ? router.query.tab[0]
-          : router.query?.tab,
-      )
-    : "mine";
+          : router.query?.tab;
+        const t = String(raw || "mine");
+        if (t === "completed" || t === "favourites" || t === "recommendations")
+          return t;
+        return "mine";
+      })()
+    : null;
 
-  function handleProjectTabClick(
-    key: "mine" | "favourites" | "completed" | "completedCommunity",
-  ) {
-    if (currentProjectsTab === key) return;
-
-    const nextQuery = { ...router.query, tab: key };
-
+  function handleOwnerTabClick(key: OwnerTabKey) {
     router.push(
-      {
-        pathname: "/projects",
-        query: nextQuery,
-      },
+      { pathname: "/projects", query: { tab: key } },
       undefined,
-      { shallow: true },
+      { shallow: onProjectsListPage },
     );
   }
 
-  const showProjectTabsInHeader = !!displayUser && !isTrades && isOwnerProjectsPage;
-
-  const homeHref = "/";
+  const messagesUnread = placeholderUnreadCount();
 
   /* ========= 1) SIMPLE HOMEPAGE HEADER ========= */
   if (isHome) {
@@ -505,54 +471,49 @@ export default function SiteHeader() {
               </Link>
             </div>
 
-            {/* Center (desktop only) */}
-            <div className="flex-1 hidden md:flex items-center justify-center">
-              {showProjectTabsInHeader && (
-                <div className="flex items-center justify-center gap-3 lg:gap-6 xl:gap-10">
-                  {PROJECT_HEADER_TABS.map((t) => {
-                    const active = currentProjectsTab === t.key;
+            {/* Centre: owner project tabs (Live / Completed / Favourites /
+                Recommendations). Acts as primary nav for homeowners so any
+                page can jump straight to a tab. Desktop only. */}
+            {showOwnerTabs && (
+              <div className="hidden md:flex flex-1 items-center justify-center">
+                <div
+                  className="inline-flex rounded-full bg-amber-50 p-1"
+                  role="tablist"
+                  aria-label="Project sections"
+                  data-testid="owner-tabs"
+                >
+                  {OWNER_TABS.map((t) => {
+                    const active = activeOwnerTab === t.key;
                     return (
                       <button
                         key={t.key}
                         type="button"
                         role="tab"
                         aria-selected={active}
-                        data-testid={t.testId}
-                        onClick={() => handleProjectTabClick(t.key)}
-                        className={[
-                          "group relative inline-flex items-center justify-center select-none whitespace-nowrap",
-                          "text-[11px] sm:text-xs font-semibold tracking-[0.18em] uppercase",
-                          "transition-colors duration-150",
+                        data-testid={`owner-tab-${t.key}`}
+                        onClick={() => handleOwnerTabClick(t.key)}
+                        className={`rounded-full px-3 py-1 text-[12.5px] font-bold transition-colors ${
                           active
-                            ? "text-slate-900"
-                            : "text-slate-500 hover:text-slate-900",
-                        ].join(" ")}
+                            ? "text-white shadow-sm"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                        style={
+                          active
+                            ? { background: "linear-gradient(135deg,#6366f1,#4f46e5)" }
+                            : {}
+                        }
                       >
-                        <span>{t.label}</span>
-
-                        <span
-                          aria-hidden
-                          className="pointer-events-none absolute inset-x-0 -bottom-1 h-[2px] rounded-full opacity-0 group-hover:opacity-80 transition-opacity duration-150"
-                          style={{ backgroundColor: t.hoverColor }}
-                        />
-
-                        {active && (
-                          <span
-                            aria-hidden
-                            className="pointer-events-none absolute inset-x-0 -bottom-1 h-[2px] rounded-full"
-                            style={{ backgroundColor: t.activeColor }}
-                          />
-                        )}
+                        {t.label}
                       </button>
                     );
                   })}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Right (desktop) */}
             <div
-              className="hidden md:flex items-center gap-3"
+              className="hidden md:flex items-center gap-1.5"
               data-testid="nav-actions"
             >
               {!displayUser && !isAuthPage && (
@@ -567,7 +528,37 @@ export default function SiteHeader() {
 
               {/* Post a Job button removed from header - now a floating button on the projects page */}
 
-              {displayUser && <NotificationsBell />}
+              {/* Messages dropdown trigger - homeowner only (tradespeople
+                  use their own messaging via /tradesman/matches). */}
+              {displayUser && !isTrades && (
+                <div className="relative">
+                  <button
+                    ref={btnMessagesRef}
+                    type="button"
+                    aria-label="Messages"
+                    aria-haspopup="menu"
+                    aria-expanded={openMenu === "messages"}
+                    onClick={() =>
+                      setOpenMenu((m) => (m === "messages" ? null : "messages"))
+                    }
+                    data-testid="nav-messages"
+                    className="relative inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-amber-100 transition-colors"
+                  >
+                    <MessageSquare className="h-5 w-5 text-slate-600" />
+                    {messagesUnread > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-indigo-600 text-white text-[10px] font-bold px-1 ring-2 ring-stone-50">
+                        {messagesUnread}
+                      </span>
+                    )}
+                  </button>
+
+                  {openMenu === "messages" && (
+                    <div ref={menuRef}>
+                      <MessagesDropdown onClose={() => setOpenMenu(null)} />
+                    </div>
+                  )}
+                </div>
+              )}
 
               {displayUser && isTrades && (
                 <div className="relative" data-testid="trades-menu-wrapper">
@@ -712,24 +703,51 @@ export default function SiteHeader() {
                       role="menu"
                       aria-label="Account"
                       data-testid="account-menu"
-                      className="absolute right-0 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg ring-1 ring-black/5"
+                      className="absolute right-0 top-12 z-50 w-[260px] rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden"
                     >
-                      <Link
-                        role="menuitem"
-                        href="/account"
-                        className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
-                        onClick={() => setOpenMenu(null)}
-                      >
-                        Manage account
-                      </Link>
-                      <button
-                        role="menuitem"
-                        onClick={onLogout}
-                        className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50/60"
-                        data-testid="menu-logout"
-                      >
-                        Logout
-                      </button>
+                      {/* Profile mini-header */}
+                      <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-3">
+                        <span
+                          aria-hidden
+                          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-500 text-white text-sm font-bold"
+                        >
+                          {initials || "U"}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="text-[13px] font-extrabold text-slate-900 truncate">
+                            {(displayUser as any)?.firstName || (displayUser as any)?.username || "Your account"}
+                          </div>
+                          <div className="text-[11.5px] text-slate-500 truncate">
+                            {(displayUser as any)?.email || ""}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Items */}
+                      <div className="p-1.5">
+                        <Link
+                          role="menuitem"
+                          href="/account"
+                          className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-amber-50 hover:text-slate-900 transition-colors"
+                          onClick={() => setOpenMenu(null)}
+                        >
+                          <UserCog className="h-4 w-4 text-slate-400" />
+                          <span>Manage account</span>
+                        </Link>
+                      </div>
+
+                      {/* Logout (visually separated) */}
+                      <div className="p-1.5 border-t border-slate-100">
+                        <button
+                          role="menuitem"
+                          onClick={onLogout}
+                          className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-red-600 hover:bg-red-50/70 transition-colors"
+                          data-testid="menu-logout"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          <span>Logout</span>
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -747,10 +765,9 @@ export default function SiteHeader() {
               )}
             </div>
 
-            {/* Right (mobile): bell + initials + burger */}
+            {/* Right (mobile): burger only - messages live inside the
+                mobile menu drawer for now. */}
             <div className="flex md:hidden items-center gap-2">
-              {displayUser && <NotificationsBell />}
-
               <button
                 type="button"
                 aria-label="Open navigation menu"

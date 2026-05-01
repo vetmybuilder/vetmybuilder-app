@@ -317,7 +317,11 @@ CREATE TABLE IF NOT EXISTS tradesmen (
   profile_picture_url TEXT NULL,
 
   -- Public-facing URL-safe ID (UUID) so Firebase UID is never exposed in URLs
-  public_id VARCHAR(36) NULL
+  public_id VARCHAR(36) NULL,
+
+  -- Tradesperson-written intro shown on their public profile. Plain text,
+  -- 2-4 sentences. Not auto-generated.
+  about TEXT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX idx_tradesmen_service_areas ON tradesmen(service_areas);

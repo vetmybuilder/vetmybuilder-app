@@ -16,6 +16,7 @@ import AccountField from "@/components/forms/AccountField";
 import LocationField from "@/components/forms/LocationField";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 
 // ── Profile types ────────────────────────────────────────────────────────────
 
@@ -422,7 +423,18 @@ export default function ManageAccount() {
         <title>Account — VetMyBuilder</title>
       </Head>
 
-      <div className="min-h-screen bg-gray-50 flex flex-col">
+      <Head>
+        <style>{`body { background: #fef6e9 !important; }`}</style>
+      </Head>
+      <div className="min-h-screen bg-[#fef6e9] relative overflow-hidden">
+        {/* Brand watermark fills the cream space around the phone-width
+            column on desktop. Hidden on mobile (the column is the page). */}
+        <BrandWatermarkScatter />
+        {/* The settings hub is a mobile-first design. On desktop, constrain
+            it to a comfortable reading column (max-w-3xl ~ 768px) centred
+            on the page, with a top gap so it doesn't kiss the sticky
+            header. */}
+        <div className="mx-auto max-w-3xl flex flex-col relative z-10 pt-6 pb-10">
 
         {/* ── Hub view ── */}
         {view === "hub" && (
@@ -747,6 +759,7 @@ export default function ManageAccount() {
           </>
         )}
 
+        </div>
       </div>
     </AuthedOnly>
   );

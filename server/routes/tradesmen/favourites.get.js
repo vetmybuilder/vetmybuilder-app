@@ -263,6 +263,7 @@ module.exports = (router, ctx) => {
           reviews: Number(r.likes_count || 0),
         },
         tradeTypes: r.trade_types || null,
+        favouritedAt: r.fav_created_at || null,
         isFavourite: true,
         // Back-link to the rich recommendation profile if the
         // favourite originated from one of the viewer's projects.
