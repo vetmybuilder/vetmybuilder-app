@@ -62,6 +62,10 @@ describe("POST /api/projects/:id/swipe", () => {
       .fn()
       .mockResolvedValueOnce([{ id: 1, ownerUserId: "u1" }]) // project check
       .mockResolvedValueOnce([{ user_id: "b1" }]) // builder exists
+      // The route now does a "preserve source" SELECT before the UPSERT
+      // so paid_unlock source isn't clobbered by a homeowner re-swipe.
+      // Empty result here means there's no existing row, fresh insert.
+      .mockResolvedValueOnce([]) // SELECT source FROM swipe_interest (preserve)
       .mockResolvedValueOnce({ affectedRows: 1 }); // UPSERT
     const handler = loadHandler({
       auth: (_q: any, _r: any, n: any) => n(),
@@ -77,7 +81,7 @@ describe("POST /api/projects/:id/swipe", () => {
       res,
     );
     expect(res.status).toHaveBeenCalledWith(200);
-    const upsert = q.mock.calls[2][0];
+    const upsert = q.mock.calls[3][0];
     expect(upsert).toMatch(/INSERT INTO swipe_interest/i);
     expect(upsert).toMatch(/status/i);
     expect(res.json).toHaveBeenCalledWith(

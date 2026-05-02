@@ -1,30 +1,33 @@
 import { test } from "../../../src/ui.fixtures";
 import Tradesman from "../../../src/models/tradesman";
 
-test.describe("Tradesman login — dual-role interstitial", () => {
-  test("guest is redirected to /login with next=/tradesman/projects", async ({
+test.describe("Tradesman login - dual-role interstitial", () => {
+  test("guest is redirected to /login with next=/tradesman/jobs", async ({
     authHelper,
     tradesmanLoginPage,
   }) => {
     await authHelper.ensureGuest();
     await tradesmanLoginPage.goto();
 
+    // Tradesman post-login destination renamed /tradesman/projects ->
+    // /tradesman/jobs (commit 683f7c2 "feat: rename Projects section to
+    // Jobs in burger menu").
     await tradesmanLoginPage.expectRedirectedTo(
-      /\/login\?.*next=%2Ftradesman%2Fprojects/,
+      /\/login\?.*next=%2Ftradesman%2Fjobs/,
     );
     await tradesmanLoginPage.expectInterstitialNotVisible();
   });
 
-  test("signed-in tradesperson is redirected to /tradesman/projects", async ({
+  test("signed-in tradesperson is redirected to /tradesman/jobs", async ({
     authHelper,
     tradesmanLoginPage,
   }) => {
     const tradesman = Tradesman.aTradesman().withRandomDetails();
     await authHelper.logout();
-    await authHelper.loginAsTradesman(tradesman);
+    await authHelper.signInAsNewTradesman(tradesman);
     await tradesmanLoginPage.goto();
 
-    await tradesmanLoginPage.expectRedirectedTo(/\/tradesman\/projects/);
+    await tradesmanLoginPage.expectRedirectedTo(/\/tradesman\/jobs/);
     await tradesmanLoginPage.expectInterstitialNotVisible();
   });
 

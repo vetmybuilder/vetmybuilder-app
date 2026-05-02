@@ -1,6 +1,6 @@
 // src/helpers/AuthHelper.ts
 import { loginInAsHomeowner } from "../apiHelper/setupHomeownerSession";
-import { loginInAsTradesman } from "../apiHelper/tradesman/setupTradesmanSession";
+import { signInAsNewTradesman } from "../apiHelper/tradesman/setupTradesmanSession";
 import { uiLoginAsUid } from "../apiHelper/uiAuth";
 import type Tradesman from "../models/tradesman";
 
@@ -25,8 +25,13 @@ export class AuthHelper {
     });
   }
 
-  async loginAsTradesman(tradesman: Tradesman): Promise<string> {
-    return await loginInAsTradesman({
+  /**
+   * Provisions a fresh tradesman in the API and signs them into the UI.
+   * Returns the generated uid. Does not navigate the page - the calling
+   * test should goto its target screen and wait for it explicitly.
+   */
+  async signInAsNewTradesman(tradesman: Tradesman): Promise<string> {
+    return await signInAsNewTradesman({
       request: this.request,
       page: this.page,
       apiBaseUrl: this.runtime.apiBaseUrl,

@@ -21,7 +21,7 @@ export class HomeownerProjectsPage {
   readonly tipRow: Locator;
 
   // Filters
-  readonly filterByLabel: Locator;
+  readonly filtersToolbar: Locator;
   readonly typeFilterButton: Locator;
   readonly statusFilterButton: Locator;
   readonly resetFiltersLink: Locator;
@@ -34,11 +34,20 @@ export class HomeownerProjectsPage {
     this.communityTab = page.getByRole("link", { name: /community/i });
     this.favouritesTab = page.getByRole("link", { name: /favourites/i });
 
-    this.safetyAccordion = page.getByTestId("projects-safety-card");
-    this.safetyHeading = page.getByRole("heading", {
+    // /projects renders both a desktop card (data-testid=projects-safety-card)
+    // and a mobile card (data-testid=projects-mobile-safety-card). Both
+    // sit in the DOM and toggle via Tailwind responsive classes - so a
+    // page-wide getByText for the description matches BOTH and trips
+    // strict mode. Filter to whichever is actually visible for the
+    // current viewport.
+    this.safetyAccordion = page
+      .getByTestId("projects-safety-card")
+      .or(page.getByTestId("projects-mobile-safety-card"))
+      .filter({ visible: true });
+    this.safetyHeading = this.safetyAccordion.getByRole("heading", {
       name: /Safety & verification/i,
     });
-    this.safetyDescription = page.getByText(
+    this.safetyDescription = this.safetyAccordion.getByText(
       /We combine official checks with community signals/i,
     );
 
@@ -46,9 +55,20 @@ export class HomeownerProjectsPage {
     this.vmbScoreRow = page.getByText(/Trust score/i);
     this.tipRow = page.getByText(/Always ask for a written quote/i);
 
-    this.filterByLabel = page.getByText(/^Filter by$/i);
-    this.typeFilterButton = page.getByRole("button", { name: /^Type$/i });
-    this.statusFilterButton = page.getByRole("button", { name: /^Status$/i });
+    // Desktop renders a labeled "Filter by / Type / Status" toolbar;
+    // mobile renders a chip row (Type + Sort, no Status). Both wrappers
+    // sit in the DOM at all times - filter to whichever is visible to
+    // avoid strict-mode and hidden-element failures.
+    this.filtersToolbar = page
+      .getByText(/^Filter by$/i)
+      .or(page.getByTestId("projects-mobile-filter-chips"))
+      .filter({ visible: true });
+    this.typeFilterButton = page
+      .getByRole("button", { name: /^Type$/i })
+      .filter({ visible: true });
+    this.statusFilterButton = page
+      .getByRole("button", { name: /^Status$/i })
+      .filter({ visible: true });
     this.resetFiltersLink = page.getByRole("button", { name: /reset/i });
   }
 
@@ -58,9 +78,15 @@ export class HomeownerProjectsPage {
   }
 
   async expectVisible() {
-    await expect(this.page.getByTestId("projects-page")).toBeVisible({
-      timeout: 15000,
-    });
+    // Both desktop (projects-page) and mobile (projects-mobile) wrappers
+    // sit in the DOM at all times - Tailwind responsive classes hide one.
+    // Filter to whichever is actually visible to avoid strict-mode failure.
+    await expect(
+      this.page
+        .getByTestId("projects-page")
+        .or(this.page.getByTestId("projects-mobile"))
+        .filter({ visible: true }),
+    ).toBeVisible({ timeout: 15000 });
   }
 
   async visit(projectId: string | number) {
@@ -199,9 +225,15 @@ export class HomeownerProjectsPage {
   }
 
   async assertFiltersVisible() {
-    await expect(this.filterByLabel).toBeVisible();
+    await expect(this.filtersToolbar).toBeVisible();
     await expect(this.typeFilterButton).toBeVisible();
-    await expect(this.statusFilterButton).toBeVisible();
+    // Status filter only exists in the desktop toolbar; mobile uses a
+    // sort chip in its place.
+    const vp = this.page.viewportSize();
+    const isMobile = vp ? vp.width < 768 : false;
+    if (!isMobile) {
+      await expect(this.statusFilterButton).toBeVisible();
+    }
   }
 
   async openTypeFilter() {

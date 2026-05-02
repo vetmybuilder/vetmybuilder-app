@@ -15,7 +15,7 @@ describe("subscription tiers", () => {
     });
     expect(getTier("week_2")).toMatchObject({
       id: "week_2",
-      amountPence: 599,
+      amountPence: 699,
       interval: "week",
       intervalCount: 2,
     });

@@ -423,7 +423,7 @@ export default function LocationField({
       <div className="relative">
         <input
           id={id}
-          className={`input pr-9${error ? " border-red-600" : ""}`}
+          className={`input pr-9${error ? " border-red-500" : ""}`}
           placeholder={placeholder}
           value={query}
           onChange={onInput}

@@ -45,8 +45,13 @@ function captureMiddlewares(
 
 /**
  * Run the full middleware chain and stop on first that doesn't call next().
+ *
+ * Defaults req.headers to {} so the multipart-detection middleware in
+ * messages.post.js (which reads req.headers["content-type"]) doesn't
+ * blow up under unit tests that only care about the JSON path.
  */
 async function runChain(middlewares: any[], req: any, res: any) {
+  if (!req.headers) req.headers = {};
   for (const mw of middlewares) {
     let nextCalled = false;
     await new Promise<void>((resolve, reject) => {

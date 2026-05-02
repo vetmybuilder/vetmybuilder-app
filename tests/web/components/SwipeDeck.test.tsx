@@ -24,9 +24,14 @@ describe("SwipeDeck", () => {
 
   it("renders the top card and advances after Like", async () => {
     render(<SwipeDeck projectId="p1" builders={builders} onMatch={() => {}} />);
-    expect(screen.getByText("Harrow")).toBeInTheDocument();
+    // Each card now has both a front face and a back face (flip-card
+    // overhaul) so "Harrow" appears in two places. Asserting at least
+    // one is enough to confirm the top card is the Harrow row.
+    expect(screen.getAllByText("Harrow").length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: /like/i }));
-    await waitFor(() => expect(screen.getByText("BP")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getAllByText("BP").length).toBeGreaterThan(0),
+    );
     expect(post).toHaveBeenCalledWith("/api/projects/p1/swipe",
       { builderUid: "b1", direction: "right", source: "recommended" });
   });

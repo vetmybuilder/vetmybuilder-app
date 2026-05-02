@@ -16,6 +16,13 @@ vi.mock("../../server/lib/pushSender.js", () => ({
   sendPushToUser: vi.fn(),
 }));
 
+// Note: the builder swipe route now gates subscribed-tier right-swipes
+// behind isBuilderSubscribed() which runs an additional
+// builder_subscriptions SELECT. Each right-swipe test mocks one extra
+// query in the chain (returning a non-empty array so the predicate
+// resolves to "subscribed"). Look for the comment "isBuilderSubscribed"
+// in each .mockResolvedValueOnce chain below.
+
 // ---- helpers ----------------------------------------------------------------
 
 function mockRes() {
@@ -133,6 +140,7 @@ describe("POST /api/tradesmen/jobs/:projectId/swipe — builder-initiated", () =
       // handler queries
       .mockResolvedValueOnce([{ id: 1, ownerUserId: "h1" }]) // project lookup
       .mockResolvedValueOnce([])                              // recommendations lookup → subscribed
+      .mockResolvedValueOnce([{ status: "active" }])          // isBuilderSubscribed → builder_subscriptions
       .mockResolvedValueOnce({ affectedRows: 1 })             // UPSERT swipe_interest
       .mockResolvedValueOnce([{ homeowner_swiped_at: null }]); // rowCheck — no homeowner swipe
 
@@ -215,8 +223,11 @@ describe("POST /api/tradesmen/jobs/:projectId/swipe — builder-initiated", () =
       // handler queries
       .mockResolvedValueOnce([{ id: 1, ownerUserId: "h1" }])            // project lookup
       .mockResolvedValueOnce([])                                          // recs lookup → subscribed
+      .mockResolvedValueOnce([{ status: "active" }])                      // isBuilderSubscribed → builder_subscriptions
       .mockResolvedValueOnce({ affectedRows: 1 })                         // UPSERT swipe_interest
-      .mockResolvedValueOnce([{ homeowner_swiped_at: new Date() }])       // rowCheck — homeowner swiped
+      // rowCheck now also reads `status` to confirm the row is still
+      // pending (terminal states don't form matches). Both fields needed.
+      .mockResolvedValueOnce([{ status: "pending", homeowner_swiped_at: new Date() }])
       .mockResolvedValueOnce({ affectedRows: 1 })                         // UPDATE status='matched'
       // fireMatchFormed queries:
       .mockResolvedValueOnce([{
@@ -309,6 +320,7 @@ describe("POST /api/tradesmen/jobs/:projectId/swipe — builder-initiated", () =
       // handler queries
       .mockResolvedValueOnce([{ id: 1, ownerUserId: "h1" }])
       .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ status: "active" }])           // isBuilderSubscribed → builder_subscriptions
       .mockResolvedValueOnce({ affectedRows: 0 })              // UPSERT (ON DUPLICATE — row updated)
       .mockResolvedValueOnce([{ homeowner_swiped_at: null }]); // no homeowner swipe
 
@@ -346,9 +358,15 @@ describe("POST /api/projects/:id/swipe — homeowner mutual-match detection", ()
       .fn()
       .mockResolvedValueOnce([{ id: 1, ownerUserId: "h1" }])  // project check
       .mockResolvedValueOnce([{ user_id: "b1" }])              // builder check
+      // The route now reads the existing source first so a homeowner
+      // right-swipe doesn't clobber a paid_unlock builder row's source.
+      // Empty result here means no prior row, so the body's source
+      // (subscribed) is used.
+      .mockResolvedValueOnce([])                                // SELECT source FROM swipe_interest
       .mockResolvedValueOnce({ affectedRows: 1 })               // UPSERT swipe_interest
-      // rowCheck — builder already swiped
-      .mockResolvedValueOnce([{ builder_swiped_at: new Date() }])
+      // rowCheck — builder already swiped. Now also reads `status` to
+      // confirm the row is still pending before forming a match.
+      .mockResolvedValueOnce([{ status: "pending", builder_swiped_at: new Date() }])
       .mockResolvedValueOnce({ affectedRows: 1 })               // UPDATE status='matched'
       // fireMatchFormed queries:
       .mockResolvedValueOnce([{

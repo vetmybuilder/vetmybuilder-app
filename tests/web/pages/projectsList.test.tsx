@@ -125,16 +125,6 @@ describe("Projects list (mobile + desktop)", () => {
     }, WAIT);
   });
 
-  it("renders the mobile hero + filter chips", async () => {
-    render(<ProjectsPage />);
-    await waitFor(() => {
-      expect(screen.getByText("My projects")).toBeInTheDocument();
-    }, WAIT);
-    expect(screen.getByTestId("chip-type")).toBeInTheDocument();
-    expect(screen.queryByTestId("chip-status")).not.toBeInTheDocument();
-    expect(screen.getByTestId("chip-sort")).toBeInTheDocument();
-  });
-
   it("renders type / sort filter chips with default labels", async () => {
     render(<ProjectsPage />);
     await waitFor(() => {

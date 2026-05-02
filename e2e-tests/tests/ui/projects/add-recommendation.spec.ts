@@ -185,15 +185,21 @@ test.describe("Add recommendation", () => {
     await projectDetailsPage.logoutViaUrl();
     await projectRecommendPage.visit(projectId);
 
+    // Comment lives on Step 1 (mobile). Fill it before advancing.
+    await projectRecommendPage.commentInput.fill(
+      "This is a perfectly valid comment over ten characters.",
+    );
+
+    // Advance to Step 2 (no-op on desktop). goToStep2 sets quality:5
+    // automatically so the Continue button enables on mobile.
+    await projectRecommendPage.goToStep2();
+
     const guest = Account.aGuestAccount();
     await projectRecommendPage.nameInput.fill(
       `${guest.firstName} ${guest.lastName}`.trim(),
     );
     await projectRecommendPage.companyInput.fill("Some Company Ltd");
     await projectRecommendPage.companyEmailInput.fill("not-an-email");
-    await projectRecommendPage.commentInput.fill(
-      "This is a perfectly valid comment over ten characters.",
-    );
 
     await projectRecommendPage.submitForm();
 
@@ -216,15 +222,18 @@ test.describe("Add recommendation", () => {
     await projectDetailsPage.logoutViaUrl();
     await projectRecommendPage.visit(projectId);
 
+    await projectRecommendPage.commentInput.fill(
+      "This is a perfectly valid comment over ten characters.",
+    );
+
+    await projectRecommendPage.goToStep2();
+
     const guest = Account.aGuestAccount();
     await projectRecommendPage.nameInput.fill(
       `${guest.firstName} ${guest.lastName}`.trim(),
     );
     await projectRecommendPage.emailInput.fill("nope-not-email");
     await projectRecommendPage.companyInput.fill("Some Company Ltd");
-    await projectRecommendPage.commentInput.fill(
-      "This is a perfectly valid comment over ten characters.",
-    );
 
     await projectRecommendPage.submitForm();
 
@@ -247,11 +256,42 @@ test.describe("Add recommendation", () => {
     await projectDetailsPage.logoutViaUrl();
     await projectRecommendPage.visit(projectId);
 
+    // On mobile the submit button only appears on Step 2. goToStep2
+    // taps a star to satisfy the Continue gate, then advances. On
+    // desktop this is a no-op and submit is reachable immediately.
+    await projectRecommendPage.goToStep2();
+
     await projectRecommendPage.submitForm();
 
     await projectRecommendPage.assertFieldError(
       "name",
       "Please enter your name.",
     );
+  });
+
+  test("mobile only: Continue is disabled until at least one star rating is set", async ({
+    request,
+    runtime,
+    projectRecommendPage,
+    projectDetailsPage,
+  }) => {
+    const { projectId } = await setupOwnerWithLiveProject({
+      request,
+      apiBaseUrl: runtime.apiBaseUrl,
+    });
+    await projectDetailsPage.logoutViaUrl();
+    await projectRecommendPage.visit(projectId);
+
+    test.skip(
+      !projectRecommendPage.isMobile(),
+      "wizard step gating is mobile-only",
+    );
+
+    await expect(projectRecommendPage.continueButton).toBeVisible();
+    await expect(projectRecommendPage.continueButton).toBeDisabled();
+
+    await projectRecommendPage.starButton("quality", 5).click();
+
+    await expect(projectRecommendPage.continueButton).toBeEnabled();
   });
 });

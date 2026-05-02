@@ -3,7 +3,21 @@ import { authedApiForUid } from "../../api/services/client";
 import { uiLoginAsUid } from "../uiAuth";
 import Tradesman from "../../models/tradesman";
 
-export async function loginInAsTradesman(args: {
+/**
+ * Provision a brand-new tradesman, sign them in, return the uid.
+ *
+ * Three steps, in order:
+ *   1. Mint a Firebase token for a fresh uid (authedApiForUid).
+ *   2. PUT /api/tradesmen/me to seed the profile row in MySQL.
+ *   3. Establish the UI session (uiLoginAsUid).
+ *
+ * Returns the generated uid so tests can correlate with API state. Does
+ * NOT navigate the page anywhere - the test that needs a specific
+ * post-login screen should goto + wait itself. (Historically a warmup
+ * goto to /tradesman/profile/edit lived here as a band-aid for a mobile
+ * webkit auth-state race; removed in favour of explicit per-test waits.)
+ */
+export async function signInAsNewTradesman(args: {
   request: APIRequestContext;
   page: Page;
   apiBaseUrl: string;
@@ -35,19 +49,6 @@ export async function loginInAsTradesman(args: {
     uiBaseUrl: args.uiBaseUrl,
     uid,
   });
-
-  // Navigate to the edit page and wait for it to be ready — this confirms the
-  // Firebase auth state is fully established before the test proceeds.
-  // Without this, mobile webkit sometimes fails to load the protected edit page
-  // on the first navigation after uiLoginAsUid → about:blank.
-  await args.page.goto(`${args.uiBaseUrl}/tradesman/profile/edit`, {
-    waitUntil: "domcontentloaded",
-  });
-  await args.page
-    .waitForSelector('[data-testid="trades-edit-profile-page"]', {
-      timeout: 20_000,
-    })
-    .catch(() => {});
 
   return uid;
 }

@@ -211,9 +211,9 @@ function SafetyCard({ onOpen }: { onOpen: () => void }) {
           <ShieldCheck className="h-[18px] w-[18px]" />
         </span>
         <span className="flex-1 min-w-0">
-          <span className="block text-[14px] font-semibold text-slate-900 leading-tight">
+          <h2 className="block text-[14px] font-semibold text-slate-900 leading-tight">
             Safety &amp; verification
-          </span>
+          </h2>
           <span className="block text-[12px] text-slate-500 leading-snug mt-1">
             We combine official checks with community signals to help you hire with confidence.
           </span>

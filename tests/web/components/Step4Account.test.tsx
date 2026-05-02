@@ -21,19 +21,11 @@ describe("<Step4Account /> terms checkbox", () => {
     expect(checkbox.checked).toBe(false);
   });
 
-  it("disables the Create account button when checkbox is unchecked", () => {
-    render(<Step4Account {...defaults} />);
-    const button = screen.getByTestId("btn-create-account");
-    expect(button).toBeDisabled();
-  });
-
-  it("enables the Create account button when checkbox is checked", () => {
-    render(<Step4Account {...defaults} />);
-    const checkbox = screen.getByTestId("agree-terms").querySelector("input[type='checkbox']") as HTMLInputElement;
-    fireEvent.click(checkbox);
-    const button = screen.getByTestId("btn-create-account");
-    expect(button).toBeEnabled();
-  });
+  // The "disable/enable Create button on terms checkbox" tests were
+  // removed when the wizard rebuild moved the submit button into a
+  // hidden form element and shifted the agreedTerms gate to the
+  // WizardNavBar (lives in the parent shell, not in Step4Account). The
+  // checkbox-state and terms links are still covered below.
 
   it("links to Terms of Use and Acceptable Use Policy", () => {
     render(<Step4Account {...defaults} />);

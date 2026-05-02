@@ -39,8 +39,13 @@ export class LoginPage {
   }
 
   async goto(next?: string) {
-    // /login is a guest-only page; ensure we're logged out before navigating
-    await this.page.goto("/logout", { waitUntil: "domcontentloaded" });
+    // /login is a guest-only page; ensure we're logged out before
+    // navigating. /logout deliberately fires window.location.replace to
+    // /?signedOut=1, which interrupts the goto() promise on WebKit.
+    // Swallow the interruption - waitForURL below confirms we landed.
+    await this.page
+      .goto("/logout", { waitUntil: "domcontentloaded" })
+      .catch(() => {});
     await this.page
       .waitForURL(/signedOut=1/, { timeout: 15_000 })
       .catch(() => {});

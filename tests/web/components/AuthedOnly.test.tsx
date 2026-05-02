@@ -7,6 +7,9 @@ const ensureSignedInMock = vi.fn();
 const useAuthMock = vi.fn();
 vi.mock("@/utils/auth", () => ({
   useAuth: () => useAuthMock(),
+  // AuthedOnly also imports isSignOutInProgress() to skip the sign-in
+  // redirect mid-logout. Default to "not in progress" for the tests.
+  isSignOutInProgress: () => false,
 }));
 
 const routerReplaceMock = vi.fn();

@@ -77,8 +77,11 @@ import ShortlistPage from "@/pages/projects/[id]/shortlist";
 describe("Project shortlist page with SwipeDeck", () => {
   it("renders SwipeDeck seeded from /matches response", async () => {
     render(<ShortlistPage />);
+    // SwipeDeck cards now render front + back faces (flip-card overhaul),
+    // so the company name appears in two DOM nodes per top card. Asserting
+    // at least one is enough to confirm the deck is seeded.
     await waitFor(() =>
-      expect(screen.getByText("Harrow")).toBeInTheDocument(),
+      expect(screen.getAllByText("Harrow").length).toBeGreaterThan(0),
     );
   });
 });

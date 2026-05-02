@@ -36,7 +36,10 @@ describe("GET /api/tradesmen/me/incoming-interest", () => {
   it("returns only pending rows for this builder", async () => {
     const q = vi
       .fn()
-      .mockResolvedValueOnce({ affectedRows: 0 }) // expiry UPDATE
+      // expireSwipeInterests fires two UPDATEs now (standard 14-day pass
+      // + paid_unlock boost-expiry pass) before the rows fetch.
+      .mockResolvedValueOnce({ affectedRows: 0 }) // expiry UPDATE 1 (standard)
+      .mockResolvedValueOnce({ affectedRows: 0 }) // expiry UPDATE 2 (paid_unlock)
       .mockResolvedValueOnce([
         {
           id: 10,

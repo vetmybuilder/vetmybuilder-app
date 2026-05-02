@@ -319,12 +319,15 @@ describe("GET /api/tradesmen/jobs — list mode (no mode param)", () => {
       expect.objectContaining({ items: expect.any(Array), total: 1 }),
     );
 
-    // No swipe_interest join in list mode
+    // List mode now also LEFT JOINs swipe_interest so the response can
+    // include per-row swipe state (matchId, swipeStatus, swipedAt) for
+    // the UI to render status pills next to each job. The earlier "no
+    // JOIN in list mode" optimisation was reverted intentionally.
     const mainSelect = q.mock.calls.find(([sql]: [string]) =>
       /SELECT.*FROM projects/i.test(sql),
     );
     expect(mainSelect).toBeDefined();
-    expect(mainSelect[0]).not.toMatch(/swipe_interest/i);
+    expect(mainSelect[0]).toMatch(/LEFT JOIN swipe_interest/i);
   });
 
   it("list mode returns enriched fields (budget, postedAt, aiScore, propertyType, bedrooms, ownerFirstName)", async () => {
@@ -367,7 +370,7 @@ describe("GET /api/tradesmen/jobs — list mode (no mode param)", () => {
     expect(item.ownerFirstName).toBe("Alice");
   });
 
-  it("list mode: uid only appears once in params (no swipe_interest JOIN bind)", async () => {
+  it("list mode: uid binds twice in params (once for swipe_interest JOIN, once for ownerUserId<>?)", async () => {
     const q = vi
       .fn()
       .mockResolvedValueOnce([{ role: "tradesman" }])
@@ -399,8 +402,10 @@ describe("GET /api/tradesmen/jobs — list mode (no mode param)", () => {
     expect(mainSelect).toBeDefined();
     const selectParams: string[] = mainSelect[1];
     const uidOccurrences = selectParams.filter((p) => p === "list-uid");
-    // In list mode uid only appears once (for ownerUserId<>?)
-    expect(uidOccurrences).toHaveLength(1);
+    // List mode now also binds the JOIN parameter, so uid appears
+    // twice: once for the LEFT JOIN swipe_interest condition and once
+    // for the WHERE ownerUserId<>? exclusion.
+    expect(uidOccurrences).toHaveLength(2);
   });
 });
 

@@ -5,10 +5,16 @@ test.describe("GET /api/notifications/preferences", () => {
     const res = await apiClient.get("/api/notifications/preferences");
     expect(res.status()).toBe(200);
     const body = await res.json();
+    // Default categories: builder_interest was retired; replaced by the
+    // pair (matches, messages) when the swipe-matching + chat features
+    // landed. Order kept aligned with server/lib/pushSender.js
+    // DEFAULT_PREFERENCES + server/routes/notifications/preferences.put.js
+    // VALID_CATEGORIES.
     expect(body.preferences).toEqual({
       hire_updates: true,
       recommendations: true,
-      builder_interest: true,
+      matches: true,
+      messages: true,
       local_activity: false,
       project_matches: true,
     });
@@ -34,7 +40,9 @@ test.describe("PUT /api/notifications/preferences", () => {
     const getBody = await getRes.json();
     expect(getBody.preferences.hire_updates).toBe(false);
     expect(getBody.preferences.recommendations).toBe(true);
-    expect(getBody.preferences.builder_interest).toBe(true);
+    // builder_interest replaced by matches + messages (see preferences.put.js).
+    expect(getBody.preferences.matches).toBe(true);
+    expect(getBody.preferences.messages).toBe(true);
     expect(getBody.preferences.local_activity).toBe(false);
     expect(getBody.preferences.project_matches).toBe(true);
   });

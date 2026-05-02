@@ -12,6 +12,11 @@ export type RecommendationInput = {
   phone?: string;
   companyEmail?: string;
   source?: "platform" | "magic";
+  qualityRating?: number;
+  reliabilityRating?: number;
+  communicationRating?: number;
+  trustRating?: number;
+  valueRating?: number;
 };
 
 type MultipartPhoto = {
@@ -29,6 +34,11 @@ export default class Recommendation {
   phone?: string;
   companyEmail?: string;
   source?: "platform" | "magic";
+  qualityRating?: number;
+  reliabilityRating?: number;
+  communicationRating?: number;
+  trustRating?: number;
+  valueRating?: number;
 
   private photos: MultipartPhoto[] = [];
 
@@ -41,6 +51,11 @@ export default class Recommendation {
       "Elegant Building Services were reliable, tidy, and did a very good job. I would happily recommend them.";
     this.rating = 5;
     this.phone = "07900111222";
+    this.qualityRating = 5;
+    this.reliabilityRating = 5;
+    this.communicationRating = 5;
+    this.trustRating = 5;
+    this.valueRating = 5;
 
     this.photos = [
       {
@@ -66,6 +81,11 @@ export default class Recommendation {
     this.comment = chance.sentence({ words: 12 });
     this.rating = 5;
     this.phone = "07900111222";
+    this.qualityRating = 5;
+    this.reliabilityRating = 5;
+    this.communicationRating = 5;
+    this.trustRating = 5;
+    this.valueRating = 5;
     return this;
   }
 
@@ -81,11 +101,18 @@ export default class Recommendation {
     if (this.phone) out.phone = this.phone;
     if (this.companyEmail !== undefined) out.companyEmail = this.companyEmail;
     if (this.source) out.source = this.source;
+    if (this.qualityRating !== undefined) out.qualityRating = this.qualityRating;
+    if (this.reliabilityRating !== undefined)
+      out.reliabilityRating = this.reliabilityRating;
+    if (this.communicationRating !== undefined)
+      out.communicationRating = this.communicationRating;
+    if (this.trustRating !== undefined) out.trustRating = this.trustRating;
+    if (this.valueRating !== undefined) out.valueRating = this.valueRating;
 
     return out;
   }
 
-  toMultipartPayload(): { fields: Record<string, any>; photos?: string[] } {
+  toMultipartPayload(): { fields: RecommendationInput; photos?: string[] } {
     return {
       fields: this.toPayload(),
       photos: this.photos.length
@@ -135,6 +162,49 @@ export default class Recommendation {
 
   asMagicRecommendation(): Recommendation {
     this.source = "magic";
+    return this;
+  }
+
+  withQualityRating(n: number): Recommendation {
+    this.qualityRating = n;
+    return this;
+  }
+
+  withReliabilityRating(n: number): Recommendation {
+    this.reliabilityRating = n;
+    return this;
+  }
+
+  withCommunicationRating(n: number): Recommendation {
+    this.communicationRating = n;
+    return this;
+  }
+
+  withTrustRating(n: number): Recommendation {
+    this.trustRating = n;
+    return this;
+  }
+
+  withValueRating(n: number): Recommendation {
+    this.valueRating = n;
+    return this;
+  }
+
+  withAllRatings(n: number): Recommendation {
+    this.qualityRating = n;
+    this.reliabilityRating = n;
+    this.communicationRating = n;
+    this.trustRating = n;
+    this.valueRating = n;
+    return this;
+  }
+
+  withNoRatings(): Recommendation {
+    this.qualityRating = undefined;
+    this.reliabilityRating = undefined;
+    this.communicationRating = undefined;
+    this.trustRating = undefined;
+    this.valueRating = undefined;
     return this;
   }
 }

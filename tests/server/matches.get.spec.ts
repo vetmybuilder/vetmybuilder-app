@@ -40,7 +40,10 @@ describe("GET /api/projects/:id/matches", () => {
   it("returns 403 when the user is not the project owner", async () => {
     const q = vi
       .fn()
-      .mockResolvedValueOnce({ affectedRows: 0 }) // expiry UPDATE
+      // expireSwipeInterests fires TWO UPDATEs (standard 14-day pass +
+      // paid_unlock boost-expiry pass) before the route's own queries run.
+      .mockResolvedValueOnce({ affectedRows: 0 }) // expiry UPDATE 1 (standard)
+      .mockResolvedValueOnce({ affectedRows: 0 }) // expiry UPDATE 2 (paid_unlock)
       .mockResolvedValueOnce([
         { id: 1, ownerUserId: "someone-else", location: "E4 7ER" },
       ]);
@@ -56,7 +59,8 @@ describe("GET /api/projects/:id/matches", () => {
   it("returns split deck (recommended + subscribed) excluding swiped pairs", async () => {
     const q = vi
       .fn()
-      .mockResolvedValueOnce({ affectedRows: 0 }) // expiry UPDATE
+      .mockResolvedValueOnce({ affectedRows: 0 }) // expiry UPDATE 1 (standard)
+      .mockResolvedValueOnce({ affectedRows: 0 }) // expiry UPDATE 2 (paid_unlock)
       .mockResolvedValueOnce([
         { id: 1, ownerUserId: "u1", location: "E4 7ER" },
       ]) // project
@@ -102,6 +106,9 @@ describe("GET /api/projects/:id/matches", () => {
           cvStatus: "verified",
         },
       ]) // subscribed pool
+      // paid_unlock boosted slots (added by the boost feature). Empty
+      // array means no trades have paid for a slot on this project.
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
         { uid: "alex-uid", firstName: "Alex" },
       ]); // recommender lookup
@@ -144,5 +151,66 @@ describe("GET /api/projects/:id/matches", () => {
     expect(sub.yearsTrading).toBe(3);
     expect(sub.recommenderName).toBeUndefined();
     expect(sub.recommendationId).toBeNull();
+  });
+
+  it("returns unlinked off-platform recs as recommendationCards with linkedTradesmanUid null", async () => {
+    const q = vi
+      .fn()
+      .mockResolvedValueOnce({ affectedRows: 0 }) // expiry UPDATE 1 (standard)
+      .mockResolvedValueOnce({ affectedRows: 0 }) // expiry UPDATE 2 (paid_unlock)
+      .mockResolvedValueOnce([
+        { id: 1, ownerUserId: "u1", location: "E4 7ER" },
+      ]) // project
+      .mockResolvedValueOnce([
+        {
+          structured: JSON.stringify({
+            type: "kitchen",
+            recommended_trades: ["kitchen_fitter"],
+          }),
+        },
+      ]) // classification
+      .mockResolvedValueOnce([]) // swiped exclusion
+      .mockResolvedValueOnce([]) // recRows (no linked recs → recommender lookup skipped)
+      .mockResolvedValueOnce([]) // subscribed pool
+      .mockResolvedValueOnce([]) // paid_unlock boost slots
+      .mockResolvedValueOnce([
+        {
+          recommendationId: 9001,
+          company: "Off Platform Builds Ltd",
+          recommenderUserId: "alex-uid",
+          isAnonymous: 0,
+          recommenderName: "Alex Jones",
+          companyEmail: "hello@offplat.example",
+          recPhone: "07000 000111",
+          linked_tradesman_uid: null,
+          recommenderFirstName: "Alex",
+          coverPhoto: "uploads/cover.jpg",
+          tradesmanUid: null,
+          tradesmanCompanyName: null,
+          tradesmanPhotoUrl: null,
+          tradesmanPhone: null,
+          tradesmanEmail: null,
+        },
+      ]); // recCardRows (the unlinked off-platform rec)
+    const handler = loadHandler({
+      auth: (_q: any, _r: any, n: any) => n(),
+      mysqlQuery: q,
+    });
+    const res = mockRes();
+    await handler({ user: { uid: "u1" }, params: { id: "1" } }, res);
+    expect(res.status).toHaveBeenCalledWith(200);
+    const body = res.json.mock.calls[0][0];
+
+    expect(body.recommended).toEqual([]);
+    expect(body.subscribed).toEqual([]);
+    expect(body.recommendationCards).toHaveLength(1);
+    const card = body.recommendationCards[0];
+    expect(card.recommendationId).toBe(9001);
+    expect(card.company).toBe("Off Platform Builds Ltd");
+    expect(card.recommenderName).toBe("Alex");
+    expect(card.linkedTradesmanUid).toBeNull();
+    expect(card.coverPhotoUrl).toBe("uploads/cover.jpg");
+    expect(card.contact.phone).toBe("07000 000111");
+    expect(card.contact.email).toBe("hello@offplat.example");
   });
 });
