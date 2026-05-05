@@ -20,7 +20,11 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      # JSDOM-heavy web suite hits the default 4GB Node heap right at
+       # the end of the run. Bump headroom; runner has 7GB RAM.
       - run: npm test
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
 
   deploy:
     needs: unit-tests
