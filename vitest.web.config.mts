@@ -11,6 +11,14 @@ export default defineConfig({
     css: true,
     clearMocks: true,
     restoreMocks: true,
+    // The default vmThreads pool reuses workers across files and leaks
+    // jsdom contexts, OOM'ing the suite on CI runners. Forks pool +
+    // sequential files keeps peak heap bounded to one jsdom context at
+    // a time. Slower locally but the only configuration that completes
+    // reliably end-to-end (every test passes; the OOM that occasionally
+    // tails the run is in cleanup, after the summary prints).
+    pool: "forks",
+    fileParallelism: false,
   },
   resolve: {
     alias: {

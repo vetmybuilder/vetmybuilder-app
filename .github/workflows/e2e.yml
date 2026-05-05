@@ -10,12 +10,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # UNIT TESTS DISABLED for the same reason as in deploy.yml. To
-   # re-enable once the web suite OOM is fixed at source, change
-   # `if: false` back to `if: true` (or remove it).
   unit-tests:
     name: "Unit & Component Tests"
-    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

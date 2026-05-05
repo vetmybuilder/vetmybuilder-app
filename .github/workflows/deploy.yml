@@ -10,13 +10,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # UNIT TESTS DISABLED. The web suite OOMs the worker pool partway
-   # through; the underlying leak (cumulative jsdom + module-graph weight
-   # from the redesign) needs a dedicated fix. To re-enable once that's
-   # done, change `if: false` back to `if: true` (or remove it).
   unit-tests:
     name: "Unit & Component Tests"
-    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,6 +25,7 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=7168
 
   deploy:
+    needs: unit-tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
