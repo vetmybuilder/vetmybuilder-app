@@ -5,7 +5,10 @@ import BillingPage from "@/pages/tradesman/billing";
 const get = vi.fn(async () => ({ data: { subscription: null } }));
 const post = vi.fn(async () => ({ data: { url: "https://stripe.test/checkout" } }));
 vi.mock("@/utils/api", () => ({ useApi: () => ({ get, post }) }));
-vi.mock("@/utils/auth", () => ({ useAuth: () => ({ user: { uid: "b1" } }) }));
+// Stable references: the page's load effect depends on [authLoading, user],
+// so a fresh object each render would loop fetch -> setState -> render forever.
+const stableAuth = { user: { uid: "b1" }, loading: false };
+vi.mock("@/utils/auth", () => ({ useAuth: () => stableAuth }));
 vi.mock("next/router", () => ({
   useRouter: () => ({
     query: {},
@@ -16,6 +19,10 @@ vi.mock("next/router", () => ({
     replace: vi.fn(),
   }),
 }));
+
+// SiteHeader pulls in its own /api/tradesmen/me fetch + SSE listeners
+// which can interact pathologically with this page's mocks. Stub it.
+vi.mock("@/components/SiteHeader", () => ({ default: () => null }));
 
 describe("BillingPage", () => {
   beforeEach(() => {

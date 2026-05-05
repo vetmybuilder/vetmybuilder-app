@@ -512,7 +512,7 @@ export default function NewProject() {
       </div>
 
       {/* DESKTOP - wizard on cream backdrop, brand-toned chrome */}
-      <div className="hidden md:block">
+      <div className="hidden md:block" data-testid="wizard-new">
       <Layout>
       <Head>
         <style>{`body { background: #fef6e9 !important; }`}</style>
@@ -592,6 +592,7 @@ export default function NewProject() {
                         setSubtypeSearch("");
                         setTimeout(() => setStep((s) => s + 1), 150);
                       }}
+                      aria-pressed={form.category === cat}
                       className={`flex flex-col items-center gap-1.5 p-4 rounded-2xl border-2 transition-colors text-center ${
                         form.category === cat
                           ? "border-indigo-500 bg-indigo-50"

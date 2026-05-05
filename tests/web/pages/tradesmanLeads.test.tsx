@@ -50,11 +50,18 @@ vi.mock("next/router", () => ({
   useRouter: () => ({
     query: {},
     isReady: true,
-    pathname: "/tradesman/matches",
-    asPath: "/tradesman/matches",
+    pathname: "/tradesman/leads",
+    asPath: "/tradesman/leads",
     push: vi.fn(),
     replace: vi.fn(),
   }),
+}));
+
+// Stub the global header chrome - it has its own /api/tradesmen/me
+// fetch + SSE connection that aren't relevant to lead-row behaviour
+// and would otherwise hang the test in jsdom.
+vi.mock("@/components/SiteHeader", () => ({
+  default: () => null,
 }));
 
 // The lead-acceptance flow that used to live at /tradesman/matches now
@@ -64,19 +71,19 @@ vi.mock("next/router", () => ({
 import TradesmanLeads from "@/pages/tradesman/leads";
 
 describe("Tradesman leads page", () => {
-  // TODO: re-enable post UI redesign. Mock fixture data ("Sarah") no
-   // longer matches the new IncomingLeadCard render path.
-  it.skip("renders a lead card and commits accept", async () => {
+  // Targets the desktop lead row (`desktop-lead-accept-<matchId>`).
+  // Mobile flip-card flow is exercised by the Playwright e2e suite.
+  // Note: homeownerFirstName ("Sarah") is intentionally NOT surfaced
+  // by the new IncomingLeadCard - the card leads with project title +
+  // recommender attribution instead.
+  it("renders a lead card and commits accept on desktop", async () => {
     render(<TradesmanLeads />);
-    // The lead card renders a flip-card now (front + back faces) so the
-    // title appears in two DOM nodes. getAllByText covers both.
     await waitFor(() =>
       expect(screen.getAllByText(/Kitchen extension/).length).toBeGreaterThan(0),
     );
-    expect(screen.getAllByText(/Sarah/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Recommended by Alex/).length).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole("button", { name: /like/i }));
+    fireEvent.click(screen.getByTestId("desktop-lead-accept-m1"));
     await waitFor(() =>
       expect(post).toHaveBeenCalledWith("/api/swipe/respond", {
         matchId: "m1",

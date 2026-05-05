@@ -560,6 +560,7 @@ function EditProjectInner() {
                           setSubtypeSearch("");
                           setTimeout(() => setStep((s) => s + 1), 150);
                         }}
+                        aria-pressed={form.category === cat}
                         className={`flex flex-col items-center gap-1.5 p-4 rounded-2xl border-2 transition-colors text-center ${
                           form.category === cat
                             ? "border-amber-500 bg-amber-50"

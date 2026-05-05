@@ -1,8 +1,9 @@
 // tests/web/components/SiteHeader.tradesman-nav.test.tsx
-// Verifies that the tradesman navigation (desktop trades dropdown) exposes a
-// "Matches" link that points at /tradesman/matches. This is the entry point
-// into the swipe-matching inbox for tradesmen.
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+// Verifies that the desktop tradesman navigation (top-level header tabs)
+// includes a "Matches" link pointing at /tradesman/matches. The link
+// used to live in the trades dropdown menu but moved up into the
+// TRADES_TABS strip during the header v2 redesign.
+import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import React from "react";
 
@@ -70,11 +71,7 @@ describe("<SiteHeader /> tradesman navigation", () => {
     } catch {}
   });
 
-  // TODO: re-enable post UI redesign. The Matches link moved out of the
-   // trades dropdown and into the top-level header tabs (TRADES_TABS in
-   // SiteHeader.tsx). This assertion needs rewriting against the new tab
-   // structure rather than the old menu-matches testid.
-  it.skip("includes a Matches link in the trades menu pointing at /tradesman/matches", async () => {
+  it("renders a Matches tab pointing at /tradesman/matches", async () => {
     useAuthMock.mockReturnValue({
       user: { firstName: "Tina", lastName: "Trader" },
       loading: false,
@@ -83,18 +80,15 @@ describe("<SiteHeader /> tradesman navigation", () => {
 
     render(<SiteHeader />);
 
-    // Wait for the role check to resolve so the trades menu renders
-    const tradesButton = await screen.findByTestId("trades-menu-button");
-
-    // Open the trades dropdown
-    fireEvent.click(tradesButton);
-
-    // Matches link should appear inside the opened menu
-    await waitFor(() => {
-      expect(screen.getByTestId("menu-matches")).toBeInTheDocument();
-    });
-
-    const link = screen.getByRole("menuitem", { name: /matches/i });
-    expect(link).toHaveAttribute("href", "/tradesman/matches");
+    // Tabs render after /api/tradesmen/me resolves and the role check
+    // marks the viewer as a tradesman. findByRole waits for that.
+    // Bumped timeout to 5s because suite-wide CPU contention can push
+    // this past the default 1000ms despite running in <600ms in isolation.
+    const matchesTab = await screen.findByRole(
+      "tab",
+      { name: /matches/i },
+      { timeout: 5000 },
+    );
+    expect(matchesTab).toHaveAttribute("href", "/tradesman/matches");
   });
 });
