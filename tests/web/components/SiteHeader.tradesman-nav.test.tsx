@@ -82,7 +82,13 @@ describe("<SiteHeader /> tradesman navigation", () => {
 
     // Tabs render after /api/tradesmen/me resolves and the role check
     // marks the viewer as a tradesman. findByRole waits for that.
-    const matchesTab = await screen.findByRole("tab", { name: /matches/i });
+    // Bumped timeout to 5s because suite-wide CPU contention can push
+    // this past the default 1000ms despite running in <600ms in isolation.
+    const matchesTab = await screen.findByRole(
+      "tab",
+      { name: /matches/i },
+      { timeout: 5000 },
+    );
     expect(matchesTab).toHaveAttribute("href", "/tradesman/matches");
   });
 });
