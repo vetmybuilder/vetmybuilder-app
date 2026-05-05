@@ -1,4 +1,5 @@
 import * as React from "react";
+import Link from "next/link";
 import { ThumbsUpIcon, CameraIcon } from "@/components/ui/Icons";
 import { ScoreChip, chLabel, chBadgeClass, chIcon } from "@/components/ui/vmb";
 import type { Recommendation, Verification } from "@/types/vmb";
