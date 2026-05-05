@@ -17,14 +17,14 @@ const builder = {
 };
 
 describe("BuilderCard", () => {
-  it("renders company, stat pills, Friend pill, and recommender", () => {
+  it("renders company, stat pills, Recommendation pill, and recommender", () => {
     render(<BuilderCard builder={builder} />);
     expect(screen.getByText("Harrow Building Ltd")).toBeInTheDocument();
     expect(screen.getByText(/4\.8/)).toBeInTheDocument();
     expect(screen.getByText(/27/)).toBeInTheDocument();
     expect(screen.getByText(/12 yrs/)).toBeInTheDocument();
     expect(screen.getByText(/Verified/)).toBeInTheDocument();
-    expect(screen.getByText(/Friend/)).toBeInTheDocument();
+    expect(screen.getByText(/Recommendation/)).toBeInTheDocument();
     expect(screen.getByText(/Alex/)).toBeInTheDocument();
   });
 

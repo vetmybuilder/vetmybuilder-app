@@ -42,8 +42,13 @@ import MatchPage from "@/pages/match/[matchId]";
 describe("MatchPage", () => {
   it("renders the match celebration and contact info", async () => {
     render(<MatchPage />);
+    // Heading splits "It's a" + "match!" across two spans (Caveat
+     // accent on the second word), so a single text matcher can't find
+     // it. Match via the h1's combined textContent instead.
     await waitFor(() =>
-      expect(screen.getByText(/It's a match/i)).toBeInTheDocument(),
+      expect(
+        screen.getByRole("heading", { level: 1 }).textContent,
+      ).toMatch(/it'?s a\s+match/i),
     );
     expect(screen.getByText(/James H\./)).toBeInTheDocument();
     expect(screen.getByText(/07000 000000/)).toBeInTheDocument();
