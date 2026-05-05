@@ -23,7 +23,7 @@ import SiteHeader from "@/components/SiteHeader";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import BrandWordmark from "@/components/BrandWordmark";
 import ChatWindow from "@/components/messaging/ChatWindow";
-import { Handshake, MessagesSquare, Sparkles } from "lucide-react";
+import { Handshake, MessagesSquare, Sparkles, Star } from "lucide-react";
 
 type MatchSource = "recommended" | "subscribed";
 
