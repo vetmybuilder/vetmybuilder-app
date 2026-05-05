@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <title>Homepage redesign · warmer / more brand</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;800&family=Caveat:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif; }
+    .phone {
+      width: 380px; height: 820px;
+      border-radius: 44px;
+      box-shadow: 0 30px 80px rgba(15,23,42,0.18), 0 0 0 10px #111 inset, 0 0 0 12px #333 inset;
+      overflow: hidden; position: relative; background: #f8fafc;
+    }
+    .phone-inner { position:absolute; inset: 12px; border-radius: 32px; overflow: hidden; background:#fff; }
+    .grad-indigo { background: linear-gradient(135deg,#6366f1,#4f46e5); }
+    .grad-emerald { background: linear-gradient(135deg,#10b981,#059669); }
+    .grad-amber { background: linear-gradient(135deg,#fbbf24,#f59e0b); }
+    .grad-rose { background: linear-gradient(135deg,#fb923c,#f97316); }
+    .grad-violet { background: linear-gradient(135deg,#a78bfa,#7c3aed); }
+    .scroll-y { overflow-y: auto; }
+    .scroll-y::-webkit-scrollbar { width: 0; }
+    .accent { font-family: 'Caveat', cursive; font-weight: 700; }
+    .display { font-family: 'Sora', sans-serif; }
+    /* Soft cream + warm tones */
+    .bg-cream { background: #fef6e9; }
+    .bg-cream-deep { background: #faecd2; }
+    .bg-peach { background: #ffece0; }
+    .bg-mint { background: #e8f7ee; }
+    .bg-lavender { background: #ede9fe; }
+    .bg-sand { background: #f6efe1; }
+    .bg-charcoal { background: #1f2937; }
+    /* paper noise */
+    .paper {
+      background-image:
+        radial-gradient(#0000 1px, rgba(255,237,213,0.45) 1px),
+        linear-gradient(135deg,#fff5e0,#ffe2c4);
+      background-size: 8px 8px, 100% 100%;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+  <header class="px-8 pt-10 pb-6 text-center">
+    <h1 class="text-2xl font-extrabold tracking-tight text-slate-900">Homepage redesign · warmer brand</h1>
+    <p class="mt-2 text-sm text-slate-500 max-w-3xl mx-auto">
+      Three rebrands of the homepage with more soul: warm creams, peach + amber accents, handwritten flourishes,
+      photo-led sections. Every variant still shows the existing review ticker.
+    </p>
+  </header>
+
+  <main class="px-6 pb-20">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-10 justify-items-center">
+
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <!-- A · Warm cream + indigo (my pick)                                -->
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <section>
+        <div class="text-center mb-3">
+          <div class="text-xs uppercase font-extrabold tracking-widest text-amber-700">Option A · my pick</div>
+          <h2 class="text-base font-extrabold text-slate-900">Warm cream + indigo</h2>
+          <p class="text-[11px] text-slate-500 max-w-[300px] mx-auto">Cream + amber sections alternate with white. Caveat handwritten accent on the slogan. Indigo CTAs. Feels lived-in, not sterile.</p>
+        </div>
+
+        <div class="phone">
+          <div class="phone-inner bg-white scroll-y">
+            <!-- header -->
+            <div class="px-5 pt-3 pb-2 flex items-center justify-between border-b border-slate-100">
+              <div class="flex items-baseline">
+                <span class="text-[20px] font-black tracking-tight text-slate-900">Vet</span>
+                <span class="text-[20px] font-black tracking-tight text-indigo-600">My</span>
+                <span class="text-[20px] font-black tracking-tight text-slate-900">Builder</span>
+              </div>
+              <span class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-700">≡</span>
+            </div>
+
+            <!-- HERO · cream with peach blob -->
+            <section class="paper px-5 pt-9 pb-10 relative overflow-hidden">
+              <span class="absolute -top-10 -right-10 w-48 h-48 grad-amber opacity-30 rounded-full blur-2xl"></span>
+              <span class="absolute bottom-0 -left-12 w-32 h-32 grad-rose opacity-25 rounded-full blur-2xl"></span>
+              <div class="relative z-10">
+                <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-700 mb-3">Hand-picked · No spam</p>
+                <h1 class="display text-[34px] font-black tracking-[-0.025em] text-slate-900 leading-[1.0]">
+                  Finding the right builder should feel
+                  <span class="accent text-indigo-600 text-[44px] block leading-none mt-1">personal.</span>
+                </h1>
+                <p class="mt-4 text-[14px] text-slate-700 leading-relaxed">
+                  Not five strangers cold-calling you in 30 seconds. Just builders your neighbours rate, ready to chat when you are.
+                </p>
+                <div class="mt-6 flex flex-col gap-2.5">
+                  <button class="w-full py-3.5 rounded-2xl grad-indigo text-white font-extrabold text-[15px] shadow-lg shadow-indigo-500/25">Post a job · free</button>
+                  <button class="w-full py-3 rounded-2xl bg-white/80 border-[1.5px] border-amber-200 text-amber-800 font-bold text-[14px]">See how it works</button>
+                </div>
+                <div class="mt-5 flex items-center gap-3 text-[11.5px] text-slate-700">
+                  <span class="inline-flex items-center gap-1"><span class="text-amber-500">★</span><strong>4.9</strong> (137 reviews)</span>
+                  <span class="text-slate-400">·</span>
+                  <span class="inline-flex items-center gap-1 text-emerald-700 font-bold">✓ Companies House verified</span>
+                </div>
+              </div>
+            </section>
+
+            <!-- 3 steps · alternating warm tones -->
+            <section class="px-5 pt-9 pb-9 bg-white">
+              <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-700 text-center">How it works</p>
+              <h2 class="display mt-1 text-[24px] font-black tracking-tight text-slate-900 text-center leading-[1.1]">
+                Three steps. <span class="accent text-amber-600 text-[28px]">No spam.</span>
+              </h2>
+
+              <div class="mt-6 space-y-3">
+                <div class="rounded-3xl bg-cream p-4 flex items-start gap-3 border border-amber-100/70">
+                  <span class="grad-amber text-white w-10 h-10 rounded-2xl flex items-center justify-center font-black text-[16px] shrink-0">1</span>
+                  <div>
+                    <div class="text-[15px] font-extrabold text-slate-900">Tell us about your job</div>
+                    <p class="mt-1 text-[12.5px] text-slate-700 leading-snug">Two minutes. Photos optional. Your number stays private.</p>
+                  </div>
+                </div>
+                <div class="rounded-3xl bg-lavender p-4 flex items-start gap-3 border border-violet-100">
+                  <span class="grad-violet text-white w-10 h-10 rounded-2xl flex items-center justify-center font-black text-[16px] shrink-0">2</span>
+                  <div>
+                    <div class="text-[15px] font-extrabold text-slate-900">Meet your matches</div>
+                    <p class="mt-1 text-[12.5px] text-slate-700 leading-snug">Builders your neighbours rate, AI-ranked for your job. Swipe through, like a deck of cards.</p>
+                  </div>
+                </div>
+                <div class="rounded-3xl bg-mint p-4 flex items-start gap-3 border border-emerald-100">
+                  <span class="grad-emerald text-white w-10 h-10 rounded-2xl flex items-center justify-center font-black text-[16px] shrink-0">3</span>
+                  <div>
+                    <div class="text-[15px] font-extrabold text-slate-900">Chat directly. Hire when ready.</div>
+                    <p class="mt-1 text-[12.5px] text-slate-700 leading-snug">Built-in chat. Share photos, agree dates, get the job done.</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Why love us · sand background -->
+            <section class="bg-sand px-5 pt-9 pb-9 relative overflow-hidden">
+              <span class="absolute top-12 -right-10 w-40 h-40 grad-amber opacity-15 rounded-full blur-2xl"></span>
+              <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-700 text-center relative z-10">Why homeowners love it</p>
+              <h2 class="display mt-1 text-[24px] font-black tracking-tight text-slate-900 text-center leading-[1.1] relative z-10">Built for trust.</h2>
+
+              <div class="mt-6 space-y-2.5 relative z-10">
+                <div class="rounded-2xl bg-white p-3.5 flex items-start gap-3 shadow-sm shadow-amber-100">
+                  <span class="w-10 h-10 rounded-2xl grad-emerald flex items-center justify-center text-white text-base shrink-0">✓</span>
+                  <div>
+                    <div class="text-[13.5px] font-extrabold text-slate-900">Every builder is verified</div>
+                    <p class="text-[11.5px] text-slate-600 leading-snug">Companies House, insurance, real ratings. Hard checks, not just star averages.</p>
+                  </div>
+                </div>
+                <div class="rounded-2xl bg-white p-3.5 flex items-start gap-3 shadow-sm shadow-amber-100">
+                  <span class="w-10 h-10 rounded-2xl grad-violet flex items-center justify-center text-white text-base shrink-0">★</span>
+                  <div>
+                    <div class="text-[13.5px] font-extrabold text-slate-900">Your neighbours backed them</div>
+                    <p class="text-[11.5px] text-slate-600 leading-snug">Recommendations from real people in your area, not paid testimonials.</p>
+                  </div>
+                </div>
+                <div class="rounded-2xl bg-white p-3.5 flex items-start gap-3 shadow-sm shadow-amber-100">
+                  <span class="w-10 h-10 rounded-2xl grad-amber flex items-center justify-center text-white text-base shrink-0">🔒</span>
+                  <div>
+                    <div class="text-[13.5px] font-extrabold text-slate-900">No spam, ever</div>
+                    <p class="text-[11.5px] text-slate-600 leading-snug">We don't sell your number. Builders only message you when you've picked them too.</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Reviews · keep dark for contrast -->
+            <section class="bg-charcoal px-5 py-9 relative">
+              <span class="absolute top-4 left-4 accent text-amber-400 text-[28px] leading-none opacity-80">"</span>
+              <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-400 text-center">Real homeowner stories</p>
+              <div class="mt-4 flex items-start gap-3">
+                <div class="w-11 h-11 rounded-full grad-emerald flex items-center justify-center text-white font-bold shrink-0">P</div>
+                <div class="flex-1">
+                  <div class="text-amber-400 text-sm">★★★★★</div>
+                  <p class="mt-1 text-[12.5px] text-white/90 leading-relaxed italic display">
+                    "Got locked out on a Sunday. Had a vetted locksmith at my door within the hour. Lifesaver."
+                  </p>
+                  <p class="mt-2 text-[10.5px] text-zinc-400"><strong class="text-zinc-300">Priya K.</strong> · Leyton · Locksmith</p>
+                </div>
+              </div>
+              <div class="flex items-center justify-center gap-1.5 mt-4">
+                <span class="h-1.5 w-5 rounded-full bg-amber-400"></span>
+                <span class="h-1.5 w-1.5 rounded-full bg-white/20"></span>
+                <span class="h-1.5 w-1.5 rounded-full bg-white/20"></span>
+              </div>
+            </section>
+
+            <!-- final cta · cream -->
+            <section class="paper px-5 py-10 text-center">
+              <h2 class="display text-[22px] font-black tracking-tight text-slate-900 leading-tight">
+                Your home deserves a hand-picked builder.
+              </h2>
+              <p class="accent text-amber-700 text-[24px] mt-2 leading-none">Let's find yours.</p>
+              <button class="mt-5 w-full py-4 rounded-2xl grad-indigo text-white font-extrabold text-[15px] shadow-lg shadow-indigo-500/25">
+                Post a job · free
+              </button>
+            </section>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <!-- B · Bold colour blocks                                           -->
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <section>
+        <div class="text-center mb-3">
+          <div class="text-xs uppercase font-extrabold tracking-widest text-rose-700">Option B</div>
+          <h2 class="text-base font-extrabold text-slate-900">Bold colour blocks</h2>
+          <p class="text-[11px] text-slate-500 max-w-[300px] mx-auto">Each section a distinct branded panel: amber hero, indigo steps, emerald why-love, dark reviews. Strong identity.</p>
+        </div>
+
+        <div class="phone">
+          <div class="phone-inner bg-white scroll-y">
+            <div class="px-5 pt-3 pb-2 flex items-center justify-between border-b border-slate-100">
+              <div class="flex items-baseline">
+                <span class="text-[20px] font-black tracking-tight text-slate-900">Vet</span>
+                <span class="text-[20px] font-black tracking-tight text-indigo-600">My</span>
+                <span class="text-[20px] font-black tracking-tight text-slate-900">Builder</span>
+              </div>
+              <span class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-700">≡</span>
+            </div>
+
+            <!-- HERO · amber wash -->
+            <section class="grad-amber px-5 pt-10 pb-10 text-white relative overflow-hidden">
+              <span class="absolute -bottom-10 -right-10 w-48 h-48 bg-white opacity-10 rounded-full blur-2xl"></span>
+              <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-white/80 mb-3">The personal way</p>
+              <h1 class="display text-[40px] font-black tracking-[-0.025em] leading-[0.95]">
+                Skip the spam.<br>
+                <span class="accent text-[50px] leading-none">Meet your match.</span>
+              </h1>
+              <p class="mt-4 text-[14px] text-white/90 leading-relaxed">
+                Like dating apps, but for the trustworthy builder who'll fix your roof or refit your kitchen.
+              </p>
+              <div class="mt-5 flex flex-col gap-2.5">
+                <button class="w-full py-3.5 rounded-2xl bg-white text-amber-800 font-extrabold text-[15px] shadow-lg">Post a job · free</button>
+              </div>
+            </section>
+
+            <!-- Steps · indigo block -->
+            <section class="grad-indigo px-5 pt-9 pb-10 text-white relative overflow-hidden">
+              <span class="absolute top-4 -left-10 w-40 h-40 bg-white opacity-10 rounded-full blur-2xl"></span>
+              <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-white/70 text-center">How it works</p>
+              <h2 class="display mt-1 text-[26px] font-black text-center leading-[1.05]">Three steps to<br>your builder.</h2>
+
+              <div class="mt-6 space-y-3">
+                <div class="rounded-3xl bg-white/10 backdrop-blur p-4 flex items-start gap-3 border border-white/20">
+                  <span class="bg-white text-indigo-700 w-10 h-10 rounded-2xl flex items-center justify-center font-black text-[16px] shrink-0">1</span>
+                  <div>
+                    <div class="text-[15px] font-extrabold">Post your job</div>
+                    <p class="mt-0.5 text-[12.5px] text-white/80">Two minutes. Free. Your number stays private.</p>
+                  </div>
+                </div>
+                <div class="rounded-3xl bg-white/10 backdrop-blur p-4 flex items-start gap-3 border border-white/20">
+                  <span class="bg-white text-indigo-700 w-10 h-10 rounded-2xl flex items-center justify-center font-black text-[16px] shrink-0">2</span>
+                  <div>
+                    <div class="text-[15px] font-extrabold">Swipe your matches</div>
+                    <p class="mt-0.5 text-[12.5px] text-white/80">AI-ranked. Neighbour-rated.</p>
+                  </div>
+                </div>
+                <div class="rounded-3xl bg-white/10 backdrop-blur p-4 flex items-start gap-3 border border-white/20">
+                  <span class="bg-white text-indigo-700 w-10 h-10 rounded-2xl flex items-center justify-center font-black text-[16px] shrink-0">3</span>
+                  <div>
+                    <div class="text-[15px] font-extrabold">Chat. Hire. Done.</div>
+                    <p class="mt-0.5 text-[12.5px] text-white/80">Built-in chat, no phone calls.</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Why love · emerald block -->
+            <section class="grad-emerald px-5 pt-9 pb-10 text-white relative overflow-hidden">
+              <span class="absolute -top-10 -right-10 w-40 h-40 bg-white opacity-10 rounded-full blur-2xl"></span>
+              <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-white/70 text-center">Why homeowners love it</p>
+              <h2 class="display mt-1 text-[26px] font-black text-center leading-[1.05]">Built on trust.</h2>
+
+              <div class="mt-6 grid grid-cols-3 gap-2">
+                <div class="rounded-2xl bg-white/15 backdrop-blur p-3 text-center border border-white/20">
+                  <div class="text-[26px]">✓</div>
+                  <div class="text-[10.5px] font-extrabold mt-1">Verified</div>
+                </div>
+                <div class="rounded-2xl bg-white/15 backdrop-blur p-3 text-center border border-white/20">
+                  <div class="text-[26px]">★</div>
+                  <div class="text-[10.5px] font-extrabold mt-1">Recommended</div>
+                </div>
+                <div class="rounded-2xl bg-white/15 backdrop-blur p-3 text-center border border-white/20">
+                  <div class="text-[26px]">🔒</div>
+                  <div class="text-[10.5px] font-extrabold mt-1">No spam</div>
+                </div>
+              </div>
+              <div class="mt-5 space-y-2 text-[12.5px] text-white/90 leading-snug">
+                <p><strong>Verified</strong> against Companies House &amp; insurance registers.</p>
+                <p><strong>Recommended</strong> by real neighbours in your postcode.</p>
+                <p><strong>No spam</strong> - your number stays private until you message.</p>
+              </div>
+            </section>
+
+            <!-- Reviews · dark -->
+            <section class="bg-charcoal px-5 py-9">
+              <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-400 text-center">From homeowners</p>
+              <div class="mt-4 flex items-start gap-3">
+                <div class="w-11 h-11 rounded-full grad-amber flex items-center justify-center text-white font-bold shrink-0">M</div>
+                <div class="flex-1">
+                  <div class="text-amber-400 text-sm">★★★★★</div>
+                  <p class="mt-1 text-[12.5px] text-white/90 leading-relaxed italic display">"Loft conversion was a big project and we wanted someone we could trust. The builder was fantastic."</p>
+                  <p class="mt-2 text-[10.5px] text-zinc-400"><strong class="text-zinc-300">Mark D.</strong> · Highams Park</p>
+                </div>
+              </div>
+              <div class="flex items-center justify-center gap-1.5 mt-4">
+                <span class="h-1.5 w-1.5 rounded-full bg-white/20"></span>
+                <span class="h-1.5 w-5 rounded-full bg-amber-400"></span>
+                <span class="h-1.5 w-1.5 rounded-full bg-white/20"></span>
+              </div>
+            </section>
+
+            <section class="bg-cream px-5 py-9 text-center">
+              <h2 class="display text-[22px] font-black tracking-tight text-slate-900">Ready to find your builder?</h2>
+              <button class="mt-4 w-full py-4 rounded-2xl grad-indigo text-white font-extrabold text-[15px] shadow-lg shadow-indigo-500/25">Post a job · free</button>
+            </section>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <!-- C · Photo-led + warm                                             -->
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <section>
+        <div class="text-center mb-3">
+          <div class="text-xs uppercase font-extrabold tracking-widest text-emerald-700">Option C</div>
+          <h2 class="text-base font-extrabold text-slate-900">Photo-led, warm</h2>
+          <p class="text-[11px] text-slate-500 max-w-[300px] mx-auto">Big real photo at the top (the hardhat hero we already have). Warm cream copy below. Real, human, not corporate.</p>
+        </div>
+
+        <div class="phone">
+          <div class="phone-inner bg-white scroll-y">
+            <div class="px-5 pt-3 pb-2 flex items-center justify-between border-b border-slate-100">
+              <div class="flex items-baseline">
+                <span class="text-[20px] font-black tracking-tight text-slate-900">Vet</span>
+                <span class="text-[20px] font-black tracking-tight text-indigo-600">My</span>
+                <span class="text-[20px] font-black tracking-tight text-slate-900">Builder</span>
+              </div>
+              <span class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-700">≡</span>
+            </div>
+
+            <!-- Photo hero -->
+            <section class="relative">
+              <div class="aspect-[4/5] relative overflow-hidden">
+                <img src="https://images.unsplash.com/photo-1716037991590-c975184b37df?w=1920&q=80" class="absolute inset-0 w-full h-full object-cover" />
+                <div class="absolute inset-0" style="background: linear-gradient(180deg,rgba(255,237,213,0) 0%,rgba(255,237,213,0.2) 50%,#fef6e9 95%);"></div>
+                <div class="absolute top-6 left-5 right-5 text-white">
+                  <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] mb-2 drop-shadow">Hand-picked · No spam</p>
+                  <h1 class="display text-[36px] font-black tracking-[-0.025em] leading-[1.0] drop-shadow-lg">
+                    Trades,<br>
+                    <span class="accent text-amber-300 text-[42px]">made personal.</span>
+                  </h1>
+                </div>
+              </div>
+              <div class="bg-cream px-5 pt-2 pb-7">
+                <p class="text-[14px] text-slate-700 leading-relaxed">
+                  Five strangers shouldn't cold-call you the second you click "get a quote". We did this differently.
+                </p>
+                <button class="mt-5 w-full py-3.5 rounded-2xl grad-indigo text-white font-extrabold text-[15px] shadow-lg shadow-indigo-500/25">Find your builder</button>
+              </div>
+            </section>
+
+            <!-- Steps · alternating warm tones -->
+            <section class="bg-white px-5 pt-9 pb-9">
+              <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-700 text-center">A small dance, not a fight</p>
+              <h2 class="display mt-2 text-[26px] font-black tracking-tight text-slate-900 text-center leading-[1.05]">How it works</h2>
+
+              <div class="mt-7 space-y-7 px-1">
+                <div class="flex gap-3 items-start">
+                  <span class="grad-amber text-white w-9 h-9 rounded-full flex items-center justify-center font-black text-[15px] shrink-0">1</span>
+                  <div>
+                    <h3 class="text-[16px] font-extrabold text-slate-900">Tell us about your job</h3>
+                    <p class="mt-1 text-[13px] text-slate-600 leading-relaxed">Two minutes. Photos optional. Your number stays private.</p>
+                  </div>
+                </div>
+                <div class="flex gap-3 items-start">
+                  <span class="grad-violet text-white w-9 h-9 rounded-full flex items-center justify-center font-black text-[15px] shrink-0">2</span>
+                  <div>
+                    <h3 class="text-[16px] font-extrabold text-slate-900">Meet your matches</h3>
+                    <p class="mt-1 text-[13px] text-slate-600 leading-relaxed">Builders your neighbours rate, AI-ranked. Swipe through them like a deck.</p>
+                  </div>
+                </div>
+                <div class="flex gap-3 items-start">
+                  <span class="grad-emerald text-white w-9 h-9 rounded-full flex items-center justify-center font-black text-[15px] shrink-0">3</span>
+                  <div>
+                    <h3 class="text-[16px] font-extrabold text-slate-900">Chat directly. Hire when ready.</h3>
+                    <p class="mt-1 text-[13px] text-slate-600 leading-relaxed">Built-in messaging. Share photos, agree dates, get the work done.</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Why love · cream -->
+            <section class="bg-cream px-5 pt-9 pb-9 relative overflow-hidden">
+              <span class="absolute -top-12 -right-12 w-44 h-44 grad-amber opacity-25 rounded-full blur-2xl"></span>
+              <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-700 text-center relative z-10">Why homeowners love it</p>
+              <h2 class="display mt-1 text-[26px] font-black tracking-tight text-slate-900 text-center leading-[1.05] relative z-10">
+                Built on <span class="accent text-indigo-600 text-[32px]">trust.</span>
+              </h2>
+
+              <div class="mt-6 space-y-2.5 relative z-10">
+                <div class="rounded-2xl bg-white p-3.5 flex items-start gap-3 shadow-sm border border-amber-100/60">
+                  <span class="w-10 h-10 rounded-2xl grad-emerald flex items-center justify-center text-white shrink-0">✓</span>
+                  <div>
+                    <div class="text-[13.5px] font-extrabold text-slate-900">Every builder is verified</div>
+                    <p class="text-[11.5px] text-slate-600 leading-snug">Companies House, insurance, real ratings.</p>
+                  </div>
+                </div>
+                <div class="rounded-2xl bg-white p-3.5 flex items-start gap-3 shadow-sm border border-amber-100/60">
+                  <span class="w-10 h-10 rounded-2xl grad-violet flex items-center justify-center text-white shrink-0">★</span>
+                  <div>
+                    <div class="text-[13.5px] font-extrabold text-slate-900">Backed by your neighbours</div>
+                    <p class="text-[11.5px] text-slate-600 leading-snug">Real recommendations, not paid testimonials.</p>
+                  </div>
+                </div>
+                <div class="rounded-2xl bg-white p-3.5 flex items-start gap-3 shadow-sm border border-amber-100/60">
+                  <span class="w-10 h-10 rounded-2xl grad-amber flex items-center justify-center text-white shrink-0">🔒</span>
+                  <div>
+                    <div class="text-[13.5px] font-extrabold text-slate-900">No spam, ever</div>
+                    <p class="text-[11.5px] text-slate-600 leading-snug">We don't sell your number.</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Reviews -->
+            <section class="bg-charcoal px-5 py-9">
+              <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-400 text-center">From real homeowners</p>
+              <div class="mt-4 flex items-start gap-3">
+                <div class="w-11 h-11 rounded-full grad-rose flex items-center justify-center text-white font-bold shrink-0">L</div>
+                <div class="flex-1">
+                  <div class="text-amber-400 text-sm">★★★★★</div>
+                  <p class="mt-1 text-[12.5px] text-white/90 leading-relaxed italic display">"Bathroom refit. Tiler did a beautiful job. No stress, which is rare."</p>
+                  <p class="mt-2 text-[10.5px] text-zinc-400"><strong class="text-zinc-300">Laura M.</strong> · Leytonstone</p>
+                </div>
+              </div>
+            </section>
+
+            <!-- final cta -->
+            <section class="paper px-5 py-10 text-center">
+              <h2 class="display text-[24px] font-black tracking-tight text-slate-900 leading-tight">Your home deserves better.</h2>
+              <p class="accent text-amber-700 text-[26px] mt-1 leading-none">Let's find yours.</p>
+              <button class="mt-5 w-full py-4 rounded-2xl grad-indigo text-white font-extrabold text-[15px] shadow-lg shadow-indigo-500/25">Find your builder</button>
+            </section>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+
+    <!-- Notes -->
+    <div class="max-w-3xl mx-auto mt-14 rounded-2xl bg-white border border-slate-200 p-5">
+      <h3 class="text-base font-extrabold text-slate-900">What's warmer this round</h3>
+      <ul class="mt-2 text-[13px] text-slate-600 leading-snug space-y-1.5">
+        <li><strong>Cream + peach + amber</strong> instead of plain white. Warm light, lived-in feel - what your existing /how-it-works strip already uses (<code>bg-[#faf0e6]</code>).</li>
+        <li><strong>Caveat handwritten accent</strong> on the slogan word ("personal", "Meet your match", "made personal", "trust"). Same font you already use elsewhere on the homepage.</li>
+        <li><strong>Sora display font</strong> on big headings - matches your existing hero.</li>
+        <li><strong>Soft gradient blobs</strong> behind hero copy add depth without taking over.</li>
+        <li><strong>Multiple section colours</strong> per scroll (cream → white → sand → dark → cream). Way less monotone than v1.</li>
+        <li><strong>Steps coloured by step</strong> in Option A: amber / violet / emerald, so each feels like a different beat in the journey.</li>
+      </ul>
+
+      <h3 class="mt-5 text-base font-extrabold text-slate-900">Picks</h3>
+      <p class="mt-2 text-[13px] text-slate-600 leading-snug">
+        <strong>A (warm cream + indigo)</strong> - my pick. Most balanced, warmest, still clean.
+        <strong>B (bold colour blocks)</strong> - if you want stronger brand identity / more attitude.
+        <strong>C (photo-led)</strong> - if you want a hero photo above the fold to humanise the brand.
+      </p>
+
+      <p class="mt-3 text-[12.5px] text-slate-500 italic">Pick a lane, or remix - "A's hero with C's photo strip", "B's colour blocks but A's typography", etc. Once chosen I'll wire <code>web/pages/index.tsx</code>.</p>
+    </div>
+  </main>
+</body>
+</html>

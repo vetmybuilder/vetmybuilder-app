@@ -3,78 +3,118 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import Recommendation from "../models/Recommendation";
 import BasePage from "./BasePage";
+import { safeGoto } from "../helpers/navigation";
 
 export class BuilderProfilePage extends BasePage {
-  readonly root: Locator;
+  // Wrappers (one per surface)
+  readonly desktopRoot: Locator;
+  readonly mobileRoot: Locator;
+
+  // Identity
   readonly companyName: Locator;
+
+  // Desktop-only
+  readonly desktopBackButton: Locator;
   readonly contactDetailsCard: Locator;
   readonly phoneSection: Locator;
   readonly reviewsCard: Locator;
-  readonly sharedPhotosSection: Locator;
-  readonly voteUpButton: Locator;
-  readonly backToProjectLink: Locator;
   readonly googleRatingChip: Locator;
+  readonly sharedPhotosSection: Locator;
+
+  // Mobile-only
+  readonly mobileBackButton: Locator;
+  readonly mobileFavouriteButton: Locator;
+
+  // Both viewports (same testid)
+  readonly endorseButton: Locator;
 
   constructor(page: Page) {
     super(page);
 
-    this.root = page.getByTestId("main-content");
-    this.companyName = page.getByTestId("builder-company");
+    this.desktopRoot = page.getByTestId("main-content");
+    this.mobileRoot = page.getByTestId("builder-profile-mobile");
+
+    // Desktop renders builder-company; mobile renders builder-name. Each
+    // sits in its own surface, so filter to whichever is visible.
+    this.companyName = page
+      .getByTestId("builder-company")
+      .or(page.getByTestId("builder-name"))
+      .filter({ visible: true });
+
+    this.desktopBackButton = page.getByRole("button", {
+      name: "Back to project",
+    });
     this.contactDetailsCard = page.getByTestId("contact-details-card");
     this.phoneSection = page.getByTestId("builder-phone");
     this.reviewsCard = page.getByTestId("builder-reviews-card");
+    this.googleRatingChip = page.getByTestId("builder-google-rating");
     this.sharedPhotosSection = page
       .getByTestId("builder-shared-photos-empty")
       .or(page.getByTestId("builder-shared-photos-locked"))
       .or(page.locator('[data-testid="shared-profile-photos-section"]'));
-    this.voteUpButton = page.getByTestId("btn-vote-up");
-    this.backToProjectLink = page.getByRole("button", {
-      name: "Back to project",
-    });
-    this.googleRatingChip = page.getByTestId("builder-google-rating");
+
+    this.mobileBackButton = page.getByTestId("builder-mobile-back");
+    this.mobileFavouriteButton = page.getByTestId("builder-mobile-favourite");
+
+    // Both desktop and mobile render the endorse button with the same
+    // testid - filter to the visible surface.
+    this.endorseButton = page
+      .getByTestId("btn-vote-up")
+      .filter({ visible: true });
   }
 
-  async visit(recommendationId: string | number) {
-    await this.page.goto(`/builders/${recommendationId}`, {
-      waitUntil: "domcontentloaded",
-    });
-    await expect(this.page).toHaveURL(`/builders/${recommendationId}`);
+  isMobile(): boolean {
+    const vp = this.page.viewportSize();
+    return vp ? vp.width < 768 : false;
+  }
+
+  async visit(recommendationId: string | number, options?: { projectId?: string | number }) {
+    // ?projectId= is what makes the desktop "Back to project" button render
+    // (BuilderHeader only shows it when builder.project.id is set).
+    const query = options?.projectId ? `?projectId=${options.projectId}` : "";
+    await safeGoto(this.page, `/builders/${recommendationId}${query}`);
+    await expect(this.page).toHaveURL(`/builders/${recommendationId}${query}`);
     await this.waitUntilReady();
   }
 
+  /**
+   * Visit the builder profile from a project context. Mirrors a real
+   * user journey: open the project, then tap a recommendation card.
+   * Behind the scenes, the desktop "Back to project" pill is gated on
+   * `?projectId=` and the mobile back chevron uses router.back(), so
+   * the project page has to exist in browser history first. Both are
+   * handled here so the spec stays viewport-agnostic.
+   */
+  async visitFromProject(
+    projectId: string | number,
+    recommendationId: string | number,
+  ) {
+    if (this.isMobile()) {
+      await safeGoto(this.page, `/projects/${projectId}`);
+    }
+    await this.visit(recommendationId, { projectId });
+  }
+
   async waitUntilReady() {
+    const isMobile = this.isMobile();
     await expect
       .poll(
         async () => {
           const url = this.page.url();
-
           if (/\/signin|\/signup/.test(url)) {
             return { ok: false, reason: `redirected:${url}` };
           }
-
-          const rootVisible = await this.root.isVisible().catch(() => false);
-          if (!rootVisible) {
-            return { ok: false, reason: "main-content not visible" };
+          const wrapper = isMobile ? this.mobileRoot : this.desktopRoot;
+          if (!(await wrapper.isVisible().catch(() => false))) {
+            return { ok: false, reason: "wrapper not visible" };
           }
-
-          const companyVisible = await this.companyName
-            .isVisible()
-            .catch(() => false);
-          if (!companyVisible) {
-            return { ok: false, reason: "builder company not visible" };
+          if (!(await this.companyName.isVisible().catch(() => false))) {
+            return { ok: false, reason: "company name not visible" };
           }
-
-          const contactVisible = await this.contactDetailsCard
-            .isVisible()
-            .catch(() => false);
-          if (!contactVisible) {
-            return { ok: false, reason: "contact details card not visible" };
-          }
-
           return { ok: true, reason: "ok" };
         },
         {
-          timeout: 45_000,
+          timeout: 30_000,
           intervals: [200, 300, 500, 800, 1200],
           message: "Builder profile page did not become ready.",
         },
@@ -85,12 +125,21 @@ export class BuilderProfilePage extends BasePage {
   async hasBuilderRecommendationDetails(recommendation: Recommendation) {
     await this.waitUntilReady();
 
-    // Allow an optional ?projectId= query string — the project view forwards
-    // it so the builder profile page can render the Hire button.
+    // Allow an optional ?projectId= query string.
     await expect(this.page).toHaveURL(/\/builders\/\d+(\?.*)?$/);
     await expect(this.companyName).toHaveText(
-      new RegExp(recommendation.company.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"),
+      new RegExp(
+        recommendation.company.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        "i",
+      ),
     );
+
+    if (this.isMobile()) {
+      // Mobile inlines contact info differently and doesn't expose the
+      // contact-details-card / builder-phone testids.
+      return;
+    }
+
     await expect(this.contactDetailsCard).toBeVisible();
     await expect(this.phoneSection).toContainText(recommendation.phone!);
 
@@ -100,23 +149,66 @@ export class BuilderProfilePage extends BasePage {
     }
   }
 
-  async goBackToProject() {
-    await expect(this.backToProjectLink).toBeVisible();
-    await this.backToProjectLink.click();
-    await expect(this.page).toHaveURL(/\/projects\/\d+$/);
+  /**
+   * Navigate back to the project. On desktop this clicks the "Back to
+   * project" pill; on mobile it taps the chevron, which fires
+   * router.back() so the test must have been on /projects/{id} first.
+   */
+  async goBackToProject(projectId?: string | number) {
+    if (this.isMobile()) {
+      await expect(this.mobileBackButton).toBeVisible();
+      await this.mobileBackButton.click();
+    } else {
+      await expect(this.desktopBackButton).toBeVisible();
+      await this.desktopBackButton.click();
+    }
+    if (projectId !== undefined) {
+      await expect(this.page).toHaveURL(
+        new RegExp(`/projects/${projectId}(\\?.*)?$`),
+      );
+    } else {
+      await expect(this.page).toHaveURL(/\/projects\/\d+/);
+    }
   }
 
-  async voteUp() {
-    await expect(this.voteUpButton).toBeVisible();
-    await expect(this.voteUpButton).toBeEnabled();
-    await this.voteUpButton.click();
+  async endorseBuilder() {
+    await expect(this.endorseButton).toBeVisible();
+    await expect(this.endorseButton).toBeEnabled();
+    await this.endorseButton.click();
   }
 
-  async hasVotedUp() {
-    // Source uses curly apostrophe U+2019 — match with \u2019 to be explicit
-    await expect(this.voteUpButton).toHaveText(/you\u2019ve voted/i, {
+  async hasEndorsed() {
+    // Button text flips from "Endorse" to "Endorsed" and aria-pressed
+    // becomes "true" once the like is recorded.
+    await expect(this.endorseButton).toHaveText(/^Endorsed$/i, {
       timeout: 10_000,
     });
+    await expect(this.endorseButton).toHaveAttribute("aria-pressed", "true");
+  }
+
+  async expectEndorseDisabled() {
+    await expect(this.endorseButton).toBeDisabled();
+  }
+
+  async clickReport() {
+    const btn = this.page
+      .getByTestId("btn-report-profile")
+      .filter({ visible: true });
+    await expect(btn).toBeVisible({ timeout: 10_000 });
+    await btn.click();
+  }
+
+  async toggleMobileFavourite() {
+    await expect(this.mobileFavouriteButton).toBeVisible();
+    await this.mobileFavouriteButton.click();
+  }
+
+  async expectMobileFavouritePressed(pressed: boolean) {
+    await expect(this.mobileFavouriteButton).toHaveAttribute(
+      "aria-pressed",
+      String(pressed),
+      { timeout: 10_000 },
+    );
   }
 }
 

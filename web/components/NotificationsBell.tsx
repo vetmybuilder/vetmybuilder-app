@@ -44,7 +44,7 @@ function dedupeAndSort(items: NotifItem[], limit = NOTIF_LIMIT) {
 export default function NotificationsBell() {
   // Guard for any SSR rendering path
   if (typeof window === "undefined") return null;
-  const { user, token: authToken } = useAuth();
+  const { user } = useAuth();
   const api = useApi();
   const router = useRouter();
 
@@ -55,23 +55,9 @@ export default function NotificationsBell() {
   const [groups, setGroups] = useState<NotifGroup[]>([]);
   const [ungrouped, setUngrouped] = useState<NotifItem[]>([]);
   const [expandedProjectId, setExpandedProjectId] = useState<number | null>(null);
-  // SSE must bypass the Next.js rewrite proxy (which buffers SSE streams).
-  // In dev, the web runs on :3000 and API on :3100. Detect and connect directly.
-  const sseBase = (() => {
-    if (typeof window === "undefined") return "";
-    const loc = window.location;
-    // Dev: Next.js on :3000 proxies to API on :3100. Connect SSE directly to :3100.
-    if (loc.hostname === "localhost" && loc.port === "3000") {
-      return `${loc.protocol}//localhost:3100`;
-    }
-    // Production or other setups: same origin
-    return loc.origin;
-  })();
 
   const btnRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const esRef = useRef<EventSource | null>(null);
-  const refreshTimer = useRef<number | null>(null);
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
@@ -106,83 +92,43 @@ export default function NotificationsBell() {
     } catch {}
   }
 
+  // Initial bootstrap fetch + react to events from GlobalSseDispatcher.
+  // The dispatcher (mounted in _app.tsx) owns the single app-wide SSE
+  // connection and re-broadcasts every notification as a `vmb:notification`
+  // DOM CustomEvent. Listening here keeps the bell working on every route
+  // — including bare mobile routes where SiteHeader is not rendered (the
+  // bell still might not be visible there, but its unread count and list
+  // stay consistent for any place that does mount it).
   useEffect(() => {
     let cancelled = false;
 
-    const cleanup = () => {
-      if (esRef.current) {
-        esRef.current.close();
-        esRef.current = null;
-      }
-      if (refreshTimer.current) {
-        window.clearTimeout(refreshTimer.current);
-        refreshTimer.current = null;
-      }
-    };
-
-    async function start() {
-      cleanup();
-
-      if (!user) {
-        setItems([]);
-        setUnread(0);
-        return;
-      }
-
-      await refreshList();
-      if (cancelled) return;
-
-      try {
-        // Get token from Firebase directly — useAuth token may lag behind
-        const fbAuth = (window as any).firebaseAuth;
-        const fbToken = fbAuth?.currentUser
-          ? await fbAuth.currentUser.getIdToken()
-          : null;
-        const token = fbToken || authToken;
-        if (!token || !sseBase) return;
-
-        const url = `${sseBase}/api/notifications/stream?limit=${NOTIF_LIMIT}&token=${encodeURIComponent(
-          token,
-        )}`;
-        const es = new EventSource(url);
-        esRef.current = es;
-
-        es.addEventListener("bootstrap", (_ev: MessageEvent) => {
-          if (cancelled) return;
-          refreshList();
-        });
-
-        es.addEventListener("notification", (ev: MessageEvent) => {
-          if (cancelled) return;
-          setUnread((u) => u + 1);
-
-          // Broadcast to other components (e.g. rec list auto-refresh)
-          try {
-            const n = JSON.parse(ev.data);
-            window.dispatchEvent(new CustomEvent("vmb:notification", { detail: n }));
-          } catch {}
-
-          // Re-fetch grouped data
-          refreshList();
-        });
-
-        // Close on error to prevent infinite reconnect loops (e.g. 401 for guests)
-        es.onerror = () => {
-          es.close();
-          esRef.current = null;
-        };
-      } catch {
-        /* ignore */
-      }
+    if (!user) {
+      setItems([]);
+      setUnread(0);
+      return;
     }
 
-    start();
+    refreshList();
+
+    function onNotification() {
+      if (cancelled) return;
+      setUnread((u) => u + 1);
+      refreshList();
+    }
+    function onBootstrap() {
+      if (cancelled) return;
+      refreshList();
+    }
+
+    window.addEventListener("vmb:notification", onNotification);
+    window.addEventListener("vmb:bootstrap", onBootstrap);
 
     return () => {
       cancelled = true;
-      cleanup();
+      window.removeEventListener("vmb:notification", onNotification);
+      window.removeEventListener("vmb:bootstrap", onBootstrap);
     };
-  }, [user, authToken, sseBase]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // MARK ALL READ: set readAt on every notification, keep the list visible
   async function markAllRead() {

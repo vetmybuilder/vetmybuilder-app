@@ -3,9 +3,10 @@ import type { ServiceArea } from "@/utils/serviceAreas";
 import { flattenServiceAreas } from "@/utils/serviceAreas";
 import {
   Building2, User, Phone, Mail, Globe, MapPin,
-  ChevronDown, ChevronUp, ArrowRight, KeyRound,
+  ChevronDown, ChevronUp, KeyRound,
 } from "lucide-react";
 import LocationField from "@/components/forms/LocationField";
+import OAuthSignInButton from "@/components/forms/OAuthSignInButton";
 import {
   IconInstagram, IconTikTok, IconFacebook, IconX, IconYouTube, IconLinkedIn,
 } from "./icons";
@@ -80,7 +81,7 @@ type Props = {
 };
 
 const fieldCls =
-  "h-12 w-full rounded-xl border border-zinc-200 bg-zinc-50 pl-11 pr-4 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-red-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-400/20 transition-colors disabled:opacity-50";
+  "h-12 w-full rounded-xl border border-zinc-200 bg-zinc-50 pl-11 pr-4 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-colors disabled:opacity-50";
 
 const iconCls =
   "absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400 pointer-events-none";
@@ -131,28 +132,54 @@ export default function Step1Company({
 
   return (
     <form
-      className="bg-white rounded-2xl shadow-lg shadow-zinc-200/60 p-7 sm:p-9 space-y-7"
+      className="space-y-5 pb-4"
       onSubmit={onNext}
       noValidate
       data-testid="step-1"
     >
-      {/* Step header */}
-      <div>
-        <div className="flex items-center gap-2.5 mb-1">
-          <span className="inline-flex h-6 w-6 items-center justify-center rounded border border-zinc-200 text-xs font-semibold text-zinc-600">
-            1
-          </span>
-          <h2 className="text-lg font-bold tracking-tight text-zinc-900">Company &amp; contact details</h2>
+      {/* Auth shortcuts pinned to the top so guests don't have to scroll
+          past the long company form to find the existing-account sign-in
+          link or the Google SSO button. Both options visible above the
+          fold on page load. */}
+      {!userIsAuthed && (
+        <div className="px-3 pt-4">
+          <div className="max-w-sm mx-auto">
+            <OAuthSignInButton provider="google" intent="tradesman" returnTo="/tradesman/jobs" />
+            <p
+              className="mt-2 text-center text-[12.5px] text-zinc-500"
+              data-testid="vendor-already-member"
+            >
+              Already a member?{" "}
+              <a
+                className="font-extrabold text-emerald-600 hover:underline"
+                href={`/login${nextQuery}`}
+                data-testid="link-vendor-signin"
+              >
+                Sign in
+              </a>
+            </p>
+          </div>
+          <div className="my-3 flex items-center gap-3 text-[10.5px] font-extrabold uppercase tracking-wider text-gray-400 max-w-sm mx-auto">
+            <span className="flex-1 h-px bg-gray-200" />
+            <span>Or sign up with email</span>
+            <span className="flex-1 h-px bg-gray-200" />
+          </div>
         </div>
-        <p className="ml-8 text-sm text-zinc-500">
-          Tell us about your business so homeowners can find you
+      )}
+
+      {/* Step header */}
+      <div className="px-3.5 pt-2 pb-1">
+        <p className="text-[10.5px] font-extrabold uppercase tracking-wider text-emerald-600 mb-0.5">
+          Company
         </p>
+        <h2 className="text-[18px] font-extrabold text-gray-900 leading-tight">Tell us about your business</h2>
       </div>
 
-      <div className="space-y-5">
+      {/* Required fields */}
+      <div className="bg-white rounded-xl mx-3 mb-2 px-3.5 py-3 space-y-4">
         {/* Company name */}
         <div className="space-y-1.5">
-          <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500" htmlFor="companyName" data-testid="label-company-name">
+          <label className="block text-[10.5px] font-extrabold uppercase tracking-wider text-gray-500" htmlFor="companyName" data-testid="label-company-name">
             Company name <span className="text-red-500">*</span>
           </label>
           <div className="relative">
@@ -178,7 +205,7 @@ export default function Step1Company({
 
         {/* Contact name */}
         <div className="space-y-1.5">
-          <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500" htmlFor="contactName" data-testid="label-contact-name">
+          <label className="block text-[10.5px] font-extrabold uppercase tracking-wider text-gray-500" htmlFor="contactName" data-testid="label-contact-name">
             Contact name <span className="text-red-500">*</span>
           </label>
           <div className="relative">
@@ -201,93 +228,39 @@ export default function Step1Company({
           )}
         </div>
 
-        {/* Phone + Email */}
-        <div className="grid sm:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500" htmlFor="phone" data-testid="label-phone">
-              Phone <span className="text-zinc-400 font-normal normal-case">(optional)</span>
-            </label>
-            <div className="relative">
-              <Phone className={iconCls} />
-              <input
-                id="phone"
-                className={`${fieldCls} ${err("phone") ? "border-red-400 ring-2 ring-red-400/20" : ""}`}
-                value={form.phone}
-                onChange={(e) => set("phone", e.target.value)}
-                placeholder="020..."
-                data-testid="input-phone"
-                aria-invalid={!!err("phone")}
-                aria-describedby={err("phone") ? "phone-error" : undefined}
-              />
-            </div>
-            {err("phone") && (
-              <p id="phone-error" className="text-sm text-red-600 mt-1" role="alert">
-                {err("phone")}
-              </p>
-            )}
+        {/* Business email */}
+        <div className="space-y-1.5">
+          <label className="block text-[10.5px] font-extrabold uppercase tracking-wider text-gray-500" htmlFor="email" data-testid="label-email">
+            Business email <span className="text-red-500">*</span>
+          </label>
+          <div className="relative">
+            <Mail className={iconCls} />
+            <input
+              id="email"
+              className={`${fieldCls} ${err("email") ? "border-red-400 ring-2 ring-red-400/20" : ""}`}
+              type="email"
+              value={form.email}
+              onChange={(e) => set("email", e.target.value)}
+              placeholder="you@company.com"
+              autoComplete="email"
+              required
+              data-testid="input-email"
+              aria-invalid={!!err("email")}
+              aria-describedby={err("email") ? "email-error" : undefined}
+              disabled={disableBusinessEmail}
+            />
           </div>
-          <div className="space-y-1.5">
-            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500" htmlFor="email" data-testid="label-email">
-              Business email <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <Mail className={iconCls} />
-              <input
-                id="email"
-                className={`${fieldCls} ${err("email") ? "border-red-400 ring-2 ring-red-400/20" : ""}`}
-                type="email"
-                value={form.email}
-                onChange={(e) => set("email", e.target.value)}
-                placeholder="you@company.com"
-                autoComplete="email"
-                required
-                data-testid="input-email"
-                aria-invalid={!!err("email")}
-                aria-describedby={err("email") ? "email-error" : undefined}
-                disabled={disableBusinessEmail}
-              />
-            </div>
-            {err("email") && (
-              <p id="email-error" className="text-sm text-red-600 mt-1" role="alert">{err("email")}</p>
-            )}
-          </div>
+          {err("email") && (
+            <p id="email-error" className="text-sm text-red-600 mt-1" role="alert">{err("email")}</p>
+          )}
         </div>
-        <p className="text-xs text-zinc-400 -mt-2">We use your contact details so homeowners can reach you</p>
-
-        {/* Beta code */}
-        {betaRequired && (
-          <div className="space-y-1.5">
-            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500" htmlFor="betaCode" data-testid="label-beta-code">
-              Beta access code <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <KeyRound className={iconCls} />
-              <input
-                id="betaCode"
-                className={`${fieldCls} ${betaCodeError ? "border-red-400 ring-2 ring-red-400/20" : ""}`}
-                type="text"
-                value={betaCode ?? ""}
-                onChange={(e) => setBetaCode?.(e.target.value)}
-                placeholder="Enter your beta access code"
-                data-testid="input-beta-code"
-                aria-invalid={!!betaCodeError}
-                aria-describedby={betaCodeError ? "beta-code-error" : undefined}
-              />
-            </div>
-            {betaCodeError && (
-              <p id="beta-code-error" className="text-sm text-red-600" role="alert" data-testid="beta-code-error">
-                {betaCodeError}
-              </p>
-            )}
-          </div>
-        )}
 
         {/* Service areas */}
         <div className="space-y-1.5">
-          <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-500" data-testid="label-areas">
+          <label className="flex items-center gap-1.5 text-[10.5px] font-extrabold uppercase tracking-wider text-gray-500" data-testid="label-areas">
             <MapPin className="h-3.5 w-3.5 text-zinc-400" />
             Service areas <span className="text-red-500">*</span>{" "}
-            <span className="text-zinc-400 font-normal normal-case">(postcode sectors)</span>
+            <span className="text-zinc-400 font-normal normal-case text-[10px]">(postcode sectors)</span>
           </label>
           {err("serviceAreas") && (
             <p className="text-sm text-red-600 mt-1" role="alert">
@@ -323,14 +296,14 @@ export default function Step1Company({
                 return (
                   <span
                     key={`${area.kind}-${label}`}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-sm text-zinc-700"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500 bg-emerald-50 px-3 py-1 text-sm text-emerald-700"
                     data-testid={`service-area-chip-${label}`}
                   >
                     {label}
                     <button
                       type="button"
                       onClick={() => removeServiceAreaAt(index)}
-                      className="rounded-full text-zinc-400 hover:text-zinc-700"
+                      className="rounded-full text-emerald-400 hover:text-emerald-700"
                       aria-label={`Remove ${label}`}
                     >
                       ×
@@ -349,14 +322,73 @@ export default function Step1Company({
             </p>
           )}
         </div>
+      </div>
+
+      {/* OPTIONAL section header */}
+      <div className="px-3 pt-3 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-gray-400">OPTIONAL</div>
+
+      {/* Optional fields card */}
+      <div className="bg-white rounded-xl mx-3 mb-2 px-3.5 py-3 space-y-4">
+        {/* Phone */}
+        <div className="space-y-1.5">
+          <label className="block text-[10.5px] font-extrabold uppercase tracking-wider text-gray-500" htmlFor="phone" data-testid="label-phone">
+            Phone
+          </label>
+          <div className="relative">
+            <Phone className={iconCls} />
+            <input
+              id="phone"
+              className={`${fieldCls} ${err("phone") ? "border-red-400 ring-2 ring-red-400/20" : ""}`}
+              value={form.phone}
+              onChange={(e) => set("phone", e.target.value)}
+              placeholder="020..."
+              data-testid="input-phone"
+              aria-invalid={!!err("phone")}
+              aria-describedby={err("phone") ? "phone-error" : undefined}
+            />
+          </div>
+          {err("phone") && (
+            <p id="phone-error" className="text-sm text-red-600 mt-1" role="alert">
+              {err("phone")}
+            </p>
+          )}
+        </div>
+
+        {/* Beta code — conditional */}
+        {betaRequired && (
+          <div className="space-y-1.5">
+            <label className="block text-[10.5px] font-extrabold uppercase tracking-wider text-gray-500" htmlFor="betaCode" data-testid="label-beta-code">
+              Beta access code <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <KeyRound className={iconCls} />
+              <input
+                id="betaCode"
+                className={`${fieldCls} ${betaCodeError ? "border-red-400 ring-2 ring-red-400/20" : ""}`}
+                type="text"
+                value={betaCode ?? ""}
+                onChange={(e) => setBetaCode?.(e.target.value)}
+                placeholder="Enter your beta access code"
+                data-testid="input-beta-code"
+                aria-invalid={!!betaCodeError}
+                aria-describedby={betaCodeError ? "beta-code-error" : undefined}
+              />
+            </div>
+            {betaCodeError && (
+              <p id="beta-code-error" className="text-sm text-red-600" role="alert" data-testid="beta-code-error">
+                {betaCodeError}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Website */}
         <div className="space-y-1.5" data-testid="website-field">
-          <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500">
-            Website <span className="text-zinc-400 font-normal normal-case">(optional)</span>
+          <label className="block text-[10.5px] font-extrabold uppercase tracking-wider text-gray-500">
+            Website
           </label>
           {!form.website ? (
-            <div className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 focus-within:border-red-400 focus-within:ring-2 focus-within:ring-red-400/20 transition-colors">
+            <div className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 transition-colors">
               <Globe className="h-4 w-4 shrink-0 text-zinc-400" />
               <input
                 className="h-12 flex-1 border-0 bg-transparent text-sm placeholder:text-zinc-400 focus:outline-none"
@@ -368,7 +400,7 @@ export default function Step1Company({
               />
               <button
                 type="button"
-                className="shrink-0 rounded-lg bg-red-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-600 transition-colors"
+                className="shrink-0 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors"
                 onClick={commitWebsite}
               >
                 + Add
@@ -378,11 +410,11 @@ export default function Step1Company({
             <div className="flex items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 px-4 h-12">
               <div className="flex items-center gap-2 min-w-0">
                 <Globe className="h-4 w-4 shrink-0 text-zinc-400" />
-                <a href={form.website} target="_blank" rel="noreferrer" className="truncate text-sm text-red-500 hover:underline">
+                <a href={form.website} target="_blank" rel="noreferrer" className="truncate text-sm text-emerald-600 hover:underline">
                   {form.website.replace(/^https?:\/\//, "")}
                 </a>
               </div>
-              <button type="button" className="shrink-0 text-xs text-zinc-400 hover:text-red-500 ml-3" onClick={clearWebsite}>
+              <button type="button" className="shrink-0 text-xs text-zinc-400 hover:text-emerald-600 ml-3" onClick={clearWebsite}>
                 Remove
               </button>
             </div>
@@ -425,9 +457,8 @@ export default function Step1Company({
                 </span>
               </div>
               <span className="text-sm font-medium text-zinc-700">Social links</span>
-              <span className="text-xs text-zinc-400">(optional)</span>
               {filledSocials > 0 && (
-                <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-600">
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
                   {filledSocials} added
                 </span>
               )}
@@ -488,7 +519,7 @@ export default function Step1Company({
                 <div
                   key={id}
                   data-testid={`social-${key}`}
-                  className={`flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 transition-colors focus-within:border-red-300 focus-within:ring-2 focus-within:ring-red-400/20 ${hover}`}
+                  className={`flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 transition-colors focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 ${hover}`}
                 >
                   <span className="icon shrink-0 text-zinc-400 transition-colors">
                     <Icon />
@@ -508,11 +539,7 @@ export default function Step1Company({
           )}
         </div>
 
-        {/* External review-platform links - collapsible.
-            Tradesperson supplies their own profile URL per platform;
-            we display as plain text link on the public profile.
-            See web/utils/reviewLinks.ts for normalisation rules and
-            DMCC-safe display constraints. */}
+        {/* External review-platform links - collapsible. */}
         <div className="space-y-2">
           <button
             type="button"
@@ -524,7 +551,6 @@ export default function Step1Company({
               <span className="text-sm font-medium text-zinc-700">
                 External review profiles
               </span>
-              <span className="text-xs text-zinc-400">(optional)</span>
               {filledReviews > 0 && (
                 <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-xs font-semibold">
                   {filledReviews} added
@@ -553,7 +579,7 @@ export default function Step1Company({
                     className="flex flex-col gap-1"
                   >
                     <div
-                      className={`flex items-center gap-3 rounded-xl border bg-white px-3 py-2.5 transition-colors focus-within:border-red-300 focus-within:ring-2 focus-within:ring-red-400/20 ${
+                      className={`flex items-center gap-3 rounded-xl border bg-white px-3 py-2.5 transition-colors focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 ${
                         errorKey
                           ? "border-rose-300"
                           : "border-zinc-200 hover:border-zinc-300"
@@ -621,29 +647,13 @@ export default function Step1Company({
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="flex items-center justify-between border-t border-zinc-100 pt-6">
-        <p className="text-xs text-zinc-400">
-          <span className="text-red-500">*</span> Required fields
-        </p>
-        <div className="flex items-center gap-4">
-          {!userIsAuthed && (
-            <p className="text-sm text-zinc-500" data-testid="vendor-already-member">
-              Already a member?{" "}
-              <a className="font-medium text-red-500 hover:underline" href={`/login${nextQuery}`} data-testid="link-vendor-signin">
-                Sign in
-              </a>
-            </p>
-          )}
-          <button
-            className="inline-flex items-center gap-2 rounded-full bg-red-500 px-6 py-2.5 text-sm font-bold text-white shadow-sm shadow-red-500/25 hover:bg-red-600 transition-colors"
-            data-testid="btn-next"
-          >
-            Continue
-            <ArrowRight className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
+      {/* "Already a member? Sign in" intentionally NOT duplicated at the
+          bottom - it now sits with the Google SSO button at the top of
+          the form so guests don't have to scroll the company section to
+          find it. */}
+
+      {/* Hidden submit button — triggered from parent WizardNavBar onNext */}
+      <button type="submit" className="sr-only" data-testid="btn-next" aria-hidden="true">Continue</button>
     </form>
   );
 }

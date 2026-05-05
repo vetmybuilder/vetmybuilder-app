@@ -46,6 +46,15 @@ CREATE TABLE IF NOT EXISTS recommendations (
   isAnonymous       INTEGER DEFAULT 0, source VARCHAR(50) DEFAULT 'magic', phone TEXT,
   companyEmail      TEXT NULL,
   linked_tradesman_uid VARCHAR(255) NULL,
+  -- Per-category star ratings (1-5). Nullable so legacy rows stay valid
+  -- and the recommender can leave any category un-rated.
+  quality_rating       TINYINT NULL,
+  reliability_rating   TINYINT NULL,
+  communication_rating TINYINT NULL,
+  trust_rating         TINYINT NULL,
+  value_rating         TINYINT NULL,
+  deck_dismissed_at    DATETIME NULL,
+  homeowner_unfavourited_at DATETIME NULL,
 
   FOREIGN KEY(projectId) REFERENCES projects(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -53,6 +62,7 @@ CREATE TABLE IF NOT EXISTS recommendations (
 CREATE INDEX idx_recs_project ON recommendations(projectId);
 CREATE INDEX idx_recs_user ON recommendations(recommenderUserId);
 CREATE INDEX idx_recs_project_createdAt ON recommendations(projectId, createdAt DESC);
+CREATE INDEX idx_recs_deck_active ON recommendations(projectId, deck_dismissed_at, homeowner_unfavourited_at);
 CREATE TABLE IF NOT EXISTS notifications (
   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   userId VARCHAR(255),                       -- target user
@@ -307,7 +317,13 @@ CREATE TABLE IF NOT EXISTS tradesmen (
   profile_picture_url TEXT NULL,
 
   -- Public-facing URL-safe ID (UUID) so Firebase UID is never exposed in URLs
-  public_id VARCHAR(36) NULL
+  public_id VARCHAR(36) NULL,
+
+  -- Tradesperson-written intro shown on their public profile. Plain text,
+  -- 2-4 sentences. Not auto-generated — we don't synthesise this from
+  -- other fields because the auto-stitched copy felt LLM-ish and was
+  -- inaccurate (claimed "first job discounts" we never actually offered).
+  about TEXT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX idx_tradesmen_service_areas ON tradesmen(service_areas);
@@ -587,6 +603,46 @@ CREATE TABLE IF NOT EXISTS project_contact_unlocks (
       UNIQUE (project_id, buyer_uid)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS builder_subscriptions (
+  id            INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  user_id       VARCHAR(128) NOT NULL,
+  tier_id       VARCHAR(32) NOT NULL,
+  stripe_subscription_id VARCHAR(255) NULL,
+  status        ENUM('active', 'past_due', 'canceled', 'incomplete') NOT NULL DEFAULT 'incomplete',
+  current_period_start  DATETIME NULL,
+  current_period_end    DATETIME NULL,
+  canceled_at   DATETIME NULL,
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_builder_subscriptions_stripe (stripe_subscription_id),
+  KEY idx_builder_subscriptions_user_active (user_id, status, current_period_end)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS swipe_interest (
+  id                       INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  project_id               INT NOT NULL,
+  homeowner_uid            VARCHAR(128) NOT NULL,
+  builder_uid              VARCHAR(128) NOT NULL,
+  source                   ENUM('recommended', 'subscribed', 'paid_unlock') NOT NULL,
+  status                   ENUM(
+    'pending',
+    'matched',
+    'declined_by_homeowner',
+    'declined_by_builder',
+    'expired'
+  ) NOT NULL DEFAULT 'pending',
+  homeowner_swiped_at      DATETIME NULL DEFAULT NULL,
+  builder_swiped_at        DATETIME NULL,
+  intro_message            TEXT NULL,
+  boost_expires_at         DATETIME NULL,
+  created_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                           ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_swipe_interest_pair (project_id, builder_uid),
+  KEY idx_swipe_interest_builder_pending (builder_uid, status, homeowner_swiped_at),
+  KEY idx_swipe_interest_project_status (project_id, status),
+  KEY idx_swipe_interest_boost_expires (boost_expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS trade_shares (
       id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -923,4 +979,26 @@ CREATE TABLE IF NOT EXISTS feedback (
   recommend ENUM('yes','maybe','no') DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY idx_feedback_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS recommendation_invites (
+  id              INT AUTO_INCREMENT PRIMARY KEY,
+  recommendationId INT NOT NULL,
+  sentToEmail    VARCHAR(255) NOT NULL,
+  emailSentAt    DATETIME NULL,
+  nudgeCount     INT NOT NULL DEFAULT 0,
+  lastNudgedAt   DATETIME NULL,
+  createdAt      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_recommendation_invites_rec (recommendationId),
+  INDEX idx_recommendation_invites_lastnudged (lastNudgedAt)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  match_id INT NOT NULL,
+  sender_uid VARCHAR(128) NOT NULL,
+  body TEXT NOT NULL,
+  attachments_json TEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_chat_match (match_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

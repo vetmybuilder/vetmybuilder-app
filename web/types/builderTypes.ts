@@ -48,6 +48,17 @@ export type Builder = {
   score?: number;
   summary?: { bullets: string[]; recommendationCount: number } | null;
   companyVerification?: Verification | null;
+  reviewLinks?: Array<{ platform: string; url: string }>;
+  linkedTradesmanUid?: string | null;
+  isFavourite?: boolean;
+};
+
+export type CategoryRatings = {
+  quality: number | null;
+  reliability: number | null;
+  communication: number | null;
+  trust: number | null;
+  value: number | null;
 };
 
 export type Review = {
@@ -55,6 +66,8 @@ export type Review = {
   name: string;
   comment: string;
   createdAt?: string | null;
+  ratings?: CategoryRatings | null;
+  isAutoComment?: boolean;
 };
 
 export function shouldUseChName(status?: VerificationStatus) {

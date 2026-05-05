@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mock - Unlock + Billing flow</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --indigo:#4f46e5; --indigo-50:#eef2ff; --indigo-100:#e0e7ff; --indigo-700:#4338ca;
+    --emerald:#10b981; --emerald-50:#ecfdf5; --emerald-100:#d1fae5; --emerald-700:#047857;
+    --rose:#f43f5e;
+    --gray-50:#f8fafc; --gray-100:#f1f5f9; --gray-200:#e2e8f0; --gray-400:#94a3b8;
+    --gray-500:#64748b; --gray-600:#475569; --gray-700:#334155; --gray-900:#0f172a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px; font-family: 'Sora', -apple-system, system-ui, sans-serif;
+    background: #f1f5f9; color: var(--gray-900);
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .lede { font-size: 13px; color: var(--gray-500); margin: 0 0 24px; max-width: 720px; line-height: 1.5; }
+  .row {
+    display: grid; gap: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  }
+  .card-wrap {
+    background: white; border-radius: 18px; padding: 18px; box-shadow: 0 1px 4px rgba(15,23,42,.08);
+  }
+  .card-wrap h2 {
+    font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--gray-500); margin: 0 0 14px;
+  }
+  .frame {
+    width: 360px; max-width: 100%;
+    margin: 0 auto;
+    background: white; border-radius: 24px; border: 8px solid #1f2937;
+    overflow: hidden; min-height: 640px;
+    display: flex; flex-direction: column;
+  }
+  .topbar {
+    background: white; padding: 14px 16px; border-bottom: 1px solid var(--gray-100);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .crumb { font-size: 13px; font-weight: 700; color: var(--gray-700); }
+  .menu-icon { font-size: 18px; color: var(--gray-500); }
+  .body { padding: 18px; flex: 1; overflow: auto; }
+
+  /* Mock 1 + 2: project view panels */
+  .panel {
+    border: 1.5px solid var(--gray-200); border-radius: 16px; padding: 16px;
+    background: white;
+  }
+  .panel + .panel { margin-top: 12px; }
+  .label-eyebrow {
+    font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--gray-400); margin-bottom: 6px;
+  }
+  .panel h3 {
+    font-size: 16px; font-weight: 800; margin: 0 0 8px;
+  }
+  .panel p { font-size: 13px; color: var(--gray-600); margin: 0; line-height: 1.5; }
+  .pill-list { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .pill {
+    font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+    background: var(--gray-100); color: var(--gray-700);
+  }
+  .pill .lbl { color: var(--gray-400); margin-right: 4px; font-weight: 600; }
+
+  .btn {
+    display: block; width: 100%; padding: 14px; border-radius: 14px;
+    font-weight: 800; font-size: 14px; text-align: center; cursor: pointer;
+    border: 0; transition: transform .05s ease;
+  }
+  .btn:active { transform: scale(.98); }
+  .btn + .btn { margin-top: 10px; }
+  .btn-primary { background: var(--indigo); color: white; }
+  .btn-secondary {
+    background: white; border: 2px solid var(--indigo-100);
+    color: var(--indigo-700);
+  }
+  .btn-emerald { background: var(--emerald); color: white; }
+  .btn-ghost { background: transparent; color: var(--gray-500); font-weight: 700; }
+
+  /* Mock 1: subscriber info panel */
+  .info-panel {
+    background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+    border: 1.5px solid var(--emerald-100); border-radius: 16px; padding: 18px;
+  }
+  .info-panel .icon {
+    width: 40px; height: 40px; border-radius: 12px;
+    background: white; display: flex; align-items: center; justify-content: center;
+    margin-bottom: 10px;
+  }
+  .info-panel h3 { font-size: 16px; font-weight: 800; margin: 0 0 6px; color: var(--emerald-700); }
+  .info-panel p { font-size: 13px; color: var(--gray-700); margin: 0 0 14px; line-height: 1.5; }
+  .meta-line { font-size: 11px; color: var(--gray-500); margin-top: 10px; display: flex; gap: 10px; }
+
+  /* Mock 2: dual CTA panel */
+  .dual-cta { padding: 4px; }
+  .dual-cta .lead-question {
+    font-size: 13px; color: var(--gray-600); text-align: center; margin: 4px 0 14px;
+    line-height: 1.5;
+  }
+  .compare-row {
+    display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 14px;
+  }
+  .compare-card {
+    border: 1.5px solid var(--gray-200); border-radius: 14px; padding: 14px;
+    background: white; position: relative;
+  }
+  .compare-card.recommended { border-color: var(--indigo); border-width: 2px; }
+  .compare-card.recommended::before {
+    content: 'Recommended'; position: absolute; top: -10px; left: 14px;
+    background: var(--indigo); color: white; font-size: 9.5px; font-weight: 800;
+    padding: 3px 8px; border-radius: 999px; letter-spacing: .04em; text-transform: uppercase;
+  }
+  .compare-card .price {
+    font-size: 22px; font-weight: 800; margin: 4px 0;
+  }
+  .compare-card .price .sub { font-size: 13px; font-weight: 600; color: var(--gray-500); }
+  .compare-card .feature {
+    font-size: 12px; color: var(--gray-700); padding: 3px 0;
+  }
+  .compare-card .feature::before {
+    content: '✓'; color: var(--emerald); font-weight: 800; margin-right: 6px;
+  }
+  .compare-card.oneoff .feature.minus::before {
+    content: '×'; color: var(--gray-400);
+  }
+
+  /* Mock 3: redesigned plans page */
+  .billing-hero {
+    text-align: center; padding: 8px 0 14px;
+  }
+  .billing-hero h1 { font-size: 22px; margin: 0 0 4px; }
+  .billing-hero p { font-size: 12px; color: var(--gray-500); margin: 0; }
+  .tier-tabs {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
+    background: var(--gray-100); padding: 4px; border-radius: 16px;
+    margin: 14px 0;
+  }
+  .tier-tab {
+    text-align: center; padding: 10px 6px; border-radius: 12px;
+    font-size: 12px; font-weight: 700; color: var(--gray-500); cursor: pointer;
+    position: relative;
+  }
+  .tier-tab.active {
+    background: white; color: var(--gray-900); box-shadow: 0 1px 2px rgba(0,0,0,.06);
+  }
+  .tier-tab .price-sm { font-size: 10px; color: var(--gray-500); margin-top: 2px; font-weight: 600; }
+  .tier-tab .badge-best {
+    position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
+    background: var(--indigo); color: white; font-size: 8.5px; font-weight: 800;
+    padding: 2px 7px; border-radius: 999px; letter-spacing: .04em; text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .price-display { text-align: center; margin: 24px 0 12px; }
+  .price-display .big { font-size: 44px; font-weight: 900; letter-spacing: -0.02em; }
+  .price-display .big .unit { font-size: 16px; font-weight: 700; color: var(--gray-500); margin-left: 4px; }
+  .price-display .perweek { font-size: 11px; color: var(--gray-500); margin-top: 4px; font-weight: 600; }
+  .benefits { margin: 18px 0; }
+  .benefit-row {
+    display: flex; gap: 10px; align-items: flex-start; padding: 6px 0;
+    font-size: 13px; color: var(--gray-700); line-height: 1.5;
+  }
+  .benefit-row .check {
+    width: 22px; height: 22px; border-radius: 50%; background: var(--emerald-50);
+    color: var(--emerald-700); display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 11px; flex-shrink: 0; margin-top: 1px;
+  }
+  .alt-pay {
+    margin-top: 18px; padding: 14px; border: 1px dashed var(--gray-200); border-radius: 14px;
+    background: var(--gray-50);
+  }
+  .alt-pay h4 {
+    font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--gray-500); margin: 0 0 6px;
+  }
+  .alt-pay p {
+    font-size: 12px; color: var(--gray-600); margin: 0; line-height: 1.4;
+  }
+  .footnote { font-size: 10.5px; color: var(--gray-400); text-align: center; margin-top: 10px; }
+</style>
+</head>
+<body>
+  <h1>Subscription supersedes paid-unlock — UI mocks</h1>
+  <p class="lede">
+    Three states the tradesman can be in. Clicking through these on real devices is the goal —
+    these are static visuals to align on copy / hierarchy before I touch any production pages.
+    Tell me to merge / change / drop / refine each one.
+  </p>
+
+  <div class="row">
+
+    <!-- ========================================================== -->
+    <div class="card-wrap">
+      <h2>① Subscriber on a project page (NEW)</h2>
+      <div class="frame">
+        <div class="topbar">
+          <span class="crumb">← Bathroom Flooring in E4</span>
+          <span class="menu-icon">≡</span>
+        </div>
+        <div class="body">
+
+          <div class="panel">
+            <div class="label-eyebrow">Project</div>
+            <h3>Bathroom Flooring in E4 (Semi-Detached)</h3>
+            <p>Timeframe: Urgent. Budget: 1k - 5k. Materials: Mixed.</p>
+            <div class="pill-list">
+              <span class="pill"><span class="lbl">Property:</span>4-bed semi</span>
+              <span class="pill"><span class="lbl">Posted:</span>2h ago</span>
+              <span class="pill"><span class="lbl">Homeowner:</span>Chris</span>
+            </div>
+          </div>
+
+          <div class="info-panel" style="margin-top:12px;">
+            <div class="icon">🤝</div>
+            <h3>You're already subscribed</h3>
+            <p>
+              Swipe right on this job - you'll chat free as soon as Chris picks
+              you back. No extra payment needed.
+            </p>
+            <a class="btn btn-emerald" style="text-decoration:none;">Go to swipe deck</a>
+            <div class="meta-line">
+              <span>✓ Your plan: <strong>Week — £3.99/wk</strong></span>
+              <span style="margin-left:auto; color:var(--indigo)">Manage</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================== -->
+    <div class="card-wrap">
+      <h2>② Non-subscriber on a project page (REVISED)</h2>
+      <div class="frame">
+        <div class="topbar">
+          <span class="crumb">← Bathroom Flooring in E4</span>
+          <span class="menu-icon">≡</span>
+        </div>
+        <div class="body">
+
+          <div class="panel">
+            <div class="label-eyebrow">Project</div>
+            <h3>Bathroom Flooring in E4 (Semi-Detached)</h3>
+            <p>Timeframe: Urgent. Budget: 1k - 5k. Materials: Mixed.</p>
+            <div class="pill-list">
+              <span class="pill"><span class="lbl">Property:</span>4-bed semi</span>
+              <span class="pill"><span class="lbl">Posted:</span>2h ago</span>
+              <span class="pill"><span class="lbl">Homeowner:</span>Chris</span>
+            </div>
+          </div>
+
+          <div class="dual-cta" style="margin-top:14px">
+            <p class="lead-question"><strong>Want to talk to Chris?</strong></p>
+
+            <div class="compare-row">
+              <div class="compare-card recommended">
+                <div class="label-eyebrow" style="margin-top:6px;">Best for regular work</div>
+                <div class="price">£3.99<span class="sub"> / week</span></div>
+                <div class="feature">Appear in homeowner swipe feeds</div>
+                <div class="feature">Unlimited swipes &amp; matches</div>
+                <div class="feature">Free chat on every match</div>
+                <div class="feature">Cancel any time</div>
+                <button class="btn btn-primary" style="margin-top:10px;">Subscribe — Week / £3.99</button>
+              </div>
+
+              <div class="compare-card oneoff">
+                <div class="label-eyebrow" style="margin-top:6px;">One-off</div>
+                <div class="price">£4.99<span class="sub"> · this job</span></div>
+                <div class="feature">Send Chris a pitch right now</div>
+                <div class="feature">Skip the swipe-and-wait</div>
+                <div class="feature minus">Just this one project</div>
+                <div class="feature minus">No swipe-feed visibility</div>
+                <button class="btn btn-secondary" style="margin-top:10px;">Pitch Chris — £4.99</button>
+              </div>
+            </div>
+
+            <div class="footnote">Both prices are mock — final tier amounts come from the server.</div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================== -->
+    <div class="card-wrap">
+      <h2>③ Redesigned plans page (replaces /tradesman/billing)</h2>
+      <div class="frame">
+        <div class="topbar">
+          <span class="crumb">← Plans</span>
+          <span class="menu-icon">≡</span>
+        </div>
+        <div class="body">
+
+          <div class="billing-hero">
+            <h1>Visibility subscription</h1>
+            <p>Be seen by homeowners in your area. Cancel any time.</p>
+          </div>
+
+          <div class="tier-tabs">
+            <div class="tier-tab">
+              <div>Week</div>
+              <div class="price-sm">£3.99</div>
+            </div>
+            <div class="tier-tab">
+              <div>2 weeks</div>
+              <div class="price-sm">£5.99</div>
+            </div>
+            <div class="tier-tab active">
+              <div class="badge-best">Best value</div>
+              <div>Month</div>
+              <div class="price-sm">£9.99</div>
+            </div>
+          </div>
+
+          <div class="price-display">
+            <div class="big">£9.99<span class="unit">/mo</span></div>
+            <div class="perweek">£2.50 / week · save 37%</div>
+          </div>
+
+          <div class="benefits">
+            <div class="benefit-row">
+              <div class="check">✓</div>
+              <div>Appear in homeowner swipe feeds — AI-ranked by job match</div>
+            </div>
+            <div class="benefit-row">
+              <div class="check">✓</div>
+              <div>Free chat on every match — no per-job fee</div>
+            </div>
+            <div class="benefit-row">
+              <div class="check">✓</div>
+              <div>Unlimited right-swipes on subscribed jobs</div>
+            </div>
+            <div class="benefit-row">
+              <div class="check">✓</div>
+              <div>Cancel any time — stay live until your period ends</div>
+            </div>
+          </div>
+
+          <button class="btn btn-primary">Continue with Month — £9.99</button>
+
+          <div class="alt-pay">
+            <h4>Or pay-as-you-go</h4>
+            <p>
+              Want to pitch a single homeowner without a subscription?
+              Open the project and use <strong>"Pitch this homeowner — £4.99"</strong> from there.
+            </p>
+          </div>
+
+          <div class="footnote">Cancel anytime. You stay visible until the end of your paid period.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

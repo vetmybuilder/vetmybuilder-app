@@ -155,6 +155,7 @@ module.exports = (router, ctx) => {
           reasons,
           otherReason,
           winnerRecommendationId,
+          winner_tradesman_uid,
           wouldUseAgain,
           createdBy,
           createdAt
@@ -202,6 +203,12 @@ module.exports = (router, ctx) => {
     // ------------------------------------------------------
     // Fetch winner (if any)
     // ------------------------------------------------------
+    // The winner can come from two sources:
+    //   1. A recommendation row (closure.winnerRecommendationId)
+    //   2. A tradesperson who shared their profile (closure.winner_tradesman_uid)
+    // Either way, we want the company/name for display *and* — when the
+    // winner has a VMB tradesman record — their profile_picture_url so the
+    // mobile closed view can show their photo instead of initials.
     let winner = null;
     if (closure.winnerRecommendationId) {
       try {
@@ -217,6 +224,33 @@ module.exports = (router, ctx) => {
         winner = rows[0] || null;
       } catch (err) {
         log.error({ err }, "Failed to load winner recommendation");
+      }
+    }
+
+    if (closure.winner_tradesman_uid) {
+      try {
+        const rows = await mysqlQuery(
+          `
+          SELECT user_id, company_name, profile_picture_url
+          FROM tradesmen
+          WHERE user_id = ?
+          LIMIT 1
+          `,
+          [closure.winner_tradesman_uid]
+        );
+        const t = rows[0] || null;
+        if (t) {
+          winner = {
+            id: winner?.id ?? null,
+            company:
+              winner?.company || t.company_name || null,
+            name: winner?.name || t.company_name || null,
+            tradesmanUid: t.user_id,
+            profilePictureUrl: t.profile_picture_url || null,
+          };
+        }
+      } catch (err) {
+        log.error({ err }, "Failed to load winner tradesman");
       }
     }
 

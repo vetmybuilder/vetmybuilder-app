@@ -1,76 +1,52 @@
-import { test, expect } from "../../../src/ui.fixtures";
+import { test } from "../../../src/ui.fixtures";
 import Project from "../../../src/models/Project";
 
 test.describe("Projects list filters", () => {
   test("type filter hides projects that don't match the selected type", async ({
-    apiClient,
-    homeownerProjectsPage,
-  }) => {
-    // Two projects with distinct work types
-    const projectA = Project.aProject().withRandomDetails({
-      workTypes: ["Plumbing"],
-    });
-    const projectB = Project.aProject().withRandomDetails({
-      workTypes: ["Electrical"],
-    });
-
-    const resA = await apiClient.post("/api/projects", projectA.toApiPayload());
-    expect(resA.status()).toBe(201);
-    const { project: createdA } = await resA.json();
-
-    const resB = await apiClient.post("/api/projects", projectB.toApiPayload());
-    expect(resB.status()).toBe(201);
-    const { project: createdB } = await resB.json();
-
-    await homeownerProjectsPage.goto();
-
-    // Both visible before filtering
-    await expect(homeownerProjectsPage.findProjectById(createdA.id)).toBeVisible(
-      { timeout: 10_000 },
-    );
-    await expect(homeownerProjectsPage.findProjectById(createdB.id)).toBeVisible(
-      { timeout: 10_000 },
-    );
-
-    // Filter by Plumbing — only projectA should remain
-    await homeownerProjectsPage.selectTypeFilter("Plumbing");
-
-    await expect(homeownerProjectsPage.findProjectById(createdA.id)).toBeVisible(
-      { timeout: 10_000 },
-    );
-    await homeownerProjectsPage.hasNoProject(createdB.id);
-  });
-
-  test("status filter hides projects that don't match the selected status", async ({
     projectApi,
     homeownerProjectsPage,
   }) => {
-    // Create two live projects
-    const projectA = await projectApi.createProject(
-      Project.aProject().withRandomDetails().toApiPayload(),
+    const plumbing = await projectApi.createProject(
+      Project.aProject()
+        .withRandomDetails({ workTypes: ["Plumbing"] })
+        .toApiPayload(),
     );
-    const projectB = await projectApi.createProject(
-      Project.aProject().withRandomDetails().toApiPayload(),
+    const electrical = await projectApi.createProject(
+      Project.aProject()
+        .withRandomDetails({ workTypes: ["Electrical"] })
+        .toApiPayload(),
     );
 
     await homeownerProjectsPage.goto();
+    await homeownerProjectsPage.hasProjectVisible(plumbing.id);
+    await homeownerProjectsPage.hasProjectVisible(electrical.id);
 
-    // Both visible on default tab (all are live)
-    await expect(
-      homeownerProjectsPage.findProjectById(projectA.id),
-    ).toBeVisible({ timeout: 10_000 });
-    await expect(
-      homeownerProjectsPage.findProjectById(projectB.id),
-    ).toBeVisible({ timeout: 10_000 });
+    await homeownerProjectsPage.selectTypeFilter("Plumbing");
+    await homeownerProjectsPage.hasProjectVisible(plumbing.id);
+    await homeownerProjectsPage.hasNoProject(electrical.id);
+  });
 
-    // Filter by Live - both should still be visible
-    await homeownerProjectsPage.selectStatusFilter("Live");
+  test("clearing the type filter restores the full list", async ({
+    projectApi,
+    homeownerProjectsPage,
+  }) => {
+    const plumbing = await projectApi.createProject(
+      Project.aProject()
+        .withRandomDetails({ workTypes: ["Plumbing"] })
+        .toApiPayload(),
+    );
+    const electrical = await projectApi.createProject(
+      Project.aProject()
+        .withRandomDetails({ workTypes: ["Electrical"] })
+        .toApiPayload(),
+    );
 
-    await expect(
-      homeownerProjectsPage.findProjectById(projectA.id),
-    ).toBeVisible({ timeout: 10_000 });
-    await expect(
-      homeownerProjectsPage.findProjectById(projectB.id),
-    ).toBeVisible({ timeout: 10_000 });
+    await homeownerProjectsPage.goto();
+    await homeownerProjectsPage.selectTypeFilter("Plumbing");
+    await homeownerProjectsPage.hasNoProject(electrical.id);
+
+    await homeownerProjectsPage.clearTypeFilter();
+    await homeownerProjectsPage.hasProjectVisible(plumbing.id);
+    await homeownerProjectsPage.hasProjectVisible(electrical.id);
   });
 });

@@ -2,7 +2,7 @@
 // Post-OAuth profile completion page.
 //
 // Reached by users who signed in via a social provider (currently Google)
-// but don't yet have a complete homeowner profile in MySQL — specifically,
+// but don't yet have a complete homeowner profile in MySQL - specifically,
 // they're missing a postcode. We only ask for the postcode here; first/last
 // name and username are derived server-side from the Google token claims
 // (`name` and `email`) by POST /api/account.
@@ -40,7 +40,7 @@ export default function SignupComplete() {
       return;
     }
     // If this user is mid-way through a tradesman signup, they ended up
-    // here because some other gate bounced them — deflect to the
+    // here because some other gate bounced them - deflect to the
     // tradesman onboarding wizard so we don't ask a tradesperson to fill
     // in a homeowner postcode.
     try {
@@ -73,7 +73,7 @@ export default function SignupComplete() {
         setLocation(data?.locationRaw || "");
 
         // Already complete? Bounce them to wherever they came from. Use the
-        // dedicated `vmb:oauthReturnTo` key (NOT vmb:returnTo) — see the
+        // dedicated `vmb:oauthReturnTo` key (NOT vmb:returnTo) - see the
         // OAuthSignInButton comment for why.
         if (data?.postcodeOutward) {
           let target = "/projects";
@@ -86,7 +86,7 @@ export default function SignupComplete() {
           return;
         }
       } catch {
-        // Non-fatal — user can still fill the form manually
+        // Non-fatal - user can still fill the form manually
       } finally {
         if (alive) setHydrating(false);
       }
@@ -175,128 +175,143 @@ export default function SignupComplete() {
   return (
     <>
       <Head>
-        <title>Complete your profile — VetMyBuilder</title>
+        <title>Complete your profile - VetMyBuilder</title>
       </Head>
 
-      <div className="min-h-screen bg-stone-50 py-16">
-        <div className="mx-auto max-w-md px-4" data-testid="signup-complete-page">
-          <div className="rounded-3xl bg-white p-8 shadow-xl shadow-zinc-200/60 sm:p-10">
-            <h1 className="text-2xl font-black tracking-tight text-zinc-900">
+      <div className="fixed inset-0 top-14 bg-white overflow-y-auto">
+        <div
+          className="mx-auto max-w-md px-5 pt-6 pb-16"
+          data-testid="signup-complete-page"
+        >
+          {/* Heading block - VMB wordmark already shown by SiteHeader */}
+          <div className="mb-6">
+            <h1
+              className="text-[28px] font-extrabold tracking-[-0.01em] text-slate-900 leading-[1.1]"
+              id="signup-complete-title"
+            >
               Almost there
             </h1>
-            <p className="mt-2 text-sm text-zinc-500">
-              Just one more thing — what's your postcode? We use it to match
+            <p className="mt-2 text-[13.5px] text-slate-500 leading-snug">
+              Just one more thing - what&apos;s your postcode? We use it to match
               you with tradespeople near you.
             </p>
+          </div>
 
-            <form
-              className="mt-6 grid gap-4"
-              onSubmit={onSubmit}
-              noValidate
-              aria-label="Complete profile form"
-              data-testid="signup-complete-form"
-            >
-              {betaRequired && (
-                <div>
-                  <label
-                    htmlFor="beta-code"
-                    className="block text-sm font-semibold text-zinc-700 mb-1"
-                  >
-                    Beta access code <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    id="beta-code"
-                    type="text"
-                    value={betaCode}
-                    onChange={(e) => {
-                      setBetaCode(e.target.value);
-                      if (betaCodeErr) setBetaCodeErr(null);
-                    }}
-                    placeholder="Enter your beta access code"
-                    className={`w-full rounded-2xl border-2 px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:outline-none transition-colors ${
-                      betaCodeErr
-                        ? "border-red-400 focus:border-red-400"
-                        : "border-zinc-200 focus:border-red-400"
-                    }`}
-                    data-testid="input-beta-code"
-                  />
-                  {betaCodeErr && (
-                    <p
-                      className="mt-1 text-sm font-medium text-red-500"
-                      role="alert"
-                      data-testid="beta-code-error"
-                    >
-                      {betaCodeErr}
-                    </p>
-                  )}
-                </div>
-              )}
-
+          <form
+            className="grid gap-5"
+            onSubmit={onSubmit}
+            noValidate
+            aria-label="Complete profile form"
+            data-testid="signup-complete-form"
+          >
+            {betaRequired && (
               <div>
-                <LocationField
-                  id="complete-loc"
-                  label="Postcode or City/Borough"
-                  placeholder="e.g., E4, N17, Chingford"
-                  value={location}
-                  onChange={(v, meta) => {
-                    if (meta) {
-                      const token =
-                        meta.outward || meta.sector || meta.postcode || v;
-                      setLocation(token);
-                    } else {
-                      setLocation(v);
-                    }
+                <label
+                  htmlFor="beta-code"
+                  className="block text-[12px] font-extrabold uppercase tracking-wide text-slate-700 mb-2"
+                >
+                  Beta access code <span className="text-amber-600">*</span>
+                </label>
+                <input
+                  id="beta-code"
+                  type="text"
+                  value={betaCode}
+                  onChange={(e) => {
+                    setBetaCode(e.target.value);
+                    if (betaCodeErr) setBetaCodeErr(null);
                   }}
-                  dataTestId="complete-complete-loc"
-                  reasonText=""
-                  error={fieldErrors.location}
+                  placeholder="Enter your beta access code"
+                  className={`w-full rounded-2xl border-2 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-colors ${
+                    betaCodeErr
+                      ? "border-red-400 focus:border-red-400 focus:ring-red-500/15"
+                      : "border-slate-200 focus:border-indigo-400 focus:ring-indigo-500/15"
+                  }`}
+                  data-testid="input-beta-code"
                 />
-                {fieldErrors.location && (
+                {betaCodeErr && (
                   <p
-                    className="mt-1 text-sm font-medium text-red-500"
+                    className="mt-1 text-sm font-medium text-red-600"
                     role="alert"
-                    data-testid="complete-complete-loc-error"
+                    data-testid="beta-code-error"
                   >
-                    {fieldErrors.location}
+                    {betaCodeErr}
                   </p>
                 )}
               </div>
+            )}
 
-              <label className="flex items-start gap-2.5 cursor-pointer" data-testid="agree-terms">
-                <input
-                  type="checkbox"
-                  checked={agreedTerms}
-                  onChange={(e) => setAgreedTerms(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-red-500 focus:ring-red-500"
-                />
-                <span className="text-xs text-zinc-500 leading-relaxed">
-                  By signing up, I agree to the{" "}
-                  <Link href="/terms" target="_blank" className="text-red-500 hover:underline">Terms of Use</Link>
-                  {" "}and{" "}
-                  <Link href="/acceptable-use" target="_blank" className="text-red-500 hover:underline">Acceptable Use Policy</Link>.
-                </span>
-              </label>
-
-              {err && (
+            <div>
+              <LocationField
+                id="complete-loc"
+                label="Postcode or City/Borough"
+                placeholder="e.g., E4, N17, Chingford"
+                value={location}
+                onChange={(v, meta) => {
+                  if (meta) {
+                    const token =
+                      meta.outward || meta.sector || meta.postcode || v;
+                    setLocation(token);
+                  } else {
+                    setLocation(v);
+                  }
+                }}
+                dataTestId="complete-complete-loc"
+                reasonText=""
+                error={fieldErrors.location}
+              />
+              {fieldErrors.location && (
                 <p
-                  className="text-sm font-medium text-red-500"
+                  className="mt-1 text-sm font-medium text-red-600"
                   role="alert"
-                  data-testid="signup-complete-error"
+                  data-testid="complete-complete-loc-error"
                 >
-                  {err}
+                  {fieldErrors.location}
                 </p>
               )}
+            </div>
 
-              <button
-                type="submit"
-                disabled={loading || !agreedTerms}
-                className="mt-2 w-full inline-flex items-center justify-center rounded-full bg-red-500 px-8 py-4 text-base font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-                data-testid="btn-signup-complete"
+            <label
+              className="flex items-start gap-2.5 cursor-pointer"
+              data-testid="agree-terms"
+            >
+              <input
+                type="checkbox"
+                checked={agreedTerms}
+                onChange={(e) => setAgreedTerms(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span className="text-xs text-slate-500 leading-relaxed">
+                By signing up, I agree to the{" "}
+                <Link href="/terms" target="_blank" className="text-indigo-700 font-semibold hover:underline">
+                  Terms of Use
+                </Link>
+                {" "}and{" "}
+                <Link href="/acceptable-use" target="_blank" className="text-indigo-700 font-semibold hover:underline">
+                  Acceptable Use Policy
+                </Link>.
+              </span>
+            </label>
+
+            {err && (
+              <p
+                className="text-sm font-medium text-red-600"
+                role="alert"
+                data-testid="signup-complete-error"
               >
-                {loading ? "Saving…" : "Finish sign up"}
-              </button>
-            </form>
-          </div>
+                {err}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading || !agreedTerms}
+              className="mt-1 w-full inline-flex items-center justify-center rounded-2xl px-7 py-4 text-[15px] sm:text-base font-extrabold text-white shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none"
+              style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
+              data-testid="btn-signup-complete"
+            >
+              {loading ? "Saving..." : "Finish sign up"}
+            </button>
+          </form>
         </div>
       </div>
     </>

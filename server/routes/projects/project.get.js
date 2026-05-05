@@ -127,9 +127,15 @@ module.exports = (router, ctx) => {
 
       // --------------------------------------------------
       // Authenticated viewer logic
-      // Only owner OR (live|completed) users can see
-      // All others → pretend it doesn't exist
+      // - Archived projects (closed with didGoAhead=false) are invisible
+      //   to everyone including the owner. Stored for analytics only.
+      // - Non-owners can only see live or completed.
       // --------------------------------------------------
+      const isArchived = status === "archived";
+      if (isArchived) {
+        log.info("Archived project — not visible to owner or anyone");
+        return res.status(404).json({ error: "not_found" });
+      }
       if (!isOwner && !isLive && !isCompleted) {
         log.info("Non-owner viewer blocked from non-visible project");
         return res.status(404).json({ error: "not_found" });

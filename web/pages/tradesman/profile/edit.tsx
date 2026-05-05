@@ -1,7 +1,9 @@
 import Head from "next/head";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import AuthedOnly from "@/components/AuthedOnly";
+import SiteHeader from "@/components/SiteHeader";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import { useApi } from "@/utils/api";
 import { getCoachingTips } from "@/utils/coachingTips";
 
@@ -10,6 +12,40 @@ import Step1Company, {
 } from "@/components/vendor-register/Step1Company";
 import Step2Trades from "@/components/vendor-register/Step2Trades";
 import Step3Offers from "@/components/vendor-register/Step3Offers";
+
+import WizardTopBar from "@/components/wizard/WizardTopBar";
+import WizardProgressBar from "@/components/wizard/WizardProgressBar";
+import WizardNavBar from "@/components/wizard/WizardNavBar";
+
+// Inline spinner SVG - same shape used by SwipePayGate / ReportModal /
+// PushPrompt / CloseProjectModal so busy state reads the same across
+// the app.
+function Spinner({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg
+      className={`${className} animate-spin`}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+    >
+      <circle
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="3"
+        className="opacity-25"
+      />
+      <path
+        d="M4 12a8 8 0 018-8"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+        className="opacity-75"
+      />
+    </svg>
+  );
+}
 
 import {
   normalizeAsUrl,
@@ -115,6 +151,19 @@ export default function TradesmanProfileEditPage() {
 function Inner() {
   const api = useApi();
   const router = useRouter();
+  // Cancellable handle for the post-save redirect timer. Without
+  // tracking + clearing this on unmount, a stale router.replace can
+  // fire after the page has already navigated and Next throws an
+  // "Invariant: hard navigate to same URL" runtime error.
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+        redirectTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const [step, setStep] = useState<Step>(1);
 
@@ -274,43 +323,21 @@ function Inner() {
     });
   }, [profile]);
 
-  if (loading) {
-    return (
-      <div className="mx-auto max-w-4xl px-6 py-8 text-sm text-slate-500">
-        Loading…
-      </div>
-    );
-  }
-
-  if (!form || !profile) {
-    return (
-      <div className="mx-auto max-w-4xl px-6 py-8">
-        <p className="text-sm text-rose-600">
-          {err || "No trade profile found."}
-        </p>
-      </div>
-    );
-  }
-
-  const title = form.companyName || "Edit profile";
-
-  // simple setter helper
+  // ---- helpers (mirroring registration) ----
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => {
     setForm((prev) => (prev ? { ...prev, [k]: v } : prev));
   };
 
-  const goToProfile = () => {
-    router.push("/tradesman/profile");
-  };
-
-  // ---- helpers (mirroring registration) ----
   const addServiceAreaOutward = (raw: string) => {
+    if (!form) return;
     set("serviceAreas", addOutward(form.serviceAreas || [], raw));
   };
   const addServiceAreaBorough = (name: string, outwardCodes: string[]) => {
+    if (!form) return;
     set("serviceAreas", addBorough(form.serviceAreas || [], name, outwardCodes));
   };
   const removeServiceAreaAt = (index: number) => {
+    if (!form) return;
     set("serviceAreas", removeAt(form.serviceAreas || [], index));
   };
 
@@ -336,6 +363,7 @@ function Inner() {
 
   const onNextFromStep1 = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form) return;
     setErr(null);
     setEmailErr(null);
 
@@ -370,6 +398,7 @@ function Inner() {
 
   const onSaveChanges = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form) return;
     setErr(null);
     setBusy(true);
     setOkMsg(null);
@@ -498,9 +527,21 @@ function Inner() {
         setForm((prev) => (prev ? { ...prev, workPhotos: [] } : prev));
       }
 
-      setTimeout(() => {
-        router.push("/tradesman/projects");
-      }, 600);
+      // Hold the success toast on screen for ~1.5s before bouncing to
+      // the account hub. The save itself is fast, so without this delay
+      // the "Profile updated" confirmation is barely visible before the
+      // page changes. Stash the timer in a ref so the unmount cleanup
+      // can cancel it - otherwise a stale router.replace fires after
+      // navigation and Next throws "hard navigate to same URL".
+      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
+      redirectTimerRef.current = setTimeout(() => {
+        redirectTimerRef.current = null;
+        // Don't push if we somehow ended up back on the same page
+        // already (HMR / browser back).
+        if (router.pathname !== "/tradesman/account") {
+          router.replace("/tradesman/account");
+        }
+      }, 1500);
     } catch (e: any) {
       const msg =
         e?.response?.data?.error || e?.message || "Failed to save changes.";
@@ -516,211 +557,509 @@ function Inner() {
     return onSaveChanges(e);
   };
 
+  // ---- wizard nav helpers ----
+  // Each step has a hidden <button type="submit"> inside its form.
+  // WizardNavBar's onNext programmatically clicks it, which fires the
+  // native form submit → the step handler above.
+  const triggerStepSubmit = () => {
+    const testId =
+      step === 1 ? "btn-next"
+      : step === 2 ? "btn-continue"
+      : "btn-continue";
+    const btn = document.querySelector<HTMLButtonElement>(
+      `[data-testid="${testId}"]`
+    );
+    btn?.click();
+  };
+
+  const handleBack = () => {
+    if (step === 1) {
+      // /tradesman/account is the canonical parent of profile/edit, so
+      // exiting at step 1 always lands there - regardless of which page
+      // the user navigated in from. router.replace (not push) avoids
+      // adding a redundant history entry.
+      router.replace("/tradesman/account");
+    } else {
+      setStep((s) => (s - 1) as Step);
+    }
+  };
+
+  const handleClose = () => {
+    router.replace("/tradesman/account");
+  };
+
   // ===== RENDER =====
 
-  const STEPS = [
-    { n: 1 as Step, label: "Company details" },
-    { n: 2 as Step, label: "Trades & photos" },
-    { n: 3 as Step, label: "Offers & documents" },
-  ];
+  if (loading) {
+    return (
+      <>
+        {/* MOBILE loading - existing wizard chrome skeleton */}
+        <main
+          className="md:hidden fixed inset-0 bg-gray-50 flex flex-col"
+          style={{
+            paddingBottom: "env(safe-area-inset-bottom)",
+            fontFamily:
+              "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
+          }}
+        >
+          <div className="h-[env(safe-area-inset-top)]" />
+          <WizardTopBar
+            title="Edit profile"
+            onBack={handleBack}
+            onClose={handleClose}
+          />
+          <WizardProgressBar step={step} total={3} tone="emerald" />
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-sm text-zinc-400">Loading…</p>
+          </div>
+        </main>
+
+        {/* DESKTOP loading - cream + watermark + SiteHeader so the old
+            wizard chrome doesn't flash before the V3 layout takes over. */}
+        <div className="hidden md:block min-h-screen bg-[#fef6e9] relative overflow-hidden">
+          <SiteHeader />
+          <BrandWatermarkScatter />
+          <div className="mx-auto max-w-3xl px-6 pb-12 relative z-10">
+            <div className="text-center pt-6 pb-4">
+              <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-0.5">
+                Edit profile
+              </div>
+              <h1
+                className="text-[26px] font-black tracking-tight text-slate-900 leading-tight"
+                style={{ fontFamily: "'Sora', sans-serif" }}
+              >
+                Polish how{" "}
+                <span
+                  className="text-emerald-600"
+                  style={{ fontFamily: "'Caveat', cursive", fontSize: "120%" }}
+                >
+                  homeowners see you
+                </span>
+              </h1>
+            </div>
+            <div className="bg-white border border-amber-100 rounded-3xl shadow-sm flex items-center justify-center py-24">
+              <span className="text-[14px] font-semibold text-emerald-600 animate-pulse">
+                Loading your profile…
+              </span>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (!form || !profile) {
+    return (
+      <>
+        {/* MOBILE error - existing wizard chrome */}
+        <main
+          className="md:hidden fixed inset-0 bg-gray-50 flex flex-col"
+          style={{
+            paddingBottom: "env(safe-area-inset-bottom)",
+            fontFamily:
+              "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
+          }}
+        >
+          <div className="h-[env(safe-area-inset-top)]" />
+          <WizardTopBar
+            title="Edit profile"
+            onBack={handleBack}
+            onClose={handleClose}
+          />
+          <div className="flex-1 flex items-center justify-center px-6">
+            <p className="text-sm text-rose-600">{err || "No trade profile found."}</p>
+          </div>
+        </main>
+
+        {/* DESKTOP error - same V3 chrome so the old wizard never flashes */}
+        <div className="hidden md:block min-h-screen bg-[#fef6e9] relative overflow-hidden">
+          <SiteHeader />
+          <BrandWatermarkScatter />
+          <div className="mx-auto max-w-3xl px-6 pb-12 relative z-10">
+            <div className="text-center pt-6 pb-4">
+              <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-0.5">
+                Edit profile
+              </div>
+            </div>
+            <div className="bg-white border border-rose-200 rounded-3xl shadow-sm px-6 py-8 text-center">
+              <p className="text-[13.5px] text-rose-600 font-semibold">
+                {err || "No trade profile found."}
+              </p>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
       <Head>
         <title>Edit profile • VetMyBuilder</title>
-        <style>{`body { background: #fafaf9 !important; }`}</style>
       </Head>
 
-      <div className="relative min-h-screen overflow-hidden bg-stone-50">
-        {/* Background bands */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
-          <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
+      {/* MOBILE — existing 3-step wizard, untouched. */}
+      <main
+        className="md:hidden fixed inset-0 bg-gray-50 flex flex-col"
+        data-testid="trades-edit-profile-page"
+        style={{
+          paddingBottom: "env(safe-area-inset-bottom)",
+          fontFamily:
+            "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
+        }}
+      >
+        <div className="h-[env(safe-area-inset-top)]" />
+
+        <WizardTopBar
+          title="Edit profile"
+          onBack={handleBack}
+          onClose={handleClose}
+        />
+
+        <WizardProgressBar step={step} total={3} tone="emerald" />
+
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto">
+          {err && (
+            <p className="mx-3 mt-3 text-sm text-red-500 font-medium whitespace-pre-line" role="alert">
+              {err}
+            </p>
+          )}
+
+          {tips.length > 0 && step === 1 && (
+            <div className="mx-3 mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-sm font-semibold text-amber-900">
+                Boost your profile — {tips.length} quick win{tips.length === 1 ? "" : "s"}
+              </p>
+              <ul className="mt-1.5 space-y-1">
+                {tips.map((tip) => (
+                  <li key={tip.key} className="flex items-start gap-2 text-sm text-amber-800">
+                    <span className="mt-0.5 text-amber-500">•</span>
+                    {tip.message}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* STEP 1 */}
+          {step === 1 && (
+            <Step1Company
+              form={form as unknown as Step1Form}
+              set={(k, v) => {
+                // we DO NOT allow changing companyName or email on edit
+                if (k === "companyName" || k === "email") return;
+                if (k === "email") setEmailErr(null);
+                // Step1Form keys are subset of FormState
+                // @ts-expect-error
+                set(k, v);
+              }}
+              addServiceAreaOutward={addServiceAreaOutward}
+              addServiceAreaBorough={addServiceAreaBorough}
+              removeServiceAreaAt={removeServiceAreaAt}
+              areaQuery={areaQuery}
+              setAreaQuery={setAreaQuery}
+              websiteInput={websiteInput}
+              setWebsiteInput={setWebsiteInput}
+              commitWebsite={commitWebsite}
+              onWebsiteKey={onWebsiteKey}
+              clearWebsite={clearWebsite}
+              canProceed={true}
+              onNext={onNextFromStep1}
+              userIsAuthed={true}
+              nextQuery={"?next=/tradesman/account"}
+              errors={{ email: emailErr }}
+              disableCompanyName
+              disableBusinessEmail
+            />
+          )}
+
+          {/* STEP 2 */}
+          {step === 2 && (
+            <Step2Trades
+              tradeTypes={form.tradeTypes}
+              setTradeTypes={(v) => set("tradeTypes", v)}
+              workPhotos={form.workPhotos}
+              setWorkPhotos={(files) => set("workPhotos", files)}
+              onBack={() => setStep(1)}
+              onNext={onNextFromStep2}
+              err={err || undefined}
+              existingPhotoUrls={form.existingPhotoUrls}
+              profilePictureKey={form.profilePictureKey}
+              onProfilePictureKeyChange={(key) => set("profilePictureKey", key)}
+              onRemoveExistingPhoto={(url) =>
+                set(
+                  "existingPhotoUrls",
+                  form.existingPhotoUrls.filter((u) => u !== url)
+                )
+              }
+            />
+          )}
+
+          {/* STEP 3 */}
+          {step === 3 && (
+            <Step3Offers
+              discountMin={form.discountMin}
+              discountMax={form.discountMax}
+              setDiscountMin={(v) => set("discountMin", v)}
+              setDiscountMax={(v) => set("discountMax", v)}
+              warranty={form.warranty}
+              setWarranty={(v) => set("warranty", v)}
+              onDocs={(e) => {
+                const files = Array.from(e.target.files || []);
+                const mapped: Doc[] = files.map((f) => ({
+                  name: f.name,
+                  size: f.size,
+                  type: f.type || "application/octet-stream",
+                }));
+                set("docs", mapped);
+              }}
+              onBack={() => setStep(2)}
+              onSaveDraft={onSubmitStep3}
+              busy={busy}
+              okMsg={okMsg || undefined}
+              err={err || undefined}
+              primaryLabel="Save changes"
+            />
+          )}
+
+          <div className="h-4" />
         </div>
 
-        <div className="relative z-10 flex min-h-screen flex-col lg:flex-row" data-testid="trades-edit-profile-page">
+        <WizardNavBar
+          onBack={step > 1 ? handleBack : undefined}
+          onNext={triggerStepSubmit}
+          nextLabel={step === 3 ? "Save changes" : "Next →"}
+          busy={busy}
+          tone="emerald"
+        />
+      </main>
 
-          {/* ── Left sidebar ── */}
-          <aside className="shrink-0 lg:sticky lg:top-0 lg:h-screen lg:w-72 xl:w-80 bg-white/85 backdrop-blur-sm border-b border-zinc-200 lg:border-b-0 lg:border-r flex flex-col">
-            {/* scrollable top */}
-            <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-4 sm:py-8">
-              <button
-                type="button"
-                onClick={goToProfile}
-                className="inline-flex items-center gap-1.5 mb-6 text-xs font-medium text-zinc-400 hover:text-rose-500 transition-colors"
+      {/* DESKTOP — V3 single-page: cream + watermark + SiteHeader chrome,
+          all three section forms visible at once, sticky save bar at the
+          bottom. Same form state + save handler as the mobile wizard. */}
+      <div
+        className="hidden md:block min-h-screen bg-[#fef6e9] relative overflow-hidden"
+        data-testid="trades-edit-profile-desktop"
+      >
+        <SiteHeader />
+        <BrandWatermarkScatter />
+
+        {/* Success toast - fixed top-center so it's hard to miss while
+            the redirect to /tradesman/account is in flight. */}
+        {okMsg && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-50 inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-emerald-600 text-white text-[13px] font-extrabold shadow-xl shadow-emerald-200"
+            data-testid="profile-saved-toast"
+          >
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white/25 text-white text-[12px]">
+              ✓
+            </span>
+            {okMsg}
+          </div>
+        )}
+
+        <div className="mx-auto max-w-3xl px-6 pb-32 relative z-10">
+          {/* Title */}
+          <div className="text-center pt-6 pb-4">
+            <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-0.5">
+              Edit profile
+            </div>
+            <h1
+              className="text-[26px] font-black tracking-tight text-slate-900 leading-tight"
+              style={{ fontFamily: "'Sora', sans-serif" }}
+            >
+              Polish how{" "}
+              <span
+                className="text-emerald-600"
+                style={{ fontFamily: "'Caveat', cursive", fontSize: "120%" }}
               >
-                <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 shrink-0">
-                  <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd"/>
-                </svg>
-                Back to profile
-              </button>
-              <h1 className="text-2xl font-black text-zinc-900 mb-1.5">{title}</h1>
-              <p className="text-sm text-zinc-500 mb-10 leading-relaxed">
-                Update the key details project owners will see.
+                homeowners see you
+              </span>
+            </h1>
+          </div>
+
+          {/* Coaching tips */}
+          {tips.length > 0 && (
+            <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-[12.5px] font-extrabold text-amber-900">
+                Boost your profile - {tips.length} quick win{tips.length === 1 ? "" : "s"}
               </p>
-
-              {/* Vertical step indicator */}
-              <nav aria-label="Edit profile steps">
-                {STEPS.map((s, i) => {
-                  const done = step > s.n;
-                  const active = step === s.n;
-                  const isLast = i === STEPS.length - 1;
-                  return (
-                    <div key={s.n} className="flex items-start gap-3">
-                      <div className="flex flex-col items-center">
-                        <button
-                          type="button"
-                          onClick={() => setStep(s.n)}
-                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold transition-colors ${
-                            done ? "border-red-500 bg-red-500 text-white" :
-                            active ? "border-red-500 bg-white text-red-500" :
-                            "border-zinc-300 bg-white text-zinc-400"
-                          }`}
-                          aria-current={active ? "step" : undefined}
-                        >
-                          {done ? (
-                            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
-                          ) : s.n}
-                        </button>
-                        {!isLast && (
-                          <div className={`w-0.5 h-9 transition-colors ${done ? "bg-red-400" : "bg-zinc-200"}`} />
-                        )}
-                      </div>
-                      <div className={`pt-1.5 ${!isLast ? "pb-9" : ""}`}>
-                        <button
-                          type="button"
-                          onClick={() => setStep(s.n)}
-                          className={`text-sm font-medium transition-colors text-left ${
-                            active ? "text-zinc-900" : done ? "text-zinc-500" : "text-zinc-300"
-                          }`}
-                        >
-                          {s.label}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </nav>
+              <ul className="mt-1.5 space-y-1">
+                {tips.map((tip) => (
+                  <li
+                    key={tip.key}
+                    className="flex items-start gap-2 text-[12px] text-amber-800"
+                  >
+                    <span className="text-amber-500">•</span>
+                    {tip.message}
+                  </li>
+                ))}
+              </ul>
             </div>
+          )}
 
-          </aside>
+          {err && (
+            <p
+              className="mb-4 text-[12.5px] text-red-600 font-semibold whitespace-pre-line bg-red-50 border border-red-200 rounded-xl px-4 py-3"
+              role="alert"
+            >
+              {err}
+            </p>
+          )}
 
-          {/* ── Right panel ── */}
-          <div className="flex-1 px-6 py-10 lg:px-10 xl:px-16 lg:py-12">
-            <div className="mx-auto max-w-2xl">
-              {okMsg && (
-                <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800">
-                  {okMsg}
-                </div>
-              )}
+          {/* Section: Company */}
+          <DesktopSection
+            title="Company details"
+            hint="The basics homeowners see when they open your profile."
+          >
+            <Step1Company
+              form={form as unknown as Step1Form}
+              set={(k, v) => {
+                if (k === "companyName" || k === "email") return;
+                if (k === "email") setEmailErr(null);
+                // @ts-expect-error
+                set(k, v);
+              }}
+              addServiceAreaOutward={addServiceAreaOutward}
+              addServiceAreaBorough={addServiceAreaBorough}
+              removeServiceAreaAt={removeServiceAreaAt}
+              areaQuery={areaQuery}
+              setAreaQuery={setAreaQuery}
+              websiteInput={websiteInput}
+              setWebsiteInput={setWebsiteInput}
+              commitWebsite={commitWebsite}
+              onWebsiteKey={onWebsiteKey}
+              clearWebsite={clearWebsite}
+              canProceed={true}
+              onNext={(e) => e.preventDefault()}
+              userIsAuthed={true}
+              nextQuery={"?next=/tradesman/account"}
+              errors={{ email: emailErr }}
+              disableCompanyName
+              disableBusinessEmail
+            />
+          </DesktopSection>
 
-              {err && (
-                <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 whitespace-pre-line">
-                  {err}
-                </div>
-              )}
+          {/* Section: Trades + Photos */}
+          <DesktopSection
+            title="Trades & photos"
+            hint="Determine which jobs surface in your deck. The first photo is your profile picture."
+          >
+            <Step2Trades
+              tradeTypes={form.tradeTypes}
+              setTradeTypes={(v) => set("tradeTypes", v)}
+              workPhotos={form.workPhotos}
+              setWorkPhotos={(files) => set("workPhotos", files)}
+              onBack={() => {}}
+              onNext={(e) => e.preventDefault()}
+              err={err || undefined}
+              existingPhotoUrls={form.existingPhotoUrls}
+              profilePictureKey={form.profilePictureKey}
+              onProfilePictureKeyChange={(key) =>
+                set("profilePictureKey", key)
+              }
+              onRemoveExistingPhoto={(url) =>
+                set(
+                  "existingPhotoUrls",
+                  form.existingPhotoUrls.filter((u) => u !== url),
+                )
+              }
+            />
+          </DesktopSection>
 
-              {tips.length > 0 && (
-                <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
-                  <p className="text-sm font-semibold text-amber-900">
-                    Boost your profile — {tips.length} quick win{tips.length === 1 ? "" : "s"}
-                  </p>
-                  <ul className="mt-2 space-y-1">
-                    {tips.map((tip) => (
-                      <li key={tip.key} className="flex items-start gap-2 text-sm text-amber-800">
-                        <span className="mt-0.5 text-amber-500">•</span>
-                        {tip.message}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+          {/* Section: Offers + verification */}
+          <DesktopSection
+            title="Offers & documents"
+            hint="Discounts, warranties and supporting docs."
+          >
+            <Step3Offers
+              discountMin={form.discountMin}
+              discountMax={form.discountMax}
+              setDiscountMin={(v) => set("discountMin", v)}
+              setDiscountMax={(v) => set("discountMax", v)}
+              warranty={form.warranty}
+              setWarranty={(v) => set("warranty", v)}
+              onDocs={(e) => {
+                const files = Array.from(e.target.files || []);
+                const mapped: Doc[] = files.map((f) => ({
+                  name: f.name,
+                  size: f.size,
+                  type: f.type || "application/octet-stream",
+                }));
+                set("docs", mapped);
+              }}
+              onBack={() => {}}
+              onSaveDraft={(e) => e.preventDefault()}
+              busy={busy}
+              okMsg={okMsg || undefined}
+              err={err || undefined}
+              primaryLabel="Save changes"
+            />
+          </DesktopSection>
 
-        {/* STEP 1 – same component as registration, but company/email disabled */}
-        {step === 1 && (
-          <Step1Company
-            form={form as unknown as Step1Form}
-            set={(k, v) => {
-              // we DO NOT allow changing companyName or email on edit
-              if (k === "companyName" || k === "email") return;
-              if (k === "email") setEmailErr(null);
-              // Step1Form keys are subset of FormState
-              // @ts-expect-error
-              set(k, v);
-            }}
-            addServiceAreaOutward={addServiceAreaOutward}
-            addServiceAreaBorough={addServiceAreaBorough}
-            removeServiceAreaAt={removeServiceAreaAt}
-            areaQuery={areaQuery}
-            setAreaQuery={setAreaQuery}
-            websiteInput={websiteInput}
-            setWebsiteInput={setWebsiteInput}
-            commitWebsite={commitWebsite}
-            onWebsiteKey={onWebsiteKey}
-            clearWebsite={clearWebsite}
-            canProceed={true}
-            onNext={onNextFromStep1}
-            userIsAuthed={true}
-            nextQuery={"?next=/tradesman/projects"}
-            errors={{ email: emailErr }}
-            disableCompanyName
-            disableBusinessEmail
-          />
-        )}
+          {/* Success message is rendered as a fixed top-center toast at
+              the top of this branch - no inline copy here. */}
+        </div>
 
-        {/* STEP 2 – trades & photos */}
-        {step === 2 && (
-          <Step2Trades
-            tradeTypes={form.tradeTypes}
-            setTradeTypes={(v) => set("tradeTypes", v)}
-            workPhotos={form.workPhotos}
-            setWorkPhotos={(files) => set("workPhotos", files)}
-            onBack={() => setStep(1)}
-            onNext={onNextFromStep2}
-            err={err || undefined}
-            existingPhotoUrls={form.existingPhotoUrls}
-            profilePictureKey={form.profilePictureKey}
-            onProfilePictureKeyChange={(key) => set("profilePictureKey", key)}
-            onRemoveExistingPhoto={(url) =>
-              set(
-                "existingPhotoUrls",
-                form.existingPhotoUrls.filter((u) => u !== url)
-              )
-            }
-          />
-        )}
-
-        {/* STEP 3 – offers & docs (final save happens here) */}
-        {step === 3 && (
-          <Step3Offers
-            discountMin={form.discountMin}
-            discountMax={form.discountMax}
-            setDiscountMin={(v) => set("discountMin", v)}
-            setDiscountMax={(v) => set("discountMax", v)}
-            warranty={form.warranty}
-            setWarranty={(v) => set("warranty", v)}
-            onDocs={(e) => {
-              const files = Array.from(e.target.files || []);
-              const mapped: Doc[] = files.map((f) => ({
-                name: f.name,
-                size: f.size,
-                type: f.type || "application/octet-stream",
-              }));
-              set("docs", mapped);
-            }}
-            onBack={() => setStep(2)}
-            onSaveDraft={onSubmitStep3}
-            busy={busy}
-            okMsg={okMsg || undefined}
-            err={err || undefined}
-            primaryLabel="Save"
-          />
-        )}
-            </div>
+        {/* Sticky save bar - mirrors the V3 mock pattern */}
+        <div className="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-amber-100 py-3 px-6 z-40 hidden md:block">
+          <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
+            {/* Lock the bar while either the save is in flight (busy) OR
+                the post-save success toast is showing (okMsg) - the
+                redirect to /tradesman/account fires ~1.5s after busy
+                flips false, so the user shouldn't be able to fire another
+                save in that window. */}
+            <button
+              type="button"
+              onClick={() => router.replace("/tradesman/account")}
+              disabled={busy || !!okMsg}
+              className="px-4 py-2 rounded-full text-[12.5px] font-extrabold text-slate-600 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              onClick={(e) => onSaveChanges(e as unknown as React.FormEvent)}
+              disabled={busy || !!okMsg}
+              className="inline-flex items-center justify-center gap-2 px-6 py-2 rounded-full text-[12.5px] font-extrabold text-white shadow-md shadow-emerald-200 hover:brightness-105 active:brightness-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-none transition-all"
+              style={{
+                background: "linear-gradient(135deg,#10b981,#059669)",
+              }}
+              data-testid="desktop-save-changes"
+            >
+              {busy && <Spinner className="h-4 w-4" />}
+              {busy ? "Saving…" : okMsg ? "Saved ✓" : "Save changes"}
+            </button>
           </div>
         </div>
       </div>
     </>
+  );
+}
+
+function DesktopSection({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="bg-white border border-amber-100 rounded-3xl p-5 shadow-sm mb-4">
+      <h2
+        className="text-[16px] font-black text-slate-900"
+        style={{ fontFamily: "'Sora', sans-serif" }}
+      >
+        {title}
+      </h2>
+      <p className="mt-1 mb-3 text-[12px] text-slate-500">{hint}</p>
+      {children}
+    </section>
   );
 }
 

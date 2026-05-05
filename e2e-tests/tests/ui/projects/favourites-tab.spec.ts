@@ -50,4 +50,26 @@ test.describe("Favourites tab", () => {
     await homeownerProjectsPage.clickFirstFavouriteCard();
     await homeownerProjectsPage.expectNavigatedToTradesmanProfile();
   });
+
+  test("count subtitle reflects number of saved favourites", async ({
+    request,
+    runtime,
+    apiClient,
+    homeownerProjectsPage,
+  }) => {
+    const first = await setupTradesmanProfile({
+      request,
+      apiBaseUrl: runtime.apiBaseUrl,
+    });
+    const second = await setupTradesmanProfile({
+      request,
+      apiBaseUrl: runtime.apiBaseUrl,
+    });
+
+    await apiClient.addFavouriteTradesman(first.uid);
+    await apiClient.addFavouriteTradesman(second.uid);
+
+    await homeownerProjectsPage.gotoTab("favourites");
+    await homeownerProjectsPage.expectFavouritesCount(2);
+  });
 });

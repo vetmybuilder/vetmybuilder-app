@@ -14,6 +14,11 @@ export class BasePage {
     this.publishModal = new PublishModalComponent(page);
   }
 
+  isMobile(): boolean {
+    const vp = this.page.viewportSize();
+    return vp ? vp.width < 768 : false;
+  }
+
   async assertPublishModalVisible() {
     await expect(this.publishDialog).toBeVisible();
   }

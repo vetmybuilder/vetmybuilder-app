@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>/projects/[id] swipe deck — desktop redesign</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Sora:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Sora', system-ui, sans-serif; background: #ece8e1; }
+  .caveat { font-family: 'Caveat', cursive; font-weight: 700; }
+  .photo-1 { background-image: linear-gradient(135deg, #cfe7d8, #6fb89a); }
+  .photo-2 { background-image: linear-gradient(135deg, #ddd2bd, #b29565); }
+  .photo-3 { background-image: linear-gradient(135deg, #c5d6ec, #5b86b4); }
+  .photo-4 { background-image: linear-gradient(135deg, #f0d9c4, #cd9b6e); }
+  .photo-5 { background-image: linear-gradient(135deg, #f5cfd1, #c97a86); }
+  .browser { background:white; border-radius:14px; box-shadow:0 30px 60px -20px rgba(15,23,42,0.25); overflow:hidden; }
+  .browser-bar { background:#f3f4f6; border-bottom:1px solid #e5e7eb; height:38px; display:flex; align-items:center; gap:6px; padding:0 12px; }
+  .browser-bar span { width:12px; height:12px; border-radius:9999px; }
+</style>
+</head>
+<body class="text-slate-900">
+
+<div class="max-w-[1500px] mx-auto px-6 py-10">
+  <h1 class="text-3xl font-black tracking-tight mb-2">/projects/[id] swipe deck — desktop</h1>
+  <p class="text-slate-600 mb-10 max-w-2xl">Four directions for the project swipe deck on desktop. All keep the same card model and No/Info/Yes action set as mobile - this is purely about how to render the deck experience on a wide screen, where there's no swipe gesture.</p>
+
+  <div class="space-y-12">
+
+    <!-- OPTION A — Centred single card -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-indigo-700 mb-2">Option A · Centred card</div>
+      <h3 class="text-xl font-extrabold mb-3">"Mobile, just bigger"</h3>
+      <p class="text-sm text-slate-600 mb-5 max-w-3xl">Single card centred on a cream canvas, with stack-hint cards peeking behind. Action buttons (Pass / Info / Pick) below the card. Keyboard shortcuts (← / → / ↑) shown subtly in the corner. Lowest design risk.</p>
+
+      <div class="browser">
+        <div class="browser-bar"><span class="bg-red-400"></span><span class="bg-amber-400"></span><span class="bg-emerald-400"></span><div class="ml-3 text-xs text-slate-500">localhost:3000/projects/20</div></div>
+        <div class="bg-stone-50/90 border-b border-stone-200 px-6 h-14 flex items-center justify-between">
+          <span class="text-2xl font-black tracking-tight">Vet<span class="caveat text-indigo-600" style="font-size:130%">My</span>Builder</span>
+          <div class="w-9 h-9 rounded-full bg-indigo-100"></div>
+        </div>
+        <div class="bg-[#fef6e9] py-10 px-6">
+          <div class="max-w-3xl mx-auto">
+            <!-- breadcrumb / project ref -->
+            <a class="inline-flex items-center gap-1.5 text-[13px] text-slate-600 hover:text-slate-900 mb-4">
+              <span>←</span> <span class="font-bold">Mouse infestation in kitchen and loft</span>
+            </a>
+            <div class="text-center mb-1">
+              <span class="text-[11px] font-extrabold uppercase tracking-[0.16em] text-indigo-700">3 of 12</span>
+            </div>
+            <div class="text-center mb-5">
+              <h1 class="text-2xl font-black tracking-tight" style="font-family:'Sora',sans-serif">See your <span class="caveat text-indigo-600" style="font-size:120%">shortlist</span></h1>
+            </div>
+
+            <div class="relative h-[480px]">
+              <!-- back stack -->
+              <div class="absolute inset-x-12 top-2 h-full bg-white rounded-3xl border border-amber-100 shadow-sm transform rotate-1 opacity-60"></div>
+              <div class="absolute inset-x-6 top-1 h-full bg-white rounded-3xl border border-amber-100 shadow-sm transform -rotate-1 opacity-80"></div>
+              <!-- top card -->
+              <div class="absolute inset-0 bg-white rounded-3xl border border-amber-100 shadow-xl overflow-hidden">
+                <div class="aspect-[4/3] photo-1 relative">
+                  <span class="absolute top-3 left-3 inline-flex items-center gap-1 rounded-full bg-emerald-500 text-white px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] shadow-md">✓ Verified</span>
+                  <span class="absolute top-3 right-3 inline-flex items-center gap-1 rounded-full bg-white/90 text-amber-700 px-2.5 py-1 text-[11px] font-bold shadow-md">★ 4.9</span>
+                </div>
+                <div class="p-5">
+                  <h2 class="text-[20px] font-black tracking-tight" style="font-family:'Sora',sans-serif">Quick Catch Pest Control</h2>
+                  <div class="text-[12.5px] text-slate-500 mt-0.5">Pest control · E4, London · 6 years on platform</div>
+                  <div class="mt-3 flex flex-wrap gap-1.5">
+                    <span class="rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold px-2 py-0.5">28 jobs done</span>
+                    <span class="rounded-full bg-violet-50 border border-violet-200 text-violet-700 text-[11px] font-bold px-2 py-0.5">12 community recs</span>
+                    <span class="rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold px-2 py-0.5">£90-£150 est.</span>
+                  </div>
+                  <p class="mt-3 text-[13px] text-slate-600 leading-relaxed">RSPH-qualified, 7 day callout, free survey. Family-run for over 6 years - we treat your home like our own.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- action bar -->
+            <div class="mt-6 flex items-center justify-center gap-5">
+              <button class="w-14 h-14 rounded-full bg-white border-2 border-slate-200 flex items-center justify-center shadow-sm hover:scale-105 active:scale-95 transition-transform">
+                <svg viewBox="0 0 24 24" class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M6 18L18 6"/></svg>
+              </button>
+              <button class="w-12 h-12 rounded-full bg-white border-2 border-slate-200 flex items-center justify-center shadow-sm font-extrabold text-slate-500 hover:scale-105 transition-transform">i</button>
+              <button class="w-16 h-16 rounded-full text-white flex items-center justify-center shadow-xl shadow-indigo-500/30 hover:scale-105 active:scale-95 transition-transform" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">
+                <svg viewBox="0 0 24 24" class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>
+              </button>
+            </div>
+            <div class="text-center mt-3 text-[11px] text-slate-400">
+              ← Pass · ↑ Info · → Pick &nbsp; (or click)
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- OPTION B — Two-column: deck + project context -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-700 mb-2">Option B · Deck + project context</div>
+      <h3 class="text-xl font-extrabold mb-3">Card centre, project sidebar</h3>
+      <p class="text-sm text-slate-600 mb-5 max-w-3xl">Left rail keeps the project details visible (what's needed, location, beds, budget) while the user works through the deck on the right. Reduces context-switching for "is this builder right for *my* job?".</p>
+
+      <div class="browser">
+        <div class="browser-bar"><span class="bg-red-400"></span><span class="bg-amber-400"></span><span class="bg-emerald-400"></span><div class="ml-3 text-xs text-slate-500">localhost:3000/projects/20</div></div>
+        <div class="bg-stone-50/90 border-b border-stone-200 px-6 h-14 flex items-center justify-between">
+          <span class="text-2xl font-black tracking-tight">Vet<span class="caveat text-indigo-600" style="font-size:130%">My</span>Builder</span>
+          <div class="w-9 h-9 rounded-full bg-indigo-100"></div>
+        </div>
+        <div class="bg-[#fef6e9] py-8 px-6">
+          <div class="max-w-6xl mx-auto grid grid-cols-12 gap-6">
+            <!-- left: project context -->
+            <aside class="col-span-4">
+              <a class="inline-flex items-center gap-1.5 text-[12px] text-slate-600 hover:text-slate-900 mb-3">← All jobs</a>
+              <div class="bg-white rounded-2xl border border-amber-100 shadow-sm p-5 sticky top-6">
+                <div class="text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-indigo-700 mb-2">Your job</div>
+                <h2 class="text-[18px] font-extrabold leading-tight" style="font-family:'Sora',sans-serif">Mouse infestation in kitchen and loft</h2>
+                <div class="text-[12.5px] text-slate-500 mt-1">Created 30/04/2026</div>
+                <div class="mt-4 space-y-2.5 text-[13px]">
+                  <div class="flex justify-between"><span class="text-slate-500">Type</span><span class="font-bold">Mouse / Rat Control</span></div>
+                  <div class="flex justify-between"><span class="text-slate-500">Location</span><span class="font-bold">E4, London</span></div>
+                  <div class="flex justify-between"><span class="text-slate-500">Property</span><span class="font-bold">Terraced, 3 beds</span></div>
+                  <div class="flex justify-between"><span class="text-slate-500">Urgency</span><span class="font-bold text-amber-700">Within 2 days</span></div>
+                  <div class="flex justify-between"><span class="text-slate-500">Budget</span><span class="font-bold">£100-£200</span></div>
+                </div>
+                <div class="mt-4 pt-4 border-t border-amber-100">
+                  <div class="text-[10.5px] font-extrabold uppercase tracking-wider text-slate-500 mb-1">Description</div>
+                  <p class="text-[12.5px] text-slate-700 leading-relaxed">Mice in the kitchen behind the cooker, possibly into the loft. Need someone urgent who can survey and treat.</p>
+                </div>
+              </div>
+            </aside>
+
+            <!-- right: deck -->
+            <main class="col-span-8">
+              <div class="text-center mb-1">
+                <span class="text-[11px] font-extrabold uppercase tracking-[0.16em] text-indigo-700">3 of 12 · Tap or use ← → to choose</span>
+              </div>
+              <div class="text-center mb-5">
+                <h1 class="text-2xl font-black tracking-tight" style="font-family:'Sora',sans-serif">Pick your <span class="caveat text-indigo-600" style="font-size:120%">tradesperson</span></h1>
+              </div>
+
+              <div class="relative h-[440px] mx-auto max-w-md">
+                <div class="absolute inset-x-10 top-2 h-full bg-white rounded-3xl border border-amber-100 shadow-sm transform rotate-1 opacity-60"></div>
+                <div class="absolute inset-x-5 top-1 h-full bg-white rounded-3xl border border-amber-100 shadow-sm transform -rotate-1 opacity-80"></div>
+                <div class="absolute inset-0 bg-white rounded-3xl border border-amber-100 shadow-xl overflow-hidden">
+                  <div class="aspect-[4/3] photo-1 relative">
+                    <span class="absolute top-3 left-3 inline-flex items-center gap-1 rounded-full bg-emerald-500 text-white px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] shadow-md">✓ Verified</span>
+                    <span class="absolute top-3 right-3 inline-flex items-center gap-1 rounded-full bg-white/90 text-amber-700 px-2.5 py-1 text-[11px] font-bold shadow-md">★ 4.9</span>
+                  </div>
+                  <div class="p-5">
+                    <h2 class="text-[18px] font-black tracking-tight" style="font-family:'Sora',sans-serif">Quick Catch Pest Control</h2>
+                    <div class="text-[12px] text-slate-500 mt-0.5">Pest control · E4, London</div>
+                    <div class="mt-2.5 flex flex-wrap gap-1.5">
+                      <span class="rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold px-2 py-0.5">28 jobs</span>
+                      <span class="rounded-full bg-violet-50 border border-violet-200 text-violet-700 text-[11px] font-bold px-2 py-0.5">12 community recs</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-5 flex items-center justify-center gap-4">
+                <button class="w-12 h-12 rounded-full bg-white border-2 border-slate-200 flex items-center justify-center shadow-sm">
+                  <svg viewBox="0 0 24 24" class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M6 18L18 6"/></svg>
+                </button>
+                <button class="w-10 h-10 rounded-full bg-white border-2 border-slate-200 flex items-center justify-center text-slate-500 font-extrabold">i</button>
+                <button class="w-14 h-14 rounded-full text-white flex items-center justify-center shadow-xl shadow-indigo-500/30" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">
+                  <svg viewBox="0 0 24 24" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>
+                </button>
+              </div>
+            </main>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- OPTION C — Featured + queue rail -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-emerald-700 mb-2">Option C · Featured + queue rail</div>
+      <h3 class="text-xl font-extrabold mb-3">Top card + visible queue</h3>
+      <p class="text-sm text-slate-600 mb-5 max-w-3xl">Big top card with action buttons, plus a horizontal "next up" rail of compact cards underneath so the user sees what's coming. Most transparent about the queue.</p>
+
+      <div class="browser">
+        <div class="browser-bar"><span class="bg-red-400"></span><span class="bg-amber-400"></span><span class="bg-emerald-400"></span><div class="ml-3 text-xs text-slate-500">localhost:3000/projects/20</div></div>
+        <div class="bg-stone-50/90 border-b border-stone-200 px-6 h-14 flex items-center justify-between">
+          <span class="text-2xl font-black tracking-tight">Vet<span class="caveat text-indigo-600" style="font-size:130%">My</span>Builder</span>
+          <div class="w-9 h-9 rounded-full bg-indigo-100"></div>
+        </div>
+        <div class="bg-[#fef6e9] py-8 px-6">
+          <div class="max-w-5xl mx-auto">
+            <a class="inline-flex items-center gap-1.5 text-[12px] text-slate-600 mb-3">← Mouse infestation in kitchen and loft</a>
+            <div class="text-center mb-1">
+              <span class="text-[11px] font-extrabold uppercase tracking-[0.16em] text-indigo-700">3 of 12</span>
+            </div>
+            <div class="text-center mb-5">
+              <h1 class="text-2xl font-black tracking-tight" style="font-family:'Sora',sans-serif">Pick your <span class="caveat text-indigo-600" style="font-size:120%">tradesperson</span></h1>
+            </div>
+
+            <div class="grid grid-cols-12 gap-6 items-start">
+              <div class="col-span-9">
+                <div class="bg-white rounded-3xl border border-amber-100 shadow-xl overflow-hidden">
+                  <div class="aspect-[16/8] photo-1 relative">
+                    <span class="absolute top-3 left-3 inline-flex items-center gap-1 rounded-full bg-emerald-500 text-white px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] shadow-md">✓ Verified</span>
+                    <span class="absolute top-3 right-3 inline-flex items-center gap-1 rounded-full bg-white/90 text-amber-700 px-2.5 py-1 text-[11px] font-bold shadow-md">★ 4.9</span>
+                  </div>
+                  <div class="p-5">
+                    <h2 class="text-[20px] font-black tracking-tight" style="font-family:'Sora',sans-serif">Quick Catch Pest Control</h2>
+                    <div class="text-[12.5px] text-slate-500 mt-0.5">Pest control · E4, London · 6 years on platform</div>
+                    <div class="mt-3 flex flex-wrap gap-1.5">
+                      <span class="rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold px-2 py-0.5">28 jobs done</span>
+                      <span class="rounded-full bg-violet-50 border border-violet-200 text-violet-700 text-[11px] font-bold px-2 py-0.5">12 community recs</span>
+                    </div>
+                    <p class="mt-3 text-[13px] text-slate-600 leading-relaxed">RSPH-qualified, 7 day callout, free survey. Family-run for over 6 years.</p>
+                  </div>
+                </div>
+              </div>
+              <div class="col-span-3">
+                <div class="bg-white rounded-2xl border border-amber-100 p-3 space-y-2 sticky top-6">
+                  <div class="text-[10.5px] font-extrabold uppercase tracking-wider text-slate-500 mb-1">Action</div>
+                  <button class="w-full inline-flex items-center justify-center gap-2 rounded-2xl text-white font-extrabold py-3 shadow-lg shadow-indigo-500/30" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">
+                    <span>✓</span> Pick
+                  </button>
+                  <button class="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-white border-2 border-slate-200 text-slate-700 font-bold py-3">
+                    <span>i</span> See profile
+                  </button>
+                  <button class="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-white border-2 border-slate-200 text-slate-500 font-bold py-3">
+                    <span>×</span> Pass
+                  </button>
+                  <p class="text-[10px] text-slate-400 text-center pt-1">← Pass · ↑ Info · → Pick</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-6">
+              <div class="text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-amber-700 mb-2 flex items-center gap-2">
+                <span>Next up</span>
+                <span class="text-[10px] text-slate-400 font-semibold">8 more</span>
+              </div>
+              <div class="flex gap-3 overflow-x-auto pb-2">
+                <article class="flex-shrink-0 w-44 bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-sm opacity-90 hover:opacity-100 transition-opacity">
+                  <div class="aspect-square photo-2"></div>
+                  <div class="p-2.5"><h3 class="font-extrabold text-[12.5px] truncate">Brown Pest Solutions</h3><div class="text-[11px] text-slate-500">★ 4.8 · 18 jobs</div></div>
+                </article>
+                <article class="flex-shrink-0 w-44 bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-sm opacity-90">
+                  <div class="aspect-square photo-3"></div>
+                  <div class="p-2.5"><h3 class="font-extrabold text-[12.5px] truncate">PestAway London</h3><div class="text-[11px] text-slate-500">★ 4.7 · 22 jobs</div></div>
+                </article>
+                <article class="flex-shrink-0 w-44 bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-sm opacity-90">
+                  <div class="aspect-square photo-4"></div>
+                  <div class="p-2.5"><h3 class="font-extrabold text-[12.5px] truncate">Trapped Ltd</h3><div class="text-[11px] text-slate-500">★ 4.9 · 31 jobs</div></div>
+                </article>
+                <article class="flex-shrink-0 w-44 bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-sm opacity-90">
+                  <div class="aspect-square photo-5"></div>
+                  <div class="p-2.5"><h3 class="font-extrabold text-[12.5px] truncate">Catch &amp; Release</h3><div class="text-[11px] text-slate-500">★ 4.6 · 9 jobs</div></div>
+                </article>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- OPTION D — Hybrid: featured + grid (no swipe) -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-violet-700 mb-2">Option D · Featured + grid (drop the deck)</div>
+      <h3 class="text-xl font-extrabold mb-3">Browse all matches at once</h3>
+      <p class="text-sm text-slate-600 mb-5 max-w-3xl">Most "desktop-native" - drops the deck metaphor. Top section: a featured / smart-ranked card. Below: a 3-col grid of all matches. Each card has a Pick / Pass / Info button. Best for scanning many options at speed.</p>
+
+      <div class="browser">
+        <div class="browser-bar"><span class="bg-red-400"></span><span class="bg-amber-400"></span><span class="bg-emerald-400"></span><div class="ml-3 text-xs text-slate-500">localhost:3000/projects/20</div></div>
+        <div class="bg-stone-50/90 border-b border-stone-200 px-6 h-14 flex items-center justify-between">
+          <span class="text-2xl font-black tracking-tight">Vet<span class="caveat text-indigo-600" style="font-size:130%">My</span>Builder</span>
+          <div class="w-9 h-9 rounded-full bg-indigo-100"></div>
+        </div>
+        <div class="bg-[#fef6e9] py-8 px-6">
+          <div class="max-w-6xl mx-auto">
+            <a class="inline-flex items-center gap-1.5 text-[12px] text-slate-600 mb-3">← Mouse infestation in kitchen and loft</a>
+            <h1 class="text-2xl font-black tracking-tight mb-1" style="font-family:'Sora',sans-serif">Your <span class="caveat text-indigo-600" style="font-size:120%">shortlist</span></h1>
+            <p class="text-[13px] text-slate-600 mb-5">12 hand-picked tradespeople, smart-ranked for your job. Pick the ones you'd like to chat to.</p>
+
+            <!-- Top featured -->
+            <div class="bg-white rounded-3xl border border-indigo-200 shadow-md overflow-hidden mb-6 grid grid-cols-12">
+              <div class="col-span-5 photo-1 min-h-[220px] relative">
+                <span class="absolute top-3 left-3 inline-flex items-center gap-1 rounded-full bg-indigo-600 text-white px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] shadow">★ Top match</span>
+              </div>
+              <div class="col-span-7 p-5 flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center gap-2 mb-1">
+                    <h2 class="text-[20px] font-black tracking-tight" style="font-family:'Sora',sans-serif">Quick Catch Pest Control</h2>
+                    <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 px-2 py-0.5 text-[10.5px] font-extrabold">✓ Verified</span>
+                  </div>
+                  <div class="text-[12.5px] text-slate-500">Pest control · E4, London · ★ 4.9 · 28 jobs · 12 community recs</div>
+                  <p class="mt-2 text-[13px] text-slate-600 leading-relaxed">RSPH-qualified, 7 day callout, free survey. Family-run for over 6 years.</p>
+                </div>
+                <div class="mt-4 flex items-center gap-2">
+                  <button class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-2xl text-white font-extrabold py-2.5 shadow-md" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">✓ Pick</button>
+                  <button class="rounded-2xl bg-white border-2 border-slate-200 text-slate-700 font-bold py-2.5 px-4">i Profile</button>
+                  <button class="rounded-2xl bg-white border-2 border-slate-200 text-slate-500 font-bold py-2.5 px-4">×</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-amber-700 mb-2">Other matches</div>
+            <div class="grid grid-cols-3 gap-4">
+              <article class="bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-sm">
+                <div class="aspect-[4/3] photo-2 relative">
+                  <span class="absolute top-2 left-2 rounded-full bg-emerald-500 text-white text-[10px] font-extrabold uppercase px-2 py-0.5">✓</span>
+                  <span class="absolute top-2 right-2 rounded-full bg-white/90 text-amber-700 px-2 py-0.5 text-[10.5px] font-bold">★ 4.8</span>
+                </div>
+                <div class="p-3">
+                  <h3 class="font-extrabold text-[14px]">Brown Pest Solutions</h3>
+                  <div class="text-[11.5px] text-slate-500">18 jobs · 6 community recs</div>
+                  <div class="mt-2 flex gap-1.5">
+                    <button class="flex-1 rounded-xl text-white text-[12px] font-extrabold py-1.5" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">Pick</button>
+                    <button class="rounded-xl bg-white border-2 border-slate-200 text-slate-500 text-[12px] font-bold py-1.5 px-2.5">×</button>
+                  </div>
+                </div>
+              </article>
+              <article class="bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-sm">
+                <div class="aspect-[4/3] photo-3 relative">
+                  <span class="absolute top-2 left-2 rounded-full bg-emerald-500 text-white text-[10px] font-extrabold uppercase px-2 py-0.5">✓</span>
+                  <span class="absolute top-2 right-2 rounded-full bg-white/90 text-amber-700 px-2 py-0.5 text-[10.5px] font-bold">★ 4.7</span>
+                </div>
+                <div class="p-3">
+                  <h3 class="font-extrabold text-[14px]">PestAway London</h3>
+                  <div class="text-[11.5px] text-slate-500">22 jobs · 4 community recs</div>
+                  <div class="mt-2 flex gap-1.5">
+                    <button class="flex-1 rounded-xl text-white text-[12px] font-extrabold py-1.5" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">Pick</button>
+                    <button class="rounded-xl bg-white border-2 border-slate-200 text-slate-500 text-[12px] font-bold py-1.5 px-2.5">×</button>
+                  </div>
+                </div>
+              </article>
+              <article class="bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-sm">
+                <div class="aspect-[4/3] photo-4 relative">
+                  <span class="absolute top-2 left-2 rounded-full bg-emerald-500 text-white text-[10px] font-extrabold uppercase px-2 py-0.5">✓</span>
+                  <span class="absolute top-2 right-2 rounded-full bg-white/90 text-amber-700 px-2 py-0.5 text-[10.5px] font-bold">★ 4.9</span>
+                </div>
+                <div class="p-3">
+                  <h3 class="font-extrabold text-[14px]">Trapped Ltd</h3>
+                  <div class="text-[11.5px] text-slate-500">31 jobs · 9 community recs</div>
+                  <div class="mt-2 flex gap-1.5">
+                    <button class="flex-1 rounded-xl text-white text-[12px] font-extrabold py-1.5" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">Pick</button>
+                    <button class="rounded-xl bg-white border-2 border-slate-200 text-slate-500 text-[12px] font-bold py-1.5 px-2.5">×</button>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <section class="mt-14 rounded-3xl bg-white border border-slate-200/70 p-6">
+    <h3 class="text-lg font-extrabold mb-3">Pick guide</h3>
+    <ul class="text-sm text-slate-700 space-y-2">
+      <li><strong>A · Centred card</strong> — closest port of mobile. Card stack visual + click action buttons + keyboard shortcuts. Lowest design risk, fastest to ship.</li>
+      <li><strong>B · Deck + project context</strong> — left rail keeps the project details visible while you swipe. Reduces context switching.</li>
+      <li><strong>C · Featured + queue rail</strong> — top card with action buttons and a "next up" horizontal rail underneath. Most transparent about the queue.</li>
+      <li><strong>D · Featured + grid</strong> — drops the deck metaphor entirely. Top match featured, others in a 3-col grid. Best for scanning many at once. Loses the curation feel.</li>
+    </ul>
+    <p class="mt-4 text-sm text-slate-600"><strong>My pick:</strong> <strong>B</strong> if context-switching is the pain (homeowners forgetting what they posted while picking). <strong>A</strong> if you want it shipped fast and consistent with mobile. <strong>D</strong> if homeowners actually want to compare side-by-side rather than make a binary choice on each.</p>
+  </section>
+</div>
+
+</body>
+</html>

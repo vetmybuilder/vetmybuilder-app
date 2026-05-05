@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>/projects desktop redesign</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Sora:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Sora', system-ui, sans-serif; background: #ece8e1; }
+  .caveat { font-family: 'Caveat', cursive; font-weight: 700; }
+  .photo-1 { background-image: linear-gradient(135deg, #cfe7d8, #6fb89a); }
+  .photo-2 { background-image: linear-gradient(135deg, #ddd2bd, #b29565); }
+  .photo-3 { background-image: linear-gradient(135deg, #c5d6ec, #5b86b4); }
+  .photo-4 { background-image: linear-gradient(135deg, #f0d9c4, #cd9b6e); }
+  .photo-5 { background-image: linear-gradient(135deg, #f5cfd1, #c97a86); }
+  .photo-6 { background-image: linear-gradient(135deg, #d4d2f5, #8b80c8); }
+  .browser {
+    background: white;
+    border-radius: 14px;
+    box-shadow: 0 30px 60px -20px rgba(15,23,42,0.25);
+    overflow: hidden;
+  }
+  .browser-bar {
+    background: #f3f4f6;
+    border-bottom: 1px solid #e5e7eb;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 12px;
+  }
+  .browser-bar span {
+    width: 12px; height: 12px; border-radius: 9999px;
+  }
+</style>
+</head>
+<body class="text-slate-900">
+
+<div class="max-w-[1500px] mx-auto px-6 py-10">
+  <h1 class="text-3xl font-black tracking-tight mb-2">/projects desktop redesign</h1>
+  <p class="text-slate-600 mb-10 max-w-2xl">Four desktop directions for the homeowner <code>/projects</code> page. All reuse the mobile data model; this is purely a layout/branding pass for wide screens. Pick one and I'll wire it.</p>
+
+  <div class="space-y-12">
+
+    <!-- OPTION A — Centred canvas, 2-col grid -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-700 mb-2">Option A · Centred canvas, 2-col grid</div>
+      <h3 class="text-xl font-extrabold mb-3">Mobile layout, gently widened</h3>
+      <p class="text-sm text-slate-600 mb-5 max-w-3xl">Simplest port of the mobile design. Centred max-w-5xl column on cream. Tabs + filters across the top, 2-column card grid below. Reads as "the same product, just bigger" - lowest design risk.</p>
+
+      <div class="browser">
+        <div class="browser-bar"><span class="bg-red-400"></span><span class="bg-amber-400"></span><span class="bg-emerald-400"></span><div class="ml-3 text-xs text-slate-500">localhost:3000/projects</div></div>
+        <!-- header -->
+        <div class="bg-stone-50/90 border-b border-stone-200 px-6 h-14 flex items-center justify-between">
+          <span class="text-2xl font-black tracking-tight">Vet<span class="caveat text-indigo-600" style="font-size:130%">My</span>Builder</span>
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full bg-indigo-100"></div>
+            <div class="w-9 h-9 rounded-lg bg-zinc-100"></div>
+          </div>
+        </div>
+        <!-- body -->
+        <div class="bg-[#fef6e9] py-10 px-6">
+          <div class="max-w-5xl mx-auto">
+            <div class="flex items-end justify-between mb-6">
+              <div>
+                <div class="text-[11px] font-extrabold uppercase tracking-[0.16em] text-amber-700 mb-1">Your jobs</div>
+                <h1 class="text-4xl font-black tracking-tight" style="font-family:'Sora',sans-serif">My <span class="caveat text-indigo-600" style="font-size:120%">jobs</span></h1>
+                <p class="mt-1 text-sm text-slate-600">Live and draft jobs you're currently running.</p>
+              </div>
+              <a class="inline-flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-extrabold text-white shadow-lg shadow-indigo-500/25" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">+ Post a job</a>
+            </div>
+            <div class="rounded-2xl bg-white border border-amber-100 p-4 mb-6 flex items-start gap-3">
+              <div class="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">✓</div>
+              <div class="flex-1">
+                <div class="font-extrabold text-[14px]">Safety &amp; verification</div>
+                <div class="text-[12.5px] text-slate-600">We combine official checks with community signals to help you hire with confidence.</div>
+              </div>
+              <span class="text-amber-500 self-center">›</span>
+            </div>
+            <div class="flex items-center justify-between mb-4">
+              <div class="inline-flex rounded-full bg-white border border-amber-100 p-1">
+                <button class="rounded-full px-4 py-1.5 text-[13px] font-bold text-white" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">All <span class="opacity-70">12</span></button>
+                <button class="rounded-full px-4 py-1.5 text-[13px] font-bold text-slate-600">Live <span class="opacity-60">8</span></button>
+                <button class="rounded-full px-4 py-1.5 text-[13px] font-bold text-slate-600">Completed <span class="opacity-60">4</span></button>
+              </div>
+              <div class="flex items-center gap-2">
+                <button class="rounded-full bg-white border border-amber-100 px-3 py-1.5 text-[13px] font-bold text-slate-600">Type ▾</button>
+                <button class="rounded-full bg-white border border-amber-100 px-3 py-1.5 text-[13px] font-bold text-slate-600">Newest first ▾</button>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <article class="bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                <div class="aspect-[16/10] photo-1 relative"><span class="absolute top-2 right-2 rounded-full bg-emerald-500 text-white text-[10px] font-extrabold uppercase px-2 py-0.5">Live</span></div>
+                <div class="p-4">
+                  <h3 class="font-extrabold text-[15px]">Mouse infestation in kitchen and loft</h3>
+                  <div class="text-[12.5px] text-slate-500 mt-1">E4 · Terraced · Beds 3</div>
+                  <div class="mt-3 inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold px-2 py-0.5">Mouse / Rat Control</div>
+                </div>
+              </article>
+              <article class="bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-sm">
+                <div class="aspect-[16/10] photo-2 relative"><span class="absolute top-2 right-2 rounded-full bg-emerald-500 text-white text-[10px] font-extrabold uppercase px-2 py-0.5">Live</span></div>
+                <div class="p-4">
+                  <h3 class="font-extrabold text-[15px]">Gutter clean and downpipe repair</h3>
+                  <div class="text-[12.5px] text-slate-500 mt-1">E4 · Semi-detached · Beds 3</div>
+                  <div class="mt-3 inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold px-2 py-0.5">Gutter Cleaning</div>
+                </div>
+              </article>
+              <article class="bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-sm">
+                <div class="aspect-[16/10] photo-3 relative"><span class="absolute top-2 right-2 rounded-full bg-emerald-500 text-white text-[10px] font-extrabold uppercase px-2 py-0.5">Live</span></div>
+                <div class="p-4">
+                  <h3 class="font-extrabold text-[15px]">End of tenancy clean</h3>
+                  <div class="text-[12.5px] text-slate-500 mt-1">E4 · Flat · Beds 2</div>
+                  <div class="mt-3 inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold px-2 py-0.5">End-of-tenancy clean</div>
+                </div>
+              </article>
+              <article class="bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-sm">
+                <div class="aspect-[16/10] photo-4 relative"><span class="absolute top-2 right-2 rounded-full bg-emerald-500 text-white text-[10px] font-extrabold uppercase px-2 py-0.5">Live</span></div>
+                <div class="p-4">
+                  <h3 class="font-extrabold text-[15px]">Carpet cleaning living room</h3>
+                  <div class="text-[12.5px] text-slate-500 mt-1">E4 · Terraced</div>
+                  <div class="mt-3 inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold px-2 py-0.5">Carpet Cleaning</div>
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- OPTION B — Sidebar layout -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-indigo-700 mb-2">Option B · Sidebar + main</div>
+      <h3 class="text-xl font-extrabold mb-3">Left rail filters, main canvas grid</h3>
+      <p class="text-sm text-slate-600 mb-5 max-w-3xl">Productivity-app feel. Left sidebar holds tabs (All/Live/Completed) and filter pills. Main canvas is a 3-column grid. Best when filtering is heavy use.</p>
+
+      <div class="browser">
+        <div class="browser-bar"><span class="bg-red-400"></span><span class="bg-amber-400"></span><span class="bg-emerald-400"></span><div class="ml-3 text-xs text-slate-500">localhost:3000/projects</div></div>
+        <div class="bg-stone-50/90 border-b border-stone-200 px-6 h-14 flex items-center justify-between">
+          <span class="text-2xl font-black tracking-tight">Vet<span class="caveat text-indigo-600" style="font-size:130%">My</span>Builder</span>
+          <div class="w-9 h-9 rounded-full bg-indigo-100"></div>
+        </div>
+        <div class="bg-[#fef6e9] flex">
+          <!-- sidebar -->
+          <aside class="w-64 shrink-0 px-5 py-8 border-r border-amber-100">
+            <div class="text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-amber-700 mb-2">My jobs</div>
+            <nav class="space-y-1">
+              <a class="flex items-center justify-between rounded-xl px-3 py-2 text-[13px] font-bold text-white" style="background:linear-gradient(135deg,#6366f1,#4f46e5)"><span>All</span><span>12</span></a>
+              <a class="flex items-center justify-between rounded-xl px-3 py-2 text-[13px] font-bold text-slate-700 hover:bg-amber-100/50"><span>Live</span><span class="text-slate-500">8</span></a>
+              <a class="flex items-center justify-between rounded-xl px-3 py-2 text-[13px] font-bold text-slate-700 hover:bg-amber-100/50"><span>Completed</span><span class="text-slate-500">4</span></a>
+              <a class="flex items-center justify-between rounded-xl px-3 py-2 text-[13px] font-bold text-slate-700 hover:bg-amber-100/50"><span>Drafts</span><span class="text-slate-500">2</span></a>
+            </nav>
+            <div class="mt-7 text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-amber-700 mb-2">Filter</div>
+            <div class="space-y-2">
+              <select class="w-full rounded-xl bg-white border border-amber-100 px-3 py-2 text-[13px]"><option>Any type</option></select>
+              <select class="w-full rounded-xl bg-white border border-amber-100 px-3 py-2 text-[13px]"><option>Newest first</option></select>
+            </div>
+            <a class="mt-6 inline-flex items-center justify-center gap-2 w-full rounded-2xl px-4 py-3 text-sm font-extrabold text-white shadow-lg shadow-indigo-500/25" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">+ Post a job</a>
+          </aside>
+          <!-- main -->
+          <main class="flex-1 px-8 py-8">
+            <div class="flex items-baseline justify-between mb-6">
+              <h1 class="text-3xl font-black tracking-tight" style="font-family:'Sora',sans-serif">My <span class="caveat text-indigo-600" style="font-size:120%">jobs</span></h1>
+              <span class="text-[12.5px] text-slate-500">Showing 12 of 12</span>
+            </div>
+            <div class="grid grid-cols-3 gap-4">
+              <article class="bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-sm">
+                <div class="aspect-[5/3] photo-1 relative"><span class="absolute top-2 right-2 rounded-full bg-emerald-500 text-white text-[10px] font-extrabold uppercase px-2 py-0.5">Live</span></div>
+                <div class="p-3"><h3 class="font-extrabold text-[14px] truncate">Mouse infestation in kitchen and loft</h3><div class="text-[12px] text-slate-500 mt-0.5">E4 · Terraced</div></div>
+              </article>
+              <article class="bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-sm">
+                <div class="aspect-[5/3] photo-2 relative"><span class="absolute top-2 right-2 rounded-full bg-emerald-500 text-white text-[10px] font-extrabold uppercase px-2 py-0.5">Live</span></div>
+                <div class="p-3"><h3 class="font-extrabold text-[14px] truncate">Gutter clean and downpipe repair</h3><div class="text-[12px] text-slate-500 mt-0.5">E4 · Semi-detached</div></div>
+              </article>
+              <article class="bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-sm">
+                <div class="aspect-[5/3] photo-3 relative"><span class="absolute top-2 right-2 rounded-full bg-emerald-500 text-white text-[10px] font-extrabold uppercase px-2 py-0.5">Live</span></div>
+                <div class="p-3"><h3 class="font-extrabold text-[14px] truncate">End of tenancy clean</h3><div class="text-[12px] text-slate-500 mt-0.5">E4 · Flat</div></div>
+              </article>
+              <article class="bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-sm">
+                <div class="aspect-[5/3] photo-4 relative"><span class="absolute top-2 right-2 rounded-full bg-emerald-500 text-white text-[10px] font-extrabold uppercase px-2 py-0.5">Live</span></div>
+                <div class="p-3"><h3 class="font-extrabold text-[14px] truncate">Carpet cleaning living room</h3><div class="text-[12px] text-slate-500 mt-0.5">E4 · Terraced</div></div>
+              </article>
+              <article class="bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-sm">
+                <div class="aspect-[5/3] photo-5 relative"><span class="absolute top-2 right-2 rounded-full bg-emerald-500 text-white text-[10px] font-extrabold uppercase px-2 py-0.5">Live</span></div>
+                <div class="p-3"><h3 class="font-extrabold text-[14px] truncate">Bathroom regrouting</h3><div class="text-[12px] text-slate-500 mt-0.5">E4 · Semi-detached</div></div>
+              </article>
+              <article class="bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-sm">
+                <div class="aspect-[5/3] photo-6 relative"><span class="absolute top-2 right-2 rounded-full bg-slate-400 text-white text-[10px] font-extrabold uppercase px-2 py-0.5">Done</span></div>
+                <div class="p-3"><h3 class="font-extrabold text-[14px] truncate">Garden landscaping</h3><div class="text-[12px] text-slate-500 mt-0.5">E4 · Detached</div></div>
+              </article>
+            </div>
+          </main>
+        </div>
+      </div>
+    </section>
+
+    <!-- OPTION C — Toolbar + dense 4-col grid -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-emerald-700 mb-2">Option C · Toolbar + 4-col dense</div>
+      <h3 class="text-xl font-extrabold mb-3">All filtering in one toolbar, dense grid</h3>
+      <p class="text-sm text-slate-600 mb-5 max-w-3xl">Single horizontal toolbar holds title + tabs + filters + Post-a-job CTA. Below it, a wide 4-column grid of compact cards. Best for power users with many active jobs.</p>
+
+      <div class="browser">
+        <div class="browser-bar"><span class="bg-red-400"></span><span class="bg-amber-400"></span><span class="bg-emerald-400"></span><div class="ml-3 text-xs text-slate-500">localhost:3000/projects</div></div>
+        <div class="bg-stone-50/90 border-b border-stone-200 px-6 h-14 flex items-center justify-between">
+          <span class="text-2xl font-black tracking-tight">Vet<span class="caveat text-indigo-600" style="font-size:130%">My</span>Builder</span>
+          <div class="w-9 h-9 rounded-full bg-indigo-100"></div>
+        </div>
+        <div class="bg-[#fef6e9] py-8">
+          <div class="max-w-7xl mx-auto px-8">
+            <div class="bg-white rounded-2xl border border-amber-100 shadow-sm px-5 py-3 flex items-center gap-4 mb-6">
+              <h1 class="text-xl font-black tracking-tight" style="font-family:'Sora',sans-serif">My <span class="caveat text-indigo-600" style="font-size:120%">jobs</span></h1>
+              <div class="h-6 w-px bg-amber-200"></div>
+              <div class="inline-flex rounded-full bg-amber-50 p-1">
+                <button class="rounded-full px-3 py-1 text-[12.5px] font-bold text-white" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">All</button>
+                <button class="rounded-full px-3 py-1 text-[12.5px] font-bold text-slate-600">Live</button>
+                <button class="rounded-full px-3 py-1 text-[12.5px] font-bold text-slate-600">Done</button>
+              </div>
+              <div class="flex-1"></div>
+              <select class="rounded-xl bg-amber-50 border border-amber-100 px-3 py-1.5 text-[12.5px] font-bold text-slate-700"><option>All types</option></select>
+              <select class="rounded-xl bg-amber-50 border border-amber-100 px-3 py-1.5 text-[12.5px] font-bold text-slate-700"><option>Newest</option></select>
+              <a class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-[13px] font-extrabold text-white shadow-md" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">+ Post a job</a>
+            </div>
+            <div class="grid grid-cols-4 gap-4">
+              <article class="bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-sm"><div class="aspect-square photo-1 relative"><span class="absolute top-2 right-2 rounded-full bg-emerald-500 text-white text-[9px] font-extrabold uppercase px-1.5 py-0.5">Live</span></div><div class="p-2.5"><h3 class="font-extrabold text-[12.5px] truncate">Mouse infestation</h3><div class="text-[11px] text-slate-500">E4 · Terraced</div></div></article>
+              <article class="bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-sm"><div class="aspect-square photo-2 relative"><span class="absolute top-2 right-2 rounded-full bg-emerald-500 text-white text-[9px] font-extrabold uppercase px-1.5 py-0.5">Live</span></div><div class="p-2.5"><h3 class="font-extrabold text-[12.5px] truncate">Gutter clean</h3><div class="text-[11px] text-slate-500">E4 · Semi</div></div></article>
+              <article class="bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-sm"><div class="aspect-square photo-3 relative"><span class="absolute top-2 right-2 rounded-full bg-emerald-500 text-white text-[9px] font-extrabold uppercase px-1.5 py-0.5">Live</span></div><div class="p-2.5"><h3 class="font-extrabold text-[12.5px] truncate">End of tenancy clean</h3><div class="text-[11px] text-slate-500">E4 · Flat</div></div></article>
+              <article class="bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-sm"><div class="aspect-square photo-4 relative"><span class="absolute top-2 right-2 rounded-full bg-emerald-500 text-white text-[9px] font-extrabold uppercase px-1.5 py-0.5">Live</span></div><div class="p-2.5"><h3 class="font-extrabold text-[12.5px] truncate">Carpet cleaning</h3><div class="text-[11px] text-slate-500">E4 · Terraced</div></div></article>
+              <article class="bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-sm"><div class="aspect-square photo-5 relative"><span class="absolute top-2 right-2 rounded-full bg-emerald-500 text-white text-[9px] font-extrabold uppercase px-1.5 py-0.5">Live</span></div><div class="p-2.5"><h3 class="font-extrabold text-[12.5px] truncate">Bathroom regrouting</h3><div class="text-[11px] text-slate-500">E4 · Semi</div></div></article>
+              <article class="bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-sm"><div class="aspect-square photo-6 relative"><span class="absolute top-2 right-2 rounded-full bg-slate-400 text-white text-[9px] font-extrabold uppercase px-1.5 py-0.5">Done</span></div><div class="p-2.5"><h3 class="font-extrabold text-[12.5px] truncate">Garden landscaping</h3><div class="text-[11px] text-slate-500">E4 · Detached</div></div></article>
+              <article class="bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-sm"><div class="aspect-square photo-1 relative"><span class="absolute top-2 right-2 rounded-full bg-emerald-500 text-white text-[9px] font-extrabold uppercase px-1.5 py-0.5">Live</span></div><div class="p-2.5"><h3 class="font-extrabold text-[12.5px] truncate">Replace boiler</h3><div class="text-[11px] text-slate-500">E4 · Detached</div></div></article>
+              <article class="bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-sm"><div class="aspect-square photo-2 relative"><span class="absolute top-2 right-2 rounded-full bg-emerald-500 text-white text-[9px] font-extrabold uppercase px-1.5 py-0.5">Live</span></div><div class="p-2.5"><h3 class="font-extrabold text-[12.5px] truncate">Decking</h3><div class="text-[11px] text-slate-500">E4 · Semi</div></div></article>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- OPTION D — Hero header + masonry -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-violet-700 mb-2">Option D · Hero header + magazine grid</div>
+      <h3 class="text-xl font-extrabold mb-3">Big editorial header, mixed card sizes</h3>
+      <p class="text-sm text-slate-600 mb-5 max-w-3xl">Cream banner header that mirrors the homepage hero. Big handwritten Caveat accent on "jobs". Below: a mixed grid where the lead job is bigger and others are compact - magazine-style. Highest design risk, most distinctive.</p>
+
+      <div class="browser">
+        <div class="browser-bar"><span class="bg-red-400"></span><span class="bg-amber-400"></span><span class="bg-emerald-400"></span><div class="ml-3 text-xs text-slate-500">localhost:3000/projects</div></div>
+        <div class="bg-stone-50/90 border-b border-stone-200 px-6 h-14 flex items-center justify-between">
+          <span class="text-2xl font-black tracking-tight">Vet<span class="caveat text-indigo-600" style="font-size:130%">My</span>Builder</span>
+          <div class="w-9 h-9 rounded-full bg-indigo-100"></div>
+        </div>
+        <div class="bg-[#fef6e9]">
+          <div class="max-w-6xl mx-auto px-8 pt-12 pb-6 text-center">
+            <div class="text-[11px] font-extrabold uppercase tracking-[0.16em] text-amber-700 mb-2">12 jobs · 8 live</div>
+            <h1 class="text-5xl font-black tracking-tight" style="font-family:'Sora',sans-serif">Your <span class="caveat text-indigo-600" style="font-size:120%">jobs</span></h1>
+            <p class="mt-2 text-slate-600 max-w-xl mx-auto">Live and draft jobs you're currently running. Tap any to see your shortlist.</p>
+            <div class="mt-5 flex items-center justify-center gap-3">
+              <div class="inline-flex rounded-full bg-white border border-amber-100 p-1">
+                <button class="rounded-full px-4 py-1.5 text-[13px] font-bold text-white" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">All</button>
+                <button class="rounded-full px-4 py-1.5 text-[13px] font-bold text-slate-600">Live</button>
+                <button class="rounded-full px-4 py-1.5 text-[13px] font-bold text-slate-600">Done</button>
+              </div>
+              <a class="inline-flex items-center gap-2 rounded-2xl px-5 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-indigo-500/25" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">+ Post a job</a>
+            </div>
+          </div>
+          <div class="max-w-6xl mx-auto px-8 pb-12">
+            <div class="grid grid-cols-12 gap-4">
+              <!-- featured big card -->
+              <article class="col-span-6 bg-white rounded-3xl border border-amber-100 overflow-hidden shadow-sm">
+                <div class="aspect-[16/9] photo-1 relative"><span class="absolute top-3 right-3 rounded-full bg-emerald-500 text-white text-[11px] font-extrabold uppercase px-2.5 py-1">Live</span></div>
+                <div class="p-5">
+                  <h3 class="font-extrabold text-[18px]">Mouse infestation in kitchen and loft</h3>
+                  <div class="text-[13px] text-slate-500 mt-1">E4 · Terraced · Beds 3 · Created 29/04/2026</div>
+                  <div class="mt-3 flex flex-wrap gap-2">
+                    <span class="rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold px-2 py-0.5">Mouse / Rat Control</span>
+                    <span class="rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-bold px-2 py-0.5">5 matches</span>
+                    <span class="rounded-full bg-violet-50 border border-violet-200 text-violet-700 text-[11px] font-bold px-2 py-0.5">2 recommendations</span>
+                  </div>
+                </div>
+              </article>
+              <article class="col-span-3 bg-white rounded-3xl border border-amber-100 overflow-hidden shadow-sm"><div class="aspect-[5/3] photo-2 relative"><span class="absolute top-2 right-2 rounded-full bg-emerald-500 text-white text-[10px] font-extrabold uppercase px-2 py-0.5">Live</span></div><div class="p-3"><h3 class="font-extrabold text-[14px]">Gutter clean</h3><div class="text-[12px] text-slate-500">E4 · Semi</div></div></article>
+              <article class="col-span-3 bg-white rounded-3xl border border-amber-100 overflow-hidden shadow-sm"><div class="aspect-[5/3] photo-3 relative"><span class="absolute top-2 right-2 rounded-full bg-emerald-500 text-white text-[10px] font-extrabold uppercase px-2 py-0.5">Live</span></div><div class="p-3"><h3 class="font-extrabold text-[14px]">End of tenancy</h3><div class="text-[12px] text-slate-500">E4 · Flat</div></div></article>
+              <article class="col-span-3 bg-white rounded-3xl border border-amber-100 overflow-hidden shadow-sm"><div class="aspect-[5/3] photo-4 relative"><span class="absolute top-2 right-2 rounded-full bg-emerald-500 text-white text-[10px] font-extrabold uppercase px-2 py-0.5">Live</span></div><div class="p-3"><h3 class="font-extrabold text-[14px]">Carpet cleaning</h3><div class="text-[12px] text-slate-500">E4 · Terraced</div></div></article>
+              <article class="col-span-3 bg-white rounded-3xl border border-amber-100 overflow-hidden shadow-sm"><div class="aspect-[5/3] photo-5 relative"><span class="absolute top-2 right-2 rounded-full bg-emerald-500 text-white text-[10px] font-extrabold uppercase px-2 py-0.5">Live</span></div><div class="p-3"><h3 class="font-extrabold text-[14px]">Bathroom regrouting</h3><div class="text-[12px] text-slate-500">E4 · Semi</div></div></article>
+              <article class="col-span-3 bg-white rounded-3xl border border-amber-100 overflow-hidden shadow-sm"><div class="aspect-[5/3] photo-6 relative"><span class="absolute top-2 right-2 rounded-full bg-slate-400 text-white text-[10px] font-extrabold uppercase px-2 py-0.5">Done</span></div><div class="p-3"><h3 class="font-extrabold text-[14px]">Garden landscaping</h3><div class="text-[12px] text-slate-500">E4 · Detached</div></div></article>
+              <article class="col-span-3 bg-white rounded-3xl border border-amber-100 overflow-hidden shadow-sm"><div class="aspect-[5/3] photo-1 relative"><span class="absolute top-2 right-2 rounded-full bg-emerald-500 text-white text-[10px] font-extrabold uppercase px-2 py-0.5">Live</span></div><div class="p-3"><h3 class="font-extrabold text-[14px]">Replace boiler</h3><div class="text-[12px] text-slate-500">E4 · Detached</div></div></article>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <section class="mt-14 rounded-3xl bg-white border border-slate-200/70 p-6">
+    <h3 class="text-lg font-extrabold mb-3">Pick guide</h3>
+    <ul class="text-sm text-slate-700 space-y-2">
+      <li><strong>A · Centred 2-col</strong> — closest port of mobile, lowest design risk. Same chrome rules as the rest of the new brand.</li>
+      <li><strong>B · Sidebar + main</strong> — productivity-app feel. Best when filtering is heavy use.</li>
+      <li><strong>C · Toolbar + dense</strong> — power-user dense view. Filters always visible. Most info on screen.</li>
+      <li><strong>D · Hero header + magazine</strong> — most editorial, mirrors the homepage hero language. Lead card is bigger; rest is compact. Most distinctive but most layout work.</li>
+    </ul>
+    <p class="mt-4 text-sm text-slate-600"><strong>My pick:</strong> <strong>A</strong> if you want it shipped fast and brand-coherent. <strong>B</strong> if filtering really matters. <strong>D</strong> if you want it to feel like a flagship.</p>
+  </section>
+</div>
+
+</body>
+</html>

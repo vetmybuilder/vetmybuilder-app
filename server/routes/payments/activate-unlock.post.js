@@ -52,7 +52,16 @@ module.exports = (router, ctx) => {
         [pid, uid]
       );
       if (existing.length > 0) {
-        return res.json({ ok: true, alreadyActive: true });
+        // Already-active path: surface the matched swipe_interest id (if one
+        // was created at first activation) so the client can route to chat.
+        const m = await mysqlQuery(
+          `SELECT id FROM swipe_interest
+            WHERE project_id = ? AND builder_uid = ? AND source = 'paid_unlock'
+            LIMIT 1`,
+          [pid, uid]
+        );
+        const existingMatchId = m?.[0]?.id || null;
+        return res.json({ ok: true, alreadyActive: true, matchId: existingMatchId });
       }
 
       // Get the price from the checkout endpoint default
@@ -81,7 +90,70 @@ module.exports = (router, ctx) => {
       log.info?.({ uid, pid, sessionId }, `${TAG} unlock activated`);
       ctx.logActivity?.("payment.unlock", "info", uid, `Unlock activated for project #${pid}`);
 
-      res.json({ ok: true });
+      // Create a matched swipe_interest row (source='paid_unlock') so the
+      // builder lands directly in /chat/:matchId. activate-unlock has no
+      // introMessage in its metadata path, so the chat starts empty here.
+      let matchId = 0;
+      try {
+        const pRows = await mysqlQuery(
+          `SELECT ownerUserId FROM projects WHERE id = ? LIMIT 1`,
+          [pid]
+        );
+        const ownerUid = pRows?.[0]?.ownerUserId;
+        if (ownerUid) {
+          const result = await mysqlQuery(
+            `INSERT INTO swipe_interest
+               (project_id, homeowner_uid, builder_uid, source, status,
+                builder_swiped_at, created_at)
+             VALUES (?, ?, ?, 'paid_unlock', 'matched', NOW(), NOW())
+             ON DUPLICATE KEY UPDATE
+               status = 'matched',
+               source = 'paid_unlock',
+               builder_swiped_at = COALESCE(builder_swiped_at, NOW())`,
+            [pid, ownerUid, uid]
+          );
+          matchId = result?.insertId || 0;
+          if (!matchId) {
+            const m = await mysqlQuery(
+              `SELECT id FROM swipe_interest
+                WHERE project_id = ? AND builder_uid = ?
+                LIMIT 1`,
+              [pid, uid]
+            );
+            matchId = m?.[0]?.id || 0;
+          }
+
+          if (matchId) {
+            try {
+              const linkPath = `/chat/${matchId}`;
+              const notifMessage = `New message - paid unlock`;
+              await mysqlQuery(
+                `INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
+                 VALUES (?, 'chat_message_new', ?, ?, ?, NOW())`,
+                [ownerUid, notifMessage, pid, linkPath]
+              );
+              ctx.broadcastNotification?.(ownerUid, {
+                type: "chat_message_new",
+                message: notifMessage,
+                projectId: pid,
+                linkPath,
+              });
+            } catch (notifErr) {
+              (log?.warn || console.warn)(
+                { err: notifErr?.message },
+                `${TAG} chat_message_new notification failed`
+              );
+            }
+          }
+        }
+      } catch (e) {
+        (log?.warn || console.warn)(
+          { err: e?.message },
+          `${TAG} paid_unlock match insert failed`
+        );
+      }
+
+      res.json({ ok: true, matchId: matchId || null });
     } catch (err) {
       log.error?.({ err: err?.message }, `${TAG} failed`);
       res.status(500).json({ error: "server_error" });

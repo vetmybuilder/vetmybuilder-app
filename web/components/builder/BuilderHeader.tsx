@@ -183,7 +183,7 @@ export default function BuilderHeader({
                 aria-pressed={builder.myLike === 1}
               >
                 <ThumbsUp className={`h-4 w-4 ${builder.myLike === 1 ? "fill-rose-500 text-rose-500" : ""}`} />
-                <span>{builder.myLike === 1 ? "You’ve voted" : "Vote up"}</span>
+                <span>{builder.myLike === 1 ? "Endorsed" : "Endorse"}</span>
               </button>
             )}
             {scoreErr && <div className="text-xs text-red-500">{scoreErr}</div>}

@@ -1,6 +1,7 @@
 import * as React from "react";
 import Link from "next/link";
 import StatusBadge from "@/components/StatusBadge";
+import { getJobCategoryImage } from "@/utils/jobCategoryImage";
 
 type Status = "pending" | "live" | "completed" | "archived";
 
@@ -8,13 +9,16 @@ export default function ProjectImageCard({
   id,
   status = "pending",
   imageUrl,
+  type,
   name,
 }: {
   id: number;
   status?: Status;
   imageUrl?: string | null;
+  type?: string | null;
   name: string;
 }) {
+  const resolvedImage = imageUrl || getJobCategoryImage(type);
   return (
     <article
       className="rounded-3xl bg-white border border-slate-200 shadow-sm p-4"
@@ -22,28 +26,13 @@ export default function ProjectImageCard({
       aria-label={`${name} preview`}
     >
       <div className="relative aspect-square overflow-hidden rounded-2xl bg-slate-100">
-        {imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={imageUrl}
-            alt=""
-            className="h-full w-full object-cover"
-            loading="lazy"
-          />
-        ) : (
-          <div className="h-full w-full grid place-items-center text-slate-300">
-            <svg
-              width="44"
-              height="44"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-            >
-              <rect x="3" y="3" width="18" height="14" rx="2" />
-              <path d="m3 14 4-4 4 4 3-3 5 5" />
-            </svg>
-          </div>
-        )}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={resolvedImage}
+          alt=""
+          className="h-full w-full object-cover"
+          loading="lazy"
+        />
 
         {/* Top-right circular LIVE badge (keep) */}
         {status === "live" && (

@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <title>Homepage redesign · mobile</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif; }
+    .phone {
+      width: 380px; height: 820px;
+      border-radius: 44px;
+      box-shadow: 0 30px 80px rgba(15,23,42,0.18), 0 0 0 10px #111 inset, 0 0 0 12px #333 inset;
+      overflow: hidden; position: relative; background: #f8fafc;
+    }
+    .phone-inner { position:absolute; inset: 12px; border-radius: 32px; overflow: hidden; background:#fff; }
+    .grad-indigo { background: linear-gradient(135deg,#6366f1,#4f46e5); }
+    .grad-emerald { background: linear-gradient(135deg,#10b981,#059669); }
+    .grad-amber { background: linear-gradient(135deg,#fbbf24,#f59e0b); }
+    .grad-violet { background: linear-gradient(135deg,#7c3aed,#4f46e5); }
+    .grad-rose { background: linear-gradient(135deg,#fda4af,#f43f5e); }
+    .scroll-y { overflow-y: auto; }
+    .scroll-y::-webkit-scrollbar { width: 0; }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+  <header class="px-8 pt-10 pb-6 text-center">
+    <h1 class="text-2xl font-extrabold tracking-tight text-slate-900">Homepage redesign · four mobile mocks</h1>
+    <p class="mt-2 text-sm text-slate-500 max-w-3xl mx-auto">
+      Each tells a different version of the same story: tradesperson hire is personal, not spam.
+      All four preserve the existing review ticker (preview shown lower in the scroll).
+    </p>
+  </header>
+
+  <main class="px-6 pb-20">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-10 justify-items-center">
+
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <!-- A · Personal story / numbered journey                            -->
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <section>
+        <div class="text-center mb-3">
+          <div class="text-xs uppercase font-extrabold tracking-widest text-indigo-700">Option A · my pick</div>
+          <h2 class="text-base font-extrabold text-slate-900">Personal journey</h2>
+          <p class="text-[11px] text-slate-500 max-w-[320px] mx-auto">Slogan + 3-step story cards + why-love-us pillars + review carousel. Indigo brand, warm tone.</p>
+          <p class="text-[11px] font-bold text-indigo-700 mt-1">Slogan: "Finding the right builder should feel personal"</p>
+        </div>
+
+        <div class="phone">
+          <div class="phone-inner bg-white scroll-y">
+            <!-- header -->
+            <div class="px-5 pt-3 pb-2 flex items-center justify-between border-b border-slate-100">
+              <div class="flex items-baseline">
+                <span class="text-[20px] font-black tracking-tight text-slate-900">Vet</span>
+                <span class="text-[20px] font-black tracking-tight text-indigo-600">My</span>
+                <span class="text-[20px] font-black tracking-tight text-slate-900">Builder</span>
+              </div>
+              <span class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-700">≡</span>
+            </div>
+
+            <!-- hero -->
+            <section class="px-5 pt-7 pb-8">
+              <p class="text-[10.5px] font-extrabold uppercase tracking-wider text-indigo-600 mb-2">Hand-picked, not spam-sold</p>
+              <h1 class="text-[30px] font-black tracking-[-0.02em] text-slate-900 leading-[1.05]">
+                Finding the right builder should feel <span class="italic text-indigo-600">personal</span>.
+              </h1>
+              <p class="mt-3 text-[14px] text-slate-500 leading-relaxed">
+                Not five strangers cold-calling you in 30 seconds. Just builders your neighbours rate, ready to chat when you are.
+              </p>
+              <div class="mt-5 flex flex-col gap-2.5">
+                <button class="w-full py-3.5 rounded-2xl grad-indigo text-white font-extrabold text-[15px] shadow-lg shadow-indigo-500/25">
+                  Post a job · free
+                </button>
+                <button class="w-full py-3 rounded-2xl bg-white border-[1.5px] border-slate-200 text-slate-700 font-bold text-[14px]">
+                  How it works
+                </button>
+              </div>
+              <!-- Trust strip -->
+              <div class="mt-5 flex items-center gap-4 text-[11px] text-slate-500">
+                <span class="inline-flex items-center gap-1"><span class="text-amber-500">★</span> 4.9 from 137 reviews</span>
+                <span class="inline-flex items-center gap-1 text-emerald-700 font-bold">✓ Companies House verified</span>
+              </div>
+            </section>
+
+            <!-- 3-step story -->
+            <section class="px-5 pb-8 bg-slate-50/60 pt-8">
+              <p class="text-[10.5px] font-extrabold uppercase tracking-wider text-indigo-600 text-center">How it works</p>
+              <h2 class="mt-1 text-[22px] font-extrabold tracking-tight text-slate-900 text-center leading-tight">Three steps. No spam.</h2>
+
+              <!-- step 1 -->
+              <div class="mt-5 rounded-3xl bg-white p-4 border border-slate-100">
+                <div class="flex items-start gap-3">
+                  <span class="grad-indigo text-white w-9 h-9 rounded-full flex items-center justify-center font-black text-[15px] shrink-0">1</span>
+                  <div>
+                    <div class="text-[15px] font-extrabold text-slate-900">Tell us about your job</div>
+                    <p class="mt-1 text-[12.5px] text-slate-600 leading-snug">Two minutes. Photos optional. We don't sell your details.</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- step 2 -->
+              <div class="mt-3 rounded-3xl bg-white p-4 border border-slate-100">
+                <div class="flex items-start gap-3">
+                  <span class="grad-indigo text-white w-9 h-9 rounded-full flex items-center justify-center font-black text-[15px] shrink-0">2</span>
+                  <div>
+                    <div class="text-[15px] font-extrabold text-slate-900">Meet your matches</div>
+                    <p class="mt-1 text-[12.5px] text-slate-600 leading-snug">Builders your neighbours rate. AI-ranked by your job. Swipe through, like a deck of cards.</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- step 3 -->
+              <div class="mt-3 rounded-3xl bg-white p-4 border border-slate-100">
+                <div class="flex items-start gap-3">
+                  <span class="grad-indigo text-white w-9 h-9 rounded-full flex items-center justify-center font-black text-[15px] shrink-0">3</span>
+                  <div>
+                    <div class="text-[15px] font-extrabold text-slate-900">Chat directly. Hire when ready.</div>
+                    <p class="mt-1 text-[12.5px] text-slate-600 leading-snug">Built-in chat. Share photos, agree dates, get the job done.</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Why love us pillars -->
+            <section class="px-5 py-8">
+              <p class="text-[10.5px] font-extrabold uppercase tracking-wider text-indigo-600 text-center">Why homeowners love it</p>
+              <h2 class="mt-1 text-[22px] font-extrabold tracking-tight text-slate-900 text-center leading-tight">Built for trust.</h2>
+              <div class="mt-5 space-y-2.5">
+                <div class="rounded-2xl border border-slate-100 p-3.5 flex items-start gap-3">
+                  <span class="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 text-base shrink-0">✓</span>
+                  <div>
+                    <div class="text-[13.5px] font-extrabold text-slate-900">Every builder is verified</div>
+                    <p class="text-[11.5px] text-slate-500 leading-snug">Companies House, insurance, real ratings. Hard checks, not just star averages.</p>
+                  </div>
+                </div>
+                <div class="rounded-2xl border border-slate-100 p-3.5 flex items-start gap-3">
+                  <span class="w-9 h-9 rounded-xl bg-violet-50 flex items-center justify-center text-violet-600 text-base shrink-0">★</span>
+                  <div>
+                    <div class="text-[13.5px] font-extrabold text-slate-900">Your neighbours backed them</div>
+                    <p class="text-[11.5px] text-slate-500 leading-snug">Recommendations come from real people in your area, not paid testimonials.</p>
+                  </div>
+                </div>
+                <div class="rounded-2xl border border-slate-100 p-3.5 flex items-start gap-3">
+                  <span class="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 text-base shrink-0">🔒</span>
+                  <div>
+                    <div class="text-[13.5px] font-extrabold text-slate-900">No spam, ever</div>
+                    <p class="text-[11.5px] text-slate-500 leading-snug">We don't sell your number. Builders only message you when you've picked them too.</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Reviews preserved -->
+            <section class="px-5 py-8 bg-slate-900">
+              <p class="text-[10.5px] font-extrabold uppercase tracking-wider text-amber-400 text-center">What homeowners say</p>
+              <div class="mt-4 flex items-start gap-3">
+                <div class="w-10 h-10 rounded-full grad-emerald flex items-center justify-center text-white font-bold shrink-0">S</div>
+                <div class="flex-1">
+                  <div class="text-amber-400 text-sm">★★★★★</div>
+                  <p class="mt-1 text-[12.5px] text-white/90 leading-relaxed italic">
+                    "Got locked out on a Sunday and had a vetted locksmith at my door within the hour. Lifesaver."
+                  </p>
+                  <p class="mt-2 text-[10.5px] text-zinc-400">
+                    <strong class="text-zinc-300">Priya K.</strong> · Leyton · Locksmith
+                  </p>
+                </div>
+              </div>
+              <div class="flex items-center justify-center gap-1.5 mt-4">
+                <span class="h-1.5 w-5 rounded-full bg-amber-400"></span>
+                <span class="h-1.5 w-1.5 rounded-full bg-white/20"></span>
+                <span class="h-1.5 w-1.5 rounded-full bg-white/20"></span>
+                <span class="h-1.5 w-1.5 rounded-full bg-white/20"></span>
+              </div>
+            </section>
+
+            <!-- Final CTA -->
+            <section class="px-5 py-9 text-center">
+              <h2 class="text-[22px] font-extrabold tracking-tight text-slate-900">Ready to find your builder?</h2>
+              <button class="mt-4 w-full py-4 rounded-2xl grad-indigo text-white font-extrabold text-[15px] shadow-lg shadow-indigo-500/25">
+                Post a job · free
+              </button>
+            </section>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <!-- B · Punchy "Skip the spam"                                       -->
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <section>
+        <div class="text-center mb-3">
+          <div class="text-xs uppercase font-extrabold tracking-widest text-rose-700">Option B</div>
+          <h2 class="text-base font-extrabold text-slate-900">Punchy / contrarian</h2>
+          <p class="text-[11px] text-slate-500 max-w-[320px] mx-auto">Anti-spam framing. Compares the old way (lead-selling sites) with the new way (us). Bolder, more attitude.</p>
+          <p class="text-[11px] font-bold text-rose-700 mt-1">Slogan: "Skip the spam. Meet your match."</p>
+        </div>
+
+        <div class="phone">
+          <div class="phone-inner bg-white scroll-y">
+            <div class="px-5 pt-3 pb-2 flex items-center justify-between border-b border-slate-100">
+              <div class="flex items-baseline">
+                <span class="text-[20px] font-black tracking-tight text-slate-900">Vet</span>
+                <span class="text-[20px] font-black tracking-tight text-indigo-600">My</span>
+                <span class="text-[20px] font-black tracking-tight text-slate-900">Builder</span>
+              </div>
+              <span class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-700">≡</span>
+            </div>
+
+            <!-- Big slogan hero -->
+            <section class="px-5 pt-8 pb-7 text-center">
+              <h1 class="text-[36px] font-black tracking-[-0.025em] text-slate-900 leading-[0.98]">
+                Skip the spam.<br>
+                <span class="text-indigo-600">Meet your match.</span>
+              </h1>
+              <p class="mt-4 mx-auto max-w-xs text-[13.5px] text-slate-500 leading-relaxed">
+                The other sites sell your number to 5 cold callers. We don't. Builders only message you when you pick them too.
+              </p>
+              <div class="mt-5 flex flex-col gap-2.5 max-w-[280px] mx-auto">
+                <button class="py-3.5 rounded-2xl grad-indigo text-white font-extrabold text-[15px] shadow-lg shadow-indigo-500/25">Post a job · free</button>
+              </div>
+            </section>
+
+            <!-- The contrast: "Old way / Our way" -->
+            <section class="px-5 pb-8">
+              <div class="grid grid-cols-2 gap-2">
+                <div class="rounded-2xl border border-rose-100 bg-rose-50/50 p-3.5">
+                  <div class="text-[10.5px] font-extrabold uppercase tracking-wider text-rose-700">Old way</div>
+                  <ul class="mt-2 space-y-1.5 text-[12px] text-slate-700">
+                    <li class="flex gap-1.5"><span class="text-rose-500">✗</span> 5 cold calls</li>
+                    <li class="flex gap-1.5"><span class="text-rose-500">✗</span> No verification</li>
+                    <li class="flex gap-1.5"><span class="text-rose-500">✗</span> Number sold</li>
+                    <li class="flex gap-1.5"><span class="text-rose-500">✗</span> Generic quotes</li>
+                  </ul>
+                </div>
+                <div class="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-3.5">
+                  <div class="text-[10.5px] font-extrabold uppercase tracking-wider text-emerald-700">Our way</div>
+                  <ul class="mt-2 space-y-1.5 text-[12px] text-slate-700">
+                    <li class="flex gap-1.5"><span class="text-emerald-600">✓</span> Swipe + match</li>
+                    <li class="flex gap-1.5"><span class="text-emerald-600">✓</span> Companies House</li>
+                    <li class="flex gap-1.5"><span class="text-emerald-600">✓</span> Number stays hidden</li>
+                    <li class="flex gap-1.5"><span class="text-emerald-600">✓</span> Real chat</li>
+                  </ul>
+                </div>
+              </div>
+            </section>
+
+            <!-- 3 steps as inline tickers -->
+            <section class="px-5 py-8 bg-slate-50">
+              <h2 class="text-[20px] font-extrabold tracking-tight text-slate-900 text-center">How it works</h2>
+              <div class="mt-5 space-y-2">
+                <div class="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-white border border-slate-100">
+                  <span class="w-8 h-8 rounded-xl grad-indigo text-white flex items-center justify-center font-black text-[14px]">1</span>
+                  <div class="flex-1 min-w-0"><div class="text-[13.5px] font-extrabold text-slate-900">Post your job</div><div class="text-[11px] text-slate-500">2 min, free</div></div>
+                </div>
+                <div class="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-white border border-slate-100">
+                  <span class="w-8 h-8 rounded-xl grad-indigo text-white flex items-center justify-center font-black text-[14px]">2</span>
+                  <div class="flex-1 min-w-0"><div class="text-[13.5px] font-extrabold text-slate-900">Swipe through builders</div><div class="text-[11px] text-slate-500">AI-ranked, neighbour-rated</div></div>
+                </div>
+                <div class="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-white border border-slate-100">
+                  <span class="w-8 h-8 rounded-xl grad-indigo text-white flex items-center justify-center font-black text-[14px]">3</span>
+                  <div class="flex-1 min-w-0"><div class="text-[13.5px] font-extrabold text-slate-900">Chat. Agree. Done.</div><div class="text-[11px] text-slate-500">Built-in chat, no phone calls</div></div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Why love us -->
+            <section class="px-5 py-8">
+              <h2 class="text-[20px] font-extrabold tracking-tight text-slate-900 text-center">Why homeowners love it</h2>
+              <div class="mt-4 grid grid-cols-3 gap-2">
+                <div class="rounded-xl bg-emerald-50 p-3 text-center"><div class="text-[22px]">✓</div><div class="text-[10.5px] font-bold text-emerald-700 mt-1">Verified</div></div>
+                <div class="rounded-xl bg-violet-50 p-3 text-center"><div class="text-[22px]">★</div><div class="text-[10.5px] font-bold text-violet-700 mt-1">Recommended</div></div>
+                <div class="rounded-xl bg-amber-50 p-3 text-center"><div class="text-[22px]">🔒</div><div class="text-[10.5px] font-bold text-amber-700 mt-1">No spam</div></div>
+              </div>
+            </section>
+
+            <!-- Reviews -->
+            <section class="px-5 py-8 bg-slate-900">
+              <p class="text-[10.5px] font-extrabold uppercase tracking-wider text-amber-400 text-center">Real homeowner stories</p>
+              <div class="mt-4 flex items-start gap-3">
+                <div class="w-10 h-10 rounded-full grad-amber flex items-center justify-center text-white font-bold shrink-0">M</div>
+                <div class="flex-1">
+                  <div class="text-amber-400 text-sm">★★★★★</div>
+                  <p class="mt-1 text-[12.5px] text-white/90 leading-relaxed italic">
+                    "Loft conversion was a big project and we wanted someone we could trust. The builder was fantastic from start to finish."
+                  </p>
+                  <p class="mt-2 text-[10.5px] text-zinc-400"><strong class="text-zinc-300">Mark D.</strong> · Highams Park</p>
+                </div>
+              </div>
+              <div class="flex items-center justify-center gap-1.5 mt-4">
+                <span class="h-1.5 w-1.5 rounded-full bg-white/20"></span>
+                <span class="h-1.5 w-5 rounded-full bg-amber-400"></span>
+                <span class="h-1.5 w-1.5 rounded-full bg-white/20"></span>
+                <span class="h-1.5 w-1.5 rounded-full bg-white/20"></span>
+              </div>
+            </section>
+
+            <section class="px-5 py-9 text-center">
+              <button class="w-full py-4 rounded-2xl grad-indigo text-white font-extrabold text-[15px] shadow-lg shadow-indigo-500/25">Post a job · free</button>
+            </section>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <!-- C · App-led ("see the app in action")                            -->
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <section>
+        <div class="text-center mb-3">
+          <div class="text-xs uppercase font-extrabold tracking-widest text-emerald-700">Option C</div>
+          <h2 class="text-base font-extrabold text-slate-900">App-led ("see it work")</h2>
+          <p class="text-[11px] text-slate-500 max-w-[320px] mx-auto">Heroes the actual swipe-deck + chat UX as visual proof. Builders who scroll see the product immediately.</p>
+          <p class="text-[11px] font-bold text-emerald-700 mt-1">Slogan: "Match. Chat. Get it done."</p>
+        </div>
+
+        <div class="phone">
+          <div class="phone-inner bg-white scroll-y">
+            <div class="px-5 pt-3 pb-2 flex items-center justify-between border-b border-slate-100">
+              <div class="flex items-baseline">
+                <span class="text-[20px] font-black tracking-tight text-slate-900">Vet</span>
+                <span class="text-[20px] font-black tracking-tight text-indigo-600">My</span>
+                <span class="text-[20px] font-black tracking-tight text-slate-900">Builder</span>
+              </div>
+              <span class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-700">≡</span>
+            </div>
+
+            <section class="px-5 pt-7 pb-8">
+              <p class="text-[10.5px] font-extrabold uppercase tracking-wider text-indigo-600 mb-2">The personal way</p>
+              <h1 class="text-[32px] font-black tracking-[-0.02em] text-slate-900 leading-[1.04]">
+                Match. Chat. <span class="text-indigo-600">Done.</span>
+              </h1>
+              <p class="mt-3 text-[14px] text-slate-500 leading-relaxed">
+                Like dating, but for finding a tradesperson you can actually trust.
+              </p>
+
+              <!-- Mock swipe card visual -->
+              <div class="mt-6 mx-auto max-w-[260px]">
+                <div class="rounded-3xl overflow-hidden bg-white shadow-2xl shadow-indigo-200 transform rotate-[-3deg]">
+                  <div class="grad-emerald p-3 text-white">
+                    <div class="text-[10px] font-extrabold uppercase tracking-wider opacity-80">External wall insulation</div>
+                    <div class="text-[14px] font-extrabold mt-0.5 leading-tight">3-bed terrace · E4</div>
+                  </div>
+                  <div class="p-3">
+                    <div class="text-[12px] font-extrabold text-slate-900">Elegant Building Services</div>
+                    <div class="flex items-center gap-1 text-[10.5px] text-slate-500 mt-0.5"><span class="text-amber-500">★</span> 4.9 (137) · ✓ Verified</div>
+                    <div class="text-[10px] text-emerald-700 font-bold mt-1">★ Recommended by Sarah · Loft conversion</div>
+                  </div>
+                </div>
+                <div class="flex items-center justify-center gap-3 mt-3">
+                  <button class="w-10 h-10 rounded-full bg-white border-2 border-rose-200 text-rose-500 text-lg font-black shadow">✕</button>
+                  <button class="w-12 h-12 rounded-full grad-emerald text-white text-xl font-black shadow-xl">♥</button>
+                </div>
+                <p class="mt-2 text-center text-[10px] text-slate-400 italic">Swipe right when you find your match</p>
+              </div>
+
+              <div class="mt-6 flex flex-col gap-2.5">
+                <button class="w-full py-3.5 rounded-2xl grad-indigo text-white font-extrabold text-[15px] shadow-lg shadow-indigo-500/25">Try it · post a job</button>
+              </div>
+            </section>
+
+            <!-- Steps with mini app visuals -->
+            <section class="px-5 py-8 bg-slate-50">
+              <h2 class="text-[22px] font-extrabold tracking-tight text-slate-900 text-center">How it works</h2>
+              <div class="mt-5 space-y-3">
+                <div class="rounded-3xl bg-white p-4 border border-slate-100 flex items-center gap-3">
+                  <span class="w-10 h-10 rounded-2xl grad-indigo text-white text-lg flex items-center justify-center shrink-0">📝</span>
+                  <div><div class="text-[13.5px] font-extrabold text-slate-900">1. Post your job</div><div class="text-[11.5px] text-slate-500">Two minutes. Photos optional.</div></div>
+                </div>
+                <div class="rounded-3xl bg-white p-4 border border-slate-100 flex items-center gap-3">
+                  <span class="w-10 h-10 rounded-2xl grad-emerald text-white text-lg flex items-center justify-center shrink-0">♥</span>
+                  <div><div class="text-[13.5px] font-extrabold text-slate-900">2. Swipe through your matches</div><div class="text-[11.5px] text-slate-500">AI-ranked, neighbour-rated.</div></div>
+                </div>
+                <div class="rounded-3xl bg-white p-4 border border-slate-100 flex items-center gap-3">
+                  <span class="w-10 h-10 rounded-2xl grad-violet text-white text-lg flex items-center justify-center shrink-0">💬</span>
+                  <div><div class="text-[13.5px] font-extrabold text-slate-900">3. Chat directly. Hire.</div><div class="text-[11.5px] text-slate-500">Built-in messaging. No spam, no calls.</div></div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Why love -->
+            <section class="px-5 py-8">
+              <h2 class="text-[22px] font-extrabold tracking-tight text-slate-900 text-center">Why homeowners love us</h2>
+              <div class="mt-5 space-y-2.5">
+                <div class="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-3.5 flex items-center gap-3"><span class="text-emerald-600 text-lg shrink-0">✓</span><div class="text-[12.5px] text-slate-800"><strong>Every builder is checked</strong> against Companies House and insurance registers.</div></div>
+                <div class="rounded-2xl border border-violet-100 bg-violet-50/40 p-3.5 flex items-center gap-3"><span class="text-violet-600 text-lg shrink-0">★</span><div class="text-[12.5px] text-slate-800"><strong>Real recommendations</strong> from neighbours in your postcode, not paid testimonials.</div></div>
+                <div class="rounded-2xl border border-amber-100 bg-amber-50/40 p-3.5 flex items-center gap-3"><span class="text-amber-600 text-lg shrink-0">🔒</span><div class="text-[12.5px] text-slate-800"><strong>Your number stays hidden</strong> until you message a builder yourself.</div></div>
+              </div>
+            </section>
+
+            <!-- Reviews -->
+            <section class="px-5 py-8 bg-slate-900">
+              <p class="text-[10.5px] font-extrabold uppercase tracking-wider text-amber-400 text-center">What homeowners say</p>
+              <div class="mt-4 flex items-start gap-3">
+                <div class="w-10 h-10 rounded-full grad-rose flex items-center justify-center text-white font-bold shrink-0">L</div>
+                <div class="flex-1">
+                  <div class="text-amber-400 text-sm">★★★★★</div>
+                  <p class="mt-1 text-[12.5px] text-white/90 leading-relaxed italic">"Had the whole bathroom ripped out and refitted. The tiler did a beautiful job. No stress at all, which is rare."</p>
+                  <p class="mt-2 text-[10.5px] text-zinc-400"><strong class="text-zinc-300">Laura M.</strong> · Leytonstone</p>
+                </div>
+              </div>
+            </section>
+
+            <section class="px-5 py-9 text-center">
+              <button class="w-full py-4 rounded-2xl grad-indigo text-white font-extrabold text-[15px] shadow-lg shadow-indigo-500/25">Try VetMyBuilder</button>
+            </section>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <!-- D · Editorial / manifesto                                        -->
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <section>
+        <div class="text-center mb-3">
+          <div class="text-xs uppercase font-extrabold tracking-widest text-amber-700">Option D</div>
+          <h2 class="text-base font-extrabold text-slate-900">Editorial manifesto</h2>
+          <p class="text-[11px] text-slate-500 max-w-[320px] mx-auto">Long-form, conversational. Reads like a magazine article. Slower scroll, more soul.</p>
+          <p class="text-[11px] font-bold text-amber-700 mt-1">Slogan: "Trades, the way it should be"</p>
+        </div>
+
+        <div class="phone">
+          <div class="phone-inner bg-white scroll-y">
+            <div class="px-5 pt-3 pb-2 flex items-center justify-between border-b border-slate-100">
+              <div class="flex items-baseline">
+                <span class="text-[20px] font-black tracking-tight text-slate-900">Vet</span>
+                <span class="text-[20px] font-black tracking-tight text-indigo-600">My</span>
+                <span class="text-[20px] font-black tracking-tight text-slate-900">Builder</span>
+              </div>
+              <span class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-700">≡</span>
+            </div>
+
+            <!-- Editorial hero -->
+            <section class="px-6 pt-9 pb-8">
+              <p class="text-[10.5px] font-extrabold uppercase tracking-[0.18em] text-amber-700">A manifesto</p>
+              <h1 class="mt-3 text-[34px] font-black tracking-[-0.02em] text-slate-900 leading-[1.0]" style="font-family: 'Sora', sans-serif;">
+                Trades,<br>the way it<br><span class="italic text-indigo-600">should be.</span>
+              </h1>
+              <div class="mt-5 text-[14px] text-slate-700 leading-[1.6]">
+                <p>Hiring a builder shouldn't feel like a battle.</p>
+                <p class="mt-3">It shouldn't mean five strangers cold-calling you twenty seconds after you click a button. It shouldn't mean wondering if the photo on a profile is even real.</p>
+                <p class="mt-3">It should feel like asking your neighbour. Because that's what we made.</p>
+              </div>
+              <div class="mt-6">
+                <button class="w-full py-3.5 rounded-2xl grad-indigo text-white font-extrabold text-[15px] shadow-lg shadow-indigo-500/25">Find your builder</button>
+              </div>
+            </section>
+
+            <!-- Steps as conversational cards -->
+            <section class="px-6 py-9 bg-slate-50">
+              <p class="text-[10.5px] font-extrabold uppercase tracking-[0.18em] text-amber-700">How it works</p>
+              <h2 class="mt-2 text-[26px] font-black tracking-tight text-slate-900 leading-[1.1]">A small dance,<br>not a fight.</h2>
+
+              <div class="mt-7 space-y-7">
+                <div>
+                  <div class="text-[13px] font-extrabold text-amber-700">Step one</div>
+                  <h3 class="mt-1 text-[18px] font-extrabold text-slate-900">Tell us about your job.</h3>
+                  <p class="mt-2 text-[13px] text-slate-600 leading-relaxed">A few details. Photos if you have them. Two minutes, tops. Your number stays private.</p>
+                </div>
+                <div>
+                  <div class="text-[13px] font-extrabold text-amber-700">Step two</div>
+                  <h3 class="mt-1 text-[18px] font-extrabold text-slate-900">Meet builders, your way.</h3>
+                  <p class="mt-2 text-[13px] text-slate-600 leading-relaxed">We surface tradespeople your neighbours already rate, ranked by how well they match what you need. Swipe through, like a deck of cards.</p>
+                </div>
+                <div>
+                  <div class="text-[13px] font-extrabold text-amber-700">Step three</div>
+                  <h3 class="mt-1 text-[18px] font-extrabold text-slate-900">Chat. Hire. Done.</h3>
+                  <p class="mt-2 text-[13px] text-slate-600 leading-relaxed">When you both swipe right, you can chat directly in the app. Share photos, agree dates, get the work done. No middlemen.</p>
+                </div>
+              </div>
+            </section>
+
+            <!-- Why love editorial -->
+            <section class="px-6 py-9">
+              <p class="text-[10.5px] font-extrabold uppercase tracking-[0.18em] text-amber-700">Why homeowners love it</p>
+              <h2 class="mt-2 text-[26px] font-black tracking-tight text-slate-900 leading-[1.1]">Because it's built on trust.</h2>
+              <div class="mt-5 space-y-5">
+                <div>
+                  <div class="text-[15px] font-extrabold text-slate-900">✓ Verified, not just listed</div>
+                  <p class="mt-1 text-[13px] text-slate-600 leading-relaxed">Companies House, insurance, real Google ratings. We check before they're on the platform.</p>
+                </div>
+                <div>
+                  <div class="text-[15px] font-extrabold text-slate-900">★ Backed by your neighbours</div>
+                  <p class="mt-1 text-[13px] text-slate-600 leading-relaxed">Every match comes with a local recommendation, or none at all. We'd rather show you nothing than someone unproven.</p>
+                </div>
+                <div>
+                  <div class="text-[15px] font-extrabold text-slate-900">🔒 No spam, ever</div>
+                  <p class="mt-1 text-[13px] text-slate-600 leading-relaxed">We don't sell your details. Builders only see your name once you both pick each other.</p>
+                </div>
+              </div>
+            </section>
+
+            <!-- Reviews -->
+            <section class="px-6 py-9 bg-slate-900">
+              <p class="text-[10.5px] font-extrabold uppercase tracking-[0.18em] text-amber-400">From real homeowners</p>
+              <div class="mt-5">
+                <div class="text-amber-400 text-base">★★★★★</div>
+                <p class="mt-2 text-[16px] text-white/90 leading-relaxed italic" style="font-family: 'Sora', sans-serif;">
+                  "We had a leak that had been driving us mad for weeks. Found a plumber through VetMyBuilder and he came out the next morning, sorted it in under an hour."
+                </p>
+                <p class="mt-3 text-[11.5px] text-zinc-400"><strong class="text-zinc-200">Sarah T.</strong> · Walthamstow · Plumbing</p>
+              </div>
+              <div class="mt-4 flex items-center gap-1.5">
+                <span class="h-1 w-5 rounded-full bg-amber-400"></span>
+                <span class="h-1 w-1 rounded-full bg-white/20"></span>
+                <span class="h-1 w-1 rounded-full bg-white/20"></span>
+              </div>
+            </section>
+
+            <section class="px-6 py-10 text-center">
+              <h2 class="text-[24px] font-black tracking-tight text-slate-900 leading-tight">Your home deserves better than a lead-gen form.</h2>
+              <button class="mt-5 w-full py-4 rounded-2xl grad-indigo text-white font-extrabold text-[15px] shadow-lg shadow-indigo-500/25">Find your builder</button>
+            </section>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+
+    <!-- Notes -->
+    <div class="max-w-3xl mx-auto mt-14 rounded-2xl bg-white border border-slate-200 p-5">
+      <h3 class="text-base font-extrabold text-slate-900">What's the same across all four</h3>
+      <ul class="mt-2 text-[13px] text-slate-600 leading-snug space-y-1.5">
+        <li><strong>Existing review ticker preserved</strong> on every variant - same data, same dot indicators, just slightly different surrounding treatment per option.</li>
+        <li><strong>Three-step story</strong>: post a job → swipe matches → chat &amp; hire. Same product, told four different ways.</li>
+        <li><strong>"Why homeowners love it"</strong> always has the same three pillars: verified, neighbour-recommended, no spam. Just rendered with different visual weight.</li>
+        <li><strong>Indigo brand</strong> on the homeowner-facing CTAs. Optional emerald accent on Option C's swipe-card preview.</li>
+        <li><strong>Existing stats section</strong> ("communityMembers ≥ 50" gate) can drop in below the why-love-us pillars on whichever variant you pick - I left it out of the mocks for clarity but the data path stays untouched.</li>
+        <li><strong>"How it Works"</strong> deeper page (current /how-it-works) can keep its longer-form story; this homepage redesign just teases it.</li>
+      </ul>
+
+      <h3 class="mt-5 text-base font-extrabold text-slate-900">Slogans up for grabs</h3>
+      <ul class="mt-2 text-[13px] text-slate-600 leading-snug space-y-1">
+        <li><strong>A:</strong> Finding the right builder should feel personal.</li>
+        <li><strong>B:</strong> Skip the spam. Meet your match.</li>
+        <li><strong>C:</strong> Match. Chat. Done.</li>
+        <li><strong>D:</strong> Trades, the way it should be.</li>
+      </ul>
+      <p class="mt-2 text-[13px] text-slate-600 leading-snug italic">Or remix - "Trades, made personal" / "Like dating, but for builders" / "The personal way to hire a tradesperson". Tell me which lane and I'll wire one.</p>
+
+      <h3 class="mt-5 text-base font-extrabold text-slate-900">My pick</h3>
+      <p class="mt-2 text-[13px] text-slate-600 leading-snug">
+        <strong>Option A (Personal journey)</strong> for the homepage main scroll - it's the most balanced for a returning visitor: clear slogan, immediate CTA, structured story, all four sections in roughly equal weight, easy to skim. Ports the existing review ticker cleanly.
+      </p>
+      <p class="mt-2 text-[13px] text-slate-600 leading-snug">
+        <strong>Option B</strong> if you want more attitude / contrast against incumbents.
+        <strong>Option C</strong> if you want the actual product visible above the fold (good for paid-acquisition pages).
+        <strong>Option D</strong> if you're aiming at a slower, narrative read (best for an /about page).
+      </p>
+    </div>
+  </main>
+</body>
+</html>

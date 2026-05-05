@@ -35,7 +35,7 @@ export function useTradesmanRedirect({ api, user, authLoading }: Params) {
           !!tradesman?.status;
 
         if (looksLikeProfile && !cancelled) {
-          router.replace("/tradesman/projects");
+          router.replace("/tradesman/jobs");
           return;
         }
       } catch {

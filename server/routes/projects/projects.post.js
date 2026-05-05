@@ -151,6 +151,7 @@ module.exports = (router, ctx) => {
         uid: req.user.uid,
         extractLocationTokens: ctx.extractLocationTokens,
         broadcastNotification: ctx.broadcastNotification,
+        broadcastEvent: ctx.broadcastEvent,
         logActivity: ctx.logActivity,
         log,
         notifyMatchedTradesmen: require("../../lib/ai/notifyMatchedTradesmen").notifyMatchedTradesmen,

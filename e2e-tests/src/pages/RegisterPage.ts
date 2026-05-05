@@ -70,9 +70,11 @@ export class RegisterPage {
     this.email = page.getByLabel("Email", { exact: true });
     this.password = page.getByLabel("Password", { exact: true });
     this.confirmPassword = page.getByLabel("Confirm password", { exact: true });
-    this.location = page.getByLabel("Postcode or City/Borough", {
-      exact: true,
-    });
+    // Label was renamed "Postcode or City/Borough" -> "Your area" in
+    // the homeowner-signup form refresh. The input is still the same
+    // LocationField (data-testid="reg-reg-loc" on the wrapping div,
+    // id="reg-loc" on the input itself).
+    this.location = page.getByLabel("Your area", { exact: true });
 
     this.firstNameError = page.getByTestId("reg-reg-fn-error");
     this.lastNameError = page.getByTestId("reg-reg-ln-error");
@@ -209,32 +211,32 @@ export class RegisterPage {
 
     if (errors.firstName) {
       await expect(this.firstNameError).toHaveText(errors.firstName);
-      await expect(this.firstName).toHaveClass(/border-red-600/);
+      await expect(this.firstName).toHaveClass(/border-red-500/);
     }
 
     if (errors.lastName) {
       await expect(this.lastNameError).toHaveText(errors.lastName);
-      await expect(this.lastName).toHaveClass(/border-red-600/);
+      await expect(this.lastName).toHaveClass(/border-red-500/);
     }
 
     if (errors.username) {
       await expect(this.usernameError).toHaveText(errors.username);
-      await expect(this.username).toHaveClass(/border-red-600/);
+      await expect(this.username).toHaveClass(/border-red-500/);
     }
 
     if (errors.email) {
       await expect(this.emailError).toHaveText(errors.email);
-      await expect(this.email).toHaveClass(/border-red-600/);
+      await expect(this.email).toHaveClass(/border-red-500/);
     }
 
     if (errors.password) {
       await expect(this.passwordError).toHaveText(errors.password);
-      await expect(this.password).toHaveClass(/border-red-600/);
+      await expect(this.password).toHaveClass(/border-red-500/);
     }
 
     if (errors.location) {
       await expect(this.locationError).toHaveText(errors.location);
-      await expect(this.location).toHaveClass(/border-red-600/);
+      await expect(this.location).toHaveClass(/border-red-500/);
     }
   }
 }

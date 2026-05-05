@@ -1,6 +1,6 @@
 // web/components/GuestOnly.tsx
 // Only unauthenticated (guest) users may see the wrapped page.
-// Logged-in tradesmen are redirected to /tradesman/projects.
+// Logged-in tradesmen are redirected to /tradesman/jobs.
 // Logged-in homeowners are redirected to /projects.
 import { useEffect } from "react";
 import { useRouter } from "next/router";
@@ -71,7 +71,7 @@ export default function GuestOnly({
     }
 
     if (role === "tradesman") {
-      router.replace("/tradesman/projects");
+      router.replace("/tradesman/jobs");
     } else {
       router.replace("/projects");
     }

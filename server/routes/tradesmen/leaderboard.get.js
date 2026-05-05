@@ -281,6 +281,12 @@ module.exports = (router, ctx) => {
             LIMIT 1
           ) AS latest_subscription_plan,
 
+          -- Live tier-model subscription (builder_subscriptions) - the
+          -- source of truth for the swipe gate. NULL when not subscribed
+          -- or the row is canceled / expired.
+          bs.tier_id              AS builder_sub_tier,
+          bs.current_period_end   AS builder_sub_period_end,
+
           ${unlockSelect},
 
           COALESCE(hs.total,    0) AS hires_total,
@@ -302,6 +308,10 @@ module.exports = (router, ctx) => {
           WHERE tradesmanUserId IS NOT NULL
           GROUP BY tradesmanUserId
         ) hs ON hs.tradesmanUserId = t.user_id
+        LEFT JOIN builder_subscriptions bs
+          ON bs.user_id = t.user_id
+         AND bs.status = 'active'
+         AND bs.current_period_end > NOW()
         ${whereSql}
         ORDER BY t.vmb_score DESC, t.updated_at DESC, t.company_name ASC
         LIMIT ${limit} OFFSET ${offset}
@@ -379,6 +389,12 @@ module.exports = (router, ctx) => {
           oneOffUnlocks: isGold ? 0 : Number(r.approved_unlocks || 0),
           oneOffUnlocksPending: isGold ? 0 : Number(r.pending_unlocks || 0),
           pendingUnlockProjectIds: isGold ? [] : pendingIds,
+
+          // New tier-model subscription (week_1 / week_2 / month_1) -
+          // null when not currently subscribed via the new flow. Drives
+          // the swipe gate and the admin Subscription action group.
+          subscriptionTierId: r.builder_sub_tier || null,
+          subscriptionPeriodEnd: r.builder_sub_period_end || null,
         };
       });
 

@@ -1,9 +1,8 @@
 // web/components/LegalPageLayout.tsx
 // Shared layout for every on-site legal / compliance page (privacy,
 // terms, cookies, acceptable-use, verified, complaints, moderation,
-// ranking, sub-processors). Keeps the visual language consistent with
-// the existing privacy page and lets us add new pages without
-// duplicating the hero/content scaffolding every time.
+// ranking, sub-processors). Matches the warm cream / amber / indigo
+// palette used by the homepage and signup flow.
 import Head from "next/head";
 import Link from "next/link";
 import React from "react";
@@ -49,43 +48,49 @@ export default function LegalPageLayout({
       <Head>
         <title>{title} - VetMyBuilder</title>
         <meta name="description" content={metaDescription} />
-        {/* No body background override so the global Layout builder
-            image shows through behind the content section. The hero
-            keeps its own opaque stone background. */}
+        {/* Override the body bg so the global Layout image doesn't bleed
+            through the cream / white sections below. */}
+        <style>{`body { background: #fef6e9 !important; }`}</style>
       </Head>
 
       <div className="overflow-x-hidden -mt-14">
-        {/* HERO */}
-        <section className="relative pt-6 pb-12 sm:pt-28 overflow-hidden bg-zinc-900">
-          <div className="relative z-10 mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/15 px-4 py-1.5 text-sm font-bold text-white/80 mb-6">
-              Last updated: {lastUpdated}
+        {/* HERO - cream wash with Sora display + Caveat handwritten accent */}
+        <section className="relative bg-[#fef6e9] pt-24 pb-12 sm:pt-28 sm:pb-16">
+          <div className="relative mx-auto max-w-3xl px-5 sm:px-8">
+            <div className="inline-block rounded-full bg-amber-100/80 border border-amber-200 px-3 py-1 text-[12px] font-extrabold uppercase tracking-[0.14em] text-amber-800 mb-5 whitespace-nowrap">
+              {`Last updated: ${lastUpdated}`}
             </div>
-            <h1 className="text-5xl sm:text-6xl font-black tracking-tight text-white leading-[0.95]">
+            <h1
+              className="text-[40px] sm:text-[56px] lg:text-[64px] font-black tracking-[-0.025em] text-slate-900 leading-[0.95]"
+              style={{ fontFamily: "'Sora', sans-serif" }}
+            >
               {title}
               {titleAccent && (
                 <>
                   {" "}
-                  <span className="text-red-500" style={{ fontFamily: "'Indie Flower', cursive" }}>{titleAccent}</span>
+                  <span
+                    className="text-indigo-600"
+                    style={{ fontFamily: "'Caveat', cursive", fontSize: "120%" }}
+                  >
+                    {titleAccent}
+                  </span>
                 </>
               )}
             </h1>
             {subtitle && (
-              <p className="mt-6 text-xl text-zinc-400 leading-relaxed font-medium max-w-2xl">
+              <p className="mt-5 text-[16px] sm:text-lg text-slate-700 leading-relaxed max-w-2xl">
                 {subtitle}
               </p>
             )}
           </div>
         </section>
 
-        {/* CONTENT - transparent section so the global builder image
-            shows through. The long-form prose sits in a single
-            translucent white card for readability. */}
-        <section className="py-16">
-          <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-            <div className="bg-white/95 backdrop-blur rounded-3xl shadow-xl p-8 sm:p-12">
+        {/* CONTENT - white card on cream, narrow readable column */}
+        <section className="bg-[#fef6e9] pb-16">
+          <div className="mx-auto max-w-3xl px-5 sm:px-8">
+            <div className="bg-white rounded-3xl shadow-sm border border-amber-100 p-6 sm:p-10">
               {summary && (
-                <div className="bg-emerald-50 rounded-3xl p-6 mb-10 border border-emerald-100">
+                <div className="bg-amber-50 rounded-2xl p-5 mb-8 border border-amber-100">
                   {summary}
                 </div>
               )}
@@ -94,12 +99,15 @@ export default function LegalPageLayout({
                 {sections.map((section, i) => (
                   <div
                     key={i}
-                    className="border-b border-zinc-100 pb-10 last:border-0 last:pb-0"
+                    className="border-b border-amber-100 pb-10 last:border-0 last:pb-0"
                   >
-                    <h2 className="text-2xl font-black text-zinc-900 mb-4">
+                    <h2
+                      className="text-[22px] sm:text-2xl font-extrabold tracking-[-0.01em] text-slate-900 mb-4 leading-tight"
+                      style={{ fontFamily: "'Sora', sans-serif" }}
+                    >
                       {numbered ? `${i + 1}. ${section.title}` : section.title}
                     </h2>
-                    <div className="text-zinc-600 leading-relaxed space-y-3">
+                    <div className="text-[14.5px] sm:text-[15px] text-slate-700 leading-relaxed space-y-3">
                       {section.content.split("\n\n").map((para, j) => (
                         <ParagraphBlock key={j} text={para} />
                       ))}
@@ -109,25 +117,31 @@ export default function LegalPageLayout({
               </div>
             </div>
 
-            <div className="mt-8 bg-white/95 backdrop-blur rounded-3xl shadow-xl p-8 text-center">
-              <h3 className="text-xl font-black text-zinc-900 mb-3">
+            {/* CTA card - matches the warm cream + indigo language */}
+            <div className="mt-6 bg-white rounded-3xl shadow-sm border border-amber-100 p-7 sm:p-9 text-center">
+              <h3
+                className="text-xl sm:text-2xl font-extrabold text-slate-900"
+                style={{ fontFamily: "'Sora', sans-serif" }}
+              >
                 Questions?
               </h3>
-              <p className="text-zinc-600 mb-4">
+              <p className="mt-1.5 text-[14px] sm:text-[15px] text-slate-600">
                 We&apos;re happy to help. Reach us anytime.
               </p>
               {footerCtaHref.startsWith("http") ||
               footerCtaHref.startsWith("mailto:") ? (
                 <a
                   href={footerCtaHref}
-                  className="inline-flex items-center justify-center rounded-full bg-red-500 px-6 py-3 text-sm font-bold text-white hover:scale-[1.02] transition-all"
+                  className="mt-5 inline-flex items-center justify-center rounded-2xl px-6 py-3 text-sm font-extrabold text-white shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
+                  style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
                 >
                   {footerCtaLabel}
                 </a>
               ) : (
                 <Link
                   href={footerCtaHref}
-                  className="inline-flex items-center justify-center rounded-full bg-red-500 px-6 py-3 text-sm font-bold text-white hover:scale-[1.02] transition-all"
+                  className="mt-5 inline-flex items-center justify-center rounded-2xl px-6 py-3 text-sm font-extrabold text-white shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
+                  style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
                 >
                   {footerCtaLabel}
                 </Link>
@@ -183,7 +197,7 @@ function ParagraphBlock({ text }: { text: string }) {
           return (
             <ul
               key={i}
-              className="list-disc list-outside ml-5 space-y-1 marker:text-red-400"
+              className="list-disc list-outside ml-5 space-y-1.5 marker:text-amber-500"
             >
               {chunk.items.map((item, k) => (
                 <li
@@ -197,13 +211,13 @@ function ParagraphBlock({ text }: { text: string }) {
         const joined = chunk.lines.join("\n");
         const isHeading =
           chunk.lines.length === 1 &&
-          chunk.lines[0].startsWith("**") &&
-          chunk.lines[0].endsWith("**");
+          chunk.lines[0]!.startsWith("**") &&
+          chunk.lines[0]!.endsWith("**");
         return (
           <p
             key={i}
             className={
-              isHeading ? "font-semibold text-zinc-800 mt-4 mb-1" : undefined
+              isHeading ? "font-extrabold text-slate-900 mt-4 mb-1" : undefined
             }
             dangerouslySetInnerHTML={{
               __html: renderInline(joined).replace(/\n/g, "<br/>"),

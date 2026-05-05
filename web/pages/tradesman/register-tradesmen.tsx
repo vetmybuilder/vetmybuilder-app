@@ -3,7 +3,6 @@
 import Head from "next/head";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/router";
-import { Check } from "lucide-react";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
 import GuestOnly from "@/components/GuestOnly";
@@ -16,6 +15,10 @@ import Step1Company, {
 import Step2Trades from "@/components/vendor-register/Step2Trades";
 import Step3Offers from "@/components/vendor-register/Step3Offers";
 import Step4Account from "@/components/vendor-register/Step4Account";
+
+import WizardTopBar from "@/components/wizard/WizardTopBar";
+import WizardProgressBar from "@/components/wizard/WizardProgressBar";
+import WizardNavBar from "@/components/wizard/WizardNavBar";
 
 import type { ServiceArea } from "@/utils/serviceAreas";
 import {
@@ -65,6 +68,21 @@ export default function TradesmanRegisterV2Page() {
       } catch {}
     };
   }, []);
+
+  // Post-OAuth bounce: if a guest clicks "Continue with Google" on Step 1, the
+  // popup completes Firebase sign-in and Next routes them back here. The
+  // multi-step email wizard is no longer the right place to be — send them
+  // to the SSO completion wizard instead.
+  useEffect(() => {
+    if (authLoading || !user) return;
+    let intent: string | null = null;
+    try {
+      intent = sessionStorage.getItem("vmb:oauthIntent");
+    } catch {}
+    if (intent === "tradesman") {
+      router.replace("/tradesman/signup/complete");
+    }
+  }, [user, authLoading, router]);
 
   const [step, setStep] = useState<Step>(1);
 
@@ -121,7 +139,6 @@ export default function TradesmanRegisterV2Page() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
-  const [emailErr, setEmailErr] = useState<string | null>(null);
   const [step1Errors, setStep1Errors] = useState<Record<string, string | null>>({});
 
   // ---- persistence load ----
@@ -419,7 +436,7 @@ export default function TradesmanRegisterV2Page() {
 
       // 1) Create Firebase user (this also logs them in)
       const auth = initFirebase();
-      const cred = await createUserWithEmailAndPassword(
+      await createUserWithEmailAndPassword(
         auth,
         form.email.trim(),
         form.password
@@ -528,7 +545,7 @@ export default function TradesmanRegisterV2Page() {
         sessionStorage.removeItem(DRAFT_KEY);
       } catch {}
       try {
-        sessionStorage.setItem("vmb:returnTo", "/tradesman/projects");
+        sessionStorage.setItem("vmb:returnTo", "/tradesman/jobs");
       } catch {}
 
       // Prime the role cache for the upcoming full-page reload.
@@ -563,7 +580,7 @@ export default function TradesmanRegisterV2Page() {
           sessionStorage.setItem("vmb:showPushPrompt", "1");
         }
       } catch {}
-      router.replace("/tradesman/projects");
+      router.replace("/tradesman/jobs");
     } catch (e: any) {
       const msg =
         e?.response?.data?.error ||
@@ -575,160 +592,168 @@ export default function TradesmanRegisterV2Page() {
     }
   };
 
-  const STEPS = [
-    { id: 1 as Step, label: "Company & contact" },
-    { id: 2 as Step, label: "Trades & photos" },
-    { id: 3 as Step, label: "Offers & documents" },
-    { id: 4 as Step, label: "Create account" },
-  ];
+  // ---- wizard nav helpers ----
+  // Each step has a hidden <button type="submit"> inside its form.
+  // WizardNavBar's onNext programmatically clicks it, which fires the
+  // native form submit → the step handler above.
+  const triggerStepSubmit = () => {
+    const testId =
+      step === 1 ? "btn-next"
+      : step === 2 ? "btn-continue"
+      : step === 3 ? "btn-continue"
+      : "btn-create-account";
+    const btn = document.querySelector<HTMLButtonElement>(
+      `[data-testid="${testId}"]`
+    );
+    btn?.click();
+  };
+
+  const handleBack = () => {
+    if (step === 1) {
+      router.back();
+    } else {
+      setStep((s) => (s - 1) as Step);
+    }
+  };
+
+  const handleClose = () => {
+    router.push("/");
+  };
+
+  // Step 4 "Create account" is disabled until terms agreed; we can't
+  // read agreedTerms from Step4Account (it lives in that component's state).
+  // The Create button itself is already disabled there, so no extra gate needed.
+  // For steps 1-3 the submit handler runs validation inline.
 
   return (
     <GuestOnly>
       <>
-      <Head>
-        <title>Register as a Tradesperson — VetMyBuilder</title>
-        <style>{`body { background: #fafaf9 !important; }`}</style>
-      </Head>
+        <Head>
+          <title>Register as a Tradesperson — VetMyBuilder</title>
+        </Head>
 
-      <div className="relative min-h-screen overflow-hidden bg-stone-50 -mt-14 pt-14">
-        {/* Background bands */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-[40%] -right-[20%] w-[80%] h-[180%] bg-red-100 rotate-[-12deg] rounded-[60px]" />
-          <div className="absolute -bottom-[60%] -left-[30%] w-[70%] h-[120%] bg-emerald-100/80 rotate-[8deg] rounded-[80px]" />
-        </div>
+        <main
+          className="fixed inset-0 bg-gray-100 flex flex-col"
+          data-testid="trades-register-page"
+          style={{
+            paddingBottom: "env(safe-area-inset-bottom)",
+            fontFamily:
+              "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
+          }}
+        >
+          <div className="h-[env(safe-area-inset-top)]" />
 
-        <div className="relative z-10 flex min-h-screen flex-col lg:flex-row" data-testid="trades-register-page">
+          {/* Mobile: edge-to-edge column. Desktop: centred card with chrome. */}
+          <div className="w-full md:max-w-2xl mx-auto flex-1 flex flex-col min-h-0 bg-gray-50 md:my-6 md:rounded-2xl md:shadow-lg md:overflow-hidden md:border md:border-gray-200">
 
-          {/* ── Left sidebar ── */}
-          <aside className="shrink-0 lg:sticky lg:top-0 lg:h-screen lg:w-72 xl:w-80 bg-white/85 backdrop-blur-sm border-b border-zinc-200 lg:border-b-0 lg:border-r lg:overflow-y-auto px-8 py-8 flex flex-col">
-            <h1 className="text-2xl font-black text-zinc-900 mb-1.5">Join our network</h1>
-            <p className="text-sm text-zinc-500 mb-10 leading-relaxed">
-              Connect with homeowners looking for your services
-            </p>
-
-            {/* Vertical step indicator */}
-            <nav aria-label="Registration steps">
-              {STEPS.map((s, i) => {
-                const done = step > s.id;
-                const active = step === s.id;
-                const isLast = i === STEPS.length - 1;
-                return (
-                  <div key={s.id} className="flex items-start gap-3">
-                    <div className="flex flex-col items-center">
-                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold transition-colors ${
-                        done ? "border-red-500 bg-red-500 text-white" :
-                        active ? "border-red-500 bg-white text-red-500" :
-                        "border-zinc-300 bg-white text-zinc-400"
-                      }`}>
-                        {done ? <Check className="h-4 w-4" /> : s.id}
-                      </div>
-                      {!isLast && (
-                        <div className={`w-0.5 h-9 transition-colors ${done ? "bg-red-400" : "bg-zinc-200"}`} />
-                      )}
-                    </div>
-                    <div className={`pt-1.5 ${!isLast ? "pb-9" : ""}`}>
-                      <p className={`text-sm font-medium transition-colors ${
-                        active ? "text-zinc-900" : done ? "text-zinc-500" : "text-zinc-300"
-                      }`}>
-                        {s.label}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </nav>
-          </aside>
-
-          {/* ── Right panel ── */}
-          <div className="flex-1 px-6 py-10 lg:px-10 xl:px-16 lg:py-12">
-            <div className="mx-auto max-w-2xl">
-              {err && (
-                <p className="mb-4 text-sm text-red-500 font-medium" role="alert">{err}</p>
-              )}
-
-        {step === 1 && (
-          <Step1Company
-            form={form as Step1Form}
-            set={setAndClear as typeof set}
-            addServiceAreaOutward={addServiceAreaOutward}
-            addServiceAreaBorough={addServiceAreaBorough}
-            removeServiceAreaAt={removeServiceAreaAt}
-            areaQuery={areaQuery}
-            setAreaQuery={setAreaQuery}
-            websiteInput={websiteInput}
-            setWebsiteInput={setWebsiteInput}
-            commitWebsite={commitWebsite}
-            onWebsiteKey={onWebsiteKey}
-            clearWebsite={clearWebsite}
-            canProceed={true}
-            onNext={onNextFromStep1}
-            userIsAuthed={!!user || !!authLoading}
-            nextQuery={"?next=/tradesman/projects"}
-            errors={step1Errors}
-            betaRequired={betaRequired}
-            betaCode={form.betaCode}
-            setBetaCode={(v) => set("betaCode", v)}
-            betaCodeError={betaCodeErr}
+          <WizardTopBar
+            title="Tradesperson signup"
+            onBack={handleBack}
+            onClose={handleClose}
           />
-        )}
 
-        {step === 2 && (
-          <Step2Trades
-            tradeTypes={form.tradeTypes}
-            setTradeTypes={(v) => set("tradeTypes", v)}
-            workPhotos={form.workPhotos}
-            setWorkPhotos={(files) => set("workPhotos", files)}
-            onBack={() => setStep(1)}
-            onNext={onNextFromStep2}
-            err={err}
-            existingPhotoUrls={[]}
-            profilePictureKey={form.profilePictureKey}
-            onProfilePictureKeyChange={(key) => set("profilePictureKey", key)}
-          />
-        )}
+          <WizardProgressBar step={step} total={4} tone="emerald" />
 
-        {step === 3 && (
-          <Step3Offers
-            discountMin={form.discountMin}
-            discountMax={form.discountMax}
-            setDiscountMin={(v) => set("discountMin", v)}
-            setDiscountMax={(v) => set("discountMax", v)}
-            warranty={form.warranty}
-            setWarranty={(v) => set("warranty", v)}
-            onDocs={(e) => {
-              const files = Array.from(e.target.files || []);
-              const mapped: Doc[] = files.map((f) => ({
-                name: f.name,
-                size: f.size,
-                type: f.type || "application/octet-stream",
-              }));
-              set("docs", mapped);
-            }}
-            onBack={() => setStep(2)}
-            onSaveDraft={onSubmitStep3}
-            busy={busy}
-            okMsg={okMsg}
-            err={err}
-          />
-        )}
+          {/* Scrollable body */}
+          <div className="flex-1 overflow-y-auto">
+            {err && step !== 4 && (
+              <p className="mx-3 mt-3 text-sm text-red-500 font-medium" role="alert">
+                {err}
+              </p>
+            )}
 
-        {step === 4 && (
-          <Step4Account
-            email={form.email}
-            password={form.password}
-            confirmPassword={form.confirmPassword}
-            setPassword={(v) => set("password", v)}
-            setConfirmPassword={(v) => set("confirmPassword", v)}
-            onBack={() => setStep(3)}
-            onCreate={onCreateAccount}
-            busy={busy}
-            err={err}
-          />
-        )}
-            </div>
+            {step === 1 && (
+              <Step1Company
+                form={form as Step1Form}
+                set={setAndClear as typeof set}
+                addServiceAreaOutward={addServiceAreaOutward}
+                addServiceAreaBorough={addServiceAreaBorough}
+                removeServiceAreaAt={removeServiceAreaAt}
+                areaQuery={areaQuery}
+                setAreaQuery={setAreaQuery}
+                websiteInput={websiteInput}
+                setWebsiteInput={setWebsiteInput}
+                commitWebsite={commitWebsite}
+                onWebsiteKey={onWebsiteKey}
+                clearWebsite={clearWebsite}
+                canProceed={true}
+                onNext={onNextFromStep1}
+                userIsAuthed={!!user || !!authLoading}
+                nextQuery={"?next=/tradesman/jobs"}
+                errors={step1Errors}
+                betaRequired={betaRequired}
+                betaCode={form.betaCode}
+                setBetaCode={(v) => set("betaCode", v)}
+                betaCodeError={betaCodeErr}
+              />
+            )}
+
+            {step === 2 && (
+              <Step2Trades
+                tradeTypes={form.tradeTypes}
+                setTradeTypes={(v) => set("tradeTypes", v)}
+                workPhotos={form.workPhotos}
+                setWorkPhotos={(files) => set("workPhotos", files)}
+                onBack={() => setStep(1)}
+                onNext={onNextFromStep2}
+                err={err}
+                existingPhotoUrls={[]}
+                profilePictureKey={form.profilePictureKey}
+                onProfilePictureKeyChange={(key) => set("profilePictureKey", key)}
+              />
+            )}
+
+            {step === 3 && (
+              <Step3Offers
+                discountMin={form.discountMin}
+                discountMax={form.discountMax}
+                setDiscountMin={(v) => set("discountMin", v)}
+                setDiscountMax={(v) => set("discountMax", v)}
+                warranty={form.warranty}
+                setWarranty={(v) => set("warranty", v)}
+                onDocs={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  const mapped: Doc[] = files.map((f) => ({
+                    name: f.name,
+                    size: f.size,
+                    type: f.type || "application/octet-stream",
+                  }));
+                  set("docs", mapped);
+                }}
+                onBack={() => setStep(2)}
+                onSaveDraft={onSubmitStep3}
+                busy={busy}
+                okMsg={okMsg}
+                err={err}
+              />
+            )}
+
+            {step === 4 && (
+              <Step4Account
+                email={form.email}
+                password={form.password}
+                confirmPassword={form.confirmPassword}
+                setPassword={(v) => set("password", v)}
+                setConfirmPassword={(v) => set("confirmPassword", v)}
+                onBack={() => setStep(3)}
+                onCreate={onCreateAccount}
+                busy={busy}
+                err={err}
+              />
+            )}
+
+            <div className="h-4" />
           </div>
-        </div>
-      </div>
+
+          <WizardNavBar
+            onBack={step > 1 ? handleBack : undefined}
+            onNext={triggerStepSubmit}
+            nextLabel={step === 4 ? "Create account" : "Next →"}
+            busy={busy}
+            tone="emerald"
+          />
+          </div>
+        </main>
       </>
     </GuestOnly>
   );

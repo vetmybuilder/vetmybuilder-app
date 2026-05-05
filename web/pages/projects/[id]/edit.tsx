@@ -1,6 +1,7 @@
 // web/pages/projects/[id]/edit.tsx
 import Head from "next/head";
 import AuthedOnly from "@/components/AuthedOnly";
+import Layout from "@/components/Layout";
 import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
 import Link from "next/link";
@@ -11,6 +12,7 @@ import DynamicFieldGroup, {
   validateGroup,
 } from "@/components/forms/DynamicFieldGroup";
 import { getSpecForSelection, type AnswersShape } from "@/config/jobFields";
+import PostJobMobile from "@/components/project/PostJobMobile";
 
 /* ===== Outer page: auth + gate ===== */
 export default function EditProjectPage() {
@@ -33,7 +35,7 @@ function EditGate() {
     try {
       if (sessionStorage.getItem("vmb:isTradesman") === "1") {
         setStatus("redirect");
-        router.replace("/tradesman/projects");
+        router.replace("/tradesman/jobs");
         return;
       }
     } catch {}
@@ -45,7 +47,7 @@ function EditGate() {
         if (isT) {
           try { sessionStorage.setItem("vmb:isTradesman", "1"); } catch {}
           setStatus("redirect");
-          router.replace("/tradesman/projects");
+          router.replace("/tradesman/jobs");
           return;
         }
       } catch {}
@@ -385,10 +387,12 @@ function EditProjectInner() {
       if (form.description.trim()) descLines.push(form.description.trim());
       const fullDescription = normalize(descLines.join("\n"));
 
+      // Location is immutable post-creation — the server rejects any incoming
+      // value that doesn't match the stored one. Omitting the field entirely
+      // makes the server preserve the existing value.
       const payload = {
         name: autoName,
         type: primaryType,
-        location: form.location,
         description: fullDescription,
         propertyType: form.propertyType,
         bedrooms: Number(form.bedrooms) || 0,
@@ -409,18 +413,28 @@ function EditProjectInner() {
   /* ===== Render ===== */
 
   if (authLoading || loading) {
-    return <div className="mx-auto max-w-3xl px-4 py-10 text-sm text-zinc-500" data-testid="project-edit-loading">Loading...</div>;
+    return (
+      <Layout>
+        <div className="mx-auto max-w-3xl px-4 py-10 text-sm text-zinc-500" data-testid="project-edit-loading">Loading...</div>
+      </Layout>
+    );
   }
   if (loadErr) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-10" data-testid="project-edit-error">
-        <p className="text-red-600 text-sm" data-testid="project-edit-error-message">{loadErr}</p>
-        <Link href="/login" className="btn mt-3" data-testid="btn-go-to-sign-in">Go to sign in</Link>
-      </div>
+      <Layout>
+        <div className="mx-auto max-w-3xl px-4 py-10" data-testid="project-edit-error">
+          <p className="text-red-600 text-sm" data-testid="project-edit-error-message">{loadErr}</p>
+          <Link href="/login" className="btn mt-3" data-testid="btn-go-to-sign-in">Go to sign in</Link>
+        </div>
+      </Layout>
     );
   }
   if (!form) {
-    return <div className="mx-auto max-w-3xl px-4 py-10 text-sm text-zinc-500">Project not found.</div>;
+    return (
+      <Layout>
+        <div className="mx-auto max-w-3xl px-4 py-10 text-sm text-zinc-500">Project not found.</div>
+      </Layout>
+    );
   }
 
   const currentStep = STEPS[step];
@@ -428,6 +442,54 @@ function EditProjectInner() {
   return (
     <>
       <Head><title>Edit Project — VetMyBuilder</title></Head>
+
+      {/* MOBILE — bare, app-like wizard */}
+      <div className="md:hidden">
+        <PostJobMobile
+          form={form}
+          set={set as any}
+          setForm={setForm as any}
+          step={step}
+          setStep={setStep as any}
+          STEPS={STEPS}
+          currentStep={currentStep}
+          isStepValid={isStepValid}
+          goNext={next}
+          goBack={back}
+          goToStep={goToStep}
+          submit={onSave}
+          busy={busy}
+          err={formErr}
+          filteredCategories={filteredCategories}
+          filteredSubtypes={filteredSubtypes}
+          SUBTYPE_OPTIONS={SUBTYPE_OPTIONS}
+          toggleSubtype={toggleSubtype}
+          categorySearch={categorySearch}
+          setCategorySearch={setCategorySearch}
+          subtypeSearch={subtypeSearch}
+          setSubtypeSearch={setSubtypeSearch}
+          categorySpec={categorySpec}
+          answerErrors={answerErrors}
+          CATEGORY_ICONS={CATEGORY_ICONS}
+          PROPERTY_TYPES={PROPERTY_TYPES}
+          BEDROOM_OPTIONS={BEDROOM_OPTIONS}
+          TIMEFRAMES={TIMEFRAMES}
+          BUDGETS={BUDGETS}
+          MATERIALS_OPTIONS={MATERIALS_OPTIONS}
+          getAccessChips={() => []}
+          normalize={normalize}
+          submitLabel="Save changes"
+          busyLabel="Saving..."
+          onCancel={() => router.back()}
+          descriptionPlaceholder="Any extra details for tradespeople..."
+          descriptionMax={200}
+          accessOptionsSingle={ACCESS_OPTIONS}
+        />
+      </div>
+
+      {/* DESKTOP — unchanged: original wizard inside Layout chrome */}
+      <div className="hidden md:block">
+      <Layout>
       <div className="relative min-h-screen overflow-hidden" data-testid="project-edit-page">
         <div className="relative z-10 mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 pt-4 sm:pt-20 pb-8">
           <div className="relative w-full overflow-hidden rounded-3xl bg-white shadow-xl shadow-zinc-200/60" data-testid="wizard-edit">
@@ -728,6 +790,8 @@ function EditProjectInner() {
             </div>
           </div>
         </div>
+      </div>
+      </Layout>
       </div>
     </>
   );

@@ -36,13 +36,42 @@ const RecSchema = z
       .or(z.literal("").transform(() => undefined)),
     rating: z.coerce.number().int().min(1).max(5).optional(),
     hireAgain: z.enum(["yes", "no"]).optional(),
-    comment: z.string().min(10).max(2000),
+    // Per-category star ratings (optional). Mobile recommend wizard sends
+    // these; the legacy desktop form leaves them undefined.
+    qualityRating: z.coerce.number().int().min(1).max(5).optional(),
+    reliabilityRating: z.coerce.number().int().min(1).max(5).optional(),
+    communicationRating: z.coerce.number().int().min(1).max(5).optional(),
+    trustRating: z.coerce.number().int().min(1).max(5).optional(),
+    valueRating: z.coerce.number().int().min(1).max(5).optional(),
+    // Comment is optional. If supplied, must fit within 2000 chars.
+    // Empty strings are normalised to undefined so they're stored as NULL.
+    comment: z
+      .string()
+      .max(2000)
+      .optional()
+      .or(z.literal("").transform(() => undefined)),
   })
-  .transform((v) => ({
-    ...v,
-    rating:
-      typeof v.rating === "number" ? v.rating : v.hireAgain === "yes" ? 5 : 3,
-  }));
+  .transform((v) => {
+    // If the recommender filled in any category stars, derive the overall
+    // `rating` from their average so legacy code paths still work.
+    const cats = [
+      v.qualityRating,
+      v.reliabilityRating,
+      v.communicationRating,
+      v.trustRating,
+      v.valueRating,
+    ].filter((n) => typeof n === "number");
+    const avg = cats.length
+      ? Math.round(cats.reduce((a, b) => a + (b || 0), 0) / cats.length)
+      : null;
+    return {
+      ...v,
+      rating:
+        typeof v.rating === "number"
+          ? v.rating
+          : avg ?? (v.hireAgain === "yes" ? 5 : 3),
+    };
+  });
 
 // ---------------------------------------------------------------------------
 // Hires

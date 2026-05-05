@@ -15,8 +15,16 @@ import ProjectFilters, {
   type ProjectFiltersValue,
 } from "@/components/filters/ProjectFilters";
 import FavouriteTradesmenSection from "@/components/tradesmen/FavouriteTradesmenSection";
+import FavouritesListMobile from "@/components/tradesmen/FavouritesListMobile";
+import RecommendationsListMobile from "@/components/tradesmen/RecommendationsListMobile";
 import PushPrompt from "@/components/PushPrompt";
 import { Home, Heart, FolderOpen, Shield, Building2, Star, Lightbulb, ChevronDown, ChevronUp, Plus, CheckCircle2 } from "lucide-react";
+import Layout from "@/components/Layout";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
+import ProjectsListMobile, {
+  type MobileTab,
+  type MobileProject,
+} from "@/components/project/ProjectsListMobile";
 
 
 function EmptyState({ onNewProject }: { onNewProject: () => void }) {
@@ -58,6 +66,8 @@ type Project = {
   _hasClosurePhotos?: 0 | 1 | boolean;
   hasClosurePhotos?: boolean | number | null;
   closurePhotoCount?: number | null;
+  priceBandEstimate?: string | null;
+  answersJson?: Record<string, any> | null;
 };
 
 type ApiList = {
@@ -67,8 +77,8 @@ type ApiList = {
   pageSize: number;
 };
 
-// local tab type so we can include "favourites"
-type OwnerTab = ProjectTabKey | "favourites";
+// local tab type so we can include "favourites" and "recommendations"
+type OwnerTab = ProjectTabKey | "favourites" | "recommendations";
 
 /* ===== Outer page: auth + gate ===== */
 export default function ProjectsPage() {
@@ -101,7 +111,7 @@ function ProjectsGate() {
     try {
       if (sessionStorage.getItem("vmb:isTradesman") === "1") {
         setStatus("redirect");
-        router.replace("/tradesman/projects");
+        router.replace("/tradesman/jobs");
         return;
       }
     } catch {}
@@ -119,7 +129,7 @@ function ProjectsGate() {
             sessionStorage.setItem("vmb:isTradesman", "1");
           } catch {}
           setStatus("redirect");
-          router.replace("/tradesman/projects");
+          router.replace("/tradesman/jobs");
           return;
         }
       } catch {
@@ -135,17 +145,31 @@ function ProjectsGate() {
 
   if (status === "redirect") {
     return (
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 text-sm text-zinc-400">
-        Redirecting…
-      </div>
+      <>
+        <div className="md:hidden p-6 text-sm text-zinc-400">Redirecting…</div>
+        <div className="hidden md:block">
+          <Layout>
+            <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 text-sm text-zinc-400">
+              Redirecting…
+            </div>
+          </Layout>
+        </div>
+      </>
     );
   }
 
   if (status !== "ok") {
     return (
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 text-sm text-zinc-400">
-        Loading…
-      </div>
+      <>
+        <div className="md:hidden p-6 text-sm text-zinc-400">Loading…</div>
+        <div className="hidden md:block">
+          <Layout>
+            <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 text-sm text-zinc-400">
+              Loading…
+            </div>
+          </Layout>
+        </div>
+      </>
     );
   }
 
@@ -203,6 +227,11 @@ const TAB_META: Partial<
     title: "Favourites",
     desc: "Tradespeople you've saved",
     color: "bg-indigo-500",
+  },
+  recommendations: {
+    title: "Recommendations",
+    desc: "Tradespeople recommended for your jobs",
+    color: "bg-amber-500",
   },
 };
 
@@ -264,6 +293,7 @@ function OwnerProjects() {
       "completedCommunity",
       "recommended",
       "favourites",
+      "recommendations",
     ];
     const next: OwnerTab = allowed.includes(t as OwnerTab)
       ? (t as OwnerTab)
@@ -277,7 +307,15 @@ function OwnerProjects() {
   // ---- Filters ----
   const [chipType, setChipType] = useState<string>("");
   const [chipStatus, setChipStatus] = useState<string>("");
+  // Mobile tab handler sets a fresh chipStatus and then pushes a tab change
+  // through the URL — that tab change should NOT auto-clear the status it
+  // just set. Flag set by the mobile handler, consumed once.
+  const skipFilterResetRef = useRef(false);
   useEffect(() => {
+    if (skipFilterResetRef.current) {
+      skipFilterResetRef.current = false;
+      return;
+    }
     setChipType("");
     setChipStatus("");
   }, [tab]);
@@ -287,13 +325,22 @@ function OwnerProjects() {
   const [order, setOrder] = useState<"asc" | "desc">("desc");
 
   // Progressive loading
-  const PAGE_SIZE = 12;
+  const PAGE_SIZE = 10;
   const [items, setItems] = useState<Project[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
   const [announce, setAnnounce] = useState("");
+
+  // Independent per-mobile-tab totals so the All/Live/Completed pill counts
+  // stay correct regardless of which tab is currently selected.
+  const [mobileCounts, setMobileCounts] = useState<{
+    all?: number;
+    live?: number;
+    completed?: number;
+  }>({});
+  const countsSeqRef = useRef(0);
 
   // Cancel / ignore stale responses (tab switching causes overlapping requests)
   const reqSeqRef = useRef(0);
@@ -311,8 +358,8 @@ function OwnerProjects() {
   async function fetchPage(p = 1) {
     const mySeq = ++reqSeqRef.current;
 
-    // Never fetch projects for favourites tab
-    if (tab === "favourites") {
+    // Never fetch projects for non-projects tabs
+    if (tab === "favourites" || tab === "recommendations") {
       setLoading(false);
       setItems([]);
       setTotal(0);
@@ -371,8 +418,8 @@ function OwnerProjects() {
   useEffect(() => {
     if (authLoading || !user || !router.isReady) return;
 
-    if (tab === "favourites") {
-      // No project fetch for favourites tab
+    if (tab === "favourites" || tab === "recommendations") {
+      // No project fetch for favourites / recommendations tabs
       reqSeqRef.current += 1; // invalidate in-flight
       setLoading(false);
       setItems([]);
@@ -390,9 +437,65 @@ function OwnerProjects() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user, router.isReady, inputsKey]);
 
+  // Fetch per-tab totals for the mobile pill counts. Re-runs whenever the
+  // current items change (covers post / close / archive / status changes) so
+  // the counts stay in sync with the underlying data. Depend on `user?.uid`
+  // (stable string) rather than the `user` object so we don't refire on every
+  // render where the auth context returns a fresh reference.
+  const userUid = user?.uid;
+  useEffect(() => {
+    if (authLoading || !userUid || !router.isReady) return;
+    const mySeq = ++countsSeqRef.current;
+
+    (async () => {
+      try {
+        const fetchTotal = async (qs: string): Promise<number> => {
+          const res = await api.get<ApiList>(
+            `/api/projects?${qs}&page=1&pageSize=1`,
+          );
+          return Number(res.data.total ?? 0);
+        };
+
+        const [allTotal, liveTotal, completedTotal] = await Promise.all([
+          fetchTotal("tab=mine"),
+          fetchTotal("tab=mine&status=live"),
+          fetchTotal("tab=completed"),
+        ]);
+
+        if (mySeq !== countsSeqRef.current) return;
+        setMobileCounts({
+          all: allTotal,
+          live: liveTotal,
+          completed: completedTotal,
+        });
+      } catch {
+        // Counts are decorative — silently leave previous values on failure.
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, userUid, router.isReady, items.length]);
+
+  // Live: when a recommendation lands for one of the homeowner's projects,
+  // refetch page 1 so the recommendationCount pill on the matching card
+  // updates without a manual reload. GlobalSseDispatcher (mounted in
+  // _app.tsx) re-broadcasts every server notification as `vmb:notification`.
+  useEffect(() => {
+    if (tab === "favourites" || tab === "recommendations") return;
+    function onNotif(e: Event) {
+      const data = (e as CustomEvent).detail || {};
+      const t = String(data?.type || "").toLowerCase();
+      if (t === "recommendation_new") {
+        fetchPage(1);
+      }
+    }
+    window.addEventListener("vmb:notification", onNotif);
+    return () => window.removeEventListener("vmb:notification", onNotif);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, inputsKey]);
+
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    if (tab === "favourites") return; // no infinite scroll for favourites
+    if (tab === "favourites" || tab === "recommendations") return; // no infinite scroll for favourites / recommendations
     if (!sentinelRef.current) return;
 
     const io = new IntersectionObserver(
@@ -454,61 +557,189 @@ function OwnerProjects() {
 
   const [safetyOpen, setSafetyOpen] = useState(false);
 
-  return (
-    <div className="relative min-h-screen overflow-hidden -mt-14">
+  // ---- Mobile tab derivation ----
+  // Mobile shows All / Live / Completed which we map onto the
+  // existing (tab + chipStatus) pair the API understands.
+  const mobileTab: MobileTab = (() => {
+    if (tab === "completed") return "completed";
+    if (chipStatus === "live") return "live";
+    return "all";
+  })();
+  const handleMobileTabChange = (next: MobileTab) => {
+    // tab is URL-driven (see the router.query.tab effect above) — push the URL
+    // and let the existing sync effect call setTab. Calling setTab directly
+    // races the URL effect and reverts to "mine" on the next render.
+    const targetTab: OwnerTab = next === "completed" ? "completed" : "mine";
+    // Skip the auto-clear-on-tab-change reset: we're applying a status atomically.
+    skipFilterResetRef.current = true;
+    setChipStatus(next === "live" ? "live" : "");
+    const query: Record<string, string> = {};
+    if (targetTab !== "mine") query.tab = targetTab;
+    router.replace({ pathname: "/projects", query }, undefined, { shallow: true });
+  };
 
+  // Mobile sort: map onto the existing (sort, order) pair.
+  const mobileSort: "newest" | "oldest" =
+    sort === "createdAt" && order === "asc" ? "oldest" : "newest";
+  const handleMobileSortChange = (v: "newest" | "oldest") => {
+    setSort("createdAt");
+    setOrder(v === "oldest" ? "asc" : "desc");
+  };
+
+  // ---- Mobile items adapter ----
+  // The same /api/projects endpoint serves every tab and returns p.* rows, so
+  // the mobile cards can render directly from the loaded `items`. We adapt
+  // explicitly here so the contract between the parent and the mobile list is
+  // narrow and obvious — no `as any` slipping through.
+  //
+  // For the Completed view we hardcode `status="completed"` because the row
+  // may have come from `status='archived' AND project_closures.projectId IS
+  // NOT NULL`, but the user closed it intentionally so the pill should read
+  // Completed.
+  const mobileItems: MobileProject[] = useMemo(() => {
+    return items.map((p) => ({
+      id: p.id,
+      name: p.name,
+      type: p.type ?? null,
+      location: p.location ?? null,
+      propertyType: p.propertyType ?? null,
+      bedrooms: p.bedrooms ?? null,
+      status: tab === "completed" ? "completed" : (p.status ?? null),
+      coverPhotoUrl: p.coverPhotoUrl ?? null,
+      priceBandEstimate: p.priceBandEstimate ?? null,
+      answersJson: p.answersJson ?? null,
+      recommendationCount: (p as any).recommendationCount ?? null,
+      description: (p as any).description ?? null,
+      createdAt: p.createdAt ?? null,
+      urgency: (p as any).urgency ?? null,
+      matchedCount: (p as any).matchedCount ?? null,
+      waitingCount: (p as any).waitingCount ?? null,
+    }));
+  }, [items, tab]);
+
+  return (
+    <>
+      {/* MOBILE — bare, app-like view */}
+      <div className="md:hidden">
+        {tab === "favourites" ? (
+          <FavouritesListMobile />
+        ) : tab === "recommendations" ? (
+          <RecommendationsListMobile />
+        ) : (
+          <ProjectsListMobile
+            tab={mobileTab}
+            onChangeTab={handleMobileTabChange}
+            chipType={chipType}
+            onChangeType={setChipType}
+            chipStatus={chipStatus}
+            onChangeStatus={setChipStatus}
+            sort={mobileSort}
+            onChangeSort={handleMobileSortChange}
+            items={mobileItems}
+            loading={loading}
+            counts={mobileCounts}
+            hasMore={hasMore}
+            onLoadMore={() => fetchPage(page + 1)}
+          />
+        )}
+        {showPushPrompt && (
+          <PushPrompt onComplete={() => setShowPushPrompt(false)} />
+        )}
+      </div>
+
+      {/* DESKTOP - Option C: toolbar (title + tabs + filters + Post-a-Job)
+          + safety accordion + 4-col dense grid, all on a cream backdrop. */}
+      <div className="hidden md:block">
+        <Layout>
+    <Head>
+      <style>{`body { background: #fef6e9 !important; }`}</style>
+    </Head>
+    <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-12 relative overflow-hidden">
+      <BrandWatermarkScatter />
       <div
-        className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-12 pt-4 sm:pt-10"
+        className="mx-auto max-w-7xl px-6 lg:px-8 pt-3 relative z-10"
         data-testid="projects-page"
       >
 
-        {/* Tab title pill */}
-        <ProjectsTabHelperBanner tab={tab} />
+        {/* TOOLBAR + Safety section are job-specific - hidden when the
+            user is on the Favourites or Recommendations tab, both of
+            which render their own self-contained heading + content. */}
+        {tab !== "favourites" && tab !== "recommendations" && (
+        <>
+        <div className="bg-white rounded-2xl border border-amber-100 shadow-sm px-4 py-3 mb-5 flex items-center gap-4 flex-wrap">
+          <h1
+            className="text-xl font-black tracking-tight text-slate-900"
+            style={{ fontFamily: "'Sora', sans-serif" }}
+          >
+            {tab === "completed" || tab === "completedCommunity" ? "Completed " : "My "}
+            <span
+              className="text-indigo-600"
+              style={{ fontFamily: "'Caveat', cursive", fontSize: "120%" }}
+            >
+              jobs
+            </span>
+          </h1>
 
-        {/* Safety & verification collapsible card */}
+          <div className="flex-1" />
+
+          {/* Filters */}
+          <ProjectFilters
+            typeOptions={typeOptions}
+            statusOptions={statusOptions as any}
+            items={items as any}
+            value={{ type: chipType, status: chipStatus }}
+            onChange={(next: ProjectFiltersValue) => {
+              setChipType(next.type);
+              setChipStatus(next.status);
+            }}
+          />
+
+        </div>
+
+        {/* SAFETY & VERIFICATION - kept, brand-toned to amber/emerald cream palette */}
         <section
           aria-label="Safety and verification"
           data-testid="projects-safety-card"
-          className="mb-6"
+          className="mb-5"
         >
-          <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
             <button
               onClick={() => setSafetyOpen((v) => !v)}
-              className="flex w-full items-center justify-between px-5 py-4 text-left hover:bg-zinc-50 transition-colors"
+              className="flex w-full items-center justify-between px-5 py-4 text-left hover:bg-amber-50/50 transition-colors"
             >
               <div className="flex items-center gap-4">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50">
                   <Shield className="h-5 w-5 text-emerald-600" />
                 </div>
                 <div>
-                  <h2 className="font-semibold text-zinc-900">Safety &amp; verification</h2>
-                  <p className="text-sm text-zinc-500">We combine official checks with community signals to help you hire with confidence.</p>
+                  <h2 className="font-extrabold text-slate-900">Safety &amp; verification</h2>
+                  <p className="text-sm text-slate-500">We combine official checks with community signals to help you hire with confidence.</p>
                 </div>
               </div>
               {safetyOpen
-                ? <ChevronUp className="h-5 w-5 text-zinc-400 shrink-0 ml-4" />
-                : <ChevronDown className="h-5 w-5 text-zinc-400 shrink-0 ml-4" />
+                ? <ChevronUp className="h-5 w-5 text-amber-500 shrink-0 ml-4" />
+                : <ChevronDown className="h-5 w-5 text-amber-500 shrink-0 ml-4" />
               }
             </button>
 
             {safetyOpen && (
-              <div className="border-t border-zinc-200 px-5 pb-5 pt-4 space-y-4">
+              <div className="border-t border-amber-100 px-5 pb-5 pt-4 space-y-4">
                 <div className="flex items-start gap-4">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100">
-                    <Building2 className="h-4 w-4 text-zinc-500" />
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50">
+                    <Building2 className="h-4 w-4 text-emerald-600" />
                   </div>
                   <div>
-                    <p className="font-medium text-zinc-900">Verified businesses</p>
-                    <p className="text-sm text-zinc-500">We check tradespeople against official UK business registers and show a verified badge when we confirm a match.</p>
+                    <p className="font-extrabold text-slate-900">Verified businesses</p>
+                    <p className="text-sm text-slate-500">We check tradespeople against official UK business registers and show a verified badge when we confirm a match.</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50">
                     <Star className="h-4 w-4 text-amber-500" />
                   </div>
                   <div>
-                    <p className="font-medium text-zinc-900">Trust score</p>
-                    <p className="text-sm text-zinc-500">Every tradesperson is scored based on real signals: neighbour recommendations, completed work, photos, and responsiveness - not who pays the most.</p>
+                    <p className="font-extrabold text-slate-900">Trust score</p>
+                    <p className="text-sm text-slate-500">Every tradesperson is scored based on real signals: community recommendations, completed work, photos, and responsiveness - not who pays the most.</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
@@ -516,29 +747,15 @@ function OwnerProjects() {
                     <Lightbulb className="h-4 w-4 text-emerald-600" />
                   </div>
                   <div>
-                    <p className="font-medium text-emerald-700">Tip</p>
-                    <p className="text-sm text-zinc-500">Always ask for a written quote, check proof of insurance, and keep all messages and agreements in writing.</p>
+                    <p className="font-extrabold text-emerald-700">Tip</p>
+                    <p className="text-sm text-slate-500">Always ask for a written quote, check proof of insurance, and keep all messages and agreements in writing.</p>
                   </div>
                 </div>
               </div>
             )}
           </div>
         </section>
-
-        {/* Filters row */}
-        {tab !== "favourites" && (
-          <div className="mb-6">
-            <ProjectFilters
-              typeOptions={typeOptions}
-              statusOptions={statusOptions as any}
-              items={items as any}
-              value={{ type: chipType, status: chipStatus }}
-              onChange={(next: ProjectFiltersValue) => {
-                setChipType(next.type);
-                setChipStatus(next.status);
-              }}
-            />
-          </div>
+        </>
         )}
 
         {/* Main content */}
@@ -546,11 +763,15 @@ function OwnerProjects() {
           <div data-testid="projects-list-favourites">
             <FavouriteTradesmenSection />
           </div>
+        ) : tab === "recommendations" ? (
+          <div data-testid="projects-list-recommendations">
+            <RecommendationsListMobile />
+          </div>
         ) : (
           <div data-testid="projects-list">
             {tab === "completed" || tab === "completedCommunity" ? (
               <div
-                className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5"
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
                 data-testid="projects-card-grid-completed"
               >
                 {items.map((p) => {
@@ -604,33 +825,44 @@ function OwnerProjects() {
                 {loading && [...Array(4)].map((_, i) => <SkeletonCard key={`skc-${i}`} />)}
                 {items.length === 0 && !loading && (
                   <div className="col-span-full" data-testid="projects-empty">
-                    <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm flex flex-col items-center justify-center py-20 px-6 text-center">
-                      <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-zinc-100">
-                        <FolderOpen className="h-10 w-10 text-zinc-400" />
+                    <div className="rounded-3xl bg-white border border-amber-100 shadow-sm px-6 py-12 text-center">
+                      <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 mx-auto mb-4">
+                        <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+                      </span>
+                      <div
+                        className="text-[16px] font-black tracking-tight text-slate-900"
+                        style={{ fontFamily: "'Sora', sans-serif" }}
+                      >
+                        No completed jobs yet
                       </div>
-                      <h3 className="mb-2 text-lg font-semibold text-zinc-900">No completed projects yet</h3>
-                      <p className="max-w-sm text-sm text-zinc-500">
-                        Projects you mark as complete will appear here.
+                      <p className="mt-1.5 text-[13px] text-slate-500 leading-relaxed max-w-md mx-auto">
+                        Once a job is wrapped up and marked as complete, it'll
+                        live here as a record of work done by your community.
                       </p>
+                      <Link
+                        href="/projects?tab=mine"
+                        className="mt-5 inline-flex items-center justify-center rounded-full px-5 py-2.5 text-[13px] font-extrabold text-white shadow-sm hover:shadow-md transition-all"
+                        style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
+                      >
+                        View live jobs
+                      </Link>
                     </div>
                   </div>
                 )}
               </div>
             ) : (
               <div
-                className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5"
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
                 data-testid="projects-card-grid"
               >
                 {items.map((p) => (
-                  <div className="contents" key={p.id}>
+                  <div key={p.id} className="flex flex-col gap-3">
                     <Link href={`/projects/${p.id}`} className="block hover:shadow-md transition-shadow rounded-3xl">
                       <ProjectImageCard
                         id={p.id}
                         status={p.status}
-                        imageUrl={
-                          p.coverPhotoUrl ||
-                          "https://cdn.home-designing.com/wp-content/uploads/2024/08/Graceful-Mid-Century-Modern-Living-Rooms.jpg"
-                        }
+                        imageUrl={p.coverPhotoUrl}
+                        type={p.type}
                         name={p.name}
                       />
                     </Link>
@@ -683,17 +915,21 @@ function OwnerProjects() {
         <PushPrompt onComplete={() => setShowPushPrompt(false)} />
       )}
 
-      {/* Floating Post a Job button */}
-      {items.length > 0 && (
-        <button
-          type="button"
-          onClick={() => router.push("/projects/new")}
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-amber-400 px-6 py-4 text-base font-bold text-zinc-900 shadow-xl shadow-amber-400/40 hover:bg-amber-300 hover:scale-105 transition-all animate-bounce-slow"
-        >
-          <Plus className="h-5 w-5" />
-          Post a Job
-        </button>
-      )}
+      {/* Floating Post-a-Job button: fixed bottom-right of the viewport so
+          it's always reachable while the user scrolls a long jobs list. */}
+      <Link
+        href="/projects/new"
+        className="fixed bottom-6 right-6 z-30 inline-flex items-center gap-2 rounded-full pl-5 pr-6 py-3 text-sm font-extrabold text-white shadow-xl hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all"
+        style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
+        data-testid="btn-post-a-job"
+      >
+        <Plus className="h-5 w-5" />
+        Post a job
+      </Link>
     </div>
+        </Layout>
+      </div>
+    </>
   );
 }
+

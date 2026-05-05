@@ -1,5 +1,6 @@
 // web/pages/signup.tsx
 import Head from "next/head";
+import Link from "next/link";
 import SignupForm from "@/components/forms/SignupForm";
 import GuestOnly from "@/components/GuestOnly";
 
@@ -8,30 +9,80 @@ export default function Signup() {
     <GuestOnly>
       <>
       <Head>
-        <title>Create account — VetMyBuilder</title>
+        <title>Create account - VetMyBuilder</title>
         <meta name="description" content="Create your free VetMyBuilder homeowner account." />
       </Head>
 
-      <div className="overflow-x-hidden -mt-14 min-h-screen">
-        <div className="relative min-h-screen flex items-center justify-center overflow-hidden py-24">
-
-          <div className="relative z-10 w-full max-w-md px-4 sm:px-0" data-testid="register-page">
-            <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-8 sm:p-10">
-              <div className="mb-8">
-                <h1
-                  className="text-3xl font-black tracking-tight text-zinc-900"
-                  id="register-title"
-                  data-testid="register-title"
-                >
-                  Create account
-                </h1>
-                <p className="mt-2 text-zinc-500 text-sm">
-                  Join VetMyBuilder — free for homeowners.
-                </p>
-              </div>
-
-              <SignupForm />
+      <div className="fixed inset-0 top-14 bg-white overflow-y-auto">
+        <div
+          className="mx-auto max-w-md md:max-w-4xl px-5 pt-6 pb-16 md:flex md:items-start md:gap-10"
+          data-testid="register-page"
+        >
+          {/* Form column */}
+          <div className="md:flex-1 md:max-w-md">
+            {/* Heading block - VMB wordmark already shown by SiteHeader */}
+            <div className="mb-6">
+              <h1
+                className="text-[28px] font-extrabold tracking-[-0.01em] text-slate-900 leading-[1.1]"
+                id="register-title"
+                data-testid="register-title"
+              >
+                Find your tradesperson
+              </h1>
+              <p className="mt-2 text-[13.5px] text-slate-500 leading-snug">
+                Free for homeowners. Takes a minute.
+              </p>
             </div>
+
+            <SignupForm />
+          </div>
+
+          {/* Right rail: trade banner + brand photo card. The photo is a
+              placeholder slot that can be swapped for an MPU ad later. */}
+          <div className="md:w-72 md:shrink-0 mt-8 md:mt-20 space-y-4">
+            <Link
+              href="/tradesman/register-tradesmen"
+              className="block rounded-2xl border border-emerald-200 bg-emerald-50/60 hover:bg-emerald-50 transition-colors p-4 md:p-5"
+              data-testid="signup-trade-banner"
+            >
+              <div className="flex md:flex-col items-center md:items-start gap-3 md:gap-4 md:text-left text-left">
+                <span
+                  aria-hidden
+                  className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-white text-lg md:text-xl shrink-0"
+                  style={{ background: "linear-gradient(135deg,#10b981,#059669)" }}
+                >
+                  🔧
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700">
+                    New tradesperson?
+                  </div>
+                  <div className="font-extrabold text-[15px] md:text-[17px] text-slate-900 leading-snug">
+                    Register your business
+                  </div>
+                  <p className="hidden md:block mt-2 text-[13px] text-slate-600 leading-relaxed">
+                    Win local work without paying per lead. No commission.
+                  </p>
+                  <span className="hidden md:inline-flex mt-3 items-center gap-1 text-emerald-700 font-bold text-sm">
+                    Get started <span aria-hidden>→</span>
+                  </span>
+                </div>
+                <span className="md:hidden text-emerald-600 text-xl shrink-0" aria-hidden>→</span>
+              </div>
+            </Link>
+
+            {/* Brand mood photo. Hidden on mobile to avoid pushing the trade
+                banner further down. Easy to swap for an MPU ad slot later. */}
+            <div
+              className="hidden md:block rounded-2xl overflow-hidden shadow-sm aspect-[4/5] bg-cover bg-center"
+              data-testid="signup-side-rail-photo"
+              style={{
+                backgroundImage:
+                  "url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=900&q=80&auto=format&fit=crop')",
+              }}
+              role="img"
+              aria-label="A bright, freshly renovated home interior"
+            />
           </div>
         </div>
       </div>

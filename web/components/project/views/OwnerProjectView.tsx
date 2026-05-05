@@ -7,7 +7,6 @@ import HiredTradesmenSection from "@/components/project/HiredTradesmenSection";
 import {
   SquarePen,
   XCircle,
-  Archive as ArchiveIcon,
   Link as LinkIcon,
   Plus,
 } from "lucide-react";
@@ -37,9 +36,6 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
     project,
     backHref,
     isClosed,
-    isArchived,
-    onArchive,
-    onUnarchive,
     onCloseProject,
     recs,
     recTotal,
@@ -329,7 +325,7 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
             {metaLabel} {metaText}
           </span>
           <div data-testid="owner-actions-secondary">
-            {!isClosed ? (
+            {!isClosed && (
               <button
                 className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-semibold text-rose-600 hover:bg-rose-100 hover:border-rose-300 transition-all"
                 onClick={onCloseProject}
@@ -338,18 +334,10 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
                 <XCircle size={12} />
                 <span>Close Job</span>
               </button>
-            ) : (
-              isArchived && (
-                <button
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white/80 px-3 py-1.5 text-[11px] font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all backdrop-blur"
-                  onClick={onUnarchive}
-                  data-testid="btn-unarchive"
-                >
-                  <ArchiveIcon size={12} />
-                  <span>Unarchive</span>
-                </button>
-              )
             )}
+            {/* Archived projects are now invisible to the owner (404 on
+                visit, hidden from list endpoints), so the Unarchive
+                affordance has no surface to live on. */}
           </div>
         </div>
 
@@ -492,7 +480,6 @@ export default function OwnerProjectView({ vm }: { vm: VM }) {
           <ShortlistSection
             items={shortlistData}
             total={shortlistCount}
-            viewMoreHref={`/projects/${project.id}/shortlist`}
             isOwner={true}
             canVote={false}
             votingId={null}

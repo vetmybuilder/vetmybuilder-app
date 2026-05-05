@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>/projects/[id] background - brand wordmark scatter</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Sora:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Sora', system-ui, sans-serif; background: #ece8e1; }
+  .caveat { font-family: 'Caveat', cursive; font-weight: 700; }
+  .sora-black { font-family: 'Sora', sans-serif; font-weight: 900; letter-spacing: -0.02em; }
+  .browser { background:white; border-radius:14px; box-shadow:0 30px 60px -20px rgba(15,23,42,0.25); overflow:hidden; }
+  .browser-bar { background:#f3f4f6; border-bottom:1px solid #e5e7eb; height:38px; display:flex; align-items:center; gap:6px; padding:0 12px; }
+  .browser-bar span { width:12px; height:12px; border-radius:9999px; }
+  .scatter { position: absolute; pointer-events: none; user-select: none; }
+
+  /* Wordmark — Sora black + Caveat indigo for "My" */
+  .wordmark { display: inline-flex; align-items: baseline; gap: 0; line-height: 1; }
+  .wordmark .black { color: #0f172a; }
+  .wordmark .my { font-family: 'Caveat', cursive; font-weight: 700; color: #4f46e5; }
+
+  /* VMB monogram — flat indigo, tight spacing */
+  .vmb {
+    font-family: 'Sora', sans-serif;
+    font-weight: 900;
+    color: #4f46e5;
+    letter-spacing: -0.04em;
+  }
+  .vmb-amber { color: #d97706; }
+
+  /* Tiled VMB pattern (Option D) */
+  .pattern-D {
+    background-color: #fef6e9;
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(99,102,241,0.06) 1px, transparent 0);
+    background-size: 24px 24px;
+    position: relative;
+  }
+</style>
+</head>
+<body class="text-slate-900">
+
+<div class="max-w-[1500px] mx-auto px-6 py-10">
+  <h1 class="text-3xl font-black tracking-tight mb-2">/projects/[id] brand-wordmark scatter</h1>
+  <p class="text-slate-600 mb-10 max-w-3xl">Use the VetMyBuilder wordmark (and its VMB shorthand) as the decoration. All in your indigo + amber palette. Four densities/styles.</p>
+
+  <div class="space-y-12">
+
+    <!-- ============================================ -->
+    <!-- A — Just the full wordmark, scattered loose -->
+    <!-- ============================================ -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-indigo-700 mb-2">Option A &middot; Full wordmark, sparse</div>
+      <h3 class="text-xl font-extrabold mb-3">"5 instances of the full VetMyBuilder wordmark, varied size + rotation."</h3>
+      <p class="text-sm text-slate-600 mb-5 max-w-3xl">The full lockup (Sora black + Caveat indigo "My") at ~12-15% opacity, scattered around the page edges. Reads as "subtle brand watermark". Lightest touch.</p>
+
+      <div class="browser">
+        <div class="browser-bar"><span class="bg-red-400"></span><span class="bg-amber-400"></span><span class="bg-emerald-400"></span><div class="ml-3 text-xs text-slate-500">localhost:3000/projects/6</div></div>
+        <div class="relative h-[600px] overflow-hidden bg-[#fef6e9]">
+          <div class="scatter sora-black wordmark" style="top:50px;left:50px;font-size:38px;opacity:0.13;transform:rotate(-10deg)">
+            <span class="black">Vet</span><span class="my" style="font-size:115%">My</span><span class="black">Builder</span>
+          </div>
+          <div class="scatter sora-black wordmark" style="top:120px;right:60px;font-size:28px;opacity:0.12;transform:rotate(8deg)">
+            <span class="black">Vet</span><span class="my" style="font-size:115%">My</span><span class="black">Builder</span>
+          </div>
+          <div class="scatter sora-black wordmark" style="bottom:200px;left:90px;font-size:32px;opacity:0.11;transform:rotate(15deg)">
+            <span class="black">Vet</span><span class="my" style="font-size:115%">My</span><span class="black">Builder</span>
+          </div>
+          <div class="scatter sora-black wordmark" style="bottom:60px;right:90px;font-size:42px;opacity:0.13;transform:rotate(-6deg)">
+            <span class="black">Vet</span><span class="my" style="font-size:115%">My</span><span class="black">Builder</span>
+          </div>
+          <div class="scatter sora-black wordmark" style="top:300px;right:240px;font-size:24px;opacity:0.12;transform:rotate(-22deg)">
+            <span class="black">Vet</span><span class="my" style="font-size:115%">My</span><span class="black">Builder</span>
+          </div>
+
+          <div class="relative px-6 pt-4">
+            <div class="text-center mb-3">
+              <div class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-indigo-700">Your shortlist</div>
+              <div class="text-[20px] font-black tracking-tight">Pick your <span class="caveat text-indigo-600" style="font-size:120%">tradesperson</span></div>
+            </div>
+            <div class="grid grid-cols-[280px_1fr] gap-6 relative z-10">
+              <div class="space-y-3">
+                <div class="bg-white border border-amber-100 rounded-3xl p-4 shadow-sm h-32"></div>
+                <div class="bg-white border-2 border-indigo-400 rounded-3xl p-4 shadow-md h-44"></div>
+              </div>
+              <div class="bg-white border border-amber-100 rounded-3xl shadow-sm h-[420px] flex items-center justify-center text-slate-400 text-sm">Empty state card</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================ -->
+    <!-- B — VMB monograms, dense                    -->
+    <!-- ============================================ -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-indigo-700 mb-2">Option B &middot; VMB monograms, dense</div>
+      <h3 class="text-xl font-extrabold mb-3">"Lots of small VMB monograms in indigo + amber, scattered."</h3>
+      <p class="text-sm text-slate-600 mb-5 max-w-3xl">Just the shorthand "VMB" repeated in indigo + amber at varying sizes and angles. Denser than A, more pattern-feel. Reads as a brand wallpaper.</p>
+
+      <div class="browser">
+        <div class="browser-bar"><span class="bg-red-400"></span><span class="bg-amber-400"></span><span class="bg-emerald-400"></span><div class="ml-3 text-xs text-slate-500">localhost:3000/projects/6</div></div>
+        <div class="relative h-[600px] overflow-hidden bg-[#fef6e9]">
+          <!-- ~14 VMB tokens scattered -->
+          <div class="scatter vmb" style="top:30px;left:30px;font-size:42px;opacity:0.16;transform:rotate(-8deg)">VMB</div>
+          <div class="scatter vmb vmb-amber" style="top:50px;left:200px;font-size:32px;opacity:0.18;transform:rotate(12deg)">VMB</div>
+          <div class="scatter vmb" style="top:90px;right:60px;font-size:48px;opacity:0.14;transform:rotate(-15deg)">VMB</div>
+          <div class="scatter vmb vmb-amber" style="top:240px;left:50px;font-size:28px;opacity:0.18;transform:rotate(20deg)">VMB</div>
+          <div class="scatter vmb" style="top:200px;right:160px;font-size:36px;opacity:0.15;transform:rotate(8deg)">VMB</div>
+          <div class="scatter vmb" style="top:340px;left:140px;font-size:30px;opacity:0.16;transform:rotate(-22deg)">VMB</div>
+          <div class="scatter vmb vmb-amber" style="top:380px;right:80px;font-size:34px;opacity:0.17;transform:rotate(-6deg)">VMB</div>
+          <div class="scatter vmb" style="bottom:80px;left:80px;font-size:44px;opacity:0.14;transform:rotate(15deg)">VMB</div>
+          <div class="scatter vmb" style="bottom:40px;left:230px;font-size:24px;opacity:0.18;transform:rotate(-10deg)">VMB</div>
+          <div class="scatter vmb vmb-amber" style="bottom:140px;right:140px;font-size:40px;opacity:0.16;transform:rotate(18deg)">VMB</div>
+          <div class="scatter vmb" style="bottom:60px;right:50px;font-size:30px;opacity:0.17;transform:rotate(-12deg)">VMB</div>
+          <div class="scatter vmb vmb-amber" style="top:160px;left:300px;font-size:22px;opacity:0.18;transform:rotate(25deg)">VMB</div>
+          <div class="scatter vmb" style="bottom:260px;left:30px;font-size:26px;opacity:0.16;transform:rotate(8deg)">VMB</div>
+          <div class="scatter vmb" style="top:280px;right:30px;font-size:22px;opacity:0.18;transform:rotate(-18deg)">VMB</div>
+
+          <div class="relative px-6 pt-4">
+            <div class="text-center mb-3">
+              <div class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-indigo-700">Your shortlist</div>
+              <div class="text-[20px] font-black tracking-tight">Pick your <span class="caveat text-indigo-600" style="font-size:120%">tradesperson</span></div>
+            </div>
+            <div class="grid grid-cols-[280px_1fr] gap-6 relative z-10">
+              <div class="space-y-3">
+                <div class="bg-white border border-amber-100 rounded-3xl p-4 shadow-sm h-32"></div>
+                <div class="bg-white border-2 border-indigo-400 rounded-3xl p-4 shadow-md h-44"></div>
+              </div>
+              <div class="bg-white border border-amber-100 rounded-3xl shadow-sm h-[420px] flex items-center justify-center text-slate-400 text-sm">Empty state card</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================ -->
+    <!-- C — Mixed: wordmark + VMB                    -->
+    <!-- ============================================ -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-indigo-700 mb-2">Option C &middot; Mix - full wordmark + VMB shorthand</div>
+      <h3 class="text-xl font-extrabold mb-3">"4 full wordmarks + 8 VMB monograms in between."</h3>
+      <p class="text-sm text-slate-600 mb-5 max-w-3xl">The full VetMyBuilder lockup as anchor points, with smaller VMB monograms filling the spaces between. Best of A and B: brand readability with pattern density.</p>
+
+      <div class="browser">
+        <div class="browser-bar"><span class="bg-red-400"></span><span class="bg-amber-400"></span><span class="bg-emerald-400"></span><div class="ml-3 text-xs text-slate-500">localhost:3000/projects/6</div></div>
+        <div class="relative h-[600px] overflow-hidden bg-[#fef6e9]">
+          <!-- 4 full wordmarks -->
+          <div class="scatter sora-black wordmark" style="top:40px;left:50px;font-size:38px;opacity:0.14;transform:rotate(-8deg)">
+            <span class="black">Vet</span><span class="my" style="font-size:115%">My</span><span class="black">Builder</span>
+          </div>
+          <div class="scatter sora-black wordmark" style="top:90px;right:60px;font-size:32px;opacity:0.13;transform:rotate(8deg)">
+            <span class="black">Vet</span><span class="my" style="font-size:115%">My</span><span class="black">Builder</span>
+          </div>
+          <div class="scatter sora-black wordmark" style="bottom:90px;left:60px;font-size:28px;opacity:0.13;transform:rotate(15deg)">
+            <span class="black">Vet</span><span class="my" style="font-size:115%">My</span><span class="black">Builder</span>
+          </div>
+          <div class="scatter sora-black wordmark" style="bottom:50px;right:70px;font-size:42px;opacity:0.14;transform:rotate(-6deg)">
+            <span class="black">Vet</span><span class="my" style="font-size:115%">My</span><span class="black">Builder</span>
+          </div>
+          <!-- VMB filler -->
+          <div class="scatter vmb vmb-amber" style="top:200px;left:40px;font-size:26px;opacity:0.18;transform:rotate(20deg)">VMB</div>
+          <div class="scatter vmb" style="top:200px;right:170px;font-size:24px;opacity:0.16;transform:rotate(-12deg)">VMB</div>
+          <div class="scatter vmb vmb-amber" style="top:320px;left:140px;font-size:22px;opacity:0.18;transform:rotate(8deg)">VMB</div>
+          <div class="scatter vmb" style="top:380px;right:50px;font-size:28px;opacity:0.16;transform:rotate(-18deg)">VMB</div>
+          <div class="scatter vmb" style="bottom:200px;left:200px;font-size:24px;opacity:0.16;transform:rotate(12deg)">VMB</div>
+          <div class="scatter vmb vmb-amber" style="bottom:260px;right:200px;font-size:26px;opacity:0.18;transform:rotate(-8deg)">VMB</div>
+          <div class="scatter vmb" style="top:140px;left:280px;font-size:20px;opacity:0.16;transform:rotate(25deg)">VMB</div>
+          <div class="scatter vmb vmb-amber" style="bottom:160px;right:50px;font-size:22px;opacity:0.18;transform:rotate(15deg)">VMB</div>
+
+          <div class="relative px-6 pt-4">
+            <div class="text-center mb-3">
+              <div class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-indigo-700">Your shortlist</div>
+              <div class="text-[20px] font-black tracking-tight">Pick your <span class="caveat text-indigo-600" style="font-size:120%">tradesperson</span></div>
+            </div>
+            <div class="grid grid-cols-[280px_1fr] gap-6 relative z-10">
+              <div class="space-y-3">
+                <div class="bg-white border border-amber-100 rounded-3xl p-4 shadow-sm h-32"></div>
+                <div class="bg-white border-2 border-indigo-400 rounded-3xl p-4 shadow-md h-44"></div>
+              </div>
+              <div class="bg-white border border-amber-100 rounded-3xl shadow-sm h-[420px] flex items-center justify-center text-slate-400 text-sm">Empty state card</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================ -->
+    <!-- D — Tiled grid pattern of VMB                -->
+    <!-- ============================================ -->
+    <section>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-indigo-700 mb-2">Option D &middot; Tiled VMB grid (uniform)</div>
+      <h3 class="text-xl font-extrabold mb-3">"Even VMB tiling across the whole page - same size, same angle."</h3>
+      <p class="text-sm text-slate-600 mb-5 max-w-3xl">A uniform repeating pattern of "VMB" tokens in a regular grid - alternating indigo and amber, all at the same tilt. Most pattern-y / wallpaper-y of the four. Calmer than B because there's no variation.</p>
+
+      <div class="browser">
+        <div class="browser-bar"><span class="bg-red-400"></span><span class="bg-amber-400"></span><span class="bg-emerald-400"></span><div class="ml-3 text-xs text-slate-500">localhost:3000/projects/6</div></div>
+        <div class="relative h-[600px] overflow-hidden pattern-D">
+          <!-- Generate tiled VMB tokens via JS -->
+          <script>
+            (function(){
+              const cells = [];
+              const W = 1100, H = 600;
+              const stepX = 110, stepY = 80;
+              for (let y = 30; y < H; y += stepY) {
+                for (let x = 20; x < W; x += stepX) {
+                  cells.push({ x, y, c: ((x/stepX + y/stepY) % 2 === 0) ? '#4f46e5' : '#d97706' });
+                }
+              }
+              document.write(cells.map((c, i) => (
+                `<div class="scatter vmb" style="left:${c.x}px;top:${c.y}px;font-size:22px;opacity:0.14;transform:rotate(-8deg);color:${c.c}">VMB</div>`
+              )).join(''));
+            })();
+          </script>
+
+          <div class="relative px-6 pt-4">
+            <div class="text-center mb-3">
+              <div class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-indigo-700">Your shortlist</div>
+              <div class="text-[20px] font-black tracking-tight">Pick your <span class="caveat text-indigo-600" style="font-size:120%">tradesperson</span></div>
+            </div>
+            <div class="grid grid-cols-[280px_1fr] gap-6 relative z-10">
+              <div class="space-y-3">
+                <div class="bg-white border border-amber-100 rounded-3xl p-4 shadow-sm h-32"></div>
+                <div class="bg-white border-2 border-indigo-400 rounded-3xl p-4 shadow-md h-44"></div>
+              </div>
+              <div class="bg-white border border-amber-100 rounded-3xl shadow-sm h-[420px] flex items-center justify-center text-slate-400 text-sm">Empty state card</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="mt-16 mb-4 text-sm text-slate-600 max-w-3xl">
+    <p class="font-bold mb-2">Notes</p>
+    <ul class="list-disc list-inside space-y-1 text-[13px]">
+      <li><strong>A</strong> - 5 full wordmarks. Subtle, brand-readable, watermark feel.</li>
+      <li><strong>B</strong> - lots of VMB tokens, varied. Pattern-y, alive, tiny bit chaotic.</li>
+      <li><strong>C</strong> - mix of full wordmark + VMB shorthand. Anchor + filler.</li>
+      <li><strong>D</strong> - uniform VMB tiling. Calm, wallpaper-clean.</li>
+    </ul>
+    <p class="mt-3 text-[13px]">All use indigo as the dominant brand colour with amber accents on the VMB shorthands. None compete with the swipe deck or chat dock.</p>
+  </div>
+
+</div>
+
+</body>
+</html>

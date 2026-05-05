@@ -380,15 +380,24 @@ export function useProjectView() {
         payload
       );
       const updated: Project = data?.project ?? project;
+      setCloseOpen(false);
+      // Navigate away from the now-closed project before flipping vm
+      // state. Archived projects are invisible to the owner so the
+      // /projects/{id} page would 404 if we stayed; completed jobs live
+      // under the Completed tab, so jump there directly.
+      if (updated.status === "archived") {
+        router.replace("/projects");
+        return;
+      }
+      if (updated.status === "completed") {
+        router.replace("/projects?tab=completed");
+        return;
+      }
       setProject(updated);
       setFlash({
         kind: "success",
-        text:
-          updated.status === "completed"
-            ? "Project closed (Completed — Community)"
-            : "Project closed and archived",
+        text: "Project updated",
       });
-      setCloseOpen(false);
     } catch (e: any) {
       setFlash({
         kind: "error",

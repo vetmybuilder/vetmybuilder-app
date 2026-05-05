@@ -46,6 +46,20 @@ type Item = {
 
   oneOffUnlocks?: number | null;
   oneOffUnlocksPending?: number | null;
+
+  // Live tier-model subscription (builder_subscriptions). Null when not
+  // currently subscribed via the new flow. Drives the swipe gate and
+  // the admin Subscription action group below.
+  subscriptionTierId?: BuilderSubTier | null;
+  subscriptionPeriodEnd?: string | null;
+};
+
+type BuilderSubTier = "week_1" | "week_2" | "month_1";
+
+const BUILDER_SUB_TIER_LABEL: Record<BuilderSubTier, string> = {
+  week_1: "7-day — £3.99",
+  week_2: "14-day — £6.99",
+  month_1: "30-day — £9.99",
 };
 
 type Resp = { items: Item[]; total: number; offset: number; limit: number };
@@ -100,6 +114,20 @@ export default function AdminTradesmenLeaderboardPage() {
 
   const [confirmCancelUid, setConfirmCancelUid] = useState<string | null>(null);
 
+  // One-off unlock admin UI - per-modal state. The project ID input is
+  // a string so the empty state is renderable; we coerce on submit.
+  // unlocksList holds the active rows for whichever tradesman's modal
+  // is currently open; refetched whenever menuUid changes.
+  const [oneOffProjectInput, setOneOffProjectInput] = useState<string>("");
+  const [unlocksList, setUnlocksList] = useState<
+    Array<{
+      projectId: number;
+      projectName: string | null;
+      status: string | null;
+      approvedAt: string | null;
+    }>
+  >([]);
+
   const [sortKey, setSortKey] = useState<SortKey>("score");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
@@ -115,6 +143,34 @@ export default function AdminTradesmenLeaderboardPage() {
   // (or the modal closes) so it always starts at the 30-day default.
   useEffect(() => {
     setSpotlightDays(30);
+  }, [menuUid]);
+
+  // Per-modal one-off unlock state. Reset the input each time, and fetch
+  // the active unlock list for the user whose modal just opened. The
+  // list is purely informational - the row's Revoke buttons hit the
+  // same endpoint as the manual project-id flow.
+  useEffect(() => {
+    setOneOffProjectInput("");
+    if (!menuUid) {
+      setUnlocksList([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await api.get(
+          `/api/admin/tradesmen/${menuUid}/oneoff-unlocks`,
+        );
+        if (cancelled) return;
+        setUnlocksList(Array.isArray(data?.items) ? data.items : []);
+      } catch {
+        if (!cancelled) setUnlocksList([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menuUid]);
 
   const queryString = useMemo(() => {
@@ -192,32 +248,6 @@ export default function AdminTradesmenLeaderboardPage() {
     }
   }
 
-  async function approvePending(uid: string) {
-    setMutatingUid(uid);
-    try {
-      await api.post(`/api/admin/tradesmen/${uid}/subscription/approve`);
-      await load();
-    } catch (e: any) {
-      alert(e?.response?.data?.error || "Failed to approve");
-    } finally {
-      setMutatingUid(null);
-      setMenuUid(null);
-    }
-  }
-
-  async function rejectPending(uid: string) {
-    setMutatingUid(uid);
-    try {
-      await api.post(`/api/admin/tradesmen/${uid}/subscription/reject`);
-      await load();
-    } catch (e: any) {
-      alert(e?.response?.data?.error || "Failed to reject");
-    } finally {
-      setMutatingUid(null);
-      setMenuUid(null);
-    }
-  }
-
   async function adminCancel(uid: string, immediate = false) {
     setMutatingUid(uid);
     try {
@@ -237,30 +267,54 @@ export default function AdminTradesmenLeaderboardPage() {
     }
   }
 
-  /* ========= One-off unlocks (cleaned) ========= */
-  async function approveUnlock(uid: string) {
-    setMutatingUid(uid);
+  /* ========= One-off unlocks (admin grant/revoke per project) ========= */
+  // Refetches the active unlock list for the currently-open modal user
+  // after a mutation, so the modal stays accurate without needing the
+  // outer leaderboard refresh.
+  async function refreshUnlocksList(uid: string) {
     try {
-      await api.post(`/api/admin/tradesmen/${uid}/unlocks/approve`, {});
-      await load();
-    } catch (e: any) {
-      setErr(e?.response?.data?.error || "Failed to approve unlock");
-    } finally {
-      setMutatingUid(null);
-      setMenuUid(null);
+      const { data } = await api.get(
+        `/api/admin/tradesmen/${uid}/oneoff-unlocks`,
+      );
+      setUnlocksList(Array.isArray(data?.items) ? data.items : []);
+    } catch {
+      // leave the previous list in place; the user can close + reopen
     }
   }
 
-  async function rejectUnlock(uid: string) {
+  async function grantOneOffUnlock(uid: string, projectId: number) {
+    if (!Number.isFinite(projectId) || projectId <= 0) {
+      setErr("Enter a valid project ID");
+      return;
+    }
     setMutatingUid(uid);
     try {
-      await api.post(`/api/admin/tradesmen/${uid}/unlocks/reject`, {});
-      await load();
+      await api.post(
+        `/api/admin/tradesmen/${uid}/oneoff-unlocks/grant`,
+        { projectId },
+      );
+      setOneOffProjectInput("");
+      await refreshUnlocksList(uid);
     } catch (e: any) {
-      setErr(e?.response?.data?.error || "Failed to reject unlock");
+      setErr(e?.response?.data?.error || "Failed to grant unlock");
     } finally {
       setMutatingUid(null);
-      setMenuUid(null);
+    }
+  }
+
+  async function revokeOneOffUnlock(uid: string, projectId: number) {
+    if (!window.confirm(`Revoke unlock for project #${projectId}?`)) return;
+    setMutatingUid(uid);
+    try {
+      await api.post(
+        `/api/admin/tradesmen/${uid}/oneoff-unlocks/revoke`,
+        { projectId },
+      );
+      await refreshUnlocksList(uid);
+    } catch (e: any) {
+      setErr(e?.response?.data?.error || "Failed to revoke unlock");
+    } finally {
+      setMutatingUid(null);
     }
   }
 
@@ -272,6 +326,39 @@ export default function AdminTradesmenLeaderboardPage() {
       await load();
     } catch (e: any) {
       setErr(e?.response?.data?.error || "Failed to grant spotlight");
+    } finally {
+      setMutatingUid(null);
+      setMenuUid(null);
+    }
+  }
+
+  /* ========= Builder subscription (tier model: week_1/week_2/month_1) ========= */
+  async function grantBuilderSub(uid: string, tier: BuilderSubTier) {
+    setMutatingUid(uid);
+    try {
+      await api.post("/api/admin/builder-subscriptions/grant", {
+        userId: uid,
+        tier,
+      });
+      await load();
+    } catch (e: any) {
+      setErr(e?.response?.data?.error || "Failed to grant subscription");
+    } finally {
+      setMutatingUid(null);
+      setMenuUid(null);
+    }
+  }
+
+  async function revokeBuilderSub(uid: string) {
+    if (!window.confirm("Revoke this tradesperson's subscription?")) return;
+    setMutatingUid(uid);
+    try {
+      await api.post("/api/admin/builder-subscriptions/revoke", {
+        userId: uid,
+      });
+      await load();
+    } catch (e: any) {
+      setErr(e?.response?.data?.error || "Failed to revoke subscription");
     } finally {
       setMutatingUid(null);
       setMenuUid(null);
@@ -865,8 +952,6 @@ export default function AdminTradesmenLeaderboardPage() {
         const it = sortedItems.find(i => i.userId === menuUid);
         if (!it) return null;
         const isBusy = mutatingUid === it.userId;
-        const pendingPlan = it.pendingPlan || null;
-        const pending = it.oneOffUnlocksPending || 0;
         const effectivePlan = planLabel(it.plan);
         const canCancel = effectivePlan !== "free" && !isBusy;
 
@@ -921,25 +1006,121 @@ export default function AdminTradesmenLeaderboardPage() {
                   </div>
                 </div>
 
-                {/* Plans */}
+                {/* One-off unlocks - admin grant/revoke per project */}
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">
-                    Plans {pendingPlan && <span className="ml-1 text-sky-500 normal-case">(pending: {pendingPlan})</span>}
+                    One-off unlocks
+                    {unlocksList.length > 0 && (
+                      <span className="ml-1 text-emerald-500 normal-case">
+                        ({unlocksList.length} active)
+                      </span>
+                    )}
                   </p>
-                  <div className="space-y-1.5">
-                    {btn("Approve pending plan", () => { approvePending(it.userId); setMenuUid(null); }, "success", !pendingPlan)}
-                    {btn("Reject pending plan", () => { rejectPending(it.userId); setMenuUid(null); }, "danger", !pendingPlan)}
+
+                  {/* Grant input row */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <input
+                      type="number"
+                      min={1}
+                      placeholder="Project ID"
+                      value={oneOffProjectInput}
+                      onChange={(e) => setOneOffProjectInput(e.target.value)}
+                      className="flex-1 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-700"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const pid = Number(oneOffProjectInput);
+                        grantOneOffUnlock(it.userId, pid);
+                      }}
+                      disabled={!oneOffProjectInput || mutatingUid === it.userId}
+                      className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-emerald-500"
+                    >
+                      Grant
+                    </button>
                   </div>
+
+                  {/* Active unlocks list with per-row Revoke */}
+                  {unlocksList.length > 0 ? (
+                    <div className="space-y-1">
+                      {unlocksList.map((u) => (
+                        <div
+                          key={u.projectId}
+                          className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[12px] font-bold text-slate-900 truncate">
+                              {u.projectName || "(unknown project)"}{" "}
+                              <span className="text-slate-400 font-normal">#{u.projectId}</span>
+                            </div>
+                            {u.approvedAt && (
+                              <div className="text-[10px] text-slate-500">
+                                Granted {new Date(u.approvedAt).toLocaleDateString("en-GB")}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => revokeOneOffUnlock(it.userId, u.projectId)}
+                            disabled={mutatingUid === it.userId}
+                            className="rounded-md bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                          >
+                            Revoke
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-slate-400 italic">
+                      No active one-off unlocks
+                    </p>
+                  )}
                 </div>
 
-                {/* Unlocks */}
+                {/* Subscription (week/month tier model). The new
+                    tier-based subscription that the swipe-deck gate
+                    reads from. Granting overwrites any existing row;
+                    revoking flips status='canceled'. Both call the
+                    syncSubscriptionCache helper server-side so
+                    tradesmen.subscription_status stays aligned. */}
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">
-                    One-off unlocks {pending > 0 && <span className="ml-1 text-amber-500 normal-case">({pending} pending)</span>}
+                    Subscription
+                    {it.subscriptionTierId && (
+                      <span className="ml-1 text-emerald-500 normal-case">
+                        ({BUILDER_SUB_TIER_LABEL[it.subscriptionTierId]}
+                        {it.subscriptionPeriodEnd
+                          ? `, until ${new Date(it.subscriptionPeriodEnd).toLocaleDateString("en-GB")}`
+                          : ""}
+                        )
+                      </span>
+                    )}
                   </p>
                   <div className="space-y-1.5">
-                    {btn("Approve one-off unlock", () => { approveUnlock(it.userId); setMenuUid(null); }, "success", pending === 0)}
-                    {btn("Reject one-off unlock", () => { rejectUnlock(it.userId); setMenuUid(null); }, "danger", pending === 0)}
+                    {btn(
+                      "Grant 7-day pass (£3.99)",
+                      () => grantBuilderSub(it.userId, "week_1"),
+                      "success",
+                      it.subscriptionTierId === "week_1",
+                    )}
+                    {btn(
+                      "Grant 14-day pass (£6.99)",
+                      () => grantBuilderSub(it.userId, "week_2"),
+                      "success",
+                      it.subscriptionTierId === "week_2",
+                    )}
+                    {btn(
+                      "Grant 30-day pass (£9.99)",
+                      () => grantBuilderSub(it.userId, "month_1"),
+                      "success",
+                      it.subscriptionTierId === "month_1",
+                    )}
+                    {btn(
+                      "Revoke pass",
+                      () => revokeBuilderSub(it.userId),
+                      "danger",
+                      !it.subscriptionTierId,
+                    )}
                   </div>
                 </div>
 

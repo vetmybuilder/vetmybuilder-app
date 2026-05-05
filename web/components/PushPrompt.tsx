@@ -1,5 +1,6 @@
 // web/components/PushPrompt.tsx
 import { useState } from "react";
+import { Bell } from "lucide-react";
 import { useApi } from "@/utils/api";
 import { trackPushEnabled, trackPushSkipped } from "@/utils/analytics";
 
@@ -64,46 +65,110 @@ export default function PushPrompt({ onComplete, isTradesman = false }: { onComp
     dismiss();
   }
 
+  // Tradespeople use the emerald palette; homeowners the indigo one
+  // (matches the rest of the app's role-based brand colours).
+  const accent = isTradesman
+    ? {
+        iconBg: "linear-gradient(135deg, #6ee7b7, #10b981)",
+        iconShadow: "0 12px 28px rgba(16,185,129,0.30)",
+        ctaBg: "linear-gradient(135deg, #10b981, #059669)",
+        ctaShadow: "0 8px 22px rgba(16,185,129,0.30)",
+        accentText: "text-emerald-600",
+      }
+    : {
+        iconBg: "linear-gradient(135deg, #a5b4fc, #6366f1)",
+        iconShadow: "0 12px 28px rgba(99,102,241,0.30)",
+        ctaBg: "linear-gradient(135deg, #6366f1, #4f46e5)",
+        ctaShadow: "0 8px 22px rgba(99,102,241,0.30)",
+        accentText: "text-indigo-600",
+      };
+
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl p-8 text-center">
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center px-4"
+      style={{ background: "rgba(15,23,42,0.55)" }}
+    >
+      <div
+        className="w-full max-w-sm rounded-3xl bg-white border border-amber-100 shadow-2xl shadow-indigo-200/30 px-6 py-7 text-center"
+        style={{
+          fontFamily:
+            "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
+        }}
+      >
         {/* Bell icon */}
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-50">
-          <svg className="h-7 w-7 text-red-500" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path
-              d="M14 19a2 2 0 1 1-4 0m-5-1h14c-.9-1.2-1.6-2.3-1.6-5.1 0-3.5-2.2-6.4-5.4-6.9-3.4-.6-6 2.1-6 5.7 0 2.8-.7 3.9-2 6.3Z"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+        <div
+          className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full text-white"
+          style={{ background: accent.iconBg, boxShadow: accent.iconShadow }}
+        >
+          <Bell className="h-7 w-7" />
         </div>
 
-        <h2 className="text-xl font-bold text-zinc-900">Stay in the loop</h2>
+        <h2
+          className="text-[22px] font-extrabold tracking-tight text-slate-900 leading-tight"
+          style={{ fontFamily: "'Sora', sans-serif" }}
+        >
+          Stay in the{" "}
+          <span
+            className={accent.accentText}
+            style={{ fontFamily: "'Caveat', cursive", fontSize: "120%" }}
+          >
+            loop
+          </span>
+        </h2>
 
-        <p className="mt-2 text-sm text-zinc-500 leading-relaxed">
+        <p className="mt-2 text-[13.5px] text-slate-500 leading-relaxed">
           {isTradesman
             ? "Get notified when homeowners post jobs in your area, when you're recommended, or when you receive a hire request. You can change this anytime in settings."
-            : "Get notified when builders respond, neighbours recommend, or new projects match your area. You can change this anytime in settings."}
+            : "Get notified when tradespeople respond, your community recommends, or new jobs match your area. You can change this anytime in settings."}
         </p>
 
-        <div className="mt-6 flex flex-col gap-3">
+        <div className="mt-6 flex flex-col gap-2">
           <button
             type="button"
             onClick={enable}
             disabled={busy}
-            className={`w-full inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-white shadow-lg transition-all disabled:cursor-not-allowed ${busy ? "bg-zinc-400" : "bg-red-500 shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] active:scale-95 disabled:opacity-60"}`}
+            className="w-full inline-flex items-center justify-center gap-2 rounded-full px-6 py-3.5 text-[14px] font-extrabold text-white transition-all disabled:cursor-not-allowed disabled:opacity-60"
+            style={{
+              background: busy
+                ? "linear-gradient(135deg, #94a3b8, #64748b)"
+                : accent.ctaBg,
+              boxShadow: busy ? undefined : accent.ctaShadow,
+            }}
           >
-            {busy && <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" /><path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" /></svg>}
-            {busy ? "Setting up..." : "Enable notifications"}
+            {busy && (
+              <svg
+                className="h-4 w-4 animate-spin"
+                viewBox="0 0 24 24"
+                fill="none"
+              >
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  className="opacity-25"
+                />
+                <path
+                  d="M4 12a8 8 0 018-8"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  className="opacity-75"
+                />
+              </svg>
+            )}
+            {busy ? "Setting up…" : "Enable notifications"}
           </button>
 
           <button
             type="button"
-            onClick={() => { trackPushSkipped(); dismiss(); }}
+            onClick={() => {
+              trackPushSkipped();
+              dismiss();
+            }}
             disabled={busy}
-            className="w-full rounded-full px-6 py-3 text-sm font-semibold text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50 transition-colors"
+            className="w-full rounded-full px-6 py-2.5 text-[12.5px] font-semibold text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors"
           >
             Skip for now
           </button>

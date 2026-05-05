@@ -345,156 +345,171 @@ export default function CloseProjectModal({
       />
       <form
         onSubmit={handleSubmit}
-        className="relative z-10 w-[92vw] max-w-2xl rounded-3xl bg-white shadow-2xl shadow-zinc-200/80 overflow-hidden animate-modal-in"
+        className="relative z-10 w-[92vw] max-w-lg rounded-3xl bg-white border border-amber-100 shadow-2xl shadow-indigo-200/30 overflow-hidden animate-modal-in flex flex-col max-h-[92vh]"
       >
-        <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-5 text-white">
-          <h2
-            id="close-project-title"
-            className="text-lg font-bold tracking-tight"
-            data-testid="close-project-title"
+        {/* Header bar - X + eyebrow */}
+        <div className="px-6 pt-5 pb-3 flex items-center justify-between border-b border-slate-100 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
+            aria-label="Close"
+            data-testid="close-project-x"
           >
-            Close job{projectName ? `: ${projectName}` : ""}
-          </h2>
+            <svg
+              className="w-4 h-4 text-slate-700"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+          <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">
+            Close project
+          </div>
+          <div className="w-8" aria-hidden />
         </div>
 
-        <div className="p-6 sm:p-8 space-y-5">
-          {/* Did it go ahead? */}
-          <div className="flex items-center gap-3">
+        <div className="px-6 py-5 space-y-5 overflow-y-auto">
+          <div>
+            <h2
+              id="close-project-title"
+              data-testid="close-project-title"
+              className="text-[20px] font-black tracking-tight text-slate-900 leading-snug"
+              style={{ fontFamily: "'Sora', sans-serif" }}
+            >
+              Close{projectName ? `: ${projectName}` : ""}
+            </h2>
+            <p className="mt-1 text-[13px] text-slate-500">
+              Tell us how this project ended.
+            </p>
+          </div>
+
+          {/* Did it go ahead? - segmented Yes / No.
+              Hidden checkbox preserves the input-did-go-ahead testid. */}
+          <div>
+            <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-500 mb-2">
+              Did the work go ahead?
+            </div>
             <input
               id="did-go-ahead"
               type="checkbox"
               checked={didGoAhead}
               onChange={(e) => setDidGoAhead(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300"
+              className="sr-only"
               data-testid="input-did-go-ahead"
             />
-            <label
-              htmlFor="did-go-ahead"
-              className="select-none text-sm sm:text-base"
+            <div
+              role="radiogroup"
+              aria-label="Did the work go ahead?"
+              className="inline-flex w-full rounded-2xl bg-slate-100 p-1"
             >
-              Did the work go ahead?
-            </label>
+              <SegmentBtn
+                active={!didGoAhead}
+                onClick={() => setDidGoAhead(false)}
+                label="No"
+                testId="close-segment-no"
+              />
+              <SegmentBtn
+                active={didGoAhead}
+                onClick={() => setDidGoAhead(true)}
+                label="Yes"
+                testId="close-segment-yes"
+              />
+            </div>
           </div>
 
           {/* Reasons if it did NOT go ahead */}
           {!didGoAhead && (
-            <fieldset
-              className="rounded-2xl border-2 border-zinc-200 p-3 sm:p-4"
-              data-testid="fieldset-reasons"
-            >
-              <legend className="px-1 text-sm font-bold text-zinc-700">
+            <fieldset data-testid="fieldset-reasons">
+              <legend className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-500 mb-2">
                 Why didn't it go ahead?
               </legend>
 
-              <div
-                className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2"
-                aria-label="Reasons list"
-              >
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={reasons.includes("budget")}
-                    onChange={() => toggleReason("budget")}
-                    data-testid="reason-budget"
-                  />
-                  <span>Budget</span>
-                </label>
-
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={reasons.includes("no_show")}
-                    onChange={() => toggleReason("no_show")}
-                    data-testid="reason-no-show"
-                  />
-                  <span>Tradesperson didn't show up</span>
-                </label>
-
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={reasons.includes("quote_too_high")}
-                    onChange={() => toggleReason("quote_too_high")}
-                    data-testid="reason-quote-too-high"
-                  />
-                  <span>Quote too high</span>
-                </label>
-
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={reasons.includes("tradesman_unavailable")}
-                    onChange={() => toggleReason("tradesman_unavailable")}
-                    data-testid="reason-tradesman-unavailable"
-                  />
-                  <span>Tradesperson unavailable</span>
-                </label>
-
-                <label className="col-span-full flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={reasons.includes("other")}
-                    onChange={() => toggleReason("other")}
-                    data-testid="reason-other"
-                  />
-                  <span>Other</span>
-                </label>
-
-                {reasons.includes("other") && (
-                  <div className="col-span-full">
-                    <label
-                      htmlFor="reason-other-text"
-                      className="block text-sm font-bold text-zinc-700"
-                    >
-                      Please specify
-                    </label>
-                    <textarea
-                      id="reason-other-text"
-                      className="mt-1 w-full rounded-2xl border-2 border-zinc-200 px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:border-red-400 focus:outline-none transition-colors resize-none"
-                      rows={3}
-                      value={otherText}
-                      onChange={(e) => setOtherText(e.target.value)}
-                      data-testid="input-reason-other-text"
-                    />
-                  </div>
-                )}
+              <div className="space-y-1.5">
+                <ReasonRow
+                  label="Budget"
+                  checked={reasons.includes("budget")}
+                  onToggle={() => toggleReason("budget")}
+                  testId="reason-budget"
+                />
+                <ReasonRow
+                  label="Quote too high"
+                  checked={reasons.includes("quote_too_high")}
+                  onToggle={() => toggleReason("quote_too_high")}
+                  testId="reason-quote-too-high"
+                />
+                <ReasonRow
+                  label="Tradesperson didn't show"
+                  checked={reasons.includes("no_show")}
+                  onToggle={() => toggleReason("no_show")}
+                  testId="reason-no-show"
+                />
+                <ReasonRow
+                  label="Tradesperson unavailable"
+                  checked={reasons.includes("tradesman_unavailable")}
+                  onToggle={() => toggleReason("tradesman_unavailable")}
+                  testId="reason-tradesman-unavailable"
+                />
+                <ReasonRow
+                  label="Other"
+                  checked={reasons.includes("other")}
+                  onToggle={() => toggleReason("other")}
+                  testId="reason-other"
+                />
               </div>
-              <p className="mt-2 text-xs text-zinc-400">
-                You can update this later if needed.
-              </p>
+
+              {reasons.includes("other") && (
+                <div className="mt-3">
+                  <label
+                    htmlFor="reason-other-text"
+                    className="block text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-500 mb-1.5"
+                  >
+                    Tell us a bit more
+                  </label>
+                  <textarea
+                    id="reason-other-text"
+                    rows={3}
+                    value={otherText}
+                    onChange={(e) => setOtherText(e.target.value)}
+                    data-testid="input-reason-other-text"
+                    placeholder="Optional - one or two sentences in your own words."
+                    className="w-full bg-slate-50 border-[1.5px] border-slate-200 focus:border-indigo-500 rounded-2xl px-3.5 py-3 text-[13.5px] text-slate-900 placeholder:text-slate-400 focus:outline-none transition-colors resize-none"
+                  />
+                </div>
+              )}
             </fieldset>
           )}
 
           {/* Who did the work + photos if it DID go ahead */}
           {didGoAhead && (
-            <div className="space-y-5">
-              {/* Who did the work */}
+            <>
               <div>
                 <label
                   htmlFor="who-did-work"
-                  className="block text-sm font-bold text-zinc-900"
+                  className="block text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-500 mb-2"
                 >
                   Who did the work?
                 </label>
-                <p className="mt-1 text-xs text-zinc-400 max-w-prose">
-                  Once you have recommendations or shared profiles for this
-                  project, you can select who carried out the work here.
-                  <br />
-                  From your recommendations or tradesmen who shared their
-                  profile for this project.
-                </p>
-
                 <select
                   id="who-did-work"
-                  className="mt-2 w-full rounded-2xl border-2 border-zinc-200 px-4 py-3 text-sm text-zinc-900 focus:border-red-400 focus:outline-none transition-colors bg-white"
                   value={selectedWinnerKey}
                   onChange={(e) => setSelectedWinnerKey(e.target.value)}
                   data-testid="select-who-did-work"
+                  className="w-full bg-slate-50 border-[1.5px] border-slate-200 focus:border-indigo-500 rounded-2xl px-3.5 py-3 text-[14px] text-slate-900 focus:outline-none transition-colors appearance-none cursor-pointer"
+                  style={{
+                    backgroundImage:
+                      "url(\"data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")",
+                    backgroundRepeat: "no-repeat",
+                    backgroundPosition: "right 1rem center",
+                    paddingRight: "2.5rem",
+                  }}
                 >
                   <option value="">{selectPlaceholder}</option>
                   {recs.map((r) => {
@@ -516,13 +531,16 @@ export default function CloseProjectModal({
                     );
                   })}
                 </select>
+                <p className="mt-1.5 text-[11.5px] text-slate-500 leading-snug">
+                  Pick from your recommendations or any tradesperson who shared
+                  their profile for this project.
+                </p>
               </div>
 
-              {/* Photos uploader */}
               <div>
-                <p className="block text-sm font-bold text-zinc-900">
-                  Upload photos of the completed work (up to {MAX_FILES})
-                </p>
+                <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-500 mb-2">
+                  Photos of the completed work
+                </div>
                 <FileGridUploader
                   files={files}
                   onChange={setFiles}
@@ -531,42 +549,131 @@ export default function CloseProjectModal({
                   onConsentChange={setPhotoConsent}
                 />
               </div>
-            </div>
+            </>
           )}
-          <div className="mt-6 pt-5 border-t border-zinc-100 flex gap-3">
-            <button
-              type="button"
-              className="flex-1 inline-flex items-center justify-center rounded-full border-2 border-zinc-200 bg-white px-6 py-3 text-sm font-bold text-zinc-600 hover:bg-zinc-50 transition-all"
-              onClick={onClose}
-              data-testid="btn-cancel-close"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className={`flex-1 inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-white shadow-lg transition-all ${
-                busy ? "bg-zinc-400 cursor-not-allowed shadow-none" : "bg-red-500 shadow-red-500/25 hover:bg-red-600 active:scale-95"
-              } disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100`}
-              disabled={busy || (files.length > 0 && !photoConsent)}
-              aria-busy={busy}
-              data-testid="btn-confirm-close"
-              title={
-                files.length > 0 && !photoConsent
-                  ? "Please confirm the photo upload consent before continuing."
-                  : undefined
-              }
-            >
-              {busy && (
-                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
-                  <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
-                </svg>
-              )}
-              {busy ? "Closing job..." : "Close job"}
-            </button>
-          </div>
+        </div>
+
+        <div className="px-6 py-4 border-t border-slate-100 flex items-center gap-3 shrink-0">
+          <button
+            type="button"
+            className="px-5 py-2.5 rounded-full border border-slate-200 text-slate-700 font-bold text-[13px] hover:bg-slate-50 transition-colors disabled:opacity-60"
+            onClick={onClose}
+            disabled={busy}
+            data-testid="btn-cancel-close"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={busy || (files.length > 0 && !photoConsent)}
+            aria-busy={busy}
+            data-testid="btn-confirm-close"
+            title={
+              files.length > 0 && !photoConsent
+                ? "Please confirm the photo upload consent before continuing."
+                : undefined
+            }
+            className="flex-1 inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-[13.5px] font-extrabold text-white transition-all disabled:cursor-not-allowed disabled:opacity-60"
+            style={{
+              background: busy
+                ? "linear-gradient(135deg, #94a3b8, #64748b)"
+                : "linear-gradient(135deg, #6366f1, #4f46e5)",
+              boxShadow: busy ? undefined : "0 8px 22px rgba(99,102,241,0.30)",
+            }}
+          >
+            {busy && (
+              <svg
+                className="h-4 w-4 animate-spin"
+                viewBox="0 0 24 24"
+                fill="none"
+              >
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  className="opacity-25"
+                />
+                <path
+                  d="M4 12a8 8 0 018-8"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  className="opacity-75"
+                />
+              </svg>
+            )}
+            {busy ? "Closing job…" : "Close job"}
+          </button>
         </div>
       </form>
     </div>
+  );
+}
+
+function SegmentBtn({
+  active,
+  onClick,
+  label,
+  testId,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  testId: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid={testId}
+      role="radio"
+      aria-checked={active}
+      className={`flex-1 py-2 text-[14px] font-extrabold rounded-xl transition-colors ${
+        active
+          ? "bg-white text-slate-900 shadow"
+          : "text-slate-500 hover:text-slate-700"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function ReasonRow({
+  label,
+  checked,
+  onToggle,
+  testId,
+}: {
+  label: string;
+  checked: boolean;
+  onToggle: () => void;
+  testId: string;
+}) {
+  return (
+    <label
+      className={`flex items-center gap-2 px-3 py-2 rounded-xl cursor-pointer transition-colors ${
+        checked
+          ? "bg-indigo-50 border border-indigo-200"
+          : "border border-transparent hover:bg-slate-50"
+      }`}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onToggle}
+        className="accent-indigo-600"
+        data-testid={testId}
+      />
+      <span
+        className={`text-[13px] ${
+          checked ? "text-indigo-900 font-bold" : "text-slate-700"
+        }`}
+      >
+        {label}
+      </span>
+    </label>
   );
 }

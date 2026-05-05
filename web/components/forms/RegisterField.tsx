@@ -9,6 +9,8 @@ type Props = {
   required?: boolean;
   error?: string;
   testIdPrefix?: string; // e.g. "reg"
+  placeholder?: string;
+  autoComplete?: string;
   onChange: (value: string) => void;
 };
 
@@ -20,6 +22,8 @@ export default function RegisterField({
   required,
   error,
   testIdPrefix,
+  placeholder,
+  autoComplete,
   onChange,
 }: Props) {
   const errId = `${id}-err`;
@@ -27,17 +31,22 @@ export default function RegisterField({
 
   return (
     <div>
-      <label className="block text-sm font-bold text-zinc-900 mb-2" htmlFor={id}>
+      <label
+        className="block text-[10.5px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5"
+        htmlFor={id}
+      >
         {label}
       </label>
 
       <input
         id={id}
         type={type}
-        className={`w-full rounded-2xl border-2 px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:outline-none transition-colors ${
+        placeholder={placeholder}
+        autoComplete={autoComplete}
+        className={`w-full rounded-xl border bg-slate-50 px-4 py-3.5 text-slate-900 placeholder:text-slate-400 text-[14px] focus:bg-white focus:outline-none focus:ring-4 transition-colors ${
           error
-            ? "border-red-600 focus:border-red-600"
-            : "border-zinc-200 focus:border-red-400"
+            ? "border-red-500 focus:border-red-500 focus:ring-red-500/15"
+            : "border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/15"
         }`}
         value={value}
         onChange={(e: ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}

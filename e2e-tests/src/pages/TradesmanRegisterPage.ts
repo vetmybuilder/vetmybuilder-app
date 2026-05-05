@@ -36,14 +36,16 @@ export class TradesmanRegisterPage extends BasePage {
     this.emailInput = page.getByTestId("input-email");
     this.phoneInput = page.getByTestId("input-phone");
     this.areasInput = page.getByTestId("input-areas").locator("input").first();
-    this.nextButton = page.getByTestId("btn-next");
-    this.continueButton = page.getByTestId("btn-continue");
+    this.nextButton = page.getByRole("button", { name: /^Next/ });
+    this.continueButton = page.getByRole("button", { name: /^Next/ });
     this.fileInput = page.getByTestId("file-input");
     this.profileBadge = page.getByText("Profile", { exact: true });
 
     this.passwordInput = page.getByTestId("input-password");
     this.confirmPasswordInput = page.getByTestId("input-password-confirm");
-    this.createAccountButton = page.getByTestId("btn-create-account");
+    this.createAccountButton = page.getByRole("button", {
+      name: /create account/i,
+    });
     this.createAccountError = page.getByTestId("create-error");
     this.passwordChecklist = page.getByTestId("password-checklist");
   }
@@ -134,19 +136,20 @@ export class TradesmanRegisterPage extends BasePage {
   }
 
   /**
-   * Waits for the post-register redirect to land on /tradesman/projects
-   * AND for the page's root testid to be visible. The whole chain
-   * (Firebase createUser → photo upload → PUT /api/tradesmen/me →
-   * router.replace → Next.js page mount) can take several seconds on
-   * a cold worker, so a generous timeout is preferable to a short URL
-   * poll that flakes under CI load.
+   * Waits for the post-register redirect to land on /tradesman/jobs
+   * (the new swipe-deck home for tradespeople) AND for the deck's
+   * root testid to be visible. The whole chain (Firebase createUser
+   * → photo upload → PUT /api/tradesmen/me → router.replace → Next.js
+   * page mount) can take several seconds on a cold worker, so a
+   * generous timeout is preferable to a short URL poll that flakes
+   * under CI load.
    */
-  async expectLandedOnTradesmanProjects() {
-    await expect(this.page).toHaveURL(/\/tradesman\/projects/, {
+  async expectLandedOnTradesmanJobs() {
+    await expect(this.page).toHaveURL(/\/tradesman\/jobs/, {
       timeout: 30_000,
     });
     await expect(
-      this.page.getByTestId("tradesman-projects-page"),
+      this.page.getByTestId("tradesman-jobs-deck"),
     ).toBeVisible({ timeout: 30_000 });
   }
 

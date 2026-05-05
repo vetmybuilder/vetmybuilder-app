@@ -30,6 +30,8 @@ export class CloseProjectModalComponent {
   readonly closeX: Locator;
 
   readonly didGoAheadCheckbox: Locator;
+  readonly segmentYes: Locator;
+  readonly segmentNo: Locator;
 
   readonly reasonsFieldset: Locator;
   readonly reasonBudget: Locator;
@@ -53,7 +55,11 @@ export class CloseProjectModalComponent {
 
     this.closeX = page.getByTestId("close-project-x");
 
+    // The hidden sr-only checkbox is preserved for state-readback only
+    // (isChecked()). The visible UI is now a segmented Yes/No control.
     this.didGoAheadCheckbox = page.getByTestId("input-did-go-ahead");
+    this.segmentYes = page.getByTestId("close-segment-yes");
+    this.segmentNo = page.getByTestId("close-segment-no");
 
     this.reasonsFieldset = page.getByTestId("fieldset-reasons");
     this.reasonBudget = page.getByTestId("reason-budget");
@@ -82,7 +88,10 @@ export class CloseProjectModalComponent {
   private async setDidGoAhead(value: boolean) {
     const checked = await this.didGoAheadCheckbox.isChecked();
     if (checked !== value) {
-      await this.didGoAheadCheckbox.click();
+      // Click the visible segment - the hidden checkbox is sr-only and
+      // can't be clicked directly (intercepted by the overlaying div).
+      const target = value ? this.segmentYes : this.segmentNo;
+      await target.click();
       await expect(this.didGoAheadCheckbox).toBeChecked({ checked: value });
     }
   }

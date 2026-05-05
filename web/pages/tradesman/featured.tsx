@@ -2,6 +2,8 @@
 import * as React from "react";
 import { useRouter } from "next/router";
 import TradesmanOnly from "@/components/TradesmanOnly";
+import SiteHeader from "@/components/SiteHeader";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import { useApi } from "@/utils/api";
 
 type FeaturedTradesman = {
@@ -146,10 +148,15 @@ function FeaturedListInner() {
       : "Featured tradesmen";
 
   return (
-    <div
-      className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-6"
-      data-testid="featured-tradesmen-page"
-    >
+    <div className="min-h-screen md:bg-[#fef6e9] relative overflow-hidden">
+      <div className="hidden md:block">
+        <SiteHeader />
+      </div>
+      <BrandWatermarkScatter />
+      <div
+        className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-6 relative z-10"
+        data-testid="featured-tradesmen-page"
+      >
       {/* Back button */}
       <button
         type="button"
@@ -192,6 +199,7 @@ function FeaturedListInner() {
 
         {/* sentinel for lazy-load */}
         <div ref={sentinelRef} />
+      </div>
       </div>
     </div>
   );

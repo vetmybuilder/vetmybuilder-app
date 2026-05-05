@@ -101,7 +101,8 @@ export default function CompletedProjectImageCard({
       <ProjectImageCard
         id={id}
         status={status}
-        imageUrl={url || typeFallback(type)}
+        imageUrl={url}
+        type={type}
         name={name}
         data-testid={`completed-img-${id}`}
       />

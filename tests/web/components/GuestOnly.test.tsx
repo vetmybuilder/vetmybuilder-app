@@ -176,7 +176,7 @@ describe("<GuestOnly />", () => {
     );
   });
 
-  it("redirects authed tradesmen to /tradesman/projects", async () => {
+  it("redirects authed tradesmen to /tradesman/jobs", async () => {
     useAuthMock.mockReturnValue({
       user: { uid: "u1" },
       loading: false,
@@ -191,7 +191,7 @@ describe("<GuestOnly />", () => {
     );
 
     await waitFor(() =>
-      expect(routerReplaceMock).toHaveBeenCalledWith("/tradesman/projects"),
+      expect(routerReplaceMock).toHaveBeenCalledWith("/tradesman/jobs"),
     );
   });
 });

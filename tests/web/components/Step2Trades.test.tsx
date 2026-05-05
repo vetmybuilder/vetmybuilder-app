@@ -40,14 +40,10 @@ const base = {
 };
 
 describe("<Step2Trades /> — profile picture", () => {
-  describe("copy text", () => {
-    it("includes guidance about choosing a profile picture", () => {
-      render(<Step2Trades {...base} onProfilePictureKeyChange={vi.fn()} />);
-      expect(
-        screen.getByText(/profile picture/i)
-      ).toBeInTheDocument();
-    });
-  });
+  // The "always-visible profile-picture guidance copy" test was removed
+  // when the wizard rebuild scoped that text to render only when there
+  // are photos to choose from. The contextual copy is exercised by the
+  // surrounding tests below (which render with existing photos).
 
   describe("auto-selection", () => {
     it("auto-selects the first existing photo when profilePictureKey is null", () => {

@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <title>Swipe-right pay-gate (Option 2 refined)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif; }
+    .phone {
+      width: 390px; height: 760px;
+      border-radius: 44px;
+      box-shadow: 0 30px 80px rgba(15,23,42,0.18), 0 0 0 10px #111 inset, 0 0 0 12px #333 inset;
+      overflow: hidden; position: relative; background: #f8fafc;
+    }
+    .phone-inner { position:absolute; inset: 12px; border-radius: 32px; overflow: hidden; background:#fff; }
+    .grad-emerald { background: linear-gradient(135deg,#10b981,#059669); }
+    .grad-violet  { background: linear-gradient(135deg,#6366f1,#4f46e5); }
+    .grad-best    { background: linear-gradient(135deg,#7c3aed,#4f46e5); }
+    .pill { padding: 2px 8px; border-radius: 999px; font-weight: 800; font-size: 10px; }
+    .scroll-y { overflow-y: auto; }
+    .scroll-y::-webkit-scrollbar { width: 0; }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+  <header class="px-8 pt-10 pb-6 text-center">
+    <h1 class="text-2xl font-extrabold tracking-tight text-slate-900">Swipe-right pay-gate – Option 2 (refined)</h1>
+    <p class="mt-2 text-sm text-slate-500 max-w-2xl mx-auto">
+      Updates: pass-based naming (7/14/30 day), new 30-day price (£12.99), no "cancel anytime" copy.
+      Three price decks shown side-by-side so you can pick.
+    </p>
+  </header>
+
+  <main class="px-6 pb-16">
+
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <!-- Three side-by-side phones with different 30-day prices            -->
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-10 justify-items-center">
+
+      <!-- ─── Variant A · 30-day £11.99 ────────────────────────────────── -->
+      <section>
+        <div class="text-center mb-3">
+          <div class="text-xs uppercase font-extrabold tracking-widest text-slate-500">Price deck A</div>
+          <h2 class="text-base font-extrabold text-slate-900">30-day · £11.99</h2>
+          <p class="text-[11px] text-slate-500">Gentlest bump. £0.40/day, 30% better than weekly.</p>
+        </div>
+
+        <div class="phone">
+          <div class="phone-inner bg-white flex flex-col">
+            <div class="px-5 pt-3 pb-2 flex items-center justify-between border-b border-slate-100">
+              <button class="text-slate-500 text-[13px] font-bold flex items-center gap-1">← Back</button>
+              <span class="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Pitch this job</span>
+            </div>
+
+            <div class="scroll-y flex-1">
+              <div class="px-5 pt-4 pb-3 text-center">
+                <div class="w-12 h-12 rounded-full grad-emerald text-white flex items-center justify-center mx-auto text-xl font-black">♥</div>
+                <h2 class="mt-3 text-[22px] font-extrabold tracking-tight text-slate-900 leading-tight">You like this one!</h2>
+                <p class="mt-1 text-[12.5px] text-slate-500 leading-snug">
+                  Pick a pass to pitch this job - and every other matching job while it's active.
+                </p>
+              </div>
+
+              <div class="mx-5 rounded-2xl overflow-hidden border border-slate-200 bg-slate-50">
+                <div class="grad-emerald px-3.5 pt-3 pb-2.5 text-white">
+                  <div class="text-[15px] font-extrabold leading-tight">External wall insulation - 3-bed terrace</div>
+                  <div class="mt-1 text-[11px] text-white/85">📍 E4 6AA · Within 2 months · £15k-£30k</div>
+                </div>
+              </div>
+
+              <div class="px-5 mt-4 space-y-2">
+                <button class="w-full rounded-2xl border-[1.5px] border-slate-200 bg-white p-3 flex items-center gap-3 text-left">
+                  <span class="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center text-[13px] font-black">7</span>
+                  <div class="flex-1">
+                    <div class="text-[14px] font-extrabold text-slate-900">7-day pass</div>
+                    <div class="text-[11px] text-slate-500">Unlimited swipes for 7 days</div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-[16px] font-extrabold text-slate-900">£3.99</div>
+                    <div class="text-[10px] text-slate-400">£0.57 / day</div>
+                  </div>
+                </button>
+
+                <button class="w-full rounded-2xl border-[1.5px] border-slate-200 bg-white p-3 flex items-center gap-3 text-left">
+                  <span class="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center text-[13px] font-black">14</span>
+                  <div class="flex-1">
+                    <div class="text-[14px] font-extrabold text-slate-900">14-day pass</div>
+                    <div class="text-[11px] text-slate-500">Unlimited swipes for 14 days</div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-[16px] font-extrabold text-slate-900">£6.99</div>
+                    <div class="text-[10px] text-slate-400">£0.50 / day</div>
+                  </div>
+                </button>
+
+                <button class="relative w-full rounded-2xl border-[2px] border-violet-500 bg-violet-50/60 p-3 flex items-center gap-3 text-left ring-4 ring-violet-100">
+                  <span class="absolute -top-2 right-3 grad-best text-white text-[9px] font-black tracking-wider px-2 py-0.5 rounded-full">BEST VALUE</span>
+                  <span class="w-9 h-9 rounded-xl grad-violet text-white flex items-center justify-center text-[13px] font-black">30</span>
+                  <div class="flex-1">
+                    <div class="text-[14px] font-extrabold text-slate-900">30-day pass</div>
+                    <div class="text-[11px] text-violet-700 font-bold">Lowest daily cost</div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-[16px] font-extrabold text-slate-900">£11.99</div>
+                    <div class="text-[10px] text-slate-400">£0.40 / day</div>
+                  </div>
+                </button>
+              </div>
+
+              <div class="mx-5 mt-5 mb-5 rounded-2xl bg-amber-50/60 border border-amber-200/70 p-3.5">
+                <div class="flex items-center gap-2 text-[10.5px] font-extrabold text-amber-700 uppercase tracking-wider">
+                  <span>⚡</span> One-off, no pass
+                </div>
+                <div class="mt-1 text-[13.5px] font-extrabold text-slate-900 leading-tight">Just pitch this one job</div>
+                <div class="text-[11.5px] text-slate-600 leading-snug mt-1">
+                  Unlock the homeowner's contact for this job only. Price scales with the project value.
+                </div>
+                <button class="mt-3 w-full py-2.5 rounded-xl bg-white border-[1.5px] border-amber-400 text-amber-700 font-extrabold text-[13px]">
+                  Pay £9.99 one-off
+                </button>
+              </div>
+            </div>
+
+            <div class="px-5 py-3 border-t border-slate-100 bg-white">
+              <button class="w-full py-3 rounded-2xl grad-violet text-white font-extrabold text-[14px] shadow-lg shadow-indigo-200">
+                Get 30-day pass · £11.99
+              </button>
+              <p class="text-[10px] text-slate-400 text-center mt-2 leading-snug">
+                One-time purchase. No auto-renewal - buy a new pass when this one expires.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ─── Variant B · 30-day £12.99 (recommended) ─────────────────── -->
+      <section>
+        <div class="text-center mb-3">
+          <div class="text-xs uppercase font-extrabold tracking-widest text-violet-700">Price deck B · my pick</div>
+          <h2 class="text-base font-extrabold text-slate-900">30-day · £12.99</h2>
+          <p class="text-[11px] text-slate-500">Sweet spot. £0.43/day, 24% better than weekly.</p>
+        </div>
+
+        <div class="phone">
+          <div class="phone-inner bg-white flex flex-col">
+            <div class="px-5 pt-3 pb-2 flex items-center justify-between border-b border-slate-100">
+              <button class="text-slate-500 text-[13px] font-bold flex items-center gap-1">← Back</button>
+              <span class="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Pitch this job</span>
+            </div>
+
+            <div class="scroll-y flex-1">
+              <div class="px-5 pt-4 pb-3 text-center">
+                <div class="w-12 h-12 rounded-full grad-emerald text-white flex items-center justify-center mx-auto text-xl font-black">♥</div>
+                <h2 class="mt-3 text-[22px] font-extrabold tracking-tight text-slate-900 leading-tight">You like this one!</h2>
+                <p class="mt-1 text-[12.5px] text-slate-500 leading-snug">
+                  Pick a pass to pitch this job - and every other matching job while it's active.
+                </p>
+              </div>
+
+              <div class="mx-5 rounded-2xl overflow-hidden border border-slate-200 bg-slate-50">
+                <div class="grad-emerald px-3.5 pt-3 pb-2.5 text-white">
+                  <div class="text-[15px] font-extrabold leading-tight">External wall insulation - 3-bed terrace</div>
+                  <div class="mt-1 text-[11px] text-white/85">📍 E4 6AA · Within 2 months · £15k-£30k</div>
+                </div>
+              </div>
+
+              <div class="px-5 mt-4 space-y-2">
+                <button class="w-full rounded-2xl border-[1.5px] border-slate-200 bg-white p-3 flex items-center gap-3 text-left">
+                  <span class="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center text-[13px] font-black">7</span>
+                  <div class="flex-1">
+                    <div class="text-[14px] font-extrabold text-slate-900">7-day pass</div>
+                    <div class="text-[11px] text-slate-500">Unlimited swipes for 7 days</div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-[16px] font-extrabold text-slate-900">£3.99</div>
+                    <div class="text-[10px] text-slate-400">£0.57 / day</div>
+                  </div>
+                </button>
+
+                <button class="w-full rounded-2xl border-[1.5px] border-slate-200 bg-white p-3 flex items-center gap-3 text-left">
+                  <span class="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center text-[13px] font-black">14</span>
+                  <div class="flex-1">
+                    <div class="text-[14px] font-extrabold text-slate-900">14-day pass</div>
+                    <div class="text-[11px] text-slate-500">Unlimited swipes for 14 days</div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-[16px] font-extrabold text-slate-900">£6.99</div>
+                    <div class="text-[10px] text-slate-400">£0.50 / day</div>
+                  </div>
+                </button>
+
+                <button class="relative w-full rounded-2xl border-[2px] border-violet-500 bg-violet-50/60 p-3 flex items-center gap-3 text-left ring-4 ring-violet-100">
+                  <span class="absolute -top-2 right-3 grad-best text-white text-[9px] font-black tracking-wider px-2 py-0.5 rounded-full">BEST VALUE</span>
+                  <span class="w-9 h-9 rounded-xl grad-violet text-white flex items-center justify-center text-[13px] font-black">30</span>
+                  <div class="flex-1">
+                    <div class="text-[14px] font-extrabold text-slate-900">30-day pass</div>
+                    <div class="text-[11px] text-violet-700 font-bold">Lowest daily cost</div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-[16px] font-extrabold text-slate-900">£12.99</div>
+                    <div class="text-[10px] text-slate-400">£0.43 / day</div>
+                  </div>
+                </button>
+              </div>
+
+              <div class="mx-5 mt-5 mb-5 rounded-2xl bg-amber-50/60 border border-amber-200/70 p-3.5">
+                <div class="flex items-center gap-2 text-[10.5px] font-extrabold text-amber-700 uppercase tracking-wider">
+                  <span>⚡</span> One-off, no pass
+                </div>
+                <div class="mt-1 text-[13.5px] font-extrabold text-slate-900 leading-tight">Just pitch this one job</div>
+                <div class="text-[11.5px] text-slate-600 leading-snug mt-1">
+                  Unlock the homeowner's contact for this job only. Price scales with the project value.
+                </div>
+                <button class="mt-3 w-full py-2.5 rounded-xl bg-white border-[1.5px] border-amber-400 text-amber-700 font-extrabold text-[13px]">
+                  Pay £9.99 one-off
+                </button>
+              </div>
+            </div>
+
+            <div class="px-5 py-3 border-t border-slate-100 bg-white">
+              <button class="w-full py-3 rounded-2xl grad-violet text-white font-extrabold text-[14px] shadow-lg shadow-indigo-200">
+                Get 30-day pass · £12.99
+              </button>
+              <p class="text-[10px] text-slate-400 text-center mt-2 leading-snug">
+                One-time purchase. No auto-renewal - buy a new pass when this one expires.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ─── Variant C · 30-day £14.99 ────────────────────────────────── -->
+      <section>
+        <div class="text-center mb-3">
+          <div class="text-xs uppercase font-extrabold tracking-widest text-slate-500">Price deck C</div>
+          <h2 class="text-base font-extrabold text-slate-900">30-day · £14.99</h2>
+          <p class="text-[11px] text-slate-500">Steepest. £0.50/day, only 12% better than weekly.</p>
+        </div>
+
+        <div class="phone">
+          <div class="phone-inner bg-white flex flex-col">
+            <div class="px-5 pt-3 pb-2 flex items-center justify-between border-b border-slate-100">
+              <button class="text-slate-500 text-[13px] font-bold flex items-center gap-1">← Back</button>
+              <span class="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Pitch this job</span>
+            </div>
+
+            <div class="scroll-y flex-1">
+              <div class="px-5 pt-4 pb-3 text-center">
+                <div class="w-12 h-12 rounded-full grad-emerald text-white flex items-center justify-center mx-auto text-xl font-black">♥</div>
+                <h2 class="mt-3 text-[22px] font-extrabold tracking-tight text-slate-900 leading-tight">You like this one!</h2>
+                <p class="mt-1 text-[12.5px] text-slate-500 leading-snug">
+                  Pick a pass to pitch this job - and every other matching job while it's active.
+                </p>
+              </div>
+
+              <div class="mx-5 rounded-2xl overflow-hidden border border-slate-200 bg-slate-50">
+                <div class="grad-emerald px-3.5 pt-3 pb-2.5 text-white">
+                  <div class="text-[15px] font-extrabold leading-tight">External wall insulation - 3-bed terrace</div>
+                  <div class="mt-1 text-[11px] text-white/85">📍 E4 6AA · Within 2 months · £15k-£30k</div>
+                </div>
+              </div>
+
+              <div class="px-5 mt-4 space-y-2">
+                <button class="w-full rounded-2xl border-[1.5px] border-slate-200 bg-white p-3 flex items-center gap-3 text-left">
+                  <span class="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center text-[13px] font-black">7</span>
+                  <div class="flex-1">
+                    <div class="text-[14px] font-extrabold text-slate-900">7-day pass</div>
+                    <div class="text-[11px] text-slate-500">Unlimited swipes for 7 days</div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-[16px] font-extrabold text-slate-900">£3.99</div>
+                    <div class="text-[10px] text-slate-400">£0.57 / day</div>
+                  </div>
+                </button>
+
+                <button class="w-full rounded-2xl border-[1.5px] border-slate-200 bg-white p-3 flex items-center gap-3 text-left">
+                  <span class="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center text-[13px] font-black">14</span>
+                  <div class="flex-1">
+                    <div class="text-[14px] font-extrabold text-slate-900">14-day pass</div>
+                    <div class="text-[11px] text-slate-500">Unlimited swipes for 14 days</div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-[16px] font-extrabold text-slate-900">£6.99</div>
+                    <div class="text-[10px] text-slate-400">£0.50 / day</div>
+                  </div>
+                </button>
+
+                <button class="relative w-full rounded-2xl border-[2px] border-violet-500 bg-violet-50/60 p-3 flex items-center gap-3 text-left ring-4 ring-violet-100">
+                  <span class="absolute -top-2 right-3 grad-best text-white text-[9px] font-black tracking-wider px-2 py-0.5 rounded-full">BEST VALUE</span>
+                  <span class="w-9 h-9 rounded-xl grad-violet text-white flex items-center justify-center text-[13px] font-black">30</span>
+                  <div class="flex-1">
+                    <div class="text-[14px] font-extrabold text-slate-900">30-day pass</div>
+                    <div class="text-[11px] text-violet-700 font-bold">Best for repeat work</div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-[16px] font-extrabold text-slate-900">£14.99</div>
+                    <div class="text-[10px] text-slate-400">£0.50 / day</div>
+                  </div>
+                </button>
+              </div>
+
+              <div class="mx-5 mt-5 mb-5 rounded-2xl bg-amber-50/60 border border-amber-200/70 p-3.5">
+                <div class="flex items-center gap-2 text-[10.5px] font-extrabold text-amber-700 uppercase tracking-wider">
+                  <span>⚡</span> One-off, no pass
+                </div>
+                <div class="mt-1 text-[13.5px] font-extrabold text-slate-900 leading-tight">Just pitch this one job</div>
+                <div class="text-[11.5px] text-slate-600 leading-snug mt-1">
+                  Unlock the homeowner's contact for this job only. Price scales with the project value.
+                </div>
+                <button class="mt-3 w-full py-2.5 rounded-xl bg-white border-[1.5px] border-amber-400 text-amber-700 font-extrabold text-[13px]">
+                  Pay £9.99 one-off
+                </button>
+              </div>
+            </div>
+
+            <div class="px-5 py-3 border-t border-slate-100 bg-white">
+              <button class="w-full py-3 rounded-2xl grad-violet text-white font-extrabold text-[14px] shadow-lg shadow-indigo-200">
+                Get 30-day pass · £14.99
+              </button>
+              <p class="text-[10px] text-slate-400 text-center mt-2 leading-snug">
+                One-time purchase. No auto-renewal - buy a new pass when this one expires.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <!-- Notes panel                                                        -->
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <div class="max-w-2xl mx-auto mt-12 rounded-2xl bg-white border border-slate-200 p-5">
+      <h3 class="text-base font-extrabold text-slate-900">What changed</h3>
+      <ul class="mt-2 text-[13px] text-slate-600 leading-snug space-y-1.5">
+        <li><strong>Naming:</strong> "Week pass / 2-week pass / Month pass" → <strong>"7-day pass / 14-day pass / 30-day pass"</strong>. Concrete and avoids the "2-…" awkwardness.</li>
+        <li><strong>30-day price:</strong> bumped from £9.99. Three decks shown; my pick is <strong>£12.99</strong> - keeps the daily-cost ladder meaningful (£0.57 → £0.50 → £0.43).</li>
+        <li><strong>"Cancel anytime" copy removed.</strong> Replaced with: <em>"One-time purchase. No auto-renewal - buy a new pass when this one expires."</em></li>
+        <li><strong>"Subscribe" framing dropped</strong> throughout - it's "Get pass" / "pick a pass" everywhere now.</li>
+        <li><strong>Best-value tag</strong> moved from "Save 37%" to "Lowest daily cost" / "Best for repeat work" - cleaner since these aren't recurring.</li>
+      </ul>
+
+      <h3 class="mt-5 text-base font-extrabold text-slate-900">Still to confirm</h3>
+      <ul class="mt-2 text-[13px] text-slate-600 leading-snug space-y-1.5">
+        <li>Final 30-day price (A £11.99 / B £12.99 / C £14.99). I'll update <code class="text-[12px] bg-slate-100 px-1 rounded">server/lib/subscriptions/tiers.js</code> in one place once you pick.</li>
+        <li>Whether "passes" should also be re-labelled in the existing <code class="text-[12px] bg-slate-100 px-1 rounded">/tradesman/billing</code> page (currently "Visibility subscription"). Recommend yes for consistency.</li>
+      </ul>
+    </div>
+  </main>
+</body>
+</html>

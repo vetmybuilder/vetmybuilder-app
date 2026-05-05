@@ -150,16 +150,99 @@ function createStripePayments(opts = {}) {
     return null;
   }
 
+  async function createSubscriptionCheckout(options = {}) {
+    const { getTier } = require("../subscriptions/tiers");
+    const tier = getTier(options.tier);
+    if (!tier) {
+      throw new Error(`Unknown subscription tier: ${options.tier}`);
+    }
+
+    const sessionParams = {
+      payment_method_types: ["card"],
+      mode: "subscription",
+      line_items: [
+        {
+          price_data: {
+            currency: "gbp",
+            product_data: {
+              name: `VetMyBuilder Visibility — ${tier.displayName}`,
+            },
+            recurring: {
+              interval: tier.interval,
+              interval_count: tier.intervalCount,
+            },
+            unit_amount: tier.amountPence,
+          },
+          quantity: 1,
+        },
+      ],
+      metadata: {
+        userId: options.userId || "",
+        vmb_type: "subscription",
+        tier: tier.id,
+      },
+      success_url:
+        options.success_url ||
+        `${baseUrl}/payments/success?sessionId={CHECKOUT_SESSION_ID}`,
+      cancel_url:
+        options.cancel_url ||
+        `${baseUrl}/payments/cancel?sessionId={CHECKOUT_SESSION_ID}`,
+    };
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
+    log.info?.(
+      { id: session.id, userId: options.userId, tier: tier.id },
+      `${TAG} subscription checkout session created`,
+    );
+
+    return {
+      id: session.id,
+      hosted_url: session.url,
+      status: session.status,
+      tier: tier.id,
+    };
+  }
+
+  async function cancelSubscriptionAtPeriodEnd(stripeSubscriptionId) {
+    if (!stripeSubscriptionId) {
+      throw new Error("stripeSubscriptionId required");
+    }
+    const sub = await stripe.subscriptions.update(stripeSubscriptionId, {
+      cancel_at_period_end: true,
+    });
+    log.info?.(
+      { id: sub.id },
+      `${TAG} subscription set to cancel at period end`,
+    );
+    return { id: sub.id, cancelAtPeriodEnd: sub.cancel_at_period_end };
+  }
+
+  function verifyWebhookFromReq(req) {
+    const sig = req.headers?.["stripe-signature"];
+    const whSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!whSecret) throw new Error("STRIPE_WEBHOOK_SECRET not set");
+    if (!sig) throw new Error("Missing stripe-signature header");
+    // Express needs raw body for signature verification; the webhook route
+    // is assumed to mount a raw-body parser.
+    return stripe.webhooks.constructEvent(
+      req.rawBody || req.body,
+      sig,
+      whSecret,
+    );
+  }
+
   return {
     createCheckout,
     createSession: createCheckout,
+    createSubscriptionCheckout,
+    cancelSubscriptionAtPeriodEnd,
     getSession,
     updateSession: async () => null,
     markPaid,
     cancel,
     expire,
     listSessions,
-    verifyWebhook,
+    verifyWebhook: verifyWebhookFromReq,
     emitWebhook,
     isStripe: true,
   };

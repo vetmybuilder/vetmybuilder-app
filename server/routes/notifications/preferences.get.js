@@ -11,7 +11,8 @@ module.exports = (router, ctx) => {
   const DEFAULTS = {
     hire_updates: true,
     recommendations: true,
-    builder_interest: true,
+    matches: true,
+    messages: true,
     local_activity: false,
     project_matches: true,
   };

@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Join flow mocks</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Sora:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Sora', system-ui, sans-serif; background: #f4f1ec; }
+  .caveat { font-family: 'Caveat', cursive; }
+  .scroll-x::-webkit-scrollbar { display: none; }
+  .scroll-x { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* Phone frame for the modal/sheet mocks */
+  .phone {
+    width: 360px;
+    height: 720px;
+    border-radius: 36px;
+    background: #fef6e9;
+    box-shadow: 0 30px 60px -20px rgba(15,23,42,0.25), 0 0 0 8px #1e293b;
+    overflow: hidden;
+    position: relative;
+  }
+  .phone-bg-photo {
+    background-image: linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.20) 30%, rgba(0,0,0,0.10) 55%, rgba(254,246,233,0.55) 85%, #fef6e9 100%), url('https://images.unsplash.com/photo-1716037991590-c975184b37df?w=1200&q=80&auto=format&fit=crop');
+    background-size: cover;
+    background-position: center;
+  }
+</style>
+</head>
+<body class="text-slate-900">
+
+<div class="max-w-[1500px] mx-auto px-6 py-10">
+  <h1 class="text-3xl font-black tracking-tight mb-2">Join flow — visual mocks</h1>
+  <p class="text-slate-600 mb-10 max-w-2xl">Header shows a single <strong>"Join"</strong> CTA. Five takes on what happens after the click. Pick which feels right and we'll wire it.</p>
+
+  <!-- Header preview row -->
+  <section class="mb-12 rounded-3xl bg-white border border-slate-200/70 p-6">
+    <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-slate-500 mb-4">Header (desktop)</div>
+    <div class="rounded-2xl border border-slate-200 bg-stone-50/80 px-5 h-14 flex items-center justify-between">
+      <div class="flex items-center">
+        <span class="text-2xl font-black tracking-tight">Vet<span class="caveat text-indigo-600" style="font-size:130%">My</span>Builder</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="#" class="text-sm font-semibold text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 transition-colors px-3 h-9 inline-flex items-center rounded-xl">Are you a tradesperson?</a>
+        <a href="#" class="inline-flex items-center justify-center rounded-xl px-5 h-9 text-sm font-bold text-white shadow-sm" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">Join</a>
+      </div>
+    </div>
+    <p class="mt-3 text-xs text-slate-500">"Are you a tradesperson?" stays as a quiet ghost link. "Join" replaces "Homeowner sign in" as the primary action — much warmer, no role label needed at this stage.</p>
+  </section>
+
+  <!-- Mocks grid -->
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-10">
+
+    <!-- OPTION A — Bottom sheet modal (mobile) with role link -->
+    <div>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-indigo-700 mb-2">Option A · Bottom sheet</div>
+      <h3 class="text-xl font-extrabold mb-3">Modal slides up over hero</h3>
+      <p class="text-sm text-slate-600 mb-5">Stays on the homepage. Modal slides up from the bottom with the homeowner register form. Tradesperson link tucked in the footer of the sheet.</p>
+
+      <div class="phone phone-bg-photo relative">
+        <!-- header in phone -->
+        <div class="absolute top-0 left-0 right-0 h-14 px-5 flex items-center justify-between">
+          <span class="text-lg font-black tracking-tight text-white drop-shadow">Vet<span class="caveat text-amber-300" style="font-size:130%">My</span>Builder</span>
+          <span class="text-white/90 text-xl">≡</span>
+        </div>
+
+        <!-- dimmer -->
+        <div class="absolute inset-0 bg-black/40"></div>
+
+        <!-- bottom sheet -->
+        <div class="absolute left-0 right-0 bottom-0 bg-[#fef6e9] rounded-t-[28px] px-6 pt-5 pb-6 shadow-2xl" style="height:78%">
+          <div class="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-5"></div>
+          <h2 class="text-[26px] font-black tracking-tight leading-tight">Join VetMyBuilder</h2>
+          <p class="text-sm text-slate-600 mt-1">Find a tradesperson the personal way.</p>
+
+          <button class="mt-5 w-full h-11 rounded-xl border-2 border-slate-200 bg-white font-semibold text-sm text-slate-700 inline-flex items-center justify-center gap-2">
+            <span class="w-4 h-4 rounded-full bg-gradient-to-br from-amber-400 via-rose-500 to-indigo-600"></span>
+            Continue with Google
+          </button>
+
+          <div class="my-4 flex items-center gap-3 text-[11px] text-slate-400 font-semibold">
+            <span class="flex-1 h-px bg-slate-200"></span>OR<span class="flex-1 h-px bg-slate-200"></span>
+          </div>
+
+          <div class="space-y-2.5">
+            <input class="w-full h-10 rounded-xl bg-white border border-slate-200 px-3 text-sm" placeholder="Email" />
+            <input class="w-full h-10 rounded-xl bg-white border border-slate-200 px-3 text-sm" placeholder="Postcode" />
+            <input type="password" class="w-full h-10 rounded-xl bg-white border border-slate-200 px-3 text-sm" placeholder="Password" />
+          </div>
+
+          <button class="mt-4 w-full h-11 rounded-xl text-white font-extrabold text-sm shadow" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">Create account</button>
+
+          <div class="mt-4 pt-4 border-t border-slate-200/70 text-center text-[12px]">
+            <span class="text-slate-500">Tradesperson?</span>
+            <a class="text-emerald-700 font-bold ml-1 hover:underline">Sign up here →</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPTION B — Centered modal with role link -->
+    <div>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-700 mb-2">Option B · Centred modal</div>
+      <h3 class="text-xl font-extrabold mb-3">Floating card over hero (desktop-leaning)</h3>
+      <p class="text-sm text-slate-600 mb-5">Same idea but as a centred dialog rather than a slide-up. Fits desktop better. On mobile would still be bottom-sheet.</p>
+
+      <div class="phone phone-bg-photo relative">
+        <div class="absolute top-0 left-0 right-0 h-14 px-5 flex items-center justify-between">
+          <span class="text-lg font-black tracking-tight text-white drop-shadow">Vet<span class="caveat text-amber-300" style="font-size:130%">My</span>Builder</span>
+          <span class="text-white/90 text-xl">≡</span>
+        </div>
+        <div class="absolute inset-0 bg-black/45"></div>
+
+        <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[88%] bg-white rounded-3xl px-6 pt-6 pb-5 shadow-2xl border border-white/60">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-[10px] font-extrabold uppercase tracking-[0.18em] text-indigo-700">Free to join</span>
+            <span class="text-slate-400 text-lg">×</span>
+          </div>
+          <h2 class="text-[22px] font-black leading-tight">Join VetMyBuilder</h2>
+
+          <button class="mt-4 w-full h-11 rounded-xl border-2 border-slate-200 bg-white font-semibold text-sm text-slate-700 inline-flex items-center justify-center gap-2">
+            <span class="w-4 h-4 rounded-full bg-gradient-to-br from-amber-400 via-rose-500 to-indigo-600"></span>
+            Continue with Google
+          </button>
+
+          <div class="my-3 flex items-center gap-3 text-[10px] text-slate-400 font-semibold">
+            <span class="flex-1 h-px bg-slate-200"></span>OR<span class="flex-1 h-px bg-slate-200"></span>
+          </div>
+
+          <div class="space-y-2">
+            <input class="w-full h-9 rounded-lg bg-white border border-slate-200 px-3 text-sm" placeholder="Email" />
+            <input class="w-full h-9 rounded-lg bg-white border border-slate-200 px-3 text-sm" placeholder="Postcode" />
+            <input type="password" class="w-full h-9 rounded-lg bg-white border border-slate-200 px-3 text-sm" placeholder="Password" />
+          </div>
+
+          <button class="mt-3 w-full h-10 rounded-xl text-white font-extrabold text-sm shadow" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">Create account</button>
+
+          <div class="mt-3 text-center text-[12px] text-slate-500">
+            Tradesperson? <a class="text-emerald-700 font-bold hover:underline">Sign up here</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPTION C — Role picker first -->
+    <div>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-emerald-700 mb-2">Option C · Role picker</div>
+      <h3 class="text-xl font-extrabold mb-3">"Who are you?" then route</h3>
+      <p class="text-sm text-slate-600 mb-5">Click <em>Join</em> → small picker first. Two big tap targets: homeowner (indigo) or tradesperson (emerald). Each routes to the right register flow.</p>
+
+      <div class="phone phone-bg-photo relative">
+        <div class="absolute top-0 left-0 right-0 h-14 px-5 flex items-center justify-between">
+          <span class="text-lg font-black tracking-tight text-white drop-shadow">Vet<span class="caveat text-amber-300" style="font-size:130%">My</span>Builder</span>
+          <span class="text-white/90 text-xl">≡</span>
+        </div>
+        <div class="absolute inset-0 bg-black/45"></div>
+
+        <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[88%] bg-white rounded-3xl px-6 pt-6 pb-6 shadow-2xl">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[10px] font-extrabold uppercase tracking-[0.18em] text-amber-700">First things first</span>
+            <span class="text-slate-400 text-lg">×</span>
+          </div>
+          <h2 class="text-[22px] font-black leading-tight">Which one are you?</h2>
+          <p class="text-[13px] text-slate-500 mt-1">Pick one - it just sets you up with the right account.</p>
+
+          <button class="mt-5 w-full p-4 rounded-2xl border-2 border-indigo-200 bg-indigo-50/50 text-left flex items-center gap-3">
+            <span class="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white text-2xl">🏠</span>
+            <span class="flex-1">
+              <span class="block font-extrabold text-[15px] text-slate-900">I need a tradesperson</span>
+              <span class="block text-[12px] text-slate-500">Find someone for a job at home</span>
+            </span>
+            <span class="text-indigo-500 text-xl">→</span>
+          </button>
+
+          <button class="mt-3 w-full p-4 rounded-2xl border-2 border-emerald-200 bg-emerald-50/50 text-left flex items-center gap-3">
+            <span class="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-white text-2xl">🔧</span>
+            <span class="flex-1">
+              <span class="block font-extrabold text-[15px] text-slate-900">I'm a tradesperson</span>
+              <span class="block text-[12px] text-slate-500">Win local work, no commission</span>
+            </span>
+            <span class="text-emerald-500 text-xl">→</span>
+          </button>
+
+          <div class="mt-4 text-center text-[12px] text-slate-500">
+            Already a member? <a class="text-indigo-700 font-bold hover:underline">Sign in</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPTION D — Tabs in modal -->
+    <div>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-violet-700 mb-2">Option D · Tabs in modal</div>
+      <h3 class="text-xl font-extrabold mb-3">Two-tab modal</h3>
+      <p class="text-sm text-slate-600 mb-5">Single modal with a Homeowner / Tradesperson tab toggle at the top. Default lands on Homeowner. Both forms feel like one product.</p>
+
+      <div class="phone phone-bg-photo relative">
+        <div class="absolute top-0 left-0 right-0 h-14 px-5 flex items-center justify-between">
+          <span class="text-lg font-black tracking-tight text-white drop-shadow">Vet<span class="caveat text-amber-300" style="font-size:130%">My</span>Builder</span>
+          <span class="text-white/90 text-xl">≡</span>
+        </div>
+        <div class="absolute inset-0 bg-black/45"></div>
+
+        <div class="absolute left-0 right-0 bottom-0 bg-white rounded-t-[28px] px-6 pt-5 pb-6 shadow-2xl" style="height:80%">
+          <div class="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-5"></div>
+
+          <!-- segmented tabs -->
+          <div class="grid grid-cols-2 rounded-2xl bg-slate-100 p-1 text-sm font-bold">
+            <button class="rounded-xl py-2 bg-white text-indigo-700 shadow-sm">Homeowner</button>
+            <button class="rounded-xl py-2 text-slate-500">Tradesperson</button>
+          </div>
+
+          <h2 class="text-[22px] font-black leading-tight mt-5">Find a tradesperson the personal way</h2>
+
+          <button class="mt-4 w-full h-11 rounded-xl border-2 border-slate-200 bg-white font-semibold text-sm text-slate-700 inline-flex items-center justify-center gap-2">
+            <span class="w-4 h-4 rounded-full bg-gradient-to-br from-amber-400 via-rose-500 to-indigo-600"></span>
+            Continue with Google
+          </button>
+
+          <div class="my-3 flex items-center gap-3 text-[10px] text-slate-400 font-semibold">
+            <span class="flex-1 h-px bg-slate-200"></span>OR<span class="flex-1 h-px bg-slate-200"></span>
+          </div>
+
+          <div class="space-y-2">
+            <input class="w-full h-9 rounded-lg bg-white border border-slate-200 px-3 text-sm" placeholder="Email" />
+            <input class="w-full h-9 rounded-lg bg-white border border-slate-200 px-3 text-sm" placeholder="Postcode" />
+            <input type="password" class="w-full h-9 rounded-lg bg-white border border-slate-200 px-3 text-sm" placeholder="Password" />
+          </div>
+
+          <button class="mt-3 w-full h-10 rounded-xl text-white font-extrabold text-sm shadow" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">Create account</button>
+
+          <div class="mt-3 text-center text-[11px] text-slate-500">
+            Already a member? <a class="text-indigo-700 font-bold hover:underline">Sign in</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPTION E — Inline form on /join page with role banner -->
+    <div>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-rose-700 mb-2">Option E · Dedicated page</div>
+      <h3 class="text-xl font-extrabold mb-3">/join page with banner</h3>
+      <p class="text-sm text-slate-600 mb-5">Click <em>Join</em> → routes to <code>/join</code>. Full page form. Tradesperson banner sits up top, hard to miss but not in the way.</p>
+
+      <div class="phone relative" style="background:#fef6e9">
+        <!-- header -->
+        <div class="absolute top-0 left-0 right-0 h-14 px-5 flex items-center justify-between bg-stone-50/80 backdrop-blur border-b border-stone-200/70">
+          <span class="text-base font-black tracking-tight">Vet<span class="caveat text-indigo-600" style="font-size:130%">My</span>Builder</span>
+          <span class="text-slate-700 text-xl">≡</span>
+        </div>
+
+        <div class="pt-16 px-5 pb-6">
+          <!-- trade banner -->
+          <a class="block rounded-2xl bg-emerald-600 text-white p-3.5 mb-4">
+            <div class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-emerald-100 mb-0.5">Are you a tradesperson?</div>
+            <div class="font-extrabold text-[14px] leading-snug flex items-center justify-between">
+              Sign up as a trade instead <span class="text-xl">→</span>
+            </div>
+          </a>
+
+          <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-700">Free to join</p>
+          <h2 class="text-[24px] font-black leading-tight mt-1">Find your<br />tradesperson</h2>
+
+          <button class="mt-4 w-full h-11 rounded-xl border-2 border-slate-200 bg-white font-semibold text-sm text-slate-700 inline-flex items-center justify-center gap-2">
+            <span class="w-4 h-4 rounded-full bg-gradient-to-br from-amber-400 via-rose-500 to-indigo-600"></span>
+            Continue with Google
+          </button>
+
+          <div class="my-3 flex items-center gap-3 text-[10px] text-slate-400 font-semibold">
+            <span class="flex-1 h-px bg-slate-200"></span>OR<span class="flex-1 h-px bg-slate-200"></span>
+          </div>
+
+          <div class="space-y-2">
+            <input class="w-full h-9 rounded-lg bg-white border border-slate-200 px-3 text-sm" placeholder="Email" />
+            <input class="w-full h-9 rounded-lg bg-white border border-slate-200 px-3 text-sm" placeholder="Postcode" />
+            <input type="password" class="w-full h-9 rounded-lg bg-white border border-slate-200 px-3 text-sm" placeholder="Password" />
+          </div>
+
+          <button class="mt-3 w-full h-10 rounded-xl text-white font-extrabold text-sm shadow" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">Create account</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Comparison summary -->
+  <section class="mt-14 rounded-3xl bg-white border border-slate-200/70 p-6">
+    <h3 class="text-lg font-extrabold mb-3">Trade-offs at a glance</h3>
+    <table class="w-full text-sm">
+      <thead class="text-left text-slate-500">
+        <tr>
+          <th class="py-2 pr-4 font-semibold">Option</th>
+          <th class="py-2 pr-4 font-semibold">Stays on homepage?</th>
+          <th class="py-2 pr-4 font-semibold">Friction for trades</th>
+          <th class="py-2 pr-4 font-semibold">Build effort</th>
+          <th class="py-2 font-semibold">Vibe</th>
+        </tr>
+      </thead>
+      <tbody class="text-slate-700">
+        <tr class="border-t border-slate-100">
+          <td class="py-2 pr-4 font-bold">A · Bottom sheet</td>
+          <td class="py-2 pr-4">Yes</td>
+          <td class="py-2 pr-4">Tiny link, can be missed</td>
+          <td class="py-2 pr-4">Low</td>
+          <td class="py-2">Conversational, mobile-native</td>
+        </tr>
+        <tr class="border-t border-slate-100">
+          <td class="py-2 pr-4 font-bold">B · Centred modal</td>
+          <td class="py-2 pr-4">Yes</td>
+          <td class="py-2 pr-4">Tiny link, can be missed</td>
+          <td class="py-2 pr-4">Low</td>
+          <td class="py-2">Compact, classic web</td>
+        </tr>
+        <tr class="border-t border-slate-100">
+          <td class="py-2 pr-4 font-bold">C · Role picker</td>
+          <td class="py-2 pr-4">Yes</td>
+          <td class="py-2 pr-4">Equal weight to homeowner</td>
+          <td class="py-2 pr-4">Low</td>
+          <td class="py-2">Decisive, two-sided</td>
+        </tr>
+        <tr class="border-t border-slate-100">
+          <td class="py-2 pr-4 font-bold">D · Tabs in modal</td>
+          <td class="py-2 pr-4">Yes</td>
+          <td class="py-2 pr-4">Visible tab, can switch</td>
+          <td class="py-2 pr-4">Med</td>
+          <td class="py-2">Unified, app-like</td>
+        </tr>
+        <tr class="border-t border-slate-100">
+          <td class="py-2 pr-4 font-bold">E · Dedicated page</td>
+          <td class="py-2 pr-4">No (routes to /join)</td>
+          <td class="py-2 pr-4">Strong banner up top</td>
+          <td class="py-2 pr-4">Med</td>
+          <td class="py-2">Clear, SEO-friendly</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="mt-4 text-sm text-slate-600"><strong>My recommendation:</strong> Option C (role picker). It's the cleanest answer to your earlier "is this confusing?" worry — there's no chance a tradesperson clicks the wrong path. It also opens the door to a third option later (e.g. "I'm a friend recommending someone") without redesigning anything.</p>
+  </section>
+</div>
+
+</body>
+</html>

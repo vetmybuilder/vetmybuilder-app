@@ -30,6 +30,7 @@ function normaliseCompanyName(raw) {
  * @param {string}   opts.companyName
  * @param {number}   opts.projectId
  * @param {string}   [opts.projectLocation]
+ * @param {number}   [opts.recommendationId]
  */
 async function matchAndNotifyTradesman({
   mysqlQuery,
@@ -38,6 +39,7 @@ async function matchAndNotifyTradesman({
   companyName,
   projectId,
   projectLocation,
+  recommendationId,
 }) {
   try {
     const normInput = normaliseCompanyName(companyName);
@@ -53,6 +55,26 @@ async function matchAndNotifyTradesman({
     if (!match) return;
 
     const tradesmanUserId = match.user_id;
+
+    // Link the recommendation to the matched tradesman so it surfaces on
+    // the homeowner's swipe deck (matches.get.js requires linked_tradesman_uid).
+    // Only fills NULLs to avoid clobbering admin overrides.
+    if (recommendationId) {
+      try {
+        await mysqlQuery(
+          `UPDATE recommendations
+              SET linked_tradesman_uid = ?
+            WHERE id = ?
+              AND linked_tradesman_uid IS NULL`,
+          [tradesmanUserId, recommendationId]
+        );
+      } catch (e) {
+        console.warn(
+          "[matchAndNotifyTradesman] linking recommendation failed:",
+          e?.message || e
+        );
+      }
+    }
 
     // Guard: prevent double-notify for same tradesman + project
     const existing = await mysqlQuery(

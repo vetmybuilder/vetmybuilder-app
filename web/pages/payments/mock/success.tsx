@@ -189,13 +189,11 @@ export default function MockSuccess() {
         );
 
         if (typ === "unlock_contact") {
-          // After a one-off contact unlock, always send tradesman
-          // back to their projects list, optionally tagging the project.
-          let target = "/tradesman/projects?unlock=success";
-          if (Number.isFinite(projectId) && projectId > 0) {
-            target += `&open=${projectId}`;
-          }
-          router.replace(target);
+          // Boost-slot model: payment creates a 'pending' swipe_interest
+          // row, NOT a 'matched' one. There's no chat yet - the homeowner
+          // still has to right-swipe to form the match. Route to the
+          // confirmation page so the trade understands what happens next.
+          router.replace("/tradesman/unlock/sent");
           return;
         }
         // -------------------------------------------------------

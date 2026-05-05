@@ -1,17 +1,37 @@
 // web/components/SiteHeader.tsx
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import React, { useMemo, useRef, useState, useEffect } from "react";
+import { MessageSquare, UserCog, LogOut } from "lucide-react";
 import { useAuth, signOutUser } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
-import { Home, User, Wrench } from "lucide-react";
-import MobileMenu from "@/components/MobileMenu";
+import { useMobileMenu } from "@/utils/mobileMenu";
+import BrandWordmark from "@/components/BrandWordmark";
+import InboxDropdown, { useInboxUnread } from "@/components/InboxDropdown";
 
-const NotificationsBell = dynamic(
-  () => import("@/components/NotificationsBell"),
-  { ssr: false, loading: () => null },
-);
+// Owner project tabs - rendered in the centre of the header for any
+// signed-in homeowner. Clicking a tab from anywhere routes to /projects
+// with the right ?tab= query, so the user can jump to favourites
+// without first walking to /projects. Recommendations live on each
+// project's right rail, so they don't need a global tab here.
+const OWNER_TABS = [
+  { key: "mine", label: "Live" },
+  { key: "completed", label: "Completed" },
+  { key: "favourites", label: "Favourites" },
+] as const;
+type OwnerTabKey = (typeof OWNER_TABS)[number]["key"];
+
+// Trade-side primary nav - mirrors the homeowner OWNER_TABS but routes
+// to the trade-side equivalents. Rendered in the centre of the header
+// for any signed-in tradesperson so they can jump between Jobs, Jobs
+// list, Matches, and Incoming interest from anywhere on the site.
+const TRADES_TABS = [
+  { key: "jobs", label: "Jobs", href: "/tradesman/jobs" },
+  { key: "jobs-list", label: "Jobs list", href: "/tradesman/jobs/list" },
+  { key: "matches", label: "Matches", href: "/tradesman/matches" },
+  { key: "leads", label: "Incoming interest", href: "/tradesman/leads" },
+] as const;
+type TradesTabKey = (typeof TRADES_TABS)[number]["key"];
 
 function computeInitials(u: any | null | undefined): string | undefined {
   if (!u) return undefined;
@@ -69,54 +89,6 @@ function InitialsBadge({
   );
 }
 
-// Owner-only project tabs shown in the header when on /projects
-const PROJECT_HEADER_TABS: Array<{
-  key: "mine" | "favourites" | "completed" | "completedCommunity";
-  label: string;
-  testId: string;
-  activeColor: string;
-  hoverColor: string;
-}> = [
-  {
-    key: "mine",
-    label: "MY JOBS",
-    testId: "tab-my-projects",
-    activeColor: "#22c55e",
-    hoverColor: "#bbf7d0",
-  },
-  {
-    key: "completed",
-    label: "COMPLETED",
-    testId: "tab-my-completed-projects",
-    activeColor: "#0ea5e9",
-    hoverColor: "#bae6fd",
-  },
-  {
-    key: "completedCommunity",
-    label: "COMMUNITY",
-    testId: "tab-completed-community-projects",
-    activeColor: "#f97316",
-    hoverColor: "#fed7aa",
-  },
-  {
-    key: "favourites",
-    label: "FAVOURITES",
-    testId: "tab-favourites",
-    activeColor: "#6366f1",
-    hoverColor: "#e0e7ff",
-  },
-];
-
-function getProjectsTabKey(
-  raw: any,
-): "mine" | "completed" | "completedCommunity" | "favourites" {
-  const t = String(raw || "mine");
-  if (t === "completed") return "completed";
-  if (t === "completedCommunity") return "completedCommunity";
-  if (t === "favourites") return "favourites";
-  return "mine";
-}
-
 export default function SiteHeader() {
   const { user, loading: authLoading, profileComplete } = useAuth();
   const api = useApi();
@@ -145,6 +117,17 @@ export default function SiteHeader() {
   // change as soon as signInWithEmailAndPassword resolves, so the avatar would
   // briefly flash before the role check and redirect/reload complete.
   const isLoginPage = router.pathname === "/login";
+  const isSignupPage = router.pathname.startsWith("/signup"); // covers /signup and /signup/complete
+  // Suppress both Sign-in and Join CTAs on any auth-related route — the
+  // page itself owns the auth journey, header pills are just noise.
+  const isAuthPage =
+    isLoginPage ||
+    isSignupPage ||
+    router.pathname === "/forgot-password" ||
+    router.pathname === "/reset-password" ||
+    router.pathname.startsWith("/tradesman/login") ||
+    router.pathname.startsWith("/tradesman/signup") ||
+    router.pathname === "/tradesman/register-tradesmen";
 
   // Suppress the account chrome (avatar, notifications, Post-a-Job) once we
   // KNOW the user is authed at the Firebase layer but hasn't finished
@@ -171,6 +154,10 @@ export default function SiteHeader() {
 
   const [isTrades, setIsTrades] = useState(false);
   const [company, setCompany] = useState<string | null>(null);
+  // Profile picture URL for the trades menu avatar. Mirrors the same
+  // field /tradesman/account renders (profile.profile_picture_url).
+  // Cached in sessionStorage so it doesn't blink on subsequent loads.
+  const [tradesPhoto, setTradesPhoto] = useState<string | null>(null);
   const [roleChecked, setRoleChecked] = useState(false);
 
   // Seed from sessionStorage on client to avoid blink on subsequent loads.
@@ -184,6 +171,7 @@ export default function SiteHeader() {
       if (justRegistered) {
         setIsTrades(true);
         setCompany(sessionStorage.getItem("vmb:tradesCo") || null);
+        setTradesPhoto(sessionStorage.getItem("vmb:tradesPhoto") || null);
         setRoleChecked(true);
         // don't remove the flag here — useRole owns the one-shot lifecycle
         return;
@@ -193,13 +181,17 @@ export default function SiteHeader() {
       if (cached !== null) {
         setIsTrades(cached === "1");
         setCompany(sessionStorage.getItem("vmb:tradesCo") || null);
+        setTradesPhoto(sessionStorage.getItem("vmb:tradesPhoto") || null);
         setRoleChecked(true);
       }
     } catch {}
   }, []);
 
-  // mobile menu
-  const [mobileOpen, setMobileOpen] = useState(false);
+  // mobile menu — global instance lives at the app root; the burger
+  // buttons here just call openMenu() via the shared context. Inbox
+  // unread count is now owned by GlobalMobileMenu too.
+  const { openMenu: openMobileMenu, closeMenu: closeMobileMenu } =
+    useMobileMenu();
 
   // Only call /api/tradesmen/me when we actually have a logged-in user
   useEffect(() => {
@@ -208,10 +200,12 @@ export default function SiteHeader() {
     if (!displayUser) {
       setIsTrades(false);
       setCompany(null);
+      setTradesPhoto(null);
       setRoleChecked(true);
       try {
         sessionStorage.setItem("vmb:isTradesman", "0");
         sessionStorage.removeItem("vmb:tradesCo");
+        sessionStorage.removeItem("vmb:tradesPhoto");
       } catch {}
       return;
     }
@@ -224,20 +218,33 @@ export default function SiteHeader() {
 
         const isT = role === "tradesman" || !!prof;
         const co = prof?.company_name || prof?.company || prof?.name || null;
+        // Same field /tradesman/account renders. avatar_url + first
+        // photo are kept as fallbacks in case profile_picture_url is
+        // unset but the trade has uploaded photos.
+        const photo: string | null =
+          prof?.profile_picture_url ||
+          prof?.avatar_url ||
+          (Array.isArray(prof?.photo_urls) ? prof!.photo_urls[0] : null) ||
+          null;
 
         if (!alive) return;
         setIsTrades(!!isT);
         setCompany(co || null);
+        setTradesPhoto(photo);
         setRoleChecked(true);
 
         try {
           sessionStorage.setItem("vmb:isTradesman", isT ? "1" : "0");
           if (co) sessionStorage.setItem("vmb:tradesCo", co);
+          else sessionStorage.removeItem("vmb:tradesCo");
+          if (photo) sessionStorage.setItem("vmb:tradesPhoto", photo);
+          else sessionStorage.removeItem("vmb:tradesPhoto");
         } catch {}
       } catch {
         if (!alive) return;
         setIsTrades(false);
         setCompany(null);
+        setTradesPhoto(null);
         setRoleChecked(true);
         try {
           sessionStorage.setItem("vmb:isTradesman", "0");
@@ -251,9 +258,12 @@ export default function SiteHeader() {
   }, [user, api]);
 
   // desktop dropdown menus
-  const [openMenu, setOpenMenu] = useState<"trades" | "account" | null>(null);
+  const [openMenu, setOpenMenu] = useState<
+    "trades" | "account" | "messages" | null
+  >(null);
   const btnTradesRef = useRef<HTMLButtonElement | null>(null);
   const btnAccountRef = useRef<HTMLButtonElement | null>(null);
+  const btnMessagesRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -263,6 +273,7 @@ export default function SiteHeader() {
       if (
         btnTradesRef.current?.contains(t) ||
         btnAccountRef.current?.contains(t) ||
+        btnMessagesRef.current?.contains(t) ||
         menuRef.current?.contains(t)
       )
         return;
@@ -271,7 +282,6 @@ export default function SiteHeader() {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         setOpenMenu(null);
-        setMobileOpen(false);
       }
     }
     document.addEventListener("mousedown", onDocClick);
@@ -284,18 +294,6 @@ export default function SiteHeader() {
 
   const initials = useMemo(() => computeInitials(displayUser), [displayUser]);
 
-  // Trades-only CTA
-  const tradeCta = useMemo(() => {
-    if (!isTrades) return null;
-    return {
-      href: "/tradesman/projects",
-      label: company || "Trades",
-      className:
-        "inline-flex items-center justify-center rounded-xl px-3.5 h-9 text-sm font-medium bg-red-500 text-white shadow-sm hover:bg-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2",
-      testid: "btn-trades-projects",
-    };
-  }, [isTrades, company]);
-
   async function onLogout() {
     try {
       await signOutUser();
@@ -305,37 +303,54 @@ export default function SiteHeader() {
     window.location.href = "/";
   }
 
-  // ---- Owner project tabs in header ----
-  const isOwnerProjectsPage = router.pathname === "/projects";
-  const currentProjectsTab = isOwnerProjectsPage
-    ? getProjectsTabKey(
-        Array.isArray(router.query?.tab)
+  const homeHref = "/";
+
+  // Owner tabs visible whenever the viewer is a signed-in homeowner and
+  // not on an auth screen. Hidden for tradespeople and on /admin/*
+  // (admin uses its own AdminLayout shell).
+  const showOwnerTabs =
+    !!displayUser && !isTrades && !isAuthPage && !router.pathname.startsWith("/admin");
+
+  const onProjectsListPage = router.pathname === "/projects";
+  const activeOwnerTab: OwnerTabKey | null = onProjectsListPage
+    ? (() => {
+        const raw = Array.isArray(router.query?.tab)
           ? router.query.tab[0]
-          : router.query?.tab,
-      )
-    : "mine";
+          : router.query?.tab;
+        const t = String(raw || "mine");
+        if (t === "completed" || t === "favourites") return t;
+        return "mine";
+      })()
+    : null;
 
-  function handleProjectTabClick(
-    key: "mine" | "favourites" | "completed" | "completedCommunity",
-  ) {
-    if (currentProjectsTab === key) return;
+  // Trade-side primary tabs - mirrors showOwnerTabs but for tradesmen.
+  // Active state covers both /tradesman/jobs (the swipe deck) and
+  // /tradesman/jobs/list since they're the same product surface from
+  // the user's POV.
+  const showTradesTabs =
+    !!displayUser && isTrades && !isAuthPage && !router.pathname.startsWith("/admin");
 
-    const nextQuery = { ...router.query, tab: key };
+  const activeTradesTab: TradesTabKey | null = (() => {
+    const p = router.pathname;
+    if (p.startsWith("/tradesman/jobs/list")) return "jobs-list";
+    if (p.startsWith("/tradesman/jobs")) return "jobs";
+    if (p.startsWith("/tradesman/matches")) return "matches";
+    if (p.startsWith("/tradesman/leads")) return "leads";
+    return null;
+  })();
 
+  function handleOwnerTabClick(key: OwnerTabKey) {
     router.push(
-      {
-        pathname: "/projects",
-        query: nextQuery,
-      },
+      { pathname: "/projects", query: { tab: key } },
       undefined,
-      { shallow: true },
+      { shallow: onProjectsListPage },
     );
   }
 
-  const showProjectTabsInHeader = !!displayUser && !isTrades && isOwnerProjectsPage;
-
-  const tradesRegisterHref = "/tradesman/login";
-  const homeHref = "/";
+  // Combined unread count across Messages + Activity tabs of the inbox.
+  // Only fetched for signed-in homeowners (the only viewers who see the
+  // inbox icon).
+  const { total: inboxUnread } = useInboxUnread(!!displayUser && !isTrades);
 
   /* ========= 1) SIMPLE HOMEPAGE HEADER ========= */
   if (isHome) {
@@ -355,24 +370,50 @@ export default function SiteHeader() {
               <div className="flex items-center gap-3">
                 <Link
                   href={homeHref}
-                  className="inline-flex items-center gap-2 group"
+                  className="inline-flex items-center group"
                   aria-label="Go to homepage"
                   data-testid="nav-home"
                 >
-                  <span
-                    aria-hidden
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-red-500 text-white shadow-sm transition-transform group-hover:rotate-3"
-                  >
-                    <Home className="h-4 w-4" />
-                  </span>
-                  <span className="text-2xl font-black tracking-tight text-zinc-900">
-                    Vet<span className="text-red-500" style={{ fontFamily: "'Caveat', cursive", fontWeight: 700, fontSize: "130%", WebkitTextStroke: "0.5px currentColor" }}>My</span>Builder
-                  </span>
-                  {(isTrades || isTradesPage) && (
-                    <span className="ml-1.5 text-sm font-semibold text-red-500">Trade</span>
-                  )}
+                  <BrandWordmark tone={isTrades || isTradesPage ? "emerald" : "indigo"} />
                 </Link>
               </div>
+
+              {/* Trade-side tabs - rendered on the homepage too so a
+                  signed-in tradesperson can jump straight to Jobs /
+                  Matches / etc without opening the avatar dropdown. */}
+              {showTradesTabs && (
+                <div className="hidden md:flex flex-1 items-center justify-center">
+                  <div
+                    className="inline-flex rounded-full bg-emerald-50 p-1"
+                    role="tablist"
+                    aria-label="Trade sections"
+                  >
+                    {TRADES_TABS.map((t) => {
+                      const active = activeTradesTab === t.key;
+                      return (
+                        <Link
+                          key={t.key}
+                          href={t.href}
+                          role="tab"
+                          aria-selected={active}
+                          className={`rounded-full px-3 py-1 text-[12.5px] font-bold transition-colors ${
+                            active
+                              ? "text-white shadow-sm"
+                              : "text-slate-600 hover:text-slate-900"
+                          }`}
+                          style={
+                            active
+                              ? { background: "linear-gradient(135deg,#10b981,#059669)" }
+                              : {}
+                          }
+                        >
+                          {t.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div className="flex items-center gap-3">
                 {/* Logged-in homeowner: Projects button + account menu */}
@@ -427,9 +468,11 @@ export default function SiteHeader() {
                       className="inline-flex items-center gap-2 rounded-full px-2 py-1 ring-1 ring-gray-300/80 bg-white hover:bg-gray-50 shadow-sm"
                       data-testid="trades-menu-button"
                     >
-                      <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white text-xs font-semibold">
-                        {(company?.[0] || "T").toUpperCase()}
-                      </span>
+                      <TradesAvatar
+                        size={28}
+                        photoUrl={tradesPhoto}
+                        company={company}
+                      />
                       {company && (
                         <span className="text-sm font-medium text-gray-700 max-w-[200px] truncate">
                           {company}
@@ -440,48 +483,78 @@ export default function SiteHeader() {
                       </svg>
                     </button>
                     {openMenu === "trades" && (
-                      <div ref={menuRef} id="trades-menu" role="menu" className="absolute right-0 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg ring-1 ring-black/5">
-                        <Link role="menuitem" href="/tradesman/profile/edit" className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => setOpenMenu(null)}>
-                          Manage profile
-                        </Link>
-                        <button role="menuitem" onClick={onLogout} className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50/60">
-                          Logout
-                        </button>
+                      <div
+                        ref={menuRef}
+                        id="trades-menu"
+                        role="menu"
+                        aria-label="Trades"
+                        className="absolute right-0 top-12 z-50 w-[280px] rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden"
+                      >
+                        {/* Profile mini-header — same shape as the other
+                            trades dropdown variant so the menu reads
+                            consistently across pages. */}
+                        <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-3">
+                          <TradesAvatar
+                            size={40}
+                            photoUrl={tradesPhoto}
+                            company={company}
+                          />
+                          <div className="min-w-0">
+                            <div className="text-[13px] font-extrabold text-slate-900 truncate">
+                              {company || "Your trade"}
+                            </div>
+                            <div className="text-[11.5px] text-slate-500 truncate">
+                              {(displayUser as any)?.email || ""}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Items - top-level surfaces (Jobs, Matches,
+                            Incoming interest) live in the centered
+                            trade tabs and are intentionally NOT
+                            duplicated here. Same shape as the
+                            non-homepage variant so the menu reads
+                            consistently across pages. */}
+                        <div className="p-1.5">
+                          <Link
+                            role="menuitem"
+                            href="/tradesman/account"
+                            className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-emerald-50 hover:text-slate-900 transition-colors"
+                            onClick={() => setOpenMenu(null)}
+                          >
+                            <UserCog className="h-4 w-4 text-slate-400" />
+                            <span>Account</span>
+                          </Link>
+                        </div>
+
+                        {/* Logout (visually separated) */}
+                        <div className="p-1.5 border-t border-slate-100">
+                          <button
+                            role="menuitem"
+                            onClick={onLogout}
+                            className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-red-600 hover:bg-red-50/70 transition-colors"
+                          >
+                            <LogOut className="h-4 w-4" />
+                            <span>Logout</span>
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Logged-out (desktop) */}
-                {!displayUser && (
-                  <>
-                    <Link
-                      href={tradesRegisterHref}
-                      className="hidden sm:inline-flex items-center gap-1.5 justify-center rounded-xl px-3 h-9 text-sm font-medium bg-emerald-600 text-white shadow-sm hover:bg-emerald-500"
-                      data-testid="btn-are-you-tradesperson"
-                    >
-                      <Wrench className="h-4 w-4" />
-                      <span>Are you a tradesperson?</span>
-                    </Link>
-
-                    <Link
-                      href="/login"
-                      className="hidden sm:inline-flex items-center gap-1.5 justify-center rounded-xl px-3 h-9 text-sm font-medium bg-red-500 text-white shadow-sm hover:bg-red-600"
-                      aria-label="Homeowner sign in"
-                      data-testid="nav-sign-in"
-                    >
-                      <User className="h-4 w-4" />
-                      <span>Homeowner sign in</span>
-                    </Link>
-                  </>
-                )}
+                {/* Homepage header is intentionally bare for guests - the
+                    "join our growing community" handwritten link inside the
+                    hero is the single Join CTA. The mobile burger below
+                    still gives access to sign-in / signup links for guests
+                    on small screens. */}
 
                 {/* Mobile menu */}
                 <button
                   type="button"
                   aria-label="Open navigation menu"
                   className="inline-flex sm:hidden h-9 w-9 items-center justify-center rounded-lg bg-zinc-100 hover:bg-zinc-200 transition-colors"
-                  onClick={() => setMobileOpen(true)}
+                  onClick={openMobileMenu}
                   data-testid="btn-mobile-menu"
                 >
                   <span className="sr-only">Toggle menu</span>
@@ -496,27 +569,6 @@ export default function SiteHeader() {
           </div>
         </header>
 
-        <MobileMenu
-          open={mobileOpen}
-          onClose={() => setMobileOpen(false)}
-          isTrades={isTrades}
-          isAuthed={!!displayUser}
-          firstName={displayUser?.firstName ?? null}
-          tradeCta={tradeCta}
-          onLogout={onLogout}
-          onGoHome={() => router.push("/")}
-          onGoProjectsTab={(key) =>
-            router.push(
-              { pathname: "/projects", query: { tab: key } },
-              undefined,
-              {
-                shallow: true,
-              },
-            )
-          }
-          onGoAccount={() => router.push("/account")}
-          onPostJob={() => router.push("/projects/new")}
-        />
       </>
     );
   }
@@ -540,90 +592,143 @@ export default function SiteHeader() {
             <div className="flex items-center gap-3">
               <Link
                 href={homeHref}
-                className="inline-flex items-center gap-2"
+                className="inline-flex items-center"
                 aria-label="Go to your projects or home"
                 data-testid="nav-home"
-                onClick={() => setMobileOpen(false)}
+                onClick={closeMobileMenu}
               >
-                <span
-                  aria-hidden
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-red-500 text-white shadow-sm"
-                >
-                  <Home className="h-4 w-4" />
-                </span>
-                <span className="text-2xl font-black tracking-tight text-zinc-900">
-                  Vet<span className="text-red-500" style={{ fontFamily: "'Caveat', cursive", fontWeight: 700, fontSize: "130%", WebkitTextStroke: "0.5px currentColor" }}>My</span>Builder
-                </span>
-                {(isTrades || isTradesPage) && (
-                  <span className="ml-1.5 text-sm font-semibold text-red-500">Trade</span>
-                )}
+                <BrandWordmark tone={isTrades || isTradesPage ? "emerald" : "indigo"} />
               </Link>
             </div>
 
-            {/* Center (desktop only) */}
-            <div className="flex-1 hidden md:flex items-center justify-center">
-              {showProjectTabsInHeader && (
-                <div className="flex items-center justify-center gap-3 lg:gap-6 xl:gap-10">
-                  {PROJECT_HEADER_TABS.map((t) => {
-                    const active = currentProjectsTab === t.key;
+            {/* Centre: owner project tabs (Live / Completed / Favourites /
+                Recommendations). Acts as primary nav for homeowners so any
+                page can jump straight to a tab. Desktop only. */}
+            {showOwnerTabs && (
+              <div className="hidden md:flex flex-1 items-center justify-center">
+                <div
+                  className="inline-flex rounded-full bg-amber-50 p-1"
+                  role="tablist"
+                  aria-label="Project sections"
+                  data-testid="owner-tabs"
+                >
+                  {OWNER_TABS.map((t) => {
+                    const active = activeOwnerTab === t.key;
                     return (
                       <button
                         key={t.key}
                         type="button"
                         role="tab"
                         aria-selected={active}
-                        data-testid={t.testId}
-                        onClick={() => handleProjectTabClick(t.key)}
-                        className={[
-                          "group relative inline-flex items-center justify-center select-none whitespace-nowrap",
-                          "text-[11px] sm:text-xs font-semibold tracking-[0.18em] uppercase",
-                          "transition-colors duration-150",
+                        data-testid={`owner-tab-${t.key}`}
+                        onClick={() => handleOwnerTabClick(t.key)}
+                        className={`rounded-full px-3 py-1 text-[12.5px] font-bold transition-colors ${
                           active
-                            ? "text-slate-900"
-                            : "text-slate-500 hover:text-slate-900",
-                        ].join(" ")}
+                            ? "text-white shadow-sm"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                        style={
+                          active
+                            ? { background: "linear-gradient(135deg,#6366f1,#4f46e5)" }
+                            : {}
+                        }
                       >
-                        <span>{t.label}</span>
-
-                        <span
-                          aria-hidden
-                          className="pointer-events-none absolute inset-x-0 -bottom-1 h-[2px] rounded-full opacity-0 group-hover:opacity-80 transition-opacity duration-150"
-                          style={{ backgroundColor: t.hoverColor }}
-                        />
-
-                        {active && (
-                          <span
-                            aria-hidden
-                            className="pointer-events-none absolute inset-x-0 -bottom-1 h-[2px] rounded-full"
-                            style={{ backgroundColor: t.activeColor }}
-                          />
-                        )}
+                        {t.label}
                       </button>
                     );
                   })}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+
+            {/* Trade-side primary nav: Jobs / Jobs list / Matches /
+                Incoming interest. Same shape + position as the owner
+                tabs but emerald-tinted so the two viewer roles read as
+                visually distinct. Active tab gets the emerald pill. */}
+            {showTradesTabs && (
+              <div className="hidden md:flex flex-1 items-center justify-center">
+                <div
+                  className="inline-flex rounded-full bg-emerald-50 p-1"
+                  role="tablist"
+                  aria-label="Trade sections"
+                  data-testid="trades-tabs"
+                >
+                  {TRADES_TABS.map((t) => {
+                    const active = activeTradesTab === t.key;
+                    return (
+                      <Link
+                        key={t.key}
+                        href={t.href}
+                        role="tab"
+                        aria-selected={active}
+                        data-testid={`trades-tab-${t.key}`}
+                        className={`rounded-full px-3 py-1 text-[12.5px] font-bold transition-colors ${
+                          active
+                            ? "text-white shadow-sm"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                        style={
+                          active
+                            ? { background: "linear-gradient(135deg,#10b981,#059669)" }
+                            : {}
+                        }
+                      >
+                        {t.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Right (desktop) */}
             <div
-              className="hidden md:flex items-center gap-3"
+              className="hidden md:flex items-center gap-1.5"
               data-testid="nav-actions"
             >
-              {!displayUser && (
+              {!displayUser && !isAuthPage && (
                 <Link
-                  href={tradesRegisterHref}
-                  className="hidden sm:inline-flex items-center gap-1.5 justify-center rounded-xl px-3 h-9 text-sm font-medium bg-emerald-600 text-white shadow-sm hover:bg-emerald-500"
-                  data-testid="btn-are-you-tradesperson"
+                  href="/login"
+                  className="hidden sm:inline-flex items-center justify-center rounded-xl px-3 h-9 text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                  data-testid="nav-sign-in"
                 >
-                  <Wrench className="h-4 w-4" />
-                  <span>Are you a tradesperson?</span>
+                  <span>Sign in</span>
                 </Link>
               )}
 
               {/* Post a Job button removed from header - now a floating button on the projects page */}
 
-              {displayUser && <NotificationsBell />}
+              {/* Messages dropdown trigger - homeowner only (tradespeople
+                  use their own messaging via /tradesman/matches). */}
+              {displayUser && !isTrades && (
+                <div className="relative">
+                  <button
+                    ref={btnMessagesRef}
+                    type="button"
+                    aria-label="Messages"
+                    aria-haspopup="menu"
+                    aria-expanded={openMenu === "messages"}
+                    onClick={() =>
+                      setOpenMenu((m) => (m === "messages" ? null : "messages"))
+                    }
+                    data-testid="nav-messages"
+                    className="relative inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-amber-100 transition-colors"
+                  >
+                    <MessageSquare className="h-5 w-5 text-slate-600" />
+                    {inboxUnread > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-indigo-600 text-white text-[10px] font-bold px-1 ring-2 ring-stone-50">
+                        {inboxUnread > 99 ? "99+" : inboxUnread}
+                      </span>
+                    )}
+                  </button>
+
+                  {openMenu === "messages" && (
+                    <div ref={menuRef}>
+                      <InboxDropdown onClose={() => setOpenMenu(null)} />
+                    </div>
+                  )}
+                </div>
+              )}
 
               {displayUser && isTrades && (
                 <div className="relative" data-testid="trades-menu-wrapper">
@@ -640,13 +745,12 @@ export default function SiteHeader() {
                     className="inline-flex items-center gap-2 rounded-full px-2 py-1 ring-1 ring-gray-300/80 bg-white hover:bg-gray-50 shadow-sm"
                     data-testid="trades-menu-button"
                   >
-                    <span
-                      aria-hidden
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white text-xs font-semibold"
-                    >
-                      {(company?.[0] || "T").toUpperCase()}
-                    </span>
-                    <span className="hidden sm:block text-sm text-gray-700">
+                    <TradesAvatar
+                      size={28}
+                      photoUrl={tradesPhoto}
+                      company={company}
+                    />
+                    <span className="hidden sm:block text-sm font-semibold text-gray-700 max-w-[200px] truncate">
                       {company || "Trades"}
                     </span>
                     <svg
@@ -672,27 +776,54 @@ export default function SiteHeader() {
                       role="menu"
                       aria-label="Trades"
                       data-testid="trades-menu"
-                      className="absolute right-0 mt-2 w-52 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg ring-1 ring-black/5"
+                      className="absolute right-0 top-12 z-50 w-[280px] rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden"
                     >
-                      <Link
-                        role="menuitem"
-                        href="/tradesman/profile/edit"
-                        className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
-                        onClick={() => setOpenMenu(null)}
-                        aria-label="Manage profile"
-                        data-testid="menu-manage-profile"
-                      >
-                        Manage profile
-                      </Link>
-                      <button
-                        role="menuitem"
-                        onClick={onLogout}
-                        className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50/60"
-                        aria-label="Log out"
-                        data-testid="menu-logout"
-                      >
-                        Logout
-                      </button>
+                      {/* Profile mini-header — mirrors the homeowner
+                          dropdown so the two roles read as parallel UIs. */}
+                      <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-3">
+                        <TradesAvatar
+                          size={40}
+                          photoUrl={tradesPhoto}
+                          company={company}
+                        />
+                        <div className="min-w-0">
+                          <div className="text-[13px] font-extrabold text-slate-900 truncate">
+                            {company || "Your trade"}
+                          </div>
+                          <div className="text-[11.5px] text-slate-500 truncate">
+                            {(displayUser as any)?.email || ""}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Items - top-level surfaces (Jobs, Matches,
+                          Incoming interest) live in the header tabs and
+                          are intentionally NOT duplicated here. */}
+                      <div className="p-1.5">
+                        <Link
+                          role="menuitem"
+                          href="/tradesman/account"
+                          className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-emerald-50 hover:text-slate-900 transition-colors"
+                          onClick={() => setOpenMenu(null)}
+                          data-testid="menu-account"
+                        >
+                          <UserCog className="h-4 w-4 text-slate-400" />
+                          <span>Account</span>
+                        </Link>
+                      </div>
+
+                      {/* Logout (visually separated) */}
+                      <div className="p-1.5 border-t border-slate-100">
+                        <button
+                          role="menuitem"
+                          onClick={onLogout}
+                          className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-red-600 hover:bg-red-50/70 transition-colors"
+                          data-testid="menu-logout"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          <span>Logout</span>
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -748,51 +879,76 @@ export default function SiteHeader() {
                       role="menu"
                       aria-label="Account"
                       data-testid="account-menu"
-                      className="absolute right-0 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg ring-1 ring-black/5"
+                      className="absolute right-0 top-12 z-50 w-[260px] rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden"
                     >
-                      <Link
-                        role="menuitem"
-                        href="/account"
-                        className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
-                        onClick={() => setOpenMenu(null)}
-                      >
-                        Manage account
-                      </Link>
-                      <button
-                        role="menuitem"
-                        onClick={onLogout}
-                        className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50/60"
-                        data-testid="menu-logout"
-                      >
-                        Logout
-                      </button>
+                      {/* Profile mini-header */}
+                      <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-3">
+                        <span
+                          aria-hidden
+                          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-500 text-white text-sm font-bold"
+                        >
+                          {initials || "U"}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="text-[13px] font-extrabold text-slate-900 truncate">
+                            {(displayUser as any)?.firstName || (displayUser as any)?.username || "Your account"}
+                          </div>
+                          <div className="text-[11.5px] text-slate-500 truncate">
+                            {(displayUser as any)?.email || ""}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Items */}
+                      <div className="p-1.5">
+                        <Link
+                          role="menuitem"
+                          href="/account"
+                          className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-amber-50 hover:text-slate-900 transition-colors"
+                          onClick={() => setOpenMenu(null)}
+                        >
+                          <UserCog className="h-4 w-4 text-slate-400" />
+                          <span>Manage account</span>
+                        </Link>
+                      </div>
+
+                      {/* Logout (visually separated) */}
+                      <div className="p-1.5 border-t border-slate-100">
+                        <button
+                          role="menuitem"
+                          onClick={onLogout}
+                          className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-red-600 hover:bg-red-50/70 transition-colors"
+                          data-testid="menu-logout"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          <span>Logout</span>
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
               )}
 
-              {!displayUser && (
+              {!displayUser && !isAuthPage && (
                 <Link
-                  href="/login"
-                  className="inline-flex items-center gap-1.5 justify-center rounded-xl px-3 h-9 text-sm font-medium bg-red-500 text-white shadow-sm hover:bg-red-600"
-                  aria-label="Homeowner sign in"
-                  data-testid="nav-sign-in"
+                  href="/signup"
+                  className="inline-flex items-center justify-center rounded-xl px-5 h-9 text-sm font-bold text-white shadow-sm transition-colors"
+                  style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
+                  data-testid="nav-join"
                 >
-                  <User className="h-4 w-4" />
-                  <span>Homeowner sign in</span>
+                  <span>Get started</span>
                 </Link>
               )}
             </div>
 
-            {/* Right (mobile): bell + initials + burger */}
+            {/* Right (mobile): burger only - messages live inside the
+                mobile menu drawer for now. */}
             <div className="flex md:hidden items-center gap-2">
-              {displayUser && <NotificationsBell />}
-
               <button
                 type="button"
                 aria-label="Open navigation menu"
                 className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-100 hover:bg-zinc-200 transition-colors"
-                onClick={() => setMobileOpen(true)}
+                onClick={openMobileMenu}
                 data-testid="btn-mobile-menu"
               >
                 <span className="sr-only">Toggle menu</span>
@@ -807,27 +963,50 @@ export default function SiteHeader() {
         </div>
       </header>
 
-      <MobileMenu
-        open={mobileOpen}
-        onClose={() => setMobileOpen(false)}
-        isTrades={isTrades}
-        isAuthed={!!displayUser}
-        firstName={displayUser?.firstName ?? null}
-        tradeCta={tradeCta}
-        onLogout={onLogout}
-        onGoHome={() => router.push("/")}
-        onGoProjectsTab={(key) =>
-          router.push(
-            { pathname: "/projects", query: { tab: key } },
-            undefined,
-            {
-              shallow: true,
-            },
-          )
-        }
-        onGoAccount={() => router.push("/account")}
-        onPostJob={() => router.push("/projects/new")}
-      />
     </>
+  );
+}
+
+/* Avatar shown in the trades menu trigger. Renders the profile picture
+   when present (same field /tradesman/account uses), falls back to a
+   red-circle initial when no photo or when the image fails to load.
+   Direct <img> with explicit dimensions - same pattern as MobileMenu /
+   MessagingDock so loading is consistent across the app. */
+function TradesAvatar({
+  size,
+  photoUrl,
+  company,
+}: {
+  size: number;
+  photoUrl: string | null;
+  company: string | null;
+}) {
+  const [errored, setErrored] = useState(false);
+  const initial = (company || "T").trim().charAt(0).toUpperCase() || "T";
+  const dim = { width: `${size}px`, height: `${size}px` };
+  const fontSize = size >= 36 ? "14px" : "12px";
+
+  if (photoUrl && !errored) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={photoUrl}
+        alt=""
+        aria-hidden
+        className="rounded-full object-cover shrink-0"
+        style={dim}
+        onError={() => setErrored(true)}
+      />
+    );
+  }
+
+  return (
+    <span
+      aria-hidden
+      className="inline-flex shrink-0 items-center justify-center rounded-full bg-red-500 text-white font-bold"
+      style={{ ...dim, fontSize }}
+    >
+      {initial}
+    </span>
   );
 }

@@ -7,8 +7,6 @@
 
 const path = require("node:path");
 const { uploadToR2, isR2Configured } = require("../../lib/r2");
-const { enrichMessage } = require("../../lib/ai/enrichNotificationMessage");
-const { sendPushToUser } = require("../../lib/pushSender");
 const analytics = require("../../lib/analytics");
 const {
   processBuffer,
@@ -19,11 +17,8 @@ module.exports = (router, ctx) => {
   const {
     auth,
     mysqlQuery,
-    notifyUsers,
-    broadcastNotification,
     upload,
     PUBLIC_API_BASE = "",
-    db,
   } = ctx;
 
   const log = ctx.log || console;
@@ -115,36 +110,6 @@ module.exports = (router, ctx) => {
     return Number.isFinite(n) && n > 0 ? n : NaN;
   };
 
-  async function createNotification({
-    userId,
-    type,
-    message,
-    projectId,
-    linkPath,
-  }) {
-    try {
-      await mysqlQuery(
-        `INSERT INTO notifications
-           (userId, type, message, projectId, linkPath, createdAt)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [userId, type, message, projectId, linkPath || null, new Date()]
-      );
-      broadcastNotification?.(userId, { type, message, projectId, linkPath });
-
-      sendPushToUser({
-        uid: userId,
-        type,
-        title: "VetMyBuilder",
-        body: message,
-        linkPath,
-        mysqlQuery,
-        logActivity: ctx.logActivity,
-      });
-    } catch (err) {
-      log.warn(`${TAG} notification insert failed`, { error: err?.message });
-    }
-  }
-
   // Route ----------------------------------------------------------------------
 
   router.post("/tradesmen/shares", auth, withUploads, async (req, res) => {
@@ -196,15 +161,6 @@ module.exports = (router, ctx) => {
         tm.name ||
         tm.contact_name ||
         "A tradesman";
-
-      const projectName = project.name || "your project";
-      const templateNotifMessage = `${companyName} is interested in your ${projectName} and has shared their profile.`;
-      const notifMessage = await enrichMessage({
-        type: "tradesman_shared_profile",
-        templateMessage: templateNotifMessage,
-        context: { companyName, projectName },
-        mysqlQuery,
-      });
 
       // Check existing share
       const existingRows = await mysqlQuery(
@@ -285,35 +241,9 @@ module.exports = (router, ctx) => {
 
       const message = String(req.body?.message || "");
 
-      // If already shared → re-notify owner
+      // If already shared → idempotent return
       if (existing) {
         log.info(`${TAG} idempotent hit`, { shareId: existing.id });
-
-        try {
-          const linkPath =
-            (await resolveBuilderLinkPath(tm)) || `/projects/${pid}/shares`;
-
-          await createNotification({
-            userId: project.ownerUserId,
-            type: "tradesman_shared_profile",
-            message: notifMessage,
-            projectId: pid,
-            linkPath,
-          });
-
-          if (typeof notifyUsers === "function" && db) {
-            notifyUsers(db, [project.ownerUserId], {
-              type: "tradesman_shared_profile",
-              message: notifMessage,
-              projectId: pid,
-              shareId: existing.id,
-              linkPath,
-            });
-          }
-        } catch (err) {
-          log.warn(`${TAG} re-notify failed`, { error: err?.message });
-        }
-
         return res.json({
           ok: true,
           already: true,
@@ -340,32 +270,6 @@ module.exports = (router, ctx) => {
         [shareId]
       );
       const row = rowRows[0];
-
-      // Notify owner
-      try {
-        const linkPath =
-          (await resolveBuilderLinkPath(tm)) || `/projects/${pid}/shares`;
-
-        await createNotification({
-          userId: project.ownerUserId,
-          type: "tradesman_shared_profile",
-          message: notifMessage,
-          projectId: pid,
-          linkPath,
-        });
-
-        if (typeof notifyUsers === "function" && db) {
-          notifyUsers(db, [project.ownerUserId], {
-            type: "tradesman_shared_profile",
-            message: notifMessage,
-            projectId: pid,
-            shareId: row.id,
-            linkPath,
-          });
-        }
-      } catch (e) {
-        log.warn(`${TAG} notify failed`, { error: e?.message });
-      }
 
       res.status(201).json({
         ok: true,

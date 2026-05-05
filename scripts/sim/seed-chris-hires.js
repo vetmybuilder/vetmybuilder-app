@@ -34,14 +34,14 @@ const HIRE_PLAN = [
 // Elegant's tradesman dashboard shows multiple hires across statuses.
 // Each entry creates one project + one hire with the given status.
 const ELEGANT_EXTRA_PROJECTS = [
-  { name: "Loft conversion", type: "Loft Conversion", propertyType: "Terraced", bedrooms: 3,
+  { name: "Loft conversion", type: "Loft Conversion (Dormer)", propertyType: "Terraced", bedrooms: 3,
     description: "Want to convert the loft into a master bedroom with ensuite.",
     status: "pending",   homeownerMessage: "Could you take a look at this loft?" },
-  { name: "Kitchen extension", type: "Extension", propertyType: "Semi-Detached", bedrooms: 4,
+  { name: "Kitchen extension", type: "Rear/Side Return Extension", propertyType: "Semi-Detached", bedrooms: 4,
     description: "Single-storey rear extension to enlarge the kitchen.",
     status: "declined",  homeownerMessage: "Available for an extension job?",
     tradesmanMessage: "Sorry, can't take on extensions until autumn." },
-  { name: "Garden wall rebuild", type: "Other", propertyType: "Detached", bedrooms: 4,
+  { name: "Garden wall rebuild", type: "Garden Wall Construction", propertyType: "Detached", bedrooms: 4,
     description: "Old brick garden wall needs taking down and rebuilding.",
     status: "cancelled", homeownerMessage: "Quick wall rebuild — fancy it?",
     cancelReason: "homeowner_changed_mind" },

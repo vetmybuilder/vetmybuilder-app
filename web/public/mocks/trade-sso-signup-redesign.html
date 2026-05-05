@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <title>Trade SSO signup</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif; }
+    .phone {
+      width: 360px; height: 740px;
+      border-radius: 44px;
+      box-shadow: 0 30px 80px rgba(15,23,42,0.18), 0 0 0 10px #111 inset, 0 0 0 12px #333 inset;
+      overflow: hidden; position: relative; background: #f8fafc;
+    }
+    .phone-inner { position:absolute; inset: 12px; border-radius: 32px; overflow: hidden; background:#fff; }
+    .grad-emerald { background: linear-gradient(135deg,#10b981,#059669); }
+    .scroll-y { overflow-y: auto; }
+    .scroll-y::-webkit-scrollbar { width: 0; }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+  <header class="px-8 pt-10 pb-6 text-center">
+    <h1 class="text-2xl font-extrabold tracking-tight text-slate-900">Trade SSO signup · 3 steps</h1>
+    <p class="mt-2 text-sm text-slate-500 max-w-3xl mx-auto">
+      After Google SSO completes for a new tradesperson account, they land here. Reuses the same
+      wizard primitives (WizardTopBar / WizardProgressBar / WizardNavBar) and the same Step1Company / Step2Trades / Step3Offers
+      components as <code>/tradesman/register-tradesmen</code> -
+      just <code>total=3</code> instead of 4 and Step 4 (account password) is skipped because Google handles auth.
+    </p>
+  </header>
+
+  <main class="px-6 pb-16">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 justify-items-center">
+
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <!-- Step 1 — Company & contact                                       -->
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <section>
+        <div class="text-center mb-3">
+          <div class="text-xs uppercase font-extrabold tracking-widest text-emerald-700">Step 1</div>
+          <h2 class="text-base font-extrabold text-slate-900">Company &amp; contact</h2>
+        </div>
+
+        <div class="phone">
+          <div class="phone-inner bg-white flex flex-col">
+            <!-- WizardTopBar -->
+            <div class="bg-white border-b border-gray-100 flex items-center gap-3 px-3.5 py-2.5 flex-shrink-0">
+              <button class="w-[30px] h-[30px] rounded-full bg-gray-100 flex items-center justify-center text-gray-700 text-sm">‹</button>
+              <span class="flex-1 text-[15px] font-extrabold text-gray-900">Trade sign-up</span>
+              <button class="w-[30px] h-[30px] rounded-full bg-gray-100 flex items-center justify-center text-gray-700 text-sm">×</button>
+            </div>
+
+            <!-- WizardProgressBar -->
+            <div class="bg-white px-3.5 pt-3 pb-2">
+              <div class="h-[5px] w-full bg-gray-100 rounded-full overflow-hidden">
+                <div class="h-full bg-emerald-600 rounded-full" style="width: 33%"></div>
+              </div>
+              <p class="mt-1.5 text-[11.5px] font-bold text-gray-500">Step 1 of 3</p>
+            </div>
+
+            <div class="scroll-y flex-1 px-3.5 pt-3 pb-3">
+              <p class="text-[10.5px] font-extrabold uppercase tracking-wider text-emerald-600 mb-0.5">Company</p>
+              <h2 class="text-[18px] font-extrabold text-gray-900 leading-tight">Tell us about your business</h2>
+              <p class="mt-1 text-[12.5px] text-zinc-500">A few details so homeowners can find you.</p>
+
+              <div class="mt-4 bg-white rounded-xl px-3.5 py-3 space-y-3 border border-slate-100">
+                <div>
+                  <label class="block text-[10.5px] font-extrabold uppercase tracking-wider text-gray-500 mb-1.5">Company name *</label>
+                  <input placeholder="e.g. Elegant Building Services" class="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-[13.5px] focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-500/15" />
+                </div>
+                <div>
+                  <label class="block text-[10.5px] font-extrabold uppercase tracking-wider text-gray-500 mb-1.5">Contact name *</label>
+                  <input value="Adam (from Google)" class="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-[13.5px]" />
+                </div>
+                <div>
+                  <label class="block text-[10.5px] font-extrabold uppercase tracking-wider text-gray-500 mb-1.5">Phone *</label>
+                  <input type="tel" placeholder="07000 000000" class="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-[13.5px]" />
+                </div>
+                <div>
+                  <label class="block text-[10.5px] font-extrabold uppercase tracking-wider text-gray-500 mb-1.5">Service areas *</label>
+                  <input placeholder="Type a postcode or place - e.g. E4, N17" class="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-[13.5px]" />
+                  <div class="mt-2 flex flex-wrap gap-1.5">
+                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold border border-emerald-100">E4 ×</span>
+                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold border border-emerald-100">N17 ×</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-3 px-1 text-[11px] text-zinc-400">Email <span class="font-bold text-zinc-600">adam@elegantbuilding.co.uk</span> from Google.</div>
+            </div>
+
+            <!-- WizardNavBar -->
+            <div class="bg-white border-t border-gray-100 px-3.5 py-3 flex items-center gap-2.5 flex-shrink-0">
+              <span class="flex-1" />
+              <button class="px-5 py-2.5 rounded-full grad-emerald text-white font-extrabold text-[13.5px] shadow-md shadow-emerald-200">Next</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <!-- Step 2 — Trades & photos                                         -->
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <section>
+        <div class="text-center mb-3">
+          <div class="text-xs uppercase font-extrabold tracking-widest text-emerald-700">Step 2</div>
+          <h2 class="text-base font-extrabold text-slate-900">Trades &amp; photos</h2>
+        </div>
+
+        <div class="phone">
+          <div class="phone-inner bg-white flex flex-col">
+            <div class="bg-white border-b border-gray-100 flex items-center gap-3 px-3.5 py-2.5">
+              <button class="w-[30px] h-[30px] rounded-full bg-gray-100 flex items-center justify-center text-gray-700 text-sm">‹</button>
+              <span class="flex-1 text-[15px] font-extrabold text-gray-900">Trade sign-up</span>
+              <button class="w-[30px] h-[30px] rounded-full bg-gray-100 flex items-center justify-center text-gray-700 text-sm">×</button>
+            </div>
+
+            <div class="bg-white px-3.5 pt-3 pb-2">
+              <div class="h-[5px] w-full bg-gray-100 rounded-full overflow-hidden">
+                <div class="h-full bg-emerald-600 rounded-full" style="width: 66%"></div>
+              </div>
+              <p class="mt-1.5 text-[11.5px] font-bold text-gray-500">Step 2 of 3</p>
+            </div>
+
+            <div class="scroll-y flex-1 px-3.5 pt-3 pb-3">
+              <p class="text-[10.5px] font-extrabold uppercase tracking-wider text-emerald-600 mb-0.5">Trades</p>
+              <h2 class="text-[18px] font-extrabold text-gray-900 leading-tight">What do you do?</h2>
+              <p class="mt-1 text-[12.5px] text-zinc-500">Pick all that apply. Homeowners filter by these.</p>
+
+              <div class="mt-4 flex flex-wrap gap-1.5">
+                <span class="px-3 py-1.5 rounded-full bg-emerald-50 border-2 border-emerald-500 text-emerald-700 text-[11.5px] font-extrabold">General Builder ✓</span>
+                <span class="px-3 py-1.5 rounded-full bg-emerald-50 border-2 border-emerald-500 text-emerald-700 text-[11.5px] font-extrabold">Bathroom Fitter ✓</span>
+                <span class="px-3 py-1.5 rounded-full bg-emerald-50 border-2 border-emerald-500 text-emerald-700 text-[11.5px] font-extrabold">External Wall Insulation ✓</span>
+                <span class="px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-600 text-[11.5px] font-bold">Plasterer</span>
+                <span class="px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-600 text-[11.5px] font-bold">Tiler</span>
+                <span class="px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-600 text-[11.5px] font-bold">Roofer</span>
+                <span class="px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-600 text-[11.5px] font-bold">+ More</span>
+              </div>
+
+              <div class="mt-6">
+                <p class="text-[10.5px] font-extrabold uppercase tracking-wider text-emerald-600 mb-0.5">Photos</p>
+                <h3 class="text-[15px] font-extrabold text-gray-900 leading-tight">Show your best work</h3>
+                <p class="mt-1 text-[12px] text-zinc-500">Up to 8 photos. You can pick a profile picture later.</p>
+
+                <div class="mt-3 rounded-xl bg-white border border-slate-200 px-4 py-5 text-center">
+                  <div class="text-[10.5px] font-extrabold uppercase tracking-wider text-zinc-500">Project photos</div>
+                  <div class="mt-2 text-sm font-bold text-emerald-600">+ Upload</div>
+                  <p class="mt-1 text-[11px] text-zinc-400">Up to 8 files · Max 10MB each</p>
+                </div>
+
+                <div class="mt-3 grid grid-cols-3 gap-2">
+                  <div class="aspect-square rounded-xl" style="background: linear-gradient(135deg,#fde68a,#f59e0b);"></div>
+                  <div class="aspect-square rounded-xl" style="background: linear-gradient(135deg,#bbf7d0,#10b981);"></div>
+                  <div class="aspect-square rounded-xl" style="background: linear-gradient(135deg,#bae6fd,#0284c7);"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-white border-t border-gray-100 px-3.5 py-3 flex items-center gap-2.5">
+              <button class="px-4 py-2.5 rounded-full bg-white border border-slate-200 text-slate-700 font-extrabold text-[13.5px]">Back</button>
+              <span class="flex-1" />
+              <button class="px-5 py-2.5 rounded-full grad-emerald text-white font-extrabold text-[13.5px] shadow-md shadow-emerald-200">Next</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <!-- Step 3 — Offers & documents                                      -->
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <section>
+        <div class="text-center mb-3">
+          <div class="text-xs uppercase font-extrabold tracking-widest text-emerald-700">Step 3</div>
+          <h2 class="text-base font-extrabold text-slate-900">Offers &amp; documents</h2>
+        </div>
+
+        <div class="phone">
+          <div class="phone-inner bg-white flex flex-col">
+            <div class="bg-white border-b border-gray-100 flex items-center gap-3 px-3.5 py-2.5">
+              <button class="w-[30px] h-[30px] rounded-full bg-gray-100 flex items-center justify-center text-gray-700 text-sm">‹</button>
+              <span class="flex-1 text-[15px] font-extrabold text-gray-900">Trade sign-up</span>
+              <button class="w-[30px] h-[30px] rounded-full bg-gray-100 flex items-center justify-center text-gray-700 text-sm">×</button>
+            </div>
+
+            <div class="bg-white px-3.5 pt-3 pb-2">
+              <div class="h-[5px] w-full bg-gray-100 rounded-full overflow-hidden">
+                <div class="h-full bg-emerald-600 rounded-full" style="width: 100%"></div>
+              </div>
+              <p class="mt-1.5 text-[11.5px] font-bold text-gray-500">Step 3 of 3</p>
+            </div>
+
+            <div class="scroll-y flex-1 px-3.5 pt-3 pb-3">
+              <p class="text-[10.5px] font-extrabold uppercase tracking-wider text-emerald-600 mb-0.5">Offers</p>
+              <h2 class="text-[18px] font-extrabold text-gray-900 leading-tight">Stand out</h2>
+              <p class="mt-1 text-[12.5px] text-zinc-500">Optional but homeowners look for these.</p>
+
+              <div class="mt-4 bg-white rounded-xl border border-slate-100 px-3.5 py-3 space-y-3">
+                <div>
+                  <label class="block text-[10.5px] font-extrabold uppercase tracking-wider text-gray-500 mb-1.5">Discount range</label>
+                  <div class="flex items-center gap-2">
+                    <input class="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-[13px]" placeholder="0%" />
+                    <span class="text-zinc-400 text-[12px] font-bold">to</span>
+                    <input class="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-[13px]" placeholder="10%" />
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-[10.5px] font-extrabold uppercase tracking-wider text-gray-500 mb-1.5">Warranty (months)</label>
+                  <input class="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-[13.5px]" placeholder="12" />
+                </div>
+              </div>
+
+              <div class="mt-5">
+                <p class="text-[10.5px] font-extrabold uppercase tracking-wider text-emerald-600 mb-0.5">Documents</p>
+                <h3 class="text-[15px] font-extrabold text-gray-900 leading-tight">Insurance &amp; certs</h3>
+                <p class="mt-1 text-[12px] text-zinc-500">Upload public liability and any trade certs. We verify before you go live.</p>
+
+                <div class="mt-3 rounded-xl bg-white border border-slate-200 px-4 py-5 text-center">
+                  <div class="text-[10.5px] font-extrabold uppercase tracking-wider text-zinc-500">Insurance &amp; certs</div>
+                  <div class="mt-2 text-sm font-bold text-emerald-600">+ Upload</div>
+                  <p class="mt-1 text-[11px] text-zinc-400">PDF / JPG · Max 10MB each</p>
+                </div>
+
+                <div class="mt-3 space-y-1.5">
+                  <div class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200">
+                    <span class="text-[14px]">📄</span>
+                    <div class="flex-1 text-[12px] font-bold text-slate-800 truncate">public-liability-2026.pdf</div>
+                    <button class="text-slate-400 text-[14px]">×</button>
+                  </div>
+                </div>
+              </div>
+
+              <label class="flex items-start gap-2.5 mt-5 cursor-pointer">
+                <input type="checkbox" class="mt-0.5 h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500" />
+                <span class="text-[12px] text-zinc-500 leading-relaxed">
+                  I agree to the
+                  <a class="text-emerald-600 hover:underline">Terms of Use</a>
+                  and
+                  <a class="text-emerald-600 hover:underline">Acceptable Use Policy</a>.
+                </span>
+              </label>
+            </div>
+
+            <div class="bg-white border-t border-gray-100 px-3.5 py-3 flex items-center gap-2.5">
+              <button class="px-4 py-2.5 rounded-full bg-white border border-slate-200 text-slate-700 font-extrabold text-[13.5px]">Back</button>
+              <span class="flex-1" />
+              <button class="px-5 py-2.5 rounded-full grad-emerald text-white font-extrabold text-[13.5px] shadow-md shadow-emerald-200">Finish</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+
+    <!-- Notes -->
+    <div class="max-w-3xl mx-auto mt-12 rounded-2xl bg-white border border-slate-200 p-5">
+      <h3 class="text-base font-extrabold text-slate-900">What changes vs the current page</h3>
+      <ul class="mt-2 text-[13px] text-slate-600 leading-snug space-y-1.5">
+        <li><strong>Stepper</strong>: red 1/2/3 circles → emerald progress bar with "Step N of 3" caption (same primitive the redesigned register uses, just <code>total=3</code>).</li>
+        <li><strong>Top bar</strong>: VetMyBuilder logo + red "Trade" pill → emerald-tinted <code>WizardTopBar</code> with back + close + "Trade sign-up" title (matches redesigned register exactly).</li>
+        <li><strong>Pink/red background tint</strong> → plain white. Inputs sit in soft slate-50 cards.</li>
+        <li><strong>Step 4 (account password) is skipped</strong> - Google handles auth, no password to set.</li>
+        <li><strong>Email comes from Google</strong> and is shown read-only on Step 1 (that's already wired in <code>complete.tsx</code>).</li>
+        <li><strong>Step 1 / 2 / 3 components reused as-is</strong> from <code>web/components/vendor-register/</code>. No content rewrite needed - they already look like this on <code>/tradesman/register-tradesmen</code>.</li>
+      </ul>
+
+      <h3 class="mt-5 text-base font-extrabold text-slate-900">What stays</h3>
+      <ul class="mt-2 text-[13px] text-slate-600 leading-snug space-y-1.5">
+        <li>Field validation + required-marker logic per step.</li>
+        <li>Service-area autocomplete + chip removal.</li>
+        <li>Photo uploader (FileGridUploader emerald), profile picture selection.</li>
+        <li>Insurance / cert uploader with file list + remove.</li>
+        <li>Discount / warranty fields and value validation.</li>
+        <li>Terms checkbox gating Finish.</li>
+        <li>The PUT <code>/api/tradesmen/me</code> on Finish (no auth account creation - Google already did it).</li>
+        <li>Email read from <code>auth.user.email</code>; not editable.</li>
+      </ul>
+
+      <p class="mt-4 text-[12.5px] text-slate-500 italic">
+        Implementation is mostly mechanical: import <code>WizardTopBar</code>, <code>WizardProgressBar tone="emerald"</code>, and <code>WizardNavBar</code> in <code>web/pages/tradesman/signup/complete.tsx</code> and wrap the existing Step 1/2/3 the same way <code>register-tradesmen.tsx</code> does. All field state, validation, submit handlers stay.
+      </p>
+    </div>
+  </main>
+</body>
+</html>

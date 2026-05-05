@@ -299,24 +299,18 @@ export default function SignupForm() {
       <OAuthSignInButton
         provider="google"
         returnTo={nextPath}
+        intent="homeowner"
         onError={(msg) => setErr(msg)}
       />
-      {process.env.NEXT_PUBLIC_FACEBOOK_LOGIN === "1" && (
-        <OAuthSignInButton
-          provider="facebook"
-          returnTo={nextPath}
-          onError={(msg) => setErr(msg)}
-        />
-      )}
 
-      <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-zinc-400">
-        <div className="h-px flex-1 bg-zinc-200" />
-        <span>or sign up with email</span>
-        <div className="h-px flex-1 bg-zinc-200" />
+      <div className="flex items-center gap-3 text-[10.5px] uppercase tracking-wider text-slate-400 font-bold">
+        <div className="h-px flex-1 bg-slate-200" />
+        <span>or</span>
+        <div className="h-px flex-1 bg-slate-200" />
       </div>
 
       <form
-        className="grid gap-4"
+        className="grid gap-3"
         onSubmit={onSubmit}
         noValidate
         aria-label="Create account form"
@@ -328,35 +322,31 @@ export default function SignupForm() {
         All fields marked as required must be completed to create your account.
       </p>
 
-      <RegisterField
-        id="reg-fn"
-        label="First name"
-        value={form.firstName}
-        required
-        error={fieldErrors.firstName}
-        testIdPrefix="reg"
-        onChange={(v) => set("firstName", v)}
-      />
+      <div className="grid grid-cols-2 gap-2.5">
+        <RegisterField
+          id="reg-fn"
+          label="First name"
+          value={form.firstName}
+          required
+          error={fieldErrors.firstName}
+          testIdPrefix="reg"
+          placeholder="Sarah"
+          autoComplete="given-name"
+          onChange={(v) => set("firstName", v)}
+        />
 
-      <RegisterField
-        id="reg-ln"
-        label="Last name"
-        value={form.lastName}
-        required
-        error={fieldErrors.lastName}
-        testIdPrefix="reg"
-        onChange={(v) => set("lastName", v)}
-      />
-
-      <RegisterField
-        id="reg-un"
-        label="Username"
-        value={form.username}
-        required
-        error={fieldErrors.username}
-        testIdPrefix="reg"
-        onChange={(v) => set("username", v)}
-      />
+        <RegisterField
+          id="reg-ln"
+          label="Last name"
+          value={form.lastName}
+          required
+          error={fieldErrors.lastName}
+          testIdPrefix="reg"
+          placeholder="Johnson"
+          autoComplete="family-name"
+          onChange={(v) => set("lastName", v)}
+        />
+      </div>
 
       <RegisterField
         id="reg-email"
@@ -366,8 +356,46 @@ export default function SignupForm() {
         required
         error={fieldErrors.email}
         testIdPrefix="reg"
+        placeholder="you@example.com"
+        autoComplete="email"
         onChange={(v) => set("email", v)}
       />
+
+      <RegisterField
+        id="reg-un"
+        label="Username"
+        value={form.username}
+        required
+        error={fieldErrors.username}
+        testIdPrefix="reg"
+        autoComplete="username"
+        onChange={(v) => set("username", v)}
+      />
+
+      <div>
+        <LocationField
+          id="reg-loc"
+          label="Your area"
+          placeholder="E4, N17, Chingford"
+          value={form.location}
+          onChange={(v, meta) => {
+            if (meta) {
+              const token = meta.outward || meta.sector || meta.postcode || v;
+              set("location", token);
+            } else {
+              set("location", v);
+            }
+          }}
+          dataTestId="reg-reg-loc"
+          reasonText="Postcode or borough. We use this to surface local builders."
+          error={fieldErrors.location}
+        />
+        {fieldErrors.location && (
+          <p className="mt-1 text-sm text-red-500 font-medium" role="alert" data-testid="reg-reg-loc-error">
+            {fieldErrors.location}
+          </p>
+        )}
+      </div>
 
       <div>
         <RegisterField
@@ -378,6 +406,8 @@ export default function SignupForm() {
           required
           error={fieldErrors.password}
           testIdPrefix="reg"
+          placeholder="••••••••"
+          autoComplete="new-password"
           onChange={(v) => set("password", v)}
         />
         <PasswordChecklist password={form.password} />
@@ -391,33 +421,10 @@ export default function SignupForm() {
         required
         error={fieldErrors.confirmPassword}
         testIdPrefix="reg"
+        placeholder="••••••••"
+        autoComplete="new-password"
         onChange={(v) => set("confirmPassword", v)}
       />
-
-      <div>
-        <LocationField
-          id="reg-loc"
-          label="Postcode or City/Borough"
-          placeholder="e.g., E4, N17, Chingford"
-          value={form.location}
-          onChange={(v, meta) => {
-            if (meta) {
-              const token = meta.outward || meta.sector || meta.postcode || v;
-              set("location", token);
-            } else {
-              set("location", v);
-            }
-          }}
-          dataTestId="reg-reg-loc"
-          reasonText=""
-          error={fieldErrors.location}
-        />
-        {fieldErrors.location && (
-          <p className="mt-1 text-sm text-red-500 font-medium" role="alert" data-testid="reg-reg-loc-error">
-            {fieldErrors.location}
-          </p>
-        )}
-      </div>
 
       {betaRequired && (
         <RegisterField
@@ -431,18 +438,18 @@ export default function SignupForm() {
         />
       )}
 
-      <label className="flex items-start gap-2.5 cursor-pointer" data-testid="agree-terms">
+      <label className="flex items-start gap-2.5 cursor-pointer mt-2" data-testid="agree-terms">
         <input
           type="checkbox"
           checked={agreedTerms}
           onChange={(e) => setAgreedTerms(e.target.checked)}
-          className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-red-500 focus:ring-red-500"
+          className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
         />
-        <span className="text-xs text-zinc-500 leading-relaxed">
-          By signing up, I agree to the{" "}
-          <Link href="/terms" target="_blank" className="text-red-500 hover:underline">Terms of Use</Link>
+        <span className="text-[12px] text-slate-500 leading-relaxed">
+          I agree to the{" "}
+          <Link href="/terms" target="_blank" className="text-indigo-600 hover:underline">Terms of Use</Link>
           {" "}and{" "}
-          <Link href="/acceptable-use" target="_blank" className="text-red-500 hover:underline">Acceptable Use Policy</Link>.
+          <Link href="/acceptable-use" target="_blank" className="text-indigo-600 hover:underline">Acceptable Use Policy</Link>.
         </span>
       </label>
 
@@ -453,7 +460,8 @@ export default function SignupForm() {
       )}
 
       <button
-        className={`w-full inline-flex items-center justify-center gap-2 rounded-full px-8 py-4 text-base font-bold text-white shadow-lg transition-all disabled:cursor-not-allowed ${loading ? "bg-zinc-400" : "bg-red-500 shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] active:scale-95 disabled:opacity-60"}`}
+        className="w-full inline-flex items-center justify-center gap-2 py-4 rounded-2xl text-white font-extrabold text-[15px] tracking-tight shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100"
+        style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
         type="submit"
         disabled={loading || !agreedTerms}
       >
@@ -461,11 +469,11 @@ export default function SignupForm() {
         {loading ? "Creating…" : "Create account"}
       </button>
 
-      <p className="text-sm text-zinc-500 text-center">
-        Already have an account?{" "}
+      <p className="mt-2 text-center text-[13px] text-slate-500">
+        Already have an account?
         <Link
           href={{ pathname: "/login", query: { next: nextPath } }}
-          className="font-bold text-red-500 hover:text-red-600"
+          className="font-extrabold text-indigo-600 hover:text-indigo-700 ml-1"
         >
           Sign in
         </Link>

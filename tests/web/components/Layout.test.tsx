@@ -11,8 +11,11 @@ vi.mock("@/utils/auth", () => ({
   signOutUser: (...args: any[]) => signOutUserMock(...args),
 }));
 
-// Mock api (SiteHeader calls api.get("/api/tradesmen/me") when user is present)
-const apiMock = { get: vi.fn().mockResolvedValue({ data: {} }) };
+// Mock api - SiteHeader calls /api/tradesmen/me when a user is
+// present. Resolve any GET cleanly.
+const apiMock = {
+  get: vi.fn((_url: string) => Promise.resolve({ data: {} })),
+};
 vi.mock("@/utils/api", () => ({
   useApi: () => apiMock,
 }));
@@ -46,6 +49,10 @@ import Layout from "../../../web/components/Layout";
 describe("<Layout />", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Re-install the api.get implementation - clearAllMocks wipes it.
+    apiMock.get.mockImplementation((_url: string) =>
+      Promise.resolve({ data: {} }),
+    );
   });
 
   it("renders “Sign in” CTA when logged out", () => {

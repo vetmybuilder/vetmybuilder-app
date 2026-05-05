@@ -259,11 +259,13 @@ module.exports = (router, ctx) => {
       /* 2) Photos */
       const photoUrls = await loadPhotoUrlsFor(uid);
       const gallery = photoUrls.length ? photoUrls : makePlaceholders(uid);
-      const savedPicUrl = row.profile_picture_url || null;
-      const avatarUrl =
-        savedPicUrl && photoUrls.includes(savedPicUrl)
-          ? savedPicUrl
-          : photoUrls[0] || null;
+      const savedPicUrl = row.profile_picture_url
+        ? makeAbsolute(row.profile_picture_url)
+        : null;
+      // Prefer the saved profile picture as the avatar even when the
+      // gallery is empty — otherwise the page falls back to initials
+      // even though the tradesman has uploaded a headshot.
+      const avatarUrl = savedPicUrl || photoUrls[0] || null;
 
       /* 3) Service areas */
       const serviceAreas = parseServiceAreas(row.service_areas);
@@ -302,6 +304,7 @@ module.exports = (router, ctx) => {
         serviceAreas,
         avatarUrl,
         gallery,
+        about: row.about || null,
 
         stats: {
           completed: Number(row.wins_count || 0),

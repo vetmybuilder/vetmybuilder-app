@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tradesman profile redesign mocks</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Sora:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Sora', system-ui, sans-serif; background: #f4f1ec; }
+  .caveat { font-family: 'Caveat', cursive; font-weight: 700; }
+  .phone {
+    width: 360px;
+    height: 720px;
+    border-radius: 36px;
+    box-shadow: 0 30px 60px -20px rgba(15,23,42,0.25), 0 0 0 8px #1e293b;
+    overflow: hidden;
+    position: relative;
+    background: white;
+  }
+  .scroll-y::-webkit-scrollbar { display:none; }
+  .scroll-y { -ms-overflow-style:none; scrollbar-width:none; }
+  .work-photo-1 { background-image: linear-gradient(135deg, #cfe7d8, #6fb89a); }
+  .work-photo-2 { background-image: linear-gradient(135deg, #ddd2bd, #b29565); }
+  .work-photo-3 { background-image: linear-gradient(135deg, #c5d6ec, #5b86b4); }
+  .work-photo-4 { background-image: linear-gradient(135deg, #f0d9c4, #cd9b6e); }
+  .pencil-btn {
+    width:40px; height:40px; border-radius:9999px; border:1px solid #a7f3d0;
+    background:#ecfdf5; color:#047857; display:inline-flex; align-items:center; justify-content:center;
+  }
+</style>
+</head>
+<body class="text-slate-900">
+
+<div class="max-w-[1500px] mx-auto px-6 py-10">
+  <h1 class="text-3xl font-black tracking-tight mb-2">Tradesman profile redesign</h1>
+  <p class="text-slate-600 mb-10 max-w-2xl">Five mobile-first directions for <code>/tradesman/profile</code>. Each fills the screen, drops the notification bell, uses the emerald trade tone, and puts the edit pencil somewhere obvious. Pick one and I'll wire it.</p>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-10">
+
+    <!-- OPTION A — Photo-led hero -->
+    <div>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-emerald-700 mb-2">Option A · Photo-led hero</div>
+      <h3 class="text-xl font-extrabold mb-3">Big work photo, info overlaid</h3>
+      <p class="text-sm text-slate-600 mb-4">Hero photo from their gallery. Company name + verified pill overlaid at the bottom. Stats and content scroll below.</p>
+
+      <div class="phone">
+        <!-- top bar -->
+        <div class="absolute top-0 left-0 right-0 h-14 px-4 flex items-center justify-between bg-white/85 backdrop-blur z-20">
+          <button class="w-9 h-9 rounded-full bg-slate-100 inline-flex items-center justify-center">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-4 h-4 text-slate-700"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <span class="text-[15px] font-extrabold text-slate-900">Profile</span>
+          <button class="pencil-btn">
+            <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
+          </button>
+        </div>
+
+        <div class="absolute inset-0 pt-14 overflow-y-auto scroll-y">
+          <!-- hero photo -->
+          <div class="relative aspect-[4/3] work-photo-1">
+            <div class="absolute inset-0" style="background:linear-gradient(180deg, transparent 0%, transparent 50%, rgba(0,0,0,0.65) 100%)"></div>
+            <div class="absolute bottom-0 left-0 right-0 p-4 text-white">
+              <div class="inline-flex items-center gap-1 rounded-full bg-emerald-500/90 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider mb-1.5">
+                <svg viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3"><path d="M12 2L4 6v6c0 5 3.5 9.5 8 10 4.5-.5 8-5 8-10V6l-8-4z"/></svg>
+                Verified
+              </div>
+              <h2 class="text-[20px] font-black leading-tight" style="font-family:'Sora',sans-serif">Elegant Building Services Ltd</h2>
+              <div class="text-[12px] opacity-90 mt-0.5">E4, London · Member since April 2026</div>
+            </div>
+          </div>
+
+          <!-- stat row -->
+          <div class="px-4 -mt-5 relative z-10">
+            <div class="bg-white rounded-2xl shadow-md border border-amber-100 px-3 py-3 grid grid-cols-4 text-center">
+              <div><div class="text-[16px] font-black text-amber-600">4.9</div><div class="text-[10px] text-slate-500 font-bold">Rating</div></div>
+              <div><div class="text-[16px] font-black text-emerald-600">12</div><div class="text-[10px] text-slate-500 font-bold">Done</div></div>
+              <div><div class="text-[16px] font-black text-violet-600">93</div><div class="text-[10px] text-slate-500 font-bold">Score</div></div>
+              <div><div class="text-[16px] font-black text-rose-600">38</div><div class="text-[10px] text-slate-500 font-bold">Likes</div></div>
+            </div>
+          </div>
+
+          <div class="px-4 mt-5 mb-5">
+            <div class="text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-2">Trades offered</div>
+            <div class="flex flex-wrap gap-1.5">
+              <span class="rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[12px] font-semibold px-2.5 py-1">General builder</span>
+              <span class="rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[12px] font-semibold px-2.5 py-1">Painter</span>
+              <span class="rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[12px] font-semibold px-2.5 py-1">Plasterer</span>
+              <span class="rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[12px] font-semibold px-2.5 py-1">Tiler</span>
+              <span class="rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[12px] font-semibold px-2.5 py-1">+5 more</span>
+            </div>
+          </div>
+
+          <div class="px-4 mb-4">
+            <div class="text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-2">Recent work</div>
+            <div class="grid grid-cols-3 gap-2">
+              <div class="aspect-square rounded-xl work-photo-2"></div>
+              <div class="aspect-square rounded-xl work-photo-3"></div>
+              <div class="aspect-square rounded-xl work-photo-4"></div>
+            </div>
+          </div>
+
+          <div class="px-4 pb-8">
+            <div class="text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-2">Get in touch</div>
+            <div class="rounded-2xl bg-white border border-amber-100 p-3 space-y-1.5 text-[13px]">
+              <div><span class="text-slate-500">Phone</span> <a class="text-emerald-700 font-semibold">020 7946 0123</a></div>
+              <div><span class="text-slate-500">Email</span> <a class="text-emerald-700 font-semibold">hello@elegant.co.uk</a></div>
+              <div><span class="text-slate-500">Web</span> <a class="text-emerald-700 font-semibold">elegantbuilding.co.uk</a></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPTION B — Emerald gradient hero -->
+    <div>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-emerald-700 mb-2">Option B · Emerald gradient hero</div>
+      <h3 class="text-xl font-extrabold mb-3">Brand-tone hero, sectioned below</h3>
+      <p class="text-sm text-slate-600 mb-4">Top quarter is an emerald gradient with avatar circle + name. Reads as obviously the trade side of the app. Clean white sections below.</p>
+
+      <div class="phone">
+        <div class="absolute top-0 left-0 right-0 h-14 px-4 flex items-center justify-between z-20">
+          <button class="w-9 h-9 rounded-full bg-white/30 backdrop-blur inline-flex items-center justify-center">
+            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" class="w-4 h-4"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <span class="text-[15px] font-extrabold text-white drop-shadow">Profile</span>
+          <button class="w-9 h-9 rounded-full bg-white/30 backdrop-blur inline-flex items-center justify-center">
+            <svg viewBox="0 0 20 20" fill="white" class="w-4 h-4"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
+          </button>
+        </div>
+
+        <div class="absolute inset-0 overflow-y-auto scroll-y">
+          <div class="relative pt-20 pb-8 px-5 text-center" style="background:linear-gradient(160deg, #047857, #10b981 60%, #6ee7b7)">
+            <div class="mx-auto w-24 h-24 rounded-full bg-white/95 flex items-center justify-center text-3xl font-black text-emerald-700 shadow-xl border-4 border-white/40">E</div>
+            <h2 class="mt-3 text-[22px] font-black text-white leading-tight" style="font-family:'Sora',sans-serif">Elegant Building Services Ltd</h2>
+            <div class="text-[12px] text-white/80 mt-0.5">E4, London</div>
+            <div class="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1 text-[11px] font-extrabold text-emerald-700">
+              <svg viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3"><path d="M12 2L4 6v6c0 5 3.5 9.5 8 10 4.5-.5 8-5 8-10V6l-8-4z"/></svg>
+              Verified
+            </div>
+          </div>
+
+          <!-- floating stat tile -->
+          <div class="px-4 -mt-6 relative z-10">
+            <div class="bg-white rounded-2xl shadow-md border border-amber-100 px-3 py-3 grid grid-cols-3 text-center">
+              <div><div class="flex items-center justify-center gap-0.5 text-[15px] font-black text-amber-600"><span>★</span>4.9</div><div class="text-[10px] text-slate-500 font-bold">Rating</div></div>
+              <div class="border-x border-slate-100"><div class="text-[15px] font-black text-emerald-600">12</div><div class="text-[10px] text-slate-500 font-bold">Completed</div></div>
+              <div><div class="text-[15px] font-black text-violet-600">93</div><div class="text-[10px] text-slate-500 font-bold">Strength</div></div>
+            </div>
+          </div>
+
+          <div class="px-4 mt-5">
+            <div class="text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-2">Trades offered</div>
+            <div class="flex flex-wrap gap-1.5">
+              <span class="rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[12px] font-semibold px-2.5 py-1">General builder</span>
+              <span class="rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[12px] font-semibold px-2.5 py-1">Painter</span>
+              <span class="rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[12px] font-semibold px-2.5 py-1">Plasterer</span>
+              <span class="rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[12px] font-semibold px-2.5 py-1">+5 more</span>
+            </div>
+          </div>
+
+          <div class="px-4 mt-5 pb-8">
+            <div class="text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-2">Recent work</div>
+            <div class="grid grid-cols-3 gap-2">
+              <div class="aspect-square rounded-xl work-photo-1"></div>
+              <div class="aspect-square rounded-xl work-photo-2"></div>
+              <div class="aspect-square rounded-xl work-photo-3"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPTION C — Card-stacked, cream backdrop -->
+    <div>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-700 mb-2">Option C · Cream-backdrop card stack</div>
+      <h3 class="text-xl font-extrabold mb-3">Matches the legal/signup style</h3>
+      <p class="text-sm text-slate-600 mb-4">Same warm cream backdrop and amber-bordered white cards used by /signup and the legal pages. Most cohesive with the rest of the brand.</p>
+
+      <div class="phone" style="background:#fef6e9">
+        <div class="absolute top-0 left-0 right-0 h-14 px-4 flex items-center justify-between z-20">
+          <button class="w-9 h-9 rounded-full bg-white/85 inline-flex items-center justify-center border border-amber-100">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-4 h-4 text-slate-700"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <span class="text-[15px] font-extrabold text-slate-900">Profile</span>
+          <button class="pencil-btn">
+            <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
+          </button>
+        </div>
+
+        <div class="absolute inset-0 pt-14 overflow-y-auto scroll-y">
+          <!-- identity card -->
+          <div class="px-4 mt-2">
+            <div class="bg-white rounded-3xl shadow-sm border border-amber-100 p-5">
+              <div class="flex items-center gap-4">
+                <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black text-white" style="background:linear-gradient(135deg,#10b981,#059669)">E</div>
+                <div class="flex-1 min-w-0">
+                  <h2 class="text-[16px] font-extrabold text-slate-900 leading-tight" style="font-family:'Sora',sans-serif">Elegant Building Services Ltd</h2>
+                  <div class="text-[12px] text-slate-500">E4, London · Member since April 2026</div>
+                </div>
+              </div>
+              <div class="mt-3 flex flex-wrap gap-2">
+                <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 px-2.5 py-1 text-[11px] font-extrabold">✓ Verified</span>
+                <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 px-2.5 py-1 text-[11px] font-extrabold">★ 4.9</span>
+                <span class="inline-flex items-center gap-1 rounded-full bg-violet-50 border border-violet-200 text-violet-700 px-2.5 py-1 text-[11px] font-extrabold">Strength 93</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-4 mt-3">
+            <div class="bg-white rounded-3xl shadow-sm border border-amber-100 p-5">
+              <div class="text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-2">Trades offered</div>
+              <div class="flex flex-wrap gap-1.5">
+                <span class="rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[12px] font-semibold px-2.5 py-1">General builder</span>
+                <span class="rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[12px] font-semibold px-2.5 py-1">Painter</span>
+                <span class="rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[12px] font-semibold px-2.5 py-1">Plasterer</span>
+                <span class="rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[12px] font-semibold px-2.5 py-1">+5 more</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-4 mt-3">
+            <div class="bg-white rounded-3xl shadow-sm border border-amber-100 p-5">
+              <div class="text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-2">Recent work</div>
+              <div class="grid grid-cols-3 gap-2">
+                <div class="aspect-square rounded-xl work-photo-1"></div>
+                <div class="aspect-square rounded-xl work-photo-2"></div>
+                <div class="aspect-square rounded-xl work-photo-3"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-4 mt-3 pb-8">
+            <div class="bg-white rounded-3xl shadow-sm border border-amber-100 p-5">
+              <div class="text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-2">Service areas</div>
+              <div class="flex flex-wrap gap-1.5">
+                <span class="rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[12px] font-semibold px-2.5 py-1">E4</span>
+                <span class="rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[12px] font-semibold px-2.5 py-1">N17</span>
+                <span class="rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[12px] font-semibold px-2.5 py-1">Chingford</span>
+                <span class="rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[12px] font-semibold px-2.5 py-1">Walthamstow</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPTION D — Tinder-card preview -->
+    <div>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-violet-700 mb-2">Option D · Swipe-card preview</div>
+      <h3 class="text-xl font-extrabold mb-3">"This is what homeowners see"</h3>
+      <p class="text-sm text-slate-600 mb-4">Renders the profile as it appears in the homeowner swipe deck. A "Preview · this is what homeowners see" pill at top reframes the page as a marketing preview, with edit pencil and stats sat below.</p>
+
+      <div class="phone" style="background:#fef6e9">
+        <div class="absolute top-0 left-0 right-0 h-14 px-4 flex items-center justify-between z-20 bg-[#fef6e9]">
+          <button class="w-9 h-9 rounded-full bg-white inline-flex items-center justify-center border border-amber-100">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-4 h-4 text-slate-700"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <span class="text-[15px] font-extrabold text-slate-900">Profile</span>
+          <button class="pencil-btn">
+            <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
+          </button>
+        </div>
+
+        <div class="absolute inset-0 pt-14 overflow-y-auto scroll-y">
+          <div class="px-4 pt-3 pb-2">
+            <div class="text-center text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-amber-700">
+              Preview · this is what homeowners see
+            </div>
+          </div>
+
+          <div class="px-4 pb-3">
+            <div class="rounded-3xl overflow-hidden bg-white shadow-xl border border-amber-100">
+              <div class="aspect-[4/3] work-photo-1 relative">
+                <div class="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full bg-emerald-500 text-white px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider">
+                  ✓ Verified
+                </div>
+                <div class="absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-white/90 text-amber-700 px-2 py-0.5 text-[11px] font-bold">
+                  ★ 4.9
+                </div>
+              </div>
+              <div class="p-4">
+                <h2 class="text-[18px] font-black text-slate-900 leading-tight" style="font-family:'Sora',sans-serif">Elegant Building Services Ltd</h2>
+                <div class="text-[12px] text-slate-500">General builder · E4, London</div>
+                <div class="mt-3 flex flex-wrap gap-1.5">
+                  <span class="rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-semibold px-2 py-0.5">12 done</span>
+                  <span class="rounded-full bg-violet-50 border border-violet-200 text-violet-700 text-[11px] font-semibold px-2 py-0.5">38 likes</span>
+                  <span class="rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-semibold px-2 py-0.5">8 photos</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-4 mt-2 pb-8">
+            <div class="text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-2">Sections</div>
+            <div class="space-y-2">
+              <a class="flex items-center justify-between bg-white rounded-2xl border border-amber-100 px-4 py-3.5">
+                <span class="font-extrabold text-[14px]">Trades offered</span>
+                <span class="text-amber-500 text-lg">→</span>
+              </a>
+              <a class="flex items-center justify-between bg-white rounded-2xl border border-amber-100 px-4 py-3.5">
+                <span class="font-extrabold text-[14px]">Service areas</span>
+                <span class="text-amber-500 text-lg">→</span>
+              </a>
+              <a class="flex items-center justify-between bg-white rounded-2xl border border-amber-100 px-4 py-3.5">
+                <span class="font-extrabold text-[14px]">Recent work</span>
+                <span class="text-amber-500 text-lg">→</span>
+              </a>
+              <a class="flex items-center justify-between bg-white rounded-2xl border border-amber-100 px-4 py-3.5">
+                <span class="font-extrabold text-[14px]">Contact details</span>
+                <span class="text-amber-500 text-lg">→</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPTION E — Settings-style list -->
+    <div>
+      <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-cyan-700 mb-2">Option E · Settings-style list</div>
+      <h3 class="text-xl font-extrabold mb-3">Compact, info-dense</h3>
+      <p class="text-sm text-slate-600 mb-4">Reads like an iOS settings page. Tiny avatar header, then info rows you can tap to edit each section. Less marketing, more "manage your profile".</p>
+
+      <div class="phone" style="background:#f4f4f5">
+        <div class="absolute top-0 left-0 right-0 h-14 px-4 flex items-center justify-between z-20 bg-white border-b border-gray-100">
+          <button class="w-9 h-9 rounded-full bg-gray-100 inline-flex items-center justify-center">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-4 h-4 text-slate-700"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <span class="text-[15px] font-extrabold text-slate-900">Profile</span>
+          <span class="w-9 h-9"></span>
+        </div>
+
+        <div class="absolute inset-0 pt-14 overflow-y-auto scroll-y">
+          <div class="px-5 py-6 bg-white text-center border-b border-gray-100">
+            <div class="mx-auto w-20 h-20 rounded-full flex items-center justify-center text-3xl font-black text-white" style="background:linear-gradient(135deg,#10b981,#059669)">E</div>
+            <h2 class="mt-3 text-[16px] font-extrabold text-slate-900 leading-tight">Elegant Building Services Ltd</h2>
+            <div class="text-[12px] text-slate-500 mt-0.5">E4, London</div>
+            <div class="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-[11px] font-extrabold text-emerald-700">
+              ✓ Verified
+            </div>
+          </div>
+
+          <div class="mt-6 px-4">
+            <div class="text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-slate-400 mb-2 ml-1">Profile sections</div>
+            <div class="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-100">
+              <a class="flex items-center px-4 py-3.5">
+                <span class="w-8 h-8 rounded-lg bg-emerald-50 mr-3 flex items-center justify-center text-emerald-600">🏢</span>
+                <span class="flex-1 font-bold text-[14px]">Business details</span>
+                <span class="text-gray-300 text-lg">›</span>
+              </a>
+              <a class="flex items-center px-4 py-3.5">
+                <span class="w-8 h-8 rounded-lg bg-amber-50 mr-3 flex items-center justify-center text-amber-600">🛠️</span>
+                <span class="flex-1 font-bold text-[14px]">Trades offered</span>
+                <span class="text-gray-300 text-lg">›</span>
+              </a>
+              <a class="flex items-center px-4 py-3.5">
+                <span class="w-8 h-8 rounded-lg bg-violet-50 mr-3 flex items-center justify-center text-violet-600">📍</span>
+                <span class="flex-1 font-bold text-[14px]">Service areas</span>
+                <span class="text-gray-300 text-lg">›</span>
+              </a>
+              <a class="flex items-center px-4 py-3.5">
+                <span class="w-8 h-8 rounded-lg bg-rose-50 mr-3 flex items-center justify-center text-rose-600">📷</span>
+                <span class="flex-1 font-bold text-[14px]">Photos</span>
+                <span class="text-[12px] text-slate-400 mr-2">8</span>
+                <span class="text-gray-300 text-lg">›</span>
+              </a>
+              <a class="flex items-center px-4 py-3.5">
+                <span class="w-8 h-8 rounded-lg bg-sky-50 mr-3 flex items-center justify-center text-sky-600">📞</span>
+                <span class="flex-1 font-bold text-[14px]">Contact</span>
+                <span class="text-gray-300 text-lg">›</span>
+              </a>
+            </div>
+          </div>
+
+          <div class="px-4 mt-6 pb-8">
+            <div class="text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-slate-400 mb-2 ml-1">Performance</div>
+            <div class="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-100">
+              <div class="flex items-center px-4 py-3.5"><span class="flex-1 font-bold text-[14px]">Rating</span><span class="text-amber-700 font-extrabold">★ 4.9</span></div>
+              <div class="flex items-center px-4 py-3.5"><span class="flex-1 font-bold text-[14px]">Jobs completed</span><span class="text-emerald-700 font-extrabold">12</span></div>
+              <div class="flex items-center px-4 py-3.5"><span class="flex-1 font-bold text-[14px]">Profile strength</span><span class="text-violet-700 font-extrabold">93%</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <section class="mt-14 rounded-3xl bg-white border border-slate-200/70 p-6">
+    <h3 class="text-lg font-extrabold mb-3">Pick guide</h3>
+    <ul class="text-sm text-slate-700 space-y-2">
+      <li><strong>A · Photo-led hero</strong> — most marketing-led. Big work photo + overlaid name. Drops you into "this is the trade brand" right away. Best if the gallery is the strongest asset.</li>
+      <li><strong>B · Emerald gradient hero</strong> — bold trade-tone identity at the top. Most "obviously a trade page". Punchy.</li>
+      <li><strong>C · Cream card stack</strong> — same language as /signup and the legal pages. Most cohesive with the rest of the brand. Reads like one consistent product.</li>
+      <li><strong>D · Swipe-card preview</strong> — frames the page as "this is how homeowners see you". Strong reason for trades to keep the profile up to date.</li>
+      <li><strong>E · Settings-style list</strong> — compact, info-dense. Best if "edit my profile" is the main reason a tradesperson visits this page (rather than admiring it).</li>
+    </ul>
+    <p class="mt-4 text-sm text-slate-600"><strong>My pick:</strong> <strong>D</strong> if you want to nudge trades toward keeping their profile fresh ("homeowners see this!"). <strong>C</strong> if you want it to feel like the rest of the new brand (cream cards, amber borders). <strong>E</strong> if utility wins.</p>
+  </section>
+</div>
+
+</body>
+</html>

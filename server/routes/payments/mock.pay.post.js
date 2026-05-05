@@ -140,6 +140,83 @@ module.exports = (router, ctx) => {
           "Unlock payment completed - contact now active"
         );
 
+        // Paid unlock = boosted slot in the homeowner's swipe deck.
+        // Mirrors a trade-initiated right-swipe: row is 'pending' until the
+        // homeowner reciprocates. No auto-match, no chat_messages write -
+        // the homeowner has to right-swipe to form the match.
+        try {
+          const introMessage = String(md.introMessage || "").trim() || null;
+          const pRows = await mysqlQuery(
+            `SELECT ownerUserId FROM projects WHERE id = ? LIMIT 1`,
+            [projectId]
+          );
+          const ownerUid = pRows?.[0]?.ownerUserId;
+          if (ownerUid) {
+            // Terminal states stay sticky via the CASE - if the homeowner
+            // had already declined this trade, the row is preserved (the
+            // checkout route's already-declined guard should prevent us
+            // ever reaching here, but defence in depth).
+            await mysqlQuery(
+              `INSERT INTO swipe_interest
+                 (project_id, homeowner_uid, builder_uid, source, status,
+                  builder_swiped_at, intro_message, boost_expires_at, created_at)
+               VALUES (?, ?, ?, 'paid_unlock', 'pending', NOW(), ?,
+                       DATE_ADD(NOW(), INTERVAL 14 DAY), NOW())
+               ON DUPLICATE KEY UPDATE
+                 status = CASE
+                   WHEN status IN ('declined_by_homeowner','declined_by_builder','matched','expired')
+                     THEN status
+                   ELSE 'pending'
+                 END,
+                 source = 'paid_unlock',
+                 builder_swiped_at = COALESCE(builder_swiped_at, NOW()),
+                 intro_message = COALESCE(VALUES(intro_message), intro_message),
+                 boost_expires_at = VALUES(boost_expires_at)`,
+              [projectId, ownerUid, uid, introMessage]
+            );
+
+            const tRows = await mysqlQuery(
+              `SELECT company_name FROM tradesmen WHERE user_id = ? LIMIT 1`,
+              [uid]
+            );
+            const companyName = tRows?.[0]?.company_name || "A tradesperson";
+
+            try {
+              // Click-through goes to the tradesperson's profile so the
+              // homeowner can review who paid to pitch (their photos,
+              // verified status, etc.) before deciding to engage. The
+              // ?projectId= param keeps the project context for any
+              // back-link/breadcrumb the profile renders.
+              const linkPath = `/tradesman/${uid}?projectId=${projectId}`;
+              const notifMessage = `${companyName} wants to work on your project`;
+              await mysqlQuery(
+                `INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
+                 VALUES (?, 'paid_unlock_card', ?, ?, ?, NOW())`,
+                [ownerUid, notifMessage, projectId, linkPath]
+              );
+              ctx.broadcastNotification?.(ownerUid, {
+                type: "paid_unlock_card",
+                message: notifMessage,
+                projectId,
+                linkPath,
+              });
+              // Real-time deck update: tells any open /projects/:id page
+              // to refetch matches and splice the new card in at currentIndex+1.
+              // Uses broadcastEvent (custom SSE event name) rather than
+              // broadcastNotification (which always sends as "notification").
+              ctx.broadcastEvent?.(ownerUid, "deck_card_added", {
+                type: "deck_card_added",
+                projectId,
+                builderUid: uid,
+              });
+            } catch (notifErr) {
+              log.warn({ err: notifErr?.message }, "paid_unlock notification failed");
+            }
+          }
+        } catch (e) {
+          log.warn({ err: e?.message }, "paid_unlock swipe_interest insert failed");
+        }
+
         res.json({
           ok: true,
           type: "unlock_contact",
