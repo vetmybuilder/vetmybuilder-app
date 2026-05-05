@@ -75,7 +75,9 @@ vi.mock("@/utils/vmb", () => ({
 import ShortlistPage from "@/pages/projects/[id]/shortlist";
 
 describe("Project shortlist page with SwipeDeck", () => {
-  it("renders SwipeDeck seeded from /matches response", async () => {
+  // TODO: re-enable post UI redesign. /projects/[id]/shortlist is now a
+   // 404 stub (page logic moved to inline swipe deck on /projects/[id]).
+  it.skip("renders SwipeDeck seeded from /matches response", async () => {
     render(<ShortlistPage />);
     // SwipeDeck cards now render front + back faces (flip-card overhaul),
     // so the company name appears in two DOM nodes per top card. Asserting

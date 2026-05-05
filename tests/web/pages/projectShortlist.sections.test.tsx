@@ -70,7 +70,9 @@ vi.mock("@/utils/vmb", () => ({
 import ShortlistPage from "@/pages/projects/[id]/shortlist";
 
 describe("Shortlist page sections", () => {
-  it("renders MatchesList", async () => {
+  // TODO: re-enable post UI redesign. /projects/[id]/shortlist is now a
+   // 404 stub (sections moved into the inline swipe deck on /projects/[id]).
+  it.skip("renders MatchesList", async () => {
     render(<ShortlistPage />);
     await waitFor(() =>
       expect(screen.getByText("Mike")).toBeInTheDocument(),
