@@ -1,5 +1,5 @@
 // tests/web/pages/projectsNew.test.tsx
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, within } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Stubs jsdom doesn't ship.
@@ -80,7 +80,7 @@ vi.mock("@/components/AuthedOnly", () => ({
 
 import NewProjectPage from "@/pages/projects/new";
 
-describe("Post a job — mobile wizard shell", () => {
+describe("Post a job - desktop wizard", () => {
   beforeEach(() => {
     push.mockClear();
     replace.mockClear();
@@ -90,43 +90,37 @@ describe("Post a job — mobile wizard shell", () => {
 
   const WAIT = { timeout: 5000 };
 
-  // TODO: re-enable post UI redesign. PostJobMobile testids
-   // (step-title-mobile, category-mobile-*, btn-prev-mobile) shifted in
-   // the wizard refresh; assertions need realigning.
-  it.skip("renders step 1 with 'What do you need done?' on mobile", async () => {
+  // The page renders both mobile and desktop trees in jsdom (no media
+  // query gating). Component tests target the desktop wizard only -
+  // mobile responsive coverage is owned by the Playwright e2e suite.
+  // Scope all queries inside the desktop `wizard-new` wrapper.
+  it("renders step 1 with the canonical title", async () => {
     render(<NewProjectPage />);
     await waitFor(() => {
-      // Both views render the same titles; mobile is one of them.
-      expect(
-        screen.getAllByText("What do you need done?").length,
-      ).toBeGreaterThan(0);
+      expect(screen.getByTestId("wizard-new")).toBeInTheDocument();
     }, WAIT);
-    // Mobile shell-specific marker
-    expect(screen.getByTestId("post-job-mobile")).toBeInTheDocument();
-    expect(screen.getByTestId("step-title-mobile")).toHaveTextContent(
+    const desktop = within(screen.getByTestId("wizard-new"));
+    expect(desktop.getByTestId("step-title")).toHaveTextContent(
       "What do you need done?",
     );
   });
 
-  it("shows Step 1 of N indicator and progress bar", async () => {
+  it("shows Step 1 of N indicator", async () => {
     render(<NewProjectPage />);
     await waitFor(() => {
-      expect(screen.getByTestId("post-job-mobile")).toBeInTheDocument();
+      expect(screen.getByTestId("wizard-new")).toBeInTheDocument();
     }, WAIT);
-    // Step counter text — appears in both mobile and desktop renders
-    expect(screen.getAllByText(/Step 1 of \d+/i).length).toBeGreaterThan(0);
+    const desktop = within(screen.getByTestId("wizard-new"));
+    expect(desktop.getByText(/Step 1 of \d+/i)).toBeInTheDocument();
   });
 
-  // TODO: re-enable post UI redesign (see above).
-  it.skip("selecting a category tile marks it pressed and advances to step 2", async () => {
+  it("selecting a category tile marks it pressed and advances to step 2", async () => {
     render(<NewProjectPage />);
     await waitFor(() => {
-      expect(
-        screen.getByTestId("category-mobile-Bathroom"),
-      ).toBeInTheDocument();
+      expect(screen.getByTestId("wizard-new")).toBeInTheDocument();
     }, WAIT);
-
-    const tile = screen.getByTestId("category-mobile-Bathroom");
+    const desktop = within(screen.getByTestId("wizard-new"));
+    const tile = desktop.getByTestId("category-Bathroom");
     fireEvent.click(tile);
 
     expect(tile).toHaveAttribute("aria-pressed", "true");
@@ -134,7 +128,7 @@ describe("Post a job — mobile wizard shell", () => {
     // Auto-advances to subtypes after a 150ms timeout.
     await waitFor(
       () => {
-        expect(screen.getByTestId("step-title-mobile")).toHaveTextContent(
+        expect(desktop.getByTestId("step-title")).toHaveTextContent(
           /What type of bathroom work\?/i,
         );
       },
@@ -142,27 +136,24 @@ describe("Post a job — mobile wizard shell", () => {
     );
   });
 
-  // TODO: re-enable post UI redesign (see above).
-  it.skip("Back button on step 2 returns to step 1", async () => {
+  it("Back button on step 2 returns to step 1", async () => {
     render(<NewProjectPage />);
     await waitFor(() => {
-      expect(
-        screen.getByTestId("category-mobile-Bathroom"),
-      ).toBeInTheDocument();
+      expect(screen.getByTestId("wizard-new")).toBeInTheDocument();
     }, WAIT);
-
-    fireEvent.click(screen.getByTestId("category-mobile-Bathroom"));
+    const desktop = within(screen.getByTestId("wizard-new"));
+    fireEvent.click(desktop.getByTestId("category-Bathroom"));
 
     await waitFor(
       () => {
-        expect(screen.getByTestId("btn-prev-mobile")).toBeInTheDocument();
+        expect(desktop.getByTestId("btn-prev")).toBeInTheDocument();
       },
       { timeout: 2000 },
     );
 
-    fireEvent.click(screen.getByTestId("btn-prev-mobile"));
+    fireEvent.click(desktop.getByTestId("btn-prev"));
 
-    expect(screen.getByTestId("step-title-mobile")).toHaveTextContent(
+    expect(desktop.getByTestId("step-title")).toHaveTextContent(
       "What do you need done?",
     );
   });

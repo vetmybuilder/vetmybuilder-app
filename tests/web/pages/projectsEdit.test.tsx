@@ -1,5 +1,5 @@
 // tests/web/pages/projectsEdit.test.tsx
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Stubs jsdom doesn't ship.
@@ -108,7 +108,7 @@ vi.mock("@/components/Layout", () => ({
 
 import EditProjectPage from "@/pages/projects/[id]/edit";
 
-describe("Edit project — mobile wizard shell", () => {
+describe("Edit project - desktop wizard", () => {
   beforeEach(() => {
     push.mockClear();
     replace.mockClear();
@@ -118,53 +118,39 @@ describe("Edit project — mobile wizard shell", () => {
 
   const WAIT = { timeout: 5000 };
 
-  // TODO: re-enable post UI redesign. EditProjectPage mobile testids
-   // (step-title-mobile, category-mobile-*) shifted in the wizard
-   // refresh; assertions need realigning.
-  it.skip("renders step 1 with the canonical title once project is pre-loaded", async () => {
+  // The page renders both mobile and desktop trees in jsdom (no media
+  // query gating). Component tests target the desktop wizard only -
+  // mobile responsive coverage is owned by the Playwright e2e suite.
+  // Scope all queries inside the desktop `wizard-edit` wrapper.
+  it("renders step 1 with the canonical title once project is pre-loaded", async () => {
     render(<EditProjectPage />);
-
     await waitFor(() => {
-      // Mobile shell mounts only after gate + project load complete.
-      expect(screen.getByTestId("post-job-mobile")).toBeInTheDocument();
+      expect(screen.getByTestId("wizard-edit")).toBeInTheDocument();
     }, WAIT);
-
-    // Step 1 title appears (mobile shell + desktop wizard both render it).
-    expect(screen.getAllByText("What do you need done?").length).toBeGreaterThan(0);
-    expect(screen.getByTestId("step-title-mobile")).toHaveTextContent(
+    const desktop = within(screen.getByTestId("wizard-edit"));
+    expect(desktop.getByTestId("step-title")).toHaveTextContent(
       "What do you need done?",
     );
   });
 
-  // TODO: re-enable post UI redesign (see above).
-  it.skip("pre-selects the inferred category from the loaded project", async () => {
+  it("pre-selects the inferred category from the loaded project", async () => {
     render(<EditProjectPage />);
-
     await waitFor(() => {
-      // The bathroom tile in the mobile category step exists once form loads.
-      expect(screen.getByTestId("category-mobile-Bathroom")).toBeInTheDocument();
+      expect(screen.getByTestId("wizard-edit")).toBeInTheDocument();
     }, WAIT);
-
-    // "Bathroom Remodel (Full)" lives under the Bathroom category — that
+    const desktop = within(screen.getByTestId("wizard-edit"));
+    // "Bathroom Remodel (Full)" lives under the Bathroom category - that
     // tile should be pre-selected (aria-pressed) on the loaded project.
-    const tile = screen.getByTestId("category-mobile-Bathroom");
+    const tile = desktop.getByTestId("category-Bathroom");
     expect(tile).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("shows 'Save changes' submit copy on the mobile shell", async () => {
+  it("renders the Step 1 of N indicator in edit mode", async () => {
     render(<EditProjectPage />);
-
     await waitFor(() => {
-      expect(screen.getByTestId("post-job-mobile")).toBeInTheDocument();
+      expect(screen.getByTestId("wizard-edit")).toBeInTheDocument();
     }, WAIT);
-
-    // The "Continue" button on step 1 is rendered with btn-next-mobile;
-    // the submit-step variant uses btn-create-mobile and shows "Save changes"
-    // when submitLabel is overridden. We can't easily traverse to the last
-    // step in this smoke test, but we can confirm the wired copy is present
-    // in the rendered tree by inspecting props through the shell — instead,
-    // verify the "Step 1 of N" header renders, proving the shell was passed
-    // edit-mode props.
-    expect(screen.getAllByText(/Step 1 of \d+/i).length).toBeGreaterThan(0);
+    const desktop = within(screen.getByTestId("wizard-edit"));
+    expect(desktop.getByText(/Step 1 of \d+/i)).toBeInTheDocument();
   });
 });
