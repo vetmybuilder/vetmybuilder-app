@@ -7,12 +7,14 @@ import { ChevronLeft, MoreHorizontal } from "lucide-react";
 import BrandWordmark from "@/components/BrandWordmark";
 import { useProjectView } from "@/components/project/views/useProjectView";
 import OwnerProjectView from "@/components/project/views/OwnerProjectView";
+import PriceRangeBadge from "@/components/project/PriceRangeBadge";
 import TradesmanProjectView from "@/components/project/views/TradesmanProjectView";
 import NeighbourProjectView from "@/components/project/views/NeighbourProjectView";
 import Layout from "@/components/Layout";
 import SwipeDeck from "@/components/project/SwipeDeck";
 import ProjectActionsSheet from "@/components/project/ProjectActionsSheet";
 import ShareProjectModal from "@/components/project/ShareProjectModal";
+import OffPlatformRecModal from "@/components/project/OffPlatformRecModal";
 import PhotoLightbox from "@/components/PhotoLightbox";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import { useApi } from "@/utils/api";
@@ -62,6 +64,7 @@ function ProjectSwipeDesktop({
   projectId,
   projectTitle,
   project,
+  onCloseProject,
 }: {
   projectId: string;
   projectTitle: string;
@@ -72,6 +75,7 @@ function ProjectSwipeDesktop({
     type?: string | null;
     createdAt?: string | null;
   };
+  onCloseProject: () => void;
 }) {
   const api = useApi();
   const router = useRouter();
@@ -81,6 +85,14 @@ function ProjectSwipeDesktop({
     subscribed: any[];
     recommendationCards?: any[];
   } | null>(null);
+  const [recItems, setRecItems] = useState<Array<{
+    id: number;
+    company: string;
+    coverPhotoUrl: string | null;
+    recommenderName: string | null;
+    linked_tradesman_uid?: string | null;
+  }> | null>(null);
+  const [openRecId, setOpenRecId] = useState<number | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [paidUnlockToast, setPaidUnlockToast] = useState<string | null>(null);
@@ -96,6 +108,21 @@ function ProjectSwipeDesktop({
     }
   }, [projectId, api]);
 
+  // Sidebar list source - separate from matches because the matches
+  // endpoint applies deck-specific exclusions (recs with pending invites
+  // are dropped) that hide legitimate recs from the sidebar.
+  const refreshRecs = React.useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const { data } = await api.get<{ items: any[] }>(
+        `/api/projects/${projectId}/recommendations?limit=100`,
+      );
+      setRecItems(Array.isArray(data?.items) ? data.items : []);
+    } catch {
+      setRecItems([]);
+    }
+  }, [projectId, api]);
+
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -108,6 +135,10 @@ function ProjectSwipeDesktop({
     })();
     return () => { alive = false; };
   }, [projectId, api]);
+
+  useEffect(() => {
+    refreshRecs();
+  }, [refreshRecs]);
 
   // ?openChat=<matchId> hand-off from the global header inbox. When the
   // user clicks a thread that belongs to this project (and they weren't
@@ -155,32 +186,34 @@ function ProjectSwipeDesktop({
     },
   );
 
+  // Real-time recommendation update: a friend just recommended someone
+  // for this project. The server emits these as `notification` SSE events
+  // (with `type: "recommendation_new"` in the payload), which the global
+  // dispatcher rebroadcasts as the `vmb:notification` window event.
+  // Refetch matches (so the new entry flows into the swipe deck) AND
+  // the sidebar list (so it appears on the right rail).
+  useEffect(() => {
+    function onNotif(e: Event) {
+      const detail = (e as CustomEvent).detail || {};
+      const t = String(detail?.type || "").toLowerCase();
+      if (t !== "recommendation_new") return;
+      if (detail?.projectId != null && String(detail.projectId) !== String(projectId)) return;
+      refreshMatches();
+      refreshRecs();
+    }
+    window.addEventListener("vmb:notification", onNotif);
+    return () => window.removeEventListener("vmb:notification", onNotif);
+  }, [projectId, refreshMatches, refreshRecs]);
+
   const builders = useMemo(() => {
     if (!matches) return [] as any[];
-    // Merge order: recommendation cards (off-platform) -> recommended ->
-    // paid_unlock (most recent payer first) -> subscribed (smart-ranked).
+    // On-platform tradespeople only. Off-platform recommendations
+    // (matches.recommendationCards) live exclusively in the right-rail
+    // Recommendations card -> OffPlatformRecModal flow; surfacing them
+    // in the swipe deck would duplicate them.
+    // Merge order: recommended (community-recommended) -> paid_unlock
+    // (most recent payer first) -> subscribed (smart-ranked).
     return [
-      ...((matches.recommendationCards || []).map((rc: any) => ({
-        uid: `rec-${rc.recommendationId}`,
-        displayName: rc.company,
-        companyName: rc.company,
-        photoUrl: rc.coverPhotoUrl,
-        tier: "recommended" as const,
-        chVerified: false,
-        starRating: null,
-        reviewCount: 0,
-        yearsTrading: 0,
-        primaryTrade: null,
-        secondaryTrades: [],
-        serviceAreas: [],
-        priceBand: null,
-        baseScore: 0,
-        whyMatch: `Recommended by ${rc.recommenderName}`,
-        recommenderName: rc.recommenderName,
-        isRecommendation: true,
-        recommendationId: rc.recommendationId,
-        coverPhotoUrl: rc.coverPhotoUrl,
-      }))),
       ...(matches.recommended || []),
       ...(matches.paidUnlock || []),
       ...(matches.subscribed || []),
@@ -228,7 +261,10 @@ function ProjectSwipeDesktop({
       <Layout>
         <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-6 relative overflow-hidden">
           <BrandWatermarkScatter />
-          <div className="mx-auto max-w-6xl px-6 pt-3 relative z-10">
+          <div
+            className="mx-auto max-w-6xl px-6 pt-3 relative z-10"
+            data-testid="project-view-page"
+          >
             <div className="flex items-center justify-between mb-4">
               <a
                 href="/projects"
@@ -258,7 +294,7 @@ function ProjectSwipeDesktop({
               <div className="w-[80px]" aria-hidden />
             </div>
 
-            <div className="grid md:grid-cols-[280px_1fr] gap-6">
+            <div className="grid md:grid-cols-[280px_1fr_280px] gap-6">
               {/* LEFT RAIL */}
               <aside className="space-y-4">
                 {/* Project summary card */}
@@ -279,12 +315,6 @@ function ProjectSwipeDesktop({
                         <span className="truncate">{project.location}</span>
                       </div>
                     )}
-                    {project?.type && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-slate-400">{"\u{1F527}"}</span>
-                        <span className="truncate capitalize">{project.type}</span>
-                      </div>
-                    )}
                     {posted && (
                       <div className="flex items-center gap-2">
                         <span className="text-slate-400">{"\u{1F551}"}</span>
@@ -292,15 +322,34 @@ function ProjectSwipeDesktop({
                       </div>
                     )}
                   </div>
-                  <Link
-                    href={`/projects/${projectId}/edit`}
-                    className="mt-4 block w-full text-center rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[12px] font-bold py-2 hover:bg-amber-100 transition-colors"
-                  >
-                    Edit job details
-                  </Link>
+                  <div className="mt-4">
+                    <PriceRangeBadge
+                      workType={(project as any)?.type}
+                      answers={(project as any)?.answers_json}
+                      fallback={(project as any)?.classification?.price_band_estimate}
+                    />
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    <Link
+                      href={`/projects/${projectId}/edit`}
+                      className="inline-flex items-center justify-center gap-1.5 w-full text-center rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[12px] font-bold py-2 hover:bg-amber-100 transition-colors"
+                    >
+                      Edit job details
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={onCloseProject}
+                      data-testid="btn-mark-completed"
+                      className="inline-flex items-center justify-center gap-1.5 w-full text-center rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[12px] font-bold py-2 hover:bg-emerald-100 transition-colors"
+                    >
+                      Mark as completed
+                    </button>
+                  </div>
                 </div>
 
-                {/* Share card */}
+                {/* Share card - lives under the project summary on the
+                    left so the right rail is free for recommendations
+                    received for this job. */}
                 <div className="bg-white border-2 border-indigo-400 rounded-3xl p-5 shadow-md relative">
                   <span className="absolute -top-2.5 left-5 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white bg-indigo-600 px-2 py-0.5 rounded-full">
                     Grow your shortlist
@@ -320,11 +369,6 @@ function ProjectSwipeDesktop({
                   <p className="mt-1 text-[12.5px] text-slate-600 leading-relaxed">
                     Friends and neighbours can recommend a tradesperson they trust.
                   </p>
-                  {/* Three icon buttons (WhatsApp / Email / SMS), then a
-                      full-width Copy share link button below. The legacy
-                      "Share job" sheet trigger is removed on desktop -
-                      these direct channels cover the same intent without
-                      a second click. */}
                   <div className="mt-4 grid grid-cols-3 gap-2">
                     <button
                       type="button"
@@ -391,11 +435,6 @@ function ProjectSwipeDesktop({
                     {copied ? "Link copied" : "Copy share link"}
                   </button>
                 </div>
-
-                <div className="text-[11.5px] text-slate-500 leading-relaxed px-1">
-                  <span className="text-emerald-600 font-bold">{"✓"}</span>{" "}
-                  Every tradesperson is verified before joining VetMyBuilder.
-                </div>
               </aside>
 
               {/* MAIN CANVAS */}
@@ -405,30 +444,6 @@ function ProjectSwipeDesktop({
                     <SwipeDeck
                       projectId={String(projectId)}
                       builders={builders}
-                      onInfo={(builder) => {
-                        if ((builder as any).isRecommendation && (builder as any).recommendationId) {
-                          router.push(`/projects/${projectId}/recommendations/${(builder as any).recommendationId}`);
-                          return;
-                        }
-                        const recId = (builder as any).recommendationId;
-                        if (builder.tier === "recommended" && recId) {
-                          router.push(`/builders/${recId}?projectId=${projectId}`);
-                        } else {
-                          router.push(`/tradesman/${builder.uid}?projectId=${projectId}`);
-                        }
-                      }}
-                      onInfoPrefetch={(builder) => {
-                        if ((builder as any).isRecommendation && (builder as any).recommendationId) {
-                          router.prefetch(`/projects/${projectId}/recommendations/${(builder as any).recommendationId}`);
-                          return;
-                        }
-                        const recId = (builder as any).recommendationId;
-                        if (builder.tier === "recommended" && recId) {
-                          router.prefetch(`/builders/${recId}`);
-                        } else if (builder.uid) {
-                          router.prefetch(`/tradesman/${builder.uid}`);
-                        }
-                      }}
                       onMatch={(matchId) => {
                         // Desktop: keep the homeowner on this page. The
                         // new conversation appears in the global
@@ -474,9 +489,97 @@ function ProjectSwipeDesktop({
                 </div>
               </main>
 
-              {/* Chat moved to the global LinkedIn-style MessagingDock
-                  in _app.tsx so multiple matched conversations live in
-                  floating windows at the bottom-right of every page. */}
+              {/* RIGHT RAIL - recommendations received for this job from
+                  the homeowner's community. The same recs are also merged
+                  into the swipe deck (so the homeowner sees them when
+                  swiping); the sidebar list is a quick at-a-glance view
+                  of who has been recommended and by whom. */}
+              <aside className="space-y-4">
+                <div className="bg-white border border-amber-100 rounded-3xl p-5 shadow-sm">
+                  <div className="text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-indigo-700 mb-1.5">
+                    Recommendations
+                  </div>
+                  <h3
+                    className="text-[16px] font-black tracking-tight text-slate-900 leading-tight"
+                    style={{ fontFamily: "'Sora', sans-serif" }}
+                  >
+                    From your{" "}
+                    <span
+                      className="text-indigo-600"
+                      style={{ fontFamily: "'Caveat', cursive", fontSize: "115%" }}
+                    >
+                      community
+                    </span>
+                  </h3>
+
+                  {(() => {
+                    if (recItems === null) {
+                      return (
+                        <p className="mt-3 text-[12.5px] text-slate-400">
+                          Loading…
+                        </p>
+                      );
+                    }
+                    // Right rail = off-platform recs only. On-platform recs
+                    // (those with a linked_tradesman_uid) appear as cards in
+                    // the swipe deck instead, so listing them here would be
+                    // duplicative.
+                    const offPlatform = recItems.filter(
+                      (rc) => !rc.linked_tradesman_uid,
+                    );
+                    if (offPlatform.length === 0) {
+                      return (
+                        <p className="mt-3 text-[12.5px] text-slate-500 leading-relaxed">
+                          No off-platform recommendations yet. Share this job
+                          with friends and neighbours so they can recommend a
+                          tradesperson they trust.
+                        </p>
+                      );
+                    }
+                    return (
+                      <ul className="mt-3 -mx-1 divide-y divide-slate-100">
+                        {offPlatform.map((rc) => (
+                          <li key={rc.id}>
+                            <button
+                              type="button"
+                              onClick={() => setOpenRecId(rc.id)}
+                              className="w-full text-left flex items-center gap-3 px-1 py-2.5 hover:bg-stone-50/60 rounded-xl transition-colors"
+                            >
+                              {rc.coverPhotoUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={rc.coverPhotoUrl}
+                                  alt=""
+                                  className="w-10 h-10 rounded-full object-cover shrink-0"
+                                />
+                              ) : (
+                                <span
+                                  className="w-10 h-10 rounded-full text-white flex items-center justify-center text-[13px] font-black shrink-0"
+                                  style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
+                                  aria-hidden
+                                >
+                                  {(rc.company || "?").charAt(0).toUpperCase()}
+                                </span>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="text-[13px] font-extrabold text-slate-900 truncate">
+                                  {rc.company}
+                                </div>
+                                {rc.recommenderName && (
+                                  <div className="text-[11px] text-slate-500 truncate">
+                                    by {rc.recommenderName}
+                                  </div>
+                                )}
+                              </div>
+                              <span className="text-slate-400 text-[16px] shrink-0" aria-hidden>›</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    );
+                  })()}
+                </div>
+              </aside>
             </div>
           </div>
         </div>
@@ -486,6 +589,12 @@ function ProjectSwipeDesktop({
           onClose={() => setShareOpen(false)}
           projectId={String(projectId)}
           projectName={project?.name}
+        />
+
+        <OffPlatformRecModal
+          open={openRecId !== null}
+          recId={openRecId}
+          onClose={() => setOpenRecId(null)}
         />
 
         {/* Match-formed celebration overlay: takes over the centre of the
@@ -640,6 +749,7 @@ function ProjectSwipeMobile({
         fontFamily:
           "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
       }}
+      data-testid="project-view-page"
     >
       <div className="h-[env(safe-area-inset-top)]" />
 
@@ -670,61 +780,12 @@ function ProjectSwipeMobile({
         <SwipeDeck
           projectId={String(projectId)}
           builders={[
-            ...((matches.recommendationCards || []).map((rc: any) => ({
-              uid: `rec-${rc.recommendationId}`,
-              displayName: rc.company,
-              companyName: rc.company,
-              photoUrl: rc.coverPhotoUrl,
-              tier: "recommended" as const,
-              chVerified: false,
-              starRating: null,
-              reviewCount: 0,
-              yearsTrading: 0,
-              primaryTrade: null,
-              secondaryTrades: [],
-              serviceAreas: [],
-              priceBand: null,
-              baseScore: 0,
-              whyMatch: `Recommended by ${rc.recommenderName}`,
-              recommenderName: rc.recommenderName,
-              isRecommendation: true,
-              recommendationId: rc.recommendationId,
-              coverPhotoUrl: rc.coverPhotoUrl,
-            }))),
+            // On-platform only. Off-platform recs render in the right-rail
+            // Recommendations card -> OffPlatformRecModal flow.
             ...(matches.recommended || []),
             ...(matches.paidUnlock || []),
             ...(matches.subscribed || []),
           ]}
-          onInfo={(builder) => {
-            if ((builder as any).isRecommendation && (builder as any).recommendationId) {
-              router.push(`/projects/${projectId}/recommendations/${(builder as any).recommendationId}`);
-              return;
-            }
-            const recId = (builder as any).recommendationId;
-            if (builder.tier === "recommended" && recId) {
-              router.push(
-                `/builders/${recId}?projectId=${projectId}`,
-              );
-            } else {
-              router.push(
-                `/tradesman/${builder.uid}?projectId=${projectId}`,
-              );
-            }
-          }}
-          onInfoPrefetch={(builder) => {
-            // Warm the Next.js route cache for whichever profile the
-            // Info button would navigate to, so the tap feels instant.
-            if ((builder as any).isRecommendation && (builder as any).recommendationId) {
-              router.prefetch(`/projects/${projectId}/recommendations/${(builder as any).recommendationId}`);
-              return;
-            }
-            const recId = (builder as any).recommendationId;
-            if (builder.tier === "recommended" && recId) {
-              router.prefetch(`/builders/${recId}`);
-            } else if (builder.uid) {
-              router.prefetch(`/tradesman/${builder.uid}`);
-            }
-          }}
           onMatch={(matchId) => router.push(`/match/${matchId}`)}
         />
       )}
@@ -1372,11 +1433,16 @@ export default function ProjectViewPage() {
               </div>
             </Layout>
           ) : (
-            <ProjectSwipeDesktop
-              projectId={projectIdStr}
-              projectTitle={projectTitle}
-              project={vm.project as any}
-            />
+            <>
+              <ProjectSwipeDesktop
+                projectId={projectIdStr}
+                projectTitle={projectTitle}
+                project={vm.project as any}
+                onCloseProject={vm.onCloseProject}
+              />
+              {vm.closeProjectModal}
+              {vm.plansModal}
+            </>
           )}
         </div>
       </>

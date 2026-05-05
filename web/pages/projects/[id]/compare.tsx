@@ -205,10 +205,10 @@ function CompareInner() {
         <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-16 sm:pt-20 pb-16">
 
           <Link
-            href={`/projects/${id}/shortlist`}
+            href={`/projects/${id}`}
             className="hidden sm:inline-flex items-center gap-2 mb-4 rounded-xl bg-slate-800/90 backdrop-blur-sm px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 transition-colors"
           >
-            &#8592; Back to shortlist
+            &#8592; Back to project
           </Link>
 
           <div className="bg-white rounded-3xl shadow-xl overflow-hidden">

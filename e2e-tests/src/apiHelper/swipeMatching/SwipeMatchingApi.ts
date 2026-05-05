@@ -99,7 +99,12 @@ export class SwipeMatchingApi {
   async waitForSwipeInterest(params: {
     projectId: number;
     builderUid: string;
-    expectedStatus?: "pending" | "matched";
+    expectedStatus?:
+      | "pending"
+      | "matched"
+      | "declined_by_homeowner"
+      | "declined_by_builder"
+      | "expired";
   }): Promise<{ id: number; status: string }> {
     let found: { id: number; status: string } | null = null;
 
@@ -158,6 +163,19 @@ export class SwipeMatchingApi {
     expect(res.status()).toBe(200);
     const body = await res.json();
     expect(body.status).toBe("matched");
+  }
+
+  async builderDeclinesMatch(
+    builderClient: ApiClient,
+    swipeInterestId: number,
+  ): Promise<void> {
+    const res = await builderClient.post(
+      `/api/swipe-interest/${swipeInterestId}/respond`,
+      { direction: "left" },
+    );
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe("declined_by_builder");
   }
 
   /**

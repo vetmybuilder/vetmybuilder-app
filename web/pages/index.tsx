@@ -2,9 +2,10 @@
 import Head from "next/head";
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/utils/auth";
 import Footer from "@/components/Footer";
+import HomeStats from "@/components/home/HomeStats";
 
 function IconProject(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -50,60 +51,6 @@ function IconArrowRight(props: React.SVGProps<SVGSVGElement>) {
     <svg viewBox="0 0 24 24" fill="none" {...props} aria-hidden>
       <path d="M5 12h14m-6-6l6 6-6 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
-  );
-}
-
-function CountUp({
-  end,
-  durationMs = 1200,
-  className = "",
-}: {
-  end: number;
-  durationMs?: number;
-  className?: string;
-}) {
-  const [val, setVal] = useState(0);
-  const [visible, setVisible] = useState(false);
-  const ref = useRef<HTMLSpanElement | null>(null);
-  const startedRef = useRef(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      (entries) => entries.forEach((e) => setVisible(e.isIntersecting)),
-      { threshold: 0.3 },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (!visible || startedRef.current || end <= 0) return;
-    startedRef.current = true;
-    const startTs = performance.now();
-    const from = 0;
-    const to = end;
-    function tick(now: number) {
-      const p = Math.min(1, (now - startTs) / durationMs);
-      const eased = 1 - Math.pow(1 - p, 3);
-      setVal(Math.round(from + (to - from) * eased));
-      if (p < 1) requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
-  }, [visible, end, durationMs]);
-
-  useEffect(() => {
-    if (end > 0) {
-      startedRef.current = false;
-      setVal(0);
-    }
-  }, [end]);
-
-  return (
-    <span ref={ref} className={className}>
-      {val.toLocaleString()}
-    </span>
   );
 }
 
@@ -202,12 +149,6 @@ export default function Home() {
       })()
     : false;
 
-  const [stats, setStats] = useState({
-    communityMembers: 0,
-    recommendations: 0,
-    shortlists: 0,
-  });
-
   function rememberReturnTo() {
     try {
       if (!sessionStorage.getItem("vmb:returnTo")) {
@@ -217,32 +158,6 @@ export default function Home() {
       /* noop */
     }
   }
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`/api/stats`, {
-          cache: "no-store",
-          headers: { "Cache-Control": "no-store" },
-        });
-        if (!res.ok) throw new Error(`stats fetch failed: ${res.status}`);
-        const json = await res.json();
-        if (!cancelled) {
-          setStats({
-            communityMembers: Number(json.communityMembers) || 0,
-            recommendations: Number(json.recommendations) || 0,
-            shortlists: Number(json.shortlists) || 0,
-          });
-        }
-      } catch (e) {
-        console.warn("stats error", e);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const steps = isTrades
     ? [
@@ -494,59 +409,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* STATS - hidden until community reaches 50 members */}
-        {stats.communityMembers >= 50 && (
-          <section className="bg-white py-12 sm:py-16" id="community">
-            <div className="mx-auto max-w-3xl px-5 sm:px-8">
-              <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-700 text-center">
-                The community in numbers
-              </p>
-              <h2
-                className="mt-2 text-[24px] sm:text-3xl font-black tracking-[-0.01em] text-slate-900 text-center leading-[1.1]"
-                style={{ fontFamily: "'Sora', sans-serif" }}
-              >
-                Got your back.
-              </h2>
-
-              <div className="mt-7 grid grid-cols-3 gap-2 sm:gap-4">
-                {[
-                  {
-                    stat: stats.communityMembers,
-                    label: "Members",
-                    accent: "text-amber-600",
-                    bg: "bg-amber-50/70 border-amber-100",
-                  },
-                  {
-                    stat: stats.recommendations,
-                    label: "Recommendations",
-                    accent: "text-violet-600",
-                    bg: "bg-violet-50/70 border-violet-100",
-                  },
-                  {
-                    stat: stats.shortlists,
-                    label: "Shortlists",
-                    accent: "text-emerald-600",
-                    bg: "bg-emerald-50/70 border-emerald-100",
-                  },
-                ].map((item) => (
-                  <div
-                    key={item.label}
-                    className={`${item.bg} rounded-2xl p-3 sm:p-5 text-center border`}
-                  >
-                    <CountUp
-                      end={item.stat}
-                      durationMs={1600}
-                      className={`text-[28px] sm:text-4xl font-black ${item.accent}`}
-                    />
-                    <div className="mt-1 text-[11px] sm:text-sm font-extrabold text-slate-700">
-                      {item.label}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
+        <HomeStats />
 
         {/* HOW IT WORKS - warm cream alternating with white. Steps coloured
             per beat (amber / violet / emerald) so each feels distinct. */}

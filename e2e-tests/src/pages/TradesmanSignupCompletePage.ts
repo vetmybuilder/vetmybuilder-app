@@ -43,8 +43,8 @@ export class TradesmanSignupCompletePage {
     this.email = page.getByTestId("input-email");
     this.phoneInput = page.getByTestId("input-phone");
     this.areasInput = page.getByTestId("input-areas").locator("input").first();
-    this.nextButton = page.getByTestId("btn-next");
-    this.continueButton = page.getByTestId("btn-continue");
+    this.nextButton = page.getByRole("button", { name: /^Next/ });
+    this.continueButton = page.getByRole("button", { name: /^Next/ });
     this.formError = page.getByTestId("tradesman-signup-complete-error");
   }
 

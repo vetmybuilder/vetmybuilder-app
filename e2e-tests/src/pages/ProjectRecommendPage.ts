@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import BasePage from "./BasePage";
+import { safeGoto } from "../helpers/navigation";
 import Account from "../models/Account";
 import Recommendation, { type RecommendationInput } from "../models/Recommendation";
 
@@ -51,19 +52,42 @@ export class ProjectRecommendPage extends BasePage {
     super(page);
 
     // Both desktop and mobile mount their h1 with "How did they do?"
-    // (split into spans on desktop, plain text on mobile). Match on a
-    // partial heading name and filter to the visible one.
+    // (split into spans on desktop, plain text on mobile). Constrain to
+    // level=1 because desktop also renders an h2 SectionHeading with the
+    // same text just below the h1.
     this.heading = page
-      .getByRole("heading", { name: /How did/i })
+      .getByRole("heading", { level: 1, name: /How did/i })
       .filter({ visible: true });
 
-    this.nameInput = page.getByTestId("recommend-name");
-    this.emailInput = page.getByTestId("recommend-email");
-    this.companyInput = page.getByTestId("recommend-company");
-    this.companyEmailInput = page.getByTestId("recommend-company-email");
-    this.phoneInput = page.getByTestId("recommend-phone");
-    this.commentInput = page.getByTestId("recommend-comment");
-    this.fileInput = page.locator('input[type="file"]');
+    // Both desktop (hidden md:block) and mobile (md:hidden) wrappers
+    // mount the same input testids - only one is visible per viewport.
+    // Filter to the visible one to avoid strict-mode collisions.
+    this.nameInput = page
+      .getByTestId("recommend-name")
+      .filter({ visible: true });
+    this.emailInput = page
+      .getByTestId("recommend-email")
+      .filter({ visible: true });
+    this.companyInput = page
+      .getByTestId("recommend-company")
+      .filter({ visible: true });
+    this.companyEmailInput = page
+      .getByTestId("recommend-company-email")
+      .filter({ visible: true });
+    this.phoneInput = page
+      .getByTestId("recommend-phone")
+      .filter({ visible: true });
+    this.commentInput = page
+      .getByTestId("recommend-comment")
+      .filter({ visible: true });
+    // <input type="file"> is intentionally display:none (styled button
+    // covers it), so .filter({ visible: true }) won't work. Instead,
+    // scope to whichever surface wrapper is visible for this viewport.
+    this.fileInput = page
+      .getByTestId("recommend-mobile")
+      .or(page.getByTestId("main-content"))
+      .filter({ visible: true })
+      .locator('input[type="file"]');
 
     // Mobile renders a "Send" button with testid; desktop renders
     // a button labelled "Send recommendation". Either-or, visible only.
@@ -91,7 +115,11 @@ export class ProjectRecommendPage extends BasePage {
   }
 
   fieldError(field: RecommendFieldKey): Locator {
-    return this.page.getByTestId(FIELD_ERROR_TESTID[field]);
+    // Both viewports emit the same testid for field errors, but only one
+    // surface is visible at a time. Filter to the visible one.
+    return this.page
+      .getByTestId(FIELD_ERROR_TESTID[field])
+      .filter({ visible: true });
   }
 
   async assertFieldError(
@@ -108,7 +136,10 @@ export class ProjectRecommendPage extends BasePage {
   }
 
   async visit(projectId: string | number) {
-    await this.page.goto(`/projects/${projectId}/recommend`);
+    // safeGoto handles the "interrupted by another navigation" race that
+    // hits when a post-login redirect is still in flight when we try to
+    // navigate here.
+    await safeGoto(this.page, `/projects/${projectId}/recommend`);
     await expect(this.page).toHaveURL(`/projects/${projectId}/recommend`);
     await expect(this.heading).toBeVisible();
   }
@@ -162,16 +193,18 @@ export class ProjectRecommendPage extends BasePage {
     await this.fileInput.setInputFiles(photos);
     await this.page
       .getByRole("button", { name: /Remove/i })
+      .filter({ visible: true })
       .first()
       .waitFor({ state: "visible", timeout: 5_000 })
       .catch(() => {});
     // Photo Acceptable Use Policy consent - the FileGridUploader renders
     // a checkbox below the grid once any file is attached, and the submit
-    // button is disabled until it's ticked.
+    // button is disabled until it's ticked. Both viewports mount the
+    // testid, so scope to the visible one.
     await this.page
       .getByTestId("photo-consent-checkbox")
-      .check({ timeout: 5_000 })
-      .catch(() => {});
+      .filter({ visible: true })
+      .check({ timeout: 5_000 });
   }
 
   /** Fill the Step 2 (or desktop) tradesperson + recommender fields. */
@@ -196,36 +229,45 @@ export class ProjectRecommendPage extends BasePage {
     }
   }
 
-  async submitRecommendationForLoggedInUser(
+  /**
+   * Fill every field a logged-in recommender needs to submit. Handles
+   * both viewports (mobile two-step wizard / desktop single page) and
+   * asserts the auto-filled identity fields once they're on screen
+   * (Step 2 on mobile, immediately on desktop). Leaves the page on the
+   * final submit-ready state - call submitForm() separately when ready.
+   */
+  async fillRecommendationForLoggedInUser(
     account: Account,
     recommendation: Recommendation,
   ) {
     const payload = recommendation.toMultipartPayload();
     const { fields, photos } = payload;
 
-    // Mobile: ratings + comment live on Step 1. Desktop: same form,
-    // no step navigation needed.
+    // Step 1 (mobile) or top of form (desktop): ratings + comment.
     await this.setRatingsFromModel(recommendation);
+    await this.commentInput.fill(fields.comment);
 
     if (this.isMobile()) {
-      // Comment lives on Step 1 (mobile) - fill before advancing.
-      await this.commentInput.fill(fields.comment);
       await this.goToStep2();
-    } else {
-      await this.commentInput.fill(fields.comment);
     }
 
-    // Identity is locked for logged-in users on Step 2 / desktop section.
+    // Identity inputs only render on Step 2 (mobile) - assert them now
+    // that we're on the surface that hosts them.
     await this.hasPrefilledIdentity(account);
 
-    // Photos sit between the tradesperson and recommender sections.
+    // Photos live between tradesperson and recommender sections - attach
+    // after step nav so the layout shift settles.
     await this.attachPhotos(photos);
 
     await this.fillStep2Fields(fields, { fillIdentity: false });
+  }
 
+  async submitRecommendationForLoggedInUser(
+    account: Account,
+    recommendation: Recommendation,
+  ) {
+    await this.fillRecommendationForLoggedInUser(account, recommendation);
     await this.submitButton.click();
-    // Wait for the success indicator before returning so the post-redirect
-    // navigation is observable to the caller.
     await this.waitForSubmissionSuccess();
   }
 
@@ -280,7 +322,9 @@ export class ProjectRecommendPage extends BasePage {
       return;
     }
     await expect(
-      this.page.getByText(/Your recommendation for .* has been sent/i),
+      this.page
+        .getByText(/Your recommendation for .* has been sent/i)
+        .filter({ visible: true }),
     ).toBeVisible({ timeout: 10_000 });
   }
 }

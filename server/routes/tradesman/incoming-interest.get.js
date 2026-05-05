@@ -8,6 +8,7 @@ const { mysqlQuery: _mq } = require("../../lib/mysql");
 const {
   isBuilderSubscribed,
 } = require("../../lib/subscriptions/isBuilderSubscribed");
+const { extractOutward } = require("../../lib/matching/extractOutward");
 
 module.exports = function mountIncomingInterest(router, ctx) {
   const mysqlQuery = ctx?.mysqlQuery ?? _mq;
@@ -45,14 +46,19 @@ module.exports = function mountIncomingInterest(router, ctx) {
       mysqlQuery,
     );
 
+    // Privacy: a pending swipe_interest row is pre-match - the homeowner
+    // has shown intent but the tradesman hasn't paid or reciprocated, so
+    // we surface neither the homeowner's first name nor the full
+    // postcode. Both are scrubbed in the response shaper so a UI bug
+    // can't accidentally re-expose either field.
     const leads = (rows || []).map((r) => ({
       matchId: r.matchId,
       projectId: r.projectId,
       title: r.title,
       budget: "",
-      outward: r.outward || "",
+      outward: extractOutward(r.outward) || "",
       startWindow: "",
-      homeownerFirstName: r.homeownerFirstName,
+      homeownerFirstName: null,
       description: r.description,
       trades: String(r.trades || "")
         .split(",")

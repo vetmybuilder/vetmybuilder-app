@@ -19,6 +19,7 @@ import {
   Heart,
   ShieldCheck,
   Star,
+  Flag,
 } from "lucide-react";
 
 import { useApi } from "@/utils/api";
@@ -26,6 +27,7 @@ import { tradeIconFor } from "@/utils/tradeIcons";
 import { initials, prettyDomain } from "@/utils/tradesmanProfile";
 import { platformLabelFor } from "@/utils/reviewLinks";
 import PhotoLightbox from "@/components/PhotoLightbox";
+import ReportModal from "@/components/ReportModal";
 
 export type TradesmanDetail = {
   builderId: string;
@@ -92,6 +94,8 @@ export default function TradesmanProfileMobile({
   const api = useApi();
   const router = useRouter();
   const title = item.companyName || item.displayName || "Tradesman";
+
+  const [reportOpen, setReportOpen] = useState(false);
 
   // Google review snippets — only loaded once per profile view.
   const [reviews, setReviews] = useState<GoogleReview[]>([]);
@@ -245,11 +249,13 @@ export default function TradesmanProfileMobile({
               src={item.avatarUrl}
               alt=""
               className="w-full h-full object-cover"
+              data-testid="tradesman-avatar-photo"
             />
           ) : (
             <div
               className="w-full h-full flex items-center justify-center text-white font-extrabold text-[22px]"
               style={{ background: "linear-gradient(135deg, #6ee7b7, #10b981)" }}
+              data-testid="tradesman-avatar-initials"
             >
               {initials(title)}
             </div>
@@ -442,12 +448,13 @@ export default function TradesmanProfileMobile({
       {(item.phone || item.email || item.website || item.companyNumber) && (
         <>
           <SectionHeader>Profile details</SectionHeader>
-          <section className="px-5">
+          <section className="px-5" data-testid="tradesman-contact-card">
             <dl className="rounded-2xl border border-gray-200 bg-white divide-y divide-gray-100">
               {item.phone && (
                 <DetailRow label="Phone">
                   <a
                     href={`tel:${item.phone}`}
+                    data-testid="tradesman-phone"
                     className="text-rose-500 font-bold break-all"
                   >
                     {item.phone}
@@ -458,6 +465,7 @@ export default function TradesmanProfileMobile({
                 <DetailRow label="Email">
                   <a
                     href={`mailto:${item.email}`}
+                    data-testid="tradesman-email"
                     className="text-rose-500 font-bold break-all"
                   >
                     {item.email}
@@ -474,6 +482,7 @@ export default function TradesmanProfileMobile({
                     }
                     target="_blank"
                     rel="noopener noreferrer"
+                    data-testid="tradesman-website"
                     className="text-rose-500 font-bold break-all"
                   >
                     {prettyDomain(item.website)}
@@ -496,7 +505,7 @@ export default function TradesmanProfileMobile({
       {Array.isArray(item.reviewLinks) && item.reviewLinks.length > 0 && (
         <>
           <SectionHeader>External reviews</SectionHeader>
-          <section className="px-5">
+          <section className="px-5" data-testid="tradesman-review-links-section">
             <ul className="rounded-2xl border border-gray-200 bg-white divide-y divide-gray-100">
               {item.reviewLinks.map((entry) => (
                 <li
@@ -524,13 +533,16 @@ export default function TradesmanProfileMobile({
       {(item.offersDiscount || (item.warrantyMonths ?? 0) > 0) && (
         <>
           <SectionHeader>Discounts &amp; warranty</SectionHeader>
-          <section className="px-5">
+          <section className="px-5" data-testid="tradesman-extras">
             <div className="rounded-2xl border border-gray-200 bg-white p-3.5 flex flex-wrap items-center gap-2">
               {item.offersDiscount && (
                 <Pill tone="emerald">Offers discounts</Pill>
               )}
               {item.warrantyMonths ? (
-                <span className="text-[12.5px] text-gray-600">
+                <span
+                  className="text-[12.5px] text-gray-600"
+                  data-testid="tradesman-warranty"
+                >
                   Warranty: {item.warrantyMonths} months
                 </span>
               ) : null}
@@ -543,12 +555,13 @@ export default function TradesmanProfileMobile({
       {Array.isArray(item.serviceAreas) && item.serviceAreas.length > 0 && (
         <>
           <SectionHeader>Service areas</SectionHeader>
-          <section className="px-5">
+          <section className="px-5" data-testid="tradesman-areas">
             <div className="rounded-2xl border border-gray-200 bg-white p-3.5">
               <div className="flex flex-wrap gap-1.5">
                 {item.serviceAreas.map((a) => (
                   <span
                     key={a}
+                    data-testid={`tradesman-service-area-${a}`}
                     className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-[12px] font-bold text-gray-700"
                   >
                     {a}
@@ -560,6 +573,18 @@ export default function TradesmanProfileMobile({
         </>
       )}
 
+      <div className="px-5 pt-2 pb-4">
+        <button
+          type="button"
+          onClick={() => setReportOpen(true)}
+          data-testid="btn-report-profile"
+          className="w-full inline-flex items-center justify-center gap-1.5 text-[12px] font-semibold text-slate-400 hover:text-rose-500 transition-colors py-2"
+        >
+          <Flag className="w-3.5 h-3.5" />
+          Report this profile
+        </button>
+      </div>
+
       <div className="h-24" />
 
       {lightbox && (
@@ -568,6 +593,14 @@ export default function TradesmanProfileMobile({
           photos={lightbox.photos}
           initialIndex={lightbox.index}
           onClose={() => setLightbox(null)}
+        />
+      )}
+
+      {reportOpen && (
+        <ReportModal
+          targetType="profile"
+          targetId={item.builderId}
+          onClose={() => setReportOpen(false)}
         />
       )}
     </main>

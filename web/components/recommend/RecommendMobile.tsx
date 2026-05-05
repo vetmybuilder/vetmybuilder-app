@@ -323,7 +323,10 @@ function Step1({
           }`}
         />
         {commentError && (
-          <p className="mt-1 text-[11.5px] text-rose-600 font-semibold">
+          <p
+            data-testid="recommend-comment-error"
+            className="mt-1 text-[11.5px] text-rose-600 font-semibold"
+          >
             {commentError}
           </p>
         )}
@@ -579,7 +582,12 @@ function Field({
         } ${disabled ? "opacity-60 cursor-not-allowed" : ""}`}
       />
       {error ? (
-        <p className="mt-1 text-[11.5px] text-rose-600 font-semibold">{error}</p>
+        <p
+          data-testid={`recommend-${id}-error`}
+          className="mt-1 text-[11.5px] text-rose-600 font-semibold"
+        >
+          {error}
+        </p>
       ) : help ? (
         <p className="mt-1 text-[11px] text-gray-500">{help}</p>
       ) : null}

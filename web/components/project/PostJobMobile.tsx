@@ -152,7 +152,7 @@ export default function PostJobMobile(props: PostJobMobileProps) {
           onClick={handleCancel}
           aria-label="Cancel and return"
           className="w-9 h-9 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center"
-          data-testid="btn-cancel-mobile"
+          data-testid="btn-cancel"
         >
           <X size={18} />
         </button>
@@ -176,7 +176,7 @@ export default function PostJobMobile(props: PostJobMobileProps) {
       <div className="flex-1 overflow-y-auto px-5 pb-32">
         <h1
           className="text-[26px] font-extrabold tracking-[-0.02em] leading-[1.15] text-gray-900 mt-2"
-          data-testid="step-title-mobile"
+          data-testid="step-title"
         >
           {currentStep.title}
         </h1>
@@ -223,7 +223,7 @@ export default function PostJobMobile(props: PostJobMobileProps) {
           )}
 
           {currentStep.key === "location" && (
-            <div className="text-left" data-testid="field-location-wrap-mobile">
+            <div className="text-left" data-testid="field-location-wrap">
               {/* Pill renders only after the user picks a suggestion (or
                   types a full postcode that resolves). Typing alone keeps
                   the input visible so single keystrokes don't dismiss it. */}
@@ -378,7 +378,7 @@ export default function PostJobMobile(props: PostJobMobileProps) {
               onClick={goBack}
               disabled={busy}
               className="px-5 py-3.5 rounded-2xl bg-white border-[1.5px] border-gray-200 text-gray-700 font-bold text-[14px] disabled:opacity-50"
-              data-testid="btn-prev-mobile"
+              data-testid="btn-prev"
             >
               Back
             </button>
@@ -388,7 +388,7 @@ export default function PostJobMobile(props: PostJobMobileProps) {
             onClick={isLastStep ? () => submit() : goNext}
             disabled={!canContinue}
             className="flex-1 py-3.5 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white font-extrabold text-[15px] tracking-tight shadow-[0_8px_22px_rgba(99,102,241,0.3)] disabled:opacity-50 disabled:shadow-none"
-            data-testid={isLastStep ? "btn-create-mobile" : "btn-next-mobile"}
+            data-testid={isLastStep ? "btn-create" : "btn-next"}
           >
             {busy ? busyText : isLastStep ? submitText : "Continue"}
           </button>
@@ -455,7 +455,7 @@ function CategoryStep({
   onSelect: (cat: string) => void;
 }) {
   return (
-    <div data-testid="field-category-mobile">
+    <div data-testid="field-category">
       <SearchInput
         value={categorySearch}
         onChange={setCategorySearch}
@@ -474,7 +474,7 @@ function CategoryStep({
               className={`${TILE_BASE} ${
                 selected ? TILE_SELECTED : TILE_UNSELECTED
               } min-h-[88px]`}
-              data-testid={`category-mobile-${cat}`}
+              data-testid={`category-${cat}`}
             >
               <span className="text-[28px] leading-none">
                 {CATEGORY_ICONS[cat] || "\u{1F3E0}"}
@@ -524,7 +524,7 @@ function SubtypesStep({
     return <p className="text-[13px] text-gray-400">Pick a category first.</p>;
   }
   return (
-    <div data-testid="field-subtypes-mobile">
+    <div data-testid="field-subtypes">
       {SUBTYPE_OPTIONS.length > 6 && (
         <div className="mb-4">
           <SearchInput
@@ -592,7 +592,7 @@ function SubtypesStep({
             placeholder="Describe another type of work"
             value={otherText}
             onChange={(e) => setOtherText(e.target.value)}
-            data-testid="field-other-text-mobile"
+            data-testid="field-other-text"
           />
         )}
       </div>
@@ -610,7 +610,7 @@ function PropertyTypeStep({
   onSelect: (label: string) => void;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-3" data-testid="field-property-mobile">
+    <div className="grid grid-cols-2 gap-3" data-testid="field-property">
       {PROPERTY_TYPES.map((pt) => {
         const isSelected = selected === pt.label;
         return (
@@ -622,7 +622,7 @@ function PropertyTypeStep({
             className={`${TILE_BASE} ${
               isSelected ? TILE_SELECTED : TILE_UNSELECTED
             } min-h-[88px]`}
-            data-testid={`property-mobile-${pt.label}`}
+            data-testid={`property-${pt.label}`}
           >
             <span className="text-[28px] leading-none">{pt.icon}</span>
             <span className="text-[13px] font-extrabold text-gray-800">
@@ -647,7 +647,7 @@ function BedroomsStep({
   return (
     <div
       className="flex flex-wrap gap-2.5"
-      data-testid="field-bedrooms-mobile"
+      data-testid="field-bedrooms"
     >
       {BEDROOM_OPTIONS.map((b) => {
         const numVal = parseInt(b, 10);
@@ -663,7 +663,7 @@ function BedroomsStep({
                 ? "bg-indigo-600 text-white shadow-[0_6px_16px_rgba(99,102,241,0.25)]"
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
-            data-testid={`beds-mobile-${b}`}
+            data-testid={`beds-${b}`}
           >
             {b}
           </button>
@@ -704,7 +704,7 @@ function ExtrasStep({
     <div className="space-y-6 text-left">
       <div>
         <div className={FIELD_LABEL_CLS}>When do you need this done?</div>
-        <div className="mt-2 grid grid-cols-2 gap-2" data-testid="field-timeframe-mobile">
+        <div className="mt-2 grid grid-cols-2 gap-2" data-testid="field-timeframe">
           {TIMEFRAMES.map((t) => (
             <button
               key={t}
@@ -720,7 +720,7 @@ function ExtrasStep({
 
       <div>
         <div className={FIELD_LABEL_CLS}>Your budget</div>
-        <div className="mt-2 grid grid-cols-3 gap-2" data-testid="field-budget-mobile">
+        <div className="mt-2 grid grid-cols-3 gap-2" data-testid="field-budget">
           {BUDGETS.map((b) => (
             <button
               key={b}
@@ -736,7 +736,7 @@ function ExtrasStep({
 
       <div>
         <div className={FIELD_LABEL_CLS}>Materials</div>
-        <div className="mt-2 grid grid-cols-2 gap-2" data-testid="field-materials-mobile">
+        <div className="mt-2 grid grid-cols-2 gap-2" data-testid="field-materials">
           {MATERIALS_OPTIONS.map((m) => (
             <button
               key={m}
@@ -752,7 +752,7 @@ function ExtrasStep({
 
       <div>
         <div className={FIELD_LABEL_CLS}>Access &amp; constraints</div>
-        <div className="mt-2 grid grid-cols-2 gap-2" data-testid="field-access-mobile">
+        <div className="mt-2 grid grid-cols-2 gap-2" data-testid="field-access">
           {accessOptionsSingle ? (
             accessOptionsSingle.map((opt) => {
               const sel = form.access === opt;
@@ -819,7 +819,7 @@ function DescriptionStep({
         value={value}
         maxLength={MAX}
         onChange={(e) => onChange(e.target.value)}
-        data-testid="field-description-mobile"
+        data-testid="field-description"
       />
       <div
         className={`text-right text-[12px] mt-1.5 ${

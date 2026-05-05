@@ -11,6 +11,8 @@ import { useApi } from "@/utils/api";
 import { useMobileMenu } from "@/utils/mobileMenu";
 import { useSseEvent } from "@/utils/useSseEvent";
 import TradesmanOnly from "@/components/TradesmanOnly";
+import SiteHeader from "@/components/SiteHeader";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import JobListRow, { type JobListRowData } from "@/components/tradesmen/JobListRow";
 import JobDetailsSheet from "@/components/tradesmen/JobDetailsSheet";
 
@@ -319,10 +321,14 @@ export default function TradesmanJobsListPage() {
     setCommittedSearch("");
   }
 
-  // ── infinite scroll sentinel ──────────────────────────────────────────────
+  // ── infinite scroll sentinels ─────────────────────────────────────────────
+  // Mobile and desktop render separate scrollable surfaces, so each
+  // viewport gets its own sentinel. IntersectionObserver only fires for
+  // visible elements - the off-viewport sentinel (display:none under
+  // md:hidden / hidden md:block) is silently ignored.
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const sentinelDesktopRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    if (!sentinelRef.current) return;
     if (!hasMore || loading || error) return;
     const io = new IntersectionObserver(
       (entries) => {
@@ -332,7 +338,8 @@ export default function TradesmanJobsListPage() {
       },
       { rootMargin: "200px" },
     );
-    io.observe(sentinelRef.current);
+    if (sentinelRef.current) io.observe(sentinelRef.current);
+    if (sentinelDesktopRef.current) io.observe(sentinelDesktopRef.current);
     return () => io.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasMore, loading, error, allItems.length]);
@@ -356,8 +363,10 @@ export default function TradesmanJobsListPage() {
           <title>Browse jobs • VetMyBuilder</title>
         </Head>
 
+        {/* MOBILE - full-bleed app shell with the page's own top bar.
+            Untouched from the existing build. */}
         <main
-          className="fixed inset-0 flex flex-col overflow-hidden"
+          className="md:hidden fixed inset-0 flex flex-col overflow-hidden"
           data-testid="tradesman-jobs-list"
           style={{
             fontFamily:
@@ -501,6 +510,163 @@ export default function TradesmanJobsListPage() {
           </div>
         </main>
 
+        {/* DESKTOP - V3 layout: cream + watermark, sticky filter rail
+            on the left, compact rows on the right. Reuses the same
+            search / chip / pagination state as mobile. */}
+        <div
+          className="hidden md:block min-h-screen bg-[#fef6e9] relative overflow-hidden"
+          data-testid="tradesman-jobs-list-desktop"
+        >
+          <SiteHeader />
+          <BrandWatermarkScatter />
+
+          <div className="mx-auto max-w-6xl px-6 pb-12 relative z-10">
+            {/* Title block */}
+            <div className="text-center pt-6 pb-4">
+              <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-0.5">
+                Jobs near you
+              </div>
+              <h1
+                className="text-[26px] font-black tracking-tight text-slate-900 leading-tight"
+                style={{ fontFamily: "'Sora', sans-serif" }}
+              >
+                Pick your{" "}
+                <span
+                  className="text-emerald-600"
+                  style={{ fontFamily: "'Caveat', cursive", fontSize: "120%" }}
+                >
+                  next job
+                </span>
+              </h1>
+            </div>
+
+            <div className="grid md:grid-cols-[280px_1fr] gap-6">
+              {/* LEFT RAIL — sticky filters */}
+              <aside>
+                <div className="bg-white border border-amber-100 rounded-3xl p-5 shadow-sm sticky top-6">
+                  <div className="text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-1.5">
+                    Filter
+                  </div>
+                  <h2
+                    className="text-[17px] font-black text-slate-900 leading-tight mb-3"
+                    style={{ fontFamily: "'Sora', sans-serif" }}
+                  >
+                    Narrow the list
+                  </h2>
+
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-full text-[12.5px] outline-none focus:border-emerald-400"
+                    placeholder="🔍 Search title or area"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    onKeyDown={handleSearchKeyDown}
+                    onBlur={commitSearch}
+                  />
+
+                  <div className="mt-4">
+                    <div className="text-[10.5px] font-extrabold uppercase tracking-[0.12em] text-slate-500 mb-1.5">
+                      My focus
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {CHIPS.map(({ id, label }) => {
+                        const active = activeChip === id;
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => setActiveChip(id)}
+                            className={`px-2.5 py-1 rounded-full text-[10.5px] font-bold border transition-colors ${
+                              active
+                                ? "bg-emerald-600 text-white border-emerald-600"
+                                : "bg-white text-slate-700 border-slate-200 hover:border-emerald-300"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="mt-4 w-full text-[12px] font-bold text-emerald-700 underline"
+                  >
+                    Clear all
+                  </button>
+                </div>
+              </aside>
+
+              {/* MAIN COLUMN */}
+              <main>
+                <div className="flex items-center justify-between mb-3 px-1">
+                  <div className="text-[12px] font-bold text-slate-500">
+                    {filteredItems.length} of {total} jobs match
+                  </div>
+                </div>
+
+                {loading && allItems.length === 0 && (
+                  <div className="bg-white border border-amber-100 rounded-2xl shadow-sm flex items-center justify-center py-16">
+                    <span className="text-[14px] font-semibold text-emerald-600 animate-pulse">
+                      Loading jobs…
+                    </span>
+                  </div>
+                )}
+
+                {!loading && error && (
+                  <div className="bg-white border border-rose-200 rounded-2xl shadow-sm px-5 py-4 text-[13px] text-rose-600 font-semibold">
+                    {error}
+                  </div>
+                )}
+
+                {!loading && !error && filteredItems.length === 0 && (
+                  <div className="bg-white border border-amber-100 rounded-2xl shadow-sm px-5 py-8 text-center">
+                    <p className="text-[13px] font-semibold text-slate-500">
+                      No jobs match your filters.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={resetFilters}
+                      className="mt-2 text-[12px] font-bold text-emerald-700 underline"
+                    >
+                      Try clearing filters
+                    </button>
+                  </div>
+                )}
+
+                {!error && filteredItems.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    {filteredItems.map((job) => (
+                      <DesktopJobRow
+                        key={job.projectId}
+                        data={job}
+                        highlight={newRowIds.has(job.projectId)}
+                        onOpen={() => setOpenSheetForId(job.projectId)}
+                      />
+                    ))}
+
+                    {loading && allItems.length > 0 && (
+                      <div className="text-center py-3 text-[12px] font-semibold text-emerald-600 animate-pulse">
+                        Loading more…
+                      </div>
+                    )}
+
+                    {!hasMore && allItems.length > 0 && (
+                      <div className="text-center py-3 text-[11.5px] text-slate-400">
+                        That&rsquo;s everything for now.
+                      </div>
+                    )}
+
+                    <div ref={sentinelDesktopRef} aria-hidden className="h-1" />
+                  </div>
+                )}
+              </main>
+            </div>
+          </div>
+        </div>
+
         <JobDetailsSheet
           open={openSheetForId != null}
           subject={(() => {
@@ -512,7 +678,6 @@ export default function TradesmanJobsListPage() {
             return {
               projectId: job.projectId,
               title: job.title,
-              homeownerFirstName: null,
             };
           })()}
           isSubscribed={isSubscribed}
@@ -591,4 +756,105 @@ export default function TradesmanJobsListPage() {
       </>
     </TradesmanOnly>
   );
+}
+
+// Compact V3-style row used by the desktop layout. Shares the same data
+// shape as JobListRow so the page can flip between treatments without
+// shaping data twice.
+function DesktopJobRow({
+  data,
+  highlight,
+  onOpen,
+}: {
+  data: JobListRowData;
+  highlight: boolean;
+  onOpen: () => void;
+}) {
+  const aiScore = data.aiScore ?? 0;
+  const scoreColor =
+    aiScore >= 80
+      ? "text-emerald-700 bg-emerald-50"
+      : aiScore >= 60
+        ? "text-amber-700 bg-amber-50"
+        : "text-slate-500 bg-slate-100";
+
+  const swipePill = data.swipeStateLabel
+    ? swipePillClasses(data.swipeStateLabel)
+    : null;
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`w-full text-left bg-white border rounded-xl px-4 py-3 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all flex items-center gap-3 ${
+        highlight ? "border-emerald-300 bg-emerald-50/30" : "border-amber-100"
+      }`}
+    >
+      <div
+        className={`shrink-0 w-11 h-11 rounded-full flex flex-col items-center justify-center font-black ${scoreColor}`}
+      >
+        <div className="text-[13px] leading-none">{aiScore}</div>
+        <div className="text-[7.5px] font-bold uppercase opacity-70">match</div>
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <h3
+            className="text-[13.5px] font-black text-slate-900 truncate"
+            style={{ fontFamily: "'Sora', sans-serif" }}
+          >
+            {data.title}
+          </h3>
+          {swipePill && (
+            <span
+              className={`shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9.5px] font-extrabold ${swipePill}`}
+            >
+              {data.swipeStateLabel}
+            </span>
+          )}
+        </div>
+        <div className="mt-0.5 flex items-center gap-2 text-[11.5px] text-slate-500">
+          <span>{data.location || "—"}</span>
+          {data.type && (
+            <>
+              <span>·</span>
+              <span className="truncate">{data.type}</span>
+            </>
+          )}
+          {data.propertyType && (
+            <>
+              <span>·</span>
+              <span>{data.propertyType}{data.bedrooms != null ? `, ${data.bedrooms} bed` : ""}</span>
+            </>
+          )}
+        </div>
+      </div>
+
+      {data.budget && (
+        <span className="shrink-0 inline-flex items-center px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-extrabold">
+          {data.budget}
+        </span>
+      )}
+      <span className="shrink-0 text-[14px] font-extrabold text-emerald-700">
+        →
+      </span>
+    </button>
+  );
+}
+
+function swipePillClasses(label: string): string {
+  switch (label) {
+    case "Matched":
+      return "bg-emerald-100 text-emerald-800";
+    case "Pending your match":
+      return "bg-amber-50 text-amber-800";
+    case "Awaiting homeowner":
+      return "bg-indigo-50 text-indigo-700";
+    case "You declined":
+    case "Homeowner passed":
+    case "Expired":
+      return "bg-gray-100 text-gray-500";
+    default:
+      return "bg-gray-100 text-gray-700";
+  }
 }

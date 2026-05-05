@@ -17,11 +17,16 @@ import Link from "next/link";
 export default function JobSwipeDeck({
   jobs,
   onConsumed,
+  onTopChange,
   noJobsYet = false,
 }: {
   jobs: JobCardData[];
   /** Called after every swipe so the parent can track remaining count. */
   onConsumed?: () => void;
+  /** Called whenever the top card changes (initial mount + after each
+   *  swipe). Lets the parent surface the current job's details outside
+   *  the deck (e.g. desktop left rail). */
+  onTopChange?: (job: JobCardData | null) => void;
   /** True when there are zero live projects in the system at all (vs the
    *  tradesman having swiped through every available one). Drives the
    *  empty-state copy. */
@@ -40,6 +45,12 @@ export default function JobSwipeDeck({
   useEffect(() => {
     setFlipped(false);
   }, [index]);
+
+  // Surface the current top card to the parent so it can render
+  // ancillary UI (e.g. the desktop left-rail job summary).
+  useEffect(() => {
+    onTopChange?.(current ?? null);
+  }, [current, onTopChange]);
 
   async function commit(direction: "left" | "right") {
     if (!current || busy) return;
@@ -178,6 +189,7 @@ export default function JobSwipeDeck({
       </div>
 
       <SwipeActionBar
+        tone="emerald"
         disabled={busy}
         onPass={() => commit("left")}
         onInfo={() => setFlipped((v) => !v)}

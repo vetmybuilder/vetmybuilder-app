@@ -9,6 +9,8 @@ import Head from "next/head";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import TradesmanOnly from "@/components/TradesmanOnly";
+import SiteHeader from "@/components/SiteHeader";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
 import { ChevronLeft } from "lucide-react";
@@ -55,6 +57,9 @@ type RawProfile = {
   profile_picture_url?: string | null;
   warranty_months?: number | null;
   company_number?: string | null;
+  ch_status?: string | null;
+  vmb_score?: number | null;
+  vmb_badge?: string | null;
 };
 
 type MeResponse = {
@@ -286,11 +291,15 @@ function Inner() {
         <title>Account — VetMyBuilder</title>
       </Head>
 
-      <div className="min-h-screen bg-gray-50 flex flex-col">
+      <div className="min-h-screen bg-gray-50 md:bg-[#fef6e9] flex flex-col relative overflow-hidden">
+        <div className="hidden md:block">
+          <SiteHeader />
+        </div>
+        <BrandWatermarkScatter />
 
-        {/* ── Hub view ── */}
+        {/* ── Hub view (mobile) ── */}
         {view === "hub" && (
-          <>
+          <div className="md:hidden relative z-10 flex-1 flex flex-col">
             {/* Top bar */}
             <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-100">
               <button
@@ -439,12 +448,25 @@ function Inner() {
                 Sign out
               </button>
             </div>
-          </>
+          </div>
+        )}
+
+        {/* ── Hub view (desktop V3 dashboard) ── */}
+        {view === "hub" && (
+          <DesktopHub
+            profile={profile}
+            displayName={displayName}
+            displayEmail={displayEmail}
+            avatarInitials={avatarInitials}
+            profileCompletion={profilePill}
+            notifSummary={notifPill}
+            onSignOut={handleSignOut}
+          />
         )}
 
         {/* ── Notifications drill-in ── */}
         {view === "notifications" && (
-          <>
+          <div className="md:max-w-3xl md:mx-auto md:w-full md:px-6 md:pt-2 relative z-10 flex-1">
             <TopBar title="Notifications" onBack={() => router.replace("/tradesman/account")} />
 
             <div className="flex flex-col gap-3 p-4 flex-1">
@@ -494,10 +516,206 @@ function Inner() {
                 </div>
               )}
             </div>
-          </>
+          </div>
         )}
 
       </div>
     </>
+  );
+}
+
+/* ─── Desktop V3 dashboard ─────────────────────────────────────────────
+   Wide hero (avatar + company + email + verification) on a tinted
+   trade backdrop, then a 4-tile grid for Profile / Notifications /
+   Billing / Featured. Each tile shows a status pill so the trade can
+   see at a glance what's set up vs what needs attention. Sign out as
+   a quiet text link at the bottom. */
+
+type Pill = { label: string; color: "emerald" | "amber" } | null;
+
+function DesktopHub({
+  profile,
+  displayName,
+  displayEmail,
+  avatarInitials,
+  profileCompletion,
+  notifSummary,
+  onSignOut,
+}: {
+  profile: RawProfile | null;
+  displayName: string;
+  displayEmail: string;
+  avatarInitials: string;
+  profileCompletion: Pill;
+  notifSummary: Pill;
+  onSignOut: () => Promise<void> | void;
+}) {
+  const hasPic = !!profile?.profile_picture_url;
+  const verified = (profile?.ch_status || "").toLowerCase() === "verified";
+  const vmbScore = profile?.vmb_score ?? null;
+  const badge = profile?.vmb_badge || (verified ? "Verified" : null);
+
+  return (
+    <div className="hidden md:block max-w-5xl mx-auto px-6 pb-12 relative z-10 w-full">
+      {/* Title */}
+      <div className="text-center pt-6 pb-4">
+        <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-0.5">
+          Account
+        </div>
+        <h1
+          className="text-[26px] font-black tracking-tight text-slate-900 leading-tight"
+          style={{ fontFamily: "'Sora', sans-serif" }}
+        >
+          Manage your{" "}
+          <span
+            className="text-emerald-600"
+            style={{ fontFamily: "'Caveat', cursive", fontSize: "120%" }}
+          >
+            trade account
+          </span>
+        </h1>
+      </div>
+
+      {/* Hero */}
+      <div className="bg-white border border-amber-100 rounded-3xl shadow-sm overflow-hidden">
+        <div
+          className="px-8 py-7 flex items-center gap-5 text-white"
+          style={{
+            backgroundImage:
+              "linear-gradient(135deg, rgba(16,185,129,0.85), rgba(5,150,105,0.92)), url(/job-images/building-and-construction.jpg)",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        >
+          {hasPic ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={profile!.profile_picture_url!}
+              alt=""
+              aria-hidden
+              className="w-24 h-24 rounded-full object-cover border-4 border-white/70 shrink-0 shadow-lg"
+            />
+          ) : (
+            <div className="w-24 h-24 rounded-full bg-white/20 border-4 border-white/40 shrink-0 shadow-lg flex items-center justify-center text-white text-[28px] font-black">
+              {avatarInitials}
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <h2
+              className="text-[24px] font-black leading-tight truncate"
+              style={{ fontFamily: "'Sora', sans-serif" }}
+            >
+              {displayName}
+            </h2>
+            <p className="text-[13px] text-white/85 truncate">{displayEmail}</p>
+            {(badge || vmbScore != null) && (
+              <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur text-white text-[11px] font-extrabold">
+                {verified && <span aria-hidden>✓</span>}
+                {badge && <span>{badge}</span>}
+                {vmbScore != null && (
+                  <span className="opacity-90">· VMB {vmbScore}</span>
+                )}
+              </div>
+            )}
+          </div>
+          <a
+            href="/tradesman/profile/edit"
+            className="shrink-0 px-4 py-2 rounded-full bg-white text-emerald-700 font-extrabold text-[12.5px] hover:brightness-105 transition-all"
+          >
+            Edit profile →
+          </a>
+        </div>
+      </div>
+
+      {/* Tile grid */}
+      <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Tile
+          icon="👤"
+          title="Profile"
+          hint="Company details, photos, trades, verification."
+          status={profileCompletion}
+          href="/tradesman/profile/edit"
+        />
+        <Tile
+          icon="🔔"
+          title="Notifications"
+          hint="What pings you and where."
+          status={notifSummary}
+          href="/tradesman/account?tab=notifications"
+        />
+        <Tile
+          icon="💷"
+          title="Billing"
+          hint="Visibility passes and payment history."
+          status={null}
+          href="/tradesman/billing"
+        />
+        <Tile
+          icon="⭐"
+          title="Featured listing"
+          hint="Pay to appear at the top of relevant homeowner shortlists."
+          status={null}
+          href="/tradesman/featured"
+        />
+      </div>
+
+      {/* Sign out */}
+      <div className="mt-7 text-center">
+        <button
+          type="button"
+          onClick={onSignOut}
+          className="px-6 py-2 rounded-full text-[12.5px] font-extrabold text-rose-600 hover:bg-rose-50 transition-colors"
+        >
+          Sign out
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Tile({
+  icon,
+  title,
+  hint,
+  status,
+  href,
+}: {
+  icon: string;
+  title: string;
+  hint: string;
+  status: Pill;
+  href: string;
+}) {
+  const pillClass = status
+    ? status.color === "emerald"
+      ? "bg-emerald-50 text-emerald-700"
+      : "bg-amber-50 text-amber-800"
+    : null;
+  return (
+    <a
+      href={href}
+      className="bg-white border border-amber-100 rounded-2xl shadow-sm p-4 hover:shadow-md hover:border-emerald-200 transition-all group"
+    >
+      <div className="flex items-center justify-between mb-2">
+        <span
+          className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg"
+          aria-hidden
+        >
+          {icon}
+        </span>
+        {status && pillClass && (
+          <span
+            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold ${pillClass}`}
+          >
+            {status.label}
+          </span>
+        )}
+      </div>
+      <h3 className="text-[14px] font-extrabold text-slate-900">{title}</h3>
+      <p className="mt-0.5 text-[11.5px] text-slate-500 leading-snug">{hint}</p>
+      <div className="mt-3 text-[12px] font-extrabold text-emerald-700 group-hover:translate-x-0.5 transition-transform">
+        Open →
+      </div>
+    </a>
   );
 }

@@ -137,13 +137,27 @@ export default function Step1Company({
       noValidate
       data-testid="step-1"
     >
-      {/* Google SSO shortcut. Guests who'd rather skip the company form can
-          authenticate with Google and finish onboarding via the post-auth
-          completion wizard at /tradesman/signup/complete. */}
+      {/* Auth shortcuts pinned to the top so guests don't have to scroll
+          past the long company form to find the existing-account sign-in
+          link or the Google SSO button. Both options visible above the
+          fold on page load. */}
       {!userIsAuthed && (
         <div className="px-3 pt-4">
           <div className="max-w-sm mx-auto">
             <OAuthSignInButton provider="google" intent="tradesman" returnTo="/tradesman/jobs" />
+            <p
+              className="mt-2 text-center text-[12.5px] text-zinc-500"
+              data-testid="vendor-already-member"
+            >
+              Already a member?{" "}
+              <a
+                className="font-extrabold text-emerald-600 hover:underline"
+                href={`/login${nextQuery}`}
+                data-testid="link-vendor-signin"
+              >
+                Sign in
+              </a>
+            </p>
           </div>
           <div className="my-3 flex items-center gap-3 text-[10.5px] font-extrabold uppercase tracking-wider text-gray-400 max-w-sm mx-auto">
             <span className="flex-1 h-px bg-gray-200" />
@@ -633,15 +647,10 @@ export default function Step1Company({
         </div>
       </div>
 
-      {/* Already a member? — shown below optional block */}
-      {!userIsAuthed && (
-        <p className="text-sm text-zinc-500 text-center pb-2" data-testid="vendor-already-member">
-          Already a member?{" "}
-          <a className="font-medium text-emerald-600 hover:underline" href={`/login${nextQuery}`} data-testid="link-vendor-signin">
-            Sign in
-          </a>
-        </p>
-      )}
+      {/* "Already a member? Sign in" intentionally NOT duplicated at the
+          bottom - it now sits with the Google SSO button at the top of
+          the form so guests don't have to scroll the company section to
+          find it. */}
 
       {/* Hidden submit button — triggered from parent WizardNavBar onNext */}
       <button type="submit" className="sr-only" data-testid="btn-next" aria-hidden="true">Continue</button>

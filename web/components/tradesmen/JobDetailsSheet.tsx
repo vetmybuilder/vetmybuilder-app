@@ -23,7 +23,6 @@ import { parseDescriptionPills } from "@/utils/projectDescription";
 export interface JobSheetSubject {
   projectId: number;
   title: string;
-  homeownerFirstName?: string | null;
 }
 
 export default function JobDetailsSheet({
@@ -52,7 +51,6 @@ export default function JobDetailsSheet({
     description: string;
     pills: { label: string; value: string }[];
     aiSummary: string | null;
-    homeownerFirstName: string | null;
     unlockPricePence: number;
   } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -89,7 +87,6 @@ export default function JobDetailsSheet({
           description,
           pills,
           aiSummary,
-          homeownerFirstName: proj.homeownerFirstName || subject.homeownerFirstName || null,
           unlockPricePence: Number(preview?.unlockPrice || 0),
         });
       } catch {
@@ -105,8 +102,10 @@ export default function JobDetailsSheet({
 
   if (!open || !subject) return null;
 
-  const homeownerName =
-    details?.homeownerFirstName || subject.homeownerFirstName || "the homeowner";
+  // Homeowner name is intentionally never surfaced pre-match. The API
+  // doesn't send it on /api/projects/:id and the deck/list endpoints
+  // null it out, so we hardcode the generic label here.
+  const homeownerName = "the homeowner";
   const unlockPriceLabel =
     details?.unlockPricePence && details.unlockPricePence > 0
       ? `£${(details.unlockPricePence / 100).toFixed(2)}`

@@ -101,11 +101,19 @@ export default function BuilderCard({
             Wants this job
           </span>
         ) : isRec ? (
+          /* On-platform tradesperson surfaced because the homeowner's
+             community recommended them. Same amber pill as off-platform
+             rec cards (isRecCard) so all "this came from a recommendation"
+             cards read consistently in the deck. */
           <span
-            className="absolute top-3 left-3 inline-flex items-center gap-1 bg-sky-50 text-sky-700 text-[11px] font-extrabold tracking-tight px-2.5 py-1 rounded-full"
-            style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.15)" }}
+            className="absolute top-3 left-3 inline-flex items-center gap-1 text-[11px] font-extrabold tracking-tight px-2.5 py-1 rounded-full"
+            style={{
+              background: "#fef3c7",
+              color: "#92400e",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
+            }}
           >
-            ★ Friend
+            ⭐ Recommendation
           </span>
         ) : (
           <span
@@ -183,11 +191,14 @@ export default function BuilderCard({
               {builder.introMessage ? ` - "${builder.introMessage}"` : ""}
             </>
           ) : isRec ? (
-            <>
-              <span className="text-sky-700 font-bold">Recommended</span>
-              {builder.recommenderName ? ` — by ${builder.recommenderName}` : ""}
-              {builder.whyMatch?.includes("Free") ? " · Free to contact" : ""}
-            </>
+            // The orange "⭐ Recommendation" pill at the top of the card
+            // already conveys the source - no need to repeat it down here.
+            // Just surface the recommender's name if we have it.
+            builder.recommenderName ? (
+              <span className="text-amber-700 font-bold">
+                By {builder.recommenderName}
+              </span>
+            ) : null
           ) : (
             builder.whyMatch
           )}

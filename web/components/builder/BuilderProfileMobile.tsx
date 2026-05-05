@@ -22,6 +22,7 @@ import { useRouter } from "next/router";
 import {
   ChevronLeft,
   ChevronRight,
+  Flag,
   Heart,
   ShieldCheck,
   Sparkles,
@@ -31,6 +32,7 @@ import {
 } from "lucide-react";
 
 import PhotoLightbox from "@/components/PhotoLightbox";
+import ReportModal from "@/components/ReportModal";
 import { platformLabelFor } from "@/utils/reviewLinks";
 import type { Builder, Verification, Review, Photo } from "@/types/builderTypes";
 import {
@@ -95,6 +97,7 @@ export default function BuilderProfileMobile({
   const heroUrl = photoUrls[0] || null;
 
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const initials = (companyName || "?")
     .trim()
@@ -408,6 +411,18 @@ export default function BuilderProfileMobile({
         </>
       )}
 
+      <div className="px-5 pt-2 pb-4">
+        <button
+          type="button"
+          onClick={() => setReportOpen(true)}
+          data-testid="btn-report-profile"
+          className="w-full inline-flex items-center justify-center gap-1.5 text-[12px] font-semibold text-slate-400 hover:text-rose-500 transition-colors py-2"
+        >
+          <Flag className="w-3.5 h-3.5" />
+          Report this profile
+        </button>
+      </div>
+
       <div className="h-12" />
 
       {lightboxIdx !== null && photoUrls.length > 0 && (
@@ -416,6 +431,14 @@ export default function BuilderProfileMobile({
           photos={photoUrls}
           initialIndex={lightboxIdx}
           onClose={() => setLightboxIdx(null)}
+        />
+      )}
+
+      {reportOpen && builder?.id && (
+        <ReportModal
+          targetType="profile"
+          targetId={builder.id}
+          onClose={() => setReportOpen(false)}
         />
       )}
     </main>

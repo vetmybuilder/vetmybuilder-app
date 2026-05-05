@@ -180,7 +180,10 @@ export default function FavouritesListMobile() {
       {/* Empty state */}
       {!loading && items.length === 0 && (
         <div className="px-5 pt-4">
-          <div className="rounded-2xl bg-white border border-gray-200 px-4 py-6 text-center">
+          <div
+            className="rounded-2xl bg-white border border-gray-200 px-4 py-6 text-center"
+            data-testid="favourites-empty"
+          >
             <Heart className="w-8 h-8 text-gray-300 mx-auto mb-2" />
             <div className="text-[14px] font-extrabold text-gray-900">
               No favourites yet

@@ -76,7 +76,12 @@ export const test = uiBaseTest.extend<{
     await use(new BasePage(page));
   },
 
-  apiClient: async ({ page, runtime }, use, testInfo) => {
+  apiClient: async ({ login, page, runtime }, use, testInfo) => {
+    // Depend on `login` (auto:true) so the browser is fully signed in
+    // as the worker uid before any API token is minted. Without this
+    // dep Playwright may resolve apiClient before login completes,
+    // leaving the browser unauthenticated when the test body navigates.
+    void login;
     const uid = getWorkerUid(testInfo.workerIndex);
 
     const client = await authedApiForUid(
@@ -89,7 +94,8 @@ export const test = uiBaseTest.extend<{
     await use(client);
   },
 
-  adminApiClient: async ({ page, runtime }, use, testInfo) => {
+  adminApiClient: async ({ login, page, runtime }, use, testInfo) => {
+    void login;
     const uid = getWorkerAdminUid(testInfo.workerIndex);
 
     const client = await authedApiForUid(

@@ -99,12 +99,28 @@ export class HomeownerProjectsPage {
   }
 
   findProjectById(projectId: string | number): Locator {
+    // Desktop renders `project-image-card-{id}`, mobile renders
+    // `mobile-project-card-{id}`. Filter to the visible one so the
+    // same lookup works on either viewport.
     const id = String(projectId);
-    return this.page.getByTestId(`project-image-card-${id}`);
+    return this.page
+      .locator(
+        `[data-testid="project-image-card-${id}"], [data-testid="mobile-project-card-${id}"]`,
+      )
+      .filter({ visible: true });
   }
 
   findCompletedCardById(projectId: string | number): Locator {
-    return this.page.getByTestId(`completed-card-${String(projectId)}`);
+    // Desktop renders the dedicated `CompletedProjectCard` (testid
+    // `completed-card-{id}`); mobile reuses the same `mobile-project-
+    // card-{id}` for every status. Filter to whichever is visible for
+    // the current viewport.
+    const id = String(projectId);
+    return this.page
+      .locator(
+        `[data-testid="completed-card-${id}"], [data-testid="mobile-project-card-${id}"]`,
+      )
+      .filter({ visible: true });
   }
 
   async hasCompletedCard(projectId: string | number) {
@@ -114,7 +130,14 @@ export class HomeownerProjectsPage {
   }
 
   async hasNoCompletedCard(projectId: string | number) {
-    await expect(this.findCompletedCardById(projectId)).not.toBeVisible();
+    const id = String(projectId);
+    await expect(
+      this.page
+        .locator(
+          `[data-testid="completed-card-${id}"], [data-testid="mobile-project-card-${id}"]`,
+        )
+        .filter({ visible: true }),
+    ).toHaveCount(0);
   }
 
   async clickBuilderLink(projectId: string | number) {
@@ -224,68 +247,100 @@ export class HomeownerProjectsPage {
     await expect(this.page).toHaveURL("/projects");
   }
 
+  private isMobile(): boolean {
+    const vp = this.page.viewportSize();
+    return vp ? vp.width < 768 : false;
+  }
+
   async assertFiltersVisible() {
     await expect(this.filtersToolbar).toBeVisible();
     await expect(this.typeFilterButton).toBeVisible();
     // Status filter only exists in the desktop toolbar; mobile uses a
     // sort chip in its place.
-    const vp = this.page.viewportSize();
-    const isMobile = vp ? vp.width < 768 : false;
-    if (!isMobile) {
+    if (!this.isMobile()) {
       await expect(this.statusFilterButton).toBeVisible();
     }
   }
 
-  async openTypeFilter() {
-    await this.typeFilterButton.click();
-    await expect(this.page.getByRole("menu")).toBeVisible();
-  }
-
-  async openStatusFilter() {
-    await this.statusFilterButton.click();
-    await expect(this.page.getByRole("menu")).toBeVisible();
-  }
-
-  async resetFilters() {
-    await this.resetFiltersLink.click();
-  }
-
+  /**
+   * Apply the Type filter for the given project type label.
+   *   - Desktop: opens the "Type" toolbar dropdown and clicks the menu item.
+   *   - Mobile: opens the Type chip's bottom-sheet picker and taps the
+   *     matching option (the picker auto-closes on select).
+   */
   async selectTypeFilter(type: string) {
-    await this.typeFilterButton.click();
-    await this.page.getByRole("menuitem", { name: type }).click();
+    if (this.isMobile()) {
+      await this.page.getByTestId("chip-type").click();
+      await this.page.getByTestId(`picker-option-${type}`).click();
+    } else {
+      await this.typeFilterButton.click();
+      await this.page.getByRole("menuitem", { name: type }).click();
+    }
   }
 
-  async selectStatusFilter(status: string) {
-    await this.statusFilterButton.click();
-    await this.page.getByRole("menuitem", { name: status }).click();
+  /**
+   * Clear the active Type filter.
+   *   - Desktop: clicks the "Reset" link in the toolbar.
+   *   - Mobile: reopens the Type chip and taps "Clear filter" inside
+   *     the bottom-sheet picker.
+   */
+  async clearTypeFilter() {
+    if (this.isMobile()) {
+      await this.page.getByTestId("chip-type").click();
+      await this.page.getByRole("button", { name: /clear filter/i }).click();
+    } else {
+      await this.resetFiltersLink.click();
+    }
   }
 
-  findProjectCardById(projectId: string | number): Locator {
-    return this.page.getByTestId(`project-image-card-${String(projectId)}`);
+  async hasProjectVisible(projectId: string | number) {
+    await expect(this.findProjectById(projectId)).toBeVisible({
+      timeout: 10_000,
+    });
   }
 
   async hasNoProject(projectId: string | number) {
-    await expect(this.findProjectCardById(projectId)).not.toBeVisible();
+    // Filtered-out cards are removed from the rendered list entirely on
+    // both desktop and mobile, so toHaveCount(0) is a stable assertion.
+    const id = String(projectId);
+    await expect(
+      this.page
+        .locator(
+          `[data-testid="project-image-card-${id}"], [data-testid="mobile-project-card-${id}"]`,
+        )
+        .filter({ visible: true }),
+    ).toHaveCount(0);
   }
 
   // ─── Favourites tab ───────────────────────────────────────────────
+  // Desktop renders FavouriteTradesmenSection (testid `favourites-tradesmen-
+  // section` + cards `favourite-tradesman-card`). Mobile renders
+  // FavouritesListMobile (testid `favourites-list-mobile` + cards keyed
+  // `favourite-card-{kind}-{id}`). Both mount the same `favourites-empty`
+  // testid for the empty state.
 
   private get favouritesSection(): Locator {
-    return this.page.getByTestId("favourites-tradesmen-section");
+    return this.page
+      .getByTestId("favourites-tradesmen-section")
+      .or(this.page.getByTestId("favourites-list-mobile"))
+      .filter({ visible: true });
   }
 
   private get favouritesEmpty(): Locator {
-    return this.page.getByTestId("favourites-empty");
+    return this.page.getByTestId("favourites-empty").filter({ visible: true });
   }
 
   private get favouriteCards(): Locator {
-    return this.page.getByTestId("favourite-tradesman-card");
+    return this.page
+      .locator(
+        '[data-testid="favourite-tradesman-card"], [data-testid^="favourite-card-"]',
+      )
+      .filter({ visible: true });
   }
 
   async expectFavouritesEmpty() {
     await expect(this.favouritesSection).toBeVisible({ timeout: 15_000 });
     await expect(this.favouritesEmpty).toBeVisible();
-    await expect(this.favouritesEmpty).toContainText("haven't saved any builders");
   }
 
   async expectFavouriteCardVisible(companyName: string) {
@@ -294,9 +349,20 @@ export class HomeownerProjectsPage {
     await expect(card).toBeVisible({ timeout: 15_000 });
   }
 
+  async expectFavouritesCount(n: number) {
+    await expect(this.favouritesSection).toBeVisible({ timeout: 15_000 });
+    // Desktop subtitle: "1 saved." / "2 saved.". Mobile: "1 in your
+    // favourites." / "2 in your favourites.". Single regex covers both.
+    const re = new RegExp(`\\b${n}\\b\\s*(saved|in your favourites)`, "i");
+    await expect(this.favouritesSection.getByText(re)).toBeVisible({
+      timeout: 15_000,
+    });
+  }
+
   async clickFirstFavouriteCard() {
-    await expect(this.favouriteCards.first()).toBeVisible({ timeout: 15_000 });
-    await this.favouriteCards.first().click();
+    const first = this.favouriteCards.first();
+    await expect(first).toBeVisible({ timeout: 15_000 });
+    await first.click();
   }
 
   async expectNavigatedToTradesmanProfile() {

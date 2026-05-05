@@ -9,6 +9,8 @@ import { useApi } from "@/utils/api";
 import { useMobileMenu } from "@/utils/mobileMenu";
 import { useSseEvent } from "@/utils/useSseEvent";
 import TradesmanOnly from "@/components/TradesmanOnly";
+import SiteHeader from "@/components/SiteHeader";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import JobSwipeDeck from "@/components/tradesmen/JobSwipeDeck";
 import type { JobCardData } from "@/components/tradesmen/JobCard";
 
@@ -40,7 +42,6 @@ function toCardData(item: any, builderTrades: string[]): JobCardData {
     description: item.description ?? "",
     trades: projectTrades,
     matchedTrades,
-    ownerFirstName: item.ownerFirstName ?? null,
     postedAt: item.postedAt ?? item.createdAt ?? new Date().toISOString(),
     aiScore: item.aiScore ?? null,
     priceBandEstimate: item.priceBandEstimate ?? null,
@@ -68,6 +69,8 @@ export default function TradesmanJobsDeckPage() {
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Keep builder trades in a ref for SSE callback (avoid stale closure)
   const builderTradesRef = useRef<string[]>([]);
+  // Top card surfaced by the deck - mirrored into the desktop left rail.
+  const [topJob, setTopJob] = useState<JobCardData | null>(null);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -176,16 +179,25 @@ export default function TradesmanJobsDeckPage() {
         </Head>
 
         <main
-          className="fixed inset-0 overflow-y-auto"
+          className="fixed inset-0 overflow-y-auto bg-gradient-to-b from-[#ecfdf5] via-[#d1fae5] to-[#f0fdf4] md:bg-[#fef6e9] md:bg-none"
           data-testid="tradesman-jobs-deck"
           style={{
-            background:
-              "linear-gradient(160deg, #ecfdf5 0%, #d1fae5 40%, #f0fdf4 100%)",
             paddingBottom: "env(safe-area-inset-bottom)",
             fontFamily:
               "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
           }}
         >
+          {/* Desktop SiteHeader sits at the top of the scroll container.
+              `position: sticky` inside an overflow-y-auto ancestor pins it
+              to the viewport top without colliding with the mobile
+              fixed-inset shell (which doesn't render this branch). */}
+          <div className="hidden md:block">
+            <SiteHeader />
+          </div>
+
+          {/* VMB watermark scatter - desktop only (component is md:block) */}
+          <BrandWatermarkScatter />
+
           {/* Safe-area top spacer */}
           <div style={{ height: "env(safe-area-inset-top)" }} />
 
@@ -196,9 +208,9 @@ export default function TradesmanJobsDeckPage() {
             </div>
           )}
 
-          {/* Top bar */}
-          <div className="px-4 pt-2 pb-3 flex items-center justify-between">
-            {/* Title + badge */}
+          {/* Top bar — mobile only (hamburger nav). Desktop uses the
+              centered title block below instead. */}
+          <div className="md:hidden px-4 pt-2 pb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-[16px] font-extrabold tracking-tight text-gray-900">
                 Jobs near you
@@ -210,7 +222,6 @@ export default function TradesmanJobsDeckPage() {
               )}
             </div>
 
-            {/* Hamburger / menu */}
             <button
               type="button"
               aria-label="Open menu"
@@ -222,9 +233,29 @@ export default function TradesmanJobsDeckPage() {
             </button>
           </div>
 
+          {/* Desktop title block — mirrors the homeowner shortlist
+              header. Hidden on mobile in favour of the compact top bar. */}
+          <div className="hidden md:block text-center pt-6 pb-4 relative z-10">
+            <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-0.5">
+              Jobs near you
+            </div>
+            <h1
+              className="text-[22px] font-black tracking-tight text-slate-900 leading-tight"
+              style={{ fontFamily: "'Sora', sans-serif" }}
+            >
+              Pick your{" "}
+              <span
+                className="text-emerald-600"
+                style={{ fontFamily: "'Caveat', cursive", fontSize: "120%" }}
+              >
+                next job
+              </span>
+            </h1>
+          </div>
+
           {/* Card N of M hint */}
           {!loading && !error && jobs.length > 0 && (
-            <div className="text-center text-[12px] font-semibold text-emerald-700 mb-1">
+            <div className="text-center text-[12px] font-semibold text-emerald-700 mb-1 relative z-10">
               Card {Math.min(jobs.length - remaining + 1, jobs.length)} of{" "}
               {jobs.length}
             </div>
@@ -232,7 +263,7 @@ export default function TradesmanJobsDeckPage() {
 
           {/* Loading */}
           {loading && (
-            <div className="flex items-center justify-center pt-24">
+            <div className="flex items-center justify-center pt-24 relative z-10">
               <span className="text-[14px] font-semibold text-emerald-600 animate-pulse">
                 Loading jobs…
               </span>
@@ -241,23 +272,143 @@ export default function TradesmanJobsDeckPage() {
 
           {/* Error */}
           {!loading && error && (
-            <div className="mx-4 mt-6 rounded-2xl bg-white/80 px-4 py-5 text-center text-[13px] text-rose-600 font-semibold shadow-sm">
+            <div className="mx-4 mt-6 rounded-2xl bg-white/80 px-4 py-5 text-center text-[13px] text-rose-600 font-semibold shadow-sm relative z-10">
               {error}
             </div>
           )}
 
-          {/* Deck */}
+          {/* Deck — full-width on mobile, two-column with job-detail rail on desktop */}
           {!loading && !error && (
-            <div className="px-4">
-              <JobSwipeDeck
-                jobs={jobs}
-                noJobsYet={noJobsYet}
-                onConsumed={() => setRemaining((n) => Math.max(0, n - 1))}
-              />
+            <div className="px-4 md:px-0 md:mx-auto md:max-w-[900px] md:grid md:grid-cols-[280px_minmax(0,1fr)] md:gap-6 relative z-10">
+              <DesktopJobDetailRail job={topJob} />
+
+              <div className="md:max-w-xl">
+                <JobSwipeDeck
+                  jobs={jobs}
+                  noJobsYet={noJobsYet}
+                  onConsumed={() => setRemaining((n) => Math.max(0, n - 1))}
+                  onTopChange={setTopJob}
+                />
+              </div>
             </div>
           )}
         </main>
       </>
     </TradesmanOnly>
+  );
+}
+
+// Desktop-only left rail summarising the current top-of-deck job.
+// Mirrors the homeowner shortlist's "LIVE JOB" card so the tradesman has
+// the project context anchored beside the swipe deck instead of having
+// to flip the card to read it.
+function DesktopJobDetailRail({ job }: { job: JobCardData | null }) {
+  if (!job) {
+    return <aside className="hidden md:block" aria-hidden />;
+  }
+
+  const propertyLine = [
+    job.propertyType,
+    job.bedrooms != null ? `${job.bedrooms} bed` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const budget = job.budget || job.priceBandEstimate || null;
+  const summary = job.aiSummary || job.description || null;
+
+  return (
+    <aside className="hidden md:block">
+      <div className="bg-white border border-amber-100 rounded-3xl p-5 shadow-sm sticky top-6">
+        <div className="text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-1.5">
+          This job
+        </div>
+        <h2
+          className="text-[19px] font-black tracking-tight leading-tight text-slate-900"
+          style={{ fontFamily: "'Sora', sans-serif" }}
+        >
+          {job.title}
+        </h2>
+
+        <div className="mt-3 space-y-2 text-[13px] text-slate-600">
+          {job.location && (
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400">{"\u{1F4CD}"}</span>
+              <span className="truncate">{job.location}</span>
+            </div>
+          )}
+          {job.type && (
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400">{"\u{1F527}"}</span>
+              <span className="truncate capitalize">{job.type}</span>
+            </div>
+          )}
+          {propertyLine && (
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400">{"\u{1F3E0}"}</span>
+              <span className="truncate">{propertyLine}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <span className="text-slate-400">{"\u{1F464}"}</span>
+            <span className="truncate">Posted by a homeowner</span>
+          </div>
+        </div>
+
+        {budget && (
+          <div className="mt-4 inline-flex items-center px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[12px] font-extrabold">
+            {budget}
+          </div>
+        )}
+
+        {job.aiScore != null && (
+          <div className="mt-4">
+            <div className="text-[10.5px] font-extrabold uppercase tracking-[0.12em] text-slate-500 mb-1">
+              AI match
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600"
+                  style={{ width: `${Math.max(0, Math.min(100, job.aiScore))}%` }}
+                />
+              </div>
+              <span className="text-[12px] font-extrabold text-slate-700">
+                {job.aiScore}%
+              </span>
+            </div>
+          </div>
+        )}
+
+        {job.matchedTrades.length > 0 && (
+          <div className="mt-4">
+            <div className="text-[10.5px] font-extrabold uppercase tracking-[0.12em] text-slate-500 mb-1.5">
+              Your trades match
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {job.matchedTrades.map((t) => (
+                <span
+                  key={t}
+                  className="inline-flex items-center px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-extrabold capitalize"
+                >
+                  {t} {"✓"}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {summary && (
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <div className="text-[10.5px] font-extrabold uppercase tracking-[0.12em] text-slate-500 mb-1.5">
+              Summary
+            </div>
+            <p className="text-[12.5px] text-slate-600 leading-relaxed line-clamp-6 whitespace-pre-line">
+              {summary}
+            </p>
+          </div>
+        )}
+      </div>
+    </aside>
   );
 }

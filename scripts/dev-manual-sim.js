@@ -244,6 +244,28 @@ async function ensureElegantCanonical() {
       [ELEGANT_UID],
     );
 
+    // Skip the canonical seed if Elegant has already been set up - the
+    // tradesman row + at least one photo signals "previously seeded or
+    // user-customized". Without this guard the upsert below clobbers
+    // anything the dev user uploaded (profile_picture_url + photos)
+    // every time `dev:manual` restarts. Force a fresh seed by setting
+    // FORCE_ELEGANT_RESEED=1.
+    if (process.env.FORCE_ELEGANT_RESEED !== "1") {
+      const [existingRows] = await conn.query(
+        `SELECT t.user_id, t.profile_picture_url,
+                (SELECT COUNT(*) FROM tradesmen_photos WHERE tradesman_user_id = t.user_id) AS photoCount
+           FROM tradesmen t
+          WHERE t.user_id = ?
+          LIMIT 1`,
+        [ELEGANT_UID],
+      );
+      const existing = existingRows && existingRows[0];
+      if (existing && existing.profile_picture_url && Number(existing.photoCount) > 0) {
+        log("Elegant canonical skipped (already populated; FORCE_ELEGANT_RESEED=1 to override)");
+        return;
+      }
+    }
+
     const ELEGANT_TRADES = [
       "General Builder",
       "New Build",
@@ -266,17 +288,20 @@ async function ensureElegantCanonical() {
       "https://www.instagram.com/elegantbuildingservices/",
     ]);
 
-    // Showcase photos pulled from elegantbuilding.co.uk (real portfolio
-    // shots) so the profile feels populated end-to-end.
+    // Showcase photos: previously pointed at elegantbuilding.co.uk URLs
+    // which time out in dev (firewall/DNS/site availability). Switched
+    // to local fixtures from /web/public/job-images/ so the seeded
+    // profile renders consistently in dev without depending on the
+    // public internet.
     const ELEGANT_PHOTO_URLS = [
-      "https://elegantbuilding.co.uk/wp-content/uploads/2024/09/Kitchen-after.jpg",
-      "https://elegantbuilding.co.uk/wp-content/uploads/2024/09/Kitchen-after-2.jpg",
-      "https://elegantbuilding.co.uk/wp-content/uploads/2024/09/Kitchen-tiles.jpg",
-      "https://elegantbuilding.co.uk/wp-content/uploads/2024/09/Bathroom-2a.jpg",
-      "https://elegantbuilding.co.uk/wp-content/uploads/2024/09/Bathroom-2b.jpg",
-      "https://elegantbuilding.co.uk/wp-content/uploads/2024/08/Wall-Insullation-10a.jpg",
-      "https://elegantbuilding.co.uk/wp-content/uploads/2024/08/After1b.jpg",
-      "https://elegantbuilding.co.uk/wp-content/uploads/2024/08/Wall-Stone-1.jpg",
+      "/job-images/kitchen.jpg",
+      "/job-images/bathroom.jpg",
+      "/job-images/extensions-and-conversions.jpg",
+      "/job-images/painting-and-decorating.jpg",
+      "/job-images/building-and-construction.jpg",
+      "/job-images/exterior-and-structure.jpg",
+      "/job-images/flooring.jpg",
+      "/job-images/electrical.jpg",
     ];
 
     const ELEGANT_ABOUT = [

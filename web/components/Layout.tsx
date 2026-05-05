@@ -1,7 +1,5 @@
 // web/components/Layout.tsx
 import { useEffect } from "react";
-import Link from "next/link";
-import CookieConsent from "react-cookie-consent";
 import dynamic from "next/dynamic";
 import SiteHeader from "@/components/SiteHeader";
 
@@ -41,32 +39,6 @@ export default function Layout({
       >
         {children}
       </main>
-
-      <CookieConsent
-        location="bottom"
-        cookieName="vmb_cookie_consent"
-        expires={365}
-        buttonText="Got it"
-        style={{
-          background: "#1e293b",
-          padding: "12px 20px",
-          alignItems: "center",
-          fontSize: "13px",
-        }}
-        buttonStyle={{
-          background: "#ef4444",
-          color: "#fff",
-          borderRadius: "9999px",
-          padding: "8px 24px",
-          fontWeight: "700",
-          fontSize: "13px",
-        }}
-      >
-        We use cookies to keep you signed in and improve the site. By continuing, you accept analytics cookies.{" "}
-        <Link href="/cookies" className="underline text-red-300 hover:text-red-200">
-          Cookie policy
-        </Link>
-      </CookieConsent>
 
       <AddToHomeScreenToast />
     </>

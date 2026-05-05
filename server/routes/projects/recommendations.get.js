@@ -132,10 +132,17 @@ module.exports = (router, ctx) => {
           COALESCE(v.likes, 0) AS likes,
           CASE WHEN mv.userId IS NULL THEN 0 ELSE 1 END AS myLike,
 
+          u.firstName       AS recommenderFirstName,
           u.postcode        AS u_postcode,
           u.postcodeSector  AS u_sector,
           u.postcodeOutward AS u_outward,
           u.city            AS u_city,
+
+          (SELECT rp.filePath FROM recommendation_photos rp
+             WHERE rp.recommendationId = r.id
+             ORDER BY rp.id ASC LIMIT 1) AS coverPhoto,
+          t_linked.profile_picture_url AS tradesmanPhotoUrl,
+          t_linked.company_name        AS tradesmanCompanyName,
 
           COALESCE(ph.photoCount, 0) AS photoCount,
           COALESCE(ha.accepted, 0) AS hiresAccepted,
@@ -234,9 +241,14 @@ module.exports = (router, ctx) => {
         const fromFriend = isMagic && (!hasUser || isAnonFlag);
         const fromCommunity = !fromFriend ? computeFromCommunity(r) : 0;
 
+        const recommenderName = isAnonFlag
+          ? "Anonymous"
+          : (r.recommenderFirstName || null);
         const item = {
           id: r.id,
-          company: r.company,
+          company: r.tradesmanCompanyName || r.company,
+          coverPhotoUrl: r.coverPhoto || r.tradesmanPhotoUrl || null,
+          recommenderName,
           comment: r.comment,
           createdAt: r.createdAt,
           rating: r.rating ?? null,
@@ -267,9 +279,13 @@ module.exports = (router, ctx) => {
         // send invitations directly. Non-owners never see tradesman PII.
         if (isOwner) {
           item.companyEmail = r.companyEmail || null;
+          // linked_tradesman_uid is exposed for owners on every rec (not just
+          // pipeline source) so the project view can split off-platform vs
+          // on-platform recs into different surfaces (sidebar list vs swipe
+          // deck). For non-pipeline recs we still mask phone/publicId.
+          item.linked_tradesman_uid = r.linked_tradesman_uid || null;
           if (r.source === "pipeline") {
             item.phone = r.phone || null;
-            item.linked_tradesman_uid = r.linked_tradesman_uid || null;
             item.tradesmanPublicId = r.t_linked_public_id || null;
           }
         }

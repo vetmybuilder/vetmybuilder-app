@@ -1,6 +1,6 @@
 import * as React from "react";
 
-type Status = "pending" | "live" | "completed" | "archived";
+type Status = "pending" | "live" | "completed";
 
 export type ProjectFiltersValue = {
   type: string; // "" means all

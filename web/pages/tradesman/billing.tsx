@@ -3,6 +3,8 @@ import { useRouter } from "next/router";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
 import AuthedOnly from "@/components/AuthedOnly";
+import SiteHeader from "@/components/SiteHeader";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 
 type TierId = "week_1" | "week_2" | "month_1";
 
@@ -99,13 +101,18 @@ function BillingPageInner() {
   }
 
   return (
-    <main className="min-h-screen bg-white px-5 py-6">
-      <div className="text-center mt-2">
-        <h1 className="text-2xl font-extrabold">Visibility pass</h1>
-        <p className="mt-1 text-[12px] text-gray-500">
-          Be seen by homeowners in your area. One-time purchase, no auto-renewal.
-        </p>
+    <div className="min-h-screen bg-white md:bg-[#fef6e9] relative overflow-hidden">
+      <div className="hidden md:block">
+        <SiteHeader />
       </div>
+      <BrandWatermarkScatter />
+      <main className="px-5 py-6 md:max-w-2xl md:mx-auto md:px-6 md:py-8 relative z-10">
+        <div className="text-center mt-2">
+          <h1 className="text-2xl font-extrabold">Visibility pass</h1>
+          <p className="mt-1 text-[12px] text-gray-500">
+            Be seen by homeowners in your area. One-time purchase, no auto-renewal.
+          </p>
+        </div>
 
       {!loaded ? (
         <div className="mt-12 text-center text-sm text-gray-400">Loading…</div>
@@ -203,7 +210,8 @@ function BillingPageInner() {
           </div>
         </>
       )}
-    </main>
+      </main>
+    </div>
   );
 }
 

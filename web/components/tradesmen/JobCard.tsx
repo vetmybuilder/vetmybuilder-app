@@ -20,7 +20,6 @@ export interface JobCardData {
   description: string;
   trades: string[];
   matchedTrades: string[];
-  ownerFirstName?: string | null;
   postedAt: string;
   aiScore?: number | null;
   priceBandEstimate?: string | null;

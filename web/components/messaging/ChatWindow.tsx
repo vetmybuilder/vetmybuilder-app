@@ -47,14 +47,21 @@ export default function ChatWindow({
   onClose,
   onMinimize,
   minimized,
+  variant = "floating",
 }: {
   matchId: number;
-  /** Distance from the right edge of the viewport, in pixels. The
-   *  parent dock host computes this so multiple windows stack cleanly. */
-  rightOffset: number;
-  onClose: () => void;
-  onMinimize: () => void;
-  minimized: boolean;
+  /** Distance from the right edge of the viewport, in pixels. Only used
+   *  by the floating variant. The parent dock host computes this so
+   *  multiple windows stack cleanly. */
+  rightOffset?: number;
+  onClose?: () => void;
+  onMinimize?: () => void;
+  minimized?: boolean;
+  /** "floating" (default) - fixed bottom-right pill the dock pops open.
+   *  "inline" - fills the parent container, no positioning of its own,
+   *  no close/minimize chrome. Used by /tradesman/matches to embed
+   *  the chat directly in the right pane of the split view. */
+  variant?: "floating" | "inline";
 }) {
   const api = useApi();
   const [data, setData] = useState<ChatData | null>(null);
@@ -174,27 +181,56 @@ export default function ChatWindow({
 
   const messages = useMemo(() => data?.messages || [], [data?.messages]);
 
+  // Tone follows the viewer's role: tradesmen see emerald (matches the
+  // rest of their UI), homeowners see indigo (matches /projects/[id]
+  // chrome). All gradient + accent-colour decisions reuse this so
+  // there's a single switch instead of N conditional className strings.
+  const isTradesViewer = data?.me?.role === "tradesman";
+  const tone = isTradesViewer
+    ? {
+        gradient: "linear-gradient(135deg, #10b981, #059669)",
+        textOnLight: "text-emerald-700",
+        borderHover: "hover:border-emerald-300",
+        focusBorder: "focus:border-emerald-400",
+        hoverText: "hover:text-emerald-700",
+      }
+    : {
+        gradient: "linear-gradient(135deg, #6366f1, #4f46e5)",
+        textOnLight: "text-indigo-700",
+        borderHover: "hover:border-indigo-300",
+        focusBorder: "focus:border-indigo-400",
+        hoverText: "hover:text-indigo-700",
+      };
+
+  const isInline = variant === "inline";
+
   return (
     <>
       <div
-        className="fixed bottom-0 z-40 hidden md:flex flex-col bg-white border border-amber-100 rounded-t-2xl shadow-2xl overflow-hidden"
-        style={{
-          right: `${rightOffset}px`,
-          width: "320px",
-          height: minimized ? "44px" : "460px",
-          transition: "height 0.2s ease",
-        }}
+        className={
+          isInline
+            ? "h-full w-full flex flex-col bg-white border border-amber-100 rounded-3xl shadow-sm overflow-hidden"
+            : "fixed bottom-0 z-40 hidden md:flex flex-col bg-white border border-amber-100 rounded-t-2xl shadow-2xl overflow-hidden"
+        }
+        style={
+          isInline
+            ? undefined
+            : {
+                right: `${rightOffset ?? 0}px`,
+                width: "320px",
+                height: minimized ? "44px" : "460px",
+                transition: "height 0.2s ease",
+              }
+        }
         role="dialog"
         aria-label={`Chat with ${otherName}`}
       >
-        {/* Header - clickable to open profile (when expanded) or to
-            toggle minimize (the chevron) */}
+        {/* Header - clickable to open profile (floating only). Inline
+            variant doesn't minimize, so the header isn't clickable. */}
         <div
-          className="px-3 py-2.5 flex items-center justify-between gap-2 text-white shrink-0 cursor-pointer"
-          style={{
-            backgroundImage: "linear-gradient(135deg, #6366f1, #4f46e5)",
-          }}
-          onClick={onMinimize}
+          className={`px-3 py-2.5 flex items-center justify-between gap-2 text-white shrink-0 ${isInline ? "" : "cursor-pointer"}`}
+          style={{ backgroundImage: tone.gradient }}
+          onClick={isInline ? undefined : onMinimize}
         >
           <button
             type="button"
@@ -213,7 +249,7 @@ export default function ChatWindow({
                 className="w-7 h-7 shrink-0 rounded-full object-cover"
               />
             ) : (
-              <span className="w-7 h-7 shrink-0 rounded-full bg-white/95 text-indigo-700 flex items-center justify-center text-[12px] font-black">
+              <span className={`w-7 h-7 shrink-0 rounded-full bg-white/95 ${tone.textOnLight} flex items-center justify-center text-[12px] font-black`}>
                 {(otherName || "?").charAt(0).toUpperCase()}
               </span>
             )}
@@ -224,19 +260,22 @@ export default function ChatWindow({
               >
                 {otherName}
               </div>
-              {data?.projectName && !minimized && (
+              {data?.projectName && (!minimized || isInline) && (
                 <div className="text-[10.5px] opacity-80 truncate">
                   {data.projectName}
                 </div>
               )}
             </div>
           </button>
+          {/* Minimize + close are floating-only chrome - inline embed
+              has no notion of either action. */}
+          {!isInline && (
           <div className="flex items-center gap-1 shrink-0">
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onMinimize();
+                onMinimize?.();
               }}
               aria-label={minimized ? "Expand" : "Minimize"}
               className="w-7 h-7 rounded-full hover:bg-white/15 flex items-center justify-center transition-colors"
@@ -249,7 +288,7 @@ export default function ChatWindow({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onClose();
+                onClose?.();
               }}
               aria-label="Close chat"
               className="w-7 h-7 rounded-full hover:bg-white/15 flex items-center justify-center transition-colors"
@@ -260,9 +299,10 @@ export default function ChatWindow({
               </svg>
             </button>
           </div>
+          )}
         </div>
 
-        {!minimized && (
+        {(!minimized || isInline) && (
           <>
             {/* Messages */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
@@ -289,7 +329,7 @@ export default function ChatWindow({
                         className={`max-w-[85%] px-3 py-2 rounded-2xl text-[13px] leading-snug shadow-sm ${
                           mine ? "text-white" : "bg-amber-50/80 border border-amber-100 text-slate-800"
                         }`}
-                        style={mine ? { backgroundImage: "linear-gradient(135deg, #6366f1, #4f46e5)" } : undefined}
+                        style={mine ? { backgroundImage: tone.gradient } : undefined}
                       >
                         {atts.length > 0 && (
                           <div className="grid grid-cols-3 gap-1 mb-1.5">
@@ -344,7 +384,7 @@ export default function ChatWindow({
                   onClick={() => fileInputRef.current?.click()}
                   disabled={sending || !data || photos.length >= 6}
                   aria-label="Attach photos"
-                  className="w-8 h-8 shrink-0 rounded-full bg-white border border-amber-100 flex items-center justify-center text-slate-500 hover:text-indigo-700 hover:border-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  className={`w-8 h-8 shrink-0 rounded-full bg-white border border-amber-100 flex items-center justify-center text-slate-500 ${tone.hoverText} ${tone.borderHover} disabled:opacity-50 disabled:cursor-not-allowed transition`}
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
@@ -357,7 +397,7 @@ export default function ChatWindow({
                   onKeyDown={onKeyDown}
                   placeholder={`Message ${otherFirst}`}
                   disabled={sending || !data}
-                  className="flex-1 rounded-full bg-white border border-amber-100 px-3 py-1.5 text-[12.5px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-indigo-400"
+                  className={`flex-1 rounded-full bg-white border border-amber-100 px-3 py-1.5 text-[12.5px] text-slate-800 placeholder:text-slate-400 focus:outline-none ${tone.focusBorder}`}
                 />
                 <button
                   type="button"
@@ -365,7 +405,7 @@ export default function ChatWindow({
                   disabled={(!draft.trim() && photos.length === 0) || sending || !data}
                   aria-label="Send"
                   className="w-8 h-8 shrink-0 rounded-full text-white flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition"
-                  style={{ backgroundImage: "linear-gradient(135deg, #6366f1, #4f46e5)" }}
+                  style={{ backgroundImage: tone.gradient }}
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="22" y1="2" x2="11" y2="13" />

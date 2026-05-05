@@ -372,9 +372,16 @@ function Inner() {
 
                 <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white text-xl font-black shadow-md overflow-hidden mb-4">
                   {item.avatarUrl ? (
-                    <img src={item.avatarUrl} alt={title} className="w-full h-full object-cover" />
+                    <img
+                      src={item.avatarUrl}
+                      alt={title}
+                      className="w-full h-full object-cover"
+                      data-testid="tradesman-avatar-photo"
+                    />
                   ) : (
-                    <span>{initials(title)}</span>
+                    <span data-testid="tradesman-avatar-initials">
+                      {initials(title)}
+                    </span>
                   )}
                 </div>
 
@@ -574,6 +581,7 @@ function Inner() {
                     {item.serviceAreas.map((area, i) => (
                       <span
                         key={`${area}-${i}`}
+                        data-testid={`tradesman-service-area-${area}`}
                         className="inline-flex items-center rounded-full bg-amber-50 border border-amber-100 text-amber-800 px-2.5 py-0.5 text-[11px] font-bold"
                       >
                         {area}

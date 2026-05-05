@@ -51,9 +51,6 @@ export default function JobCardBack({ data }: { data: JobCardData }) {
   const meta: Array<{ label: string; value: string }> = [];
   if (propLabel) meta.push({ label: "Property", value: propLabel });
   meta.push({ label: "Posted", value: relativeTime(data.postedAt) });
-  if (data.ownerFirstName) {
-    meta.push({ label: "Homeowner", value: data.ownerFirstName });
-  }
   for (const p of descPills) meta.push(p);
 
   // Free-text fallback: only render the description paragraph when the

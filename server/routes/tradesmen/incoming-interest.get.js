@@ -4,6 +4,7 @@
 // Returns all pending swipe_interest rows where the caller is the builder.
 
 const { expireSwipeInterests } = require("../../lib/matching/expireSwipeInterests");
+const { extractOutward } = require("../../lib/matching/extractOutward");
 
 module.exports = function mountIncomingInterest(router, ctx) {
   const { auth, mysqlQuery } = ctx;
@@ -34,16 +35,19 @@ module.exports = function mountIncomingInterest(router, ctx) {
       [uid],
     );
 
+    // Privacy: pending swipe_interest is pre-match. Strip the homeowner's
+    // name and reduce location to outward only so a UI bug can't leak
+    // either field while the builder is still in the gating funnel.
     const items = (rows || []).map((r) => ({
       id: r.id,
       projectId: r.project_id,
       source: r.source,
-      homeownerFirstName: r.homeowner_firstname || "Homeowner",
+      homeownerFirstName: null,
       swipedAt: r.homeowner_swiped_at,
       project: {
         title: r.project_title,
         description: r.description,
-        location: r.location,
+        location: extractOutward(r.location) || "",
         priceBand:
           typeof r.price_band === "string"
             ? r.price_band.replace(/^"|"$/g, "")

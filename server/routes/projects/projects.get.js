@@ -295,16 +295,12 @@ module.exports = (router, ctx) => {
         const baseParts = ["p.ownerUserId = ?"];
         const baseParams = [uid];
 
-        if (rawStatus === "all") {
-          // Show everything the user owns except projects archived without a
-          // closure record. Projects closed via the close flow with No (or Yes
-          // without a winner) end up archived but DO have a project_closures
-          // row and should still appear in "All", consistent with the
-          // Completed tab.
-          baseParts.push(
-            `(p.status <> 'archived' OR pc.projectId IS NOT NULL)`
-          );
-        } else {
+        // Archived projects (closed with didGoAhead=false) are invisible
+        // to the owner across every tab — they live in the DB for
+        // analytics only.
+        baseParts.push(`p.status <> 'archived'`);
+
+        if (rawStatus !== "all") {
           baseParts.push(`p.status = ?`);
           baseParams.push(rawStatus);
         }
@@ -342,31 +338,12 @@ module.exports = (router, ctx) => {
       }
 
       // ********** ARCHIVED **********
+      // Archived projects are invisible to the owner. The tab itself
+      // doesn't surface in the UI any more, but if a stale URL hits
+      // /api/projects?tab=archived we return an empty page rather than
+      // 404 so the client gracefully renders the empty state.
       if (tab === "archived") {
-        const baseParts = ["p.ownerUserId = ?", `p.status = 'archived'`];
-        const baseParams = [uid];
-        const { sql, params } = applyWhere(baseParts, baseParams);
-
-        const countRows = await mysqlQuery(
-          `SELECT COUNT(*) AS c FROM projects p ${sql}`,
-          params
-        );
-        const total = countRows[0]?.c || 0;
-
-        const rows = await mysqlQuery(
-          `SELECT p.*,
-                  CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite,
-                  0 AS canFavourite
-           FROM projects p
-           LEFT JOIN project_closures pc ON pc.projectId = p.id
-           LEFT JOIN favourites f ON f.projectId = p.id AND f.userId = ?
-           ${sql}
-           ORDER BY p.${sort} ${order}, p.id ${order}
-           LIMIT ${pageSize} OFFSET ${offset}`,
-          [uid, ...params]
-        );
-
-        return respond(rows, total);
+        return respond([], 0);
       }
 
       // ********** COMPLETED (mine) **********
@@ -380,12 +357,9 @@ module.exports = (router, ctx) => {
         const baseParams = [uid];
         const { sql: baseSql, params } = applyWhere(baseParts, baseParams);
 
-        // Show any project the homeowner actively closed via the close modal
-        // (has a project_closures record), plus status=completed (winner selected).
-        const statusFilter = `
-          (p.status = 'completed'
-           OR (p.status = 'archived' AND pc.projectId IS NOT NULL))
-        `.trim();
+        // Only true completions (didGoAhead = Yes) appear in Completed.
+        // Archived projects are hidden from the owner everywhere.
+        const statusFilter = `p.status = 'completed'`;
 
         const completedSql = baseSql
           ? `${baseSql} AND ${statusFilter}`

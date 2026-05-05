@@ -16,9 +16,24 @@ export class CreateProjectPage {
   constructor(page: Page) {
     this.page = page;
 
-    this.nextBtn = page.getByTestId("btn-next");
-    this.createBtn = page.getByTestId("btn-create");
-    this.prevBtn = page.getByTestId("btn-prev");
+    // Scope wizard nav buttons to the visible surface (the desktop and
+    // mobile wizards both render the same testids in the DOM).
+    this.nextBtn = this.surface.getByTestId("btn-next");
+    this.createBtn = this.surface.getByTestId("btn-create");
+    this.prevBtn = this.surface.getByTestId("btn-prev");
+  }
+
+  /**
+   * The visible wizard surface. Both desktop (inside `main-content`)
+   * and mobile (`post-job-mobile`) wizards mount the same testids, so
+   * scope every lookup to whichever wrapper is visible for the
+   * current viewport.
+   */
+  private get surface(): Locator {
+    return this.page
+      .getByTestId("post-job-mobile")
+      .or(this.page.getByTestId("main-content"))
+      .filter({ visible: true });
   }
 
   async createProject(
@@ -69,7 +84,7 @@ export class CreateProjectPage {
     // Description step (optional)
     await this.waitForStep("Describe the job");
     if (input.extraNotes) {
-      await this.page.getByTestId("field-description").fill(input.extraNotes);
+      await this.surface.getByTestId("field-description").fill(input.extraNotes);
     }
     await this.next();
 
@@ -91,15 +106,15 @@ export class CreateProjectPage {
   }
 
   private async selectCategory(category: string) {
-    const btn = this.page.getByTestId(`category-${category}`);
+    const btn = this.surface.getByTestId(`category-${category}`);
     await expect(btn).toBeVisible({ timeout: 10_000 });
     await btn.click();
   }
 
   private async selectWorkTypes(types: string[]) {
     for (const t of types) {
-      const chip = this.page
-        .locator("#np-subtypes")
+      const chip = this.surface
+        .getByTestId("field-subtypes")
         .getByRole("button", { name: new RegExp(escapeRegExp(t), "i") });
       await expect(chip).toBeVisible({ timeout: 5_000 });
       await chip.click();
@@ -107,7 +122,7 @@ export class CreateProjectPage {
   }
 
   private async setLocation(query: string, pick: string) {
-    const locationInput = this.page.getByTestId("field-location").locator("input").first();
+    const locationInput = this.surface.getByTestId("field-location-wrap").locator("input").first();
     await expect(locationInput).toBeVisible();
     await locationInput.fill(query);
 
@@ -118,14 +133,14 @@ export class CreateProjectPage {
   }
 
   private async selectPropertyType(propertyType: string) {
-    const btn = this.page.getByTestId(`property-${propertyType}`);
+    const btn = this.surface.getByTestId(`property-${propertyType}`);
     await expect(btn).toBeVisible({ timeout: 5_000 });
     await btn.click();
   }
 
   private async selectBedrooms(bedrooms: number) {
     const target = bedrooms >= 6 ? "6+" : String(bedrooms);
-    const btn = this.page.getByTestId(`beds-${target}`);
+    const btn = this.surface.getByTestId(`beds-${target}`);
     await expect(btn).toBeVisible({ timeout: 5_000 });
     await btn.click();
   }
@@ -133,7 +148,7 @@ export class CreateProjectPage {
   private async fillExtrasStep(input: CreateProjectInput) {
     // Timeframe
     if (input.timeframe) {
-      const btn = this.page.getByTestId("field-timeframe").getByRole("button", {
+      const btn = this.surface.getByTestId("field-timeframe").getByRole("button", {
         name: new RegExp(escapeRegExp(input.timeframe), "i"),
       });
       await expect(btn).toBeVisible({ timeout: 5_000 });
@@ -142,7 +157,7 @@ export class CreateProjectPage {
 
     // Budget
     if (input.budget) {
-      const btn = this.page.getByTestId("field-budget").getByRole("button", {
+      const btn = this.surface.getByTestId("field-budget").getByRole("button", {
         name: new RegExp(escapeRegExp(input.budget), "i"),
       });
       await expect(btn).toBeVisible({ timeout: 5_000 });
@@ -151,7 +166,7 @@ export class CreateProjectPage {
 
     // Materials
     if (input.materials) {
-      const btn = this.page.getByTestId("field-materials").getByRole("button", {
+      const btn = this.surface.getByTestId("field-materials").getByRole("button", {
         name: new RegExp(escapeRegExp(input.materials), "i"),
       });
       await expect(btn).toBeVisible({ timeout: 5_000 });
@@ -160,7 +175,7 @@ export class CreateProjectPage {
 
     // Access
     if (input.access) {
-      const btn = this.page.getByTestId("field-access").getByRole("button", {
+      const btn = this.surface.getByTestId("field-access").getByRole("button", {
         name: new RegExp(escapeRegExp(input.access), "i"),
       });
       await expect(btn).toBeVisible({ timeout: 5_000 });
@@ -169,7 +184,11 @@ export class CreateProjectPage {
   }
 
   async fillFlooringDetails(answers: FlooringAnswers) {
-    const group = this.page.getByTestId("dynamic-group-flooring");
+    // Both desktop and mobile post-job wizards mount the same testid -
+    // filter to the visible surface.
+    const group = this.page
+      .getByTestId("dynamic-group-flooring")
+      .filter({ visible: true });
     await expect(group).toBeVisible();
 
     // Size (either field): click the visible label for m2 or rooms, then type the value
@@ -200,7 +219,9 @@ export class CreateProjectPage {
   }
 
   async fillInsulationDetails(answers: InsulationAnswers) {
-    const group = this.page.getByTestId("dynamic-group-insulation");
+    const group = this.page
+      .getByTestId("dynamic-group-insulation")
+      .filter({ visible: true });
     await expect(group).toBeVisible();
 
     if (typeof answers.area_m2 === "number") {
@@ -218,7 +239,7 @@ export class CreateProjectPage {
   }
 
   private async assertReviewStep(input: CreateProjectInput) {
-    const review = this.page.getByTestId("step-title");
+    const review = this.surface.getByTestId("step-title");
     await expect(review).toContainText("Review your job");
 
     const content = this.page.locator(".max-w-lg");
@@ -235,7 +256,7 @@ export class CreateProjectPage {
   }
 
   private async waitForStep(title: string, isRegex = false) {
-    const stepTitle = this.page.getByTestId("step-title");
+    const stepTitle = this.surface.getByTestId("step-title");
     if (isRegex) {
       await expect(stepTitle).toHaveText(new RegExp(title, "i"), { timeout: 15_000 });
     } else {

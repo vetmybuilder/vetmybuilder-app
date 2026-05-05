@@ -14,10 +14,28 @@ export class EditProjectPage extends BasePage {
 
   constructor(page: Page) {
     super(page);
-    this.wizard = page.getByTestId("wizard-edit");
-    this.nextBtn = page.getByTestId("wizard-next-edit");
-    this.saveBtn = page.getByTestId("wizard-save-edit");
-    this.prevBtn = page.getByTestId("btn-prev");
+    this.wizard = this.surface.getByTestId("wizard-edit");
+    // Desktop edit wizard uses `wizard-next-edit` / `wizard-save-edit`;
+    // mobile re-uses PostJobMobile's shared `btn-next` / `btn-create`.
+    this.nextBtn = this.surface
+      .getByTestId("wizard-next-edit")
+      .or(this.surface.getByTestId("btn-next"));
+    this.saveBtn = this.surface
+      .getByTestId("wizard-save-edit")
+      .or(this.surface.getByTestId("btn-create"));
+    this.prevBtn = this.surface.getByTestId("btn-prev");
+  }
+
+  /**
+   * The visible wizard surface. Both desktop (inside `main-content`)
+   * and mobile (`post-job-mobile`) wizards mount the same testids, so
+   * scope every lookup to whichever wrapper is visible.
+   */
+  private get surface(): Locator {
+    return this.page
+      .getByTestId("post-job-mobile")
+      .or(this.page.getByTestId("main-content"))
+      .filter({ visible: true });
   }
 
   async visit(projectId: string | number) {
@@ -25,7 +43,7 @@ export class EditProjectPage extends BasePage {
     await expect
       .poll(
         async () => {
-          const editPage = this.page.getByTestId("project-edit-page");
+          const editPage = this.surface.getByTestId("project-edit-page");
           const editVisible = await editPage.isVisible().catch(() => false);
           if (editVisible) return "OK";
           return `WAITING:${this.page.url()}`;
@@ -36,7 +54,7 @@ export class EditProjectPage extends BasePage {
   }
 
   async waitForStep(title: string) {
-    const stepTitle = this.page.getByTestId("step-title");
+    const stepTitle = this.surface.getByTestId("step-title");
     await expect(stepTitle).toHaveText(new RegExp(title, "i"), { timeout: 15_000 });
   }
 
@@ -58,19 +76,30 @@ export class EditProjectPage extends BasePage {
   }
 
   async waitForWizard() {
-    await expect(this.wizard).toBeVisible({ timeout: 45_000 });
+    // Desktop wraps the edit form with `wizard-edit`; mobile reuses
+    // PostJobMobile (no wizard-edit testid). Either signal counts.
+    const ready = this.page
+      .getByTestId("wizard-edit")
+      .or(this.page.getByTestId("post-job-mobile"))
+      .filter({ visible: true })
+      .first();
+    await expect(ready).toBeVisible({ timeout: 45_000 });
   }
 
   // Category — tappable icon cards (auto-advances)
   async selectCategory(category: string) {
-    const btn = this.page.getByTestId(`category-${category}`);
+    const btn = this.surface.getByTestId(`category-${category}`);
     await expect(btn).toBeVisible({ timeout: 10_000 });
     await btn.click();
   }
 
   // Work types — chip buttons
   async setWorkTypes(originalTypes: string[], nextTypes: string[]) {
-    const subtypesWrap = this.page.getByTestId("field-subtypes-edit");
+    // Desktop edit uses `field-subtypes-edit`; mobile (PostJobMobile)
+    // uses `field-subtypes`. Either-or, scoped to visible surface.
+    const subtypesWrap = this.surface
+      .getByTestId("field-subtypes-edit")
+      .or(this.surface.getByTestId("field-subtypes"));
 
     // Uncheck originals by clicking their selected chips
     for (const t of originalTypes) {
@@ -93,7 +122,7 @@ export class EditProjectPage extends BasePage {
 
   // Property type — tappable cards (auto-advances)
   async selectPropertyType(propertyType: string) {
-    const btn = this.page.getByTestId(`property-${propertyType}`);
+    const btn = this.surface.getByTestId(`property-${propertyType}`);
     await expect(btn).toBeVisible({ timeout: 5_000 });
     await btn.click();
   }
@@ -101,7 +130,7 @@ export class EditProjectPage extends BasePage {
   // Bedrooms — number buttons (auto-advances)
   async selectBedrooms(bedrooms: number) {
     const target = bedrooms >= 6 ? "6+" : String(bedrooms);
-    const btn = this.page.getByTestId(`beds-${target}`);
+    const btn = this.surface.getByTestId(`beds-${target}`);
     await expect(btn).toBeVisible({ timeout: 5_000 });
     await btn.click();
   }
@@ -114,28 +143,28 @@ export class EditProjectPage extends BasePage {
     access?: string;
   }) {
     if (input.timeframe) {
-      const btn = this.page.getByTestId("field-timeframe").getByRole("button", {
+      const btn = this.surface.getByTestId("field-timeframe").getByRole("button", {
         name: new RegExp(escapeRegExp(input.timeframe), "i"),
       });
       await expect(btn).toBeVisible({ timeout: 5_000 });
       await btn.click();
     }
     if (input.budget) {
-      const btn = this.page.getByTestId("field-budget").getByRole("button", {
+      const btn = this.surface.getByTestId("field-budget").getByRole("button", {
         name: new RegExp(escapeRegExp(input.budget), "i"),
       });
       await expect(btn).toBeVisible({ timeout: 5_000 });
       await btn.click();
     }
     if (input.materials) {
-      const btn = this.page.getByTestId("field-materials").getByRole("button", {
+      const btn = this.surface.getByTestId("field-materials").getByRole("button", {
         name: new RegExp(escapeRegExp(input.materials), "i"),
       });
       await expect(btn).toBeVisible({ timeout: 5_000 });
       await btn.click();
     }
     if (input.access) {
-      const btn = this.page.getByTestId("field-access").getByRole("button", {
+      const btn = this.surface.getByTestId("field-access").getByRole("button", {
         name: new RegExp(escapeRegExp(input.access), "i"),
       });
       await expect(btn).toBeVisible({ timeout: 5_000 });
@@ -145,7 +174,11 @@ export class EditProjectPage extends BasePage {
 
   // Dynamic flooring step — chips instead of native selects
   async fillFlooringDetails(answers: FlooringAnswers) {
-    const group = this.page.getByTestId("dynamic-group-flooring");
+    // Both desktop and mobile post-job wizards mount the same testid -
+    // filter to the visible surface.
+    const group = this.page
+      .getByTestId("dynamic-group-flooring")
+      .filter({ visible: true });
     await expect(group).toBeVisible();
 
     await group
@@ -172,7 +205,9 @@ export class EditProjectPage extends BasePage {
 
   // Dynamic insulation step
   async fillInsulationDetails(answers: InsulationAnswers) {
-    const group = this.page.getByTestId("dynamic-group-insulation");
+    const group = this.page
+      .getByTestId("dynamic-group-insulation")
+      .filter({ visible: true });
     await expect(group).toBeVisible();
 
     if (typeof answers.area_m2 === "number") {
@@ -192,16 +227,16 @@ export class EditProjectPage extends BasePage {
     workTypes: string[];
     propertyType: string;
   }) {
-    const stepTitle = this.page.getByTestId("step-title");
+    const stepTitle = this.surface.getByTestId("step-title");
     await expect(stepTitle).toContainText("Review");
 
-    const review = this.page.getByTestId("review-edit");
-    await expect(review).toBeVisible();
-
+    // Desktop wraps the review block with `review-edit`; mobile renders
+    // ReviewStep inline without that testid. Scope to whichever surface
+    // is visible and assert the review content directly.
     for (const wt of expected.workTypes) {
-      await expect(review).toContainText(wt);
+      await expect(this.surface).toContainText(wt);
     }
-    await expect(review).toContainText(expected.propertyType);
+    await expect(this.surface).toContainText(expected.propertyType);
   }
 
   async editProjectDetails(
@@ -224,12 +259,15 @@ export class EditProjectPage extends BasePage {
 
     await this.waitForWizard();
 
-    // Step 1: Category (auto-advances on click)
     await this.waitForStep("What do you need done");
     if (updates.category) {
       await this.selectCategory(updates.category);
+    } else if (this.isMobile()) {
+      // Mobile category click clears selectedTypes - re-selecting the
+      // same category would wipe the workTypes we want to preserve.
+      // Just advance instead.
+      await this.next();
     } else {
-      // Re-select the existing category to advance
       await this.selectCategory(original.category);
     }
 
@@ -259,10 +297,15 @@ export class EditProjectPage extends BasePage {
       await this.selectBedrooms(original.bedrooms);
     }
 
-    // Dynamic step — wait for bedrooms auto-advance to settle, then check what we landed on
-    await this.page.waitForTimeout(500);
-    const stepTitleEl = this.page.getByTestId("step-title");
-    const currentTitle = await stepTitleEl.textContent({ timeout: 5_000 }).catch(() => "") || "";
+    // After bedrooms auto-advance the next step is dynamic - depends on
+    // category. Wait for ANY of the three possible titles to land, then
+    // dispatch. Replaces a 500ms sleep that was racing the auto-advance.
+    const stepTitleEl = this.surface.getByTestId("step-title");
+    await expect(stepTitleEl).toHaveText(
+      /about the floor|about the insulation|a few more details/i,
+      { timeout: 15_000 },
+    );
+    const currentTitle = (await stepTitleEl.textContent()) ?? "";
 
     if (/about the floor/i.test(currentTitle)) {
       if (updates.flooringAnswers) {
@@ -289,7 +332,7 @@ export class EditProjectPage extends BasePage {
     // Description step
     await this.waitForStep("Describe the job");
     if (updates.extraNotes) {
-      await this.page.getByTestId("field-description").fill(updates.extraNotes);
+      await this.surface.getByTestId("field-description").fill(updates.extraNotes);
     }
     await this.next();
 

@@ -19,8 +19,6 @@ export default function SwipeDeck({
   projectId,
   builders,
   onMatch,
-  onInfo,
-  onInfoPrefetch,
 }: {
   projectId: string;
   builders: SwipeDeckBuilder[];
@@ -28,13 +26,6 @@ export default function SwipeDeck({
    *  swipe_interest row id from the server (the canonical "match id"),
    *  not the builder's UID. */
   onMatch: (matchId: number | string) => void;
-  onInfo?: (builder: SwipeDeckBuilder) => void;
-  /**
-   * Optional: called whenever the top card changes. Lets the parent prefetch
-   * the route the Info button would navigate to so the page is already in the
-   * Next.js router cache by the time the user actually taps it.
-   */
-  onInfoPrefetch?: (builder: SwipeDeckBuilder) => void;
 }) {
   const api = useApi();
   const [index, setIndex] = useState(0);
@@ -68,14 +59,6 @@ export default function SwipeDeck({
   useEffect(() => {
     setFlipped(false);
   }, [index]);
-
-  // Kick off a prefetch for the current card's info target the moment it
-  // becomes the top of the deck. By the time the homeowner taps "i", the
-  // route bundle is already loaded — the navigation feels instant.
-  useEffect(() => {
-    if (!current || !onInfoPrefetch) return;
-    onInfoPrefetch(current);
-  }, [current, onInfoPrefetch]);
 
   async function commit(direction: "left" | "right") {
     if (!current || busy) return;
@@ -218,10 +201,7 @@ export default function SwipeDeck({
                 transform: "rotateY(180deg)",
               }}
             >
-              <BuilderCardBack
-                builder={current}
-                onViewFull={() => onInfo?.(current)}
-              />
+              <BuilderCardBack builder={current} />
             </div>
           </div>
         </div>

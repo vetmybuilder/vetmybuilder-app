@@ -237,11 +237,45 @@ describe("GET /api/tradesmen/jobs — deck mode", () => {
     expect(item.name).toBe("Kitchen Extension");
     // Enriched fields
     expect(item.budget).toBe("£15k–£30k");
-    expect(item.ownerFirstName).toBe("Alice");
+    // Privacy: deck endpoint must never leak the homeowner's name to a
+    // tradesman, even though the SQL still selects it. Locked to null
+    // here so re-introducing the field would be loud.
+    expect(item.ownerFirstName).toBeNull();
     expect(item.postedAt).toBeDefined();
     expect(item.aiScore).toBeTypeOf("number");
     expect(item.propertyType).toBe("Semi-detached");
     expect(item.bedrooms).toBe(3);
+  });
+
+  it("deck mode: full project postcodes are reduced to outward only before reaching the tradesman", async () => {
+    const q = vi
+      .fn()
+      .mockResolvedValueOnce([{ role: "tradesman" }])
+      .mockResolvedValueOnce([{
+        user_id: "b1", company_name: "Ace Builders", status: "active",
+        subscription_status: "active", contact_credits: 5,
+        trade_types: "builder", service_areas: "E4", email: "b@example.com",
+      }])
+      .mockResolvedValueOnce([projectRow({ location: "E4 6AA" })])
+      .mockResolvedValueOnce([{ c: 1 }])
+      .mockResolvedValueOnce([{ trade_types: "builder", service_areas: "E4" }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValue({ affectedRows: 1 });
+
+    const handler = loadHandler({
+      auth: (_q: any, _r: any, n: any) => n(),
+      mysqlQuery: q,
+      log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    });
+
+    const res = mockRes();
+    await handler(
+      { user: { uid: "b1", email: "b@example.com" }, query: { mode: "deck" } },
+      res,
+    );
+
+    const { items } = res.json.mock.calls[0][0];
+    expect(items[0].location).toBe("E4");
   });
 
   it("deck mode: projects with no swipe row are returned; swiped projects are excluded via SQL", async () => {
@@ -367,7 +401,7 @@ describe("GET /api/tradesmen/jobs — list mode (no mode param)", () => {
     expect(item.matchScore).toBeTypeOf("number"); // backward-compat alias
     expect(item.propertyType).toBe("Semi-detached");
     expect(item.bedrooms).toBe(3);
-    expect(item.ownerFirstName).toBe("Alice");
+    expect(item.ownerFirstName).toBeNull();
   });
 
   it("list mode: uid binds twice in params (once for swipe_interest JOIN, once for ownerUserId<>?)", async () => {

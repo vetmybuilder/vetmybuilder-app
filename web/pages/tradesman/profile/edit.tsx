@@ -1,7 +1,9 @@
 import Head from "next/head";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import AuthedOnly from "@/components/AuthedOnly";
+import SiteHeader from "@/components/SiteHeader";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import { useApi } from "@/utils/api";
 import { getCoachingTips } from "@/utils/coachingTips";
 
@@ -14,6 +16,36 @@ import Step3Offers from "@/components/vendor-register/Step3Offers";
 import WizardTopBar from "@/components/wizard/WizardTopBar";
 import WizardProgressBar from "@/components/wizard/WizardProgressBar";
 import WizardNavBar from "@/components/wizard/WizardNavBar";
+
+// Inline spinner SVG - same shape used by SwipePayGate / ReportModal /
+// PushPrompt / CloseProjectModal so busy state reads the same across
+// the app.
+function Spinner({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg
+      className={`${className} animate-spin`}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+    >
+      <circle
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="3"
+        className="opacity-25"
+      />
+      <path
+        d="M4 12a8 8 0 018-8"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+        className="opacity-75"
+      />
+    </svg>
+  );
+}
 
 import {
   normalizeAsUrl,
@@ -119,6 +151,19 @@ export default function TradesmanProfileEditPage() {
 function Inner() {
   const api = useApi();
   const router = useRouter();
+  // Cancellable handle for the post-save redirect timer. Without
+  // tracking + clearing this on unmount, a stale router.replace can
+  // fire after the page has already navigated and Next throws an
+  // "Invariant: hard navigate to same URL" runtime error.
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+        redirectTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const [step, setStep] = useState<Step>(1);
 
@@ -482,9 +527,21 @@ function Inner() {
         setForm((prev) => (prev ? { ...prev, workPhotos: [] } : prev));
       }
 
-      setTimeout(() => {
-        router.replace("/tradesman/account");
-      }, 600);
+      // Hold the success toast on screen for ~1.5s before bouncing to
+      // the account hub. The save itself is fast, so without this delay
+      // the "Profile updated" confirmation is barely visible before the
+      // page changes. Stash the timer in a ref so the unmount cleanup
+      // can cancel it - otherwise a stale router.replace fires after
+      // navigation and Next throws "hard navigate to same URL".
+      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
+      redirectTimerRef.current = setTimeout(() => {
+        redirectTimerRef.current = null;
+        // Don't push if we somehow ended up back on the same page
+        // already (HMR / browser back).
+        if (router.pathname !== "/tradesman/account") {
+          router.replace("/tradesman/account");
+        }
+      }, 1500);
     } catch (e: any) {
       const msg =
         e?.response?.data?.error || e?.message || "Failed to save changes.";
@@ -517,65 +574,121 @@ function Inner() {
 
   const handleBack = () => {
     if (step === 1) {
-      // Pop the history entry so we land on whatever the user came from
-      // (typically /tradesman/account). Avoids the account <-> edit loop
-      // that router.push("/tradesman/account") used to create.
-      router.back();
+      // /tradesman/account is the canonical parent of profile/edit, so
+      // exiting at step 1 always lands there - regardless of which page
+      // the user navigated in from. router.replace (not push) avoids
+      // adding a redundant history entry.
+      router.replace("/tradesman/account");
     } else {
       setStep((s) => (s - 1) as Step);
     }
   };
 
   const handleClose = () => {
-    router.back();
+    router.replace("/tradesman/account");
   };
 
   // ===== RENDER =====
 
   if (loading) {
     return (
-      <main
-        className="fixed inset-0 bg-gray-50 flex flex-col"
-        style={{
-          paddingBottom: "env(safe-area-inset-bottom)",
-          fontFamily:
-            "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
-        }}
-      >
-        <div className="h-[env(safe-area-inset-top)]" />
-        <WizardTopBar
-          title="Edit profile"
-          onBack={handleBack}
-          onClose={handleClose}
-        />
-        <WizardProgressBar step={step} total={3} tone="emerald" />
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-sm text-zinc-400">Loading…</p>
+      <>
+        {/* MOBILE loading - existing wizard chrome skeleton */}
+        <main
+          className="md:hidden fixed inset-0 bg-gray-50 flex flex-col"
+          style={{
+            paddingBottom: "env(safe-area-inset-bottom)",
+            fontFamily:
+              "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
+          }}
+        >
+          <div className="h-[env(safe-area-inset-top)]" />
+          <WizardTopBar
+            title="Edit profile"
+            onBack={handleBack}
+            onClose={handleClose}
+          />
+          <WizardProgressBar step={step} total={3} tone="emerald" />
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-sm text-zinc-400">Loading…</p>
+          </div>
+        </main>
+
+        {/* DESKTOP loading - cream + watermark + SiteHeader so the old
+            wizard chrome doesn't flash before the V3 layout takes over. */}
+        <div className="hidden md:block min-h-screen bg-[#fef6e9] relative overflow-hidden">
+          <SiteHeader />
+          <BrandWatermarkScatter />
+          <div className="mx-auto max-w-3xl px-6 pb-12 relative z-10">
+            <div className="text-center pt-6 pb-4">
+              <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-0.5">
+                Edit profile
+              </div>
+              <h1
+                className="text-[26px] font-black tracking-tight text-slate-900 leading-tight"
+                style={{ fontFamily: "'Sora', sans-serif" }}
+              >
+                Polish how{" "}
+                <span
+                  className="text-emerald-600"
+                  style={{ fontFamily: "'Caveat', cursive", fontSize: "120%" }}
+                >
+                  homeowners see you
+                </span>
+              </h1>
+            </div>
+            <div className="bg-white border border-amber-100 rounded-3xl shadow-sm flex items-center justify-center py-24">
+              <span className="text-[14px] font-semibold text-emerald-600 animate-pulse">
+                Loading your profile…
+              </span>
+            </div>
+          </div>
         </div>
-      </main>
+      </>
     );
   }
 
   if (!form || !profile) {
     return (
-      <main
-        className="fixed inset-0 bg-gray-50 flex flex-col"
-        style={{
-          paddingBottom: "env(safe-area-inset-bottom)",
-          fontFamily:
-            "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
-        }}
-      >
-        <div className="h-[env(safe-area-inset-top)]" />
-        <WizardTopBar
-          title="Edit profile"
-          onBack={handleBack}
-          onClose={handleClose}
-        />
-        <div className="flex-1 flex items-center justify-center px-6">
-          <p className="text-sm text-rose-600">{err || "No trade profile found."}</p>
+      <>
+        {/* MOBILE error - existing wizard chrome */}
+        <main
+          className="md:hidden fixed inset-0 bg-gray-50 flex flex-col"
+          style={{
+            paddingBottom: "env(safe-area-inset-bottom)",
+            fontFamily:
+              "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
+          }}
+        >
+          <div className="h-[env(safe-area-inset-top)]" />
+          <WizardTopBar
+            title="Edit profile"
+            onBack={handleBack}
+            onClose={handleClose}
+          />
+          <div className="flex-1 flex items-center justify-center px-6">
+            <p className="text-sm text-rose-600">{err || "No trade profile found."}</p>
+          </div>
+        </main>
+
+        {/* DESKTOP error - same V3 chrome so the old wizard never flashes */}
+        <div className="hidden md:block min-h-screen bg-[#fef6e9] relative overflow-hidden">
+          <SiteHeader />
+          <BrandWatermarkScatter />
+          <div className="mx-auto max-w-3xl px-6 pb-12 relative z-10">
+            <div className="text-center pt-6 pb-4">
+              <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-0.5">
+                Edit profile
+              </div>
+            </div>
+            <div className="bg-white border border-rose-200 rounded-3xl shadow-sm px-6 py-8 text-center">
+              <p className="text-[13.5px] text-rose-600 font-semibold">
+                {err || "No trade profile found."}
+              </p>
+            </div>
+          </div>
         </div>
-      </main>
+      </>
     );
   }
 
@@ -585,8 +698,9 @@ function Inner() {
         <title>Edit profile • VetMyBuilder</title>
       </Head>
 
+      {/* MOBILE — existing 3-step wizard, untouched. */}
       <main
-        className="fixed inset-0 bg-gray-50 flex flex-col"
+        className="md:hidden fixed inset-0 bg-gray-50 flex flex-col"
         data-testid="trades-edit-profile-page"
         style={{
           paddingBottom: "env(safe-area-inset-bottom)",
@@ -720,7 +834,232 @@ function Inner() {
           tone="emerald"
         />
       </main>
+
+      {/* DESKTOP — V3 single-page: cream + watermark + SiteHeader chrome,
+          all three section forms visible at once, sticky save bar at the
+          bottom. Same form state + save handler as the mobile wizard. */}
+      <div
+        className="hidden md:block min-h-screen bg-[#fef6e9] relative overflow-hidden"
+        data-testid="trades-edit-profile-desktop"
+      >
+        <SiteHeader />
+        <BrandWatermarkScatter />
+
+        {/* Success toast - fixed top-center so it's hard to miss while
+            the redirect to /tradesman/account is in flight. */}
+        {okMsg && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-50 inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-emerald-600 text-white text-[13px] font-extrabold shadow-xl shadow-emerald-200"
+            data-testid="profile-saved-toast"
+          >
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white/25 text-white text-[12px]">
+              ✓
+            </span>
+            {okMsg}
+          </div>
+        )}
+
+        <div className="mx-auto max-w-3xl px-6 pb-32 relative z-10">
+          {/* Title */}
+          <div className="text-center pt-6 pb-4">
+            <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-0.5">
+              Edit profile
+            </div>
+            <h1
+              className="text-[26px] font-black tracking-tight text-slate-900 leading-tight"
+              style={{ fontFamily: "'Sora', sans-serif" }}
+            >
+              Polish how{" "}
+              <span
+                className="text-emerald-600"
+                style={{ fontFamily: "'Caveat', cursive", fontSize: "120%" }}
+              >
+                homeowners see you
+              </span>
+            </h1>
+          </div>
+
+          {/* Coaching tips */}
+          {tips.length > 0 && (
+            <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-[12.5px] font-extrabold text-amber-900">
+                Boost your profile - {tips.length} quick win{tips.length === 1 ? "" : "s"}
+              </p>
+              <ul className="mt-1.5 space-y-1">
+                {tips.map((tip) => (
+                  <li
+                    key={tip.key}
+                    className="flex items-start gap-2 text-[12px] text-amber-800"
+                  >
+                    <span className="text-amber-500">•</span>
+                    {tip.message}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {err && (
+            <p
+              className="mb-4 text-[12.5px] text-red-600 font-semibold whitespace-pre-line bg-red-50 border border-red-200 rounded-xl px-4 py-3"
+              role="alert"
+            >
+              {err}
+            </p>
+          )}
+
+          {/* Section: Company */}
+          <DesktopSection
+            title="Company details"
+            hint="The basics homeowners see when they open your profile."
+          >
+            <Step1Company
+              form={form as unknown as Step1Form}
+              set={(k, v) => {
+                if (k === "companyName" || k === "email") return;
+                if (k === "email") setEmailErr(null);
+                // @ts-expect-error
+                set(k, v);
+              }}
+              addServiceAreaOutward={addServiceAreaOutward}
+              addServiceAreaBorough={addServiceAreaBorough}
+              removeServiceAreaAt={removeServiceAreaAt}
+              areaQuery={areaQuery}
+              setAreaQuery={setAreaQuery}
+              websiteInput={websiteInput}
+              setWebsiteInput={setWebsiteInput}
+              commitWebsite={commitWebsite}
+              onWebsiteKey={onWebsiteKey}
+              clearWebsite={clearWebsite}
+              canProceed={true}
+              onNext={(e) => e.preventDefault()}
+              userIsAuthed={true}
+              nextQuery={"?next=/tradesman/account"}
+              errors={{ email: emailErr }}
+              disableCompanyName
+              disableBusinessEmail
+            />
+          </DesktopSection>
+
+          {/* Section: Trades + Photos */}
+          <DesktopSection
+            title="Trades & photos"
+            hint="Determine which jobs surface in your deck. The first photo is your profile picture."
+          >
+            <Step2Trades
+              tradeTypes={form.tradeTypes}
+              setTradeTypes={(v) => set("tradeTypes", v)}
+              workPhotos={form.workPhotos}
+              setWorkPhotos={(files) => set("workPhotos", files)}
+              onBack={() => {}}
+              onNext={(e) => e.preventDefault()}
+              err={err || undefined}
+              existingPhotoUrls={form.existingPhotoUrls}
+              profilePictureKey={form.profilePictureKey}
+              onProfilePictureKeyChange={(key) =>
+                set("profilePictureKey", key)
+              }
+              onRemoveExistingPhoto={(url) =>
+                set(
+                  "existingPhotoUrls",
+                  form.existingPhotoUrls.filter((u) => u !== url),
+                )
+              }
+            />
+          </DesktopSection>
+
+          {/* Section: Offers + verification */}
+          <DesktopSection
+            title="Offers & documents"
+            hint="Discounts, warranties and supporting docs."
+          >
+            <Step3Offers
+              discountMin={form.discountMin}
+              discountMax={form.discountMax}
+              setDiscountMin={(v) => set("discountMin", v)}
+              setDiscountMax={(v) => set("discountMax", v)}
+              warranty={form.warranty}
+              setWarranty={(v) => set("warranty", v)}
+              onDocs={(e) => {
+                const files = Array.from(e.target.files || []);
+                const mapped: Doc[] = files.map((f) => ({
+                  name: f.name,
+                  size: f.size,
+                  type: f.type || "application/octet-stream",
+                }));
+                set("docs", mapped);
+              }}
+              onBack={() => {}}
+              onSaveDraft={(e) => e.preventDefault()}
+              busy={busy}
+              okMsg={okMsg || undefined}
+              err={err || undefined}
+              primaryLabel="Save changes"
+            />
+          </DesktopSection>
+
+          {/* Success message is rendered as a fixed top-center toast at
+              the top of this branch - no inline copy here. */}
+        </div>
+
+        {/* Sticky save bar - mirrors the V3 mock pattern */}
+        <div className="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-amber-100 py-3 px-6 z-40 hidden md:block">
+          <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
+            {/* Lock the bar while either the save is in flight (busy) OR
+                the post-save success toast is showing (okMsg) - the
+                redirect to /tradesman/account fires ~1.5s after busy
+                flips false, so the user shouldn't be able to fire another
+                save in that window. */}
+            <button
+              type="button"
+              onClick={() => router.replace("/tradesman/account")}
+              disabled={busy || !!okMsg}
+              className="px-4 py-2 rounded-full text-[12.5px] font-extrabold text-slate-600 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              onClick={(e) => onSaveChanges(e as unknown as React.FormEvent)}
+              disabled={busy || !!okMsg}
+              className="inline-flex items-center justify-center gap-2 px-6 py-2 rounded-full text-[12.5px] font-extrabold text-white shadow-md shadow-emerald-200 hover:brightness-105 active:brightness-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-none transition-all"
+              style={{
+                background: "linear-gradient(135deg,#10b981,#059669)",
+              }}
+              data-testid="desktop-save-changes"
+            >
+              {busy && <Spinner className="h-4 w-4" />}
+              {busy ? "Saving…" : okMsg ? "Saved ✓" : "Save changes"}
+            </button>
+          </div>
+        </div>
+      </div>
     </>
+  );
+}
+
+function DesktopSection({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="bg-white border border-amber-100 rounded-3xl p-5 shadow-sm mb-4">
+      <h2
+        className="text-[16px] font-black text-slate-900"
+        style={{ fontFamily: "'Sora', sans-serif" }}
+      >
+        {title}
+      </h2>
+      <p className="mt-1 mb-3 text-[12px] text-slate-500">{hint}</p>
+      {children}
+    </section>
   );
 }
 

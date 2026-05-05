@@ -67,8 +67,11 @@ describe("GET /api/tradesmen/me/incoming-interest", () => {
       id: 10,
       projectId: 1,
       source: "subscribed",
-      homeownerFirstName: "Chris",
+      // Pre-match: server hides the homeowner's name and reduces the
+      // project location to its outward postcode only.
+      homeownerFirstName: null,
     });
     expect(body.items[0].project.title).toBe("Kitchen refit");
+    expect(body.items[0].project.location).toBe("E4");
   });
 });

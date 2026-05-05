@@ -11,15 +11,27 @@ import InboxDropdown, { useInboxUnread } from "@/components/InboxDropdown";
 
 // Owner project tabs - rendered in the centre of the header for any
 // signed-in homeowner. Clicking a tab from anywhere routes to /projects
-// with the right ?tab= query, so the user can jump to favourites or
-// recommendations without first walking to /projects.
+// with the right ?tab= query, so the user can jump to favourites
+// without first walking to /projects. Recommendations live on each
+// project's right rail, so they don't need a global tab here.
 const OWNER_TABS = [
   { key: "mine", label: "Live" },
   { key: "completed", label: "Completed" },
   { key: "favourites", label: "Favourites" },
-  { key: "recommendations", label: "Recommendations" },
 ] as const;
 type OwnerTabKey = (typeof OWNER_TABS)[number]["key"];
+
+// Trade-side primary nav - mirrors the homeowner OWNER_TABS but routes
+// to the trade-side equivalents. Rendered in the centre of the header
+// for any signed-in tradesperson so they can jump between Jobs, Jobs
+// list, Matches, and Incoming interest from anywhere on the site.
+const TRADES_TABS = [
+  { key: "jobs", label: "Jobs", href: "/tradesman/jobs" },
+  { key: "jobs-list", label: "Jobs list", href: "/tradesman/jobs/list" },
+  { key: "matches", label: "Matches", href: "/tradesman/matches" },
+  { key: "leads", label: "Incoming interest", href: "/tradesman/leads" },
+] as const;
+type TradesTabKey = (typeof TRADES_TABS)[number]["key"];
 
 function computeInitials(u: any | null | undefined): string | undefined {
   if (!u) return undefined;
@@ -142,6 +154,10 @@ export default function SiteHeader() {
 
   const [isTrades, setIsTrades] = useState(false);
   const [company, setCompany] = useState<string | null>(null);
+  // Profile picture URL for the trades menu avatar. Mirrors the same
+  // field /tradesman/account renders (profile.profile_picture_url).
+  // Cached in sessionStorage so it doesn't blink on subsequent loads.
+  const [tradesPhoto, setTradesPhoto] = useState<string | null>(null);
   const [roleChecked, setRoleChecked] = useState(false);
 
   // Seed from sessionStorage on client to avoid blink on subsequent loads.
@@ -155,6 +171,7 @@ export default function SiteHeader() {
       if (justRegistered) {
         setIsTrades(true);
         setCompany(sessionStorage.getItem("vmb:tradesCo") || null);
+        setTradesPhoto(sessionStorage.getItem("vmb:tradesPhoto") || null);
         setRoleChecked(true);
         // don't remove the flag here — useRole owns the one-shot lifecycle
         return;
@@ -164,6 +181,7 @@ export default function SiteHeader() {
       if (cached !== null) {
         setIsTrades(cached === "1");
         setCompany(sessionStorage.getItem("vmb:tradesCo") || null);
+        setTradesPhoto(sessionStorage.getItem("vmb:tradesPhoto") || null);
         setRoleChecked(true);
       }
     } catch {}
@@ -182,10 +200,12 @@ export default function SiteHeader() {
     if (!displayUser) {
       setIsTrades(false);
       setCompany(null);
+      setTradesPhoto(null);
       setRoleChecked(true);
       try {
         sessionStorage.setItem("vmb:isTradesman", "0");
         sessionStorage.removeItem("vmb:tradesCo");
+        sessionStorage.removeItem("vmb:tradesPhoto");
       } catch {}
       return;
     }
@@ -198,20 +218,33 @@ export default function SiteHeader() {
 
         const isT = role === "tradesman" || !!prof;
         const co = prof?.company_name || prof?.company || prof?.name || null;
+        // Same field /tradesman/account renders. avatar_url + first
+        // photo are kept as fallbacks in case profile_picture_url is
+        // unset but the trade has uploaded photos.
+        const photo: string | null =
+          prof?.profile_picture_url ||
+          prof?.avatar_url ||
+          (Array.isArray(prof?.photo_urls) ? prof!.photo_urls[0] : null) ||
+          null;
 
         if (!alive) return;
         setIsTrades(!!isT);
         setCompany(co || null);
+        setTradesPhoto(photo);
         setRoleChecked(true);
 
         try {
           sessionStorage.setItem("vmb:isTradesman", isT ? "1" : "0");
           if (co) sessionStorage.setItem("vmb:tradesCo", co);
+          else sessionStorage.removeItem("vmb:tradesCo");
+          if (photo) sessionStorage.setItem("vmb:tradesPhoto", photo);
+          else sessionStorage.removeItem("vmb:tradesPhoto");
         } catch {}
       } catch {
         if (!alive) return;
         setIsTrades(false);
         setCompany(null);
+        setTradesPhoto(null);
         setRoleChecked(true);
         try {
           sessionStorage.setItem("vmb:isTradesman", "0");
@@ -285,11 +318,26 @@ export default function SiteHeader() {
           ? router.query.tab[0]
           : router.query?.tab;
         const t = String(raw || "mine");
-        if (t === "completed" || t === "favourites" || t === "recommendations")
-          return t;
+        if (t === "completed" || t === "favourites") return t;
         return "mine";
       })()
     : null;
+
+  // Trade-side primary tabs - mirrors showOwnerTabs but for tradesmen.
+  // Active state covers both /tradesman/jobs (the swipe deck) and
+  // /tradesman/jobs/list since they're the same product surface from
+  // the user's POV.
+  const showTradesTabs =
+    !!displayUser && isTrades && !isAuthPage && !router.pathname.startsWith("/admin");
+
+  const activeTradesTab: TradesTabKey | null = (() => {
+    const p = router.pathname;
+    if (p.startsWith("/tradesman/jobs/list")) return "jobs-list";
+    if (p.startsWith("/tradesman/jobs")) return "jobs";
+    if (p.startsWith("/tradesman/matches")) return "matches";
+    if (p.startsWith("/tradesman/leads")) return "leads";
+    return null;
+  })();
 
   function handleOwnerTabClick(key: OwnerTabKey) {
     router.push(
@@ -329,6 +377,43 @@ export default function SiteHeader() {
                   <BrandWordmark tone={isTrades || isTradesPage ? "emerald" : "indigo"} />
                 </Link>
               </div>
+
+              {/* Trade-side tabs - rendered on the homepage too so a
+                  signed-in tradesperson can jump straight to Jobs /
+                  Matches / etc without opening the avatar dropdown. */}
+              {showTradesTabs && (
+                <div className="hidden md:flex flex-1 items-center justify-center">
+                  <div
+                    className="inline-flex rounded-full bg-emerald-50 p-1"
+                    role="tablist"
+                    aria-label="Trade sections"
+                  >
+                    {TRADES_TABS.map((t) => {
+                      const active = activeTradesTab === t.key;
+                      return (
+                        <Link
+                          key={t.key}
+                          href={t.href}
+                          role="tab"
+                          aria-selected={active}
+                          className={`rounded-full px-3 py-1 text-[12.5px] font-bold transition-colors ${
+                            active
+                              ? "text-white shadow-sm"
+                              : "text-slate-600 hover:text-slate-900"
+                          }`}
+                          style={
+                            active
+                              ? { background: "linear-gradient(135deg,#10b981,#059669)" }
+                              : {}
+                          }
+                        >
+                          {t.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div className="flex items-center gap-3">
                 {/* Logged-in homeowner: Projects button + account menu */}
@@ -383,9 +468,11 @@ export default function SiteHeader() {
                       className="inline-flex items-center gap-2 rounded-full px-2 py-1 ring-1 ring-gray-300/80 bg-white hover:bg-gray-50 shadow-sm"
                       data-testid="trades-menu-button"
                     >
-                      <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white text-xs font-semibold">
-                        {(company?.[0] || "T").toUpperCase()}
-                      </span>
+                      <TradesAvatar
+                        size={28}
+                        photoUrl={tradesPhoto}
+                        company={company}
+                      />
                       {company && (
                         <span className="text-sm font-medium text-gray-700 max-w-[200px] truncate">
                           {company}
@@ -396,19 +483,61 @@ export default function SiteHeader() {
                       </svg>
                     </button>
                     {openMenu === "trades" && (
-                      <div ref={menuRef} id="trades-menu" role="menu" className="absolute right-0 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg ring-1 ring-black/5">
-                        <Link role="menuitem" href="/tradesman/matches" className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => setOpenMenu(null)}>
-                          Matches
-                        </Link>
-                        <Link role="menuitem" href="/tradesman/leads" className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => setOpenMenu(null)}>
-                          Incoming interest
-                        </Link>
-                        <Link role="menuitem" href="/tradesman/profile/edit" className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => setOpenMenu(null)}>
-                          Manage profile
-                        </Link>
-                        <button role="menuitem" onClick={onLogout} className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50/60">
-                          Logout
-                        </button>
+                      <div
+                        ref={menuRef}
+                        id="trades-menu"
+                        role="menu"
+                        aria-label="Trades"
+                        className="absolute right-0 top-12 z-50 w-[280px] rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden"
+                      >
+                        {/* Profile mini-header — same shape as the other
+                            trades dropdown variant so the menu reads
+                            consistently across pages. */}
+                        <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-3">
+                          <TradesAvatar
+                            size={40}
+                            photoUrl={tradesPhoto}
+                            company={company}
+                          />
+                          <div className="min-w-0">
+                            <div className="text-[13px] font-extrabold text-slate-900 truncate">
+                              {company || "Your trade"}
+                            </div>
+                            <div className="text-[11.5px] text-slate-500 truncate">
+                              {(displayUser as any)?.email || ""}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Items - top-level surfaces (Jobs, Matches,
+                            Incoming interest) live in the centered
+                            trade tabs and are intentionally NOT
+                            duplicated here. Same shape as the
+                            non-homepage variant so the menu reads
+                            consistently across pages. */}
+                        <div className="p-1.5">
+                          <Link
+                            role="menuitem"
+                            href="/tradesman/account"
+                            className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-emerald-50 hover:text-slate-900 transition-colors"
+                            onClick={() => setOpenMenu(null)}
+                          >
+                            <UserCog className="h-4 w-4 text-slate-400" />
+                            <span>Account</span>
+                          </Link>
+                        </div>
+
+                        {/* Logout (visually separated) */}
+                        <div className="p-1.5 border-t border-slate-100">
+                          <button
+                            role="menuitem"
+                            onClick={onLogout}
+                            className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-red-600 hover:bg-red-50/70 transition-colors"
+                          >
+                            <LogOut className="h-4 w-4" />
+                            <span>Logout</span>
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -512,6 +641,46 @@ export default function SiteHeader() {
               </div>
             )}
 
+            {/* Trade-side primary nav: Jobs / Jobs list / Matches /
+                Incoming interest. Same shape + position as the owner
+                tabs but emerald-tinted so the two viewer roles read as
+                visually distinct. Active tab gets the emerald pill. */}
+            {showTradesTabs && (
+              <div className="hidden md:flex flex-1 items-center justify-center">
+                <div
+                  className="inline-flex rounded-full bg-emerald-50 p-1"
+                  role="tablist"
+                  aria-label="Trade sections"
+                  data-testid="trades-tabs"
+                >
+                  {TRADES_TABS.map((t) => {
+                    const active = activeTradesTab === t.key;
+                    return (
+                      <Link
+                        key={t.key}
+                        href={t.href}
+                        role="tab"
+                        aria-selected={active}
+                        data-testid={`trades-tab-${t.key}`}
+                        className={`rounded-full px-3 py-1 text-[12.5px] font-bold transition-colors ${
+                          active
+                            ? "text-white shadow-sm"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                        style={
+                          active
+                            ? { background: "linear-gradient(135deg,#10b981,#059669)" }
+                            : {}
+                        }
+                      >
+                        {t.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Right (desktop) */}
             <div
               className="hidden md:flex items-center gap-1.5"
@@ -576,13 +745,12 @@ export default function SiteHeader() {
                     className="inline-flex items-center gap-2 rounded-full px-2 py-1 ring-1 ring-gray-300/80 bg-white hover:bg-gray-50 shadow-sm"
                     data-testid="trades-menu-button"
                   >
-                    <span
-                      aria-hidden
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white text-xs font-semibold"
-                    >
-                      {(company?.[0] || "T").toUpperCase()}
-                    </span>
-                    <span className="hidden sm:block text-sm text-gray-700">
+                    <TradesAvatar
+                      size={28}
+                      photoUrl={tradesPhoto}
+                      company={company}
+                    />
+                    <span className="hidden sm:block text-sm font-semibold text-gray-700 max-w-[200px] truncate">
                       {company || "Trades"}
                     </span>
                     <svg
@@ -608,47 +776,54 @@ export default function SiteHeader() {
                       role="menu"
                       aria-label="Trades"
                       data-testid="trades-menu"
-                      className="absolute right-0 mt-2 w-52 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg ring-1 ring-black/5"
+                      className="absolute right-0 top-12 z-50 w-[280px] rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden"
                     >
-                      <Link
-                        role="menuitem"
-                        href="/tradesman/matches"
-                        className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
-                        onClick={() => setOpenMenu(null)}
-                        aria-label="Matches"
-                        data-testid="menu-matches"
-                      >
-                        Matches
-                      </Link>
-                      <Link
-                        role="menuitem"
-                        href="/tradesman/leads"
-                        className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
-                        onClick={() => setOpenMenu(null)}
-                        aria-label="Incoming interest"
-                        data-testid="menu-leads"
-                      >
-                        Incoming interest
-                      </Link>
-                      <Link
-                        role="menuitem"
-                        href="/tradesman/profile/edit"
-                        className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
-                        onClick={() => setOpenMenu(null)}
-                        aria-label="Manage profile"
-                        data-testid="menu-manage-profile"
-                      >
-                        Manage profile
-                      </Link>
-                      <button
-                        role="menuitem"
-                        onClick={onLogout}
-                        className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50/60"
-                        aria-label="Log out"
-                        data-testid="menu-logout"
-                      >
-                        Logout
-                      </button>
+                      {/* Profile mini-header — mirrors the homeowner
+                          dropdown so the two roles read as parallel UIs. */}
+                      <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-3">
+                        <TradesAvatar
+                          size={40}
+                          photoUrl={tradesPhoto}
+                          company={company}
+                        />
+                        <div className="min-w-0">
+                          <div className="text-[13px] font-extrabold text-slate-900 truncate">
+                            {company || "Your trade"}
+                          </div>
+                          <div className="text-[11.5px] text-slate-500 truncate">
+                            {(displayUser as any)?.email || ""}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Items - top-level surfaces (Jobs, Matches,
+                          Incoming interest) live in the header tabs and
+                          are intentionally NOT duplicated here. */}
+                      <div className="p-1.5">
+                        <Link
+                          role="menuitem"
+                          href="/tradesman/account"
+                          className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-emerald-50 hover:text-slate-900 transition-colors"
+                          onClick={() => setOpenMenu(null)}
+                          data-testid="menu-account"
+                        >
+                          <UserCog className="h-4 w-4 text-slate-400" />
+                          <span>Account</span>
+                        </Link>
+                      </div>
+
+                      {/* Logout (visually separated) */}
+                      <div className="p-1.5 border-t border-slate-100">
+                        <button
+                          role="menuitem"
+                          onClick={onLogout}
+                          className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-red-600 hover:bg-red-50/70 transition-colors"
+                          data-testid="menu-logout"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          <span>Logout</span>
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -789,5 +964,49 @@ export default function SiteHeader() {
       </header>
 
     </>
+  );
+}
+
+/* Avatar shown in the trades menu trigger. Renders the profile picture
+   when present (same field /tradesman/account uses), falls back to a
+   red-circle initial when no photo or when the image fails to load.
+   Direct <img> with explicit dimensions - same pattern as MobileMenu /
+   MessagingDock so loading is consistent across the app. */
+function TradesAvatar({
+  size,
+  photoUrl,
+  company,
+}: {
+  size: number;
+  photoUrl: string | null;
+  company: string | null;
+}) {
+  const [errored, setErrored] = useState(false);
+  const initial = (company || "T").trim().charAt(0).toUpperCase() || "T";
+  const dim = { width: `${size}px`, height: `${size}px` };
+  const fontSize = size >= 36 ? "14px" : "12px";
+
+  if (photoUrl && !errored) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={photoUrl}
+        alt=""
+        aria-hidden
+        className="rounded-full object-cover shrink-0"
+        style={dim}
+        onError={() => setErrored(true)}
+      />
+    );
+  }
+
+  return (
+    <span
+      aria-hidden
+      className="inline-flex shrink-0 items-center justify-center rounded-full bg-red-500 text-white font-bold"
+      style={{ ...dim, fontSize }}
+    >
+      {initial}
+    </span>
   );
 }

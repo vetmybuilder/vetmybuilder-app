@@ -73,9 +73,7 @@ export default function IncomingLeadCardBack({
             {lead.budget && <Pill>{lead.budget}</Pill>}
             {lead.outward && <Pill>{lead.outward}</Pill>}
             {lead.startWindow && <Pill>{lead.startWindow}</Pill>}
-            <Pill>
-              {lead.homeownerFirstName} · {lead.pickedHoursAgo}h ago
-            </Pill>
+            <Pill>Picked you {lead.pickedHoursAgo}h ago</Pill>
           </div>
         </div>
       </div>

@@ -14,6 +14,9 @@ import GlobalMobileMenu from "@/components/GlobalMobileMenu";
 import MatchCelebrationToast from "@/components/MatchCelebrationToast";
 import GlobalSseDispatcher from "@/components/GlobalSseDispatcher";
 import MessagingDock from "@/components/messaging/MessagingDock";
+import TradesmanMessagingDock from "@/components/messaging/TradesmanMessagingDock";
+import CookieConsent from "react-cookie-consent";
+import Link from "next/link";
 
 // ✅ IMPORTANT: adjust this import path to where your initFirebase() file actually is.
 // Example candidates:
@@ -201,7 +204,6 @@ export default function MyApp({ Component, pageProps }: AppProps) {
   // (no SiteHeader, no background strip). The page itself is responsible
   // for its own min-h-screen / background.
   const NO_LAYOUT_PATHS = new Set<string>([
-    "/projects/[id]/shortlist",
     "/matches",
     "/match/[matchId]",
     "/projects/[id]",
@@ -265,6 +267,41 @@ export default function MyApp({ Component, pageProps }: AppProps) {
         </Layout>
       )}
 
+      {/* Global cookie banner — needs to mount on every route, including
+          bare pages (/projects, /matches, /tradesman/*, etc) that bypass
+          Layout. Lives outside the route branches so it's truly global. */}
+      <CookieConsent
+        location="bottom"
+        cookieName="vmb_cookie_consent"
+        expires={365}
+        buttonText="Got it"
+        style={{
+          background: "#1e293b",
+          padding: "12px 20px",
+          alignItems: "center",
+          fontSize: "13px",
+          zIndex: 9999,
+        }}
+        buttonStyle={{
+          background: "linear-gradient(135deg, #6366f1, #4f46e5)",
+          color: "#fff",
+          borderRadius: "9999px",
+          padding: "8px 24px",
+          fontWeight: "800",
+          fontSize: "13px",
+          boxShadow: "0 8px 22px rgba(99,102,241,0.30)",
+        }}
+      >
+        We use cookies to keep you signed in and improve the site. By
+        continuing, you accept analytics cookies.{" "}
+        <Link
+          href="/cookies"
+          className="underline text-indigo-300 hover:text-indigo-200"
+        >
+          Cookie policy
+        </Link>
+      </CookieConsent>
+
       {/* Global mobile menu — single instance for every route, opened
           via useMobileMenu().openMenu() from any burger button. */}
       <GlobalMobileMenu />
@@ -282,6 +319,12 @@ export default function MyApp({ Component, pageProps }: AppProps) {
           where homeowners actively manage conversations with shortlisted
           tradespeople, so the dock would be visual noise everywhere else. */}
       {router.pathname === "/projects/[id]" && <MessagingDock />}
+
+      {/* Trade-side messaging dock: same LinkedIn-style chrome as the
+          homeowner dock but global across every tradesman authenticated
+          route. The dock self-hides on full-screen pages (login, signup,
+          /chat, /match) via its own HIDE_ON_PATHS allowlist. */}
+      {router.pathname.startsWith("/tradesman/") && <TradesmanMessagingDock />}
 
       {/* Global modal portal target (for SignUpGate, etc.) */}
       <div id="modal-root" />

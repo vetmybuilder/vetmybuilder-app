@@ -7,7 +7,6 @@ export interface IncomingLead {
   budget: string;
   outward: string;
   startWindow: string;
-  homeownerFirstName: string;
   description: string;
   trades: string[];
   source: "recommended" | "subscribed";
@@ -29,7 +28,7 @@ export default function IncomingLeadCard({ lead }: { lead: IncomingLead }) {
         {lead.startWindow && <Pill>{lead.startWindow}</Pill>}
       </div>
       <div className="mt-3 text-sm text-gray-600">
-        {lead.homeownerFirstName} · picked you {lead.pickedHoursAgo}h ago
+        A homeowner picked you {lead.pickedHoursAgo}h ago
       </div>
       <p className="mt-3 text-sm text-gray-700 line-clamp-5">
         {lead.description}

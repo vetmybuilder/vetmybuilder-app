@@ -379,7 +379,7 @@ console.log(
 );
 
 /* -------------------- Start server -------------------- */
-app.listen(PORT, "0.0.0.0", () => {
+const httpServer = app.listen(PORT, "0.0.0.0", () => {
   logger.info({ port: PORT }, "server started");
 
   // Production sentinel: warn loudly if simulator data is found in the
@@ -397,3 +397,10 @@ app.listen(PORT, "0.0.0.0", () => {
     );
   }
 });
+
+// Node's default keepAliveTimeout is 5s. Reused-pool clients (Playwright's
+// APIRequestContext, Axios with keepAlive) can hit the half-closed window
+// and surface ECONNRESET when the next request lands. headersTimeout must
+// stay strictly greater than keepAliveTimeout per Node's HTTP server docs.
+httpServer.keepAliveTimeout = 65_000;
+httpServer.headersTimeout = 70_000;

@@ -4,6 +4,7 @@ module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
   const { requireActiveTradesman } = require("../../lib/roles");
   const { scoreMatch } = require("../../lib/ai/jobMatcher");
+  const { extractOutward } = require("../../lib/matching/extractOutward");
 
   const log = ctx.log || console;
   const TAG = "[tradesmen/jobs.get]";
@@ -213,18 +214,25 @@ module.exports = (router, ctx) => {
             swipeStateLabel = null;
         }
 
+        // Privacy: never leak the full postcode or the homeowner's name to
+        // a tradesman browsing the deck. Strip the location to its outward
+        // code (e.g. "E4 6AA" -> "E4") and drop ownerFirstName entirely.
+        // Doing this in the response shaper means a UI bug can't
+        // accidentally re-expose either field.
+        const safeLocation = extractOutward(r.location) || "";
+
         return {
           id: r.id,
           name: r.name,
           type: r.type,
-          location: r.location,
+          location: safeLocation,
           description: r.description ?? "",
           createdAt: r.createdAt,
           postedAt: r.createdAt,
           budget: extractBudget(r.description),
           propertyType: r.propertyType ?? null,
           bedrooms: r.bedrooms ?? null,
-          ownerFirstName: r.ownerFirstName ?? null,
+          ownerFirstName: null,
           aiScore: score.total,
           matchScore: score.total,
           priceBandEstimate: classification.price_band_estimate

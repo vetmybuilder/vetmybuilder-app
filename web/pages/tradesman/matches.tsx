@@ -19,8 +19,11 @@ import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
 import { useMobileMenu } from "@/utils/mobileMenu";
 import TradesmanOnly from "@/components/TradesmanOnly";
+import SiteHeader from "@/components/SiteHeader";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import BrandWordmark from "@/components/BrandWordmark";
-import { Handshake, MessagesSquare, Sparkles, Star } from "lucide-react";
+import ChatWindow from "@/components/messaging/ChatWindow";
+import { Handshake, MessagesSquare, Sparkles } from "lucide-react";
 
 type MatchSource = "recommended" | "subscribed";
 
@@ -43,6 +46,9 @@ export default function TradesmanMatchesPage() {
 
   const [matches, setMatches] = useState<TradesmanMatchRow[]>([]);
   const [loading, setLoading] = useState(true);
+  // Desktop V9: which match's preview pane is currently shown. Falls
+  // back to the first match in the list once data lands.
+  const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
 
   const fetchMatches = useCallback(async () => {
     try {
@@ -51,6 +57,8 @@ export default function TradesmanMatchesPage() {
       );
       const rows = Array.isArray(res.data?.matches) ? res.data.matches : [];
       setMatches(rows);
+      // Default the desktop preview pane to the most recent match.
+      setActiveMatchId((current) => current ?? rows[0]?.matchId ?? null);
     } catch {
       setMatches([]);
     } finally {
@@ -88,8 +96,9 @@ export default function TradesmanMatchesPage() {
         <title>Matches - VetMyBuilder</title>
       </Head>
 
+      {/* MOBILE - existing app-shell layout, unchanged. */}
       <main
-        className="fixed inset-0 bg-white overflow-y-auto text-gray-900"
+        className="md:hidden fixed inset-0 bg-white overflow-y-auto text-gray-900"
         style={{
           paddingBottom: "env(safe-area-inset-bottom)",
           fontFamily:
@@ -166,6 +175,55 @@ export default function TradesmanMatchesPage() {
           </div>
         )}
       </main>
+
+      {/* DESKTOP - V9 split-view: match list pane (left) + active-match
+          preview pane (right) with the open-full-chat CTA. The chat
+          thread itself still lives at /chat/:matchId; this pane is the
+          discovery + context surface that lets you triage many active
+          conversations without page-hopping. */}
+      <div
+        className="hidden md:block min-h-screen bg-[#fef6e9] relative overflow-hidden"
+        data-testid="tradesman-matches-desktop"
+      >
+        <SiteHeader />
+        <BrandWatermarkScatter />
+
+        <div className="mx-auto max-w-7xl px-6 pb-12 relative z-10">
+          <div className="text-center pt-6 pb-4">
+            <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-0.5">
+              Your matches
+            </div>
+            <h1
+              className="text-[26px] font-black tracking-tight text-slate-900 leading-tight"
+              style={{ fontFamily: "'Sora', sans-serif" }}
+            >
+              Talk to{" "}
+              <span
+                className="text-emerald-600"
+                style={{ fontFamily: "'Caveat', cursive", fontSize: "120%" }}
+              >
+                your homeowners
+              </span>
+            </h1>
+          </div>
+
+          {loading ? (
+            <div className="bg-white border border-amber-100 rounded-3xl shadow-sm flex items-center justify-center py-24">
+              <span className="text-[14px] font-semibold text-emerald-600 animate-pulse">
+                Loading matches…
+              </span>
+            </div>
+          ) : matches.length === 0 ? (
+            <DesktopEmptyState />
+          ) : (
+            <DesktopSplitView
+              matches={matches}
+              activeMatchId={activeMatchId ?? matches[0]?.matchId ?? null}
+              onSelect={(id) => setActiveMatchId(id)}
+            />
+          )}
+        </div>
+      </div>
     </TradesmanOnly>
   );
 }
@@ -177,6 +235,10 @@ function MatchRow({
   row: TradesmanMatchRow;
   onOpen: () => void;
 }) {
+  // Homeowner first name is intentionally NOT rendered as text - just
+  // its initial appears in the avatar. The project name carries the
+  // identity instead. Privacy directive: pre-paid contact reveal happens
+  // on /match/:matchId, never on the list view.
   const initial = (row.homeownerFirstName || "?").charAt(0).toUpperCase();
   const isRec = row.source === "recommended";
   return (
@@ -207,13 +269,10 @@ function MatchRow({
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-[15px] font-extrabold tracking-tight text-gray-900 truncate">
-            {row.homeownerFirstName}
-          </div>
-          <div className="mt-0.5 text-[12.5px] text-gray-600 truncate">
             {row.projectName}
           </div>
           {(row.projectType || row.projectLocation) && (
-            <div className="mt-0.5 text-[11.5px] text-gray-400 truncate">
+            <div className="mt-0.5 text-[12.5px] text-gray-600 truncate">
               {[row.projectType, row.projectLocation].filter(Boolean).join(" · ")}
             </div>
           )}
@@ -301,6 +360,172 @@ function EmptyState() {
         <Link
           href="/tradesman/leads"
           className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-white border border-emerald-200 text-emerald-700 font-bold text-[13px]"
+        >
+          Open incoming interest
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+// ─── Desktop V9 split-view ─────────────────────────────────────────────
+
+function DesktopSplitView({
+  matches,
+  activeMatchId,
+  onSelect,
+}: {
+  matches: TradesmanMatchRow[];
+  activeMatchId: string | null;
+  onSelect: (matchId: string) => void;
+}) {
+  const active =
+    matches.find((m) => m.matchId === activeMatchId) ?? matches[0] ?? null;
+
+  return (
+    <div className="grid md:grid-cols-[320px_1fr] gap-4">
+      {/* List pane */}
+      <aside className="bg-white border border-amber-100 rounded-3xl overflow-hidden shadow-sm self-start">
+        <div className="px-4 py-2.5 border-b border-slate-100 text-[11.5px] font-bold text-slate-500">
+          {matches.length} {matches.length === 1 ? "match" : "matches"}
+        </div>
+        <ul
+          className="divide-y divide-slate-100 max-h-[640px] overflow-y-auto"
+          data-testid="desktop-matches-list"
+        >
+          {matches.map((row) => (
+            <DesktopMatchListItem
+              key={row.matchId}
+              row={row}
+              isActive={active?.matchId === row.matchId}
+              onClick={() => onSelect(row.matchId)}
+            />
+          ))}
+        </ul>
+      </aside>
+
+      {/* Preview pane - inline chat thread for the active match. The
+          ChatWindow inline variant provides its own header (avatar +
+          other party name + project name) and composer, so the page
+          itself doesn't render any chrome around it. */}
+      <main
+        className="h-[640px]"
+        data-testid="desktop-match-preview"
+      >
+        {active ? (
+          <ChatWindow
+            key={active.matchId}
+            matchId={Number(active.matchId)}
+            variant="inline"
+          />
+        ) : (
+          <div className="h-full bg-white border border-amber-100 rounded-3xl shadow-sm flex items-center justify-center text-slate-400 text-[13px]">
+            Pick a match to preview the conversation.
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+
+function DesktopMatchListItem({
+  row,
+  isActive,
+  onClick,
+}: {
+  row: TradesmanMatchRow;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  // Privacy-safe avatar: initial only, never the full first name.
+  const initial = (row.homeownerFirstName || "?").charAt(0).toUpperCase();
+  const isRec = row.source === "recommended";
+  const sourceClass = isRec
+    ? "bg-emerald-50 text-emerald-700"
+    : "bg-indigo-50 text-indigo-700";
+
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onClick}
+        className={`w-full text-left flex items-start gap-2.5 px-3.5 py-2.5 transition-colors ${
+          isActive ? "bg-emerald-50/60" : "hover:bg-emerald-50/30"
+        }`}
+        data-testid={`desktop-match-list-${row.matchId}`}
+      >
+        <span
+          className="shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-full text-white text-sm font-black"
+          style={{
+            background: isRec
+              ? "linear-gradient(135deg, #fcd34d, #f59e0b)"
+              : "linear-gradient(135deg, #6ee7b7, #10b981)",
+          }}
+          aria-hidden
+        >
+          {initial}
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <h3
+              className="text-[12.5px] font-black text-slate-900 truncate flex-1"
+              style={{ fontFamily: "'Sora', sans-serif" }}
+            >
+              {row.projectName}
+            </h3>
+          </div>
+          <div className="mt-0.5 flex items-center gap-1.5">
+            <span
+              className={`shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-extrabold ${sourceClass}`}
+            >
+              {isRec ? "Recommended" : "Matched"}
+            </span>
+            {row.projectLocation && (
+              <span className="text-[10.5px] text-slate-500 truncate">
+                {row.projectLocation}
+              </span>
+            )}
+          </div>
+          {row.projectType && (
+            <div className="mt-1 text-[11px] text-slate-500 truncate">
+              {row.projectType}
+            </div>
+          )}
+        </div>
+      </button>
+    </li>
+  );
+}
+
+function DesktopEmptyState() {
+  return (
+    <div className="bg-white border border-amber-100 rounded-3xl shadow-sm px-6 py-12 text-center max-w-2xl mx-auto">
+      <div
+        className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-white"
+        style={{ background: "linear-gradient(135deg, #6ee7b7, #10b981)" }}
+      >
+        <Handshake className="w-10 h-10" />
+      </div>
+      <h3
+        className="text-[20px] font-extrabold text-slate-900"
+        style={{ fontFamily: "'Sora', sans-serif" }}
+      >
+        No matches yet
+      </h3>
+      <p className="mt-2 text-[13.5px] text-slate-500 max-w-[360px] mx-auto leading-relaxed">
+        Mutual right-swipes show up here. Keep swiping on jobs and
+        responding to incoming interest to fill this list.
+      </p>
+      <div className="mt-5 flex items-center justify-center gap-2">
+        <Link
+          href="/tradesman/jobs"
+          className="px-4 py-2 rounded-full text-[12.5px] font-extrabold text-emerald-700 border-2 border-emerald-200 hover:border-emerald-400"
+        >
+          Browse jobs
+        </Link>
+        <Link
+          href="/tradesman/leads"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[12.5px] font-extrabold text-white bg-emerald-600 hover:bg-emerald-700"
         >
           Open incoming interest
         </Link>

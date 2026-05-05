@@ -116,6 +116,22 @@ export default function SwipePayGate({
     }
   }, [open, subject?.projectId]);
 
+  // Suppress the bottom-right TradesmanMessagingDock while the gate is
+  // visible. The dock listens for `vmb:fullscreen-modal` events with
+  // `{open: bool}` and hides itself when open is true. Cleanup fires
+  // false on unmount so the dock reappears the moment the gate closes.
+  useEffect(() => {
+    if (!open) return;
+    window.dispatchEvent(
+      new CustomEvent("vmb:fullscreen-modal", { detail: { open: true } }),
+    );
+    return () => {
+      window.dispatchEvent(
+        new CustomEvent("vmb:fullscreen-modal", { detail: { open: false } }),
+      );
+    };
+  }, [open]);
+
   // Best-effort fetch of the per-project one-off price. The unlock-preview
   // endpoint was retired with the inbox; fall back to /api/projects/:id
   // and finally to a £9.99 default.
@@ -201,10 +217,11 @@ export default function SwipePayGate({
       if (res.data?.alreadyUnlocked) {
         // Already-unlocked: surface the confirmation page rather than
         // chat - under the boost-slot model the swipe_interest is still
-        // 'pending' until the homeowner reciprocates.
+        // 'pending' until the homeowner reciprocates. Pass projectId so
+        // the confirmation page can show which job the boost is on.
         setPayState("activated");
         await new Promise((r) => setTimeout(r, 600));
-        await router.push("/tradesman/unlock/sent");
+        await router.push(`/tradesman/unlock/sent?projectId=${subject.projectId}`);
         onClose();
         return;
       }
@@ -225,10 +242,11 @@ export default function SwipePayGate({
         await api.post("/api/payments/mock/pay", { sessionId });
         // Flash the "Unlock activated" state for ~1.2s so the builder
         // sees confirmation that the £X.XX charge succeeded before the
-        // confirmation page takes over.
+        // confirmation page takes over. Pass projectId so the
+        // confirmation page can pin which job the boost is on.
         setPayState("activated");
         await new Promise((r) => setTimeout(r, 1200));
-        await router.push("/tradesman/unlock/sent");
+        await router.push(`/tradesman/unlock/sent?projectId=${subject.projectId}`);
         onClose();
         return;
       }
@@ -259,15 +277,13 @@ export default function SwipePayGate({
   }
 
   // Full-screen pay confirmation overlay - takes over the gate during
-  // a one-off pay flow. 'activating' shows a spinner while the unlock
-  // is being recorded; 'activated' flashes the green tick + amount-
-  // charged badge briefly so the builder sees confirmation before the
-  // chat thread loads.
+  // a one-off pay flow. On desktop a centered modal card; on mobile the
+  // existing full-bleed white screen so phone hardware feels native.
   if (payState !== "idle") {
     const activating = payState === "activating";
     return (
       <div
-        className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center px-8 text-center"
+        className="fixed inset-0 z-[60] flex items-center justify-center px-4 bg-white md:bg-black/40"
         data-testid="swipe-paygate-confirm"
         style={{
           fontFamily:
@@ -276,30 +292,35 @@ export default function SwipePayGate({
           paddingBottom: "env(safe-area-inset-bottom)",
         }}
       >
-        <div
-          className="w-20 h-20 rounded-full flex items-center justify-center mb-5 text-white"
-          style={{ background: "linear-gradient(135deg,#10b981,#059669)" }}
-          aria-hidden
-        >
-          {activating ? (
-            <Spinner className="h-10 w-10" />
-          ) : (
-            <span className="text-[40px] font-black leading-none">✓</span>
-          )}
-        </div>
-        <h1 className="text-[22px] font-extrabold tracking-tight text-slate-900 leading-tight">
-          {activating ? "Activating your unlock…" : "Unlock activated"}
-        </h1>
-        <p className="mt-2 text-[12.5px] text-slate-500 leading-snug max-w-[300px]">
-          {activating
-            ? "We're recording the payment and opening a chat thread with the homeowner."
-            : "You can now message the homeowner directly. Loading the chat…"}
-        </p>
-        <div
-          className="mt-6 inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full"
-          data-testid="swipe-paygate-confirm-amount"
-        >
-          <span>✓</span> {payAmountLabel} charged
+        <div className="w-full md:max-w-md md:bg-white md:rounded-3xl md:shadow-2xl md:border md:border-amber-100 md:px-8 md:py-10 flex flex-col items-center text-center">
+          <div
+            className="w-20 h-20 rounded-full flex items-center justify-center mb-5 text-white"
+            style={{ background: "linear-gradient(135deg,#10b981,#059669)" }}
+            aria-hidden
+          >
+            {activating ? (
+              <Spinner className="h-10 w-10" />
+            ) : (
+              <span className="text-[40px] font-black leading-none">✓</span>
+            )}
+          </div>
+          <h1
+            className="text-[22px] font-black tracking-tight text-slate-900 leading-tight"
+            style={{ fontFamily: "'Sora', sans-serif" }}
+          >
+            {activating ? "Activating your unlock…" : "Unlock activated"}
+          </h1>
+          <p className="mt-2 text-[13px] text-slate-500 leading-snug max-w-[320px]">
+            {activating
+              ? "We're recording the payment and opening a chat thread with the homeowner."
+              : "You can now message the homeowner directly. Loading the chat…"}
+          </p>
+          <div
+            className="mt-5 inline-flex items-center gap-1.5 text-[11.5px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-full"
+            data-testid="swipe-paygate-confirm-amount"
+          >
+            <span>✓</span> {payAmountLabel} charged
+          </div>
         </div>
       </div>
     );
@@ -307,13 +328,29 @@ export default function SwipePayGate({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-white flex flex-col"
+      className="fixed inset-0 z-[60] bg-white md:bg-[#fef6e9] flex flex-col md:items-center md:justify-center md:p-6 overflow-y-auto"
       data-testid="swipe-paygate"
       style={{
         fontFamily:
           "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
       }}
     >
+      {/* DESKTOP — V2 pricing-page layout. Inline render below; mobile
+          is the existing vertical stack. */}
+      <DesktopGate
+        subject={subject}
+        selected={selected}
+        onSelect={setSelected}
+        onClose={onClose}
+        startPass={startPass}
+        startOneOff={startOneOff}
+        busy={busy}
+        err={err}
+        oneOffLabel={oneOffLabel}
+      />
+
+      {/* MOBILE — existing full-bleed vertical stack, untouched. */}
+      <div className="md:hidden flex-1 flex flex-col">
       <div style={{ height: "env(safe-area-inset-top)" }} />
 
       {/* Top bar */}
@@ -507,6 +544,272 @@ export default function SwipePayGate({
           expires.
         </p>
       </div>
+      </div>
     </div>
+  );
+}
+
+/* ─── Desktop V2 layout ─────────────────────────────────────────────
+   Pricing-page style: pinned job strip + 3-column tier cards (BEST
+   VALUE elevated middle) + horizontal one-off + close button. Renders
+   only at md+ via the wrapping `hidden md:block`. */
+function DesktopGate({
+  subject,
+  selected,
+  onSelect,
+  onClose,
+  startPass,
+  startOneOff,
+  busy,
+  err,
+  oneOffLabel,
+}: {
+  subject: SwipePayGateSubject;
+  selected: TierId;
+  onSelect: (id: TierId) => void;
+  onClose: () => void;
+  startPass: () => void;
+  startOneOff: () => void;
+  busy: boolean;
+  err: string | null;
+  oneOffLabel: string;
+}) {
+  const selectedTier = TIERS.find((t) => t.id === selected)!;
+
+  return (
+    <div className="hidden md:block w-full max-w-5xl mx-auto">
+      <div className="bg-white rounded-3xl shadow-2xl border border-amber-100 overflow-hidden relative">
+        {/* Close */}
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={busy}
+          aria-label="Close"
+          data-testid="swipe-paygate-back"
+          className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-[16px] z-10 transition-colors"
+        >
+          ✕
+        </button>
+
+        <div className="px-8 py-7">
+          {/* Hero copy */}
+          <div className="text-center max-w-xl mx-auto">
+            <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-1">
+              Pitch this job
+            </div>
+            <h1
+              className="text-[28px] font-black tracking-tight text-slate-900 leading-tight"
+              style={{ fontFamily: "'Sora', sans-serif" }}
+            >
+              You like{" "}
+              <span
+                className="text-emerald-600"
+                style={{ fontFamily: "'Caveat', cursive", fontSize: "120%" }}
+              >
+                this one!
+              </span>
+            </h1>
+            <p className="mt-2 text-[13.5px] text-slate-500">
+              Pick a pass to pitch this job - and every other matching job while
+              it&rsquo;s active.
+            </p>
+          </div>
+
+          {/* Pinned job strip */}
+          <div className="mt-5 mx-auto max-w-2xl">
+            <div className="rounded-2xl overflow-hidden border border-amber-100 bg-white shadow-sm">
+              <div
+                className="px-4 py-3 text-white"
+                style={{ background: "linear-gradient(135deg,#10b981,#059669)" }}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-extrabold uppercase tracking-wider text-white/80">
+                      Pitching
+                    </div>
+                    <div className="text-[15px] font-extrabold leading-tight truncate">
+                      {subject.title}
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-white/85 shrink-0 text-right">
+                    {[subject.type, subject.location, subject.priceBandLabel]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tier cards */}
+          <div
+            className="mt-7 grid grid-cols-3 gap-4 items-end"
+            role="radiogroup"
+            aria-label="Choose a pass"
+            data-testid="swipe-paygate-tiers"
+          >
+            {TIERS.map((t) => (
+              <DesktopTierCard
+                key={t.id}
+                tier={t}
+                selected={selected === t.id}
+                onSelect={() => onSelect(t.id)}
+                disabled={busy}
+              />
+            ))}
+          </div>
+
+          {/* CTA + one-off */}
+          <div className="mt-7 mx-auto max-w-2xl">
+            <button
+              type="button"
+              onClick={startPass}
+              disabled={busy}
+              data-testid="swipe-paygate-cta"
+              className="w-full py-3.5 rounded-2xl text-white font-extrabold text-[15px] shadow-lg shadow-emerald-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-none hover:brightness-105 active:brightness-95 inline-flex items-center justify-center gap-2 transition-all"
+              style={{ background: "linear-gradient(135deg,#10b981,#059669)" }}
+            >
+              {busy && <Spinner className="h-4 w-4" />}
+              {busy
+                ? "Activating…"
+                : `Get ${selectedTier.label} · ${formatGbp(selectedTier.amountPence)}`}
+            </button>
+
+            {err && (
+              <p
+                className="mt-3 text-center text-[12.5px] text-red-600 font-semibold"
+                role="alert"
+              >
+                {err}
+              </p>
+            )}
+
+            <div className="mt-4 rounded-2xl bg-amber-50/60 border border-amber-200/70 p-3.5 flex items-center gap-3">
+              <div
+                className="shrink-0 w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700 text-base"
+                aria-hidden
+              >
+                ⚡
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[10.5px] font-extrabold text-amber-700 uppercase tracking-wider">
+                  One-off, no pass
+                </div>
+                <div className="text-[13px] font-extrabold text-slate-900">
+                  Just pitch this one job - {oneOffLabel}
+                </div>
+                <div className="text-[11.5px] text-slate-600">
+                  Unlock the homeowner&rsquo;s contact for this job only.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={startOneOff}
+                disabled={busy}
+                data-testid="swipe-paygate-oneoff"
+                className="shrink-0 px-4 py-2 rounded-full text-[12.5px] font-extrabold text-amber-800 bg-white border-[1.5px] border-amber-400 hover:bg-amber-50 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2 transition-colors"
+              >
+                {busy && <Spinner className="h-4 w-4" />}
+                {busy ? "Opening…" : `Pay ${oneOffLabel}`}
+              </button>
+            </div>
+
+            <p className="mt-4 text-[11px] text-slate-400 text-center leading-snug">
+              One-time purchase. No auto-renewal - buy a new pass when this one
+              expires.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DesktopTierCard({
+  tier,
+  selected,
+  onSelect,
+  disabled,
+}: {
+  tier: Tier;
+  selected: boolean;
+  onSelect: () => void;
+  disabled: boolean;
+}) {
+  const isBest = tier.id === "month_1";
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      onClick={onSelect}
+      disabled={disabled}
+      data-testid={`swipe-paygate-tier-${tier.id}`}
+      className={`relative bg-white text-left rounded-3xl border transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
+        isBest
+          ? "p-6 -mt-4 border-emerald-300 shadow-lg shadow-emerald-100"
+          : "p-5 border-amber-100"
+      } ${
+        selected
+          ? "ring-4 ring-emerald-100 border-emerald-500"
+          : "hover:shadow-md hover:border-emerald-200"
+      }`}
+    >
+      {isBest && (
+        <span
+          className="absolute -top-2.5 left-6 text-white text-[10px] font-black tracking-wider px-2.5 py-0.5 rounded-full"
+          style={{ background: "linear-gradient(135deg,#059669,#047857)" }}
+        >
+          BEST VALUE
+        </span>
+      )}
+      <div className="text-[12px] font-extrabold uppercase tracking-wider text-slate-500">
+        {tier.label}
+      </div>
+      <div className="mt-1 flex items-baseline gap-1">
+        <span
+          className={`font-black text-slate-900 ${isBest ? "text-[36px]" : "text-[30px]"}`}
+          style={{ fontFamily: "'Sora', sans-serif" }}
+        >
+          {formatGbp(tier.amountPence)}
+        </span>
+      </div>
+      <div className="text-[11.5px] text-slate-500 mb-4">{tier.perDayLabel}</div>
+
+      <ul className="space-y-1.5 mb-4">
+        <Bullet>{tier.blurb}</Bullet>
+        <Bullet>Pitch every matching job</Bullet>
+        <Bullet>Free chat on every match</Bullet>
+        {isBest && <Bullet emphasised>Lowest cost per day</Bullet>}
+      </ul>
+
+      <div
+        className={`w-full text-center py-2.5 rounded-xl text-[13px] font-extrabold transition-colors ${
+          selected
+            ? "text-white"
+            : isBest
+              ? "bg-emerald-600 text-white"
+              : "bg-emerald-50 text-emerald-700"
+        }`}
+        style={selected ? { background: "linear-gradient(135deg,#10b981,#059669)" } : undefined}
+      >
+        {selected ? `Selected · ${tier.label}` : `Choose ${tier.label}`}
+      </div>
+    </button>
+  );
+}
+
+function Bullet({
+  children,
+  emphasised,
+}: {
+  children: React.ReactNode;
+  emphasised?: boolean;
+}) {
+  return (
+    <li className={`flex items-start gap-1.5 text-[12px] ${emphasised ? "text-emerald-700 font-bold" : "text-slate-700"}`}>
+      <span className="text-emerald-600 font-black shrink-0">✓</span>
+      <span>{children}</span>
+    </li>
   );
 }

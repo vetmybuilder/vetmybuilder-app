@@ -60,6 +60,9 @@ export default class Tradesman {
   profilePictureUrl?: string | null;
   reviewLinks?: ReviewLinkInput[];
 
+  warrantyMonths?: number;
+  offersDiscount?: boolean;
+
   // Registration-only fields used by the /tradesman/register-tradesmen wizard.
   // Not part of any API payload.
   password?: string;
@@ -149,6 +152,16 @@ export default class Tradesman {
     return this;
   }
 
+  withServiceAreas(serviceAreas: string): Tradesman {
+    this.serviceAreas = serviceAreas;
+    return this;
+  }
+
+  withTradeTypes(tradeTypes: string): Tradesman {
+    this.tradeTypes = tradeTypes;
+    return this;
+  }
+
   withProfilePictureUrl(url: string | null): Tradesman {
     this.profilePictureUrl = url;
     return this;
@@ -156,6 +169,26 @@ export default class Tradesman {
 
   withReviewLinks(links: ReviewLinkInput[]): Tradesman {
     this.reviewLinks = links;
+    return this;
+  }
+
+  withPhone(phone: string): Tradesman {
+    this.phone = phone;
+    return this;
+  }
+
+  withWebsite(website: string): Tradesman {
+    this.website = website;
+    return this;
+  }
+
+  withWarrantyMonths(months: number): Tradesman {
+    this.warrantyMonths = months;
+    return this;
+  }
+
+  withOffersDiscount(offers: boolean): Tradesman {
+    this.offersDiscount = offers;
     return this;
   }
 
