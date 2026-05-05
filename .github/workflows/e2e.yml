@@ -24,7 +24,7 @@ jobs:
        # the end of the run. Bump headroom; runner has 7GB RAM.
       - run: npm test
         env:
-          NODE_OPTIONS: --max-old-space-size=6144
+          NODE_OPTIONS: --max-old-space-size=7168
 
   # PLAYWRIGHT UI E2E DISABLED. The mobile/desktop UI redesign moved
    # selectors and copy faster than the e2e suite was updated, so these
