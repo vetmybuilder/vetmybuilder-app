@@ -577,7 +577,7 @@ function DesktopGate({
   const selectedTier = TIERS.find((t) => t.id === selected)!;
 
   return (
-    <div className="hidden md:block w-full max-w-5xl mx-auto">
+    <div className="hidden md:block w-full max-w-5xl mx-auto" data-testid="swipe-paygate-desktop">
       <div className="bg-white rounded-3xl shadow-2xl border border-amber-100 overflow-hidden relative">
         {/* Close */}
         <button
