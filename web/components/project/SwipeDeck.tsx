@@ -225,7 +225,11 @@ export default function SwipeDeck({
     );
   }
 
-  const peek = queue.slice(index + 1, index + 3);
+  // Pre-mount the next THREE cards (not two). With only two peeks, every
+  // swipe pulls a fresh card into the peek slice that has to render its
+  // image + chips from scratch - visible as a brief delay before the
+  // pills appear. Three keeps the slot one ahead of the gesture.
+  const peek = queue.slice(index + 1, index + 4);
 
   return (
     <div className="relative h-full">

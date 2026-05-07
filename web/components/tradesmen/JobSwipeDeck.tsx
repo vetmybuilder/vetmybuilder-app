@@ -194,7 +194,11 @@ export default function JobSwipeDeck({
     return <JobSwipeDeckEmpty noJobsYet={noJobsYet} />;
   }
 
-  const peek = jobs.slice(index + 1, index + 3);
+  // Pre-mount the next THREE cards (not two) - same rationale as
+  // SwipeDeck. Three keeps the upcoming card mounted ahead of when the
+  // user actually reveals it, so the chips/AI summary are already
+  // rendered when it slides into the top slot.
+  const peek = jobs.slice(index + 1, index + 4);
 
   return (
     <div className="relative h-full w-full">
