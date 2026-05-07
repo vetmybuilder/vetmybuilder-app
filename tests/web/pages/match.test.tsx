@@ -42,18 +42,21 @@ import MatchPage from "@/pages/match/[matchId]";
 describe("MatchPage", () => {
   it("renders the match celebration and contact info", async () => {
     render(<MatchPage />);
-    // Heading splits "It's a" + "match!" across two spans (Caveat
-     // accent on the second word), so a single text matcher can't find
-     // it. Match via the h1's combined textContent instead.
+    // The page renders two h1 elements (one per viewport branch -
+    // mobile and desktop). Both should carry the "It's a match!"
+    // copy. Using getAllByRole + .some() so we don't depend on which
+    // viewport is "active" in the test render.
     await waitFor(() =>
       expect(
-        screen.getByRole("heading", { level: 1 }).textContent,
-      ).toMatch(/it'?s a\s+match/i),
+        screen
+          .getAllByRole("heading", { level: 1 })
+          .some((el) => /it'?s a\s+match/i.test(el.textContent || "")),
+      ).toBe(true),
     );
-    expect(screen.getByText(/James H\./)).toBeInTheDocument();
-    expect(screen.getByText(/07000 000000/)).toBeInTheDocument();
+    expect(screen.getAllByText(/James H\./).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/07000 000000/).length).toBeGreaterThan(0);
     expect(
-      screen.getByRole("link", { name: /whatsapp/i }),
+      screen.getAllByRole("link", { name: /whatsapp/i })[0],
     ).toHaveAttribute("href", expect.stringContaining("wa.me"));
   });
 });

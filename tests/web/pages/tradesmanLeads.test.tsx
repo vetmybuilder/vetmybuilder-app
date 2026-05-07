@@ -85,8 +85,7 @@ describe("Tradesman leads page", () => {
 
     fireEvent.click(screen.getByTestId("desktop-lead-accept-m1"));
     await waitFor(() =>
-      expect(post).toHaveBeenCalledWith("/api/swipe/respond", {
-        matchId: "m1",
+      expect(post).toHaveBeenCalledWith("/api/swipe-interest/m1/respond", {
         direction: "right",
       }),
     );
