@@ -1,28 +1,5 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import * as React from "react";
-
-// react-tinder-card pulls in @react-spring/web, which is ESM-only and
-// chokes in vitest's jsdom environment. Replace it with a minimal stub
-// that wraps the children, exposes the imperative swipe()/restoreCard()
-// API the SwipeDeck calls into, and synthesises the same onSwipe →
-// onCardLeftScreen lifecycle a real swipe would fire.
-vi.mock("react-tinder-card", () => {
-  const TinderCardStub = React.forwardRef<unknown, any>(
-    ({ children, onSwipe, onCardLeftScreen, className }, ref) => {
-      React.useImperativeHandle(ref, () => ({
-        swipe: async (direction: "left" | "right" | "up" | "down" = "right") => {
-          onSwipe?.(direction);
-          onCardLeftScreen?.(direction);
-        },
-        restoreCard: async () => {},
-      }));
-      return React.createElement("div", { className }, children);
-    },
-  );
-  return { __esModule: true, default: TinderCardStub };
-});
-
 import SwipeDeck from "@/components/project/SwipeDeck";
 
 const post = vi.fn(async () => ({ data: { status: "pending" } }));
