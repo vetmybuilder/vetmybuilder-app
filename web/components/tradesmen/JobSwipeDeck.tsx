@@ -213,13 +213,18 @@ export default function JobSwipeDeck({
   // "card zooms towards you" feel.
   const visible = jobs.slice(index, index + 4);
 
-  // Dribbble-inspired layout: card has margin from the screen edges,
-  // single peek behind at full scale, action bar lives BELOW the card
-  // (not floating over the photo). Cleaner / more "deck" than the
-  // Tinder full-bleed style.
+  // Peek is mounted (image + chips pre-rendered, ready to display) but
+  // INVISIBLE behind the top: opacity 0, scale 0.88. When the top flies
+  // off and index advances, peek-1's rank drops 1 → 0 and the CSS
+  // transition animates opacity 0→1 + scale 0.88→1.0 - that's the
+  // "card loads inwards" feel: the next card visibly grows into the top
+  // slot from a smaller, hidden state behind.
+  function rankTransform(i: number) {
+    if (i === 0) return "scale(1)";
+    return `scale(${1 - i * 0.12})`;
+  }
   function rankOpacity(i: number) {
     if (i === 0) return 1;
-    if (i === 1) return 1;
     return 0;
   }
 
@@ -244,17 +249,15 @@ export default function JobSwipeDeck({
               onContextMenu={isTop ? (e) => e.preventDefault() : undefined}
               onDragStart={isTop ? (e) => e.preventDefault() : undefined}
               className={`absolute inset-0 rounded-3xl overflow-hidden ${isTop ? "touch-none select-none will-change-transform" : ""}`}
-              // Single peek at full scale (no shrink). The peek is
-              // behind the top, same position, same size - when the
-              // top flies off the user sees the next card crisp and
-              // ready, no zoom/promote animation needed.
               style={
                 {
                   zIndex: 10 - i,
                   pointerEvents: isTop ? "auto" : "none",
-                  transform: "scale(1)",
+                  transformOrigin: "center center",
+                  transform: rankTransform(i),
                   opacity: rankOpacity(i),
-                  transition: "opacity 350ms ease",
+                  transition:
+                    "transform 400ms cubic-bezier(0.2, 0, 0, 1), opacity 350ms ease",
                   perspective: "1200px",
                   // Drop shadow only on the top card so the peek
                   // doesn't stack visible shadows.
@@ -263,9 +266,15 @@ export default function JobSwipeDeck({
                     : "none",
                   willChange: "transform, opacity",
                   contain: "layout paint",
+                  // touchAction: none on the inline style as well as the
+                  // class belt-and-braces - on iOS Safari Tailwind's
+                  // touch-none class can be overridden by parent flex
+                  // styles that set touch-action: pan-y.
+                  touchAction: "none",
                   WebkitTouchCallout: "none",
                   WebkitUserSelect: "none",
                   userSelect: "none",
+                  WebkitUserDrag: "none",
                 } as React.CSSProperties
               }
             >
@@ -278,6 +287,13 @@ export default function JobSwipeDeck({
                     : "none",
                   transform:
                     isTop && flipped ? "rotateY(180deg)" : "rotateY(0deg)",
+                  // Block all child pointer events. The wrapper above
+                  // owns the swipe gesture; without this, iOS Safari
+                  // can pick up "tap" hits on the gradient overlay or
+                  // chip elements and treat the start of a drag as
+                  // text-select, which feels like the swipe needs the
+                  // user to find a "blank" spot before responding.
+                  pointerEvents: "none",
                 }}
               >
                 <div
