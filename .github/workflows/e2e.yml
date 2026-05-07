@@ -81,6 +81,12 @@ jobs:
         run: docker compose -f docker-compose.e2e.ci.yml build
 
       - name: Run E2E shard ${{ matrix.shard.id }}
+        # Hard step-level cap: if pw-ui hangs (test deadlock, infra
+        # stall, etc.) GitHub kills this step after N minutes instead
+        # of letting the whole job hit the 6-hour workflow timeout.
+        # `if: always()` cleanup + upload steps below then run, so we
+        # still get the test-results artifact for debugging.
+        timeout-minutes: 25
         run: |
           docker compose -f docker-compose.e2e.ci.yml up \
             --exit-code-from pw-ui \

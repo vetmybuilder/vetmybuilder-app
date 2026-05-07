@@ -150,6 +150,14 @@ services:
     command: >
       sh -lc
       "npx playwright test -c playwright.ui.config.ts ${PW_ARGS}"
+    # Bind-mount results + report to the host so they survive the
+    # `docker compose down --volumes` teardown - otherwise
+    # actions/upload-artifact uploads an empty directory and we lose all
+    # debugging signal on CI failures. Playwright runs in
+    # /work/e2e-tests inside the container (see e2e-tests/Dockerfile).
+    volumes:
+      - ./e2e-tests/test-results:/work/e2e-tests/test-results
+      - ./e2e-tests/playwright-report:/work/e2e-tests/playwright-report
     networks: [e2e]
 
 networks:

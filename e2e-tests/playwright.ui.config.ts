@@ -51,6 +51,12 @@ export default defineConfig({
   // origin (the proxy), keeping the Authorization header intact.
   workers: process.env.PW_WORKERS ? Number(process.env.PW_WORKERS) : 2,
   timeout: Number(process.env.PW_TIMEOUT ?? 90_000),
+  // Hard ceiling on the entire run. If a test deadlocks or the runner
+  // gets stuck, Playwright self-aborts at this point and writes the
+  // partial report + traces to disk - we still get debug artifacts on
+  // CI instead of the GitHub Actions step-timeout SIGKILL'ing us with
+  // nothing flushed. Default 20 minutes, override via PW_GLOBAL_TIMEOUT.
+  globalTimeout: Number(process.env.PW_GLOBAL_TIMEOUT ?? 20 * 60_000),
   retries: 1,
   reporter: [["list"], ["html", { open: "never" }]],
   // Warm each API shard's /health once before tests start, outside any
