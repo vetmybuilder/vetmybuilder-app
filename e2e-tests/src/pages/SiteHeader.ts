@@ -78,7 +78,13 @@ export class SiteHeader {
 
     this.menuManageAccount = page.getByRole("menuitem", { name: "Manage account" });
 
-    this.btnMobileMenu = page.getByTestId("btn-mobile-menu");
+    // Mobile pages can render their own burger (e.g. ProjectsListMobile)
+    // even when SiteHeader's own burger is also in the DOM but CSS-hidden
+    // because the desktop branch is gated by `hidden md:block`. Filter to
+    // the visible one so the locator always targets the live burger.
+    this.btnMobileMenu = page
+      .getByTestId("btn-mobile-menu")
+      .filter({ visible: true });
     this.mobileMenu = page.getByTestId("mobile-menu");
     this.mobileAccount = page.getByTestId("mobile-menu-account");
     this.mobileLogout = page.getByTestId("mobile-menu-logout");
@@ -101,25 +107,29 @@ export class SiteHeader {
       .first();
   }
 
-  private async isMobileNav(): Promise<boolean> {
-    return await this.btnMobileMenu.isVisible();
+  private isMobileNav(): boolean {
+    // Derive from viewport instead of `btnMobileMenu.isVisible()`: the DOM
+    // probe returns false before the header has rendered, racing the test
+    // and silently sending mobile runs down the desktop branch.
+    const vp = this.page.viewportSize();
+    return !!vp && vp.width < 768;
   }
 
   async openMobileMenu() {
-    await expect(this.btnMobileMenu).toBeVisible();
+    // `click()` auto-waits for the element to be actionable, so an
+    // explicit toBeVisible check is redundant and slightly stricter.
     await this.btnMobileMenu.click();
     await expect(this.mobileMenu).toBeVisible();
   }
 
   async openAccountMenu() {
-    // Desktop only
-    await expect(this.accountMenuButton).toBeVisible();
+    // Desktop only — same reasoning as openMobileMenu.
     await this.accountMenuButton.click();
     await expect(this.accountMenu).toBeVisible();
   }
 
   async goToEditAccount() {
-    if (await this.isMobileNav()) {
+    if (this.isMobileNav()) {
       await this.openMobileMenu();
       await expect(this.mobileAccount).toBeVisible();
       await this.mobileAccount.click();
@@ -148,7 +158,7 @@ export class SiteHeader {
   }
 
   async signOut() {
-    if (await this.isMobileNav()) {
+    if (this.isMobileNav()) {
       await this.openMobileMenu();
       await expect(this.mobileLogout).toBeVisible();
       await this.mobileLogout.click();

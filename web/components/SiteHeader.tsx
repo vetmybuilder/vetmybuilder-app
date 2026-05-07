@@ -431,7 +431,11 @@ export default function SiteHeader() {
                         className="inline-flex items-center gap-2 rounded-full px-2 py-1 ring-1 ring-gray-300/80 bg-white hover:bg-gray-50 shadow-sm"
                         data-testid="account-menu-button"
                       >
-                        <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white text-xs font-semibold">
+                        <span
+                          aria-hidden
+                          data-testid="account-initials"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white text-xs font-semibold"
+                        >
                           {initials || "U"}
                         </span>
                         <svg className={`h-4 w-4 text-gray-500 transition-transform ${openMenu === "account" ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -439,16 +443,57 @@ export default function SiteHeader() {
                         </svg>
                       </button>
                       {openMenu === "account" && (
-                        <div ref={menuRef} id="account-menu" role="menu" aria-label="Account" data-testid="account-menu" className="absolute right-0 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg ring-1 ring-black/5">
-                          <Link role="menuitem" href="/account" className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => setOpenMenu(null)}>
-                            Manage account
-                          </Link>
-                          <Link role="menuitem" href="/feedback" className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => setOpenMenu(null)}>
-                            Feedback
-                          </Link>
-                          <button role="menuitem" onClick={onLogout} className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50/60">
-                            Logout
-                          </button>
+                        <div
+                          ref={menuRef}
+                          id="account-menu"
+                          role="menu"
+                          aria-label="Account"
+                          data-testid="account-menu"
+                          className="absolute right-0 top-12 z-50 w-[260px] rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden"
+                        >
+                          {/* Profile mini-header */}
+                          <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-3">
+                            <span
+                              aria-hidden
+                              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-500 text-white text-sm font-bold"
+                            >
+                              {initials || "U"}
+                            </span>
+                            <div className="min-w-0">
+                              <div className="text-[13px] font-extrabold text-slate-900 truncate">
+                                {(displayUser as any)?.firstName || (displayUser as any)?.username || "Your account"}
+                              </div>
+                              <div className="text-[11.5px] text-slate-500 truncate">
+                                {(displayUser as any)?.email || ""}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Items */}
+                          <div className="p-1.5">
+                            <Link
+                              role="menuitem"
+                              href="/account"
+                              className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-amber-50 hover:text-slate-900 transition-colors"
+                              onClick={() => setOpenMenu(null)}
+                            >
+                              <UserCog className="h-4 w-4 text-slate-400" />
+                              <span>Manage account</span>
+                            </Link>
+                          </div>
+
+                          {/* Logout (visually separated) */}
+                          <div className="p-1.5 border-t border-slate-100">
+                            <button
+                              role="menuitem"
+                              onClick={onLogout}
+                              className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-red-600 hover:bg-red-50/70 transition-colors"
+                              data-testid="menu-logout"
+                            >
+                              <LogOut className="h-4 w-4" />
+                              <span>Logout</span>
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>

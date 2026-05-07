@@ -1,7 +1,7 @@
 import { test } from "../../../src/ui.fixtures";
 import { NotificationPreference } from "../../../src/pages/NotificationSettingsPage";
 
-const { HireUpdates, Recommendations, BuilderInterest, LocalActivity, ProjectMatches } =
+const { HireUpdates, Recommendations, Matches, Messages, LocalActivity, ProjectMatches } =
   NotificationPreference;
 
 test.describe("Notification settings page", () => {
@@ -11,7 +11,8 @@ test.describe("Notification settings page", () => {
     await notificationSettingsPage.visit();
     await notificationSettingsPage.expectToggleOn(HireUpdates);
     await notificationSettingsPage.expectToggleOn(Recommendations);
-    await notificationSettingsPage.expectToggleOn(BuilderInterest);
+    await notificationSettingsPage.expectToggleOn(Matches);
+    await notificationSettingsPage.expectToggleOn(Messages);
     await notificationSettingsPage.expectToggleOff(LocalActivity);
     await notificationSettingsPage.expectToggleOn(ProjectMatches);
   });

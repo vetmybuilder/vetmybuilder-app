@@ -345,9 +345,9 @@ function Inner() {
 
             {/* LEFT RAIL */}
             <aside className="lg:sticky lg:top-20 space-y-4">
-              {/* Identity card with indigo accent border + floating Verified pill */}
-              <div className="bg-white border-2 border-indigo-400 rounded-3xl p-5 shadow-md relative">
-                <span className="absolute -top-2.5 left-5 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white bg-indigo-600 px-2 py-0.5 rounded-full">
+              {/* Identity card with emerald accent border + floating Verified pill */}
+              <div className="bg-white border-2 border-emerald-400 rounded-3xl p-5 shadow-md relative">
+                <span className="absolute -top-2.5 left-5 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white bg-emerald-600 px-2 py-0.5 rounded-full">
                   Verified
                 </span>
 
@@ -370,7 +370,7 @@ function Inner() {
                   <Heart className={`h-4 w-4 ${isFavourite ? "fill-rose-500 text-rose-500" : "text-zinc-400"}`} />
                 </button>
 
-                <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white text-xl font-black shadow-md overflow-hidden mb-4">
+                <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-white text-xl font-black shadow-md overflow-hidden mb-4">
                   {item.avatarUrl ? (
                     <img
                       src={item.avatarUrl}
@@ -504,7 +504,7 @@ function Inner() {
                           href={s}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="font-bold text-indigo-600 hover:text-indigo-700 hover:underline"
+                          className="font-bold text-emerald-600 hover:text-emerald-700 hover:underline"
                         >
                           {socialLabel(s)} →
                         </a>
@@ -536,7 +536,7 @@ function Inner() {
                           href={entry.url}
                           target="_blank"
                           rel="noopener noreferrer nofollow"
-                          className="font-bold text-indigo-600 hover:text-indigo-700 hover:underline"
+                          className="font-bold text-emerald-600 hover:text-emerald-700 hover:underline"
                         >
                           View on {platformLabelFor(entry)} →
                         </a>
@@ -611,7 +611,7 @@ function Inner() {
                   just the eyebrow + headline as a friendly section opener. */}
               <div className="bg-white rounded-3xl border border-amber-100 shadow-sm px-8 py-7 relative overflow-hidden">
                 <Sparkles className="absolute top-5 right-7 w-5 h-5 text-amber-400/70" />
-                <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-indigo-700 mb-1.5">
+                <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-1.5">
                   About
                 </div>
                 <h2
@@ -620,7 +620,7 @@ function Inner() {
                 >
                   Get to know{" "}
                   <span
-                    className="text-indigo-600"
+                    className="text-emerald-600"
                     style={{ fontFamily: "'Caveat', cursive", fontSize: "118%" }}
                   >
                     {firstWord(title)}
@@ -646,7 +646,7 @@ function Inner() {
                           className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-100 px-3.5 py-1.5 text-[13px] font-bold text-slate-700"
                           data-testid="tradesman-trade-item"
                         >
-                          <Icon className="h-3.5 w-3.5 text-indigo-500 flex-shrink-0" />
+                          <Icon className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
                           {t}
                         </li>
                       );
@@ -751,7 +751,7 @@ function ContactRow({ label, value, dataTestId, render }: ContactRowProps) {
 
 function SectionHeading({ children }: { children: ReactNode }) {
   return (
-    <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-indigo-700">
+    <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700">
       {children}
     </div>
   );
@@ -817,7 +817,7 @@ function ContactLink({
       href={href}
       target={external ? "_blank" : undefined}
       rel={external ? "noopener noreferrer" : undefined}
-      className="flex items-center gap-2.5 text-[13px] font-bold text-indigo-600 hover:text-indigo-700 hover:underline"
+      className="flex items-center gap-2.5 text-[13px] font-bold text-emerald-600 hover:text-emerald-700 hover:underline"
       data-testid={testId}
     >
       <span className="text-amber-500">{icon}</span>

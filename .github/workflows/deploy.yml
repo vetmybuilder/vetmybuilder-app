@@ -70,15 +70,8 @@ jobs:
           set -e
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes "root@$PROD_HOST" 'vmb-deploy-staging && for i in $(seq 1 18); do curl -fsS http://localhost:8788/health >/dev/null 2>&1 && echo "Staging health: OK" && exit 0; sleep 5; done; echo "Staging health: FAIL"; exit 1'
 
-      # PROD DEPLOY DISABLED. Pushes to master deploy to staging only so
-       # the broader UI redesign + e2e suite changes can be verified
-       # manually before reaching prod. To re-enable, change
-       #   if: false
-       # back to
-       #   if: steps.changed.outputs.app == 'true'
-       # and the prod deploy will resume immediately on the next push.
       - name: Deploy to Production
-        if: false
+        if: steps.changed.outputs.app == 'true'
         env:
           PROD_HOST: ${{ secrets.PROD_HOST }}
         run: |

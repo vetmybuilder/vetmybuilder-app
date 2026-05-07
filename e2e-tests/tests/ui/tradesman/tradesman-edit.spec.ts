@@ -78,7 +78,10 @@ test.describe("Tradesman edit profile", () => {
       ]);
     const updatedContactName = "Updated Contact";
     const updatedInstagram = "https://www.instagram.com/updated-handle";
-    const updatedDiscountMax = 30;
+    // The slider's max is MAX_DISCOUNT = 25 in Step3Offers; pick a value
+     // within that range that's different from any default so we can verify
+     // it round-trips on save.
+    const updatedDiscountMax = 20;
 
     // ---- Step 1 ----
     await tradesmanEditPage.goto();

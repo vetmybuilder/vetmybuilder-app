@@ -144,12 +144,11 @@ export class TradesmanSignupCompletePage {
   }
 
   async submitStep3(): Promise<void> {
-    // Step 3's primary button reuses Step3Offers' `btn-continue` testid
-    // (label is overridden to "Finish sign up" via the primaryLabel prop).
-    // The button is scoped to step-3 to disambiguate from step-2's
-    // continue button if either is briefly mounted during a transition.
+    // Step3Offers' `btn-continue` is an sr-only aria-hidden submit; the
+    // visible primary action is the WizardNavBar's "Finish" button. Click
+    // by role/name and let the caller assert the post-submit URL change.
     await this.agreeToTerms();
-    await this.step3.getByTestId("btn-continue").click();
+    await this.page.getByRole("button", { name: /^Finish$/ }).click();
   }
 }
 

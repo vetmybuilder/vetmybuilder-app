@@ -69,18 +69,6 @@ test.describe("Tradesman login - dual-role interstitial", () => {
     await tradesmanLoginPage.continueAsTradesperson();
   });
 
-  test("finish homeowner routes to /signup/complete", async ({
-    authHelper,
-    tradesmanLoginPage,
-  }) => {
-    await authHelper.logout();
-    await authHelper.loginAsUidWithoutProfile();
-    await tradesmanLoginPage.goto();
-    await tradesmanLoginPage.expectInterstitialVisible();
-
-    await tradesmanLoginPage.finishHomeowner();
-  });
-
   test("sign out and start over clears auth and lands on /", async ({
     authHelper,
     tradesmanLoginPage,

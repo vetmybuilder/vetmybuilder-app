@@ -1,4 +1,5 @@
 import { test, expect } from "../../../src/ui.fixtures";
+import { safeGoto } from "../../../src/helpers/navigation";
 
 /**
  * Regression guard: the Google SSO button must be rendered on the
@@ -22,7 +23,7 @@ test.describe("OAuth button visibility", () => {
   test("Google SSO button is visible on the homeowner login page", async ({
     page,
   }) => {
-    await page.goto("/login");
+    await safeGoto(page, "/login");
     await expect(page.getByTestId("login-page")).toBeVisible();
     await expect(page.getByTestId("login-title")).toHaveText("Welcome back");
     await expect(page.getByTestId("google-signin-button")).toBeVisible();
@@ -31,7 +32,7 @@ test.describe("OAuth button visibility", () => {
   test("Google SSO button is visible on the homeowner signup page", async ({
     page,
   }) => {
-    await page.goto("/signup");
+    await safeGoto(page, "/signup");
     await expect(page.getByTestId("google-signin-button")).toBeVisible();
   });
 
@@ -40,7 +41,7 @@ test.describe("OAuth button visibility", () => {
   }) => {
     // /tradesman/login redirects to /login?next=/tradesman/projects, which
     // renders the shared login page in vendor-flow mode.
-    await page.goto("/tradesman/login");
+    await safeGoto(page, "/tradesman/login");
     await expect(page.getByTestId("login-page")).toBeVisible();
     await expect(page.getByTestId("login-title")).toHaveText(
       "Tradesperson sign in",

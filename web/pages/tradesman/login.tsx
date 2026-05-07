@@ -16,6 +16,7 @@ import { useRouter } from "next/router";
 import { Wrench, LogOut } from "lucide-react";
 import { useAuth, signOutUser } from "@/utils/auth";
 import { useApi } from "@/utils/api";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 
 type Phase = "hydrating" | "redirecting" | "interstitial";
 
@@ -117,45 +118,55 @@ export default function TradesmanLoginAlias() {
       </Head>
       {phase === "interstitial" ? (
         <div
-          className="fixed inset-0 top-14 bg-white overflow-y-auto"
+          className="fixed inset-0 top-14 bg-[#fef6e9] overflow-y-auto"
           data-testid="tradesman-login-interstitial"
         >
-          <div className="mx-auto max-w-md px-5 pt-10 pb-8 flex flex-col min-h-full">
-            {/* Heading block. The visitor reached this page via the
-                "Tradesperson" entry point and has a part-finished
-                profile - the primary action is to pick up where they
-                left off on the trade signup. */}
-            <div className="mb-8">
-              <h1 className="text-[26px] font-extrabold tracking-[-0.01em] text-slate-900 leading-[1.15]">
-                Pick up where you left off
-              </h1>
-              <p className="mt-2 text-[13.5px] text-slate-500 leading-snug">
-                Your trade signup isn't finished yet. Carry on from where you stopped.
-              </p>
+          <BrandWatermarkScatter />
+          <div className="relative z-10 mx-auto max-w-md px-5 pt-16 sm:pt-24 pb-8 flex flex-col min-h-full">
+            <div className="rounded-3xl bg-white border border-amber-100 shadow-xl shadow-amber-100/40 p-7 sm:p-9">
+              {/* Emerald avatar tile up top — anchors the card and signals
+                  the trades brand at a glance. */}
+              <div className="mx-auto mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-lg shadow-emerald-500/25"
+                style={{ background: "linear-gradient(135deg,#10b981,#059669)" }}
+              >
+                <Wrench className="h-6 w-6" />
+              </div>
+
+              <div className="mb-7 text-center">
+                <div className="text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-1.5">
+                  Tradesperson signup
+                </div>
+                <h1 className="text-[26px] font-black tracking-[-0.01em] text-slate-900 leading-[1.15]">
+                  Pick up where you left off
+                </h1>
+                <p className="mt-2.5 text-[13.5px] text-slate-500 leading-snug">
+                  Your trade signup isn't finished yet. Carry on from where you stopped.
+                </p>
+              </div>
+
+              {/* Primary CTA - resume the trade signup */}
+              <button
+                type="button"
+                onClick={continueAsTradesperson}
+                data-testid="interstitial-continue-as-tradesperson"
+                className="w-full inline-flex items-center justify-center gap-2 py-4 rounded-2xl text-white font-extrabold text-[15px] tracking-tight shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
+                style={{ background: "linear-gradient(135deg,#10b981,#059669)" }}
+              >
+                <Wrench className="h-4 w-4" />
+                Continue trade signup
+              </button>
+
+              {/* Tertiary - sign out and start over (text only) */}
+              <button
+                type="button"
+                onClick={signOutAndStartOver}
+                data-testid="interstitial-sign-out"
+                className="mt-5 w-full inline-flex items-center justify-center gap-1.5 text-[12.5px] font-bold text-slate-500 hover:text-slate-900 transition-colors"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                Sign out and start over
+              </button>
             </div>
-
-            {/* Primary CTA - resume the trade signup */}
-            <button
-              type="button"
-              onClick={continueAsTradesperson}
-              data-testid="interstitial-continue-as-tradesperson"
-              className="w-full inline-flex items-center justify-center gap-2 py-4 rounded-2xl text-white font-extrabold text-[15px] tracking-tight shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
-              style={{ background: "linear-gradient(135deg,#10b981,#059669)" }}
-            >
-              <Wrench className="h-4 w-4" />
-              Continue trade signup
-            </button>
-
-            {/* Tertiary - sign out and start over (text only) */}
-            <button
-              type="button"
-              onClick={signOutAndStartOver}
-              data-testid="interstitial-sign-out"
-              className="mt-6 inline-flex items-center justify-center gap-1.5 self-center text-[12.5px] font-bold text-slate-500 hover:text-slate-900 transition-colors"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              Sign out and start over
-            </button>
           </div>
         </div>
       ) : (

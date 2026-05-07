@@ -42,6 +42,15 @@ export class AdminRecommendationLeaderboardPage extends BasePage {
   async clearSearch() {
     await expect(this.clearButton).toBeVisible();
     await this.clearButton.click();
+    await expect(this.searchInput).toHaveValue("");
+  }
+
+  async assertShowsRecommendation(contactName: string) {
+    await expect(
+      this.page
+        .getByRole("row")
+        .filter({ hasText: `Contact: ${contactName}` }),
+    ).toBeVisible({ timeout: 10_000 });
   }
 }
 

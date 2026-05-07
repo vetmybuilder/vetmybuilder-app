@@ -27,6 +27,10 @@ const DEEP_ROUTE_PATTERNS: RegExp[] = [
   /^\/projects\/\d+(\/|$)/, // /projects/<id> + sub-paths (edit, close, shortlist, recommend, recommendations/[recId])
   /^\/chat\/[^/?#]+/, // /chat/<matchId>
   /^\/builders\/\d+/, // /builders/<recId>
+  // Admin entries live under /admin/* and are reached via /admin/login →
+  // /login?next=/admin/...; the whole point is to land on the requested
+  // admin page, so always treat them as deep links.
+  /^\/admin\//,
   // Public tradesperson profile is /tradesman/<slugOrId>. Exclude every
   // known authenticated tradesman list/dashboard path so they're treated
   // as non-deep and fall back to the role default.
@@ -322,6 +326,8 @@ export default function Login() {
 
   const heading = isAdminFlow
     ? "Admin sign in"
+    : isVendorFlow
+    ? "Tradesperson sign in"
     : "Welcome back";
 
   const subcopy = isAdminFlow

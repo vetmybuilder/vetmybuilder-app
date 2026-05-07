@@ -109,9 +109,7 @@ test.describe("Admin recommendation leaderboard", () => {
 
     await adminRecommendationLeaderboardPage.searchFor(contactName);
 
-    await expect(
-      adminRecommendationLeaderboardPage.page.getByText(`Contact: ${contactName}`),
-    ).toBeVisible({ timeout: 10_000 });
+    await adminRecommendationLeaderboardPage.assertShowsRecommendation(contactName);
     await expect(adminRecommendationLeaderboardPage.emptyMessage).not.toBeVisible();
   });
 
@@ -162,8 +160,6 @@ test.describe("Admin recommendation leaderboard", () => {
 
     // Clear restores all results — verify our record is back
     await adminRecommendationLeaderboardPage.clearSearch();
-    await expect(
-      adminRecommendationLeaderboardPage.page.getByText(`Contact: ${contactName}`),
-    ).toBeVisible({ timeout: 10_000 });
+    await adminRecommendationLeaderboardPage.assertShowsRecommendation(contactName);
   });
 });

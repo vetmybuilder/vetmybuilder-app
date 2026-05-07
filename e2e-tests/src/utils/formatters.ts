@@ -6,6 +6,17 @@ export function escapeRegExp(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/**
+ * Build a regex that matches an href value with or without a trailing
+ * slash. Browsers normalize bare URLs by appending "/" (e.g.
+ * "https://example.com" → "https://example.com/"), so a strict equality
+ * assertion fails. Use this anywhere you assert on `<a href="...">`.
+ */
+export function hrefMatcher(url: string): RegExp {
+  const stripped = url.replace(/\/$/, "");
+  return new RegExp(`^${escapeRegExp(stripped)}/?$`);
+}
+
 function normalize(s: string) {
   return String(s || "")
     .trim()

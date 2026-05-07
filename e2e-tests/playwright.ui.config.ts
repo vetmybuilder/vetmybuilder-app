@@ -50,9 +50,13 @@ export default defineConfig({
   // Browser Axios uses relative /api paths, so requests always go to the same
   // origin (the proxy), keeping the Authorization header intact.
   workers: process.env.PW_WORKERS ? Number(process.env.PW_WORKERS) : 2,
-  timeout: Number(process.env.PW_TIMEOUT ?? 60_000),
+  timeout: Number(process.env.PW_TIMEOUT ?? 90_000),
   retries: 1,
   reporter: [["list"], ["html", { open: "never" }]],
+  // Warm each API shard's /health once before tests start, outside any
+  // per-test timeout, so the first beforeEach probe doesn't pay cold-start
+  // latency (MySQL connect, Firebase admin init, etc.).
+  globalSetup: require.resolve("./src/globalSetup"),
 
   ...(SHOULD_START_WEB_SERVER
     ? {

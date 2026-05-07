@@ -4,7 +4,8 @@ import BasePage from "./BasePage";
 export enum NotificationPreference {
   HireUpdates = "hire_updates",
   Recommendations = "recommendations",
-  BuilderInterest = "builder_interest",
+  Matches = "matches",
+  Messages = "messages",
   LocalActivity = "local_activity",
   ProjectMatches = "project_matches",
 }
@@ -16,12 +17,14 @@ export class NotificationSettingsPage extends BasePage {
 
   constructor(page: Page) {
     super(page);
-    this.heading = page.getByRole("heading", { name: "Notification settings" });
+    // Notifications now lives as a drill-in on /account?tab=notifications;
+    // the TopBar title carries account-page-title across views.
+    this.heading = page.getByTestId("account-page-title");
   }
 
   async visit() {
-    await this.page.goto("/account/notifications");
-    await expect(this.heading).toBeVisible({ timeout: 15_000 });
+    await this.page.goto("/account?tab=notifications");
+    await expect(this.heading).toHaveText("Notifications", { timeout: 15_000 });
   }
 
   private toggle(key: PreferenceKey): Locator {

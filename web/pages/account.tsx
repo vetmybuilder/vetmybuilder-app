@@ -133,7 +133,7 @@ function TopBar({ title, onBack }: { title: string; onBack: () => void }) {
       >
         <ChevronLeft size={18} />
       </button>
-      <span className="flex-1 text-[15px] font-extrabold text-gray-900">{title}</span>
+      <span data-testid="account-page-title" className="flex-1 text-[15px] font-extrabold text-gray-900">{title}</span>
     </div>
   );
 }
@@ -338,7 +338,10 @@ export default function ManageAccount() {
       try {
         const { data } = await api.get("/api/notifications/preferences");
         if (!alive) return;
-        setPrefs(data.preferences || data);
+        const next = data.preferences || data || {};
+        // Merge over current state so missing keys keep their defaults
+        // instead of becoming undefined (which strips aria-checked).
+        setPrefs((p) => ({ ...p, ...next }));
       } catch {
         if (alive) setNotifError("Failed to load preferences.");
       } finally {
@@ -494,6 +497,7 @@ export default function ManageAccount() {
               {/* Profile details row */}
               <button
                 type="button"
+                data-testid="account-profile-tile"
                 onClick={() => router.replace("/account?tab=profile")}
                 className="w-full bg-white rounded-2xl shadow-sm flex items-center gap-3 text-left"
                 style={{ padding: 14 }}

@@ -24,6 +24,7 @@ export class AccountPage {
   readonly title: Locator;
   readonly form: Locator;
   readonly card: Locator;
+  readonly profileTile: Locator;
 
   readonly firstName: Locator;
   readonly lastName: Locator;
@@ -40,9 +41,10 @@ export class AccountPage {
   constructor(page: Page) {
     this.page = page;
 
-    this.title = page.getByRole("heading", { name: "Manage account" });
+    this.title = page.getByTestId("account-page-title");
     this.form = page.locator("form");
     this.card = page.locator(".card").first();
+    this.profileTile = page.getByTestId("account-profile-tile");
     this.firstName = page.locator("#acc-first");
     this.lastName = page.locator("#acc-last");
     this.email = page.locator("#acc-email");
@@ -58,14 +60,13 @@ export class AccountPage {
   }
 
   async visit() {
-    await this.page.goto("/account");
-    await expect(this.page).toHaveURL("/account", { timeout: 15_000 });
+    // /account is now a hub; the editable form lives on the Profile drill-in.
+    await this.page.goto("/account?tab=profile");
     await expect(this.form).toBeVisible({ timeout: 15_000 });
-    // await this.waitUntilReady();
   }
 
   async waitUntilReady() {
-    await expect(this.title).toBeVisible({ timeout: 15_000 });
+    await expect(this.title).toHaveText("Profile details", { timeout: 15_000 });
 
     if (await this.loadingText.count()) {
       await expect(this.loadingText).toBeHidden({ timeout: 15_000 });
@@ -85,7 +86,10 @@ export class AccountPage {
     siteHeader: SiteHeader,
     updated: AccountEditableValues,
   ) {
+    // Header link lands on the /account hub; drill into Profile details
+    // to reach the editable form.
     await siteHeader.goToEditAccount();
+    await this.profileTile.click();
     await this.waitUntilReady();
     await this.assertEmailDisabled();
 

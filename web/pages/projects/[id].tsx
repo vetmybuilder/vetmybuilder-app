@@ -15,6 +15,7 @@ import SwipeDeck from "@/components/project/SwipeDeck";
 import ProjectActionsSheet from "@/components/project/ProjectActionsSheet";
 import ShareProjectModal from "@/components/project/ShareProjectModal";
 import OffPlatformRecModal from "@/components/project/OffPlatformRecModal";
+import ProjectMobileRecsStrip from "@/components/project/ProjectMobileRecsStrip";
 import PhotoLightbox from "@/components/PhotoLightbox";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import { useApi } from "@/utils/api";
@@ -776,12 +777,19 @@ function ProjectSwipeMobile({
         </button>
       </div>
 
+      {matches?.recommendationCards && (
+        <ProjectMobileRecsStrip
+          projectId={projectId}
+          recs={matches.recommendationCards}
+        />
+      )}
+
       {matches && (
         <SwipeDeck
           projectId={String(projectId)}
           builders={[
-            // On-platform only. Off-platform recs render in the right-rail
-            // Recommendations card -> OffPlatformRecModal flow.
+            // On-platform only. Off-platform recs render in the strip
+            // above and on the dedicated recommendation detail page.
             ...(matches.recommended || []),
             ...(matches.paidUnlock || []),
             ...(matches.subscribed || []),
