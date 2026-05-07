@@ -208,19 +208,22 @@ export default function JobSwipeDeck({
   // "card zooms towards you" feel.
   const visible = jobs.slice(index, index + 4);
 
-  function rankTransform(i: number) {
-    if (i === 0) return "scale(1)";
-    return `scale(${1 - i * 0.08})`;
-  }
+  // Dribbble-inspired layout: card has margin from the screen edges,
+  // single peek behind at full scale, action bar lives BELOW the card
+  // (not floating over the photo). Cleaner / more "deck" than the
+  // Tinder full-bleed style.
   function rankOpacity(i: number) {
     if (i === 0) return 1;
-    if (i === 1) return 0.95;
+    if (i === 1) return 1;
     return 0;
   }
 
   return (
-    <div className="relative h-full w-full">
-      <div className="relative h-full w-full min-h-[460px]">
+    <div className="relative h-full w-full flex flex-col">
+      {/* Card stack - takes available vertical space, padded so the card
+          doesn't kiss the screen edges and the rounded corners + drop
+          shadow have room to breathe. */}
+      <div className="relative flex-1 min-h-[420px] mx-4 mt-2 mb-3">
         {visible.map((j, i) => {
           const isTop = i === 0;
           return (
@@ -235,17 +238,24 @@ export default function JobSwipeDeck({
               onPointerCancel={isTop && !flipped ? onPointerUp : undefined}
               onContextMenu={isTop ? (e) => e.preventDefault() : undefined}
               onDragStart={isTop ? (e) => e.preventDefault() : undefined}
-              className={`absolute inset-0 ${isTop ? "touch-none select-none will-change-transform" : ""}`}
+              className={`absolute inset-0 rounded-3xl overflow-hidden ${isTop ? "touch-none select-none will-change-transform" : ""}`}
+              // Single peek at full scale (no shrink). The peek is
+              // behind the top, same position, same size - when the
+              // top flies off the user sees the next card crisp and
+              // ready, no zoom/promote animation needed.
               style={
                 {
                   zIndex: 10 - i,
                   pointerEvents: isTop ? "auto" : "none",
-                  transformOrigin: "center center",
-                  transform: rankTransform(i),
+                  transform: "scale(1)",
                   opacity: rankOpacity(i),
-                  transition:
-                    "transform 350ms cubic-bezier(0.2, 0, 0, 1), opacity 350ms ease",
+                  transition: "opacity 350ms ease",
                   perspective: "1200px",
+                  // Drop shadow only on the top card so the peek
+                  // doesn't stack visible shadows.
+                  boxShadow: isTop
+                    ? "0 18px 48px rgba(15,23,42,0.22), 0 4px 14px rgba(15,23,42,0.10)"
+                    : "none",
                   willChange: "transform, opacity",
                   contain: "layout paint",
                   WebkitTouchCallout: "none",
@@ -289,22 +299,20 @@ export default function JobSwipeDeck({
             </div>
           );
         })}
+      </div>
 
-        {/* Floating action bar — sits absolute over the bottom of the
-            top card, glass-blur backdrop. Emerald Like for the trade
-            brand. */}
-        <div className="absolute inset-x-0 bottom-4 z-20 flex items-center justify-center pointer-events-none">
-          <div className="pointer-events-auto">
-            <SwipeActionBar
-              tone="emerald"
-              disabled={busy}
-              onPass={() => commit("left")}
-              onInfo={() => setFlipped((v) => !v)}
-              onLike={() => commit("right")}
-              floating
-            />
-          </div>
-        </div>
+      {/* Action bar - now OUTSIDE / BELOW the card. Pass / Info / Like
+          sit on the page chrome, not floating over the photo, so the
+          card reads as a clean photo tile. */}
+      <div className="px-4 pb-4 pt-1 flex items-center justify-center">
+        <SwipeActionBar
+          tone="emerald"
+          disabled={busy}
+          onPass={() => commit("left")}
+          onInfo={() => setFlipped((v) => !v)}
+          onLike={() => commit("right")}
+          floating
+        />
       </div>
 
       <SwipePayGate
