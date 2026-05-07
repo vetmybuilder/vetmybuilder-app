@@ -153,17 +153,17 @@ export default function JobSwipeDeck({
     const flingTo = direction === "right" ? width * 1.5 : -width * 1.5;
     const el = cardRef.current;
     if (el) {
-      el.style.transition = "transform 500ms cubic-bezier(0.4, 0.0, 0.2, 1)";
+      el.style.transition = "transform 800ms cubic-bezier(0.4, 0.0, 0.2, 1)";
       el.style.transform = `translateX(${flingTo}px) rotate(${flingTo / 20}deg)`;
     }
     // Run the fling animation in parallel with the API. Hold the index
-    // advance until BOTH are done — if the API resolves before the 500ms
+    // advance until BOTH are done — if the API resolves before the 800ms
     // animation, an early setIndex would re-render the top div with the
     // next card's content while it's still under the off-screen fling
     // transform, briefly exposing the peek behind it (visible as a grey
     // flash / strip on swipe). Advance + snap transform together.
     const [, advance] = await Promise.all([
-      new Promise<void>((r) => window.setTimeout(r, 500)),
+      new Promise<void>((r) => window.setTimeout(r, 800)),
       commitApi(direction).catch(() => false as boolean),
     ]);
     applyCardTransform(0, true);

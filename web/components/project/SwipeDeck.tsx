@@ -194,7 +194,7 @@ export default function SwipeDeck({
     const flingTo = direction === "right" ? width * 1.5 : -width * 1.5;
     const el = cardRef.current;
     if (el) {
-      el.style.transition = "transform 500ms cubic-bezier(0.4, 0.0, 0.2, 1)";
+      el.style.transition = "transform 800ms cubic-bezier(0.4, 0.0, 0.2, 1)";
       el.style.transform = `translateX(${flingTo}px) rotate(${flingTo / 20}deg)`;
     }
     // Run the fling animation in parallel with the API. Crucially we do
@@ -205,7 +205,7 @@ export default function SwipeDeck({
     // grey flash / strip on swipe). We hold the advance until both the
     // animation and API are done, then advance + snap transform together.
     await Promise.all([
-      new Promise<void>((r) => window.setTimeout(r, 500)),
+      new Promise<void>((r) => window.setTimeout(r, 800)),
       commitApi(direction).catch(() => {}),
     ]);
     applyCardTransform(0, true);
