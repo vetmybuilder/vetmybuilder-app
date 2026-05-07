@@ -60,7 +60,7 @@ export default function JobCardBack({ data }: { data: JobCardData }) {
 
   return (
     <div
-      className="relative rounded-2xl overflow-hidden bg-stone-50 flex flex-col h-full"
+      className="relative md:rounded-2xl overflow-hidden bg-stone-50 flex flex-col h-full"
       style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)" }}
     >
       {/* Emerald gradient hero */}
@@ -91,8 +91,9 @@ export default function JobCardBack({ data }: { data: JobCardData }) {
         </div>
       </div>
 
-      {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto px-3.5 pt-3.5">
+      {/* Scrollable body — pb-28 leaves a clear gutter for the floating
+          action bar so the last section never sits under the buttons. */}
+      <div className="flex-1 overflow-y-auto px-3.5 pt-3.5 pb-28">
         {/* AI-generated job summary - the homeowner-facing classifier
             already writes a plain-English sentence describing the job;
             surfacing it here gives the tradesman a one-glance read of

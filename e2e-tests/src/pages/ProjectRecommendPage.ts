@@ -141,7 +141,13 @@ export class ProjectRecommendPage extends BasePage {
     // navigate here.
     await safeGoto(this.page, `/projects/${projectId}/recommend`);
     await expect(this.page).toHaveURL(`/projects/${projectId}/recommend`);
-    await expect(this.heading).toBeVisible();
+    // Page renders a `recommend-loading` placeholder while /api/projects/:id
+    // is in flight; wait for it to clear before asserting the heading so we
+    // don't race the API call on a cold load.
+    await expect(
+      this.page.getByTestId("recommend-loading"),
+    ).toHaveCount(0, { timeout: 15_000 });
+    await expect(this.heading).toBeVisible({ timeout: 10_000 });
   }
 
   async hasPrefilledIdentity(account: Account) {

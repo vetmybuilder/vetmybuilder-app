@@ -187,6 +187,25 @@ export async function uiLoginAsUid({
       if (!user) throw new Error("User missing after sign-in");
 
       await user.getIdToken(true);
+
+      // Block until Firebase has flushed the auth state to IndexedDB.
+      // Without this, navigating away can land on a fresh page whose
+      // Firebase observer rehydrates BEFORE our write commits — the new
+      // page sees `null` user and AuthedOnly bounces to /login. The
+      // `authStateReady()` API (Firebase JS SDK 9.5+) resolves once the
+      // first state has been emitted AND persisted; falling back to a
+      // single onAuthStateChanged tick covers older SDKs.
+      if (typeof auth.authStateReady === "function") {
+        await auth.authStateReady();
+      } else if (typeof auth.onAuthStateChanged === "function") {
+        await new Promise<void>((resolve) => {
+          const unsub = auth.onAuthStateChanged(() => {
+            unsub?.();
+            resolve();
+          });
+        });
+      }
+
       w.__e2eSignedInUid = expectedUid;
     },
     { token: customToken, expectedUid: userId },

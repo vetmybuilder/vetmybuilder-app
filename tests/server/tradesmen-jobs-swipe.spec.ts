@@ -360,9 +360,9 @@ describe("POST /api/projects/:id/swipe — homeowner mutual-match detection", ()
       .mockResolvedValueOnce([{ user_id: "b1" }])              // builder check
       // The route now reads the existing source first so a homeowner
       // right-swipe doesn't clobber a paid_unlock builder row's source.
-      // Empty result here means no prior row, so the body's source
-      // (subscribed) is used.
-      .mockResolvedValueOnce([])                                // SELECT source FROM swipe_interest
+      // In this scenario the builder right-swiped first, so a row
+      // already exists with source='subscribed'.
+      .mockResolvedValueOnce([{ source: "subscribed" }])        // SELECT source FROM swipe_interest
       .mockResolvedValueOnce({ affectedRows: 1 })               // UPSERT swipe_interest
       // rowCheck — builder already swiped. Now also reads `status` to
       // confirm the row is still pending before forming a match.

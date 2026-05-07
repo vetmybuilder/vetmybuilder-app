@@ -1,12 +1,13 @@
 // web/components/tradesmen/JobCard.tsx
 //
-// Front face of a tradesman swipe-deck card. Shows core job details, a
-// pill row of property + structured description fields (timeframe /
-// budget / materials), the description text, hero image, and trade
-// chips. Pure presentational - no data fetching, no navigation.
+// Front face of a tradesman swipe-deck card. Tinder-style fullscreen:
+// the category hero image fills the card; the bottom gradient surfaces
+// only what the trade needs to make a swipe decision - title, location,
+// type / AI score badges, and the LLM plain-English summary. The full
+// project breakdown (property, materials, trade chips, etc.) lives on
+// the back face, accessed via the info button.
 
 import { getJobCategoryImage } from "@/utils/jobCategoryImage";
-import { parseDescriptionPills } from "@/utils/projectDescription";
 
 export interface JobCardData {
   projectId: number;
@@ -35,118 +36,75 @@ export interface JobCardData {
 }
 
 export default function JobCard({ data }: { data: JobCardData }) {
-  const matchedSet = new Set(data.matchedTrades);
-
   const locationText =
     data.distanceMiles !== undefined
       ? `${data.location} · ${data.distanceMiles.toFixed(1)} mi away`
       : data.location;
-
   const heroImage = getJobCategoryImage(data.type);
-
-  // Build the meta pill row. Property + bedrooms first (factual context),
-  // then the structured fields the homeowner provided in the create-flow
-  // (timeframe / budget / materials, parsed from the description).
-  const meta: Array<{ label: string; value: string }> = [];
-  if (data.propertyType) {
-    const propText = [
-      data.propertyType,
-      data.bedrooms !== null && data.bedrooms !== undefined
-        ? `${data.bedrooms} bed`
-        : null,
-    ]
-      .filter(Boolean)
-      .join(" · ");
-    meta.push({ label: "Property", value: propText });
-  }
-  for (const p of parseDescriptionPills(data.description)) {
-    meta.push(p);
-  }
+  const summary = data.aiSummary?.trim() || null;
 
   return (
     <div
-      className="relative rounded-2xl overflow-hidden bg-white flex flex-col h-full"
-      style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)" }}
+      className="relative md:rounded-[22px] overflow-hidden bg-cover bg-center h-full w-full md:shadow-md select-none"
+      style={{
+        backgroundImage: `url(${heroImage})`,
+        WebkitTouchCallout: "none",
+      }}
+      role="img"
+      aria-label={`${data.type} category`}
     >
-      {/* Hero */}
-      <div className="px-3.5 pt-3.5">
-        {/* Type chip + AI badge row */}
-        <div className="flex items-center flex-wrap gap-1.5">
-          <span className="inline-block px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full text-[11px] font-extrabold uppercase tracking-[0.04em]">
-            {data.type}
+      {/* Top-right badges — type pill + AI match score */}
+      <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-1.5">
+        <span
+          className="inline-block px-2.5 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-[0.04em] text-emerald-800"
+          style={{
+            background: "rgba(255,255,255,0.92)",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
+          }}
+        >
+          {data.type}
+        </span>
+        {data.aiScore !== null && data.aiScore !== undefined && (
+          <span
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold text-amber-900"
+            style={{
+              background: "rgba(254,243,199,0.95)",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
+            }}
+          >
+            ✨ {data.aiScore}% match
           </span>
-          {data.aiScore !== null && data.aiScore !== undefined && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-[11px] font-extrabold">
-              ✨ {data.aiScore}% match
-            </span>
-          )}
-        </div>
-
-        {/* Title */}
-        <div className="mt-2.5 text-[19px] font-extrabold text-gray-900 leading-[1.2]">
-          {data.title}
-        </div>
-
-        {/* Location */}
-        <div className="mt-1.5 flex items-center gap-1.5 text-[13px] text-gray-500">
-          <span>📍</span>
-          <span>{locationText}</span>
-        </div>
+        )}
       </div>
 
-      {/* Meta pills (property + parsed description fields) */}
-      {meta.length > 0 && (
-        <div className="px-3.5 mt-2.5 flex flex-wrap gap-1.5">
-          {meta.map((m, i) => (
-            <span
-              key={`${m.label}-${i}`}
-              className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 text-[11px] font-bold"
-            >
-              <span className="text-gray-400 mr-1 font-semibold">
-                {m.label}:
-              </span>
-              {m.value}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Free-text description fallback - only when the structured parse
-          yielded no pills (legacy descriptions). Modern projects render as
-          pills above and don't need the duplicate paragraph. */}
-      {parseDescriptionPills(data.description).length === 0 &&
-        data.description && (
-          <div className="px-3.5 pt-3 text-[12.5px] text-gray-700 leading-[1.5] line-clamp-3">
-            {data.description}
-          </div>
-        )}
-
-      {/* Category hero image fills the open space */}
+      {/* Bottom gradient + content. pb leaves room for the floating
+          action bar so the buttons never sit on top of the title or chips. */}
       <div
-        className="mx-3.5 mt-3 flex-1 min-h-[120px] rounded-xl bg-gray-100 bg-cover bg-center"
-        style={{ backgroundImage: `url(${heroImage})` }}
-        role="img"
-        aria-label={`${data.type} category`}
-      />
+        className="absolute inset-x-0 bottom-0 px-5 pt-28 pb-28 text-white"
+        style={{
+          background:
+            "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0) 100%)",
+        }}
+      >
+        <h2
+          className="text-[23px] font-black tracking-tight leading-[1.15]"
+          style={{
+            fontFamily: "'Sora', sans-serif",
+            textShadow: "0 1px 3px rgba(0,0,0,0.55)",
+          }}
+        >
+          {data.title}
+        </h2>
 
-      {/* Trade chips */}
-      <div className="flex flex-wrap gap-1.5 px-3.5 pt-2.5 pb-3">
-        {data.trades.map((trade) =>
-          matchedSet.has(trade) ? (
-            <span
-              key={trade}
-              className="inline-block px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full text-[10.5px] font-bold"
-            >
-              {trade} ✓
-            </span>
-          ) : (
-            <span
-              key={trade}
-              className="inline-block px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full text-[10.5px] font-bold"
-            >
-              {trade}
-            </span>
-          )
+        <div className="mt-1.5 flex items-center gap-1 text-[12.5px] opacity-90">
+          <span aria-hidden>📍</span>
+          <span>{locationText}</span>
+        </div>
+
+        {summary && (
+          <p className="mt-2.5 text-[13px] leading-snug opacity-95 line-clamp-3">
+            {summary}
+          </p>
         )}
       </div>
     </div>

@@ -11,7 +11,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/router";
-import { Sparkles } from "lucide-react";
+import { ChevronLeft, Sparkles } from "lucide-react";
 
 import { useApi } from "@/utils/api";
 import { useMobileMenu } from "@/utils/mobileMenu";
@@ -102,9 +102,14 @@ export default function RecommendationsListMobile() {
       <div className="h-[env(safe-area-inset-top)] md:hidden" />
 
       <div className="md:hidden flex items-center justify-between px-3.5 pt-1.5 pb-1">
-        <Link href="/" aria-label="Go to homepage" className="inline-flex items-center">
-          <BrandWordmark tone="indigo" />
-        </Link>
+        <button
+          type="button"
+          aria-label="Back"
+          onClick={() => router.back()}
+          className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-700"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
         <button
           type="button"
           aria-label="Open menu"

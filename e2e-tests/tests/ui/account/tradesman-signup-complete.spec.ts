@@ -26,10 +26,7 @@ test.describe("Tradesman SSO onboarding — /tradesman/signup/complete", () => {
     await tradesmanSignupCompletePage.goToStep3();
     // Step 3 — offers & documents. Everything on this step is optional,
     await tradesmanSignupCompletePage.submitStep3();
-    await page.waitForURL(/\/tradesman\/projects/, { timeout: 20_000 });
-    await expect(page.getByTestId("tradesman-projects-page")).toBeVisible({
-      timeout: 15_000,
-    });
+    await expect(page).toHaveURL(/\/tradesman\/jobs/, { timeout: 10_000 });
   });
 
   test("oauth intent=tradesman on /login routes a no-profile user to the tradesman completion page", async ({

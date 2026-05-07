@@ -60,7 +60,7 @@ export default function SwipeDeck({
     setFlipped(false);
   }, [index]);
 
-  async function commit(direction: "left" | "right") {
+  async function commitApi(direction: "left" | "right") {
     if (!current || busy) return;
     setBusy(true);
     try {
@@ -88,10 +88,14 @@ export default function SwipeDeck({
           onMatch(id);
         }
       }
-      setIndex(i => i + 1);
     } finally {
       setBusy(false);
     }
+  }
+
+  async function commit(direction: "left" | "right") {
+    await commitApi(direction);
+    setIndex(i => i + 1);
   }
 
   async function unfavouriteRec() {
@@ -105,27 +109,108 @@ export default function SwipeDeck({
     }
   }
 
-  const [drag, setDrag] = useState({ dx: 0 });
+  // Drag state is held in a ref so pointer-move doesn't trigger a React
+  // re-render on every frame. Transform is applied directly to the card
+  // element via the ref — that's what makes the gesture feel smooth.
   const cardRef = useRef<HTMLDivElement>(null);
-  const dragStartX = useRef<number | null>(null);
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    lastX: number;
+    lastTime: number;
+    dx: number;
+    velocity: number; // px / ms
+  } | null>(null);
+  const animatingRef = useRef(false);
+
+  function applyCardTransform(dx: number, immediate: boolean) {
+    const el = cardRef.current;
+    if (!el) return;
+    el.style.transition = immediate
+      ? "none"
+      : "transform 220ms cubic-bezier(0.4, 0.0, 0.2, 1)";
+    el.style.transform = `translateX(${dx}px) rotate(${dx / 20}deg)`;
+  }
 
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    if (busy) return;
-    dragStartX.current = e.clientX;
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    if (busy || animatingRef.current) return;
+    // Don't preventDefault here on iOS Safari — doing so causes the
+    // matching pointerup not to fire, which leaves the card stuck mid-
+    // drag. We still own the gesture via touch-action: none + setPointer
+    // Capture, and rely on preventDefault during pointermove (where we
+    // know it's a real drag, not just a tap) to block native scroll.
+    cardRef.current?.setPointerCapture(e.pointerId);
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      lastX: e.clientX,
+      lastTime: e.timeStamp,
+      dx: 0,
+      velocity: 0,
+    };
+    applyCardTransform(0, true);
   }
+
   function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    if (dragStartX.current === null) return;
-    setDrag({ dx: e.clientX - dragStartX.current });
+    const s = dragRef.current;
+    if (!s || s.pointerId !== e.pointerId) return;
+    // preventDefault here cancels iOS's competing scroll/zoom gestures
+    // once we know the user is actively dragging — but only after a
+    // small movement so a held tap can still go through cleanly.
+    if (Math.abs(e.clientX - s.startX) > 4) e.preventDefault();
+    const dt = Math.max(1, e.timeStamp - s.lastTime);
+    s.velocity = (e.clientX - s.lastX) / dt;
+    s.lastX = e.clientX;
+    s.lastTime = e.timeStamp;
+    s.dx = e.clientX - s.startX;
+    applyCardTransform(s.dx, true);
   }
-  function onPointerUp() {
+
+  function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    const s = dragRef.current;
+    if (!s || s.pointerId !== e.pointerId) return;
+    cardRef.current?.releasePointerCapture(e.pointerId);
+    dragRef.current = null;
+
     const width = cardRef.current?.offsetWidth ?? 320;
-    const { dx } = drag;
-    if (Math.abs(dx) / width > 0.25) {
-      commit(dx > 0 ? "right" : "left");
+    const { dx, velocity } = s;
+    const farEnough = Math.abs(dx) / width > 0.25;
+    // Flick threshold — 0.5 px/ms == 500px/sec. A ~150px flick over 300ms
+    // satisfies this even though it's well below the distance threshold.
+    const fastEnough = Math.abs(velocity) > 0.5 && Math.abs(dx) > 20;
+
+    if (farEnough || fastEnough) {
+      const direction: "left" | "right" =
+        dx !== 0 ? (dx > 0 ? "right" : "left") : velocity > 0 ? "right" : "left";
+      flingAndCommit(direction, width);
+      return;
     }
-    setDrag({ dx: 0 });
-    dragStartX.current = null;
+    // Below threshold — animate back to 0.
+    applyCardTransform(0, false);
+  }
+
+  async function flingAndCommit(direction: "left" | "right", width: number) {
+    animatingRef.current = true;
+    const flingTo = direction === "right" ? width * 1.5 : -width * 1.5;
+    const el = cardRef.current;
+    if (el) {
+      el.style.transition = "transform 250ms cubic-bezier(0.4, 0.0, 0.2, 1)";
+      el.style.transform = `translateX(${flingTo}px) rotate(${flingTo / 20}deg)`;
+    }
+    // Run the fling animation in parallel with the API. Crucially we do
+    // NOT advance the index inside commitApi — if the API resolves before
+    // the 250ms animation, an early setIndex would re-render the top div
+    // with the next card's content while it's still under the off-screen
+    // fling transform, briefly exposing the peek behind it (visible as a
+    // grey flash / strip on swipe). We hold the advance until both the
+    // animation and API are done, then advance + snap transform together.
+    await Promise.all([
+      new Promise<void>((r) => window.setTimeout(r, 250)),
+      commitApi(direction).catch(() => {}),
+    ]);
+    applyCardTransform(0, true);
+    setIndex((i) => i + 1);
+    animatingRef.current = false;
   }
 
   if (!current) {
@@ -143,24 +228,23 @@ export default function SwipeDeck({
   const peek = queue.slice(index + 1, index + 3);
 
   return (
-    <div className="relative">
-      {/* Card height clamps with the viewport so the action bar below
-          stays visible without scrolling on shorter screens. Min 380 to
-          keep the card readable, cap at 520 so it doesn't grow huge on
-          tall monitors. */}
-      <div
-        className="relative"
-        style={{ height: "clamp(380px, 58vh, 520px)" }}
-      >
-        {peek.map((b, i) => (
+    <div className="relative h-full">
+      {/* Card stack — fills the container's height so the parent decides
+          how tall the deck is (mobile pages set this to ~viewport, desktop
+          rails constrain it to the rail size). Action bar floats over the
+          bottom of the photo, Tinder-style. */}
+      <div className="relative h-full min-h-[460px]">
+        {/* Peek cards sit flush behind the top card (no scale / no offset).
+            A scaled peek subpixel-renders text + pills at 0.97x and then
+            visibly snaps to 1.0x the moment it becomes the top — that's
+            what reads as "jumpy" and "distorted pills". Flat-stacking
+            preloads the image at its final size so the swipe is seamless. */}
+        {peek.map((b) => (
           <div
             key={b.uid}
             aria-hidden
-            className="absolute inset-0 transition-transform"
-            style={{
-              transform: `translateY(${(i + 1) * 8}px) scale(${1 - (i + 1) * 0.03})`,
-              zIndex: 1,
-            }}
+            className="absolute inset-0"
+            style={{ zIndex: 1 }}
           >
             <BuilderCard builder={b} />
           </div>
@@ -171,13 +255,21 @@ export default function SwipeDeck({
           onPointerDown={flipped ? undefined : onPointerDown}
           onPointerMove={flipped ? undefined : onPointerMove}
           onPointerUp={flipped ? undefined : onPointerUp}
-          className="absolute inset-0 z-10 touch-none"
+          onPointerCancel={flipped ? undefined : onPointerUp}
+          // Block iOS Safari's long-press behaviours: image preview pop,
+          // text selection, native drag-and-drop, link callout. Without
+          // these the touch is hijacked before our pointer handlers can
+          // establish a drag.
+          onContextMenu={(e) => e.preventDefault()}
+          onDragStart={(e) => e.preventDefault()}
+          className="absolute inset-0 z-10 touch-none select-none will-change-transform"
           style={{
-            transform: flipped
-              ? "none"
-              : `translateX(${drag.dx}px) rotate(${drag.dx / 20}deg)`,
             perspective: "1200px",
-          }}
+            WebkitTouchCallout: "none",
+            WebkitUserSelect: "none",
+            userSelect: "none",
+            WebkitUserDrag: "none",
+          } as React.CSSProperties}
         >
           <div
             className="relative w-full h-full"
@@ -187,9 +279,17 @@ export default function SwipeDeck({
               transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
             }}
           >
+            {/* Front. translateZ(0) forces this face into its own 3D
+                layer; without it Safari leaks the absolutely-positioned
+                badges (z-10 inside BuilderCard) through the rotated
+                face, appearing mirrored on the back of the card. */}
             <div
               className="absolute inset-0"
-              style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
+              style={{
+                backfaceVisibility: "hidden",
+                WebkitBackfaceVisibility: "hidden",
+                transform: "translateZ(0)",
+              }}
             >
               <BuilderCard builder={current} onUnfavouriteRec={unfavouriteRec} />
             </div>
@@ -198,20 +298,29 @@ export default function SwipeDeck({
               style={{
                 backfaceVisibility: "hidden",
                 WebkitBackfaceVisibility: "hidden",
-                transform: "rotateY(180deg)",
+                transform: "rotateY(180deg) translateZ(0)",
               }}
             >
               <BuilderCardBack builder={current} />
             </div>
           </div>
         </div>
+
+        {/* Floating action bar — sits absolute over the bottom of the
+            top card so it reads as part of the photo. Pass / Info / Like
+            with the indigo Like as the primary action (homeowner brand). */}
+        <div className="absolute inset-x-0 bottom-4 z-20 flex items-center justify-center pointer-events-none">
+          <div className="pointer-events-auto">
+            <SwipeActionBar
+              disabled={busy}
+              onPass={() => commit("left")}
+              onInfo={() => setFlipped((v) => !v)}
+              onLike={() => commit("right")}
+              floating
+            />
+          </div>
+        </div>
       </div>
-      <SwipeActionBar
-        disabled={busy}
-        onPass={() => commit("left")}
-        onInfo={() => setFlipped((v) => !v)}
-        onLike={() => commit("right")}
-      />
     </div>
   );
 }

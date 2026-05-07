@@ -132,7 +132,7 @@ export default function BuilderCardBack({
   return (
     <>
     <div
-      className="relative rounded-[22px] overflow-hidden bg-white border border-gray-100 shadow-md flex flex-col h-full"
+      className="relative md:rounded-[22px] overflow-hidden bg-white border border-gray-100 shadow-md flex flex-col h-full"
       style={{ boxShadow: "0 6px 22px rgba(15,23,42,0.08)" }}
     >
       {/* Hero band */}
@@ -194,8 +194,10 @@ export default function BuilderCardBack({
         </div>
       )}
 
-      {/* Sections */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      {/* Sections — pb-28 leaves a clear gutter for the floating action
+          bar so the last chip / paragraph never sits under the buttons.
+          (Same trick as the front face's gradient overlay.) */}
+      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-28 space-y-3">
         {builder.chVerified && (
           <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50">
             <span className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0">

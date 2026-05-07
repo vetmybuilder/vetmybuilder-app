@@ -5,6 +5,7 @@
 import Head from "next/head";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
+import { MoreHorizontal } from "lucide-react";
 import { useApi } from "@/utils/api";
 import { useMobileMenu } from "@/utils/mobileMenu";
 import { useSseEvent } from "@/utils/useSseEvent";
@@ -179,7 +180,7 @@ export default function TradesmanJobsDeckPage() {
         </Head>
 
         <main
-          className="fixed inset-0 overflow-y-auto bg-gradient-to-b from-[#ecfdf5] via-[#d1fae5] to-[#f0fdf4] md:bg-[#fef6e9] md:bg-none"
+          className="fixed inset-0 overflow-y-auto no-scrollbar bg-white md:bg-[#fef6e9] flex flex-col md:block"
           data-testid="tradesman-jobs-deck"
           style={{
             paddingBottom: "env(safe-area-inset-bottom)",
@@ -208,15 +209,21 @@ export default function TradesmanJobsDeckPage() {
             </div>
           )}
 
-          {/* Top bar — mobile only (hamburger nav). Desktop uses the
-              centered title block below instead. */}
+          {/* Mobile top bar — same shape as the homeowner project view:
+              centered page title + "..." more-menu icon on the right. In
+              flex flow above the deck (no absolute overlay), so the
+              composition matches the homeowner side. */}
           <div className="md:hidden px-4 pt-2 pb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-[16px] font-extrabold tracking-tight text-gray-900">
+            {/* Left spacer to keep the title centred (no back button on
+                /tradesman/jobs since it's a top-level destination). */}
+            <span className="w-10 h-10 shrink-0" aria-hidden />
+
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-[15px] font-extrabold tracking-tight text-gray-900 truncate">
                 Jobs near you
               </span>
               {remaining > 0 && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[11px] font-extrabold">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[11px] font-extrabold shrink-0">
                   {remaining} new
                 </span>
               )}
@@ -224,12 +231,11 @@ export default function TradesmanJobsDeckPage() {
 
             <button
               type="button"
-              aria-label="Open menu"
+              aria-label="More options"
               onClick={openMenu}
-              className="w-10 h-10 rounded-full bg-white/70 flex items-center justify-center shadow-sm"
-              style={{ backdropFilter: "blur(8px)" }}
+              className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center shrink-0"
             >
-              <span className="text-[20px] leading-none text-gray-700">☰</span>
+              <MoreHorizontal className="w-5 h-5 text-gray-700" />
             </button>
           </div>
 
@@ -253,9 +259,10 @@ export default function TradesmanJobsDeckPage() {
             </h1>
           </div>
 
-          {/* Card N of M hint */}
+          {/* Card N of M hint — desktop only. Removed on mobile to keep
+              the chrome minimal and match the homeowner project view. */}
           {!loading && !error && jobs.length > 0 && (
-            <div className="text-center text-[12px] font-semibold text-emerald-700 mb-1 relative z-10">
+            <div className="hidden md:block text-center text-[12px] font-semibold text-emerald-700 mb-1 relative z-10">
               Card {Math.min(jobs.length - remaining + 1, jobs.length)} of{" "}
               {jobs.length}
             </div>
@@ -277,12 +284,14 @@ export default function TradesmanJobsDeckPage() {
             </div>
           )}
 
-          {/* Deck — full-width on mobile, two-column with job-detail rail on desktop */}
+          {/* Deck — edge-to-edge on mobile (flex-1 so it takes ALL
+              remaining vertical space inside the flex-column main),
+              two-column with job-detail rail on desktop. */}
           {!loading && !error && (
-            <div className="px-4 md:px-0 md:mx-auto md:max-w-[900px] md:grid md:grid-cols-[280px_minmax(0,1fr)] md:gap-6 relative z-10">
+            <div className="md:px-0 md:mx-auto md:max-w-[900px] md:grid md:grid-cols-[280px_minmax(0,1fr)] md:gap-6 relative z-10 flex-1 min-h-0 md:flex-none flex flex-col md:block">
               <DesktopJobDetailRail job={topJob} />
 
-              <div className="md:max-w-xl">
+              <div className="md:max-w-xl flex-1 min-h-0 md:min-h-[520px] md:h-[520px]">
                 <JobSwipeDeck
                   jobs={jobs}
                   noJobsYet={noJobsYet}

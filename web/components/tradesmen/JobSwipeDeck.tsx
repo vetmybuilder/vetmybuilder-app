@@ -52,8 +52,11 @@ export default function JobSwipeDeck({
     onTopChange?.(current ?? null);
   }, [current, onTopChange]);
 
-  async function commit(direction: "left" | "right") {
-    if (!current || busy) return;
+  // Returns true if the deck should advance to the next card. False
+  // means the same card should stay in place (match navigation, paygate,
+  // unrecoverable error).
+  async function commitApi(direction: "left" | "right"): Promise<boolean> {
+    if (!current || busy) return false;
     setBusy(true);
     try {
       const res = await api.post(
@@ -62,10 +65,10 @@ export default function JobSwipeDeck({
       );
       if (direction === "right" && res.data?.matched) {
         router.push(`/match/${current.projectId}`);
-        return; // navigation handles unmount
+        return false; // navigation handles unmount
       }
-      setIndex((i) => i + 1);
       onConsumed?.();
+      return true;
     } catch (err: any) {
       // Server gates subscribed-tier right-swipes behind an active
       // subscription. Open the in-app pay-gate so the builder can pick a
@@ -83,37 +86,108 @@ export default function JobSwipeDeck({
           type: current.type,
           priceBandLabel: current.priceBandEstimate ?? null,
         });
-        return;
+        return false;
       }
       // Any other error - swallow rather than crash the deck. The card
       // stays in place; the user can retry.
+      return false;
     } finally {
       setBusy(false);
     }
   }
 
+  async function commit(direction: "left" | "right") {
+    const advance = await commitApi(direction);
+    if (advance) setIndex((i) => i + 1);
+  }
+
   // ---- drag state ----
-  const [drag, setDrag] = useState({ dx: 0 });
+  // Held in a ref so pointer-move doesn't re-render the deck on every
+  // frame. Transform is applied directly to the card element.
   const cardRef = useRef<HTMLDivElement>(null);
-  const dragStartX = useRef<number | null>(null);
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    lastX: number;
+    lastTime: number;
+    dx: number;
+    velocity: number;
+  } | null>(null);
+  const animatingRef = useRef(false);
+
+  function applyCardTransform(dx: number, immediate: boolean) {
+    const el = cardRef.current;
+    if (!el) return;
+    el.style.transition = immediate
+      ? "none"
+      : "transform 220ms cubic-bezier(0.4, 0.0, 0.2, 1)";
+    el.style.transform = `translateX(${dx}px) rotate(${dx / 20}deg)`;
+  }
 
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    if (busy) return;
-    dragStartX.current = e.clientX;
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    if (busy || animatingRef.current) return;
+    cardRef.current?.setPointerCapture(e.pointerId);
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      lastX: e.clientX,
+      lastTime: e.timeStamp,
+      dx: 0,
+      velocity: 0,
+    };
+    applyCardTransform(0, true);
   }
   function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    if (dragStartX.current === null) return;
-    setDrag({ dx: e.clientX - dragStartX.current });
+    const s = dragRef.current;
+    if (!s || s.pointerId !== e.pointerId) return;
+    if (Math.abs(e.clientX - s.startX) > 4) e.preventDefault();
+    const dt = Math.max(1, e.timeStamp - s.lastTime);
+    s.velocity = (e.clientX - s.lastX) / dt;
+    s.lastX = e.clientX;
+    s.lastTime = e.timeStamp;
+    s.dx = e.clientX - s.startX;
+    applyCardTransform(s.dx, true);
   }
-  function onPointerUp() {
-    const width = cardRef.current?.offsetWidth ?? 320;
-    const { dx } = drag;
-    if (Math.abs(dx) / width > 0.25) {
-      commit(dx > 0 ? "right" : "left");
+  async function flingAndCommit(direction: "left" | "right", width: number) {
+    animatingRef.current = true;
+    const flingTo = direction === "right" ? width * 1.5 : -width * 1.5;
+    const el = cardRef.current;
+    if (el) {
+      el.style.transition = "transform 250ms cubic-bezier(0.4, 0.0, 0.2, 1)";
+      el.style.transform = `translateX(${flingTo}px) rotate(${flingTo / 20}deg)`;
     }
-    setDrag({ dx: 0 });
-    dragStartX.current = null;
+    // Run the fling animation in parallel with the API. Hold the index
+    // advance until BOTH are done — if the API resolves before the 250ms
+    // animation, an early setIndex would re-render the top div with the
+    // next card's content while it's still under the off-screen fling
+    // transform, briefly exposing the peek behind it (visible as a grey
+    // flash / strip on swipe). Advance + snap transform together.
+    const [, advance] = await Promise.all([
+      new Promise<void>((r) => window.setTimeout(r, 250)),
+      commitApi(direction).catch(() => false as boolean),
+    ]);
+    applyCardTransform(0, true);
+    if (advance) setIndex((i) => i + 1);
+    animatingRef.current = false;
+  }
+
+  function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    const s = dragRef.current;
+    if (!s || s.pointerId !== e.pointerId) return;
+    cardRef.current?.releasePointerCapture(e.pointerId);
+    dragRef.current = null;
+
+    const width = cardRef.current?.offsetWidth ?? 320;
+    const { dx, velocity } = s;
+    const farEnough = Math.abs(dx) / width > 0.25;
+    const fastEnough = Math.abs(velocity) > 0.5 && Math.abs(dx) > 20;
+    if (farEnough || fastEnough) {
+      const direction: "left" | "right" =
+        dx !== 0 ? (dx > 0 ? "right" : "left") : velocity > 0 ? "right" : "left";
+      void flingAndCommit(direction, width);
+      return;
+    }
+    applyCardTransform(0, false);
   }
 
   if (!current) {
@@ -123,18 +197,19 @@ export default function JobSwipeDeck({
   const peek = jobs.slice(index + 1, index + 3);
 
   return (
-    <div className="relative">
-      <div className="relative h-[520px]">
-        {/* Peek cards — static stack hint */}
-        {peek.map((j, i) => (
+    <div className="relative h-full w-full">
+      <div className="relative h-full w-full min-h-[460px]">
+        {/* Peek cards sit flush behind the top card (no scale / no offset).
+            Scaling the peek subpixel-renders pills + text at 0.97x and
+            visibly snaps to 1.0x the moment it becomes the top, which is
+            what reads as "jumpy" / "distorted pills" / "back card not
+            fully loaded". Flat-stacking eliminates the transition. */}
+        {peek.map((j) => (
           <div
             key={j.projectId}
             aria-hidden
-            className="absolute inset-0 transition-transform"
-            style={{
-              transform: `translateY(${(i + 1) * 8}px) scale(${1 - (i + 1) * 0.03})`,
-              zIndex: 1,
-            }}
+            className="absolute inset-0"
+            style={{ zIndex: 1 }}
           >
             <JobCard data={j} />
           </div>
@@ -147,13 +222,16 @@ export default function JobSwipeDeck({
           onPointerDown={flipped ? undefined : onPointerDown}
           onPointerMove={flipped ? undefined : onPointerMove}
           onPointerUp={flipped ? undefined : onPointerUp}
-          className="absolute inset-0 z-10 touch-none"
+          onPointerCancel={flipped ? undefined : onPointerUp}
+          onContextMenu={(e) => e.preventDefault()}
+          onDragStart={(e) => e.preventDefault()}
+          className="absolute inset-0 z-10 touch-none select-none will-change-transform"
           style={{
-            transform: flipped
-              ? "none"
-              : `translateX(${drag.dx}px) rotate(${drag.dx / 20}deg)`,
             perspective: "1200px",
-          }}
+            WebkitTouchCallout: "none",
+            WebkitUserSelect: "none",
+            userSelect: "none",
+          } as React.CSSProperties}
         >
           <div
             className="relative w-full h-full"
@@ -163,12 +241,16 @@ export default function JobSwipeDeck({
               transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
             }}
           >
-            {/* Front */}
+            {/* Front. translateZ(0) forces this face into its own 3D
+                layer; without it Safari leaks the absolutely-positioned
+                badges (z-10 inside JobCard) through the rotated face,
+                appearing mirrored on the back of the card. */}
             <div
               className="absolute inset-0"
               style={{
                 backfaceVisibility: "hidden",
                 WebkitBackfaceVisibility: "hidden",
+                transform: "translateZ(0)",
               }}
             >
               <JobCard data={current} />
@@ -179,22 +261,30 @@ export default function JobSwipeDeck({
               style={{
                 backfaceVisibility: "hidden",
                 WebkitBackfaceVisibility: "hidden",
-                transform: "rotateY(180deg)",
+                transform: "rotateY(180deg) translateZ(0)",
               }}
             >
               <JobCardBack data={current} />
             </div>
           </div>
         </div>
-      </div>
 
-      <SwipeActionBar
-        tone="emerald"
-        disabled={busy}
-        onPass={() => commit("left")}
-        onInfo={() => setFlipped((v) => !v)}
-        onLike={() => commit("right")}
-      />
+        {/* Floating action bar — sits absolute over the bottom of the
+            top card, glass-blur backdrop. Emerald Like for the trade
+            brand. */}
+        <div className="absolute inset-x-0 bottom-4 z-20 flex items-center justify-center pointer-events-none">
+          <div className="pointer-events-auto">
+            <SwipeActionBar
+              tone="emerald"
+              disabled={busy}
+              onPass={() => commit("left")}
+              onInfo={() => setFlipped((v) => !v)}
+              onLike={() => commit("right")}
+              floating
+            />
+          </div>
+        </div>
+      </div>
 
       <SwipePayGate
         open={paygate !== null}

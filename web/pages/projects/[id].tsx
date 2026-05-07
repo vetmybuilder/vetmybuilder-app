@@ -15,6 +15,7 @@ import SwipeDeck from "@/components/project/SwipeDeck";
 import ProjectActionsSheet from "@/components/project/ProjectActionsSheet";
 import ShareProjectModal from "@/components/project/ShareProjectModal";
 import OffPlatformRecModal from "@/components/project/OffPlatformRecModal";
+import ProjectMobileRecsStrip from "@/components/project/ProjectMobileRecsStrip";
 import PhotoLightbox from "@/components/PhotoLightbox";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import { useApi } from "@/utils/api";
@@ -743,7 +744,7 @@ function ProjectSwipeMobile({
 
   return (
     <main
-      className="fixed inset-0 bg-white overflow-y-auto"
+      className="fixed inset-0 bg-white overflow-y-auto no-scrollbar flex flex-col"
       style={{
         paddingBottom: "env(safe-area-inset-bottom)",
         fontFamily:
@@ -776,18 +777,27 @@ function ProjectSwipeMobile({
         </button>
       </div>
 
-      {matches && (
-        <SwipeDeck
-          projectId={String(projectId)}
-          builders={[
-            // On-platform only. Off-platform recs render in the right-rail
-            // Recommendations card -> OffPlatformRecModal flow.
-            ...(matches.recommended || []),
-            ...(matches.paidUnlock || []),
-            ...(matches.subscribed || []),
-          ]}
-          onMatch={(matchId) => router.push(`/match/${matchId}`)}
+      {matches?.recommendationCards && (
+        <ProjectMobileRecsStrip
+          projectId={projectId}
+          recs={matches.recommendationCards}
         />
+      )}
+
+      {matches && (
+        <div className="flex-1 min-h-0 flex flex-col">
+          <SwipeDeck
+            projectId={String(projectId)}
+            builders={[
+              // On-platform only. Off-platform recs render in the strip
+              // above and on the dedicated recommendation detail page.
+              ...(matches.recommended || []),
+              ...(matches.paidUnlock || []),
+              ...(matches.subscribed || []),
+            ]}
+            onMatch={(matchId) => router.push(`/match/${matchId}`)}
+          />
+        </div>
       )}
 
       <ProjectActionsSheet

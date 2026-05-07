@@ -77,7 +77,9 @@ module.exports = function mountGlobalMatches(router, ctx) {
               COALESCE(t.likes_count, 0) AS likesCount,
               COALESCE(t.wins_count, 0) AS winsCount,
               si.source AS source,
-              si.status AS status
+              si.status AS status,
+              si.homeowner_swiped_at AS homeownerSwipedAt,
+              si.builder_swiped_at AS builderSwipedAt
        FROM swipe_interest si
        JOIN projects p ON p.id = si.project_id
        LEFT JOIN tradesmen t ON t.user_id = si.builder_uid
@@ -500,6 +502,14 @@ module.exports = function mountGlobalMatches(router, ctx) {
       const lastMessage = lastMessageByMatch.get(matchKey) || null;
       const unreadCount = unreadByMatch.get(matchKey) || 0;
 
+      // initiator: who swiped first while the row is still pending. Drives
+      // the waiting-state caption in the UI ("you swiped" vs "they swiped").
+      // null when matched (both swiped, irrelevant) or when somehow neither
+      // timestamp is set.
+      let initiator = null;
+      if (r.homeownerSwipedAt && !r.builderSwipedAt) initiator = "homeowner";
+      else if (r.builderSwipedAt && !r.homeownerSwipedAt) initiator = "builder";
+
       return {
         matchId: String(r.matchId),
         projectId: String(r.projectId),
@@ -519,6 +529,7 @@ module.exports = function mountGlobalMatches(router, ctx) {
         winsCount: Number(r.winsCount) || 0,
         source,
         status,
+        initiator,
         whyMatch,
         lastMessage,
         unreadCount,

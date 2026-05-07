@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---------- No-scrollbar utility ----------
+   Used on full-bleed swipe-deck pages where the deck card is meant to
+   reach the viewport edge. iOS Safari overlay scrollbars are invisible
+   anyway, but on macOS Safari with "Always show scrollbars" enabled the
+   gutter shows as a thin strip on the right of the photo. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* ---------- Floating button pulse ---------- */
 @keyframes bounce-slow {
   0%, 100% { transform: translateY(0); }

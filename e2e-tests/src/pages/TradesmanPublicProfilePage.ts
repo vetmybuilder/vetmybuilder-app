@@ -1,6 +1,8 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import BasePage from "./BasePage";
 import Tradesman from "../models/tradesman";
+import { hrefMatcher } from "../utils/formatters";
+import { safeGoto } from "../helpers/navigation";
 
 export class TradesmanPublicProfilePage extends BasePage {
   readonly root: Locator;
@@ -42,8 +44,12 @@ export class TradesmanPublicProfilePage extends BasePage {
   }
 
   async visit(uid: string) {
-    await this.page.goto(`/tradesman/${uid}`);
-    await expect(this.root).toBeVisible({ timeout: 15_000 });
+    // The previous step (TradesmanEditPage.save) ends with a router.replace
+    // to /tradesman/account; webkit can fire that navigation just as we
+    // call goto(). safeGoto retries past the "interrupted by another
+    // navigation" error so we land on the public profile cleanly.
+    await safeGoto(this.page, `/tradesman/${uid}`);
+    await expect(this.root).toBeVisible();
   }
 
   async expectAvatarSrc(url: string): Promise<void> {
@@ -87,24 +93,33 @@ export class TradesmanPublicProfilePage extends BasePage {
    *                     when the model has none
    */
   async hasProfile(tradesman: Tradesman): Promise<void> {
-    await expect(this.root).toBeVisible({ timeout: 15_000 });
+    await expect(this.root).toBeVisible();
     await expect(this.name).toContainText(tradesman.companyName);
-    await expect(this.memberSince).toBeVisible({ timeout: 10_000 });
+    await expect(this.memberSince).toBeVisible();
 
     if (this.tradesmanHasContactInfo(tradesman)) {
-      await expect(this.contactCard).toBeVisible({ timeout: 15_000 });
+      await expect(this.contactCard).toBeVisible();
     }
 
     if (tradesman.phone) {
-      const phoneLink = this.page.getByTestId("tradesman-phone").first();
-      await expect(phoneLink).toBeVisible({ timeout: 10_000 });
+      // Both desktop and mobile trees render `tradesman-phone`; the inactive
+      // one is CSS-hidden, so filter by visibility.
+      const phoneLink = this.page
+        .getByTestId("tradesman-phone")
+        .filter({ visible: true });
+      await expect(phoneLink).toBeVisible();
       await expect(phoneLink).toHaveAttribute("href", `tel:${tradesman.phone}`);
     }
 
     if (tradesman.website) {
-      const websiteLink = this.page.getByTestId("tradesman-website").first();
-      await expect(websiteLink).toBeVisible({ timeout: 10_000 });
-      await expect(websiteLink).toHaveAttribute("href", tradesman.website);
+      const websiteLink = this.page
+        .getByTestId("tradesman-website")
+        .filter({ visible: true });
+      await expect(websiteLink).toBeVisible();
+      await expect(websiteLink).toHaveAttribute(
+        "href",
+        hrefMatcher(tradesman.website),
+      );
     }
 
     if (this.tradesmanHasPhoto(tradesman)) {
@@ -131,16 +146,20 @@ export class TradesmanPublicProfilePage extends BasePage {
       for (const trade of trades) {
         await expect(
           tradeChips.filter({ hasText: new RegExp(trade, "i") }).first(),
-        ).toBeVisible({ timeout: 10_000 });
+        ).toBeVisible();
       }
     }
 
     const areas = this.serviceAreasAsList(tradesman);
     if (areas.length > 0) {
       for (const area of areas) {
+        // Service-area chips are rendered in both mobile and desktop trees;
+        // filter to whichever is currently visible.
         await expect(
-          this.page.getByTestId(`tradesman-service-area-${area}`).first(),
-        ).toBeVisible({ timeout: 10_000 });
+          this.page
+            .getByTestId(`tradesman-service-area-${area}`)
+            .filter({ visible: true }),
+        ).toBeVisible();
       }
     }
 

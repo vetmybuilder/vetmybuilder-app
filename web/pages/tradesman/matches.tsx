@@ -23,7 +23,8 @@ import SiteHeader from "@/components/SiteHeader";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import BrandWordmark from "@/components/BrandWordmark";
 import ChatWindow from "@/components/messaging/ChatWindow";
-import { Handshake, MessagesSquare, Sparkles, Star } from "lucide-react";
+import { ChevronLeft, Handshake, MessagesSquare, Sparkles, Star } from "lucide-react";
+import { getJobCategoryImage } from "@/utils/jobCategoryImage";
 
 type MatchSource = "recommended" | "subscribed";
 
@@ -110,9 +111,14 @@ export default function TradesmanMatchesPage() {
 
         {/* Top bar */}
         <div className="px-5 pt-3 pb-3 flex items-center justify-between">
-          <Link href="/" aria-label="Go to homepage" className="inline-flex items-center">
-            <BrandWordmark tone="emerald" />
-          </Link>
+          <button
+            type="button"
+            aria-label="Back"
+            onClick={() => router.back()}
+            className="w-[38px] h-[38px] rounded-full bg-gray-100 flex items-center justify-center text-gray-700"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
           <button
             type="button"
             aria-label="Open menu"
@@ -235,12 +241,13 @@ function MatchRow({
   row: TradesmanMatchRow;
   onOpen: () => void;
 }) {
-  // Homeowner first name is intentionally NOT rendered as text - just
-  // its initial appears in the avatar. The project name carries the
-  // identity instead. Privacy directive: pre-paid contact reveal happens
-  // on /match/:matchId, never on the list view.
-  const initial = (row.homeownerFirstName || "?").charAt(0).toUpperCase();
+  // Trade matches are with JOBS, not people. Use the same job category
+  // hero image the trade saw on the swipe card so they instantly
+  // recognise which match this is. Privacy: homeowner identity isn't
+  // surfaced on the list view (pre-paid contact reveal lives on
+  // /match/:matchId).
   const isRec = row.source === "recommended";
+  const heroImage = getJobCategoryImage(row.projectType);
   return (
     <div
       role="button"
@@ -257,16 +264,15 @@ function MatchRow({
     >
       <div className="flex items-start gap-3">
         <div
-          className="w-12 h-12 rounded-full flex items-center justify-center text-white font-extrabold text-[18px] shrink-0"
+          className="w-12 h-12 rounded-2xl bg-cover bg-center shrink-0 ring-2"
           style={{
-            background: isRec
-              ? "linear-gradient(135deg, #fcd34d, #f59e0b)"
-              : "linear-gradient(135deg, #6ee7b7, #10b981)",
+            backgroundImage: `url(${heroImage})`,
+            ...(isRec
+              ? { boxShadow: "inset 0 0 0 2px #f59e0b" }
+              : { boxShadow: "inset 0 0 0 2px #10b981" }),
           }}
           aria-hidden
-        >
-          {initial}
-        </div>
+        />
         <div className="flex-1 min-w-0">
           <div className="text-[15px] font-extrabold tracking-tight text-gray-900 truncate">
             {row.projectName}
@@ -437,9 +443,11 @@ function DesktopMatchListItem({
   isActive: boolean;
   onClick: () => void;
 }) {
-  // Privacy-safe avatar: initial only, never the full first name.
-  const initial = (row.homeownerFirstName || "?").charAt(0).toUpperCase();
+  // Trade matches are with JOBS, not people - use the same job category
+  // hero image as the swipe card so the trade instantly recognises which
+  // match this is. Homeowner identity stays private until /match/:id.
   const isRec = row.source === "recommended";
+  const heroImage = getJobCategoryImage(row.projectType);
   const sourceClass = isRec
     ? "bg-emerald-50 text-emerald-700"
     : "bg-indigo-50 text-indigo-700";
@@ -455,16 +463,15 @@ function DesktopMatchListItem({
         data-testid={`desktop-match-list-${row.matchId}`}
       >
         <span
-          className="shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-full text-white text-sm font-black"
+          className="shrink-0 h-9 w-9 rounded-xl bg-cover bg-center"
           style={{
-            background: isRec
-              ? "linear-gradient(135deg, #fcd34d, #f59e0b)"
-              : "linear-gradient(135deg, #6ee7b7, #10b981)",
+            backgroundImage: `url(${heroImage})`,
+            boxShadow: isRec
+              ? "inset 0 0 0 2px #f59e0b"
+              : "inset 0 0 0 2px #10b981",
           }}
           aria-hidden
-        >
-          {initial}
-        </span>
+        />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <h3

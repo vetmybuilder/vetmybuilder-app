@@ -13,6 +13,7 @@ import { MobileMenuProvider } from "@/utils/mobileMenu";
 import GlobalMobileMenu from "@/components/GlobalMobileMenu";
 import MatchCelebrationToast from "@/components/MatchCelebrationToast";
 import GlobalSseDispatcher from "@/components/GlobalSseDispatcher";
+import GlobalNotificationToast from "@/components/GlobalNotificationToast";
 import MessagingDock from "@/components/messaging/MessagingDock";
 import TradesmanMessagingDock from "@/components/messaging/TradesmanMessagingDock";
 import CookieConsent from "react-cookie-consent";
@@ -311,6 +312,12 @@ export default function MyApp({ Component, pageProps }: AppProps) {
           page the user is on. Closes the gap where the first-mover
           doesn't get the celebration screen automatically. */}
       <MatchCelebrationToast />
+
+      {/* Lightweight inline toast for chat / hire / rec notifications,
+          triggered from the same SSE stream. Push notifications only fire
+          when the tab is backgrounded, so an active foregrounded user
+          gets nothing without this. Tap the toast to navigate. */}
+      <GlobalNotificationToast />
 
       {/* LinkedIn-style messaging dock: bottom-right pill that expands
           into a conversation list and floats individual chat windows.

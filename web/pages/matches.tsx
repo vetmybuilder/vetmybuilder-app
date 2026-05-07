@@ -17,6 +17,7 @@ import { useApi } from "@/utils/api";
 import AuthedOnly from "@/components/AuthedOnly";
 import EnableNotificationsBanner from "@/components/EnableNotificationsBanner";
 import { useMobileMenu } from "@/utils/mobileMenu";
+import { ChevronLeft } from "lucide-react";
 import { useRole } from "@/utils/useRole";
 import { useAuth } from "@/utils/auth";
 import Layout from "@/components/Layout";
@@ -51,6 +52,10 @@ interface MatchRow {
   winsCount: number;
   source: MatchSource;
   status: MatchStatus;
+  /** Which side swiped first while the row is still pending. Drives the
+   *  waiting-state caption ("you swiped" vs "they swiped"). null when
+   *  matched or when neither timestamp is set. */
+  initiator: "homeowner" | "builder" | null;
   whyMatch: string;
   lastMessage: LastMessage | null;
   unreadCount: number;
@@ -189,8 +194,16 @@ function previewText(
   const lm = row.lastMessage;
   if (!lm || (!lm.body && lm.attachmentCount === 0)) {
     if (row.status === "waiting") {
+      // Caption depends on who's blocking. When the homeowner is the
+      // first mover, they're waiting on the builder. When the builder
+      // swiped first, the ball's in the homeowner's court - tell them
+      // to swipe back.
+      const text =
+        row.initiator === "homeowner"
+          ? `Waiting for ${row.companyName || "the builder"} to swipe back…`
+          : "Builder swiped right - swipe back to start chatting.";
       return {
-        text: "Builder swiped right - swipe back to start chatting.",
+        text,
         italic: true,
         truncate: true,
       };
@@ -514,12 +527,20 @@ function MatchesPageInner() {
       <div style={{ height: "env(safe-area-inset-top)" }} />
 
       {/* Top bar */}
-      <div className="px-5 pt-3 pb-2 flex items-center justify-between border-b border-slate-100">
-        <div className="flex items-center gap-2">
-          <h1 className="text-[22px] font-extrabold tracking-tight text-slate-900">
-            Messages
+      <div className="px-3 pt-3 pb-2 flex items-center justify-between gap-2 border-b border-slate-100">
+        <button
+          type="button"
+          aria-label="Back"
+          onClick={() => router.back()}
+          className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 shrink-0"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+        <div className="flex-1 flex items-center gap-2 min-w-0">
+          <h1 className="text-[22px] font-extrabold tracking-tight text-slate-900 truncate">
+            Matches
           </h1>
-          <span className="text-[12px] text-slate-400 font-bold">
+          <span className="text-[12px] text-slate-400 font-bold shrink-0">
             {counts.all}
           </span>
         </div>
@@ -527,7 +548,7 @@ function MatchesPageInner() {
           type="button"
           aria-label="Open menu"
           onClick={openMenu}
-          className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-700"
+          className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 shrink-0"
         >
           <span aria-hidden className="text-[18px] leading-none">
             ≡

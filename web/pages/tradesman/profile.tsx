@@ -12,6 +12,7 @@ import { useRouter } from "next/router";
 import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 import { ChevronLeft, Pencil, ShieldCheck } from "lucide-react";
+import PhotoLightbox from "@/components/PhotoLightbox";
 
 type MeResponse = {
   role: "tradesman" | "user";
@@ -52,6 +53,7 @@ function Inner() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<{ photos: string[]; index: number } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -266,13 +268,23 @@ function Inner() {
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     {profile.gallery.slice(0, 6).map((src, i) => (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
+                      <button
                         key={i}
-                        src={src}
-                        alt=""
-                        className="aspect-square w-full rounded-xl object-cover"
-                      />
+                        type="button"
+                        onClick={() =>
+                          setLightbox({ photos: profile.gallery, index: i })
+                        }
+                        className="aspect-square w-full rounded-xl overflow-hidden focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                        aria-label="Open photo"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={src}
+                          alt=""
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      </button>
                     ))}
                   </div>
                 </section>
@@ -317,6 +329,12 @@ function Inner() {
           )}
         </div>
       </main>
+      <PhotoLightbox
+        open={lightbox !== null}
+        photos={lightbox?.photos || []}
+        initialIndex={lightbox?.index ?? 0}
+        onClose={() => setLightbox(null)}
+      />
     </>
   );
 }

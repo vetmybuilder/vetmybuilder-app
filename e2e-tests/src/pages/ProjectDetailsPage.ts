@@ -474,10 +474,35 @@ export class ProjectDetailsPage extends BasePage {
    * Bypasses waitUntilReady's strict gate (which expects the legacy
    * project-view-page testid).
    */
+  /**
+   * Assert that an on-platform recommended tradesperson is rendered in
+   * the swipe deck on the project page (the company name appears on the
+   * top BuilderCard). Used to verify the server's name-matcher linked an
+   * incoming recommendation to a registered tradesperson.
+   */
+  async assertSwipeDeckShowsTradesman(
+    projectId: string | number,
+    tradesmanCompany: string,
+  ) {
+    await safeGoto(this.page, `/projects/${projectId}`);
+    await expect(this.page).toHaveURL(`/projects/${projectId}`);
+    // matchAndNotifyTradesman runs fire-and-forget after the rec POST, so
+    // give the deck a generous window to pick up the linked rec.
+    await expect(
+      this.page
+        .getByText(tradesmanCompany)
+        .filter({ visible: true })
+        .first(),
+    ).toBeVisible({ timeout: 15_000 });
+  }
+
   async assertProjectShowsRecommendation(
     projectId: string | number,
     recommendation: Recommendation,
   ) {
+    // Both viewports surface off-platform recommendations on the project
+    // detail page now (desktop right rail / mobile strip above the swipe
+    // deck), so the assertion is the same on both.
     await safeGoto(this.page, `/projects/${projectId}`);
     await expect(this.page).toHaveURL(`/projects/${projectId}`);
     await expect(
@@ -485,7 +510,7 @@ export class ProjectDetailsPage extends BasePage {
         .getByText(recommendation.company)
         .filter({ visible: true })
         .first(),
-    ).toBeVisible({ timeout: 20_000 });
+    ).toBeVisible({ timeout: 10_000 });
   }
 
   async openProjectRecommendation(recommendation: Recommendation) {

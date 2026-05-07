@@ -651,7 +651,7 @@ export default function ProjectsListMobile({
           aria-label="Open menu"
           onClick={openMenu}
           className="w-[38px] h-[38px] rounded-full bg-gray-100 flex items-center justify-center text-gray-700"
-          data-testid="projects-mobile-burger"
+          data-testid="btn-mobile-menu"
         >
           <span aria-hidden className="text-[18px] leading-none">
             ≡

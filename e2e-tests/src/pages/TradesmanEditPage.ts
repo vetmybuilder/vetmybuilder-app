@@ -20,6 +20,7 @@ type ReviewPlatformKey =
 type WarrantyOption = "none" | "3m" | "6m" | "12m" | "24m+";
 
 export class TradesmanEditPage extends BasePage {
+  readonly root: Locator;
   readonly step1Form: Locator;
   readonly step2Form: Locator;
   readonly step3Form: Locator;
@@ -40,17 +41,29 @@ export class TradesmanEditPage extends BasePage {
 
   constructor(page: Page) {
     super(page);
-    this.step1Form = page.getByTestId("step-1");
-    this.step2Form = page.getByTestId("step-2");
-    this.step3Form = page.getByTestId("step-3");
-    this.profileBadge = page.getByText("Profile", { exact: true }).first();
-    this.nextButton = page.getByRole("button", { name: /^Next/ });
-    this.saveButton = page.getByRole("button", { name: /save changes/i });
+    // /tradesman/profile/edit renders both a mobile (`trades-edit-profile-page`)
+    // and a desktop (`trades-edit-profile-desktop`) tree, with the inactive
+    // one CSS-hidden. Step + input testids exist inside both, so all child
+    // locators must be scoped to whichever root is currently visible.
+    this.root = page
+      .getByTestId("trades-edit-profile-page")
+      .or(page.getByTestId("trades-edit-profile-desktop"))
+      .filter({ visible: true });
 
-    this.contactNameInput = page.getByTestId("input-contact-name");
-    this.phoneInput = page.getByTestId("input-phone");
-    this.areasInput = page.getByTestId("input-areas").locator("input").first();
-    this.websiteField = page.getByTestId("website-field");
+    this.step1Form = this.root.getByTestId("step-1");
+    this.step2Form = this.root.getByTestId("step-2");
+    this.step3Form = this.root.getByTestId("step-3");
+    this.profileBadge = this.root.getByText("Profile", { exact: true }).first();
+    this.nextButton = this.root.getByRole("button", { name: /^Next/ });
+    this.saveButton = this.root.getByRole("button", { name: /save changes/i });
+
+    this.contactNameInput = this.root.getByTestId("input-contact-name");
+    this.phoneInput = this.root.getByTestId("input-phone");
+    this.areasInput = this.root
+      .getByTestId("input-areas")
+      .locator("input")
+      .first();
+    this.websiteField = this.root.getByTestId("website-field");
     this.websiteInput = this.websiteField.locator("input").first();
     this.websiteRemoveButton = this.websiteField.getByRole("button", {
       name: /remove/i,
@@ -58,36 +71,41 @@ export class TradesmanEditPage extends BasePage {
     this.websiteAddButton = this.websiteField.getByRole("button", {
       name: /\+ add/i,
     });
-    this.socialsToggle = page.getByTestId("socials").locator("button").first();
-    this.reviewLinksToggle = page.getByTestId("btn-toggle-review-links");
-    this.discountMaxInput = page.getByTestId("input-discount-max");
+    this.socialsToggle = this.root
+      .getByTestId("socials")
+      .locator("button")
+      .first();
+    this.reviewLinksToggle = this.root.getByTestId("btn-toggle-review-links");
+    this.discountMaxInput = this.root.getByTestId("input-discount-max");
   }
 
   async goto() {
     await this.page.goto("/tradesman/profile/edit", {
       waitUntil: "domcontentloaded",
     });
-    await expect(
-      this.page.getByTestId("trades-edit-profile-page"),
-    ).toBeVisible({ timeout: 20_000 });
-    await expect(this.step1Form).toBeVisible({ timeout: 10_000 });
+    await expect(this.root).toBeVisible();
+    await expect(this.step1Form).toBeVisible();
   }
 
+  // The mobile tree is a stepped wizard (Next button between sections);
+  // the desktop tree is a single page with every section visible at once.
+  // If the requested form is already visible we're on desktop and the
+  // step-nav is a no-op; otherwise click Next to advance the wizard.
   async goToStep2() {
+    if (await this.step2Form.isVisible()) return;
     await this.nextButton.click();
-    await expect(this.step2Form).toBeVisible({ timeout: 10_000 });
+    await expect(this.step2Form).toBeVisible();
   }
 
   async goToStep3() {
+    if (await this.step3Form.isVisible()) return;
     await this.nextButton.click();
-    await expect(this.step3Form).toBeVisible({ timeout: 10_000 });
+    await expect(this.step3Form).toBeVisible();
   }
 
   async save() {
     await this.saveButton.click();
-    await expect(this.page).toHaveURL(/\/tradesman\/account/, {
-      timeout: 20_000,
-    });
+    await expect(this.page).toHaveURL(/\/tradesman\/account/);
   }
 
   // ---------- Step 1: company details ----------
@@ -102,18 +120,22 @@ export class TradesmanEditPage extends BasePage {
 
   async addServiceArea(postcode: string) {
     await this.areasInput.fill(postcode);
-    await this.areasInput.press("Enter");
+    // The area input is a typeahead: an outward like "E4" only commits
+    // when the user picks a suggestion (Enter alone falls through to a
+    // place-resolve that doesn't add a chip). Click the first suggestion;
+    // every postcode/sector row commits the same outward.
+    await this.root.locator('[role="option"]').first().click();
     const code = postcode.split(" ")[0].toUpperCase();
     await expect(
-      this.page.locator(`[aria-label="Remove ${code}"]`),
-    ).toBeVisible({ timeout: 5_000 });
+      this.root.locator(`[aria-label="Remove ${code}"]`),
+    ).toBeVisible();
   }
 
   async removeServiceArea(label: string) {
     const code = label.toUpperCase();
-    await this.page.locator(`[aria-label="Remove ${code}"]`).click();
+    await this.root.locator(`[aria-label="Remove ${code}"]`).click();
     await expect(
-      this.page.locator(`[aria-label="Remove ${code}"]`),
+      this.root.locator(`[aria-label="Remove ${code}"]`),
     ).toHaveCount(0);
   }
 
@@ -134,33 +156,33 @@ export class TradesmanEditPage extends BasePage {
   }
 
   async openSocials() {
-    if ((await this.page.getByTestId("socials-grid").count()) === 0) {
+    if ((await this.root.getByTestId("socials-grid").count()) === 0) {
       await this.socialsToggle.click();
-      await expect(this.page.getByTestId("socials-grid")).toBeVisible();
+      await expect(this.root.getByTestId("socials-grid")).toBeVisible();
     }
   }
 
   async fillSocial(key: SocialKey, value: string) {
     await this.openSocials();
-    const input = this.page.getByTestId(`social-${key}`).locator("input");
+    const input = this.root.getByTestId(`social-${key}`).locator("input");
     await input.fill(value);
     await input.blur();
   }
 
   async openReviewLinks() {
-    if ((await this.page.getByTestId("review-links-grid").count()) === 0) {
+    if ((await this.root.getByTestId("review-links-grid").count()) === 0) {
       await this.reviewLinksToggle.click();
-      await expect(this.page.getByTestId("review-links-grid")).toBeVisible();
+      await expect(this.root.getByTestId("review-links-grid")).toBeVisible();
     }
   }
 
   async fillReviewLink(platform: ReviewPlatformKey, url: string) {
     await this.openReviewLinks();
-    const input = this.page.getByTestId(`input-review-${platform}`);
+    const input = this.root.getByTestId(`input-review-${platform}`);
     await input.fill(url);
     await input.blur();
     await expect(
-      this.page.getByTestId(`error-review-${platform}`),
+      this.root.getByTestId(`error-review-${platform}`),
     ).toHaveCount(0);
   }
 
@@ -174,7 +196,7 @@ export class TradesmanEditPage extends BasePage {
   }
 
   async assertProfileBadgeVisible() {
-    await expect(this.profileBadge).toBeVisible({ timeout: 10_000 });
+    await expect(this.profileBadge).toBeVisible();
   }
 
   async assertProfileBadgeCount(count: number) {
@@ -207,9 +229,9 @@ export class TradesmanEditPage extends BasePage {
   }
 
   async setWarranty(option: WarrantyOption) {
-    await this.page.getByTestId(`warranty-${option}`).click();
+    await this.root.getByTestId(`warranty-${option}`).click();
     await expect(
-      this.page.getByTestId(`warranty-${option}`),
+      this.root.getByTestId(`warranty-${option}`),
     ).toHaveAttribute("aria-pressed", "true");
   }
 
@@ -222,7 +244,7 @@ export class TradesmanEditPage extends BasePage {
   async assertSocialValue(key: SocialKey, expected: string | RegExp) {
     await this.openSocials();
     await expect(
-      this.page.getByTestId(`social-${key}`).locator("input"),
+      this.root.getByTestId(`social-${key}`).locator("input"),
     ).toHaveValue(expected);
   }
 }
