@@ -62,10 +62,19 @@ describe("projectClassifier", () => {
       log: silentLog,
     });
 
-    expect(result).toEqual(VALID_RESPONSE);
+    // recommended_trades is now overridden by the canonical project-
+    // type → trade map (server/lib/matching/projectTradeMap.js). The
+    // type "Electrical" maps to Electrical-category trades, regardless
+    // of what the LLM (or stub) suggested.
+    expect(result.type).toBe(VALID_RESPONSE.type);
+    expect(result.scope).toBe(VALID_RESPONSE.scope);
+    expect(result.complexity).toBe(VALID_RESPONSE.complexity);
+    expect(result.summary).toBe(VALID_RESPONSE.summary);
+    expect(result.recommended_trades).toContain("Electrician");
     expect(inserted).toHaveLength(1);
     expect(inserted[0][0]).toBe(1);
-    expect(JSON.parse(inserted[0][3])).toEqual(VALID_RESPONSE);
+    const persisted = JSON.parse(inserted[0][3]);
+    expect(persisted.recommended_trades).toContain("Electrician");
   });
 
   it("returns null when mysqlQuery is missing", async () => {

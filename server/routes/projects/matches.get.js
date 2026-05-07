@@ -18,6 +18,9 @@
 const { rankBuilders } = require("../../lib/matching/rankBuilders");
 const { expireSwipeInterests } = require("../../lib/matching/expireSwipeInterests");
 const { extractOutward } = require("../../lib/matching/extractOutward");
+const {
+  getTradesForProjectType,
+} = require("../../lib/matching/projectTradeMap");
 
 function splitCsv(v) {
   if (!v || typeof v !== "string") return [];
@@ -81,7 +84,7 @@ module.exports = function mountMatchesGet(router, ctx) {
     await expireSwipeInterests(mysqlQuery);
 
     const projectRows = await mysqlQuery(
-      `SELECT id, ownerUserId, location
+      `SELECT id, ownerUserId, location, type
          FROM projects
         WHERE id = ?
         LIMIT 1`,
@@ -113,6 +116,17 @@ module.exports = function mountMatchesGet(router, ctx) {
       } else {
         classification = classRaw;
       }
+    }
+
+    // Override `recommended_trades` with the canonical project-type → trade
+    // map even if the saved classification has older / less-correct data.
+    // This lets old projects auto-benefit from taxonomy updates without
+    // re-classifying. The map's source-of-truth lives in
+    // server/lib/matching/projectTradeMap.js. Empty result = no mapping for
+    // this type; we fall through to whatever the classifier produced.
+    const canonicalTrades = getTradesForProjectType(project.type);
+    if (canonicalTrades.length > 0) {
+      classification = { ...classification, recommended_trades: canonicalTrades };
     }
 
     // Exclude tradespeople the homeowner has already responded to, plus
@@ -167,6 +181,12 @@ module.exports = function mountMatchesGet(router, ctx) {
       [pid],
     );
 
+    // All approved trades are visible in the homeowner deck regardless of
+    // subscription state. The subscription gate sits on the trade's right-
+    // swipe response (server/routes/swipe/respond.post.js) - they need an
+    // active subscription to actually accept a homeowner's interest, but
+    // their card showing up isn't gated. This is what makes cold-start
+    // work: the deck has someone in it the second the project goes live.
     const subRows = await mysqlQuery(
       `SELECT t.user_id, t.company_name, t.trade_types,
               t.service_areas, t.vmb_score,
@@ -184,7 +204,6 @@ module.exports = function mountMatchesGet(router, ctx) {
               t.ch_status AS chStatus,
               cv_agg.cvStatus AS cvStatus
          FROM tradesmen t
-         JOIN builder_subscriptions s ON s.user_id = t.user_id
          LEFT JOIN (
            SELECT companyNumber,
                   MAX(CASE WHEN LOWER(status) = 'verified' THEN 'verified'
@@ -194,8 +213,8 @@ module.exports = function mountMatchesGet(router, ctx) {
             WHERE companyNumber IS NOT NULL AND companyNumber <> ''
             GROUP BY companyNumber
          ) cv_agg ON cv_agg.companyNumber = t.company_number
-        WHERE s.status = 'active'
-          AND s.current_period_end > NOW()`,
+        WHERE t.verification_status = 'verified'
+          AND (t.status IS NULL OR t.status <> 'rejected')`,
     );
 
     // Paid-unlock boosted slots: trades who paid the per-project unlock

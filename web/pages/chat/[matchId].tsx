@@ -172,12 +172,15 @@ function ChatPageInner() {
         const res = await api.get(`/api/chat/${matchId}/messages`);
         const data: ChatData = res.data;
         setChatData((prev) => {
-          if (!prev) return data;
-          // Merge: append any messages with id > latestMsgId
+          // Initial load (or no prior data) replaces entirely. The component
+          // instance is reused across `/chat/[matchId]` navigations, so a
+          // merge would leak the previous match's messages into the new
+          // thread when only the URL param changes.
+          if (initial || !prev) return data;
+          // Polling refresh: append any unseen messages.
           const existingIds = new Set(prev.messages.map((m) => m.id));
           const newMsgs = data.messages.filter((m) => !existingIds.has(m.id));
           if (newMsgs.length === 0) {
-            // Still propagate top-level fields like `source` if they shifted.
             return { ...prev, source: data.source ?? prev.source };
           }
           return {
@@ -211,6 +214,13 @@ function ChatPageInner() {
   // permanent loading.
   useEffect(() => {
     if (!matchId) return;
+    // Clear stale state from the previous match before fetching the new
+    // one - otherwise we'd flash old messages while the network request
+    // is in flight.
+    setChatData(null);
+    setForbidden(false);
+    setLoading(true);
+    latestMsgId.current = 0;
     if (authLoading) return;
     if (!user) return;
     fetchMessages(true);

@@ -744,7 +744,7 @@ function ProjectSwipeMobile({
 
   return (
     <main
-      className="fixed inset-0 bg-white overflow-y-auto"
+      className="fixed inset-0 bg-white overflow-y-auto no-scrollbar flex flex-col"
       style={{
         paddingBottom: "env(safe-area-inset-bottom)",
         fontFamily:
@@ -785,17 +785,19 @@ function ProjectSwipeMobile({
       )}
 
       {matches && (
-        <SwipeDeck
-          projectId={String(projectId)}
-          builders={[
-            // On-platform only. Off-platform recs render in the strip
-            // above and on the dedicated recommendation detail page.
-            ...(matches.recommended || []),
-            ...(matches.paidUnlock || []),
-            ...(matches.subscribed || []),
-          ]}
-          onMatch={(matchId) => router.push(`/match/${matchId}`)}
-        />
+        <div className="flex-1 min-h-0 flex flex-col">
+          <SwipeDeck
+            projectId={String(projectId)}
+            builders={[
+              // On-platform only. Off-platform recs render in the strip
+              // above and on the dedicated recommendation detail page.
+              ...(matches.recommended || []),
+              ...(matches.paidUnlock || []),
+              ...(matches.subscribed || []),
+            ]}
+            onMatch={(matchId) => router.push(`/match/${matchId}`)}
+          />
+        </div>
       )}
 
       <ProjectActionsSheet

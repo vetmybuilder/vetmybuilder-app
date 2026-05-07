@@ -124,6 +124,48 @@ module.exports = function mountSwipe(router, ctx) {
       }
     }
 
+    // Trade notification when the homeowner is the FIRST mover - i.e. the
+    // homeowner just right-swiped on a subscribed trade who hasn't seen
+    // this job yet. Without this, the trade has no signal to open
+    // /tradesman/leads and swipe back, so the row sits in 'waiting'
+    // forever. Skip for paid_unlock + recommended sources (those flows
+    // already start with the trade or recommender swiping/posting first).
+    if (
+      direction === "right" &&
+      !existingSource &&
+      source === "subscribed"
+    ) {
+      try {
+        const ownerRows = await mysqlQuery(
+          `SELECT firstName FROM users WHERE uid = ? LIMIT 1`,
+          [uid],
+        );
+        const homeownerFirst = ownerRows?.[0]?.firstName || "A homeowner";
+        const projRows = await mysqlQuery(
+          `SELECT name FROM projects WHERE id = ? LIMIT 1`,
+          [pid],
+        );
+        const projectName = projRows?.[0]?.name || "a project";
+        const notifMessage = `${homeownerFirst} is interested in your services for "${projectName}"`;
+        await mysqlQuery(
+          `INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
+           VALUES (?, 'homeowner_swiped', ?, ?, ?, NOW())`,
+          [builderUid, notifMessage, pid, "/tradesman/leads"],
+        );
+        ctx.broadcastNotification?.(builderUid, {
+          type: "homeowner_swiped",
+          message: notifMessage,
+          projectId: pid,
+          linkPath: "/tradesman/leads",
+        });
+      } catch (notifErr) {
+        const log = ctx.log || console;
+        log.warn?.(`homeowner_swiped notification failed`, {
+          err: notifErr?.message,
+        });
+      }
+    }
+
     // Match formation: only when current row state is 'pending' and the
     // builder has actually swiped right (builder_swiped_at non-null AND
     // status is pending - timestamp alone isn't enough since the builder

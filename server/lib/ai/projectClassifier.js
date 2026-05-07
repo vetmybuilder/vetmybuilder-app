@@ -357,6 +357,24 @@ async function classifyProject({
     }
   }
 
+  // Deterministic `recommended_trades` from the project's `type`. We
+  // override whatever the LLM (or stub) produced so matching can be a
+  // simple set intersection against `tradesmen.trade_types` - no fuzzy
+  // string matching, no false positives. The taxonomy lives in
+  // server/lib/matching/projectTradeMap.js. If the type isn't in the map
+  // we keep the LLM's suggestion as a fallback.
+  try {
+    const { getTradesForProjectType } = require("../matching/projectTradeMap");
+    const canonicalTrades = getTradesForProjectType(type || structured.type);
+    if (canonicalTrades.length > 0) {
+      structured.recommended_trades = canonicalTrades;
+    }
+  } catch (e) {
+    log.warn?.("[project-classifier] trade-map lookup failed", {
+      error: e?.message,
+    });
+  }
+
   // Run price through the lookup table (cache AI estimates, use cached if available)
   try {
     const { getPriceBand } = require("../pricingLookup");

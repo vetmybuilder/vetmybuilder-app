@@ -298,11 +298,94 @@ function MatchedState({
   const youPhotoUrl = youIsBuilder ? match.builderPhotoUrl || null : null;
   const otherPhotoUrl = otherIsBuilder ? match.builderPhotoUrl || null : null;
 
+  // Brand palette: trade viewer gets emerald accents, homeowner gets
+  // indigo. Keeps the match screen on-brand for whichever side is
+  // looking at it (the screen is shared between both roles).
+  const isTrade = !!match.viewerIsBuilder;
+  const accentText = isTrade ? "text-emerald-600" : "text-indigo-600";
+  const accentSolid = isTrade ? "bg-emerald-500" : "bg-indigo-500";
+  const accentRing1 = isTrade ? "bg-emerald-200/60" : "bg-indigo-200/60";
+  const accentRing2 = isTrade ? "bg-emerald-300/60" : "bg-indigo-300/60";
+  const chatGradient = isTrade
+    ? "linear-gradient(135deg,#10b981,#059669)"
+    : "linear-gradient(135deg,#6366f1,#4f46e5)";
+  const chatShadow = isTrade
+    ? "shadow-emerald-500/25"
+    : "shadow-indigo-500/25";
+  const youGradient = isTrade
+    ? "linear-gradient(135deg, #6ee7b7, #10b981)"
+    : "linear-gradient(135deg, #a5b4fc, #6366f1)";
+  const otherGradient = isTrade
+    ? "linear-gradient(135deg, #a5b4fc, #6366f1)"
+    : "linear-gradient(135deg, #6ee7b7, #10b981)";
+
   return (
     <>
       <Head>
-        <style>{`body { background: #fef6e9 !important; }`}</style>
+        {/* Mobile bg is plain white (no cream watermark); desktop keeps
+            the cream brand backdrop. */}
+        <style>{`@media (min-width: 768px) { body { background: #fef6e9 !important; } }`}</style>
       </Head>
+
+      {/* MOBILE — bare-route, full-bleed white shell with a circular
+          chevron back button. No SiteHeader chrome to keep the focus on
+          the celebratory hero card. */}
+      <main
+        className="md:hidden fixed inset-0 bg-white overflow-y-auto flex flex-col"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        data-testid="match-page-mobile"
+      >
+        <div style={{ height: "env(safe-area-inset-top)" }} />
+        <div className="px-4 pt-2 pb-3">
+          <button
+            type="button"
+            onClick={() =>
+              router.push(
+                matchesPathFor({ viewerIsBuilder: match.viewerIsBuilder }),
+              )
+            }
+            data-testid="match-back"
+            aria-label="Back to your matches"
+            className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-700"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="flex-1 px-5 pb-8">
+          <MatchHero
+            isTrade={isTrade}
+            otherName={otherName}
+            youName={youName}
+            youInitial={youInitial}
+            youPhotoUrl={youPhotoUrl}
+            otherInitial={otherInitial}
+            otherPhotoUrl={otherPhotoUrl}
+            youGradient={youGradient}
+            otherGradient={otherGradient}
+            accentText={accentText}
+            accentSolid={accentSolid}
+            accentRing1={accentRing1}
+            accentRing2={accentRing2}
+            phone={!match.viewerIsBuilder ? match.phone : null}
+            email={!match.viewerIsBuilder ? match.email : null}
+            cardClassName="bg-white border border-gray-100 rounded-3xl shadow-sm p-6 text-center"
+          />
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <MatchActions
+              chatMatchId={chatMatchId ?? null}
+              waLink={waLink}
+              mailto={mailto}
+              tel={tel}
+              otherName={otherName}
+              chatGradient={chatGradient}
+              chatShadow={chatShadow}
+            />
+          </div>
+        </div>
+      </main>
+
+      {/* DESKTOP — original cream-backdrop layout with SiteHeader chrome. */}
+      <div className="hidden md:block">
       <Layout>
         <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-12 relative overflow-hidden">
           <BrandWatermarkScatter />
@@ -315,7 +398,7 @@ function MatchedState({
                   matchesPathFor({ viewerIsBuilder: match.viewerIsBuilder }),
                 )
               }
-              data-testid="match-back"
+              data-testid="match-back-desktop"
               className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-slate-600 hover:text-slate-900 transition-colors mb-5"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -325,14 +408,14 @@ function MatchedState({
             <div className="bg-white border border-amber-100 rounded-3xl shadow-sm p-6 sm:p-8 text-center">
               <div className="relative w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-5 flex items-center justify-center">
                 <span
-                  className="absolute inset-0 rounded-full bg-indigo-200/60 animate-ping"
+                  className={`absolute inset-0 rounded-full ${accentRing1} animate-ping`}
                   style={{ animationDuration: "2.2s" }}
                 />
                 <span
-                  className="absolute inset-2 rounded-full bg-indigo-300/60 animate-ping"
+                  className={`absolute inset-2 rounded-full ${accentRing2} animate-ping`}
                   style={{ animationDuration: "1.8s", animationDelay: "0.3s" }}
                 />
-                <span className="absolute inset-4 rounded-full bg-indigo-500" />
+                <span className={`absolute inset-4 rounded-full ${accentSolid}`} />
                 <Handshake className="relative text-white" size={36} />
               </div>
 
@@ -345,7 +428,7 @@ function MatchedState({
               >
                 It's a{" "}
                 <span
-                  className="text-indigo-600"
+                  className={accentText}
                   style={{ fontFamily: "'Caveat', cursive", fontSize: "118%" }}
                 >
                   match!
@@ -362,14 +445,14 @@ function MatchedState({
                   photoUrl={youPhotoUrl}
                   initial={youInitial}
                   alt={youName}
-                  gradient="linear-gradient(135deg, #a5b4fc, #6366f1)"
+                  gradient={youGradient}
                 />
                 <Handshake className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" />
                 <MatchAvatar
                   photoUrl={otherPhotoUrl}
                   initial={otherInitial}
                   alt={otherName}
-                  gradient="linear-gradient(135deg, #6ee7b7, #10b981)"
+                  gradient={otherGradient}
                 />
               </div>
 
@@ -402,8 +485,8 @@ function MatchedState({
                 <Link
                   href={`/chat/${chatMatchId}`}
                   aria-label={`Open in-app chat with ${otherName}`}
-                  className="rounded-3xl p-4 sm:p-5 text-left text-white shadow-lg shadow-indigo-500/25 hover:shadow-xl transition-all"
-                  style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
+                  className={`rounded-3xl p-4 sm:p-5 text-left text-white shadow-lg ${chatShadow} hover:shadow-xl transition-all`}
+                  style={{ background: chatGradient }}
                 >
                   <span className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center mb-3">
                     <MessagesSquare className="w-5 h-5 text-white" />
@@ -485,6 +568,7 @@ function MatchedState({
           </div>
         </div>
       </Layout>
+      </div>
     </>
   );
 }
@@ -495,6 +579,222 @@ function MatchedState({
  * Used for both "you" and the other party so a fix to the photo/initial
  * logic only needs to happen in one place.
  */
+/**
+ * Mobile-only hero card. Mirrors the desktop centred-card design but
+ * tunes the spacing for a phone screen and reads brand tone from props.
+ */
+function MatchHero({
+  isTrade,
+  otherName,
+  youName,
+  youInitial,
+  youPhotoUrl,
+  otherInitial,
+  otherPhotoUrl,
+  youGradient,
+  otherGradient,
+  accentText,
+  accentSolid,
+  accentRing1,
+  accentRing2,
+  phone,
+  email,
+  cardClassName,
+}: {
+  isTrade: boolean;
+  otherName: string;
+  youName: string;
+  youInitial: string;
+  youPhotoUrl: string | null;
+  otherInitial: string;
+  otherPhotoUrl: string | null;
+  youGradient: string;
+  otherGradient: string;
+  accentText: string;
+  accentSolid: string;
+  accentRing1: string;
+  accentRing2: string;
+  phone: string | null;
+  email: string | null;
+  cardClassName: string;
+}) {
+  void isTrade;
+  return (
+    <div className={cardClassName}>
+      <div className="relative w-20 h-20 mx-auto mb-5 flex items-center justify-center">
+        <span
+          className={`absolute inset-0 rounded-full ${accentRing1} animate-ping`}
+          style={{ animationDuration: "2.2s" }}
+        />
+        <span
+          className={`absolute inset-2 rounded-full ${accentRing2} animate-ping`}
+          style={{ animationDuration: "1.8s", animationDelay: "0.3s" }}
+        />
+        <span className={`absolute inset-4 rounded-full ${accentSolid}`} />
+        <Handshake className="relative text-white" size={32} />
+      </div>
+      <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-700 mb-1">
+        Hooked up
+      </div>
+      <h1
+        className="text-[32px] font-black tracking-[-0.02em] text-slate-900 leading-[1.0]"
+        style={{ fontFamily: "'Sora', sans-serif" }}
+      >
+        It's a{" "}
+        <span
+          className={accentText}
+          style={{ fontFamily: "'Caveat', cursive", fontSize: "118%" }}
+        >
+          match!
+        </span>
+      </h1>
+      <p className="mt-3 text-[14px] text-slate-600 max-w-md mx-auto leading-snug">
+        You and{" "}
+        <span className="font-extrabold text-slate-900">{otherName}</span>{" "}
+        both want to work together.
+      </p>
+      <div className="mt-5 flex items-center justify-center gap-3">
+        <MatchAvatar
+          photoUrl={youPhotoUrl}
+          initial={youInitial}
+          alt={youName}
+          gradient={youGradient}
+        />
+        <Handshake className="w-4 h-4 text-amber-500" />
+        <MatchAvatar
+          photoUrl={otherPhotoUrl}
+          initial={otherInitial}
+          alt={otherName}
+          gradient={otherGradient}
+        />
+      </div>
+      {(phone || email) && (
+        <div className="mt-5 inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 rounded-2xl bg-amber-50/60 border border-amber-100 px-4 py-2.5">
+          <span className="text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-amber-700">
+            Contact revealed
+          </span>
+          {phone && (
+            <span className="text-[13.5px] font-bold text-slate-900 inline-flex items-center gap-1.5">
+              <PhoneIcon className="w-3.5 h-3.5 text-amber-600" />
+              {phone}
+            </span>
+          )}
+          {email && (
+            <span className="text-[13.5px] font-bold text-slate-900 inline-flex items-center gap-1.5 break-all">
+              <Mail className="w-3.5 h-3.5 text-indigo-600" />
+              {email}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Mobile action grid (Chat / WhatsApp / Email / Call). */
+function MatchActions({
+  chatMatchId,
+  waLink,
+  mailto,
+  tel,
+  otherName,
+  chatGradient,
+  chatShadow,
+}: {
+  chatMatchId: string | number | null;
+  waLink: string | null;
+  mailto: string;
+  tel: string | null;
+  otherName: string;
+  chatGradient: string;
+  chatShadow: string;
+}) {
+  return (
+    <>
+      {chatMatchId && (
+        <Link
+          href={`/chat/${chatMatchId}`}
+          aria-label={`Open in-app chat with ${otherName}`}
+          className={`rounded-3xl p-4 text-left text-white shadow-lg ${chatShadow} hover:shadow-xl transition-all`}
+          style={{ background: chatGradient }}
+        >
+          <span className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center mb-3">
+            <MessagesSquare className="w-5 h-5 text-white" />
+          </span>
+          <div
+            className="text-[15px] font-extrabold tracking-tight"
+            style={{ fontFamily: "'Sora', sans-serif" }}
+          >
+            Chat
+          </div>
+          <div className="mt-0.5 text-[11px] text-white/80 font-bold inline-flex items-center gap-1">
+            <ShieldCheck className="w-3 h-3" />
+            Moderated
+          </div>
+        </Link>
+      )}
+      {waLink && (
+        <a
+          href={waLink}
+          aria-label={`Open WhatsApp to message ${otherName}`}
+          className="rounded-3xl p-4 text-left bg-white border border-gray-100 hover:border-emerald-200 transition-colors"
+        >
+          <span className="w-10 h-10 rounded-2xl bg-emerald-50 flex items-center justify-center mb-3">
+            <MessageCircle className="w-5 h-5 text-emerald-600" />
+          </span>
+          <div
+            className="text-[15px] font-extrabold text-slate-900 tracking-tight"
+            style={{ fontFamily: "'Sora', sans-serif" }}
+          >
+            WhatsApp
+          </div>
+          <div className="mt-0.5 text-[11px] text-slate-500 font-semibold">
+            Open in WhatsApp
+          </div>
+        </a>
+      )}
+      <a
+        href={mailto}
+        aria-label={`Email ${otherName}`}
+        className="rounded-3xl p-4 text-left bg-white border border-gray-100 hover:border-indigo-200 transition-colors"
+      >
+        <span className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center mb-3">
+          <Mail className="w-5 h-5 text-indigo-600" />
+        </span>
+        <div
+          className="text-[15px] font-extrabold text-slate-900 tracking-tight"
+          style={{ fontFamily: "'Sora', sans-serif" }}
+        >
+          Email
+        </div>
+        <div className="mt-0.5 text-[11px] text-slate-500 font-semibold">
+          Open mail client
+        </div>
+      </a>
+      {tel && (
+        <a
+          href={tel}
+          aria-label={`Call ${otherName}`}
+          className="rounded-3xl p-4 text-left bg-white border border-gray-100 hover:border-amber-200 transition-colors"
+        >
+          <span className="w-10 h-10 rounded-2xl bg-amber-50 flex items-center justify-center mb-3">
+            <PhoneIcon className="w-5 h-5 text-amber-600" />
+          </span>
+          <div
+            className="text-[15px] font-extrabold text-slate-900 tracking-tight"
+            style={{ fontFamily: "'Sora', sans-serif" }}
+          >
+            Call
+          </div>
+          <div className="mt-0.5 text-[11px] text-slate-500 font-semibold">
+            Tap to dial
+          </div>
+        </a>
+      )}
+    </>
+  );
+}
+
 function MatchAvatar({
   photoUrl,
   initial,

@@ -26,6 +26,10 @@ type AccountUser = {
   firstName: string | null;
   lastName: string | null;
   username: string | null;
+  /** True when /api/me returns a tradesman row. Persisted on the user
+   *  object so role-aware UI (toasts, brand palette, etc.) can read it
+   *  without re-fetching. */
+  isTradesman?: boolean;
 };
 
 type Ctx = {
@@ -129,6 +133,7 @@ function buildExtendedUser(fbUser: FbUser, base: Partial<AccountUser>) {
     firstName,
     lastName,
     username,
+    isTradesman: base.isTradesman ?? false,
     displayName: computeDisplayName({ firstName, lastName, username }),
     initials: computeInitials({ firstName, lastName, username }),
   });
@@ -204,6 +209,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           firstName: me.firstName ?? null,
           lastName: me.lastName ?? null,
           username: me.username ?? null,
+          isTradesman: !!me.isTradesman,
         }),
       );
       // A tradesman-only account legitimately has no homeowner postcode.
@@ -272,6 +278,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               firstName: me.firstName ?? null,
               lastName: me.lastName ?? null,
               username: me.username ?? null,
+              isTradesman: !!me.isTradesman,
             });
 
             if (!alive) return;

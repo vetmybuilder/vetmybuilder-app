@@ -291,7 +291,7 @@ function Inner() {
         <title>Account — VetMyBuilder</title>
       </Head>
 
-      <div className="min-h-screen bg-gray-50 md:bg-[#fef6e9] flex flex-col relative overflow-hidden">
+      <div className="min-h-screen bg-white md:bg-[#fef6e9] flex flex-col relative overflow-hidden">
         <div className="hidden md:block">
           <SiteHeader />
         </div>
@@ -370,14 +370,16 @@ function Inner() {
               </div>
             </div>
 
-            {/* Row cards */}
-            <div style={{ padding: "14px 12px", display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
+            {/* Row list — flat / edge-to-edge on mobile (no card chrome,
+                hairline divider between rows). Desktop keeps the original
+                card stack with padding + rounded + shadow. */}
+            <div className="flex flex-col flex-1 md:gap-2.5 md:p-[14px_12px] divide-y divide-gray-100 md:divide-y-0 bg-white md:bg-transparent">
 
               {/* Profile row */}
               <button
                 type="button"
                 onClick={() => router.push("/tradesman/profile")}
-                className="w-full bg-white rounded-2xl shadow-sm flex items-center gap-3 text-left"
+                className="w-full bg-white md:rounded-2xl md:shadow-sm flex items-center gap-3 text-left"
                 style={{ padding: 14 }}
               >
                 <div
@@ -408,7 +410,7 @@ function Inner() {
               <button
                 type="button"
                 onClick={() => router.replace("/tradesman/account?tab=notifications")}
-                className="w-full bg-white rounded-2xl shadow-sm flex items-center gap-3 text-left"
+                className="w-full bg-white md:rounded-2xl md:shadow-sm flex items-center gap-3 text-left"
                 style={{ padding: 14 }}
               >
                 <div
@@ -469,25 +471,25 @@ function Inner() {
           <div className="md:max-w-3xl md:mx-auto md:w-full md:px-6 md:pt-2 relative z-10 flex-1">
             <TopBar title="Notifications" onBack={() => router.replace("/tradesman/account")} />
 
-            <div className="flex flex-col gap-3 p-4 flex-1">
+            <div className="flex flex-col gap-3 md:p-4 flex-1">
 
               {notifError && (
                 <div
                   role="alert"
-                  className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-600 text-sm font-medium"
+                  className="mx-4 md:mx-0 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-600 text-sm font-medium"
                 >
                   {notifError}
                 </div>
               )}
 
-              <p className="text-xs text-zinc-500 px-1">
+              <p className="text-xs text-zinc-500 px-4 md:px-1 pt-3 md:pt-0">
                 Choose which push notifications you receive. The notification bell always shows all notifications regardless of these settings.
               </p>
 
               {notifLoading ? (
-                <p className="text-zinc-400 text-sm px-1">Loading…</p>
+                <p className="text-zinc-400 text-sm px-4 md:px-1">Loading…</p>
               ) : (
-                <div className="bg-white rounded-2xl shadow-sm divide-y divide-zinc-100">
+                <div className="bg-white md:rounded-2xl md:shadow-sm divide-y divide-zinc-100 flex-1">
                   {CATEGORIES.map((cat) => (
                     <div
                       key={cat.key}

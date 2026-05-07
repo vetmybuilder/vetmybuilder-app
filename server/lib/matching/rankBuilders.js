@@ -13,14 +13,27 @@ const PRICE_BAND_MULTIPLIER = 0.15;
 
 function hasAnyTradeMatch(candidate, classification) {
   const trades = new Set(classification?.recommended_trades || []);
-  if (!trades.size) return false;
+  // No classification yet (AI ranker still pending or project too sparse to
+  // classify) - don't filter on trade type. Otherwise the homeowner's deck
+  // is empty in the seconds-to-minutes between project create and AI run.
+  if (!trades.size) return true;
+  // Exact-label match. The classifier rewrites recommended_trades from
+  // the canonical project-type → trade map (server/lib/matching/
+  // projectTradeMap.js) so labels here always match TRADE_TYPES.label
+  // exactly. No fuzzy stemming - drift is a bug worth catching loudly.
   if (trades.has(candidate.primaryTrade)) return true;
   return (candidate.secondaryTrades || []).some((t) => trades.has(t));
 }
 
 function hasAreaMatch(candidate, outward) {
+  // Project has no extractable outward (free-text location couldn't be
+  // parsed) - don't filter on area. Trades who haven't set service_areas
+  // are treated as "service anywhere" for cold-start; once they configure
+  // areas the explicit list takes over.
+  if (!outward) return true;
   const areas = candidate.serviceAreas || [];
-  return outward && areas.includes(outward);
+  if (areas.length === 0) return true;
+  return areas.includes(outward);
 }
 
 function computeScore(candidate, project) {
@@ -46,8 +59,14 @@ function computeScore(candidate, project) {
 }
 
 function isEligible(candidate, project) {
+  // Both trade match AND area match must hold. The helpers already return
+  // `true` when the corresponding filter is empty (no classification yet,
+  // or trade hasn't set service areas), so cold-start projects still
+  // surface every approved trade. Once classification is in place the
+  // trade-type filter becomes strict, which is what stops Elegant
+  // appearing in a Pest Control deck (right-area, wrong trade).
   return (
-    hasAnyTradeMatch(candidate, project.classification) ||
+    hasAnyTradeMatch(candidate, project.classification) &&
     hasAreaMatch(candidate, project.outward)
   );
 }

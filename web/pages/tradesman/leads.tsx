@@ -19,6 +19,7 @@ import { useRouter } from "next/router";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
 import { useMobileMenu } from "@/utils/mobileMenu";
+import { ChevronLeft } from "lucide-react";
 import TradesmanOnly from "@/components/TradesmanOnly";
 import SiteHeader from "@/components/SiteHeader";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
@@ -99,10 +100,10 @@ export default function TradesmanLeadsPage() {
     }
     setBusy(true);
     try {
-      const res = await api.post("/api/swipe/respond", {
-        matchId: current.matchId,
-        direction,
-      });
+      const res = await api.post(
+        `/api/swipe-interest/${current.matchId}/respond`,
+        { direction },
+      );
       if (direction === "right" && res.data?.status === "matched") {
         router.push(`/match/${current.matchId}`);
         return;
@@ -124,10 +125,10 @@ export default function TradesmanLeadsPage() {
     }
     setBusy(true);
     try {
-      const res = await api.post("/api/swipe/respond", {
-        matchId: lead.matchId,
-        direction,
-      });
+      const res = await api.post(
+        `/api/swipe-interest/${lead.matchId}/respond`,
+        { direction },
+      );
       if (direction === "right" && res.data?.status === "matched") {
         router.push(`/match/${lead.matchId}`);
         return;
@@ -161,13 +162,22 @@ export default function TradesmanLeadsPage() {
           <div style={{ height: "env(safe-area-inset-top)" }} />
 
           {/* Top bar */}
-          <div className="px-4 pt-2 pb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-[16px] font-extrabold tracking-tight text-gray-900">
+          <div className="px-4 pt-2 pb-3 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              aria-label="Back"
+              onClick={() => router.back()}
+              className="w-10 h-10 rounded-full bg-white/70 flex items-center justify-center shadow-sm shrink-0"
+              style={{ backdropFilter: "blur(8px)" }}
+            >
+              <ChevronLeft className="w-5 h-5 text-gray-700" />
+            </button>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-[16px] font-extrabold tracking-tight text-gray-900 truncate">
                 Incoming interest
               </span>
               {remaining > 0 && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[11px] font-extrabold">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[11px] font-extrabold shrink-0">
                   {remaining} new
                 </span>
               )}
@@ -176,7 +186,7 @@ export default function TradesmanLeadsPage() {
               type="button"
               aria-label="Open menu"
               onClick={openMenu}
-              className="w-10 h-10 rounded-full bg-white/70 flex items-center justify-center shadow-sm"
+              className="w-10 h-10 rounded-full bg-white/70 flex items-center justify-center shadow-sm shrink-0"
               style={{ backdropFilter: "blur(8px)" }}
             >
               <span className="text-[20px] leading-none text-gray-700">☰</span>
