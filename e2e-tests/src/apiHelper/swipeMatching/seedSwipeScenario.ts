@@ -7,7 +7,12 @@ import type SwipeMatchingApi from "./SwipeMatchingApi";
 
 export const SWIPE_SCENARIO_COMPANY = "Swipe Smoke Builders Ltd";
 export const SWIPE_SCENARIO_AREA = "E4";
-export const SWIPE_SCENARIO_TRADE = "plumbing";
+// Must match a canonical TRADE_TYPES.label (web/types/tradeTypes.ts).
+// "Plumber" is in the canonical-trades list for the default project
+// type ("Tumble Dryer Installation" → Appliances category). Lowercase
+// "plumbing" was the legacy seed value but matches nothing in the
+// canonical map, so the homeowner's deck would render empty.
+export const SWIPE_SCENARIO_TRADE = "Plumber";
 
 type SeedArgs = {
   request: APIRequestContext;

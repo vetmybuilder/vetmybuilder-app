@@ -181,12 +181,14 @@ module.exports = function mountMatchesGet(router, ctx) {
       [pid],
     );
 
-    // All approved trades are visible in the homeowner deck regardless of
-    // subscription state. The subscription gate sits on the trade's right-
-    // swipe response (server/routes/swipe/respond.post.js) - they need an
-    // active subscription to actually accept a homeowner's interest, but
-    // their card showing up isn't gated. This is what makes cold-start
-    // work: the deck has someone in it the second the project goes live.
+    // Visibility is intentionally permissive: any trade whose profile
+    // exists and isn't admin-rejected is a candidate. The subscription
+    // gate sits on the trade's right-swipe response
+    // (server/routes/swipe/respond.post.js) - they need an active
+    // subscription to actually accept a homeowner's interest. The
+    // eligibility filter in rankBuilders (trade match AND area match)
+    // does the heavy lifting on relevance, so trades with incomplete
+    // profiles (no trade_types, no service_areas) get filtered there.
     const subRows = await mysqlQuery(
       `SELECT t.user_id, t.company_name, t.trade_types,
               t.service_areas, t.vmb_score,
@@ -213,8 +215,7 @@ module.exports = function mountMatchesGet(router, ctx) {
             WHERE companyNumber IS NOT NULL AND companyNumber <> ''
             GROUP BY companyNumber
          ) cv_agg ON cv_agg.companyNumber = t.company_number
-        WHERE t.verification_status = 'verified'
-          AND (t.status IS NULL OR t.status <> 'rejected')`,
+        WHERE (t.status IS NULL OR t.status <> 'rejected')`,
     );
 
     // Paid-unlock boosted slots: trades who paid the per-project unlock
