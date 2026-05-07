@@ -1,10 +1,20 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/router";
+import TinderCard from "react-tinder-card";
 import { useApi } from "@/utils/api";
 import BuilderCard, { BuilderCardBuilder } from "./BuilderCard";
 import BuilderCardBack from "./BuilderCardBack";
 import SwipeActionBar from "./SwipeActionBar";
 import ShareProjectModal from "./ShareProjectModal";
+
+// Imperative handle exposed by react-tinder-card. We hold a ref to the
+// top card so the action-bar buttons can fire `swipe('left'|'right')` -
+// the card flies off using the library's built-in physics, identical
+// to a real drag.
+type TinderCardApi = {
+  swipe: (dir?: "left" | "right" | "up" | "down") => Promise<void>;
+  restoreCard: () => Promise<void>;
+};
 
 export interface SwipeDeckBuilder extends BuilderCardBuilder {
   source?: "recommended" | "subscribed" | "paid_unlock";
@@ -93,11 +103,6 @@ export default function SwipeDeck({
     }
   }
 
-  async function commit(direction: "left" | "right") {
-    await commitApi(direction);
-    setIndex(i => i + 1);
-  }
-
   async function unfavouriteRec() {
     if (!current || !current.isRecommendation || !current.recommendationId || busy) return;
     setBusy(true);
@@ -109,108 +114,38 @@ export default function SwipeDeck({
     }
   }
 
-  // Drag state is held in a ref so pointer-move doesn't trigger a React
-  // re-render on every frame. Transform is applied directly to the card
-  // element via the ref — that's what makes the gesture feel smooth.
-  const cardRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{
-    pointerId: number;
-    startX: number;
-    lastX: number;
-    lastTime: number;
-    dx: number;
-    velocity: number; // px / ms
-  } | null>(null);
-  const animatingRef = useRef(false);
+  // react-tinder-card owns drag, fling physics, and the leave animation.
+  // We hold a ref to the top card's imperative API so the action bar
+  // buttons can call swipe('left'|'right') programmatically and get the
+  // same fly-off animation a finger drag produces.
+  const tinderRef = useRef<TinderCardApi | null>(null);
 
-  function applyCardTransform(dx: number, immediate: boolean) {
-    const el = cardRef.current;
-    if (!el) return;
-    el.style.transition = immediate
-      ? "none"
-      : "transform 220ms cubic-bezier(0.4, 0.0, 0.2, 1)";
-    el.style.transform = `translateX(${dx}px) rotate(${dx / 20}deg)`;
+  // onSwipe fires the moment a swipe is committed (drag past threshold
+  // OR fling, OR programmatic .swipe()). Fire the API call in parallel
+  // with the leave animation, then advance index after both settle.
+  async function onTopSwipe(direction: "left" | "right" | "up" | "down") {
+    if (direction !== "left" && direction !== "right") return;
+    await commitApi(direction).catch(() => {});
   }
 
-  function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    if (busy || animatingRef.current) return;
-    // Don't preventDefault here on iOS Safari — doing so causes the
-    // matching pointerup not to fire, which leaves the card stuck mid-
-    // drag. We still own the gesture via touch-action: none + setPointer
-    // Capture, and rely on preventDefault during pointermove (where we
-    // know it's a real drag, not just a tap) to block native scroll.
-    cardRef.current?.setPointerCapture(e.pointerId);
-    dragRef.current = {
-      pointerId: e.pointerId,
-      startX: e.clientX,
-      lastX: e.clientX,
-      lastTime: e.timeStamp,
-      dx: 0,
-      velocity: 0,
-    };
-    applyCardTransform(0, true);
-  }
-
-  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    const s = dragRef.current;
-    if (!s || s.pointerId !== e.pointerId) return;
-    // preventDefault here cancels iOS's competing scroll/zoom gestures
-    // once we know the user is actively dragging — but only after a
-    // small movement so a held tap can still go through cleanly.
-    if (Math.abs(e.clientX - s.startX) > 4) e.preventDefault();
-    const dt = Math.max(1, e.timeStamp - s.lastTime);
-    s.velocity = (e.clientX - s.lastX) / dt;
-    s.lastX = e.clientX;
-    s.lastTime = e.timeStamp;
-    s.dx = e.clientX - s.startX;
-    applyCardTransform(s.dx, true);
-  }
-
-  function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
-    const s = dragRef.current;
-    if (!s || s.pointerId !== e.pointerId) return;
-    cardRef.current?.releasePointerCapture(e.pointerId);
-    dragRef.current = null;
-
-    const width = cardRef.current?.offsetWidth ?? 320;
-    const { dx, velocity } = s;
-    const farEnough = Math.abs(dx) / width > 0.25;
-    // Flick threshold — 0.5 px/ms == 500px/sec. A ~150px flick over 300ms
-    // satisfies this even though it's well below the distance threshold.
-    const fastEnough = Math.abs(velocity) > 0.5 && Math.abs(dx) > 20;
-
-    if (farEnough || fastEnough) {
-      const direction: "left" | "right" =
-        dx !== 0 ? (dx > 0 ? "right" : "left") : velocity > 0 ? "right" : "left";
-      flingAndCommit(direction, width);
-      return;
-    }
-    // Below threshold — animate back to 0.
-    applyCardTransform(0, false);
-  }
-
-  async function flingAndCommit(direction: "left" | "right", width: number) {
-    animatingRef.current = true;
-    const flingTo = direction === "right" ? width * 1.5 : -width * 1.5;
-    const el = cardRef.current;
-    if (el) {
-      el.style.transition = "transform 250ms cubic-bezier(0.4, 0.0, 0.2, 1)";
-      el.style.transform = `translateX(${flingTo}px) rotate(${flingTo / 20}deg)`;
-    }
-    // Run the fling animation in parallel with the API. Crucially we do
-    // NOT advance the index inside commitApi — if the API resolves before
-    // the 250ms animation, an early setIndex would re-render the top div
-    // with the next card's content while it's still under the off-screen
-    // fling transform, briefly exposing the peek behind it (visible as a
-    // grey flash / strip on swipe). We hold the advance until both the
-    // animation and API are done, then advance + snap transform together.
-    await Promise.all([
-      new Promise<void>((r) => window.setTimeout(r, 250)),
-      commitApi(direction).catch(() => {}),
-    ]);
-    applyCardTransform(0, true);
+  // onCardLeftScreen fires when the card has fully animated off the
+  // viewport. Advance the deck index here so the next card slides into
+  // place only AFTER the previous one is gone - avoids the "wrong card
+  // briefly visible under a leaving transform" issue we hit with the
+  // hand-rolled deck.
+  function onTopCardLeftScreen() {
     setIndex((i) => i + 1);
-    animatingRef.current = false;
+  }
+
+  // Programmatic swipe from the action-bar Pass / Like buttons. Awaits
+  // the library's swipe() so the visual matches a real drag.
+  async function programmaticSwipe(direction: "left" | "right") {
+    if (busy) return;
+    try {
+      await tinderRef.current?.swipe(direction);
+    } catch {
+      /* swipe() rejects if the card is already gone; ignore. */
+    }
   }
 
   if (!current) {
@@ -249,62 +184,73 @@ export default function SwipeDeck({
             <BuilderCard builder={b} />
           </div>
         ))}
-        <div
-          ref={cardRef}
-          data-testid="swipe-top-card"
-          onPointerDown={flipped ? undefined : onPointerDown}
-          onPointerMove={flipped ? undefined : onPointerMove}
-          onPointerUp={flipped ? undefined : onPointerUp}
-          onPointerCancel={flipped ? undefined : onPointerUp}
-          // Block iOS Safari's long-press behaviours: image preview pop,
-          // text selection, native drag-and-drop, link callout. Without
-          // these the touch is hijacked before our pointer handlers can
-          // establish a drag.
-          onContextMenu={(e) => e.preventDefault()}
-          onDragStart={(e) => e.preventDefault()}
-          className="absolute inset-0 z-10 touch-none select-none will-change-transform"
-          style={{
-            perspective: "1200px",
-            WebkitTouchCallout: "none",
-            WebkitUserSelect: "none",
-            userSelect: "none",
-            WebkitUserDrag: "none",
-          } as React.CSSProperties}
+        {/* Top draggable card — react-tinder-card owns the gesture and
+            the leave animation. Re-mount per uid so the library's
+            internal drag state resets cleanly between cards.
+            preventSwipe blocks vertical swipes (we only want left/right)
+            AND blocks all swipes when the card is flipped to its back
+            face so the homeowner can read details without accidentally
+            dismissing. */}
+        <TinderCard
+          ref={tinderRef as never}
+          key={current.uid}
+          className="absolute inset-0 z-10"
+          onSwipe={onTopSwipe}
+          onCardLeftScreen={onTopCardLeftScreen}
+          preventSwipe={
+            flipped ? ["up", "down", "left", "right"] : ["up", "down"]
+          }
+          swipeRequirementType="position"
+          swipeThreshold={100}
         >
           <div
-            className="relative w-full h-full"
+            data-testid="swipe-top-card"
+            className="absolute inset-0 touch-none select-none"
             style={{
-              transformStyle: "preserve-3d",
-              transition: "transform 0.55s cubic-bezier(0.4, 0.0, 0.2, 1)",
-              transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
+              perspective: "1200px",
+              WebkitTouchCallout: "none",
+              WebkitUserSelect: "none",
+              userSelect: "none",
             }}
           >
-            {/* Front. translateZ(0) forces this face into its own 3D
-                layer; without it Safari leaks the absolutely-positioned
-                badges (z-10 inside BuilderCard) through the rotated
-                face, appearing mirrored on the back of the card. */}
             <div
-              className="absolute inset-0"
+              className="relative w-full h-full"
               style={{
-                backfaceVisibility: "hidden",
-                WebkitBackfaceVisibility: "hidden",
-                transform: "translateZ(0)",
+                transformStyle: "preserve-3d",
+                transition: "transform 0.55s cubic-bezier(0.4, 0.0, 0.2, 1)",
+                transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
               }}
             >
-              <BuilderCard builder={current} onUnfavouriteRec={unfavouriteRec} />
-            </div>
-            <div
-              className="absolute inset-0"
-              style={{
-                backfaceVisibility: "hidden",
-                WebkitBackfaceVisibility: "hidden",
-                transform: "rotateY(180deg) translateZ(0)",
-              }}
-            >
-              <BuilderCardBack builder={current} />
+              {/* Front. translateZ(0) forces this face into its own 3D
+                  layer; without it Safari leaks the absolutely-positioned
+                  badges (z-10 inside BuilderCard) through the rotated
+                  face, appearing mirrored on the back of the card. */}
+              <div
+                className="absolute inset-0"
+                style={{
+                  backfaceVisibility: "hidden",
+                  WebkitBackfaceVisibility: "hidden",
+                  transform: "translateZ(0)",
+                }}
+              >
+                <BuilderCard
+                  builder={current}
+                  onUnfavouriteRec={unfavouriteRec}
+                />
+              </div>
+              <div
+                className="absolute inset-0"
+                style={{
+                  backfaceVisibility: "hidden",
+                  WebkitBackfaceVisibility: "hidden",
+                  transform: "rotateY(180deg) translateZ(0)",
+                }}
+              >
+                <BuilderCardBack builder={current} />
+              </div>
             </div>
           </div>
-        </div>
+        </TinderCard>
 
         {/* Floating action bar — sits absolute over the bottom of the
             top card so it reads as part of the photo. Pass / Info / Like
@@ -313,9 +259,9 @@ export default function SwipeDeck({
           <div className="pointer-events-auto">
             <SwipeActionBar
               disabled={busy}
-              onPass={() => commit("left")}
+              onPass={() => programmaticSwipe("left")}
               onInfo={() => setFlipped((v) => !v)}
-              onLike={() => commit("right")}
+              onLike={() => programmaticSwipe("right")}
               floating
             />
           </div>

@@ -1,5 +1,27 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import * as React from "react";
+
+// See SwipeDeck.test.tsx for why we stub react-tinder-card. The stub's
+// imperative swipe() fires onSwipe + onCardLeftScreen so the deck's
+// lifecycle (commit API → advance index) runs identically to a real
+// drag-driven swipe.
+vi.mock("react-tinder-card", () => {
+  const TinderCardStub = React.forwardRef<unknown, any>(
+    ({ children, onSwipe, onCardLeftScreen, className }, ref) => {
+      React.useImperativeHandle(ref, () => ({
+        swipe: async (direction: "left" | "right" | "up" | "down" = "right") => {
+          onSwipe?.(direction);
+          onCardLeftScreen?.(direction);
+        },
+        restoreCard: async () => {},
+      }));
+      return React.createElement("div", { className }, children);
+    },
+  );
+  return { __esModule: true, default: TinderCardStub };
+});
+
 import SwipeDeck from "@/components/project/SwipeDeck";
 
 const post = vi.fn(async () => ({ data: { status: "pending" } }));
@@ -14,21 +36,27 @@ const builder = {
   whyMatch: "Covers E4", tier: "recommended" as const, recommenderName: "Alex",
 };
 
-describe("SwipeDeck drag gestures", () => {
+describe("SwipeDeck swipe commit", () => {
   beforeEach(() => post.mockClear());
 
-  it("commits right swipe when dragged past 25% threshold", async () => {
+  // Real drag gestures run through react-tinder-card's spring-driven
+  // physics, which can't be exercised in jsdom (no real pointer events,
+  // no @react-spring frame loop). We verify the same flingAndCommit
+  // path via the action bar Like button - it calls the library's
+  // imperative swipe(), which the stub maps to onSwipe + onCardLeftScreen.
+  it("Like button commits a right swipe with the recommended source", async () => {
     render(<SwipeDeck projectId="p1" builders={[builder]} onMatch={() => {}} />);
-    const card = screen.getByTestId("swipe-top-card");
-
-    Object.defineProperty(card, "offsetWidth", { value: 320, configurable: true });
-    fireEvent.pointerDown(card, { clientX: 0, clientY: 0, pointerId: 1 });
-    fireEvent.pointerMove(card, { clientX: 120, clientY: 0, pointerId: 1 });
-    fireEvent.pointerUp(card, { clientX: 120, clientY: 0, pointerId: 1 });
+    fireEvent.click(screen.getByRole("button", { name: /^Like$/ }));
 
     await waitFor(() =>
-      expect(post).toHaveBeenCalledWith("/api/projects/p1/swipe",
-        expect.objectContaining({ direction: "right" })),
+      expect(post).toHaveBeenCalledWith(
+        "/api/projects/p1/swipe",
+        expect.objectContaining({
+          direction: "right",
+          source: "recommended",
+          builderUid: "b1",
+        }),
+      ),
     );
   });
 });
