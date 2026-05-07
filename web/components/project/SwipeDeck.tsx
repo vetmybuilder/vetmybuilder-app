@@ -133,7 +133,7 @@ export default function SwipeDeck({
     // string format matches what React puts on the peek cards. CSS reads
     // this whole transform as one matrix - the card never appears to
     // "lose" its position when JS hands control back to React.
-    el.style.transform = `translateY(0) scale(1) translateX(${dx}px) rotate(${dx / 20}deg)`;
+    el.style.transform = `scale(1) translateX(${dx}px) rotate(${dx / 20}deg)`;
   }
 
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
@@ -199,7 +199,7 @@ export default function SwipeDeck({
     const el = cardRef.current;
     if (el) {
       el.style.transition = "transform 800ms cubic-bezier(0.4, 0.0, 0.2, 1)";
-      el.style.transform = `translateY(0) scale(1) translateX(${flingTo}px) rotate(${flingTo / 20}deg)`;
+      el.style.transform = `scale(1) translateX(${flingTo}px) rotate(${flingTo / 20}deg)`;
     }
     // Run the fling animation in parallel with the API. Hold setIndex
     // until both finish so the leaving card stays mid-flight while the
@@ -246,18 +246,20 @@ export default function SwipeDeck({
   // top of the rank-0 baseline - same translateX + rotate as before.
   const visible = queue.slice(index, index + 4);
 
-  // Pure-CSS rank transforms. Top is identity; peeks scale down and
-  // offset down by their rank. Kept gentle so chips/pills don't pick
-  // up subpixel artefacts at scale != 1.
+  // Pure-scale rank transforms (no translateY) so each peek sits in the
+  // exact same position as the top, just smaller behind it. When the
+  // top flies off and a peek's rank drops, the CSS transition scales it
+  // from ~0.92 up to 1.0 - that's the "card zooms towards you" feel.
+  // No vertical motion means the image/pills don't appear to slide
+  // around as the card promotes.
   function rankTransform(i: number) {
-    if (i === 0) return "translateY(0) scale(1)";
-    return `translateY(${i * 6}px) scale(${1 - i * 0.04})`;
+    if (i === 0) return "scale(1)";
+    return `scale(${1 - i * 0.08})`;
   }
   function rankOpacity(i: number) {
     if (i === 0) return 1;
-    if (i === 1) return 0.96;
-    if (i === 2) return 0.85;
-    return 0.7;
+    if (i === 1) return 0.95;
+    return 0;
   }
 
   return (
@@ -288,12 +290,22 @@ export default function SwipeDeck({
                 {
                   zIndex: 10 - i,
                   pointerEvents: isTop ? "auto" : "none",
-                  transformOrigin: "top center",
+                  // Centre origin so the scale grows symmetrically -
+                  // the card looks like it's coming towards you, not
+                  // rising from below.
+                  transformOrigin: "center center",
                   transform: rankTransform(i),
                   opacity: rankOpacity(i),
                   transition:
                     "transform 350ms cubic-bezier(0.2, 0, 0, 1), opacity 350ms ease",
                   perspective: "1200px",
+                  // Hints to the browser to pre-rasterise this card as
+                  // a single composited layer. Without these the peek
+                  // is rendered at promote-time, which staggers image
+                  // vs pills painting; with them every visible card is
+                  // already "ready to display" before promotion.
+                  willChange: "transform, opacity",
+                  contain: "layout paint",
                   WebkitTouchCallout: "none",
                   WebkitUserSelect: "none",
                   userSelect: "none",
