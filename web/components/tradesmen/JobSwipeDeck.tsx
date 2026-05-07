@@ -155,8 +155,24 @@ export default function JobSwipeDeck({
     const flingTo = direction === "right" ? width * 1.5 : -width * 1.5;
     const el = cardRef.current;
     if (el) {
-      el.style.transition = "transform 800ms cubic-bezier(0.4, 0.0, 0.2, 1)";
+      el.style.transition = "transform 500ms cubic-bezier(0.4, 0.0, 0.2, 1)";
       el.style.transform = `scale(1) translateX(${flingTo}px) rotate(${flingTo / 20}deg)`;
+    }
+    // Animate peek-1 forward IN PARALLEL with the fling. By querying
+    // its element directly and applying the transform imperatively,
+    // we guarantee the browser starts the transition at the moment
+    // the fling does, not after the React re-render that follows
+    // setIndex. Result: while the top flies off, the next card is
+    // already growing into the top slot - finishes at the same moment,
+    // no perceptible "wait then jump" between fly-off and promote.
+    const peekEl = el?.parentElement?.querySelector(
+      '[data-card-rank="1"]',
+    ) as HTMLElement | null;
+    if (peekEl) {
+      peekEl.style.transition =
+        "transform 500ms cubic-bezier(0.16, 1, 0.3, 1), opacity 400ms ease-out";
+      peekEl.style.transform = "scale(1)";
+      peekEl.style.opacity = "1";
     }
     // Run the fling in parallel with the API. Hold setIndex until both
     // finish so the leaving card stays mid-flight while the network
@@ -165,7 +181,7 @@ export default function JobSwipeDeck({
     // have to bring the card back, otherwise it's stuck off-screen and
     // the deck looks empty under a flown-off card the user can't see.
     const [, advance] = await Promise.all([
-      new Promise<void>((r) => window.setTimeout(r, 800)),
+      new Promise<void>((r) => window.setTimeout(r, 500)),
       commitApi(direction).catch(() => false as boolean),
     ]);
     if (advance) {
@@ -213,18 +229,19 @@ export default function JobSwipeDeck({
   // "card zooms towards you" feel.
   const visible = jobs.slice(index, index + 4);
 
-  // Peek is mounted (image + chips pre-rendered, ready to display) but
-  // INVISIBLE behind the top: opacity 0, scale 0.88. When the top flies
-  // off and index advances, peek-1's rank drops 1 → 0 and the CSS
-  // transition animates opacity 0→1 + scale 0.88→1.0 - that's the
-  // "card loads inwards" feel: the next card visibly grows into the top
-  // slot from a smaller, hidden state behind.
+  // Peek-1 sits behind at scale 0.86 / opacity 0.7 - visibly smaller +
+  // faded so the deck reads as a stack. When the top flies off, the
+  // user sees the peek immediately (no white gap). After setIndex the
+  // CSS transition animates transform 0.86 → 1.0 + opacity 0.7 → 1.0
+  // over 700ms with exponential-out ease, so the card visibly glides
+  // forward into the top slot rather than snapping to size.
   function rankTransform(i: number) {
     if (i === 0) return "scale(1)";
-    return `scale(${1 - i * 0.12})`;
+    return `scale(${1 - i * 0.14})`;
   }
   function rankOpacity(i: number) {
     if (i === 0) return 1;
+    if (i === 1) return 0.7;
     return 0;
   }
 
@@ -241,6 +258,7 @@ export default function JobSwipeDeck({
               key={j.projectId}
               ref={isTop ? cardRef : undefined}
               data-testid={isTop ? "job-swipe-top-card" : undefined}
+              data-card-rank={i}
               aria-hidden={!isTop}
               onPointerDown={isTop && !flipped ? onPointerDown : undefined}
               onPointerMove={isTop && !flipped ? onPointerMove : undefined}
@@ -257,7 +275,7 @@ export default function JobSwipeDeck({
                   transform: rankTransform(i),
                   opacity: rankOpacity(i),
                   transition:
-                    "transform 400ms cubic-bezier(0.2, 0, 0, 1), opacity 350ms ease",
+                    "transform 280ms cubic-bezier(0.16, 1, 0.3, 1), opacity 220ms ease-out",
                   perspective: "1200px",
                   // Drop shadow only on the top card so the peek
                   // doesn't stack visible shadows.
