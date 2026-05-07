@@ -159,17 +159,22 @@ export default function JobSwipeDeck({
       el.style.transform = `scale(1) translateX(${flingTo}px) rotate(${flingTo / 20}deg)`;
     }
     // Run the fling in parallel with the API. Hold setIndex until both
-    // finish so the leaving card stays mid-flight. After setIndex,
-    // the leaving card unmounts and the peek-1 card - which kept its
-    // DOM through the gesture - has React update its transform from
-    // the rank-1 stack offset to rank-0 identity. The 350ms CSS
-    // transition on the peek's wrapper does the zoom-in animation.
-    // No imperative reset needed: React + CSS handle the new top.
+    // finish so the leaving card stays mid-flight while the network
+    // round-trip completes. If commitApi returns false (paygate fired,
+    // match navigation, etc.) we DON'T advance the index - but we still
+    // have to bring the card back, otherwise it's stuck off-screen and
+    // the deck looks empty under a flown-off card the user can't see.
     const [, advance] = await Promise.all([
       new Promise<void>((r) => window.setTimeout(r, 800)),
       commitApi(direction).catch(() => false as boolean),
     ]);
-    if (advance) setIndex((i) => i + 1);
+    if (advance) {
+      setIndex((i) => i + 1);
+    } else {
+      // Spring the card back to origin so the user (e.g. post-paygate)
+      // can re-swipe the same card.
+      applyCardTransform(0, false);
+    }
     animatingRef.current = false;
   }
 
