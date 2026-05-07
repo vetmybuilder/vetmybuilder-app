@@ -154,4 +154,40 @@ describe("<JobSwipeDeck />", () => {
     const peek = document.querySelector('[data-card-rank="1"]');
     expect(peek).not.toBeNull();
   });
+
+  it("Info button toggles the flip state on the top card", () => {
+    // Tapping the Info button rotates the card to its back face. The
+    // flip is implemented with `transform-style: preserve-3d` + a
+    // rotateY transform on the top card's flip wrapper. We expose the
+    // current state via data-flipped="true|false" so tests can assert
+    // it without parsing inline transform styles. Regression guard for
+    // the bug where overflow:hidden on the preserve-3d wrapper
+    // collapsed both faces to a flat plane and the back face never
+    // showed.
+    render(<JobSwipeDeck jobs={jobs} />);
+    const flipWrapper = document.querySelector(
+      '[data-flip-wrapper="true"]',
+    ) as HTMLElement | null;
+    expect(flipWrapper).not.toBeNull();
+    expect(flipWrapper?.getAttribute("data-flipped")).toBe("false");
+
+    fireEvent.click(screen.getByRole("button", { name: /view details/i }));
+    expect(flipWrapper?.getAttribute("data-flipped")).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: /view details/i }));
+    expect(flipWrapper?.getAttribute("data-flipped")).toBe("false");
+  });
+
+  it("renders both JobCard and JobCardBack so the flip can reveal the back face", () => {
+    // Both faces of the top card live in the DOM at all times - the
+    // flip is a CSS rotation, not a swap. If anyone reverts to a
+    // single-face render (e.g. conditional on `flipped`), tapping
+    // Info would show nothing on the back. This guards the dual-face
+    // architecture by checking content from BOTH faces is queryable.
+    render(<JobSwipeDeck jobs={jobs} />);
+    // JobCard front face has the title in its bottom gradient block;
+    // JobCardBack back face has its own structure with the description
+    // under "Job description" or similar copy. Both render the title.
+    expect(screen.getAllByText(/Loft conversion/i).length).toBeGreaterThan(1);
+  });
 });

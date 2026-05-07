@@ -266,7 +266,7 @@ export default function JobSwipeDeck({
               onPointerCancel={isTop && !flipped ? onPointerUp : undefined}
               onContextMenu={isTop ? (e) => e.preventDefault() : undefined}
               onDragStart={isTop ? (e) => e.preventDefault() : undefined}
-              className={`absolute inset-0 rounded-3xl overflow-hidden ${isTop ? "touch-none select-none will-change-transform" : ""}`}
+              className={`absolute inset-0 ${isTop ? "touch-none select-none will-change-transform" : ""}`}
               style={
                 {
                   zIndex: 10 - i,
@@ -277,11 +277,6 @@ export default function JobSwipeDeck({
                   transition:
                     "transform 280ms cubic-bezier(0.16, 1, 0.3, 1), opacity 220ms ease-out",
                   perspective: "1200px",
-                  // Drop shadow only on the top card so the peek
-                  // doesn't stack visible shadows.
-                  boxShadow: isTop
-                    ? "0 18px 48px rgba(15,23,42,0.22), 0 4px 14px rgba(15,23,42,0.10)"
-                    : "none",
                   willChange: "transform, opacity",
                   contain: "layout paint",
                   // touchAction: none on the inline style as well as the
@@ -296,8 +291,18 @@ export default function JobSwipeDeck({
                 } as React.CSSProperties
               }
             >
+              {/* Flip wrapper - just the rotation. We CANNOT put
+                  overflow:hidden or rounded corners on this element
+                  because both coerce a preserve-3d element to "flat"
+                  rendering in Safari, which collapses the front and
+                  back faces onto the same plane (mirrored content
+                  showing through). Rounded shape + shadow live on each
+                  face individually so the card visually reads as one
+                  rounded piece during the flip. */}
               <div
                 className="relative w-full h-full"
+                data-flip-wrapper={isTop ? "true" : "false"}
+                data-flipped={isTop && flipped ? "true" : "false"}
                 style={{
                   transformStyle: "preserve-3d",
                   transition: isTop
@@ -315,21 +320,27 @@ export default function JobSwipeDeck({
                 }}
               >
                 <div
-                  className="absolute inset-0"
+                  className="absolute inset-0 rounded-3xl overflow-hidden"
                   style={{
                     backfaceVisibility: "hidden",
                     WebkitBackfaceVisibility: "hidden",
                     transform: "translateZ(0)",
+                    boxShadow: isTop
+                      ? "0 18px 48px rgba(15,23,42,0.22), 0 4px 14px rgba(15,23,42,0.10)"
+                      : "none",
                   }}
                 >
                   <JobCard data={j} />
                 </div>
                 <div
-                  className="absolute inset-0"
+                  className="absolute inset-0 rounded-3xl overflow-hidden"
                   style={{
                     backfaceVisibility: "hidden",
                     WebkitBackfaceVisibility: "hidden",
                     transform: "rotateY(180deg) translateZ(0)",
+                    boxShadow: isTop
+                      ? "0 18px 48px rgba(15,23,42,0.22), 0 4px 14px rgba(15,23,42,0.10)"
+                      : "none",
                   }}
                 >
                   <JobCardBack data={j} />
