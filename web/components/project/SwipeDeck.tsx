@@ -1,5 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/router";
+import {
+  animate,
+  motion,
+  useMotionValue,
+  useTransform,
+  type PanInfo,
+} from "framer-motion";
 import { useApi } from "@/utils/api";
 import BuilderCard, { BuilderCardBuilder } from "./BuilderCard";
 import BuilderCardBack from "./BuilderCardBack";
@@ -93,11 +100,6 @@ export default function SwipeDeck({
     }
   }
 
-  async function commit(direction: "left" | "right") {
-    await commitApi(direction);
-    setIndex(i => i + 1);
-  }
-
   async function unfavouriteRec() {
     if (!current || !current.isRecommendation || !current.recommendationId || busy) return;
     setBusy(true);
@@ -109,106 +111,70 @@ export default function SwipeDeck({
     }
   }
 
-  // Drag state is held in a ref so pointer-move doesn't trigger a React
-  // re-render on every frame. Transform is applied directly to the card
-  // element via the ref — that's what makes the gesture feel smooth.
-  const cardRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{
-    pointerId: number;
-    startX: number;
-    lastX: number;
-    lastTime: number;
-    dx: number;
-    velocity: number; // px / ms
-  } | null>(null);
+  // Drag is owned by framer-motion. `x` is the live horizontal offset of
+  // the top card; `rotate` is derived from it for the Tinder tilt. We
+  // track container width via a ref so the fling distance + threshold
+  // scale to the deck size (mobile viewport vs desktop rail).
+  const containerRef = useRef<HTMLDivElement>(null);
+  const x = useMotionValue(0);
+  const rotate = useTransform(x, (v) => v / 20);
   const animatingRef = useRef(false);
 
-  function applyCardTransform(dx: number, immediate: boolean) {
-    const el = cardRef.current;
-    if (!el) return;
-    el.style.transition = immediate
-      ? "none"
-      : "transform 220ms cubic-bezier(0.4, 0.0, 0.2, 1)";
-    el.style.transform = `translateX(${dx}px) rotate(${dx / 20}deg)`;
+  function getDeckWidth() {
+    return containerRef.current?.offsetWidth ?? 320;
   }
 
-  function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+  // onDragEnd from framer fires once the gesture lifts. Commit the swipe
+  // when the user dragged far enough OR flicked hard enough; otherwise
+  // framer's `dragSnapToOrigin` already brings the card back to 0 with a
+  // spring, so we don't have to do anything in the fall-through case.
+  function onDragEnd(_e: unknown, info: PanInfo) {
     if (busy || animatingRef.current) return;
-    // Don't preventDefault here on iOS Safari — doing so causes the
-    // matching pointerup not to fire, which leaves the card stuck mid-
-    // drag. We still own the gesture via touch-action: none + setPointer
-    // Capture, and rely on preventDefault during pointermove (where we
-    // know it's a real drag, not just a tap) to block native scroll.
-    cardRef.current?.setPointerCapture(e.pointerId);
-    dragRef.current = {
-      pointerId: e.pointerId,
-      startX: e.clientX,
-      lastX: e.clientX,
-      lastTime: e.timeStamp,
-      dx: 0,
-      velocity: 0,
-    };
-    applyCardTransform(0, true);
+    const width = getDeckWidth();
+    const offset = info.offset.x;
+    // info.velocity.x is in px/sec - keep the same 500 px/s flick rule
+    // we had with the hand-rolled handlers.
+    const velocity = info.velocity.x;
+    const farEnough = Math.abs(offset) / width > 0.25;
+    const fastEnough = Math.abs(velocity) > 500 && Math.abs(offset) > 20;
+    if (!farEnough && !fastEnough) return;
+    const direction: "left" | "right" =
+      offset !== 0
+        ? offset > 0
+          ? "right"
+          : "left"
+        : velocity > 0
+          ? "right"
+          : "left";
+    void flingAndCommit(direction, width);
   }
 
-  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    const s = dragRef.current;
-    if (!s || s.pointerId !== e.pointerId) return;
-    // preventDefault here cancels iOS's competing scroll/zoom gestures
-    // once we know the user is actively dragging — but only after a
-    // small movement so a held tap can still go through cleanly.
-    if (Math.abs(e.clientX - s.startX) > 4) e.preventDefault();
-    const dt = Math.max(1, e.timeStamp - s.lastTime);
-    s.velocity = (e.clientX - s.lastX) / dt;
-    s.lastX = e.clientX;
-    s.lastTime = e.timeStamp;
-    s.dx = e.clientX - s.startX;
-    applyCardTransform(s.dx, true);
-  }
-
-  function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
-    const s = dragRef.current;
-    if (!s || s.pointerId !== e.pointerId) return;
-    cardRef.current?.releasePointerCapture(e.pointerId);
-    dragRef.current = null;
-
-    const width = cardRef.current?.offsetWidth ?? 320;
-    const { dx, velocity } = s;
-    const farEnough = Math.abs(dx) / width > 0.25;
-    // Flick threshold — 0.5 px/ms == 500px/sec. A ~150px flick over 300ms
-    // satisfies this even though it's well below the distance threshold.
-    const fastEnough = Math.abs(velocity) > 0.5 && Math.abs(dx) > 20;
-
-    if (farEnough || fastEnough) {
-      const direction: "left" | "right" =
-        dx !== 0 ? (dx > 0 ? "right" : "left") : velocity > 0 ? "right" : "left";
-      flingAndCommit(direction, width);
-      return;
-    }
-    // Below threshold — animate back to 0.
-    applyCardTransform(0, false);
+  // Programmatic commit (Pass / Like buttons) - fly the card off in the
+  // matching direction so the action feels identical to a drag.
+  function commitWithFling(direction: "left" | "right") {
+    if (busy || animatingRef.current) return;
+    void flingAndCommit(direction, getDeckWidth());
   }
 
   async function flingAndCommit(direction: "left" | "right", width: number) {
     animatingRef.current = true;
     const flingTo = direction === "right" ? width * 1.5 : -width * 1.5;
-    const el = cardRef.current;
-    if (el) {
-      el.style.transition = "transform 250ms cubic-bezier(0.4, 0.0, 0.2, 1)";
-      el.style.transform = `translateX(${flingTo}px) rotate(${flingTo / 20}deg)`;
-    }
-    // Run the fling animation in parallel with the API. Crucially we do
-    // NOT advance the index inside commitApi — if the API resolves before
-    // the 250ms animation, an early setIndex would re-render the top div
-    // with the next card's content while it's still under the off-screen
-    // fling transform, briefly exposing the peek behind it (visible as a
-    // grey flash / strip on swipe). We hold the advance until both the
-    // animation and API are done, then advance + snap transform together.
+    // Drive the fly-off via framer's `animate` so the tilt (derived from
+    // x) tracks the card all the way out. Run the fly-off animation in
+    // parallel with the API and the index advance - whichever takes
+    // longer determines when the next card snaps into view.
+    const flyOff = animate(x, flingTo, {
+      duration: 0.25,
+      ease: [0.4, 0, 0.2, 1],
+    });
     await Promise.all([
-      new Promise<void>((r) => window.setTimeout(r, 250)),
+      flyOff.then(() => undefined),
       commitApi(direction).catch(() => {}),
     ]);
-    applyCardTransform(0, true);
+    // Reset offset (instant) and advance index in the same tick. The new
+    // top card mounts at x=0 with no transition, so there's no flash of
+    // an off-screen card.
+    x.set(0);
     setIndex((i) => i + 1);
     animatingRef.current = false;
   }
@@ -233,7 +199,7 @@ export default function SwipeDeck({
           how tall the deck is (mobile pages set this to ~viewport, desktop
           rails constrain it to the rail size). Action bar floats over the
           bottom of the photo, Tinder-style. */}
-      <div className="relative h-full min-h-[460px]">
+      <div ref={containerRef} className="relative h-full min-h-[460px]">
         {/* Peek cards sit flush behind the top card (no scale / no offset).
             A scaled peek subpixel-renders text + pills at 0.97x and then
             visibly snaps to 1.0x the moment it becomes the top — that's
@@ -249,27 +215,26 @@ export default function SwipeDeck({
             <BuilderCard builder={b} />
           </div>
         ))}
-        <div
-          ref={cardRef}
+        <motion.div
+          // Re-mount the motion node when the visible card changes so
+          // framer's internal x value resets cleanly between cards (and
+          // we don't need an extra effect to zero it).
+          key={current.uid}
           data-testid="swipe-top-card"
-          onPointerDown={flipped ? undefined : onPointerDown}
-          onPointerMove={flipped ? undefined : onPointerMove}
-          onPointerUp={flipped ? undefined : onPointerUp}
-          onPointerCancel={flipped ? undefined : onPointerUp}
-          // Block iOS Safari's long-press behaviours: image preview pop,
-          // text selection, native drag-and-drop, link callout. Without
-          // these the touch is hijacked before our pointer handlers can
-          // establish a drag.
-          onContextMenu={(e) => e.preventDefault()}
-          onDragStart={(e) => e.preventDefault()}
-          className="absolute inset-0 z-10 touch-none select-none will-change-transform"
+          drag={flipped ? false : "x"}
+          dragSnapToOrigin
+          dragElastic={0.7}
+          dragMomentum={false}
+          onDragEnd={onDragEnd}
           style={{
-            perspective: "1200px",
+            x,
+            rotate,
+            perspective: 1200,
             WebkitTouchCallout: "none",
             WebkitUserSelect: "none",
             userSelect: "none",
-            WebkitUserDrag: "none",
-          } as React.CSSProperties}
+          }}
+          className="absolute inset-0 z-10 touch-none select-none will-change-transform"
         >
           <div
             className="relative w-full h-full"
@@ -304,7 +269,7 @@ export default function SwipeDeck({
               <BuilderCardBack builder={current} />
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Floating action bar — sits absolute over the bottom of the
             top card so it reads as part of the photo. Pass / Info / Like
@@ -313,9 +278,9 @@ export default function SwipeDeck({
           <div className="pointer-events-auto">
             <SwipeActionBar
               disabled={busy}
-              onPass={() => commit("left")}
+              onPass={() => commitWithFling("left")}
               onInfo={() => setFlipped((v) => !v)}
-              onLike={() => commit("right")}
+              onLike={() => commitWithFling("right")}
               floating
             />
           </div>
