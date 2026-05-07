@@ -225,90 +225,89 @@ export default function SwipeDeck({
     );
   }
 
-  // Pre-mount the next THREE cards (not two). With only two peeks, every
-  // swipe pulls a fresh card into the peek slice that has to render its
-  // image + chips from scratch - visible as a brief delay before the
-  // pills appear. Three keeps the slot one ahead of the gesture.
-  const peek = queue.slice(index + 1, index + 4);
+  // Render top + next three cards as siblings, keyed by uid. When the
+  // user swipes the top card off, React reconciles by key: peek-1 keeps
+  // its DOM node and just gains the top-card responsibilities (pointer
+  // handlers, z-10, flip wrapper). The image, badges and chips were
+  // already rendered while it was a peek, so there's no flash where
+  // pills "load in" after the photo. Only the top card mounts
+  // BuilderCardBack (it needs a network fetch) - peeks render a placeholder
+  // back face so the 3D structure is identical and React doesn't tear
+  // down the front when ownership of the top slot changes.
+  const visible = queue.slice(index, index + 4);
 
   return (
     <div className="relative h-full">
-      {/* Card stack — fills the container's height so the parent decides
-          how tall the deck is (mobile pages set this to ~viewport, desktop
-          rails constrain it to the rail size). Action bar floats over the
-          bottom of the photo, Tinder-style. */}
       <div className="relative h-full min-h-[460px]">
-        {/* Peek cards sit flush behind the top card (no scale / no offset).
-            A scaled peek subpixel-renders text + pills at 0.97x and then
-            visibly snaps to 1.0x the moment it becomes the top — that's
-            what reads as "jumpy" and "distorted pills". Flat-stacking
-            preloads the image at its final size so the swipe is seamless. */}
-        {peek.map((b) => (
-          <div
-            key={b.uid}
-            aria-hidden
-            className="absolute inset-0"
-            style={{ zIndex: 1 }}
-          >
-            <BuilderCard builder={b} />
-          </div>
-        ))}
-        <div
-          ref={cardRef}
-          data-testid="swipe-top-card"
-          onPointerDown={flipped ? undefined : onPointerDown}
-          onPointerMove={flipped ? undefined : onPointerMove}
-          onPointerUp={flipped ? undefined : onPointerUp}
-          onPointerCancel={flipped ? undefined : onPointerUp}
-          // Block iOS Safari's long-press behaviours: image preview pop,
-          // text selection, native drag-and-drop, link callout. Without
-          // these the touch is hijacked before our pointer handlers can
-          // establish a drag.
-          onContextMenu={(e) => e.preventDefault()}
-          onDragStart={(e) => e.preventDefault()}
-          className="absolute inset-0 z-10 touch-none select-none will-change-transform"
-          style={{
-            perspective: "1200px",
-            WebkitTouchCallout: "none",
-            WebkitUserSelect: "none",
-            userSelect: "none",
-            WebkitUserDrag: "none",
-          } as React.CSSProperties}
-        >
-          <div
-            className="relative w-full h-full"
-            style={{
-              transformStyle: "preserve-3d",
-              transition: "transform 0.55s cubic-bezier(0.4, 0.0, 0.2, 1)",
-              transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
-            }}
-          >
-            {/* Front. translateZ(0) forces this face into its own 3D
-                layer; without it Safari leaks the absolutely-positioned
-                badges (z-10 inside BuilderCard) through the rotated
-                face, appearing mirrored on the back of the card. */}
+        {visible.map((b, i) => {
+          const isTop = i === 0;
+          return (
             <div
-              className="absolute inset-0"
-              style={{
-                backfaceVisibility: "hidden",
-                WebkitBackfaceVisibility: "hidden",
-                transform: "translateZ(0)",
-              }}
+              key={b.uid}
+              ref={isTop ? cardRef : undefined}
+              data-testid={isTop ? "swipe-top-card" : undefined}
+              aria-hidden={!isTop}
+              onPointerDown={isTop && !flipped ? onPointerDown : undefined}
+              onPointerMove={isTop && !flipped ? onPointerMove : undefined}
+              onPointerUp={isTop && !flipped ? onPointerUp : undefined}
+              onPointerCancel={isTop && !flipped ? onPointerUp : undefined}
+              onContextMenu={isTop ? (e) => e.preventDefault() : undefined}
+              onDragStart={isTop ? (e) => e.preventDefault() : undefined}
+              className={`absolute inset-0 ${isTop ? "z-10 touch-none select-none will-change-transform" : ""}`}
+              style={
+                {
+                  zIndex: isTop ? 10 : 1,
+                  perspective: "1200px",
+                  WebkitTouchCallout: "none",
+                  WebkitUserSelect: "none",
+                  userSelect: "none",
+                  WebkitUserDrag: "none",
+                  pointerEvents: isTop ? "auto" : "none",
+                } as React.CSSProperties
+              }
             >
-              <BuilderCard builder={current} onUnfavouriteRec={unfavouriteRec} />
+              <div
+                className="relative w-full h-full"
+                style={{
+                  transformStyle: "preserve-3d",
+                  transition: isTop
+                    ? "transform 0.55s cubic-bezier(0.4, 0.0, 0.2, 1)"
+                    : "none",
+                  transform: isTop && flipped ? "rotateY(180deg)" : "rotateY(0deg)",
+                }}
+              >
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    backfaceVisibility: "hidden",
+                    WebkitBackfaceVisibility: "hidden",
+                    transform: "translateZ(0)",
+                  }}
+                >
+                  <BuilderCard
+                    builder={b}
+                    onUnfavouriteRec={isTop ? unfavouriteRec : undefined}
+                  />
+                </div>
+                {/* Back face only mounts on the actual top card so the
+                    /api/tradesmen/:uid fetch in BuilderCardBack doesn't
+                    fire for peeks the user may never flip into. */}
+                {isTop && (
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      backfaceVisibility: "hidden",
+                      WebkitBackfaceVisibility: "hidden",
+                      transform: "rotateY(180deg) translateZ(0)",
+                    }}
+                  >
+                    <BuilderCardBack builder={b} />
+                  </div>
+                )}
+              </div>
             </div>
-            <div
-              className="absolute inset-0"
-              style={{
-                backfaceVisibility: "hidden",
-                WebkitBackfaceVisibility: "hidden",
-                transform: "rotateY(180deg) translateZ(0)",
-              }}
-            >
-              <BuilderCardBack builder={current} />
-            </div>
-          </div>
-        </div>
+          );
+        })}
 
         {/* Floating action bar — sits absolute over the bottom of the
             top card so it reads as part of the photo. Pass / Info / Like
