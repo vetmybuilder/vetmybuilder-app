@@ -53,6 +53,7 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "firebase": "^12.3.0",
+    "framer-motion": "^12.38.0",
     "fuse.js": "^7.1.0",
     "heic-convert": "^2.1.0",
     "lucide-react": "^0.554.0",
