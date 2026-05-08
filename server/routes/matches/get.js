@@ -43,8 +43,8 @@ module.exports = function mountMatchGet(router, ctx) {
               t.email               AS builderTradeEmail,
               t.profile_picture_url AS builderPhotoUrl
          FROM swipe_interest si
-         JOIN users bu     ON bu.uid = si.builder_uid
-         JOIN users ou     ON ou.uid = si.homeowner_uid
+         LEFT JOIN users bu ON bu.uid = si.builder_uid
+         JOIN users ou ON ou.uid = si.homeowner_uid
          LEFT JOIN tradesmen t ON t.user_id = si.builder_uid
         WHERE si.id = ?
           AND si.status IN ('matched', 'pending')
