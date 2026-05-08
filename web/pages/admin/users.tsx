@@ -602,20 +602,35 @@ export default function AdminUsersPage() {
                         value={areaQuery}
                         onChange={(val, meta) => {
                           setAreaQuery(val || "");
-                          if (meta) {
-                            const token = (meta as any).outward || (meta as any).sector || (meta as any).postcode || "";
-                            if (token) {
-                              const normalised = token.toUpperCase().trim();
-                              const current = form.areas ? form.areas.split(",").map((s: string) => s.trim()).filter(Boolean) : [];
-                              if (!current.includes(normalised)) {
-                                setForm((f) => ({
-                                  ...f,
-                                  areas: [...current, normalised].join(","),
-                                }));
-                              }
-                            }
+                          if (!meta) return;
+
+                          // Picking a borough expands to all of its
+                          // outward codes; picking a single postcode /
+                          // sector / outward adds just that one. Both
+                          // dedupe against existing chips.
+                          const m = meta as any;
+                          const tokens: string[] = m.borough?.outwardCodes?.length
+                            ? m.borough.outwardCodes
+                            : [m.outward || m.sector || m.postcode || ""];
+                          const normalised = tokens
+                            .map((t) => String(t || "").toUpperCase().trim())
+                            .filter(Boolean);
+                          if (normalised.length === 0) {
                             setAreaQuery("");
+                            return;
                           }
+
+                          const current = form.areas
+                            ? form.areas.split(",").map((s: string) => s.trim()).filter(Boolean)
+                            : [];
+                          const merged = [...current];
+                          for (const t of normalised) {
+                            if (!merged.includes(t)) merged.push(t);
+                          }
+                          if (merged.length !== current.length) {
+                            setForm((f) => ({ ...f, areas: merged.join(",") }));
+                          }
+                          setAreaQuery("");
                         }}
                       />
                     </div>
