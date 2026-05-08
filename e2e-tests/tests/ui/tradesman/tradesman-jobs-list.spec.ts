@@ -2,7 +2,7 @@ import { test } from "../../../src/ui.fixtures";
 import { setupTradesmanJobsListScene } from "../../../src/apiHelper/tradesman/setupTradesmanJobsListScene";
 
 test.describe("Tradesman jobs list (/tradesman/jobs/list)", () => {
-  test("renders every live job, dims low-score rows, and keeps high-score rows clean", async ({
+  test("shows every live job, dimming low-match ones", async ({
     request,
     runtime,
     apiClient,
@@ -17,17 +17,17 @@ test.describe("Tradesman jobs list (/tradesman/jobs/list)", () => {
     });
 
     await tradesmanJobsListPage.goto();
+
     await tradesmanJobsListPage.expectRowsVisible([
       scene.highScoreProjectId,
       scene.mediumScoreProjectId,
       scene.lowScoreProjectId,
     ]);
-
     await tradesmanJobsListPage.expectRowNotDimmed(scene.highScoreProjectId);
     await tradesmanJobsListPage.expectRowDimmed(scene.lowScoreProjectId);
   });
 
-  test("My trades chip filters to only the rows whose type matches the tradesman's trades, and All restores everything", async ({
+  test("My trades chip narrows the list, All chip restores it", async ({
     request,
     runtime,
     apiClient,
@@ -42,7 +42,6 @@ test.describe("Tradesman jobs list (/tradesman/jobs/list)", () => {
     });
 
     await tradesmanJobsListPage.goto();
-    await tradesmanJobsListPage.expectRowVisible(scene.highScoreProjectId);
 
     await tradesmanJobsListPage.tapMyTradesChip();
     await tradesmanJobsListPage.expectRowVisible(scene.highScoreProjectId);
@@ -57,7 +56,7 @@ test.describe("Tradesman jobs list (/tradesman/jobs/list)", () => {
     ]);
   });
 
-  test("does not surface contact or message buttons before a match", async ({
+  test("rows do not expose contact or message buttons", async ({
     request,
     runtime,
     apiClient,
@@ -75,7 +74,7 @@ test.describe("Tradesman jobs list (/tradesman/jobs/list)", () => {
     await tradesmanJobsListPage.expectNoContactOrMessageButtons();
   });
 
-  test("Open in deck routes to /tradesman/jobs?focus=<id>", async ({
+  test("Open in deck opens the swipe deck focused on that job", async ({
     request,
     runtime,
     apiClient,

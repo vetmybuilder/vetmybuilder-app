@@ -53,7 +53,7 @@ export default function TradesmanProjectView({ vm }: { vm: VM }) {
 
   // Job is gated if tradesperson is not recommended and hasn't unlocked
   // contact. The engagement panels (subscribe vs one-off pitch) live on
-  // /tradesman/jobs/list now (JobDetailsSheet bottom sheet) - this page
+  // /tradesman/jobs (the swipe deck via SwipePayGate) - this page
   // just shows full project info + the standard ContactDetailsCard for
   // unlocked / matched state.
   const jobGated = !isRecommended && !contactUnlocked;

@@ -14,10 +14,6 @@ import TradesmanOnly from "@/components/TradesmanOnly";
 import SiteHeader from "@/components/SiteHeader";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import JobListRow, { type JobListRowData } from "@/components/tradesmen/JobListRow";
-import JobDetailsSheet from "@/components/tradesmen/JobDetailsSheet";
-import SwipePayGate, {
-  type SwipePayGateSubject,
-} from "@/components/tradesmen/SwipePayGate";
 
 // ─── types ──────────────────────────────────────────────────────────────────
 
@@ -89,28 +85,6 @@ export default function TradesmanJobsListPage() {
   const router = useRouter();
   const { openMenu } = useMobileMenu();
 
-  // Bottom-sheet state. `openSheetForId` holds the projectId of the row
-  // the sheet is currently showing details for; null = closed. The sheet
-  // also needs to know whether the builder is currently subscribed to
-  // pick the right engagement panel (subscriber vs dual-CTA).
-  const [openSheetForId, setOpenSheetForId] = useState<number | null>(null);
-  const [isSubscribed, setIsSubscribed] = useState(false);
-  const [paygate, setPaygate] = useState<SwipePayGateSubject | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .get("/api/subscriptions/me")
-      .then((r) => {
-        if (!cancelled) setIsSubscribed(!!r.data?.subscription);
-      })
-      .catch(() => {
-        if (!cancelled) setIsSubscribed(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Raw items from the API (unfiltered)
   const [allItems, setAllItems] = useState<JobListRowData[]>([]);
@@ -494,7 +468,9 @@ export default function TradesmanJobsListPage() {
                   >
                     <JobListRow
                       data={job}
-                      onOpen={(pid) => setOpenSheetForId(pid)}
+                      onOpen={(pid) =>
+                        router.push(`/tradesman/jobs?focus=${pid}`)
+                      }
                     />
                   </div>
                 ))}
@@ -519,7 +495,7 @@ export default function TradesmanJobsListPage() {
             search / chip / pagination state as mobile. */}
         <div
           className="hidden md:block min-h-screen bg-[#fef6e9] relative overflow-hidden"
-          data-testid="tradesman-jobs-list-desktop"
+          data-testid="tradesman-jobs-list"
         >
           <SiteHeader />
           <BrandWatermarkScatter />
@@ -580,6 +556,7 @@ export default function TradesmanJobsListPage() {
                             key={id}
                             type="button"
                             onClick={() => setActiveChip(id)}
+                            data-testid={`chip-${id}`}
                             className={`px-2.5 py-1 rounded-full text-[10.5px] font-bold border transition-colors ${
                               active
                                 ? "bg-emerald-600 text-white border-emerald-600"
@@ -647,7 +624,11 @@ export default function TradesmanJobsListPage() {
                         key={job.projectId}
                         data={job}
                         highlight={newRowIds.has(job.projectId)}
-                        onOpen={() => setOpenSheetForId(job.projectId)}
+                        onOpen={() =>
+                          router.push(
+                            `/tradesman/jobs?focus=${job.projectId}`,
+                          )
+                        }
                       />
                     ))}
 
@@ -671,115 +652,10 @@ export default function TradesmanJobsListPage() {
           </div>
         </div>
 
-        <JobDetailsSheet
-          open={openSheetForId != null}
-          subject={(() => {
-            if (openSheetForId == null) return null;
-            const job = filteredItems.find(
-              (j) => j.projectId === openSheetForId,
-            );
-            if (!job) return null;
-            return {
-              projectId: job.projectId,
-              title: job.title,
-            };
-          })()}
-          isSubscribed={isSubscribed}
-          onClose={() => setOpenSheetForId(null)}
-          onSubscribe={() => {
-            // Carry the open sheet's job into the SwipePayGate so the
-            // "Reply to homeowner" copy + price band stay in context. Closes
-            // the bottom sheet first so the gate has the screen to itself.
-            const job = filteredItems.find(
-              (j) => j.projectId === openSheetForId,
-            );
-            setOpenSheetForId(null);
-            if (!job) return;
-            setPaygate({
-              projectId: job.projectId,
-              title: job.title ?? "",
-              location: job.location ?? null,
-              type: job.type ?? null,
-              priceBandLabel: null,
-            });
-          }}
-          onPitch={async (projectId) => {
-            // Mock checkout activates the unlock immediately; in real
-            // Stripe mode we'd be redirected to hosted checkout. Once
-            // unlocked, drop the builder into the unified chat thread.
-            try {
-              const res = await api.post(
-                `/api/projects/${projectId}/unlock-contact/checkout`,
-                {},
-              );
-              setOpenSheetForId(null);
-              // Already-active unlock - go straight to chat using the
-              // matchId in the response.
-              if (res.data?.alreadyUnlocked && res.data?.matchId) {
-                router.push(`/chat/${res.data.matchId}`);
-                return;
-              }
-              const url = res.data?.url || res.data?.hosted_url;
-              const sessionId = res.data?.sessionId;
-              const isMock = String(url || "").includes("/payments/mock/");
-              if (isMock && sessionId) {
-                await api.post("/api/payments/mock/pay", { sessionId });
-                let matchId: number | string | undefined;
-                try {
-                  const lookup = await api.post(
-                    `/api/projects/${projectId}/unlock-contact/checkout`,
-                    {},
-                  );
-                  matchId = lookup.data?.matchId;
-                } catch {
-                  /* fall through */
-                }
-                if (matchId) {
-                  router.push(`/chat/${matchId}`);
-                } else {
-                  // eslint-disable-next-line no-console
-                  console.warn("Could not resolve matchId after paid unlock");
-                  router.push("/tradesman/jobs/list");
-                }
-                return;
-              }
-              if (url) {
-                window.location.href = url;
-              }
-            } catch (err: any) {
-              if (
-                err?.response?.status === 409 &&
-                err?.response?.data?.alreadySubscribed
-              ) {
-                // Subscriber slipped through (e.g. cached state). Pivot
-                // them to the swipe deck rather than failing silently.
-                setIsSubscribed(true);
-                setOpenSheetForId(null);
-                router.push(`/tradesman/jobs?focus=${projectId}`);
-                return;
-              }
-              alert(
-                err?.response?.data?.error ||
-                  err?.message ||
-                  "Couldn't start unlock. Please try again.",
-              );
-            }
-          }}
-          onSwipe={(projectId) => {
-            setOpenSheetForId(null);
-            router.push(`/tradesman/jobs?focus=${projectId}`);
-          }}
-        />
-
-        {/* Pitch-this-job paygate. Replaces the deprecated
-            /tradesman/billing visibility-pass page so the Subscribe CTA
-            in JobDetailsSheet opens the canonical buy-a-pass flow with
-            the swiped job pinned in context. */}
-        <SwipePayGate
-          open={paygate !== null}
-          subject={paygate}
-          onClose={() => setPaygate(null)}
-        />
+        {/* Paygate is mounted by /tradesman/jobs (the deck) on right-
+            swipe of a paywalled card. The list view just routes to
+            the focused deck on row tap; the deck owns the paygate
+            UX, so no need to mount it here. */}
       </>
     </TradesmanOnly>
   );
@@ -809,13 +685,28 @@ function DesktopJobRow({
     ? swipePillClasses(data.swipeStateLabel)
     : null;
 
+  const isLowScore = (data.aiScore ?? 101) < 60;
+  // The row is a `<div role="button">` rather than a `<button>` so we
+  // can nest a real button inside for "Open in deck" without breaking
+  // HTML's no-button-in-button rule. Click anywhere on the row body
+  // opens the detail sheet (existing UX); the dedicated trailing
+  // button bypasses the sheet and routes straight to the focused deck,
+  // matching the mobile JobListRow affordance.
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onOpen}
-      className={`w-full text-left bg-white border rounded-xl px-4 py-3 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all flex items-center gap-3 ${
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      data-testid={`job-list-row-${data.projectId}`}
+      className={`w-full text-left cursor-pointer bg-white border rounded-xl px-4 py-3 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all flex items-center gap-3 ${
         highlight ? "border-emerald-300 bg-emerald-50/30" : "border-amber-100"
-      }`}
+      }${isLowScore ? " opacity-65" : ""}`}
     >
       <div
         className={`shrink-0 w-11 h-11 rounded-full flex flex-col items-center justify-center font-black ${scoreColor}`}
@@ -862,10 +753,18 @@ function DesktopJobRow({
           {data.budget}
         </span>
       )}
-      <span className="shrink-0 text-[14px] font-extrabold text-emerald-700">
-        →
-      </span>
-    </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpen();
+        }}
+        data-testid={`open-in-deck-${data.projectId}`}
+        className="shrink-0 text-[12px] font-extrabold text-emerald-700 hover:text-emerald-800 px-2 py-1 rounded-md hover:bg-emerald-50 transition-colors"
+      >
+        Open in deck →
+      </button>
+    </div>
   );
 }
 

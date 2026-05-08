@@ -586,7 +586,7 @@ function DesktopGate({
 
   return (
     <div className="hidden md:block w-full max-w-5xl mx-auto" data-testid="swipe-paygate-desktop">
-      <div className="bg-white rounded-3xl shadow-2xl border border-amber-100 overflow-hidden relative">
+      <div className="bg-white rounded-3xl shadow-2xl border border-amber-100 overflow-hidden relative max-h-[90vh] flex flex-col">
         {/* Close */}
         <button
           type="button"
@@ -599,7 +599,7 @@ function DesktopGate({
           ✕
         </button>
 
-        <div className="px-8 py-7">
+        <div className="px-8 py-7 overflow-y-auto">
           {/* Hero copy */}
           <div className="text-center max-w-xl mx-auto">
             <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-1">

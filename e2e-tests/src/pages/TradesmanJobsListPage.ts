@@ -1,17 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import BasePage from "./BasePage";
 
-/**
- * /tradesman/jobs/list - the browse list view of jobs a tradesman can
- * pitch. Each row is a JobListRow keyed by projectId. Rows the
- * tradesman doesn't strongly match are dimmed (opacity-65). A chip row
- * filters the list (All / Within 5 mi / £15k+ / My trades / New today).
- *
- * Companion to TradesmanJobsDeckPage. Both screens render the same
- * underlying jobs queue but in different shapes; the list view's main
- * affordance is "Open in deck →" which routes to /tradesman/jobs with
- * a focus query so the deck centres that card.
- */
 export class TradesmanJobsListPage extends BasePage {
   readonly root: Locator;
   readonly chipAll: Locator;
@@ -19,24 +8,40 @@ export class TradesmanJobsListPage extends BasePage {
 
   constructor(page: Page) {
     super(page);
-    this.root = page.getByTestId("tradesman-jobs-list");
-    this.chipAll = page.getByTestId("chip-all");
-    this.chipMyTrades = page.getByTestId("chip-my-trades");
+
+    this.root = page
+      .getByTestId("tradesman-jobs-list")
+      .filter({ visible: true });
+    this.chipAll = page.getByTestId("chip-all").filter({ visible: true });
+    this.chipMyTrades = page
+      .getByTestId("chip-my-trades")
+      .filter({ visible: true });
   }
 
   async goto(): Promise<void> {
-    await this.page.goto("/tradesman/jobs/list", {
-      waitUntil: "domcontentloaded",
-    });
+    await this.page.goto("/tradesman/jobs", { waitUntil: "domcontentloaded" });
+
+    const isMobile = (this.page.viewportSize()?.width ?? 1440) < 768;
+    if (isMobile) {
+      await this.page.getByRole("button", { name: /more options/i }).click();
+      await this.page.getByTestId("mobile-menu-trades-jobs-list").click();
+    } else {
+      await this.page.getByRole("tab", { name: /jobs list/i }).click();
+    }
+
     await expect(this.root).toBeVisible({ timeout: 20_000 });
   }
 
   rowLocator(projectId: number | string): Locator {
-    return this.page.getByTestId(`job-list-row-${projectId}`);
+    return this.page
+      .getByTestId(`job-list-row-${projectId}`)
+      .filter({ visible: true });
   }
 
   openInDeckLocator(projectId: number | string): Locator {
-    return this.page.getByTestId(`open-in-deck-${projectId}`);
+    return this.page
+      .getByTestId(`open-in-deck-${projectId}`)
+      .filter({ visible: true });
   }
 
   async expectRowVisible(projectId: number | string): Promise<void> {
@@ -82,11 +87,17 @@ export class TradesmanJobsListPage extends BasePage {
    * row's only forward action is "Open in deck →".
    */
   async expectNoContactOrMessageButtons(): Promise<void> {
+    // Scope to rows. The global header has a "Messages" icon for
+    // signed-in tradespeople which is intentional chrome; the privacy
+    // concern is per-row contact affordances on the list itself.
+    const rows = this.page
+      .locator('[data-testid^="job-list-row-"]')
+      .filter({ visible: true });
     await expect(
-      this.page.getByRole("button", { name: /contact|message/i }),
+      rows.getByRole("button", { name: /contact|message/i }),
     ).toHaveCount(0);
     await expect(
-      this.page.getByRole("link", { name: /contact|message/i }),
+      rows.getByRole("link", { name: /contact|message/i }),
     ).toHaveCount(0);
   }
 
