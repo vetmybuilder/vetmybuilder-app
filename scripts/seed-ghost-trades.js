@@ -34,7 +34,15 @@ const args = Object.fromEntries(
   }),
 );
 
-const COUNT = Number.isFinite(Number(args.count)) ? Number(args.count) : 100;
+// Per-trade ghost count. Default 30 means every canonical trade label
+// gets at least 30 dedicated ghosts as its primary trade, plus extras
+// from other trades' secondaries - so any project surfaces 30-60+
+// matching ghosts.
+const PER_TRADE = Number.isFinite(Number(args.perTrade))
+  ? Number(args.perTrade)
+  : Number.isFinite(Number(args.count))
+    ? Number(args.count)
+    : 30;
 const MASTER_UID = args.master || process.env.MASTER_UID;
 const DB_NAME = args.db || process.env.MYSQL_DATABASE || "vetmybuilder";
 
@@ -77,40 +85,168 @@ const ghostUid = () => `ghost_${crypto.randomBytes(11).toString("hex")}`;
 const uuidv4 = () => crypto.randomUUID();
 
 // ---------- canonical pools ----------
-// Trade labels weighted by how common they are in real demand.
-// Every label here MUST appear in web/types/tradeTypes.ts TRADE_TYPES -
-// matching does an exact-label set intersection, so a typo silently means
-// a ghost never gets surfaced for any job.
-const TRADES_WEIGHTED = [
-  ["Plumber", 12],
-  ["Electrician", 12],
-  ["General Builder", 10],
-  ["Painter / Decorator", 9],
-  ["Carpenter / Joiner", 8],
-  ["Bathroom Fitter", 7],
-  ["Kitchen Fitter", 7],
-  ["Plasterer", 6],
-  ["Roofer", 6],
-  ["Tiler", 5],
-  ["Gas Engineer", 5],
-  ["Bricklayer", 4],
-  ["Flooring Specialist", 4],
-  ["Window / Door Fitter", 4],
-  ["Loft Conversion Specialist", 3],
-  ["Extension Builder", 3],
-  ["Landscaper", 3],
-  ["Heating Engineer", 3],
-  ["Boiler Installer", 3],
-  ["Damp Proofing", 2],
-  ["Handyman", 4],
+// Every canonical trade label from web/types/tradeTypes.ts. Matching does
+// an exact-label set intersection, so any drift here silently means a
+// ghost never surfaces. Test guard alongside this file would catch
+// canonicalisation drift if added.
+const ALL_TRADES = [
+  "Air Conditioning",
+  "Architect",
+  "Asbestos Removal",
+  "Basement Conversion",
+  "Bathroom Fitter",
+  "Boiler Installer",
+  "Bricklayer",
+  "Building Control (Approved Inspector)",
+  "Cabinet Maker",
+  "Carpenter / Joiner",
+  "Carpet Fitter",
+  "Cavity Wall Insulation",
+  "Cleaning (Builders Clean)",
+  "Curtains / Soft Furnishings",
+  "Damp Proofing",
+  "Decking",
+  "Drainage Specialist",
+  "Driveways / Paving",
+  "Dryliner / Partitions",
+  "Electrician",
+  "External Wall Insulation",
+  "Extension Builder",
+  "Fencing",
+  "Fire Safety",
+  "Flooring Specialist",
+  "Garage Conversion",
+  "Garden Rooms / Offices",
+  "Gas Engineer",
+  "General Builder",
+  "Glazier",
+  "Groundworker",
+  "Handyman",
+  "Heat Pumps",
+  "Heating Engineer",
+  "Internal Wall Insulation",
+  "Kitchen Fitter",
+  "Landscaper",
+  "Loft Conversion Specialist",
+  "Loft Insulation",
+  "New Build",
+  "Painter / Decorator",
+  "Party Wall Surveyor",
+  "Plasterer",
+  "Plumber",
+  "Roof Insulation",
+  "Roofer",
+  "Sash Window Specialist",
+  "Sauna / Steam",
+  "Scaffolder",
+  "Security / Alarms / CCTV",
+  "Shutters / Blinds",
+  "Skylights / Rooflights",
+  "Smart Home / AV",
+  "Solar PV",
+  "Solar Thermal",
+  "Sprinklers",
+  "Steel Fabrication",
+  "Stone Worktops",
+  "Stonemason",
+  "Structural Engineer",
+  "Suspended Ceilings",
+  "Swimming Pools",
+  "Thatched Roofing",
+  "Tiler",
+  "Timber Treatment",
+  "Underfloor Heating",
+  "Vinyl / LVT Fitter",
+  "Waste Removal / Skip Hire",
+  "Window / Door Fitter",
+  "Wood Floor Sanding",
 ];
-const expandedTrades = (() => {
-  const out = [];
-  for (const [label, weight] of TRADES_WEIGHTED) {
-    for (let i = 0; i < weight; i++) out.push(label);
+
+// Bucket groupings - secondary trades on a ghost are pulled from the same
+// bucket so a Plumber-primary ghost might also do Heating + Boilers, not
+// Thatched Roofing. Mirrors the "buckets" field in tradeTypes.ts.
+const BUCKETS = {
+  Plumbing: [
+    "Plumber", "Boiler Installer", "Heating Engineer",
+    "Drainage Specialist", "Underfloor Heating", "Bathroom Fitter",
+  ],
+  Heating: [
+    "Heating Engineer", "Boiler Installer", "Underfloor Heating",
+    "Gas Engineer", "Heat Pumps",
+  ],
+  Electrical: [
+    "Electrician", "Security / Alarms / CCTV", "Smart Home / AV",
+  ],
+  HVAC: ["Air Conditioning", "Heat Pumps", "Underfloor Heating"],
+  Renewables: ["Solar PV", "Solar Thermal", "Heat Pumps"],
+  Structure: [
+    "General Builder", "Bricklayer", "Stonemason", "Groundworker",
+    "Structural Engineer", "Extension Builder", "New Build",
+    "Loft Conversion Specialist", "Garage Conversion",
+    "Basement Conversion", "Steel Fabrication", "Damp Proofing",
+  ],
+  Interiors: [
+    "Plasterer", "Carpenter / Joiner", "Cabinet Maker", "Kitchen Fitter",
+    "Bathroom Fitter", "Stone Worktops", "Suspended Ceilings",
+    "Dryliner / Partitions",
+  ],
+  Finishes: [
+    "Tiler", "Painter / Decorator", "Flooring Specialist", "Carpet Fitter",
+    "Wood Floor Sanding", "Vinyl / LVT Fitter", "Curtains / Soft Furnishings",
+    "Shutters / Blinds",
+  ],
+  Exterior: [
+    "Roofer", "Glazier", "Window / Door Fitter", "Sash Window Specialist",
+    "Decking", "Driveways / Paving", "Fencing", "Landscaper",
+    "Skylights / Rooflights", "Thatched Roofing",
+  ],
+  Insulation: [
+    "External Wall Insulation", "Internal Wall Insulation",
+    "Cavity Wall Insulation", "Loft Insulation", "Roof Insulation",
+    "Damp Proofing",
+  ],
+  Specialist: [
+    "Asbestos Removal", "Fire Safety", "Sauna / Steam", "Sprinklers",
+    "Swimming Pools", "Timber Treatment",
+  ],
+  Professional: [
+    "Architect", "Structural Engineer", "Party Wall Surveyor",
+    "Building Control (Approved Inspector)",
+  ],
+  Support: [
+    "Cleaning (Builders Clean)", "Scaffolder", "Waste Removal / Skip Hire",
+  ],
+  General: ["Handyman", "Garden Rooms / Offices", "General Builder"],
+};
+
+// Reverse lookup: trade label -> the buckets it belongs to. Many trades
+// span 2-3 buckets (e.g. Heating Engineer is in Plumbing, Heating, HVAC).
+const TRADE_BUCKETS = (() => {
+  const out = {};
+  for (const [bucket, trades] of Object.entries(BUCKETS)) {
+    for (const t of trades) {
+      (out[t] ||= []).push(bucket);
+    }
   }
   return out;
 })();
+
+// Pick 2 secondary trades for a ghost whose primary is `trade`. Pulled
+// from the buckets the primary belongs to, so they read as natural
+// upsell ("we also do X") rather than a random hodgepodge.
+function pickSecondaries(trade) {
+  const myBuckets = TRADE_BUCKETS[trade] || [];
+  const candidates = new Set();
+  for (const b of myBuckets) {
+    for (const t of BUCKETS[b]) candidates.add(t);
+  }
+  candidates.delete(trade);
+  // Always sprinkle in General Builder + Handyman as cross-bucket
+  // upsells - they're broadly common secondaries on real trade sites.
+  if (trade !== "General Builder") candidates.add("General Builder");
+  if (trade !== "Handyman") candidates.add("Handyman");
+  return sample([...candidates], 2);
+}
 
 // London postcodes clustered around Waltham Forest (Chris's launch area)
 // plus a wider east + north spread so the deck doesn't feel claustrophobic.
@@ -159,31 +295,80 @@ const NAME_PATTERNS = [
 
 // Convert canonical trade label to a noun that reads naturally in a
 // company name. Don't say "Painter / Decorator Ltd" - say "Decorating".
+const TRADE_NOUN = {
+  "Air Conditioning": "Air Conditioning",
+  "Architect": "Architects",
+  "Asbestos Removal": "Asbestos Removal",
+  "Basement Conversion": "Basement Conversions",
+  "Bathroom Fitter": "Bathrooms",
+  "Boiler Installer": "Boilers",
+  "Bricklayer": "Brickwork",
+  "Building Control (Approved Inspector)": "Building Control",
+  "Cabinet Maker": "Cabinetry",
+  "Carpenter / Joiner": "Joinery",
+  "Carpet Fitter": "Carpets",
+  "Cavity Wall Insulation": "Cavity Wall Insulation",
+  "Cleaning (Builders Clean)": "Builders Cleans",
+  "Curtains / Soft Furnishings": "Curtains & Blinds",
+  "Damp Proofing": "Damp Proofing",
+  "Decking": "Decking",
+  "Drainage Specialist": "Drainage",
+  "Driveways / Paving": "Driveways & Paving",
+  "Dryliner / Partitions": "Drylining",
+  "Electrician": "Electrical",
+  "External Wall Insulation": "External Wall Insulation",
+  "Extension Builder": "Extensions",
+  "Fencing": "Fencing",
+  "Fire Safety": "Fire Safety",
+  "Flooring Specialist": "Flooring",
+  "Garage Conversion": "Garage Conversions",
+  "Garden Rooms / Offices": "Garden Rooms",
+  "Gas Engineer": "Gas & Heating",
+  "General Builder": "Building",
+  "Glazier": "Glazing",
+  "Groundworker": "Groundworks",
+  "Handyman": "Handyman Services",
+  "Heat Pumps": "Heat Pumps",
+  "Heating Engineer": "Heating",
+  "Internal Wall Insulation": "Internal Wall Insulation",
+  "Kitchen Fitter": "Kitchens",
+  "Landscaper": "Landscaping",
+  "Loft Conversion Specialist": "Lofts",
+  "Loft Insulation": "Loft Insulation",
+  "New Build": "New Build",
+  "Painter / Decorator": "Decorating",
+  "Party Wall Surveyor": "Party Wall Surveys",
+  "Plasterer": "Plastering",
+  "Plumber": "Plumbing",
+  "Roof Insulation": "Roof Insulation",
+  "Roofer": "Roofing",
+  "Sash Window Specialist": "Sash Windows",
+  "Sauna / Steam": "Saunas & Steam",
+  "Scaffolder": "Scaffolding",
+  "Security / Alarms / CCTV": "Security & Alarms",
+  "Shutters / Blinds": "Shutters & Blinds",
+  "Skylights / Rooflights": "Skylights",
+  "Smart Home / AV": "Smart Home & AV",
+  "Solar PV": "Solar PV",
+  "Solar Thermal": "Solar Thermal",
+  "Sprinklers": "Sprinkler Systems",
+  "Steel Fabrication": "Steel Fabrication",
+  "Stone Worktops": "Stone Worktops",
+  "Stonemason": "Stonemasonry",
+  "Structural Engineer": "Structural Engineering",
+  "Suspended Ceilings": "Suspended Ceilings",
+  "Swimming Pools": "Swimming Pools",
+  "Thatched Roofing": "Thatched Roofing",
+  "Tiler": "Tiling",
+  "Timber Treatment": "Timber Treatment",
+  "Underfloor Heating": "Underfloor Heating",
+  "Vinyl / LVT Fitter": "Vinyl & LVT",
+  "Waste Removal / Skip Hire": "Waste Removal",
+  "Window / Door Fitter": "Windows & Doors",
+  "Wood Floor Sanding": "Wood Floor Restoration",
+};
 function tradeNoun(trade) {
-  const map = {
-    "Plumber": "Plumbing",
-    "Electrician": "Electrical",
-    "General Builder": "Building",
-    "Painter / Decorator": "Decorating",
-    "Carpenter / Joiner": "Joinery",
-    "Bathroom Fitter": "Bathrooms",
-    "Kitchen Fitter": "Kitchens",
-    "Plasterer": "Plastering",
-    "Roofer": "Roofing",
-    "Tiler": "Tiling",
-    "Gas Engineer": "Gas & Heating",
-    "Bricklayer": "Brickwork",
-    "Flooring Specialist": "Flooring",
-    "Window / Door Fitter": "Windows & Doors",
-    "Loft Conversion Specialist": "Lofts",
-    "Extension Builder": "Extensions",
-    "Landscaper": "Landscaping",
-    "Heating Engineer": "Heating",
-    "Boiler Installer": "Boilers",
-    "Damp Proofing": "Damp Proofing",
-    "Handyman": "Handyman Services",
-  };
-  return map[trade] || trade;
+  return TRADE_NOUN[trade] || trade;
 }
 
 const BIO_SNIPPETS = [
@@ -225,8 +410,10 @@ function portfolioPhotoUrl(seed) {
 
 // ---------- main ----------
 async function main() {
+  const TOTAL = ALL_TRADES.length * PER_TRADE;
   console.log(
-    `${TAG} starting — master_uid=${MASTER_UID} count=${COUNT} db=${DB_NAME}`,
+    `${TAG} starting — master_uid=${MASTER_UID} per_trade=${PER_TRADE} ` +
+      `trades=${ALL_TRADES.length} total=${TOTAL} db=${DB_NAME}`,
   );
 
   const conn = await mysql.createConnection({
@@ -266,27 +453,35 @@ async function main() {
     await conn.beginTransaction();
 
     let created = 0;
-    for (let i = 0; i < COUNT; i++) {
-      const trade = pick(expandedTrades);
+    // Deterministic per-trade loop: for each canonical trade, generate
+    // PER_TRADE ghosts whose primary trade is that label. Each ghost
+    // also gets 2 secondary trades from the same bucket so they appear
+    // in adjacent decks too. This guarantees every project type gets
+    // 30+ ghost matches via its recommended_trades.
+    for (const primaryTrade of ALL_TRADES) {
+     for (let g = 0; g < PER_TRADE; g++) {
+      const trade = primaryTrade;
       const surname = pick(LAST_NAMES);
       const first = pick(FIRST_NAMES);
       const area = pick(AREA_NAMES);
       const company = pick(NAME_PATTERNS)({ surname, area, trade });
 
       const trades = Array.from(
-        new Set([trade, ...sample(expandedTrades, rand(0, 2))]),
+        new Set([trade, ...pickSecondaries(trade)]),
       ).join(",");
-      const areas = sample(POSTCODES, rand(3, 6)).join(",");
+      const areas = sample(POSTCODES, rand(4, 7)).join(",");
 
       const years = rand(4, 25);
       const since = new Date().getFullYear() - years;
       const uid = ghostUid();
       const publicId = uuidv4();
-      const profilePic = profilePictureUrl(i);
+      const profilePic = profilePictureUrl(created);
       const portfolioCount = rand(3, 6);
-      // Reserved Ofcom range so no real number ever gets called.
-      const phone = `07700 900${String(rand(0, 999)).padStart(3, "0")}`;
-      const email = `${slug(company)}@example.com`;
+      // Single contactable phone + email shared across all ghosts so any
+      // tester who somehow surfaces these reaches the master operator
+      // (Chris) rather than a dead Ofcom-reserved range or a stranger.
+      const phone = "07931660810";
+      const email = "fekova9815@deapad.com";
       const bio = makeBio({ trade, area, years, since });
       const createdAt = nowSql();
 
@@ -359,9 +554,11 @@ async function main() {
       }
 
       created++;
-      if (created % 10 === 0) {
-        console.log(`${TAG} ${created}/${COUNT}…`);
+      if (created % 50 === 0) {
+        const total = ALL_TRADES.length * PER_TRADE;
+        console.log(`${TAG} ${created}/${total}…`);
       }
+     }
     }
 
     await conn.commit();

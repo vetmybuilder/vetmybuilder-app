@@ -420,7 +420,11 @@ async function ensureElegantCanonical() {
 async function ensureGhostTrades() {
   const masterUid =
     process.env.MASTER_UID || "pLT7RLEYByX6IJWzGAMjAKrW5L93"; // Elegant
-  const count = Number(process.env.GHOST_COUNT) || 100;
+  // Per-canonical-trade ghost count. With ~70 canonical trade labels and
+  // PER_TRADE=30, that's ~2100 ghost rows total - enough that any project
+  // type sees 30-60+ matching trades in its deck.
+  const perTrade = Number(process.env.GHOST_PER_TRADE) || 30;
+  const expectedTotal = perTrade * 70; // approx; canonical list size
 
   // Skip the regenerate if we already have a full set for this master.
   // The seed script wipes + recreates which is fine for first-run but
@@ -443,7 +447,7 @@ async function ensureGhostTrades() {
       [masterUid],
     );
     const existing = Number(rows?.[0]?.c) || 0;
-    if (existing >= count && process.env.FORCE_GHOST_RESEED !== "1") {
+    if (existing >= expectedTotal && process.env.FORCE_GHOST_RESEED !== "1") {
       log(
         `Ghost trades already seeded (${existing} for master=${masterUid}); set FORCE_GHOST_RESEED=1 to regenerate.`,
       );
@@ -458,10 +462,15 @@ async function ensureGhostTrades() {
     }
   }
 
-  log(`Seeding ${count} ghost tradespeople for master=${masterUid}...`);
+  log(
+    `Seeding ${perTrade} ghost(s) per trade (~${expectedTotal} total) for master=${masterUid}...`,
+  );
   const seed = spawn(
     "node",
-    [path.resolve(__dirname, "seed-ghost-trades.js"), `--count=${count}`],
+    [
+      path.resolve(__dirname, "seed-ghost-trades.js"),
+      `--perTrade=${perTrade}`,
+    ],
     {
       stdio: "inherit",
       env: { ...process.env, MASTER_UID: masterUid },
