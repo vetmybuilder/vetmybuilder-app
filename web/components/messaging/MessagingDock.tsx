@@ -138,12 +138,35 @@ export default function MessagingDock() {
       const id = Number(detail.matchId);
       if (Number.isFinite(id) && id > 0) openChat(id);
     }
+    // Site header dispatches `vmb:openDock` when the user taps the
+    // messages icon, so the dock springs open without a second tap.
+    function onOpenDock() {
+      setOpen(true);
+    }
     window.addEventListener("vmb:openChat", onExternalOpen);
-    return () => window.removeEventListener("vmb:openChat", onExternalOpen);
+    window.addEventListener("vmb:openDock", onOpenDock);
+    return () => {
+      window.removeEventListener("vmb:openChat", onExternalOpen);
+      window.removeEventListener("vmb:openDock", onOpenDock);
+    };
     // openChat closes over setOpenWindows / setMinimized which are
     // stable; we don't want this effect to re-bind on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Self-handle the ?openChat=<matchId> hand-off. The /projects/[id]
+  // page also dispatches a vmb:openChat event for this, but on cross-
+  // page navigations (e.g. from /projects -> /projects/6) the dock
+  // mounts AFTER the page's effect has fired, so the event is missed.
+  // Watching the URL ourselves is race-free.
+  useEffect(() => {
+    const raw = router.query?.openChat;
+    const v = Array.isArray(raw) ? raw[0] : raw;
+    const matchId = Number(v);
+    if (!Number.isFinite(matchId) || matchId <= 0) return;
+    openChat(matchId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.query?.openChat]);
 
   function openChat(matchId: number) {
     setOpenWindows((prev) =>

@@ -462,7 +462,6 @@ function Inner() {
             avatarInitials={avatarInitials}
             profileCompletion={profilePill}
             notifSummary={notifPill}
-            onSignOut={handleSignOut}
           />
         )}
 
@@ -542,7 +541,6 @@ function DesktopHub({
   avatarInitials,
   profileCompletion,
   notifSummary,
-  onSignOut,
 }: {
   profile: RawProfile | null;
   displayName: string;
@@ -550,7 +548,6 @@ function DesktopHub({
   avatarInitials: string;
   profileCompletion: Pill;
   notifSummary: Pill;
-  onSignOut: () => Promise<void> | void;
 }) {
   const hasPic = !!profile?.profile_picture_url;
   const verified = (profile?.ch_status || "").toLowerCase() === "verified";
@@ -645,31 +642,6 @@ function DesktopHub({
           status={notifSummary}
           href="/tradesman/account?tab=notifications"
         />
-        <Tile
-          icon="💷"
-          title="Billing"
-          hint="Visibility passes and payment history."
-          status={null}
-          href="/tradesman/billing"
-        />
-        <Tile
-          icon="⭐"
-          title="Featured listing"
-          hint="Pay to appear at the top of relevant homeowner shortlists."
-          status={null}
-          href="/tradesman/featured"
-        />
-      </div>
-
-      {/* Sign out */}
-      <div className="mt-7 text-center">
-        <button
-          type="button"
-          onClick={onSignOut}
-          className="px-6 py-2 rounded-full text-[12.5px] font-extrabold text-rose-600 hover:bg-rose-50 transition-colors"
-        >
-          Sign out
-        </button>
       </div>
     </div>
   );

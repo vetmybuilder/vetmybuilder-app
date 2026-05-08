@@ -744,7 +744,7 @@ function ProjectSwipeMobile({
 
   return (
     <main
-      className="fixed inset-0 bg-white overflow-y-auto no-scrollbar flex flex-col"
+      className="fixed inset-0 bg-[#d8e0ec] overflow-y-auto no-scrollbar flex flex-col"
       style={{
         paddingBottom: "env(safe-area-inset-bottom)",
         fontFamily:

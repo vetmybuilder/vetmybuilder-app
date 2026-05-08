@@ -50,11 +50,15 @@ async function notifyMatchedTradesmen({
       log.warn?.(`${TAG} classification lookup failed`, { projectId, error: err?.message });
     }
 
-    // 2. Find active tradesmen
+    // 2. Find active tradesmen. Ghost rows (master_uid IS NOT NULL) are
+    // excluded - they're a staging-only sim and would spam the master
+    // operator with one "new project" alert per ghost. The matching
+    // landscape for ghosts is populated by the seed script directly.
     const tradesmen = await mysqlQuery(
       `SELECT user_id, trade_types, service_areas
        FROM tradesmen
        WHERE status = 'active'
+         AND master_uid IS NULL
          AND trade_types IS NOT NULL
          AND TRIM(trade_types) != ''`,
     );

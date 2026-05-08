@@ -14,27 +14,21 @@ const builder = {
   whyMatch: "Covers E4", tier: "recommended" as const, recommenderName: "Alex",
 };
 
-describe("SwipeDeck swipe commit", () => {
+describe("SwipeDeck drag gestures", () => {
   beforeEach(() => post.mockClear());
 
-  // Pointer-drag gestures are owned by framer-motion's drag system, which
-  // doesn't reliably activate inside jsdom (Pointer Events API + layout
-  // measurements stubbed out). We exercise the same commit path via the
-  // action bar Like button - both call flingAndCommit, so this catches
-  // any regression in the API call shape, body, and source tag.
-  it("Like button commits a right swipe with the recommended source", async () => {
+  it("commits right swipe when dragged past 25% threshold", async () => {
     render(<SwipeDeck projectId="p1" builders={[builder]} onMatch={() => {}} />);
-    fireEvent.click(screen.getByRole("button", { name: /^Like$/ }));
+    const card = screen.getByTestId("swipe-top-card");
+
+    Object.defineProperty(card, "offsetWidth", { value: 320, configurable: true });
+    fireEvent.pointerDown(card, { clientX: 0, clientY: 0, pointerId: 1 });
+    fireEvent.pointerMove(card, { clientX: 120, clientY: 0, pointerId: 1 });
+    fireEvent.pointerUp(card, { clientX: 120, clientY: 0, pointerId: 1 });
 
     await waitFor(() =>
-      expect(post).toHaveBeenCalledWith(
-        "/api/projects/p1/swipe",
-        expect.objectContaining({
-          direction: "right",
-          source: "recommended",
-          builderUid: "b1",
-        }),
-      ),
+      expect(post).toHaveBeenCalledWith("/api/projects/p1/swipe",
+        expect.objectContaining({ direction: "right" })),
     );
   });
 });

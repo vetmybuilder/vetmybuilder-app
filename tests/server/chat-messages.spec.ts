@@ -250,6 +250,9 @@ describe("POST /api/chat/:matchId/messages", () => {
       .mockResolvedValueOnce(matchRow())
       .mockResolvedValueOnce({ insertId: 5 })
       .mockResolvedValueOnce([insertedRow])
+      // Ghost-tradesman redirect lookup (master_uid). Empty result => no
+      // redirect, recipient stays as the original builder uid.
+      .mockResolvedValueOnce([])
       .mockImplementationOnce((_sql: string, args: any[]) => {
         capturedNotifArgs = args;
         return Promise.resolve({});

@@ -14,7 +14,7 @@
 
 import Head from "next/head";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
@@ -26,8 +26,9 @@ import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import IncomingLeadCard, {
   IncomingLead,
 } from "@/components/project/IncomingLeadCard";
-import IncomingLeadCardBack from "@/components/project/IncomingLeadCardBack";
-import SwipeActionBar from "@/components/project/SwipeActionBar";
+import SwipePayGate, {
+  type SwipePayGateSubject,
+} from "@/components/tradesmen/SwipePayGate";
 
 export default function TradesmanLeadsPage() {
   const api = useApi();
@@ -40,11 +41,18 @@ export default function TradesmanLeadsPage() {
   const [loading, setLoading] = useState(true);
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [flipped, setFlipped] = useState(false);
+  const [paygate, setPaygate] = useState<SwipePayGateSubject | null>(null);
 
-  useEffect(() => {
-    setFlipped(false);
-  }, [index]);
+  // Scroll-snap rail tracks which card is currently centred so the
+  // "Reply to homeowner" CTA at the bottom acts on the right lead.
+  const railRef = useRef<HTMLDivElement | null>(null);
+  function onRailScroll() {
+    const el = railRef.current;
+    if (!el || leads.length === 0) return;
+    const cardW = el.scrollWidth / leads.length;
+    const next = Math.round(el.scrollLeft / cardW);
+    if (next !== index && next >= 0 && next < leads.length) setIndex(next);
+  }
 
   useEffect(() => {
     // Wait for Firebase to restore the session on hard reload. Without
@@ -95,7 +103,16 @@ export default function TradesmanLeadsPage() {
   async function respond(direction: "left" | "right") {
     if (!current || busy) return;
     if (gated) {
-      router.push("/tradesman/billing");
+      // Subscribed-tier lead but the builder isn't subscribed - open the
+      // SwipePayGate so they can buy a pass or one-off unlock without
+      // leaving the page. The current lead stays pinned in the carousel.
+      setPaygate({
+        projectId: Number(current.projectId),
+        title: current.title,
+        location: current.outward,
+        type: current.trades[0] ?? null,
+        priceBandLabel: null,
+      });
       return;
     }
     setBusy(true);
@@ -105,10 +122,18 @@ export default function TradesmanLeadsPage() {
         { direction },
       );
       if (direction === "right" && res.data?.status === "matched") {
-        router.push(`/match/${current.matchId}`);
+        // Direct-to-chat - the builder's intent was to reply, so skip
+        // the celebration screen and drop them into the conversation.
+        router.push(`/chat/${current.matchId}`);
         return;
       }
-      setIndex((i) => i + 1);
+      // Drop the responded-to lead from the queue so the carousel
+      // advances naturally. Reset index if we walked off the end.
+      setLeads((prev) => {
+        const next = prev.filter((l) => l.matchId !== current.matchId);
+        return next;
+      });
+      setIndex((i) => Math.max(0, Math.min(i, leads.length - 2)));
     } finally {
       setBusy(false);
     }
@@ -120,7 +145,13 @@ export default function TradesmanLeadsPage() {
     if (busy) return;
     const isGated = lead.source === "subscribed" && !subActive;
     if (isGated) {
-      router.push("/tradesman/billing");
+      setPaygate({
+        projectId: Number(lead.projectId),
+        title: lead.title,
+        location: lead.outward,
+        type: lead.trades[0] ?? null,
+        priceBandLabel: null,
+      });
       return;
     }
     setBusy(true);
@@ -130,7 +161,7 @@ export default function TradesmanLeadsPage() {
         { direction },
       );
       if (direction === "right" && res.data?.status === "matched") {
-        router.push(`/match/${lead.matchId}`);
+        router.push(`/chat/${lead.matchId}`);
         return;
       }
       // Remove the responded-to lead from the local list.
@@ -147,13 +178,15 @@ export default function TradesmanLeadsPage() {
           <title>Incoming interest - VetMyBuilder</title>
         </Head>
 
-        {/* MOBILE - existing emerald-gradient swipe shell, unchanged. */}
+        {/* MOBILE - snap-carousel of leads. Cards inset with margin so
+            ~30px of the next card peeks on the right edge, telling the
+            builder there's more in the queue. Native CSS scroll-snap +
+            iOS momentum; a scroll listener tracks the active card so
+            the bottom CTA acts on the right one. */}
         <main
-          className="md:hidden fixed inset-0 overflow-y-auto"
+          className="md:hidden fixed inset-0 overflow-hidden no-scrollbar bg-[#dde7d2] flex flex-col"
           data-testid="tradesman-leads-deck"
           style={{
-            background:
-              "linear-gradient(160deg, #ecfdf5 0%, #d1fae5 40%, #f0fdf4 100%)",
             paddingBottom: "env(safe-area-inset-bottom)",
             fontFamily:
               "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
@@ -162,12 +195,12 @@ export default function TradesmanLeadsPage() {
           <div style={{ height: "env(safe-area-inset-top)" }} />
 
           {/* Top bar */}
-          <div className="px-4 pt-2 pb-3 flex items-center justify-between gap-2">
+          <div className="px-4 pt-2 pb-2 flex items-center justify-between gap-2 shrink-0">
             <button
               type="button"
               aria-label="Back"
               onClick={() => router.back()}
-              className="w-10 h-10 rounded-full bg-white/70 flex items-center justify-center shadow-sm shrink-0"
+              className="w-10 h-10 rounded-full bg-white/80 flex items-center justify-center shadow-sm shrink-0"
               style={{ backdropFilter: "blur(8px)" }}
             >
               <ChevronLeft className="w-5 h-5 text-gray-700" />
@@ -176,9 +209,9 @@ export default function TradesmanLeadsPage() {
               <span className="text-[16px] font-extrabold tracking-tight text-gray-900 truncate">
                 Incoming interest
               </span>
-              {remaining > 0 && (
+              {leads.length > 0 && (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[11px] font-extrabold shrink-0">
-                  {remaining} new
+                  {leads.length} new
                 </span>
               )}
             </div>
@@ -186,96 +219,84 @@ export default function TradesmanLeadsPage() {
               type="button"
               aria-label="Open menu"
               onClick={openMenu}
-              className="w-10 h-10 rounded-full bg-white/70 flex items-center justify-center shadow-sm shrink-0"
+              className="w-10 h-10 rounded-full bg-white/80 flex items-center justify-center shadow-sm shrink-0"
               style={{ backdropFilter: "blur(8px)" }}
             >
               <span className="text-[20px] leading-none text-gray-700">☰</span>
             </button>
           </div>
 
-          {/* Card N of M hint */}
-          {!loading && leads.length > 0 && current && (
-            <div className="text-center text-[12px] font-semibold text-emerald-700 mb-1">
-              Card {index + 1} of {leads.length}
+          {/* Position indicator */}
+          {!loading && leads.length > 0 && (
+            <div className="text-center text-[11px] font-extrabold tracking-[0.18em] uppercase text-emerald-900/60 pb-1 shrink-0">
+              {leads.length === 1
+                ? "1 new"
+                : `Swipe to browse · ${index + 1} of ${leads.length}`}
             </div>
           )}
 
           {/* Loading */}
           {loading && (
-            <div className="flex items-center justify-center pt-24">
-              <span className="text-[14px] font-semibold text-emerald-600 animate-pulse">
+            <div className="flex-1 flex items-center justify-center">
+              <span className="text-[14px] font-semibold text-emerald-700 animate-pulse">
                 Loading…
               </span>
             </div>
           )}
 
           {/* Empty state */}
-          {!loading && !current && (
-            <IncomingLeadsEmpty hasSub={subActive} />
+          {!loading && leads.length === 0 && (
+            <div className="flex-1 flex items-center justify-center">
+              <IncomingLeadsEmpty hasSub={subActive} />
+            </div>
           )}
 
-          {/* Card */}
-          {!loading && current && (
-            <div className="px-4 mt-2">
-              <div style={{ perspective: "1200px" }}>
-                <div
-                  className="relative"
-                  style={{
-                    transformStyle: "preserve-3d",
-                    transition:
-                      "transform 0.55s cubic-bezier(0.4, 0.0, 0.2, 1)",
-                    transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
-                    minHeight: 360,
-                  }}
-                >
-                  <div
-                    style={{
-                      backfaceVisibility: "hidden",
-                      WebkitBackfaceVisibility: "hidden",
-                    }}
-                  >
-                    <IncomingLeadCard lead={current} />
-                  </div>
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      backfaceVisibility: "hidden",
-                      WebkitBackfaceVisibility: "hidden",
-                      transform: "rotateY(180deg)",
-                    }}
-                  >
-                    <IncomingLeadCardBack
-                      lead={current}
-                      onViewFull={() =>
-                        router.push(`/projects/${current.projectId}`)
-                      }
-                    />
-                  </div>
+          {/* Snap-carousel rail. Each card sits in a 100%-40px wide slot
+              with padding on the right so the next card's emerald hero
+              peeks ~30px past the active card's edge. */}
+          {!loading && leads.length > 0 && (
+            <>
+              <div
+                ref={railRef}
+                onScroll={onRailScroll}
+                className="flex-1 overflow-x-auto overflow-y-hidden no-scrollbar snap-x snap-mandatory"
+                style={{
+                  scrollPaddingLeft: 16,
+                  WebkitOverflowScrolling: "touch",
+                }}
+              >
+                <div className="flex h-full pl-4">
+                  {leads.map((lead) => (
+                    <div
+                      key={lead.matchId}
+                      className="shrink-0 snap-start pr-3 pt-1 pb-3"
+                      style={{ width: "calc(100% - 40px)" }}
+                    >
+                      <IncomingLeadCard lead={lead} />
+                    </div>
+                  ))}
+                  {/* Tail spacer so the last card lands flush at the
+                      same scroll-padding as the others. */}
+                  <div className="shrink-0 w-4" />
                 </div>
               </div>
 
-              {gated ? (
-                <div className="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800 text-center">
-                  Subscribe to respond to this lead.
-                  <button
-                    onClick={() => router.push("/tradesman/billing")}
-                    className="mt-2 block mx-auto py-2 px-4 bg-emerald-600 text-white rounded-lg font-bold"
-                  >
-                    Go to billing
-                  </button>
-                </div>
-              ) : (
-                <div className="mt-4">
-                  <SwipeActionBar
-                    tone="emerald"
-                    disabled={busy}
-                    onPass={() => respond("left")}
-                    onInfo={() => setFlipped((v) => !v)}
-                    onLike={() => respond("right")}
-                  />
-                </div>
-              )}
-            </div>
+              {/* Single CTA acts on the centred card. Subscribed builder
+                  -> direct match -> /chat. Unsubscribed -> open
+                  SwipePayGate, gate finishes the flow into chat. */}
+              <div className="px-4 pb-3 pt-1 shrink-0">
+                <button
+                  onClick={() => respond("right")}
+                  disabled={busy || !current}
+                  className="block w-full py-4 px-5 rounded-2xl text-white font-extrabold text-[15px] tracking-tight shadow-[0_10px_24px_rgba(16,185,129,0.3)] disabled:opacity-50"
+                  style={{
+                    background: "linear-gradient(135deg,#10b981,#059669)",
+                  }}
+                >
+                  Reply to homeowner →
+                </button>
+              </div>
+            </>
           )}
         </main>
 
@@ -439,6 +460,17 @@ export default function TradesmanLeadsPage() {
             </div>
           </div>
         </div>
+
+        {/* Pitch-this-job paygate. Same modal that opens when a builder
+            right-swipes a paywalled job in /tradesman/jobs - surfaced
+            here so the lead-side "Subscribe to respond" CTA opens the
+            canonical billing flow instead of the deprecated
+            /tradesman/billing visibility-pass page. */}
+        <SwipePayGate
+          open={paygate !== null}
+          subject={paygate}
+          onClose={() => setPaygate(null)}
+        />
       </>
     </TradesmanOnly>
   );

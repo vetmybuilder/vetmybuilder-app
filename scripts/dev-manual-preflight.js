@@ -55,9 +55,17 @@ function findSchemaFile() {
 }
 
 (async () => {
+  // Opt-out for ad-hoc testing: when SKIP_DB_WIPE=1 we leave the shard
+  // databases (and the sim state) alone so the user can verify that
+  // their data persists across `npm run dev:manual` restarts. Default
+  // behaviour (no flag) still wipes + re-applies the schema, which is
+  // what dev:manual / E2E rely on for a clean slate.
+  const skipDbWipe = process.env.SKIP_DB_WIPE === "1";
+
   // ---- 0. Clear sim state (DB is about to be wiped, state will be stale) ----
-  // Skip during E2E — tests manage their own state
-  if (process.env.TEST_ENV !== "e2e" && !process.env.CI) {
+  // Skip during E2E — tests manage their own state. Also skip when the
+  // user opted into SKIP_DB_WIPE - sim state belongs with the DB.
+  if (process.env.TEST_ENV !== "e2e" && !process.env.CI && !skipDbWipe) {
     const simStatePath = path.resolve(__dirname, "../.sim-state.json");
     if (fs.existsSync(simStatePath)) {
       fs.unlinkSync(simStatePath);
@@ -79,6 +87,14 @@ function findSchemaFile() {
   }
 
   // ---- 2. Wipe + recreate all shard databases ----
+  if (skipDbWipe) {
+    logger.warn(
+      "SKIP_DB_WIPE=1 — preserving existing shard databases. " +
+        "Unset this flag to restore the standard wipe-on-start behaviour.",
+    );
+    process.exit(0);
+  }
+
   const schemaPath = findSchemaFile();
   if (!schemaPath) {
     logger.error(

@@ -180,7 +180,7 @@ export default function TradesmanJobsDeckPage() {
         </Head>
 
         <main
-          className="fixed inset-0 overflow-y-auto no-scrollbar bg-white md:bg-[#fef6e9] flex flex-col md:block"
+          className="fixed inset-0 overflow-y-auto no-scrollbar bg-[#dde7d2] md:bg-[#fef6e9] flex flex-col md:block"
           data-testid="tradesman-jobs-deck"
           style={{
             paddingBottom: "env(safe-area-inset-bottom)",

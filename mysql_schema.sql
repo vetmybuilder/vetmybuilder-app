@@ -320,13 +320,24 @@ CREATE TABLE IF NOT EXISTS tradesmen (
   public_id VARCHAR(36) NULL,
 
   -- Tradesperson-written intro shown on their public profile. Plain text,
-  -- 2-4 sentences. Not auto-generated — we don't synthesise this from
+  -- 2-4 sentences. Not auto-generated - we don't synthesise this from
   -- other fields because the auto-stitched copy felt LLM-ish and was
   -- inaccurate (claimed "first job discounts" we never actually offered).
-  about TEXT NULL
+  about TEXT NULL,
+
+  -- Staging-only "ghost" sim. When master_uid IS NOT NULL this row is a
+  -- puppet account: notifications + chat alerts route to master_uid so a
+  -- single operator can cover many trade personas. Production never seeds
+  -- ghost rows so the redirect logic is naturally inert there.
+  master_uid VARCHAR(255) DEFAULT NULL,
+
+  -- Internal flag for seed-generated rows so we can wipe + regenerate the
+  -- staging sim. Never returned by any public-facing endpoint.
+  is_seed TINYINT(1) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX idx_tradesmen_service_areas ON tradesmen(service_areas);
+CREATE INDEX idx_tradesmen_master_uid ON tradesmen(master_uid);
 CREATE INDEX idx_tradesmen_trade_types   ON tradesmen(trade_types);
 CREATE UNIQUE INDEX idx_tradesmen_public_id ON tradesmen(public_id);
 CREATE TABLE IF NOT EXISTS tradesmen_offers (

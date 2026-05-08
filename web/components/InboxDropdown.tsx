@@ -236,7 +236,7 @@ export default function InboxDropdown({ onClose }: { onClose: () => void }) {
             router={router}
           />
         ) : (
-          <ActivityList items={activity} onClose={onClose} />
+          <ActivityList items={activity} onClose={onClose} router={router} />
         )}
       </div>
     </div>
@@ -363,9 +363,11 @@ function MessagesList({
 function ActivityList({
   items,
   onClose,
+  router,
 }: {
   items: NotificationRow[];
   onClose: () => void;
+  router: ReturnType<typeof useRouter>;
 }) {
   if (items.length === 0) return <EmptyState kind="activity" />;
 
@@ -375,11 +377,35 @@ function ActivityList({
         const meta = activityIconFor(n.type);
         const Icon = meta.icon;
         const href = n.linkPath || "#";
+        // Chat-message and match-formed notifications point at /chat/:id
+        // or /match/:id - both should pop the dock chat window rather
+        // than full-page-navigating, matching how the Messages tab
+        // behaves. We intercept the click, extract the matchId, and
+        // route through openChatFromInbox (same helper the Messages
+        // tab uses).
+        const matchIdFromLink = (() => {
+          const m = String(n.linkPath || "").match(
+            /\/(?:chat|match)\/(\d+)/,
+          );
+          return m ? Number(m[1]) : null;
+        })();
+        const interceptToDock =
+          matchIdFromLink != null && n.projectId != null;
         return (
           <li key={n.id}>
             <Link
               href={href}
-              onClick={onClose}
+              onClick={(e) => {
+                if (interceptToDock) {
+                  e.preventDefault();
+                  openChatFromInbox(
+                    router,
+                    matchIdFromLink as number,
+                    n.projectId as number,
+                  );
+                }
+                onClose();
+              }}
               className="w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-amber-50/60 transition-colors"
             >
               <span

@@ -15,6 +15,7 @@
 // Looks up details by joining on swipe_interest + projects + tradesmen for the given projectId.
 
 const { sendPushToUser } = require("./pushSender");
+const { resolveGhostNotificationTarget } = require("./ghostTradesman");
 
 /**
  * @param {object} opts
@@ -70,20 +71,25 @@ async function fireMatchFormed({ projectId, mysqlQuery, ctx }) {
       logActivity: ctx.logActivity,
     });
 
-    // Insert + push for tradesman
+    // Insert + push for tradesman. If the tradesman is a ghost, the
+    // master operator is the one who should hear about the match.
+    const tradesmanNotifyUid = await resolveGhostNotificationTarget(
+      mysqlQuery,
+      detail.tradesmanUid,
+    );
     await mysqlQuery(
       `INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
        VALUES (?, 'match_formed', ?, ?, ?, NOW())`,
-      [detail.tradesmanUid, tradesmanMessage, detail.projectId, tradesmanLinkPath],
+      [tradesmanNotifyUid, tradesmanMessage, detail.projectId, tradesmanLinkPath],
     );
-    ctx.broadcastNotification?.(detail.tradesmanUid, {
+    ctx.broadcastNotification?.(tradesmanNotifyUid, {
       type: "match_formed",
       message: tradesmanMessage,
       projectId: detail.projectId,
       linkPath: tradesmanLinkPath,
     });
     sendPushToUser({
-      uid: detail.tradesmanUid,
+      uid: tradesmanNotifyUid,
       type: "match_formed",
       title: "VetMyBuilder",
       body: tradesmanMessage,

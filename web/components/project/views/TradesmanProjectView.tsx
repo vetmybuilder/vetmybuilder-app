@@ -53,15 +53,18 @@ export default function TradesmanProjectView({ vm }: { vm: VM }) {
 
   // Job is gated if tradesperson is not recommended and hasn't unlocked
   // contact. The engagement panels (subscribe vs one-off pitch) live on
-  // /tradesman/jobs/list now (JobDetailsSheet bottom sheet) - this page
+  // /tradesman/jobs (the swipe deck via SwipePayGate) - this page
   // just shows full project info + the standard ContactDetailsCard for
   // unlocked / matched state.
   const jobGated = !isRecommended && !contactUnlocked;
 
   if (!project) return null;
 
-  const handleUpgrade =
-    onUpgradeClick || (() => router.push("/tradesman/billing"));
+  // The legacy /tradesman/billing visibility-pass page has been removed.
+  // Callers should pass `onUpgradeClick` to open the canonical
+  // SwipePayGate ("Reply to homeowner") modal in their own context. The
+  // fallback no-ops rather than navigating to a 404.
+  const handleUpgrade = onUpgradeClick || (() => {});
 
   const handleUnlockJob = async () => {
     router.push(`/projects/${project.id}/unlock`);

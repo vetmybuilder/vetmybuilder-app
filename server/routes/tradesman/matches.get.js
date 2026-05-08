@@ -29,22 +29,36 @@ module.exports = function mountTradesmanMatches(router, ctx) {
     const builderUid = req.user?.uid;
     if (!builderUid) return res.status(401).json({ error: "Unauthorized" });
 
+    // The caller sees their own matches plus any matches belonging to
+    // ghost tradespeople they "operate" as a master (master_uid = caller).
+    // For real users this expands to just their own row; for the staging
+    // sim master it aggregates across every ghost they own. The joined
+    // tradesmen row carries company_name + profile picture so the master
+    // inbox can render the persona for each thread.
     const rows = await mysqlQuery(
       `SELECT si.id              AS matchId,
               si.project_id      AS projectId,
+              si.builder_uid     AS builderUid,
               si.source          AS source,
               si.updated_at      AS matchedAt,
               p.name             AS projectName,
               p.type             AS projectType,
               p.location         AS projectLocation,
-              u.firstName        AS homeownerFirstName
+              u.firstName        AS homeownerFirstName,
+              t.company_name     AS builderCompanyName,
+              t.profile_picture_url AS builderProfilePicture,
+              t.master_uid       AS builderMasterUid
          FROM swipe_interest si
          JOIN projects p ON p.id = si.project_id
          JOIN users u ON u.uid = si.homeowner_uid
-        WHERE si.builder_uid = ?
+         LEFT JOIN tradesmen t ON t.user_id = si.builder_uid
+        WHERE (si.builder_uid = ?
+               OR si.builder_uid IN (
+                 SELECT user_id FROM tradesmen WHERE master_uid = ?
+               ))
           AND si.status = 'matched'
         ORDER BY si.updated_at DESC, si.id DESC`,
-      [builderUid],
+      [builderUid, builderUid],
     );
 
     // Pull last-message + unread counts for every match in this list. Two
@@ -124,20 +138,31 @@ module.exports = function mountTradesmanMatches(router, ctx) {
       }
     }
 
-    const matches = (rows || []).map((r) => ({
-      matchId: String(r.matchId),
-      projectId: r.projectId,
-      projectName: r.projectName || "",
-      projectType: r.projectType || "",
-      projectLocation: extractOutward(r.projectLocation) || "",
-      // Privacy: never returned. Kept null so older clients that read the
-      // field still get a defined shape rather than undefined.
-      homeownerFirstName: null,
-      source: r.source === "recommended" ? "recommended" : "subscribed",
-      matchedAt: r.matchedAt,
-      lastMessage: lastMessageByMatch.get(Number(r.matchId)) || null,
-      unreadCount: unreadByMatch.get(Number(r.matchId)) || 0,
-    }));
+    const matches = (rows || []).map((r) => {
+      const isGhost = !!r.builderMasterUid && r.builderMasterUid === builderUid;
+      return {
+        matchId: String(r.matchId),
+        projectId: r.projectId,
+        projectName: r.projectName || "",
+        projectType: r.projectType || "",
+        projectLocation: extractOutward(r.projectLocation) || "",
+        // Surfaced once the row is 'matched' (both parties consented).
+        // Used by the trade-side dock to show the homeowner's initial /
+        // first name on each thread, matching what the chat window
+        // header already shows.
+        homeownerFirstName: r.homeownerFirstName || null,
+        source: r.source === "recommended" ? "recommended" : "subscribed",
+        matchedAt: r.matchedAt,
+        lastMessage: lastMessageByMatch.get(Number(r.matchId)) || null,
+        unreadCount: unreadByMatch.get(Number(r.matchId)) || 0,
+        // Persona attribution for the master inbox. For real-trade callers
+        // these mirror their own profile; for a master operating ghosts
+        // they identify which persona this match belongs to.
+        builderCompanyName: r.builderCompanyName || null,
+        builderProfilePicture: r.builderProfilePicture || null,
+        actingAsGhost: isGhost,
+      };
+    });
 
     return res.json({ matches });
   });

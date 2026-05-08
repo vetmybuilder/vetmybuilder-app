@@ -1,12 +1,11 @@
 // web/components/tradesmen/SwipePayGate.tsx
 //
 // Full-screen pay-gate that opens when an unsubscribed builder right-
-// swipes a job on /tradesman/jobs. Replaces the old redirect to
-// /tradesman/billing — keeps them in flow with the swiped job pinned
-// at the top, three pass options, and a one-off unlock as a secondary
-// path. Calls the same /api/subscriptions/checkout and
-// /api/projects/:id/unlock-contact/checkout endpoints the standalone
-// billing + unlock pages already use.
+// swipes a job on /tradesman/jobs (or taps "Reply to homeowner" on the
+// leads / jobs-list / job-details surfaces). This is the canonical
+// buy-a-pass + one-off-unlock flow - the deprecated /tradesman/billing
+// "Visibility pass" page has been removed in favour of this modal so
+// the builder always sees the swiped job pinned in context.
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
@@ -239,13 +238,22 @@ export default function SwipePayGate({
       // mutual right-swipe before chat opens.
       const isMock = String(url).includes("/payments/mock/");
       if (isMock && sessionId) {
-        await api.post("/api/payments/mock/pay", { sessionId });
+        const payRes = await api.post("/api/payments/mock/pay", { sessionId });
         // Flash the "Unlock activated" state for ~1.2s so the builder
         // sees confirmation that the £X.XX charge succeeded before the
-        // confirmation page takes over. Pass projectId so the
-        // confirmation page can pin which job the boost is on.
+        // confirmation page takes over.
         setPayState("activated");
         await new Promise((r) => setTimeout(r, 1200));
+        // Bilateral case: the homeowner had already right-swiped this
+        // trade (lead arrived from /tradesman/leads), so the unlock
+        // completed the match and the chat is ready. Drop the trade
+        // straight into the conversation rather than the boost-slot
+        // "Interest sent" screen.
+        if (payRes?.data?.matched && payRes?.data?.matchId) {
+          await router.push(`/chat/${payRes.data.matchId}`);
+          onClose();
+          return;
+        }
         await router.push(`/tradesman/unlock/sent?projectId=${subject.projectId}`);
         onClose();
         return;
@@ -364,7 +372,7 @@ export default function SwipePayGate({
           ← Back
         </button>
         <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
-          Pitch this job
+          Reply to homeowner
         </span>
         <span className="w-[44px]" />
       </div>
@@ -385,8 +393,8 @@ export default function SwipePayGate({
             You like this one!
           </h2>
           <p className="mt-1 text-[12.5px] text-slate-500 leading-snug max-w-[300px] mx-auto">
-            Pick a pass to pitch this job - and every other matching job while
-            it's active.
+            Pick a pass to reply to this homeowner - and every other matching
+            lead while it's active.
           </p>
         </div>
 
@@ -578,7 +586,7 @@ function DesktopGate({
 
   return (
     <div className="hidden md:block w-full max-w-5xl mx-auto" data-testid="swipe-paygate-desktop">
-      <div className="bg-white rounded-3xl shadow-2xl border border-amber-100 overflow-hidden relative">
+      <div className="bg-white rounded-3xl shadow-2xl border border-amber-100 overflow-hidden relative max-h-[90vh] flex flex-col">
         {/* Close */}
         <button
           type="button"
@@ -591,11 +599,11 @@ function DesktopGate({
           ✕
         </button>
 
-        <div className="px-8 py-7">
+        <div className="px-8 py-7 overflow-y-auto">
           {/* Hero copy */}
           <div className="text-center max-w-xl mx-auto">
             <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-1">
-              Pitch this job
+              Reply to homeowner
             </div>
             <h1
               className="text-[28px] font-black tracking-tight text-slate-900 leading-tight"
@@ -610,8 +618,8 @@ function DesktopGate({
               </span>
             </h1>
             <p className="mt-2 text-[13.5px] text-slate-500">
-              Pick a pass to pitch this job - and every other matching job while
-              it&rsquo;s active.
+              Pick a pass to reply to this homeowner - and every other matching
+              lead while it&rsquo;s active.
             </p>
           </div>
 

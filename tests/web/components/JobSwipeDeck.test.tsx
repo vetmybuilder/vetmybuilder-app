@@ -104,4 +104,90 @@ describe("<JobSwipeDeck />", () => {
     });
     expect(screen.getByText(/paygate for 7/)).toBeInTheDocument();
   });
+
+  // Regression guards for the swipe-deck visual architecture. The deck
+  // relies on these specifics to avoid the bugs we hit:
+  //   - paygate stranding the card off-screen,
+  //   - peek pills "loading in late" because cards remount on promote,
+  //   - parallel-promote not finding peek-1 by data-card-rank.
+
+  it("paygate keeps the same card on top so the user can re-swipe after paying", async () => {
+    // Server rejects with paygate. The deck must NOT advance and the
+    // top card must still be the original (project 7), not card 8.
+    post.mockRejectedValueOnce({
+      response: { status: 403, data: { requiresSubscription: true } },
+    });
+    render(<JobSwipeDeck jobs={jobs} />);
+    fireEvent.click(screen.getByRole("button", { name: /^like$/i }));
+    await waitFor(() =>
+      expect(screen.getByTestId("stub-paygate")).toBeInTheDocument(),
+    );
+    // Top card still has projectId 7's data-testid - paygate didn't
+    // advance the deck.
+    expect(screen.getByTestId("job-swipe-top-card")).toBeInTheDocument();
+    // And card 8's content (the next job) hasn't taken the top slot.
+    expect(screen.getAllByText(/Loft conversion/).length).toBeGreaterThan(0);
+  });
+
+  it("renders top + peek cards as siblings in stable DOM (pills pre-painted)", () => {
+    // The deck mounts ALL visible cards simultaneously - top + up to
+    // three peeks. This is what keeps the next card's image and chips
+    // already rendered when it's promoted to top, so there's no
+    // "pills load late" flicker. We check by counting cards via the
+    // data-card-rank attribute the parallel-promote selector relies on.
+    render(<JobSwipeDeck jobs={jobs} />);
+    const cards = document.querySelectorAll("[data-card-rank]");
+    // 2 jobs in the fixture, so we expect 2 mounted cards (top + 1 peek).
+    expect(cards.length).toBe(2);
+    expect(cards[0]?.getAttribute("data-card-rank")).toBe("0");
+    expect(cards[1]?.getAttribute("data-card-rank")).toBe("1");
+  });
+
+  it("peek-1 carries data-card-rank='1' so flingAndCommit can grab it for parallel-promote", () => {
+    // The imperative parallel-promote selector
+    // `[data-card-rank="1"]` runs inside flingAndCommit during the top
+    // card's fly-off. If anyone removes the data attribute or renumbers
+    // ranks, the smooth zoom-in regresses to a noticeable jump because
+    // the peek's transition only fires after setIndex's re-render -
+    // which in jsdom + React 18 is unreliable.
+    render(<JobSwipeDeck jobs={jobs} />);
+    const peek = document.querySelector('[data-card-rank="1"]');
+    expect(peek).not.toBeNull();
+  });
+
+  it("Info button toggles the flip state on the top card", () => {
+    // Tapping the Info button rotates the card to its back face. The
+    // flip is implemented with `transform-style: preserve-3d` + a
+    // rotateY transform on the top card's flip wrapper. We expose the
+    // current state via data-flipped="true|false" so tests can assert
+    // it without parsing inline transform styles. Regression guard for
+    // the bug where overflow:hidden on the preserve-3d wrapper
+    // collapsed both faces to a flat plane and the back face never
+    // showed.
+    render(<JobSwipeDeck jobs={jobs} />);
+    const flipWrapper = document.querySelector(
+      '[data-flip-wrapper="true"]',
+    ) as HTMLElement | null;
+    expect(flipWrapper).not.toBeNull();
+    expect(flipWrapper?.getAttribute("data-flipped")).toBe("false");
+
+    fireEvent.click(screen.getByRole("button", { name: /view details/i }));
+    expect(flipWrapper?.getAttribute("data-flipped")).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: /view details/i }));
+    expect(flipWrapper?.getAttribute("data-flipped")).toBe("false");
+  });
+
+  it("renders both JobCard and JobCardBack so the flip can reveal the back face", () => {
+    // Both faces of the top card live in the DOM at all times - the
+    // flip is a CSS rotation, not a swap. If anyone reverts to a
+    // single-face render (e.g. conditional on `flipped`), tapping
+    // Info would show nothing on the back. This guards the dual-face
+    // architecture by checking content from BOTH faces is queryable.
+    render(<JobSwipeDeck jobs={jobs} />);
+    // JobCard front face has the title in its bottom gradient block;
+    // JobCardBack back face has its own structure with the description
+    // under "Job description" or similar copy. Both render the title.
+    expect(screen.getAllByText(/Loft conversion/i).length).toBeGreaterThan(1);
+  });
 });

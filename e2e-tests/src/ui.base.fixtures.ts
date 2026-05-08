@@ -37,6 +37,7 @@ import CookieBannerComponent from "./pages/components/CookieBannerComponent";
 import MockCheckoutPage from "./pages/MockCheckoutPage";
 import SwipePayGatePage from "./pages/SwipePayGatePage";
 import TradesmanJobsDeckPage from "./pages/TradesmanJobsDeckPage";
+import TradesmanJobsListPage from "./pages/TradesmanJobsListPage";
 
 type Runtime = ReturnType<typeof getRuntime>;
 
@@ -77,6 +78,7 @@ type UiFixtures = {
   mockCheckoutPage: MockCheckoutPage;
   swipePayGatePage: SwipePayGatePage;
   tradesmanJobsDeckPage: TradesmanJobsDeckPage;
+  tradesmanJobsListPage: TradesmanJobsListPage;
 };
 
 function normalizeApiBase(url: string): string {
@@ -259,6 +261,10 @@ export const test = base.extend<UiFixtures, { runtime: Runtime }>({
 
   tradesmanJobsDeckPage: async ({ page }, use) => {
     await use(new TradesmanJobsDeckPage(page));
+  },
+
+  tradesmanJobsListPage: async ({ page }, use) => {
+    await use(new TradesmanJobsListPage(page));
   },
 
   adminApi: async ({ request, runtime }, use) => {

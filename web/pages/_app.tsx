@@ -11,7 +11,6 @@ import CrossTabLogoutWatcher from "@/components/CrossTabLogoutWatcher";
 import PostHogProvider from "@/components/PostHogProvider";
 import { MobileMenuProvider } from "@/utils/mobileMenu";
 import GlobalMobileMenu from "@/components/GlobalMobileMenu";
-import MatchCelebrationToast from "@/components/MatchCelebrationToast";
 import GlobalSseDispatcher from "@/components/GlobalSseDispatcher";
 import GlobalNotificationToast from "@/components/GlobalNotificationToast";
 import MessagingDock from "@/components/messaging/MessagingDock";
@@ -306,12 +305,6 @@ export default function MyApp({ Component, pageProps }: AppProps) {
       {/* Global mobile menu — single instance for every route, opened
           via useMobileMenu().openMenu() from any burger button. */}
       <GlobalMobileMenu />
-
-      {/* Global match-formed celebration toast: SSE-driven, shows the
-          moment a match_formed notification arrives, regardless of which
-          page the user is on. Closes the gap where the first-mover
-          doesn't get the celebration screen automatically. */}
-      <MatchCelebrationToast />
 
       {/* Lightweight inline toast for chat / hire / rec notifications,
           triggered from the same SSE stream. Push notifications only fire

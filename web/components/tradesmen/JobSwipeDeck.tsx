@@ -121,7 +121,9 @@ export default function JobSwipeDeck({
     el.style.transition = immediate
       ? "none"
       : "transform 220ms cubic-bezier(0.4, 0.0, 0.2, 1)";
-    el.style.transform = `translateX(${dx}px) rotate(${dx / 20}deg)`;
+    // Compose with rank-0 identity so format matches React-controlled
+    // transform on peek cards. CSS reads it as one matrix.
+    el.style.transform = `scale(1) translateX(${dx}px) rotate(${dx / 20}deg)`;
   }
 
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
@@ -153,21 +155,42 @@ export default function JobSwipeDeck({
     const flingTo = direction === "right" ? width * 1.5 : -width * 1.5;
     const el = cardRef.current;
     if (el) {
-      el.style.transition = "transform 250ms cubic-bezier(0.4, 0.0, 0.2, 1)";
-      el.style.transform = `translateX(${flingTo}px) rotate(${flingTo / 20}deg)`;
+      el.style.transition = "transform 500ms cubic-bezier(0.4, 0.0, 0.2, 1)";
+      el.style.transform = `scale(1) translateX(${flingTo}px) rotate(${flingTo / 20}deg)`;
     }
-    // Run the fling animation in parallel with the API. Hold the index
-    // advance until BOTH are done — if the API resolves before the 250ms
-    // animation, an early setIndex would re-render the top div with the
-    // next card's content while it's still under the off-screen fling
-    // transform, briefly exposing the peek behind it (visible as a grey
-    // flash / strip on swipe). Advance + snap transform together.
+    // Animate peek-1 forward IN PARALLEL with the fling. By querying
+    // its element directly and applying the transform imperatively,
+    // we guarantee the browser starts the transition at the moment
+    // the fling does, not after the React re-render that follows
+    // setIndex. Result: while the top flies off, the next card is
+    // already growing into the top slot - finishes at the same moment,
+    // no perceptible "wait then jump" between fly-off and promote.
+    const peekEl = el?.parentElement?.querySelector(
+      '[data-card-rank="1"]',
+    ) as HTMLElement | null;
+    if (peekEl) {
+      peekEl.style.transition =
+        "transform 500ms cubic-bezier(0.16, 1, 0.3, 1), opacity 400ms ease-out";
+      peekEl.style.transform = "scale(1)";
+      peekEl.style.opacity = "1";
+    }
+    // Run the fling in parallel with the API. Hold setIndex until both
+    // finish so the leaving card stays mid-flight while the network
+    // round-trip completes. If commitApi returns false (paygate fired,
+    // match navigation, etc.) we DON'T advance the index - but we still
+    // have to bring the card back, otherwise it's stuck off-screen and
+    // the deck looks empty under a flown-off card the user can't see.
     const [, advance] = await Promise.all([
-      new Promise<void>((r) => window.setTimeout(r, 250)),
+      new Promise<void>((r) => window.setTimeout(r, 500)),
       commitApi(direction).catch(() => false as boolean),
     ]);
-    applyCardTransform(0, true);
-    if (advance) setIndex((i) => i + 1);
+    if (advance) {
+      setIndex((i) => i + 1);
+    } else {
+      // Spring the card back to origin so the user (e.g. post-paygate)
+      // can re-swipe the same card.
+      applyCardTransform(0, false);
+    }
     animatingRef.current = false;
   }
 
@@ -194,96 +217,152 @@ export default function JobSwipeDeck({
     return <JobSwipeDeckEmpty noJobsYet={noJobsYet} />;
   }
 
-  const peek = jobs.slice(index + 1, index + 3);
+  // Tinder-style stacked deck. Top + 3 peeks mounted as siblings keyed
+  // by projectId - DOM stable across swipes, so when peek-1 becomes the
+  // new top its image, pills, and back face are already rendered (no
+  // flash where content "loads in" after the photo).
+  //
+  // Each card has a rank-based scale: peek-1 sits at scale(0.92) behind
+  // the top (same position, just smaller). When the top flies off and
+  // index advances, peek-1's rank drops 1 -> 0 and CSS transitions its
+  // transform from scale(0.92) up to scale(1) - the canonical Tinder
+  // "card zooms towards you" feel.
+  const visible = jobs.slice(index, index + 4);
+
+  // Peek-1 sits behind at scale 0.86 / opacity 0.7 - visibly smaller +
+  // faded so the deck reads as a stack. When the top flies off, the
+  // user sees the peek immediately (no white gap). After setIndex the
+  // CSS transition animates transform 0.86 → 1.0 + opacity 0.7 → 1.0
+  // over 700ms with exponential-out ease, so the card visibly glides
+  // forward into the top slot rather than snapping to size.
+  function rankTransform(i: number) {
+    if (i === 0) return "scale(1)";
+    return `scale(${1 - i * 0.14})`;
+  }
+  function rankOpacity(i: number) {
+    if (i === 0) return 1;
+    if (i === 1) return 0.7;
+    return 0;
+  }
 
   return (
-    <div className="relative h-full w-full">
-      <div className="relative h-full w-full min-h-[460px]">
-        {/* Peek cards sit flush behind the top card (no scale / no offset).
-            Scaling the peek subpixel-renders pills + text at 0.97x and
-            visibly snaps to 1.0x the moment it becomes the top, which is
-            what reads as "jumpy" / "distorted pills" / "back card not
-            fully loaded". Flat-stacking eliminates the transition. */}
-        {peek.map((j) => (
-          <div
-            key={j.projectId}
-            aria-hidden
-            className="absolute inset-0"
-            style={{ zIndex: 1 }}
-          >
-            <JobCard data={j} />
-          </div>
-        ))}
-
-        {/* Top (draggable) card */}
-        <div
-          ref={cardRef}
-          data-testid="job-swipe-top-card"
-          onPointerDown={flipped ? undefined : onPointerDown}
-          onPointerMove={flipped ? undefined : onPointerMove}
-          onPointerUp={flipped ? undefined : onPointerUp}
-          onPointerCancel={flipped ? undefined : onPointerUp}
-          onContextMenu={(e) => e.preventDefault()}
-          onDragStart={(e) => e.preventDefault()}
-          className="absolute inset-0 z-10 touch-none select-none will-change-transform"
-          style={{
-            perspective: "1200px",
-            WebkitTouchCallout: "none",
-            WebkitUserSelect: "none",
-            userSelect: "none",
-          } as React.CSSProperties}
-        >
-          <div
-            className="relative w-full h-full"
-            style={{
-              transformStyle: "preserve-3d",
-              transition: "transform 0.55s cubic-bezier(0.4, 0.0, 0.2, 1)",
-              transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
-            }}
-          >
-            {/* Front. translateZ(0) forces this face into its own 3D
-                layer; without it Safari leaks the absolutely-positioned
-                badges (z-10 inside JobCard) through the rotated face,
-                appearing mirrored on the back of the card. */}
+    <div className="relative h-full w-full flex flex-col">
+      {/* Card stack - takes available vertical space, padded so the card
+          doesn't kiss the screen edges and the rounded corners + drop
+          shadow have room to breathe. */}
+      <div className="relative flex-1 min-h-[420px] mx-4 mt-2 mb-3">
+        {visible.map((j, i) => {
+          const isTop = i === 0;
+          return (
             <div
-              className="absolute inset-0"
-              style={{
-                backfaceVisibility: "hidden",
-                WebkitBackfaceVisibility: "hidden",
-                transform: "translateZ(0)",
-              }}
+              key={j.projectId}
+              ref={isTop ? cardRef : undefined}
+              data-testid={isTop ? "job-swipe-top-card" : undefined}
+              data-card-rank={i}
+              aria-hidden={!isTop}
+              onPointerDown={isTop && !flipped ? onPointerDown : undefined}
+              onPointerMove={isTop && !flipped ? onPointerMove : undefined}
+              onPointerUp={isTop && !flipped ? onPointerUp : undefined}
+              onPointerCancel={isTop && !flipped ? onPointerUp : undefined}
+              onContextMenu={isTop ? (e) => e.preventDefault() : undefined}
+              onDragStart={isTop ? (e) => e.preventDefault() : undefined}
+              className={`absolute inset-0 ${isTop ? "touch-none select-none will-change-transform" : ""}`}
+              style={
+                {
+                  zIndex: 10 - i,
+                  pointerEvents: isTop ? "auto" : "none",
+                  transformOrigin: "center center",
+                  transform: rankTransform(i),
+                  opacity: rankOpacity(i),
+                  transition:
+                    "transform 280ms cubic-bezier(0.16, 1, 0.3, 1), opacity 220ms ease-out",
+                  perspective: "1200px",
+                  willChange: "transform, opacity",
+                  contain: "layout paint",
+                  // touchAction: none on the inline style as well as the
+                  // class belt-and-braces - on iOS Safari Tailwind's
+                  // touch-none class can be overridden by parent flex
+                  // styles that set touch-action: pan-y.
+                  touchAction: "none",
+                  WebkitTouchCallout: "none",
+                  WebkitUserSelect: "none",
+                  userSelect: "none",
+                  WebkitUserDrag: "none",
+                } as React.CSSProperties
+              }
             >
-              <JobCard data={current} />
+              {/* Flip wrapper - just the rotation. We CANNOT put
+                  overflow:hidden or rounded corners on this element
+                  because both coerce a preserve-3d element to "flat"
+                  rendering in Safari, which collapses the front and
+                  back faces onto the same plane (mirrored content
+                  showing through). Rounded shape + shadow live on each
+                  face individually so the card visually reads as one
+                  rounded piece during the flip. */}
+              <div
+                className="relative w-full h-full"
+                data-flip-wrapper={isTop ? "true" : "false"}
+                data-flipped={isTop && flipped ? "true" : "false"}
+                style={{
+                  transformStyle: "preserve-3d",
+                  transition: isTop
+                    ? "transform 0.55s cubic-bezier(0.4, 0.0, 0.2, 1)"
+                    : "none",
+                  transform:
+                    isTop && flipped ? "rotateY(180deg)" : "rotateY(0deg)",
+                  // Block all child pointer events. The wrapper above
+                  // owns the swipe gesture; without this, iOS Safari
+                  // can pick up "tap" hits on the gradient overlay or
+                  // chip elements and treat the start of a drag as
+                  // text-select, which feels like the swipe needs the
+                  // user to find a "blank" spot before responding.
+                  pointerEvents: "none",
+                }}
+              >
+                <div
+                  className="absolute inset-0 rounded-3xl overflow-hidden"
+                  style={{
+                    backfaceVisibility: "hidden",
+                    WebkitBackfaceVisibility: "hidden",
+                    transform: "translateZ(0)",
+                    boxShadow: isTop
+                      ? "0 18px 48px rgba(15,23,42,0.22), 0 4px 14px rgba(15,23,42,0.10)"
+                      : "none",
+                  }}
+                >
+                  <JobCard data={j} />
+                </div>
+                <div
+                  className="absolute inset-0 rounded-3xl overflow-hidden"
+                  style={{
+                    backfaceVisibility: "hidden",
+                    WebkitBackfaceVisibility: "hidden",
+                    transform: "rotateY(180deg) translateZ(0)",
+                    boxShadow: isTop
+                      ? "0 18px 48px rgba(15,23,42,0.22), 0 4px 14px rgba(15,23,42,0.10)"
+                      : "none",
+                  }}
+                >
+                  <JobCardBack data={j} />
+                </div>
+              </div>
             </div>
-            {/* Back */}
-            <div
-              className="absolute inset-0"
-              style={{
-                backfaceVisibility: "hidden",
-                WebkitBackfaceVisibility: "hidden",
-                transform: "rotateY(180deg) translateZ(0)",
-              }}
-            >
-              <JobCardBack data={current} />
-            </div>
-          </div>
-        </div>
+          );
+        })}
+      </div>
 
-        {/* Floating action bar — sits absolute over the bottom of the
-            top card, glass-blur backdrop. Emerald Like for the trade
-            brand. */}
-        <div className="absolute inset-x-0 bottom-4 z-20 flex items-center justify-center pointer-events-none">
-          <div className="pointer-events-auto">
-            <SwipeActionBar
-              tone="emerald"
-              disabled={busy}
-              onPass={() => commit("left")}
-              onInfo={() => setFlipped((v) => !v)}
-              onLike={() => commit("right")}
-              floating
-            />
-          </div>
-        </div>
+      {/* Action bar - now OUTSIDE / BELOW the card. Pass / Info / Like
+          sit on the page chrome, not floating over the photo, so the
+          card reads as a clean photo tile. */}
+      <div className="px-4 pb-4 pt-1 flex items-center justify-center">
+        <SwipeActionBar
+          tone="emerald"
+          disabled={busy}
+          onPass={() => commit("left")}
+          onInfo={() => setFlipped((v) => !v)}
+          onLike={() => commit("right")}
+          floating
+        />
       </div>
 
       <SwipePayGate

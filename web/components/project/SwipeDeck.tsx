@@ -1,12 +1,18 @@
+// web/components/project/SwipeDeck.tsx
+//
+// Homeowner-side swipe deck. Tinder-style stack of trade cards: top card
+// is draggable, peek-1 sits behind at scale 0.86 / opacity 0.7 so the
+// stack visibly reads as a deck. On fling, the top card flies off and
+// peek-1 imperatively promotes to scale 1.0 in parallel - no white gap,
+// no "wait then jump".
+//
+// Mirrors the trade-side JobSwipeDeck.tsx (same drag thresholds, fling
+// timing, flip animation, and parallel-promote selector). Differences are
+// content-only: BuilderCard / BuilderCardBack instead of Job; indigo
+// action bar instead of emerald; queue prop-reactivity for paid-unlock
+// SSE additions; rec-card dismissal endpoint; ShareProjectModal in empty.
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/router";
-import {
-  animate,
-  motion,
-  useMotionValue,
-  useTransform,
-  type PanInfo,
-} from "framer-motion";
 import { useApi } from "@/utils/api";
 import BuilderCard, { BuilderCardBuilder } from "./BuilderCard";
 import BuilderCardBack from "./BuilderCardBack";
@@ -61,122 +67,194 @@ export default function SwipeDeck({
 
   const current = queue[index];
 
-  // Reset the flip state whenever the top card changes — a freshly revealed
-  // card should always start front-facing.
+  // Reset flip whenever the top card changes - a freshly revealed card
+  // should always start front-facing.
   useEffect(() => {
     setFlipped(false);
   }, [index]);
 
-  async function commitApi(direction: "left" | "right") {
-    if (!current || busy) return;
+  // Returns true if the deck should advance to the next card. False
+  // means the same card should stay in place (match navigation handles
+  // unmount, or an error - we spring the card back).
+  async function commitApi(direction: "left" | "right"): Promise<boolean> {
+    if (!current || busy) return false;
     setBusy(true);
     try {
       if (current.isRecommendation && current.recommendationId) {
-        // Rec card — dismiss from deck. No swipe-interest recorded; the
+        // Rec card - dismiss from deck. No swipe-interest recorded; the
         // homeowner has already implicitly endorsed via the friend's rec.
-        await api.post(`/api/recommendations/${current.recommendationId}/dismiss-from-deck`);
-      } else {
-        const source =
-          current.tier === "recommended"
-            ? "recommended"
-            : current.tier === "paid_unlock"
-              ? "paid_unlock"
-              : "subscribed";
-        const res = await api.post(`/api/projects/${projectId}/swipe`, {
-          builderUid: current.uid,
-          direction,
-          source,
-        });
-        if (direction === "right" && res.data?.status === "matched") {
-          // Server returns the swipe_interest row id; fall back to uid
-          // so older paths that don't surface matchId still navigate
-          // (the legacy /match/:id route accepts either).
-          const id = res.data?.matchId ?? current.uid;
-          onMatch(id);
-        }
+        await api.post(
+          `/api/recommendations/${current.recommendationId}/dismiss-from-deck`,
+        );
+        return true;
       }
+      const source =
+        current.tier === "recommended"
+          ? "recommended"
+          : current.tier === "paid_unlock"
+            ? "paid_unlock"
+            : "subscribed";
+      const res = await api.post(`/api/projects/${projectId}/swipe`, {
+        builderUid: current.uid,
+        direction,
+        source,
+      });
+      if (direction === "right" && res.data?.status === "matched") {
+        // Server returns the swipe_interest row id; fall back to uid so
+        // older paths that don't surface matchId still navigate (the
+        // legacy /match/:id route accepts either).
+        const id = res.data?.matchId ?? current.uid;
+        onMatch(id);
+        return false; // navigation handles unmount
+      }
+      return true;
+    } catch {
+      // Errors (other than match navigation) - keep the card in place
+      // and spring it back so the user can retry.
+      return false;
     } finally {
       setBusy(false);
     }
+  }
+
+  async function commit(direction: "left" | "right") {
+    const advance = await commitApi(direction);
+    if (advance) setIndex((i) => i + 1);
   }
 
   async function unfavouriteRec() {
-    if (!current || !current.isRecommendation || !current.recommendationId || busy) return;
+    if (
+      !current ||
+      !current.isRecommendation ||
+      !current.recommendationId ||
+      busy
+    )
+      return;
     setBusy(true);
     try {
-      await api.post(`/api/recommendations/${current.recommendationId}/unfavourite`);
-      setIndex(i => i + 1);
+      await api.post(
+        `/api/recommendations/${current.recommendationId}/unfavourite`,
+      );
+      setIndex((i) => i + 1);
     } finally {
       setBusy(false);
     }
   }
 
-  // Drag is owned by framer-motion. `x` is the live horizontal offset of
-  // the top card; `rotate` is derived from it for the Tinder tilt. We
-  // track container width via a ref so the fling distance + threshold
-  // scale to the deck size (mobile viewport vs desktop rail).
-  const containerRef = useRef<HTMLDivElement>(null);
-  const x = useMotionValue(0);
-  const rotate = useTransform(x, (v) => v / 20);
+  // ---- drag state ----
+  // Held in a ref so pointer-move doesn't re-render the deck on every
+  // frame. Transform is applied directly to the card element.
+  const cardRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    lastX: number;
+    lastTime: number;
+    dx: number;
+    velocity: number; // px / ms
+  } | null>(null);
   const animatingRef = useRef(false);
 
-  function getDeckWidth() {
-    return containerRef.current?.offsetWidth ?? 320;
+  function applyCardTransform(dx: number, immediate: boolean) {
+    const el = cardRef.current;
+    if (!el) return;
+    el.style.transition = immediate
+      ? "none"
+      : "transform 220ms cubic-bezier(0.4, 0.0, 0.2, 1)";
+    // Compose with rank-0 identity so format matches React-controlled
+    // transform on peek cards. CSS reads it as one matrix.
+    el.style.transform = `scale(1) translateX(${dx}px) rotate(${dx / 20}deg)`;
   }
 
-  // onDragEnd from framer fires once the gesture lifts. Commit the swipe
-  // when the user dragged far enough OR flicked hard enough; otherwise
-  // framer's `dragSnapToOrigin` already brings the card back to 0 with a
-  // spring, so we don't have to do anything in the fall-through case.
-  function onDragEnd(_e: unknown, info: PanInfo) {
+  function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     if (busy || animatingRef.current) return;
-    const width = getDeckWidth();
-    const offset = info.offset.x;
-    // info.velocity.x is in px/sec - keep the same 500 px/s flick rule
-    // we had with the hand-rolled handlers.
-    const velocity = info.velocity.x;
-    const farEnough = Math.abs(offset) / width > 0.25;
-    const fastEnough = Math.abs(velocity) > 500 && Math.abs(offset) > 20;
-    if (!farEnough && !fastEnough) return;
-    const direction: "left" | "right" =
-      offset !== 0
-        ? offset > 0
-          ? "right"
-          : "left"
-        : velocity > 0
-          ? "right"
-          : "left";
-    void flingAndCommit(direction, width);
+    cardRef.current?.setPointerCapture(e.pointerId);
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      lastX: e.clientX,
+      lastTime: e.timeStamp,
+      dx: 0,
+      velocity: 0,
+    };
+    applyCardTransform(0, true);
   }
 
-  // Programmatic commit (Pass / Like buttons) - fly the card off in the
-  // matching direction so the action feels identical to a drag.
-  function commitWithFling(direction: "left" | "right") {
-    if (busy || animatingRef.current) return;
-    void flingAndCommit(direction, getDeckWidth());
+  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    const s = dragRef.current;
+    if (!s || s.pointerId !== e.pointerId) return;
+    if (Math.abs(e.clientX - s.startX) > 4) e.preventDefault();
+    const dt = Math.max(1, e.timeStamp - s.lastTime);
+    s.velocity = (e.clientX - s.lastX) / dt;
+    s.lastX = e.clientX;
+    s.lastTime = e.timeStamp;
+    s.dx = e.clientX - s.startX;
+    applyCardTransform(s.dx, true);
   }
 
   async function flingAndCommit(direction: "left" | "right", width: number) {
     animatingRef.current = true;
     const flingTo = direction === "right" ? width * 1.5 : -width * 1.5;
-    // Drive the fly-off via framer's `animate` so the tilt (derived from
-    // x) tracks the card all the way out. Run the fly-off animation in
-    // parallel with the API and the index advance - whichever takes
-    // longer determines when the next card snaps into view.
-    const flyOff = animate(x, flingTo, {
-      duration: 0.25,
-      ease: [0.4, 0, 0.2, 1],
-    });
-    await Promise.all([
-      flyOff.then(() => undefined),
-      commitApi(direction).catch(() => {}),
+    const el = cardRef.current;
+    if (el) {
+      el.style.transition = "transform 500ms cubic-bezier(0.4, 0.0, 0.2, 1)";
+      el.style.transform = `scale(1) translateX(${flingTo}px) rotate(${flingTo / 20}deg)`;
+    }
+    // Animate peek-1 forward IN PARALLEL with the fling. By querying
+    // its element directly and applying the transform imperatively, we
+    // guarantee the browser starts the transition at the moment the
+    // fling does, not after the React re-render that follows setIndex.
+    // Result: while the top flies off, the next card is already growing
+    // into the top slot - finishes at the same moment, no perceptible
+    // "wait then jump" between fly-off and promote.
+    const peekEl = el?.parentElement?.querySelector(
+      '[data-card-rank="1"]',
+    ) as HTMLElement | null;
+    if (peekEl) {
+      peekEl.style.transition =
+        "transform 500ms cubic-bezier(0.16, 1, 0.3, 1), opacity 400ms ease-out";
+      peekEl.style.transform = "scale(1)";
+      peekEl.style.opacity = "1";
+    }
+    // Run the fling in parallel with the API. Hold setIndex until both
+    // finish so the leaving card stays mid-flight while the network
+    // round-trip completes. If commitApi returns false (match
+    // navigation, or an error) we DON'T advance the index - but we
+    // still have to bring the card back, otherwise it's stuck off-
+    // screen and the deck looks empty under a flown-off card the user
+    // can't see.
+    const [, advance] = await Promise.all([
+      new Promise<void>((r) => window.setTimeout(r, 500)),
+      commitApi(direction).catch(() => false as boolean),
     ]);
-    // Reset offset (instant) and advance index in the same tick. The new
-    // top card mounts at x=0 with no transition, so there's no flash of
-    // an off-screen card.
-    x.set(0);
-    setIndex((i) => i + 1);
+    if (advance) {
+      setIndex((i) => i + 1);
+    } else {
+      applyCardTransform(0, false);
+    }
     animatingRef.current = false;
+  }
+
+  function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    const s = dragRef.current;
+    if (!s || s.pointerId !== e.pointerId) return;
+    cardRef.current?.releasePointerCapture(e.pointerId);
+    dragRef.current = null;
+
+    const width = cardRef.current?.offsetWidth ?? 320;
+    const { dx, velocity } = s;
+    const farEnough = Math.abs(dx) / width > 0.25;
+    // Flick threshold - 0.5 px/ms == 500px/sec. A ~150px flick over
+    // 300ms satisfies this even though it's well below the distance
+    // threshold.
+    const fastEnough = Math.abs(velocity) > 0.5 && Math.abs(dx) > 20;
+    if (farEnough || fastEnough) {
+      const direction: "left" | "right" =
+        dx !== 0 ? (dx > 0 ? "right" : "left") : velocity > 0 ? "right" : "left";
+      void flingAndCommit(direction, width);
+      return;
+    }
+    applyCardTransform(0, false);
   }
 
   if (!current) {
@@ -191,100 +269,138 @@ export default function SwipeDeck({
     );
   }
 
-  const peek = queue.slice(index + 1, index + 3);
+  const visible = queue.slice(index, index + 4);
+
+  // Peek-1 sits behind at scale 0.86 / opacity 0.7 - visibly smaller +
+  // faded so the deck reads as a stack. When the top flies off the user
+  // sees the peek immediately (no white gap). After setIndex the CSS
+  // transition animates transform 0.86 -> 1.0 + opacity 0.7 -> 1.0 so
+  // the card visibly glides forward into the top slot.
+  function rankTransform(i: number) {
+    if (i === 0) return "scale(1)";
+    return `scale(${1 - i * 0.14})`;
+  }
+  function rankOpacity(i: number) {
+    if (i === 0) return 1;
+    if (i === 1) return 0.7;
+    return 0;
+  }
 
   return (
-    <div className="relative h-full">
-      {/* Card stack — fills the container's height so the parent decides
-          how tall the deck is (mobile pages set this to ~viewport, desktop
-          rails constrain it to the rail size). Action bar floats over the
-          bottom of the photo, Tinder-style. */}
-      <div ref={containerRef} className="relative h-full min-h-[460px]">
-        {/* Peek cards sit flush behind the top card (no scale / no offset).
-            A scaled peek subpixel-renders text + pills at 0.97x and then
-            visibly snaps to 1.0x the moment it becomes the top — that's
-            what reads as "jumpy" and "distorted pills". Flat-stacking
-            preloads the image at its final size so the swipe is seamless. */}
-        {peek.map((b) => (
-          <div
-            key={b.uid}
-            aria-hidden
-            className="absolute inset-0"
-            style={{ zIndex: 1 }}
-          >
-            <BuilderCard builder={b} />
-          </div>
-        ))}
-        <motion.div
-          // Re-mount the motion node when the visible card changes so
-          // framer's internal x value resets cleanly between cards (and
-          // we don't need an extra effect to zero it).
-          key={current.uid}
-          data-testid="swipe-top-card"
-          drag={flipped ? false : "x"}
-          dragSnapToOrigin
-          dragElastic={0.7}
-          dragMomentum={false}
-          onDragEnd={onDragEnd}
-          style={{
-            x,
-            rotate,
-            perspective: 1200,
-            WebkitTouchCallout: "none",
-            WebkitUserSelect: "none",
-            userSelect: "none",
-          }}
-          className="absolute inset-0 z-10 touch-none select-none will-change-transform"
-        >
-          <div
-            className="relative w-full h-full"
-            style={{
-              transformStyle: "preserve-3d",
-              transition: "transform 0.55s cubic-bezier(0.4, 0.0, 0.2, 1)",
-              transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
-            }}
-          >
-            {/* Front. translateZ(0) forces this face into its own 3D
-                layer; without it Safari leaks the absolutely-positioned
-                badges (z-10 inside BuilderCard) through the rotated
-                face, appearing mirrored on the back of the card. */}
+    <div className="relative h-full w-full flex flex-col">
+      {/* Card stack - takes available vertical space, padded so the card
+          doesn't kiss the screen edges and the rounded corners + drop
+          shadow have room to breathe. */}
+      <div className="relative flex-1 min-h-[420px] mx-4 mt-2 mb-3">
+        {visible.map((b, i) => {
+          const isTop = i === 0;
+          return (
             <div
-              className="absolute inset-0"
-              style={{
-                backfaceVisibility: "hidden",
-                WebkitBackfaceVisibility: "hidden",
-                transform: "translateZ(0)",
-              }}
+              key={b.uid}
+              ref={isTop ? cardRef : undefined}
+              data-testid={isTop ? "swipe-top-card" : undefined}
+              data-card-rank={i}
+              aria-hidden={!isTop}
+              onPointerDown={isTop && !flipped ? onPointerDown : undefined}
+              onPointerMove={isTop && !flipped ? onPointerMove : undefined}
+              onPointerUp={isTop && !flipped ? onPointerUp : undefined}
+              onPointerCancel={isTop && !flipped ? onPointerUp : undefined}
+              onContextMenu={isTop ? (e) => e.preventDefault() : undefined}
+              onDragStart={isTop ? (e) => e.preventDefault() : undefined}
+              className={`absolute inset-0 ${isTop ? "touch-none select-none will-change-transform" : ""}`}
+              style={
+                {
+                  zIndex: 10 - i,
+                  pointerEvents: isTop ? "auto" : "none",
+                  transformOrigin: "center center",
+                  transform: rankTransform(i),
+                  opacity: rankOpacity(i),
+                  transition:
+                    "transform 280ms cubic-bezier(0.16, 1, 0.3, 1), opacity 220ms ease-out",
+                  perspective: "1200px",
+                  willChange: "transform, opacity",
+                  contain: "layout paint",
+                  touchAction: "none",
+                  WebkitTouchCallout: "none",
+                  WebkitUserSelect: "none",
+                  userSelect: "none",
+                  WebkitUserDrag: "none",
+                } as React.CSSProperties
+              }
             >
-              <BuilderCard builder={current} onUnfavouriteRec={unfavouriteRec} />
+              {/* Flip wrapper - just the rotation. We CANNOT put
+                  overflow:hidden or rounded corners on this element
+                  because both coerce a preserve-3d element to "flat"
+                  rendering in Safari, which collapses the front and
+                  back faces onto the same plane (mirrored content
+                  showing through). Rounded shape + shadow live on each
+                  face individually so the card visually reads as one
+                  rounded piece during the flip. */}
+              <div
+                className="relative w-full h-full"
+                data-flip-wrapper={isTop ? "true" : "false"}
+                data-flipped={isTop && flipped ? "true" : "false"}
+                style={{
+                  transformStyle: "preserve-3d",
+                  transition: isTop
+                    ? "transform 0.55s cubic-bezier(0.4, 0.0, 0.2, 1)"
+                    : "none",
+                  transform:
+                    isTop && flipped ? "rotateY(180deg)" : "rotateY(0deg)",
+                  // Block all child pointer events. The wrapper above
+                  // owns the swipe gesture; without this, iOS Safari
+                  // can pick up "tap" hits on the gradient overlay or
+                  // chip elements and treat the start of a drag as
+                  // text-select.
+                  pointerEvents: "none",
+                }}
+              >
+                <div
+                  className="absolute inset-0 rounded-3xl overflow-hidden"
+                  style={{
+                    backfaceVisibility: "hidden",
+                    WebkitBackfaceVisibility: "hidden",
+                    transform: "translateZ(0)",
+                    boxShadow: isTop
+                      ? "0 18px 48px rgba(15,23,42,0.22), 0 4px 14px rgba(15,23,42,0.10)"
+                      : "none",
+                  }}
+                >
+                  <BuilderCard
+                    builder={b}
+                    onUnfavouriteRec={isTop ? unfavouriteRec : undefined}
+                  />
+                </div>
+                <div
+                  className="absolute inset-0 rounded-3xl overflow-hidden"
+                  style={{
+                    backfaceVisibility: "hidden",
+                    WebkitBackfaceVisibility: "hidden",
+                    transform: "rotateY(180deg) translateZ(0)",
+                    boxShadow: isTop
+                      ? "0 18px 48px rgba(15,23,42,0.22), 0 4px 14px rgba(15,23,42,0.10)"
+                      : "none",
+                  }}
+                >
+                  <BuilderCardBack builder={b} />
+                </div>
+              </div>
             </div>
-            <div
-              className="absolute inset-0"
-              style={{
-                backfaceVisibility: "hidden",
-                WebkitBackfaceVisibility: "hidden",
-                transform: "rotateY(180deg) translateZ(0)",
-              }}
-            >
-              <BuilderCardBack builder={current} />
-            </div>
-          </div>
-        </motion.div>
+          );
+        })}
+      </div>
 
-        {/* Floating action bar — sits absolute over the bottom of the
-            top card so it reads as part of the photo. Pass / Info / Like
-            with the indigo Like as the primary action (homeowner brand). */}
-        <div className="absolute inset-x-0 bottom-4 z-20 flex items-center justify-center pointer-events-none">
-          <div className="pointer-events-auto">
-            <SwipeActionBar
-              disabled={busy}
-              onPass={() => commitWithFling("left")}
-              onInfo={() => setFlipped((v) => !v)}
-              onLike={() => commitWithFling("right")}
-              floating
-            />
-          </div>
-        </div>
+      {/* Action bar - sits OUTSIDE / BELOW the card, on the page chrome
+          rather than floating over the photo. Indigo Like button is the
+          homeowner's brand colour (matching the warm-blue page bg). */}
+      <div className="px-4 pb-4 pt-1 flex items-center justify-center">
+        <SwipeActionBar
+          disabled={busy}
+          onPass={() => commit("left")}
+          onInfo={() => setFlipped((v) => !v)}
+          onLike={() => commit("right")}
+          floating
+        />
       </div>
     </div>
   );
@@ -322,7 +438,10 @@ function SwipeDeckEmpty({
 
   return (
     <div className="relative min-h-[520px] flex flex-col items-center justify-center px-7 py-10 text-center overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+      <div
+        className="pointer-events-none absolute inset-0 overflow-hidden"
+        aria-hidden
+      >
         {CONFETTI.map((c, i) => (
           <span
             key={i}
@@ -347,7 +466,13 @@ function SwipeDeckEmpty({
           boxShadow: "0 12px 36px rgba(99,102,241,0.25)",
         }}
       >
-        <span className={noBuildersYet ? "text-[44px] leading-none" : "text-white text-[44px] leading-none font-bold"}>
+        <span
+          className={
+            noBuildersYet
+              ? "text-[44px] leading-none"
+              : "text-white text-[44px] leading-none font-bold"
+          }
+        >
           {icon}
         </span>
       </div>
@@ -376,7 +501,9 @@ function SwipeDeckEmpty({
               : "flex items-center justify-center gap-2 py-4 px-5 rounded-2xl bg-white border-[1.5px] border-gray-200 text-gray-700 font-extrabold text-[15px] tracking-tight"
           }
         >
-          {noBuildersYet ? "Share project to speed it up" : "Share project to find more"}
+          {noBuildersYet
+            ? "Share project to speed it up"
+            : "Share project to find more"}
         </button>
       </div>
 

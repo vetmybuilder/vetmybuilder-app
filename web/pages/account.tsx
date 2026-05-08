@@ -17,6 +17,7 @@ import LocationField from "@/components/forms/LocationField";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
+import SiteHeader from "@/components/SiteHeader";
 
 // ── Profile types ────────────────────────────────────────────────────────────
 
@@ -432,6 +433,12 @@ export default function ManageAccount() {
         <style>{`@media (min-width: 768px) { body { background: #fef6e9 !important; } }`}</style>
       </Head>
       <div className="min-h-screen bg-white md:bg-[#fef6e9] flex flex-col relative overflow-hidden">
+        {/* Desktop: standard SiteHeader chrome (matches the rest of
+            the homeowner journey). Hidden on mobile - the page owns
+            the full viewport on phones via its own per-view top bars. */}
+        <div className="hidden md:block">
+          <SiteHeader />
+        </div>
         {/* Brand watermark fills the cream space around the phone-width
             column on desktop. Hidden on mobile (the column is the page). */}
         <BrandWatermarkScatter />
@@ -444,8 +451,10 @@ export default function ManageAccount() {
         {/* ── Hub view ── */}
         {view === "hub" && (
           <>
-            {/* Top bar */}
-            <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-100">
+            {/* Top bar - mobile only. On desktop the SiteHeader chrome
+                above already covers navigation, so a duplicate "Account"
+                bar with a back chevron is redundant. */}
+            <div className="md:hidden flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-100">
               <button
                 type="button"
                 onClick={() => router.back()}

@@ -1,13 +1,17 @@
 // web/components/SiteHeader.tsx
 import Link from "next/link";
 import React, { useMemo, useRef, useState, useEffect } from "react";
-import { MessageSquare, UserCog, LogOut } from "lucide-react";
+import { UserCog, LogOut } from "lucide-react";
 import { useAuth, signOutUser } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
 import { useMobileMenu } from "@/utils/mobileMenu";
 import BrandWordmark from "@/components/BrandWordmark";
 import InboxDropdown, { useInboxUnread } from "@/components/InboxDropdown";
+import TradesmanInboxDropdown, {
+  useTradesInboxUnread,
+} from "@/components/TradesmanInboxDropdown";
+import MessagesIconButton from "@/components/header/MessagesIconButton";
 
 // Owner project tabs - rendered in the centre of the header for any
 // signed-in homeowner. Clicking a tab from anywhere routes to /projects
@@ -24,11 +28,13 @@ type OwnerTabKey = (typeof OWNER_TABS)[number]["key"];
 // Trade-side primary nav - mirrors the homeowner OWNER_TABS but routes
 // to the trade-side equivalents. Rendered in the centre of the header
 // for any signed-in tradesperson so they can jump between Jobs, Jobs
-// list, Matches, and Incoming interest from anywhere on the site.
+// list, and Incoming interest from anywhere on the site. Matches is
+// no longer surfaced as a top-level tab - matched threads live in
+// the messages dropdown's Activity tab + the bottom-right dock, so
+// the standalone /tradesman/matches page is redundant on desktop.
 const TRADES_TABS = [
   { key: "jobs", label: "Jobs", href: "/tradesman/jobs" },
   { key: "jobs-list", label: "Jobs list", href: "/tradesman/jobs/list" },
-  { key: "matches", label: "Matches", href: "/tradesman/matches" },
   { key: "leads", label: "Incoming interest", href: "/tradesman/leads" },
 ] as const;
 type TradesTabKey = (typeof TRADES_TABS)[number]["key"];
@@ -81,7 +87,7 @@ function InitialsBadge({
     >
       <span
         aria-hidden
-        className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white text-xs font-semibold"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-semibold"
       >
         {initials || "U"}
       </span>
@@ -351,6 +357,9 @@ export default function SiteHeader() {
   // Only fetched for signed-in homeowners (the only viewers who see the
   // inbox icon).
   const { total: inboxUnread } = useInboxUnread(!!displayUser && !isTrades);
+  const { total: tradesInboxUnread } = useTradesInboxUnread(
+    !!displayUser && isTrades,
+  );
 
   /* ========= 1) SIMPLE HOMEPAGE HEADER ========= */
   if (isHome) {
@@ -434,7 +443,7 @@ export default function SiteHeader() {
                         <span
                           aria-hidden
                           data-testid="account-initials"
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white text-xs font-semibold"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-semibold"
                         >
                           {initials || "U"}
                         </span>
@@ -455,7 +464,7 @@ export default function SiteHeader() {
                           <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-3">
                             <span
                               aria-hidden
-                              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-500 text-white text-sm font-bold"
+                              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white text-sm font-bold"
                             >
                               {initials || "U"}
                             </span>
@@ -743,36 +752,54 @@ export default function SiteHeader() {
 
               {/* Post a Job button removed from header - now a floating button on the projects page */}
 
-              {/* Messages dropdown trigger - homeowner only (tradespeople
-                  use their own messaging via /tradesman/matches). */}
+              {/* Messages dropdown trigger - homeowner. Indigo tone,
+                  unread from useInboxUnread, /api/matches-backed
+                  InboxDropdown. Pops the bottom-right MessagingDock
+                  open at the same time. */}
               {displayUser && !isTrades && (
-                <div className="relative">
-                  <button
-                    ref={btnMessagesRef}
-                    type="button"
-                    aria-label="Messages"
-                    aria-haspopup="menu"
-                    aria-expanded={openMenu === "messages"}
-                    onClick={() =>
-                      setOpenMenu((m) => (m === "messages" ? null : "messages"))
-                    }
-                    data-testid="nav-messages"
-                    className="relative inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-amber-100 transition-colors"
-                  >
-                    <MessageSquare className="h-5 w-5 text-slate-600" />
-                    {inboxUnread > 0 && (
-                      <span className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-indigo-600 text-white text-[10px] font-bold px-1 ring-2 ring-stone-50">
-                        {inboxUnread > 99 ? "99+" : inboxUnread}
-                      </span>
-                    )}
-                  </button>
-
-                  {openMenu === "messages" && (
-                    <div ref={menuRef}>
-                      <InboxDropdown onClose={() => setOpenMenu(null)} />
-                    </div>
+                <MessagesIconButton
+                  buttonRef={btnMessagesRef}
+                  menuRef={menuRef}
+                  isOpen={openMenu === "messages"}
+                  onToggle={() =>
+                    setOpenMenu((m) =>
+                      m === "messages" ? null : "messages",
+                    )
+                  }
+                  unread={inboxUnread}
+                  tone="indigo"
+                  testId="nav-messages"
+                  popDockOnOpen
+                  renderDropdown={() => (
+                    <InboxDropdown onClose={() => setOpenMenu(null)} />
                   )}
-                </div>
+                />
+              )}
+
+              {/* Messages dropdown trigger - tradesperson. Emerald
+                  tone, unread from useTradesInboxUnread,
+                  /api/tradesman/matches-backed dropdown. Does NOT pop
+                  the dock; the chat window only opens when a thread
+                  is explicitly tapped inside the dropdown. */}
+              {displayUser && isTrades && (
+                <MessagesIconButton
+                  buttonRef={btnMessagesRef}
+                  menuRef={menuRef}
+                  isOpen={openMenu === "messages"}
+                  onToggle={() =>
+                    setOpenMenu((m) =>
+                      m === "messages" ? null : "messages",
+                    )
+                  }
+                  unread={tradesInboxUnread}
+                  tone="emerald"
+                  testId="nav-trades-messages"
+                  renderDropdown={() => (
+                    <TradesmanInboxDropdown
+                      onClose={() => setOpenMenu(null)}
+                    />
+                  )}
+                />
               )}
 
               {displayUser && isTrades && (
@@ -853,7 +880,7 @@ export default function SiteHeader() {
                           data-testid="menu-account"
                         >
                           <UserCog className="h-4 w-4 text-slate-400" />
-                          <span>Account</span>
+                          <span>Manage account</span>
                         </Link>
                       </div>
 
@@ -892,7 +919,7 @@ export default function SiteHeader() {
                     <span
                       aria-hidden
                       data-testid="account-initials"
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white text-xs font-semibold"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-semibold"
                     >
                       {initials || "U"}
                     </span>
@@ -930,7 +957,7 @@ export default function SiteHeader() {
                       <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-3">
                         <span
                           aria-hidden
-                          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-500 text-white text-sm font-bold"
+                          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white text-sm font-bold"
                         >
                           {initials || "U"}
                         </span>
@@ -1048,7 +1075,7 @@ function TradesAvatar({
   return (
     <span
       aria-hidden
-      className="inline-flex shrink-0 items-center justify-center rounded-full bg-red-500 text-white font-bold"
+      className="inline-flex shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white font-bold"
       style={{ ...dim, fontSize }}
     >
       {initial}
