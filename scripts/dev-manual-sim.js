@@ -412,6 +412,71 @@ async function ensureElegantCanonical() {
   }
 }
 
+// Idempotent: seeds ~100 lifelike "ghost" tradespeople whose chats funnel
+// to a single master operator. Skipped unless SEED_GHOSTS=1. Reuses the
+// existing rows on subsequent runs (we check by master_uid + is_seed
+// before regenerating) so chat history attached to ghost personas isn't
+// blown away on every restart.
+async function ensureGhostTrades() {
+  const masterUid =
+    process.env.MASTER_UID || "pLT7RLEYByX6IJWzGAMjAKrW5L93"; // Elegant
+  const count = Number(process.env.GHOST_COUNT) || 100;
+
+  // Skip the regenerate if we already have a full set for this master.
+  // The seed script wipes + recreates which is fine for first-run but
+  // would discard any chat history once threads exist.
+  const mysql2 = require("mysql2/promise");
+  let conn;
+  try {
+    conn = await mysql2.createConnection({
+      host: process.env.MYSQL_HOST || process.env.TEST_DB_HOST || "localhost",
+      port: Number(process.env.MYSQL_PORT || process.env.TEST_DB_PORT || 3306),
+      user: process.env.MYSQL_USER || process.env.TEST_DB_USER || "root",
+      password: process.env.MYSQL_PASSWORD || process.env.TEST_DB_PASSWORD || "",
+      database:
+        process.env.MYSQL_DATABASE ||
+        process.env.TEST_DB_NAME ||
+        "vetmybuilder_test_s1_4_w0",
+    });
+    const [rows] = await conn.query(
+      "SELECT COUNT(*) AS c FROM tradesmen WHERE master_uid = ? AND is_seed = 1",
+      [masterUid],
+    );
+    const existing = Number(rows?.[0]?.c) || 0;
+    if (existing >= count && process.env.FORCE_GHOST_RESEED !== "1") {
+      log(
+        `Ghost trades already seeded (${existing} for master=${masterUid}); set FORCE_GHOST_RESEED=1 to regenerate.`,
+      );
+      return;
+    }
+  } catch (e) {
+    log(`ensureGhostTrades precheck error: ${e.message}`);
+    // fall through and try the seed anyway
+  } finally {
+    if (conn) {
+      try { await conn.end(); } catch {}
+    }
+  }
+
+  log(`Seeding ${count} ghost tradespeople for master=${masterUid}...`);
+  const seed = spawn(
+    "node",
+    [path.resolve(__dirname, "seed-ghost-trades.js"), `--count=${count}`],
+    {
+      stdio: "inherit",
+      env: { ...process.env, MASTER_UID: masterUid },
+    },
+  );
+  await new Promise((resolve) => {
+    seed.on("exit", (code) => {
+      if (code !== 0) {
+        log(`Ghost seed exited with code ${code}`);
+      }
+      resolve();
+    });
+  });
+}
+
 // Idempotent upsert of the canonical Pimlico Plumbers tradesman row.
 // Real London plumbing firm (founded 1979, HQ Lambeth/Pimlico). Used as a
 // second seeded tradesperson so the dev environment isn't a one-builder
@@ -1109,6 +1174,20 @@ function runScript(script, env = {}) {
     await ensureSeedProjects();
   } catch (e) {
     log(`Warning: failed to seed projects: ${e.message}`);
+  }
+
+  // Optional: seed ~100 lifelike "ghost" tradespeople whose chats route to
+  // a single master operator (defaults to Elegant locally). Off by default
+  // since regenerating them on every restart would churn match state.
+  // Enable with SEED_GHOSTS=1 the first time you want a populated trade
+  // landscape; turn it back off afterwards so subsequent restarts keep
+  // your existing ghost rows + any chat history attached to them.
+  if (process.env.SEED_GHOSTS === "1") {
+    try {
+      await ensureGhostTrades();
+    } catch (e) {
+      log(`Warning: failed to seed ghost trades: ${e.message}`);
+    }
   }
 
   if (!FULL_SIM) {

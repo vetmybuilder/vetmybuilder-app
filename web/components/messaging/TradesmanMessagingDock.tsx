@@ -45,6 +45,11 @@ interface MatchRow {
   matchedAt: string;
   lastMessage: LastMessage | null;
   unreadCount: number;
+  // Persona attribution. Populated when the caller is a master operating
+  // ghost trade personas - lets the inbox show "replying as <company>"
+  // per row so the master picks the right voice for each thread.
+  builderCompanyName?: string | null;
+  actingAsGhost?: boolean;
 }
 
 function formatRowTime(iso: string | null): string {
@@ -315,6 +320,11 @@ export default function TradesmanMessagingDock() {
                             .filter(Boolean)
                             .join(" · ")}
                         </div>
+                        {row.actingAsGhost && row.builderCompanyName && (
+                          <div className="text-[10px] text-amber-700 font-semibold truncate">
+                            as {row.builderCompanyName}
+                          </div>
+                        )}
                         <div className="flex items-center justify-between gap-2 mt-0.5">
                           <div
                             className={`text-[12px] truncate ${

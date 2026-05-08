@@ -5,6 +5,7 @@
 // Upserts a swipe_interest row for the (project, builder) pair.
 
 const { fireMatchFormed } = require("../../lib/fireMatchFormed");
+const { resolveGhostNotificationTarget } = require("../../lib/ghostTradesman");
 
 module.exports = function mountSwipe(router, ctx) {
   const { auth, mysqlQuery } = ctx;
@@ -104,12 +105,16 @@ module.exports = function mountSwipe(router, ctx) {
         );
         const projectName = projRows?.[0]?.name || "the project";
         const notifMessage = `${homeownerFirst} passed on your unlock for "${projectName}"`;
+        const builderNotifyUid = await resolveGhostNotificationTarget(
+          mysqlQuery,
+          builderUid,
+        );
         await mysqlQuery(
           `INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
            VALUES (?, 'paid_unlock_passed', ?, ?, ?, NOW())`,
-          [builderUid, notifMessage, pid, "/tradesman/jobs"],
+          [builderNotifyUid, notifMessage, pid, "/tradesman/jobs"],
         );
-        ctx.broadcastNotification?.(builderUid, {
+        ctx.broadcastNotification?.(builderNotifyUid, {
           type: "paid_unlock_passed",
           message: notifMessage,
           projectId: pid,
@@ -147,12 +152,16 @@ module.exports = function mountSwipe(router, ctx) {
         );
         const projectName = projRows?.[0]?.name || "a project";
         const notifMessage = `${homeownerFirst} is interested in your services for "${projectName}"`;
+        const builderNotifyUid = await resolveGhostNotificationTarget(
+          mysqlQuery,
+          builderUid,
+        );
         await mysqlQuery(
           `INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
            VALUES (?, 'homeowner_swiped', ?, ?, ?, NOW())`,
-          [builderUid, notifMessage, pid, "/tradesman/leads"],
+          [builderNotifyUid, notifMessage, pid, "/tradesman/leads"],
         );
-        ctx.broadcastNotification?.(builderUid, {
+        ctx.broadcastNotification?.(builderNotifyUid, {
           type: "homeowner_swiped",
           message: notifMessage,
           projectId: pid,
@@ -170,17 +179,40 @@ module.exports = function mountSwipe(router, ctx) {
     // builder has actually swiped right (builder_swiped_at non-null AND
     // status is pending - timestamp alone isn't enough since the builder
     // could have left-swiped, which also sets the timestamp).
+    //
+    // Ghost shortcut: when the builder is a staging-only ghost
+    // (master_uid IS NOT NULL) we treat the homeowner's right-swipe as
+    // mutually consensual without waiting for the master to manually
+    // swipe back as the persona. This is what lets friends-and-family
+    // testers experience the matched-then-chat flow end-to-end.
     if (direction === "right") {
       const rowCheck = await mysqlQuery(
-        `SELECT status, builder_swiped_at FROM swipe_interest
-          WHERE project_id = ? AND builder_uid = ?
+        `SELECT si.status,
+                si.builder_swiped_at,
+                t.master_uid AS builderMasterUid
+           FROM swipe_interest si
+           LEFT JOIN tradesmen t ON t.user_id = si.builder_uid
+          WHERE si.project_id = ? AND si.builder_uid = ?
           LIMIT 1`,
         [pid, builderUid],
       );
       const cur = rowCheck?.[0];
       const builderSwiped = cur?.builder_swiped_at != null;
       const isPending = cur?.status === "pending";
-      if (isPending && builderSwiped) {
+      const builderIsGhost = !!cur?.builderMasterUid;
+      if (isPending && (builderSwiped || builderIsGhost)) {
+        if (builderIsGhost && !builderSwiped) {
+          // Backfill builder_swiped_at on the ghost row so the chat /
+          // inbox queries that key off this column don't see a half-set
+          // match. Use NOW() rather than passing a timestamp so the DB
+          // clock owns it.
+          await mysqlQuery(
+            `UPDATE swipe_interest
+                SET builder_swiped_at = NOW()
+              WHERE project_id = ? AND builder_uid = ?`,
+            [pid, builderUid],
+          );
+        }
         await mysqlQuery(
           `UPDATE swipe_interest SET status = 'matched'
             WHERE project_id = ? AND builder_uid = ?`,

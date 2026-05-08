@@ -19,6 +19,10 @@
 // OTHER party. Returns the inserted message including parsed attachments.
 
 const { sendPushToUser } = require("../../lib/pushSender");
+const {
+  resolveGhostNotificationTarget,
+  isMasterOfGhost,
+} = require("../../lib/ghostTradesman");
 
 module.exports = function mountChatMessagesPost(router, ctx) {
   const { auth, upload, mysqlQuery } = ctx;
@@ -104,15 +108,27 @@ module.exports = function mountChatMessagesPost(router, ctx) {
 
     const si = rows[0];
 
-    // Access control
-    if (uid !== si.homeowner_uid && uid !== si.builder_uid) {
+    // Access control. Standard parties: homeowner + builder. Plus the
+    // master operator of a ghost tradesman is allowed to reply on the
+    // ghost's behalf (staging sim).
+    const senderIsHomeowner = uid === si.homeowner_uid;
+    const senderIsBuilder = uid === si.builder_uid;
+    const senderIsMasterOfBuilder =
+      !senderIsHomeowner && !senderIsBuilder
+        ? await isMasterOfGhost(mysqlQuery, si.builder_uid, uid)
+        : false;
+
+    if (!senderIsHomeowner && !senderIsBuilder && !senderIsMasterOfBuilder) {
       return res.status(403).json({ error: "Not a party to this match" });
     }
     if (si.status !== "matched") {
       return res.status(403).json({ error: "Match is not active" });
     }
 
-    const senderIsHomeowner = uid === si.homeowner_uid;
+    // Persisted sender is always the ghost (builder_uid) when the master
+    // is replying, so the homeowner only ever sees one persona per thread.
+    const persistedSenderUid = senderIsMasterOfBuilder ? si.builder_uid : uid;
+
     const homeownerName = si.homeownerFirstName || "Homeowner";
     const builderName = si.builderCompanyName || si.builderFirstName || "Builder";
     const senderName = senderIsHomeowner ? homeownerName : builderName;
@@ -170,7 +186,7 @@ module.exports = function mountChatMessagesPost(router, ctx) {
     const result = await mysqlQuery(
       `INSERT INTO chat_messages (match_id, sender_uid, body, attachments_json, created_at)
        VALUES (?, ?, ?, ?, NOW())`,
-      [matchId, uid, body, attachmentsJson],
+      [matchId, persistedSenderUid, body, attachmentsJson],
     );
 
     const insertId = result?.insertId;
@@ -184,9 +200,16 @@ module.exports = function mountChatMessagesPost(router, ctx) {
     const row = inserted?.[0];
     const createdAt = row?.createdAt ?? new Date().toISOString();
 
-    // Fire notification to the OTHER party
+    // Fire notification to the OTHER party. If the recipient is a ghost
+    // tradesman, alerts route to the master operator instead. The chat
+    // delivery SSE goes to the same notify target so the master's open
+    // inbox receives the message in real time.
     try {
       const recipientUid = senderIsHomeowner ? si.builder_uid : si.homeowner_uid;
+      const notifyUid = await resolveGhostNotificationTarget(
+        mysqlQuery,
+        recipientUid,
+      );
       const linkPath = `/chat/${matchId}`;
       const photoTail = attachmentUrls.length > 0
         ? ` (with ${attachmentUrls.length} photo${attachmentUrls.length === 1 ? "" : "s"})`
@@ -196,9 +219,9 @@ module.exports = function mountChatMessagesPost(router, ctx) {
       await mysqlQuery(
         `INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
          VALUES (?, 'chat_message_new', ?, ?, ?, NOW())`,
-        [recipientUid, notifMessage, si.project_id, linkPath],
+        [notifyUid, notifMessage, si.project_id, linkPath],
       );
-      ctx.broadcastNotification?.(recipientUid, {
+      ctx.broadcastNotification?.(notifyUid, {
         type: "chat_message_new",
         message: notifMessage,
         projectId: si.project_id,
@@ -206,11 +229,11 @@ module.exports = function mountChatMessagesPost(router, ctx) {
       });
       // Real-time chat delivery via SSE (separate event so the chat UI can
       // append the message without a full notification-bell re-render)
-      ctx.broadcastEvent?.(recipientUid, "chat_message", {
+      ctx.broadcastEvent?.(notifyUid, "chat_message", {
         matchId,
         message: {
           id: row?.id ?? insertId,
-          senderUid: uid,
+          senderUid: persistedSenderUid,
           senderRole: senderIsHomeowner ? "homeowner" : "tradesman",
           senderName,
           body,
@@ -219,7 +242,7 @@ module.exports = function mountChatMessagesPost(router, ctx) {
         },
       });
       sendPushToUser({
-        uid: recipientUid,
+        uid: notifyUid,
         type: "chat_message_new",
         title: "VetMyBuilder",
         body: notifMessage,
@@ -233,7 +256,7 @@ module.exports = function mountChatMessagesPost(router, ctx) {
 
     return res.status(201).json({
       id: row?.id ?? insertId,
-      senderUid: uid,
+      senderUid: persistedSenderUid,
       senderRole: senderIsHomeowner ? "homeowner" : "tradesman",
       senderName,
       body,
