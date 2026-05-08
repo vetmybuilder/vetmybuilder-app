@@ -60,7 +60,7 @@ async function waitForServer() {
 // through the signup form on every server restart.
 const EMULATOR_USERS = [
   {
-    localId: "pLT7RLEYByX6IJWzGAMjAKrW5L93",
+    localId: "SvZkVPUzQeP679OzCtehCPmfoY53",
     email: "info@elegantbuilding.co.uk",
     password: "password",
     displayName: "Elegant Building Services",
@@ -231,7 +231,7 @@ async function ensureElegantCanonical() {
         "vetmybuilder_test_s1_4_w0",
     });
 
-    const ELEGANT_UID = "pLT7RLEYByX6IJWzGAMjAKrW5L93";
+    const ELEGANT_UID = "SvZkVPUzQeP679OzCtehCPmfoY53";
 
     // Make sure Elegant exists in the users table too (auth user lives in
     // Firebase emulator; we need the MySQL row for joins).
@@ -419,7 +419,7 @@ async function ensureElegantCanonical() {
 // blown away on every restart.
 async function ensureGhostTrades() {
   const masterUid =
-    process.env.MASTER_UID || "pLT7RLEYByX6IJWzGAMjAKrW5L93"; // Elegant
+    process.env.MASTER_UID || "SvZkVPUzQeP679OzCtehCPmfoY53"; // Elegant
   // Per-canonical-trade ghost count. With ~70 canonical trade labels and
   // PER_TRADE=30, that's ~2100 ghost rows total - enough that any project
   // type sees 30-60+ matching trades in its deck.

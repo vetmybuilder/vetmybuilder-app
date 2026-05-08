@@ -14,7 +14,7 @@ const BOT_UIDS = {
     "sim-builder-003",
     "sim-builder-004",
     "sim-builder-005",
-    "pLT7RLEYByX6IJWzGAMjAKrW5L93", // Elegant Building Services — real Firebase UID
+    "SvZkVPUzQeP679OzCtehCPmfoY53", // Elegant Building Services — real Firebase UID
   ],
   neighbours: [
     "sim-neighbour-001",

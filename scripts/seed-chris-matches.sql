@@ -69,7 +69,7 @@ SELECT id INTO @roof_pid    FROM projects
 INSERT INTO swipe_interest
   (project_id, homeowner_uid, builder_uid, source, status, homeowner_swiped_at, builder_swiped_at)
 VALUES
-  (@kitchen_pid, @chris, 'pLT7RLEYByX6IJWzGAMjAKrW5L93', 'recommended', 'pending',
+  (@kitchen_pid, @chris, 'SvZkVPUzQeP679OzCtehCPmfoY53', 'recommended', 'pending',
    DATE_SUB(NOW(), INTERVAL 2 HOUR), NULL)
 ON DUPLICATE KEY UPDATE
   source = VALUES(source),
@@ -157,11 +157,11 @@ SELECT
   @kitchen_pid, 'sim-neighbour-001',
   'Elegant Building Services Ltd', NULL,
   'Elegant Building Services Ltd', 5, 'friend',
-  'pLT7RLEYByX6IJWzGAMjAKrW5L93', NOW(), 0
+  'SvZkVPUzQeP679OzCtehCPmfoY53', NOW(), 0
 WHERE NOT EXISTS (
   SELECT 1 FROM recommendations
   WHERE projectId = @kitchen_pid
-    AND linked_tradesman_uid = 'pLT7RLEYByX6IJWzGAMjAKrW5L93'
+    AND linked_tradesman_uid = 'SvZkVPUzQeP679OzCtehCPmfoY53'
 );
 
 -- Kitchen + AD House Construction (subscribed -> community)
