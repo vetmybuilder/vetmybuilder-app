@@ -88,13 +88,11 @@ export default function GlobalNotificationToast() {
         ? Sparkles
         : Bell;
   // Brand palette: emerald for tradespeople, indigo for homeowners.
-  // match_formed uses emerald in both flows because it's a celebratory
-  // event and emerald is the shared "yes" colour across the app.
-  const brandTone = isTradesman
+  // Every notification (incl. match_formed) follows the viewer's role
+  // so the toast reads as "from this app" instead of a generic alert.
+  const tone = isTradesman
     ? "from-emerald-500 to-emerald-600"
     : "from-indigo-500 to-indigo-600";
-  const tone =
-    type === "match_formed" ? "from-emerald-500 to-emerald-600" : brandTone;
 
   return (
     <button
