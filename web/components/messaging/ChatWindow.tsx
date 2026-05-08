@@ -7,6 +7,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useApi } from "@/utils/api";
+import { useAuth } from "@/utils/auth";
 import { useSseEvent } from "@/utils/useSseEvent";
 import PhotoLightbox from "@/components/PhotoLightbox";
 import TradesmanProfileModal from "@/components/project/TradesmanProfileModal";
@@ -64,6 +65,7 @@ export default function ChatWindow({
   variant?: "floating" | "inline";
 }) {
   const api = useApi();
+  const { user } = useAuth();
   const [data, setData] = useState<ChatData | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -185,7 +187,12 @@ export default function ChatWindow({
   // rest of their UI), homeowners see indigo (matches /projects/[id]
   // chrome). All gradient + accent-colour decisions reuse this so
   // there's a single switch instead of N conditional className strings.
-  const isTradesViewer = data?.me?.role === "tradesman";
+  // Read role from the auth context first - it's known instantly so
+  // there's no indigo-then-emerald flash on first paint while the
+  // /api/chat/.../messages fetch is in flight. Fall back to the API's
+  // me.role once it lands (defensive: same value, but cheap to keep).
+  const isTradesViewer =
+    !!user?.isTradesman || data?.me?.role === "tradesman";
   const tone = isTradesViewer
     ? {
         gradient: "linear-gradient(135deg, #10b981, #059669)",

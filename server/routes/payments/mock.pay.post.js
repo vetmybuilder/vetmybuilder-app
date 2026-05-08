@@ -217,6 +217,51 @@ module.exports = (router, ctx) => {
           log.warn({ err: e?.message }, "paid_unlock swipe_interest insert failed");
         }
 
+        // Bilateral check: if the homeowner had already right-swiped this
+        // trade BEFORE the paid unlock (i.e. the row arrived from the
+        // /tradesman/leads queue), the unlock completes the mutual
+        // consent and we should advance to matched + fire match-formed
+        // notifications. Without this the trade lands on the standard
+        // "interest sent" boost-slot screen even though there's already
+        // a chat-ready match waiting on the other side.
+        let matchId = null;
+        let bilateralMatched = false;
+        try {
+          const siRows = await mysqlQuery(
+            `SELECT id, status, homeowner_swiped_at
+               FROM swipe_interest
+              WHERE project_id = ? AND builder_uid = ?
+              LIMIT 1`,
+            [projectId, uid],
+          );
+          const si = siRows?.[0];
+          if (si) {
+            matchId = si.id;
+            const homeownerAlreadySwiped =
+              si.homeowner_swiped_at != null && si.status === "pending";
+            if (homeownerAlreadySwiped) {
+              await mysqlQuery(
+                `UPDATE swipe_interest
+                    SET status = 'matched'
+                  WHERE id = ?`,
+                [si.id],
+              );
+              bilateralMatched = true;
+              try {
+                const { fireMatchFormed } = require("../../lib/fireMatchFormed");
+                await fireMatchFormed({ projectId, mysqlQuery, ctx });
+              } catch (e) {
+                log.warn(
+                  { err: e?.message },
+                  "fireMatchFormed (bilateral paid unlock) failed",
+                );
+              }
+            }
+          }
+        } catch (e) {
+          log.warn({ err: e?.message }, "bilateral-match check failed");
+        }
+
         res.json({
           ok: true,
           type: "unlock_contact",
@@ -225,6 +270,11 @@ module.exports = (router, ctx) => {
           amount,
           currency,
           sessionId: sid,
+          // When the homeowner had already swiped right, the unlock
+          // forms a mutual match: client can route straight to chat
+          // instead of the boost-slot "Interest sent" screen.
+          matched: bilateralMatched,
+          matchId,
         });
         ctx.logActivity("payment.complete", "info", req.user?.uid || "system", "Payment completed");
         return;

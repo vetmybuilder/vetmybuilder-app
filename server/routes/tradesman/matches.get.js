@@ -146,9 +146,11 @@ module.exports = function mountTradesmanMatches(router, ctx) {
         projectName: r.projectName || "",
         projectType: r.projectType || "",
         projectLocation: extractOutward(r.projectLocation) || "",
-        // Privacy: never returned. Kept null so older clients that read the
-        // field still get a defined shape rather than undefined.
-        homeownerFirstName: null,
+        // Surfaced once the row is 'matched' (both parties consented).
+        // Used by the trade-side dock to show the homeowner's initial /
+        // first name on each thread, matching what the chat window
+        // header already shows.
+        homeownerFirstName: r.homeownerFirstName || null,
         source: r.source === "recommended" ? "recommended" : "subscribed",
         matchedAt: r.matchedAt,
         lastMessage: lastMessageByMatch.get(Number(r.matchId)) || null,

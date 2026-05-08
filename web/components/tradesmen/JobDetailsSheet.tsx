@@ -3,7 +3,8 @@
 // Bottom sheet shown when a tradesman taps a row on /tradesman/jobs/list.
 // It's the single surface that lets them decide how to engage with a
 // specific job:
-//   - Subscribe (recommended primary CTA) -> /tradesman/billing
+//   - Subscribe (recommended primary CTA) -> opens SwipePayGate
+//     ("Reply to homeowner") in the parent page
 //   - Pitch this homeowner now (secondary, one-off) -> unlock-contact
 //     checkout, then route to /chat/:matchId where the paid unlock has
 //     created a matched thread.

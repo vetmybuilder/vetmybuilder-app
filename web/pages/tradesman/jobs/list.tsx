@@ -15,6 +15,9 @@ import SiteHeader from "@/components/SiteHeader";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import JobListRow, { type JobListRowData } from "@/components/tradesmen/JobListRow";
 import JobDetailsSheet from "@/components/tradesmen/JobDetailsSheet";
+import SwipePayGate, {
+  type SwipePayGateSubject,
+} from "@/components/tradesmen/SwipePayGate";
 
 // ─── types ──────────────────────────────────────────────────────────────────
 
@@ -92,6 +95,7 @@ export default function TradesmanJobsListPage() {
   // pick the right engagement panel (subscriber vs dual-CTA).
   const [openSheetForId, setOpenSheetForId] = useState<number | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [paygate, setPaygate] = useState<SwipePayGateSubject | null>(null);
   useEffect(() => {
     let cancelled = false;
     api
@@ -683,8 +687,21 @@ export default function TradesmanJobsListPage() {
           isSubscribed={isSubscribed}
           onClose={() => setOpenSheetForId(null)}
           onSubscribe={() => {
+            // Carry the open sheet's job into the SwipePayGate so the
+            // "Reply to homeowner" copy + price band stay in context. Closes
+            // the bottom sheet first so the gate has the screen to itself.
+            const job = filteredItems.find(
+              (j) => j.projectId === openSheetForId,
+            );
             setOpenSheetForId(null);
-            router.push("/tradesman/billing");
+            if (!job) return;
+            setPaygate({
+              projectId: job.projectId,
+              title: job.title ?? "",
+              location: job.location ?? null,
+              type: job.type ?? null,
+              priceBandLabel: null,
+            });
           }}
           onPitch={async (projectId) => {
             // Mock checkout activates the unlock immediately; in real
@@ -752,6 +769,16 @@ export default function TradesmanJobsListPage() {
             setOpenSheetForId(null);
             router.push(`/tradesman/jobs?focus=${projectId}`);
           }}
+        />
+
+        {/* Pitch-this-job paygate. Replaces the deprecated
+            /tradesman/billing visibility-pass page so the Subscribe CTA
+            in JobDetailsSheet opens the canonical buy-a-pass flow with
+            the swiped job pinned in context. */}
+        <SwipePayGate
+          open={paygate !== null}
+          subject={paygate}
+          onClose={() => setPaygate(null)}
         />
       </>
     </TradesmanOnly>

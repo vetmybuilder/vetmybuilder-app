@@ -41,6 +41,7 @@ interface MatchRow {
   projectName: string;
   projectType: string;
   projectLocation: string;
+  homeownerFirstName: string | null;
   source: "recommended" | "subscribed";
   matchedAt: string;
   lastMessage: LastMessage | null;
@@ -158,8 +159,17 @@ export default function TradesmanMessagingDock() {
       const id = Number(detail.matchId);
       if (Number.isFinite(id) && id > 0) openChat(id);
     }
+    // Site header dispatches `vmb:openDock` when the user taps the
+    // messages icon, so the dock springs open without a second tap.
+    function onOpenDock() {
+      setOpen(true);
+    }
     window.addEventListener("vmb:openChat", onExternalOpen);
-    return () => window.removeEventListener("vmb:openChat", onExternalOpen);
+    window.addEventListener("vmb:openDock", onOpenDock);
+    return () => {
+      window.removeEventListener("vmb:openChat", onExternalOpen);
+      window.removeEventListener("vmb:openDock", onOpenDock);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -281,7 +291,16 @@ export default function TradesmanMessagingDock() {
               ) : (
                 sortedMatches.map((row) => {
                   const matchIdNum = Number(row.matchId);
-                  const initial = (row.projectName || "?").charAt(0).toUpperCase();
+                  // Avatar initial - homeowner's first-name initial when
+                  // we have it (matches the chat window header), falls
+                  // back to the project name's first letter otherwise.
+                  const initial = (
+                    row.homeownerFirstName ||
+                    row.projectName ||
+                    "?"
+                  )
+                    .charAt(0)
+                    .toUpperCase();
                   const preview = lastMessagePreview(row.lastMessage);
                   const time = formatRowTime(row.lastMessage?.createdAt || null);
                   const hasUnread = row.unreadCount > 0;
