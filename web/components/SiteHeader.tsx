@@ -340,7 +340,6 @@ export default function SiteHeader() {
     const p = router.pathname;
     if (p.startsWith("/tradesman/jobs/list")) return "jobs-list";
     if (p.startsWith("/tradesman/jobs")) return "jobs";
-    if (p.startsWith("/tradesman/matches")) return "matches";
     if (p.startsWith("/tradesman/leads")) return "leads";
     return null;
   })();
