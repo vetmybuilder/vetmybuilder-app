@@ -239,10 +239,11 @@ export default function SwipePayGate({
       const isMock = String(url).includes("/payments/mock/");
       if (isMock && sessionId) {
         const payRes = await api.post("/api/payments/mock/pay", { sessionId });
-        // Flash the "Unlock activated" state briefly so the builder sees
-        // the £X.XX charge succeeded before we route away.
+        // Flash the "Unlock activated" state for ~1.2s so the builder
+        // sees confirmation that the £X.XX charge succeeded before the
+        // confirmation page takes over.
         setPayState("activated");
-        await new Promise((r) => setTimeout(r, 900));
+        await new Promise((r) => setTimeout(r, 1200));
         // Bilateral case: the homeowner had already right-swiped this
         // trade (lead arrived from /tradesman/leads), so the unlock
         // completed the match and the chat is ready. Drop the trade
