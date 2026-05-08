@@ -11,6 +11,16 @@ export default defineConfig({
     css: true,
     clearMocks: true,
     restoreMocks: true,
+    // The default vmThreads pool reuses workers across files and leaks
+    // jsdom contexts, OOM'ing the suite on CI runners (7GB default
+    // heap). The dir-split (test:web:components / utils / pages) helps
+    // by separating processes, but a single chunk still blows the
+    // heap as the test count grows. Forks pool + sequential files
+    // keeps peak heap bounded to one jsdom context at a time. Slower
+    // locally but the only configuration that completes reliably end
+    // to end on CI.
+    pool: "forks",
+    fileParallelism: false,
   },
   resolve: {
     alias: {
