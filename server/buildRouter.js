@@ -356,11 +356,13 @@ function buildRouter(ctx) {
   require("./routes/recommendations/magic.get")(router, ctx);
   require("./routes/recommendations/like.post")(router, ctx);
   require("./routes/recommendations/ratings.recommendations.get")(router, ctx);
+  // inbox.get must register before recommendation.get so /recommendations/inbox
+  // isn't swallowed by the /recommendations/:id wildcard.
+  require("./routes/recommendations/inbox.get")(router, ctx);
   require("./routes/recommendations/recommendation.get")(router, ctx);
   require("./routes/recommendations/verification.get")(router, ctx);
   require("./routes/recommendations/dismiss-from-deck.post")(router, ctx);
   require("./routes/recommendations/unfavourite.post")(router, ctx);
-  require("./routes/recommendations/inbox.get")(router, ctx);
 
   // ---------------- Companies House helpers ----------------
   require("./routes/verify-company.get")(router, ctx);
