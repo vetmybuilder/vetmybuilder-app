@@ -269,7 +269,24 @@ function OwnerProjects() {
   const { user, loading: authLoading, profileComplete } = useAuth();
 
   // ---- Tab derived from URL (single source of truth) ----
-  const [tab, setTab] = useState<OwnerTab>("mine");
+  // Initialise synchronously from window.location so the correct tab paints
+  // on the first client render. Without this, useState seeds "mine" and the
+  // url-sync effect below switches to the real tab on the next tick — which
+  // shows a brief flash of the wrong tab (e.g. when navigating back from a
+  // recommendation profile to ?tab=recommendations).
+  const [tab, setTab] = useState<OwnerTab>(() => {
+    if (typeof window === "undefined") return "mine";
+    const allowed: OwnerTab[] = [
+      "mine",
+      "completed",
+      "completedCommunity",
+      "recommended",
+      "favourites",
+      "recommendations",
+    ];
+    const t = new URL(window.location.href).searchParams.get("tab");
+    return (allowed.includes(t as OwnerTab) ? t : "mine") as OwnerTab;
+  });
   const [showPushPrompt, setShowPushPrompt] = useState(false);
 
   // Show push prompt after signup, but ONLY once the homeowner has a

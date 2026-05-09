@@ -49,12 +49,14 @@ module.exports = (router, ctx) => {
            r.isAnonymous,
            r.name         AS recommenderRawName,
            r.createdAt    AS createdAt,
+           r.rating       AS rating,
+           r.comment      AS comment,
+           r.quality_rating       AS qualityRating,
+           r.reliability_rating   AS reliabilityRating,
+           r.communication_rating AS communicationRating,
+           r.trust_rating         AS trustRating,
+           r.value_rating         AS valueRating,
            u.firstName    AS recommenderFirstName,
-           (SELECT rp.filePath
-              FROM recommendation_photos rp
-             WHERE rp.recommendationId = r.id
-             ORDER BY rp.id ASC
-             LIMIT 1)     AS coverPhoto,
            t.company_name        AS tradesmanCompanyName,
            t.profile_picture_url AS tradesmanPhotoUrl,
            t.trade_types         AS tradesmanTradeTypes
@@ -73,6 +75,36 @@ module.exports = (router, ctx) => {
       return res.status(500).json({ error: "FAILED" });
     }
 
+    // Fetch every photo for the rec set in a single query, then group by rec id.
+    // Cover defaults to the first photo (oldest id) so it stays stable across
+    // refetches; the full list is exposed on `photoUrls` for the expanded view.
+    const recIds = (rows || []).map((r) => r.recommendationId);
+    let photosByRecId = new Map();
+    if (recIds.length > 0) {
+      try {
+        const placeholders = recIds.map(() => "?").join(",");
+        const photoRows = await mysqlQuery(
+          `SELECT recommendationId, filePath
+             FROM recommendation_photos
+            WHERE recommendationId IN (${placeholders})
+            ORDER BY recommendationId ASC, id ASC`,
+          recIds,
+        );
+        for (const pr of photoRows || []) {
+          const list = photosByRecId.get(pr.recommendationId) || [];
+          list.push(makeAbsolute(pr.filePath));
+          photosByRecId.set(pr.recommendationId, list);
+        }
+      } catch (e) {
+        log.warn?.(`${TAG} photo lookup failed`, { error: e?.message });
+      }
+    }
+
+    const num = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) && n >= 1 && n <= 5 ? n : null;
+    };
+
     const items = (rows || []).map((r) => {
       const recommenderName = r.isAnonymous
         ? "Anonymous"
@@ -81,11 +113,10 @@ module.exports = (router, ctx) => {
             ? String(r.recommenderRawName).trim().split(/\s+/)[0]
             : null) ||
           "Someone";
-      const cover = r.coverPhoto
-        ? makeAbsolute(r.coverPhoto)
-        : r.tradesmanPhotoUrl
-          ? makeAbsolute(r.tradesmanPhotoUrl)
-          : null;
+      const photoUrls = photosByRecId.get(r.recommendationId) || [];
+      const cover =
+        photoUrls[0] ||
+        (r.tradesmanPhotoUrl ? makeAbsolute(r.tradesmanPhotoUrl) : null);
       return {
         kind: "recommendation",
         recommendationId: r.recommendationId,
@@ -95,9 +126,19 @@ module.exports = (router, ctx) => {
         displayName: r.tradesmanCompanyName || r.company,
         recommenderName,
         coverPhotoUrl: cover,
+        photoUrls,
         tradeTypes: r.tradesmanTradeTypes || null,
         linkedTradesmanUid: r.linkedTradesmanUid || null,
         createdAt: r.createdAt,
+        rating: num(r.rating),
+        comment: r.comment ? String(r.comment) : null,
+        ratings: {
+          quality: num(r.qualityRating),
+          reliability: num(r.reliabilityRating),
+          communication: num(r.communicationRating),
+          trust: num(r.trustRating),
+          value: num(r.valueRating),
+        },
       };
     });
 

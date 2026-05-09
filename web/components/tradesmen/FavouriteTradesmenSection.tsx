@@ -97,7 +97,7 @@ export default function FavouriteTradesmenSection() {
 
   function handleOpen(item: FavouriteItem) {
     if (item.kind === "recommendation") {
-      router.push(`/projects/${item.projectId}/recommendations/${item.recommendationId}`);
+      router.push(`/builders/${item.recommendationId}?projectId=${item.projectId}`);
       return;
     }
     const base = `/tradesman/${encodeURIComponent(item.publicId || item.builderId || "")}`;

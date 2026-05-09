@@ -93,8 +93,7 @@ export default function FavouritesListMobile() {
 
   function open(item: FavouriteItem) {
     if (item.kind === "recommendation") {
-      // Navigate to the rec profile page built in sub-task 3
-      router.push(`/projects/${item.projectId}/recommendations/${item.recommendationId}`);
+      router.push(`/builders/${item.recommendationId}?projectId=${item.projectId}`);
       return;
     }
     // Prefer the recommendation profile when the favourite came from one —
