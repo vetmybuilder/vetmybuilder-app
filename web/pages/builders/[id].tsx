@@ -10,7 +10,6 @@ import BuilderReviews from "@/components/builder/BuilderReviews";
 import BuilderPhotos from "@/components/builder/BuilderPhotos";
 import BuilderContactDetails from "@/components/builder/BuilderContactDetails";
 import BuilderProfileMobile from "@/components/builder/BuilderProfileMobile";
-import HireButton from "@/components/project/HireButton";
 import { useApi } from "@/utils/api";
 import { useBuilderProfile } from "@/components/builder/useBuilderProfile";
 import { resolveCompanyNameForBuilder } from "@/types/builderTypes";
@@ -189,14 +188,6 @@ export default function BuilderProfilePage() {
                 updatedDisplay={updatedDisplay}
                 reviewCount={aggReviews.length}
                 photoCount={aggPhotos.length}
-                hireButton={
-                  builder?.id && user ? (
-                    <HireButton
-                      recommendationId={Number(builder.id)}
-                      displayName={companyName}
-                    />
-                  ) : undefined
-                }
               />
 
               {/* Builder AI summary */}

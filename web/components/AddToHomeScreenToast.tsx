@@ -13,6 +13,10 @@ function detectPlatform(): Platform {
   if ((navigator as any).standalone === true) return null;
   if (window.matchMedia("(display-mode: standalone)").matches) return null;
 
+  // Mobile-only. UA detection alone fires on desktop browsers when DevTools
+  // device emulation injects an Android UA - gate on viewport width too.
+  if (window.matchMedia("(min-width: 768px)").matches) return null;
+
   const isIOS = /iPad|iPhone|iPod/.test(ua);
   const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|OPiOS|EdgiOS/.test(ua);
   if (isIOS && isSafari) return "ios";
