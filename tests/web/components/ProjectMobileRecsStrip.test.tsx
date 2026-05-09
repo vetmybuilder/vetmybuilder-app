@@ -65,9 +65,9 @@ describe("<ProjectMobileRecsStrip />", () => {
     expect(toggle).toHaveTextContent("Show 4 more");
   });
 
-  it("routes to the per-rec detail page when a row is tapped", () => {
+  it("routes to the builder profile when a row is tapped", () => {
     render(<ProjectMobileRecsStrip projectId={42} recs={makeRecs(2)} />);
     fireEvent.click(screen.getByTestId("project-mobile-rec-2"));
-    expect(push).toHaveBeenCalledWith("/projects/42/recommendations/2");
+    expect(push).toHaveBeenCalledWith("/builders/2?projectId=42");
   });
 });
