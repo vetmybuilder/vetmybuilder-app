@@ -266,21 +266,26 @@ function ProjectsTabHelperBanner({ tab }: { tab: OwnerTab }) {
 function OwnerProjects() {
   const api = useApi();
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, profileComplete } = useAuth();
 
   // ---- Tab derived from URL (single source of truth) ----
   const [tab, setTab] = useState<OwnerTab>("mine");
   const [showPushPrompt, setShowPushPrompt] = useState(false);
 
-  // Show push prompt after signup (flag set by signup forms)
+  // Show push prompt after signup, but ONLY once the homeowner has a
+  // postcode on file (profileComplete=true). Without this guard, a
+  // stale `vmb:showPushPrompt` flag from a prior session can fire the
+  // notifications modal before the SSO user has been routed through
+  // /signup/complete to enter their location.
   useEffect(() => {
+    if (profileComplete !== true) return;
     try {
       if (sessionStorage.getItem("vmb:showPushPrompt") === "1") {
         sessionStorage.removeItem("vmb:showPushPrompt");
         setShowPushPrompt(true);
       }
     } catch {}
-  }, []);
+  }, [profileComplete]);
 
   useEffect(() => {
     if (!router.isReady) return;

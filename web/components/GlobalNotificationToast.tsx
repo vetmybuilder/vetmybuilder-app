@@ -9,7 +9,7 @@
 // Suppresses when the user is already on the destination page (e.g. an
 // open chat thread for the same matchId) — re-toasting on a page they're
 // already looking at is just noise.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { MessageCircle, Sparkles, Bell } from "lucide-react";
 import { useAuth } from "@/utils/auth";
@@ -34,11 +34,18 @@ export default function GlobalNotificationToast() {
   const isTradesman = !!user?.isTradesman;
   const [toast, setToast] = useState<ToastItem | null>(null);
 
+  // Hold router.asPath in a ref so the listener can read the latest
+  // path WITHOUT re-binding every navigation (re-binding kills the
+  // active dismiss timer and orphans the visible toast on click-through).
+  const asPathRef = useRef(router.asPath);
+  useEffect(() => {
+    asPathRef.current = router.asPath;
+  }, [router.asPath]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     let nextId = 1;
-    let dismissTimer: ReturnType<typeof setTimeout> | null = null;
 
     function onNotif(ev: Event) {
       const detail = (ev as CustomEvent).detail as NotifPayload | undefined;
@@ -46,7 +53,7 @@ export default function GlobalNotificationToast() {
 
       // Suppress if the user is already viewing the destination. asPath
       // includes query string, so prefix-match against linkPath.
-      if (detail.linkPath && router.asPath.split("?")[0] === detail.linkPath) {
+      if (detail.linkPath && asPathRef.current.split("?")[0] === detail.linkPath) {
         return;
       }
 
@@ -63,20 +70,27 @@ export default function GlobalNotificationToast() {
       ]);
       if (!detail.type || !TOAST_TYPES.has(detail.type)) return;
 
-      if (dismissTimer) clearTimeout(dismissTimer);
       const id = nextId++;
       setToast({ id, payload: detail });
-      dismissTimer = setTimeout(() => {
-        setToast((cur) => (cur?.id === id ? null : cur));
-      }, AUTO_DISMISS_MS);
     }
 
     window.addEventListener("vmb:notification", onNotif);
     return () => {
       window.removeEventListener("vmb:notification", onNotif);
-      if (dismissTimer) clearTimeout(dismissTimer);
     };
-  }, [router.asPath]);
+  }, []);
+
+  // Auto-dismiss tied to the active toast id. Re-runs only when the
+  // toast itself changes (new toast OR manual dismiss), so navigation
+  // can't cancel the timer mid-flight.
+  useEffect(() => {
+    if (!toast) return;
+    const id = toast.id;
+    const t = setTimeout(() => {
+      setToast((cur) => (cur?.id === id ? null : cur));
+    }, AUTO_DISMISS_MS);
+    return () => clearTimeout(t);
+  }, [toast?.id]);
 
   if (!toast) return null;
 

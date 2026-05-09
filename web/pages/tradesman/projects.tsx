@@ -38,7 +38,7 @@ const BUDGET_OPTIONS: { value: string; label: string }[] = [
 export default function TradesmanProjects() {
   const api = useApi();
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading, profileComplete } = useAuth();
 
   /* ---------- filters ---------- */
   const [q, setQ] = useState("");
@@ -52,14 +52,18 @@ export default function TradesmanProjects() {
   const [err, setErr] = useState<string | null>(null);
   const [showPushPrompt, setShowPushPrompt] = useState(false);
 
+  // Gate the post-signup notifications prompt on profileComplete so a
+  // stale `vmb:showPushPrompt` flag can't fire it before the trade has
+  // finished SSO signup (matches the homeowner /projects guard).
   useEffect(() => {
+    if (profileComplete !== true) return;
     try {
       if (sessionStorage.getItem("vmb:showPushPrompt") === "1") {
         sessionStorage.removeItem("vmb:showPushPrompt");
         setShowPushPrompt(true);
       }
     } catch {}
-  }, []);
+  }, [profileComplete]);
   const [gate, setGate] = useState<"none" | "notActive" | "noProfile">("none");
 
   // which project row is expanded (accordion)
