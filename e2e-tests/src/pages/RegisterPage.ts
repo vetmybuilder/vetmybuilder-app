@@ -91,7 +91,10 @@ export class RegisterPage {
     this.submitButton = this.createAccountButton;
 
     this.errorAlert = page.getByTestId("register-error");
-    this.signInLink = page.getByTestId("register-form").getByRole("link", { name: "Sign in" });
+    // Sign-in link now lives ABOVE the form (next to the Google SSO
+    // button, mirroring the trade signup pattern). Look it up by its
+    // dedicated testid rather than scoping to the form.
+    this.signInLink = page.getByTestId("signup-signin-link");
 
     this.googleSignInButton = page.getByTestId(OAUTH_BUTTON_TESTID.google);
     this.facebookSignInButton = page.getByTestId(OAUTH_BUTTON_TESTID.facebook);

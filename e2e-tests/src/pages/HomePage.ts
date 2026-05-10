@@ -25,7 +25,6 @@ export class HomePage {
 
   readonly header: Locator;
   readonly heroCta: Locator;
-  readonly heroCommunityLink: Locator;
   readonly localTradespeopleEyebrow: Locator;
   readonly myProjectsLink: Locator;
   readonly seeHowItWorksButton: Locator;
@@ -33,15 +32,19 @@ export class HomePage {
   constructor(page: Page) {
     this.page = page;
     this.header = page.getByRole("banner", { name: "Site header" });
-    this.heroCta = page.getByTestId("hero-cta");
-    this.heroCommunityLink = page.getByTestId("hero-community-link");
-    this.localTradespeopleEyebrow = page.getByText("Local tradespeople", {
+    // Hero CTA + See-how-it-works render in two places: the desktop
+    // overlay sitting on top of the hero photo, and the mobile cream
+    // block under it. One is `md:hidden`, the other is `hidden md:flex`,
+    // so only one is visible per viewport. Use `:visible` in the CSS
+    // locator so we always grab the right one regardless of viewport.
+    this.heroCta = page.locator('[data-testid="hero-cta"]:visible');
+    this.localTradespeopleEyebrow = page.getByText("Hundreds of vetted tradespeople nearby.", {
       exact: true,
     });
     this.myProjectsLink = page.getByRole("link", { name: "My projects" });
-    this.seeHowItWorksButton = page.getByRole("button", {
-      name: "See how it works",
-    });
+    this.seeHowItWorksButton = page.locator(
+      'button:visible:has-text("See how it works")',
+    );
   }
 
   async goto() {
@@ -130,14 +133,6 @@ export class HomePage {
 
   async expectScrolledToHowItWorks() {
     await expect(this.page.locator("#how-it-works")).toBeInViewport();
-  }
-
-  async expectHeroCommunityLinkHref(href: string) {
-    // The handwritten "join the growing community" link is hidden on
-    // mobile (no room beside the headline) - assert href only so the
-    // same check works on both viewports. There is no user click to
-    // simulate on a hidden element.
-    await expect(this.heroCommunityLink).toHaveAttribute("href", href);
   }
 
   async expectLocalTradespeopleEyebrow() {

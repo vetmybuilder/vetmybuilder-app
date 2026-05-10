@@ -279,18 +279,29 @@ export default function Home() {
                     the photo (where they have room to breathe). */}
                 <div className="hidden md:flex mt-6 lg:mt-8 flex-wrap gap-3">
                   {isTrades ? (
-                    <Link
-                      href="/tradesman/jobs"
-                      className="inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-4 text-[15px] lg:text-lg font-extrabold text-white shadow-lg shadow-emerald-500/40 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
-                      style={{ background: "linear-gradient(135deg,#10b981,#059669)" }}
-                    >
-                      View available jobs
-                      <IconArrowRight className="h-5 w-5" />
-                    </Link>
+                    <>
+                      <Link
+                        href="/tradesman/jobs"
+                        data-testid="hero-cta"
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-4 text-[15px] lg:text-lg font-extrabold text-white shadow-lg shadow-emerald-500/40 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
+                        style={{ background: "linear-gradient(135deg,#10b981,#059669)" }}
+                      >
+                        View available jobs
+                        <IconArrowRight className="h-5 w-5" />
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white/95 backdrop-blur border-[1.5px] border-white/60 px-6 py-3.5 text-[14px] lg:text-base font-extrabold text-slate-800 hover:bg-white transition-colors shadow-lg"
+                      >
+                        See how it works
+                      </button>
+                    </>
                   ) : user ? (
                     <>
                       <Link
                         href="/projects/new"
+                        data-testid="hero-cta"
                         className="inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-4 text-[15px] lg:text-lg font-extrabold text-white shadow-lg shadow-indigo-500/40 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
                         style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
                       >
@@ -309,6 +320,7 @@ export default function Home() {
                       <Link
                         href="/projects/new"
                         onClick={rememberReturnTo}
+                        data-testid="hero-cta"
                         className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-[13px] lg:text-[14px] font-extrabold text-white shadow-lg shadow-indigo-500/40 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
                         style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
                       >
@@ -359,6 +371,13 @@ export default function Home() {
                     View available jobs
                     <IconArrowRight className="h-5 w-5" />
                   </Link>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white border-[1.5px] border-amber-200 px-6 py-3.5 text-[14px] sm:text-base font-bold text-amber-800 hover:bg-amber-50 transition-colors"
+                  >
+                    See how it works
+                  </button>
                 </div>
               ) : user ? (
                 <div className="flex flex-col sm:flex-row gap-3">
