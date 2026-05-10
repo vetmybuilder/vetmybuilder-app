@@ -1,12 +1,16 @@
 // web/pages/forgot-password.tsx
 import Head from "next/head";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { useState } from "react";
+import { ChevronLeft, Mail } from "lucide-react";
 import { initFirebase } from "@/utils/firebase";
 import { sendPasswordResetEmail } from "firebase/auth";
 import GuestOnly from "@/components/GuestOnly";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 
 export default function ForgotPassword() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
@@ -40,44 +44,78 @@ export default function ForgotPassword() {
   return (
     <GuestOnly>
       <>
-      <Head>
-        <title>Reset password • VetMyBuilder</title>
-      </Head>
+        <Head>
+          <title>Reset password - VetMyBuilder</title>
+          {/* Mobile stays white; desktop gets the cream brand backdrop so
+              BrandWatermarkScatter has somewhere to sit. */}
+          <style>{`@media (min-width: 768px) { body { background: #fef6e9 !important; } }`}</style>
+        </Head>
 
-      <div className="overflow-x-hidden -mt-14 min-h-screen">
-        <div className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 py-24">
+        <div className="min-h-screen bg-white md:bg-[#fef6e9] relative overflow-hidden pt-14">
+          <BrandWatermarkScatter />
+          <div
+            className="relative z-10 mx-auto max-w-md px-5 pt-4 pb-16 md:pt-10"
+            data-testid="forgot-password-card"
+          >
+            <button
+              type="button"
+              aria-label="Back"
+              onClick={() => router.back()}
+              className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-700 mb-4"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
 
-          <div className="relative z-10 w-full max-w-md">
-          <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-8 sm:p-10" data-testid="forgot-password-card">
             {sent ? (
-              <div className="text-center space-y-4" data-testid="forgot-password-success">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7 text-emerald-600">
-                    <path d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0l-8 4-8-4"/>
-                  </svg>
+              <div data-testid="forgot-password-success">
+                <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-indigo-50 mb-4">
+                  <Mail className="h-6 w-6 text-indigo-600" />
                 </div>
-                <h1 className="text-2xl font-black text-zinc-900">Check your email</h1>
-                <p className="text-sm text-zinc-500 leading-relaxed">
-                  If an account exists for <span className="font-semibold text-zinc-700">{email}</span>, we've sent a password reset link. Click it to choose a new password.
+                <h1
+                  className="text-[28px] font-black tracking-tight text-slate-900 leading-tight"
+                  style={{ fontFamily: "'Sora', sans-serif" }}
+                >
+                  Check your email
+                </h1>
+                <p className="mt-2 text-[13.5px] text-slate-500 leading-relaxed">
+                  If an account exists for{" "}
+                  <span className="font-extrabold text-slate-700">{email}</span>,
+                  we've sent a password reset link. Click it to choose a new
+                  password.
                 </p>
-                <p className="text-xs text-zinc-400">Didn't get it? Check your spam folder.</p>
+                <p className="mt-3 text-[12px] text-slate-400">
+                  Didn't get it? Check your spam folder.
+                </p>
                 <Link
                   href="/login"
-                  className="mt-4 inline-flex items-center justify-center rounded-full bg-red-500 px-8 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:bg-red-600 transition-colors"
+                  className="mt-6 w-full inline-flex items-center justify-center rounded-2xl py-3.5 text-[14px] font-extrabold text-white shadow-lg"
+                  style={{
+                    background: "linear-gradient(135deg, #6366f1, #4f46e5)",
+                    boxShadow: "0 8px 22px rgba(99,102,241,0.3)",
+                  }}
                 >
-                  Back to login
+                  Back to sign in
                 </Link>
               </div>
             ) : (
               <>
-                <div className="mb-8">
-                  <h1 className="text-2xl font-black text-zinc-900 mb-1">Forgot your password?</h1>
-                  <p className="text-sm text-zinc-500">Enter your email and we'll send you a reset link.</p>
+                <div className="mb-6">
+                  <h1
+                    className="text-[28px] font-extrabold tracking-[-0.01em] text-slate-900 leading-[1.1]"
+                  >
+                    Forgot your password?
+                  </h1>
+                  <p className="mt-2 text-[13.5px] text-slate-500 leading-snug">
+                    Enter your email and we'll send you a reset link.
+                  </p>
                 </div>
 
-                <form onSubmit={onSubmit} className="space-y-5">
+                <form onSubmit={onSubmit} className="space-y-4">
                   <div>
-                    <label htmlFor="fp-email" className="block text-sm font-bold text-zinc-900 mb-2">
+                    <label
+                      htmlFor="fp-email"
+                      className="block text-[11px] font-extrabold uppercase tracking-[0.16em] text-indigo-700 mb-2"
+                    >
                       Email address
                     </label>
                     <input
@@ -89,27 +127,65 @@ export default function ForgotPassword() {
                       autoComplete="email"
                       placeholder="you@example.com"
                       data-testid="input-forgot-email"
-                      className="w-full rounded-2xl border-2 border-zinc-200 px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:border-red-400 focus:outline-none transition-colors"
+                      className="w-full bg-amber-50/40 rounded-2xl border-[1.5px] border-amber-100 px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:bg-white focus:outline-none transition-colors"
                     />
                   </div>
 
                   {err && (
-                    <p className="text-red-500 text-sm font-medium" role="alert">{err}</p>
+                    <p
+                      className="text-[12.5px] font-semibold text-rose-600"
+                      role="alert"
+                    >
+                      {err}
+                    </p>
                   )}
 
                   <button
                     type="submit"
                     disabled={busy}
                     data-testid="btn-forgot-submit"
-                    className={`w-full inline-flex items-center justify-center gap-2 rounded-full px-8 py-4 text-base font-bold text-white shadow-lg transition-colors disabled:cursor-not-allowed ${busy ? "bg-zinc-400" : "bg-red-500 shadow-red-500/25 hover:bg-red-600 active:scale-95 disabled:opacity-60"}`}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-2xl py-3.5 text-[14px] font-extrabold text-white shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
+                    style={{
+                      background: busy
+                        ? "linear-gradient(135deg, #94a3b8, #64748b)"
+                        : "linear-gradient(135deg, #6366f1, #4f46e5)",
+                      boxShadow: busy
+                        ? undefined
+                        : "0 8px 22px rgba(99,102,241,0.3)",
+                    }}
                   >
-                    {busy && <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" /><path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" /></svg>}
-                    {busy ? "Sending…" : "Send reset link"}
+                    {busy && (
+                      <svg
+                        className="h-4 w-4 animate-spin"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                      >
+                        <circle
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                          className="opacity-25"
+                        />
+                        <path
+                          d="M4 12a8 8 0 018-8"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          className="opacity-75"
+                        />
+                      </svg>
+                    )}
+                    {busy ? "Sending..." : "Send reset link"}
                   </button>
 
-                  <p className="text-center text-sm text-zinc-400">
+                  <p className="text-center text-[12.5px] text-slate-500">
                     Remember it?{" "}
-                    <Link href="/login" className="font-semibold text-red-500 hover:underline">
+                    <Link
+                      href="/login"
+                      className="font-extrabold text-indigo-700 hover:underline"
+                    >
                       Sign in
                     </Link>
                   </p>
@@ -117,9 +193,7 @@ export default function ForgotPassword() {
               </>
             )}
           </div>
-          </div>
         </div>
-      </div>
       </>
     </GuestOnly>
   );
