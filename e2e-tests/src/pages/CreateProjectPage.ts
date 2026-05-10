@@ -88,9 +88,17 @@ export class CreateProjectPage {
     }
     await this.next();
 
-    // Review step
+    // Review step. Wizard now ends with a Preview step (step 9 of 9)
+    // showing the homeowner's local matches before they post. Continue
+    // through review, then submit from the preview step.
     await this.waitForStep("Review your job");
     await this.assertReviewStep(input);
+    await this.next();
+
+    // Preview step. Title varies based on whether we found local
+    // matches or not, so wait for either form. The Create button
+    // (btn-create) is the submit on this step regardless.
+    await this.waitForStep(/Your local matches|We're still looking/i, true);
 
     await this.createBtn.click();
 
