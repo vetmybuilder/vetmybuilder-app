@@ -45,6 +45,10 @@ export default defineConfig({
   // a 60s test timeout, a slow token mint could consume the entire budget
   // during fixture setup before the test body even ran.
   timeout: 90_000,
+  // CI gets more retries to absorb shard pollution / DB wipe races. Local
+  // gets a smaller bump so flakes still get caught but devs aren't left
+  // waiting through repeated retries.
+  retries: process.env.CI ? 3 : 1,
   reporter: [["list"], ["html", { open: "never" }]],
 
   ...(SHOULD_MANAGE_SERVERS
