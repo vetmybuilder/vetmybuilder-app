@@ -67,7 +67,11 @@ describe("<AuthedOnly />", () => {
       </AuthedOnly>,
     );
 
-    expect(screen.getByTestId("auth-loading")).toBeInTheDocument();
+    // AuthedOnly renders null while loading or unauthenticated to
+    // avoid a brief flash of an old-design "Please sign in" card
+    // during route transitions. Just assert the protected child
+    // doesn't render - the absence of any visible chrome is the
+    // intended behaviour.
     expect(screen.queryByTestId("protected-child")).not.toBeInTheDocument();
   });
 
@@ -96,7 +100,11 @@ describe("<AuthedOnly />", () => {
       </AuthedOnly>,
     );
 
-    expect(screen.getByTestId("auth-loading")).toBeInTheDocument();
+    // AuthedOnly renders null while loading or unauthenticated to
+    // avoid a brief flash of an old-design "Please sign in" card
+    // during route transitions. Just assert the protected child
+    // doesn't render - the absence of any visible chrome is the
+    // intended behaviour.
     expect(screen.queryByTestId("protected-child")).not.toBeInTheDocument();
     expect(routerReplaceMock).not.toHaveBeenCalled();
   });

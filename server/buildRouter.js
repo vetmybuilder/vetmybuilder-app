@@ -321,6 +321,9 @@ function buildRouter(ctx) {
   require("./routes/me/me.get")(router, ctx);
 
   // ---------------- Projects ----------------
+  // preview-matches.get must register BEFORE project.get so the literal
+  // /preview-matches path isn't swallowed by /projects/:id.
+  require("./routes/projects/preview-matches.get")(router, ctx);
   require("./routes/projects/projects.get")(router, ctx);
   require("./routes/projects/projects.post")(router, ctx);
   require("./routes/projects/publish.post")(router, ctx);

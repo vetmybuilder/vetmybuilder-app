@@ -99,19 +99,14 @@ body {
 }
 
 body {
-  /* Neutral, subtle vignette over a soft off-white base */
-  background:
-    radial-gradient(
-      1200px 600px at 10% -10%,
-      rgba(15, 23, 42, 0.06),
-      transparent 60%
-    ),
-    radial-gradient(
-      900px 500px at 110% 0%,
-      rgba(15, 23, 42, 0.04),
-      transparent 55%
-    ),
-    var(--bg);
+  /* Plain white base. Pages that need a different backdrop (cream brand
+     surfaces, the wizard, the trade dashboard etc.) set it via a wrapper
+     div with min-h-screen, NOT via a body-level <Head><style> override -
+     per-page body overrides flash during route transitions because the
+     previous page's <style> is still in the DOM until the new component
+     mounts (see web/styles/globals.css history for why we dropped the
+     old soft-vignette default). */
+  background: #ffffff;
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

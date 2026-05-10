@@ -596,11 +596,23 @@ export default function SiteHeader() {
                   </div>
                 )}
 
-                {/* Homepage header is intentionally bare for guests - the
-                    "join our growing community" handwritten link inside the
-                    hero is the single Join CTA. The mobile burger below
-                    still gives access to sign-in / signup links for guests
-                    on small screens. */}
+                {/* Guest header is intentionally minimal: just a homeowner
+                    login chip. Trade entry lives in the slim emerald
+                    banner above SiteHeader (and the trade signup page
+                    has its own "Already a member? Sign in" link).
+                    Homeowner entry lives in the page hero CTAs.
+                    /login routes by account role server-side, so a
+                    returning trade signing in here will still land on
+                    the trade dashboard. */}
+                {!displayUser && !isTrades && (
+                  <Link
+                    href="/login"
+                    data-testid="nav-sign-in-home"
+                    className="hidden sm:inline-flex items-center justify-center gap-1 px-3.5 h-9 rounded-full border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100 text-indigo-700 text-[12.5px] font-extrabold transition-colors"
+                  >
+                    Homeowner login
+                  </Link>
+                )}
 
                 {/* Mobile menu */}
                 <button

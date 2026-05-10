@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useAuth } from "@/utils/auth";
 import { useRole } from "@/utils/useRole";
 import { trackLogin } from "@/utils/analytics";
+import { flushPendingProject } from "@/utils/flushPendingProject";
 import OAuthSignInButton from "@/components/forms/OAuthSignInButton";
 
 /**
@@ -170,6 +171,35 @@ export default function Login() {
       return;
     }
 
+    // Pending homeowner project draft (guest started the wizard at
+    // /projects/new, hit submit, came in via login). Flush it before
+    // any other redirect logic so the user lands on their new project.
+    let hasPendingPayload = false;
+    try {
+      hasPendingPayload = !!sessionStorage.getItem("vmb:pendingProjectPayload");
+    } catch {}
+    if (hasPendingPayload && role !== "tradesman") {
+      redirectFiredRef.current = true;
+      (async () => {
+        const auth = initFirebase();
+        const token = auth.currentUser ? await auth.currentUser.getIdToken(false) : "";
+        const apiClient = {
+          post: (path: string, body: unknown) =>
+            fetch(path, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify(body),
+            }).then(async (r) => ({ data: r.ok ? await r.json() : null })),
+        };
+        const target = await flushPendingProject(apiClient);
+        router.replace(target || roleDefault(role));
+      })();
+      return;
+    }
+
     const nextParam =
       typeof window !== "undefined"
         ? new URLSearchParams(window.location.search).get("next")
@@ -251,10 +281,32 @@ export default function Login() {
       // points at a deep-link route (a specific match / project / chat /
       // builder / public profile); top-level lists drop through to the
       // role default.
-      const resolvedNextPath =
+      const baseResolvedNextPath =
         nextParam && isDeepRoute(nextParam)
           ? nextParam
           : roleDefault(isTradesman ? "tradesman" : "user");
+
+      // Flush a pending homeowner project draft (guest started the
+      // wizard at /projects/new, hit submit, realised they had an
+      // account, switched to /login). Only relevant for homeowners -
+      // a trade signing in here doesn't want a homeowner job posted.
+      let pendingTarget: string | null = null;
+      if (!isTradesman) {
+        const apiClient = {
+          post: (path: string, body: unknown) =>
+            fetch(path, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify(body),
+            }).then(async (r) => ({ data: r.ok ? await r.json() : null })),
+        };
+        pendingTarget = await flushPendingProject(apiClient);
+      }
+
+      const resolvedNextPath = pendingTarget || baseResolvedNextPath;
 
       try {
         sessionStorage.setItem("vmb:returnTo", resolvedNextPath);

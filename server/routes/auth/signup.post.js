@@ -19,7 +19,6 @@
 const { updateUserLocationMysql } = require("../../lib/location");
 const { logger, withRequest } = require("../../lib/logger");
 const analytics = require("../../lib/analytics");
-const { notifyNewSignupOfLocalProjects } = require("../../lib/notifyNewSignupOfLocalProjects");
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery, admin } = ctx;
@@ -88,16 +87,14 @@ module.exports = (router, ctx) => {
       analytics.trackSignup(uid, { method: "firebase", role: "homeowner", email });
       ctx.logActivity("auth.signup", "info", uid, `New user: ${email}`);
 
-      // Fire-and-forget: notify about live projects in their area
-      if (location) {
-        notifyNewSignupOfLocalProjects({
-          mysqlQuery,
-          broadcastNotification: ctx.broadcastNotification,
-          logActivity: ctx.logActivity,
-          uid,
-          location,
-        }).catch(() => {});
-      }
+      // Removed 2026-05: previously fired up to 5 "A neighbour near you
+      // is looking for help with X" notifications on signup to surface
+      // local activity. The new engagement-first flow doesn't ask
+      // homeowners to recommend tradespeople for other people's jobs,
+      // so this just spammed the activity feed of someone who just
+      // wanted to post their own job. Helper is kept in
+      // server/lib/notifyNewSignupOfLocalProjects.js for now in case
+      // we re-introduce a similar prompt with different framing.
 
       return;
     } catch (err) {

@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
+import { flushPendingProject } from "@/utils/flushPendingProject";
 import LocationField from "@/components/forms/LocationField";
 
 type FieldErrors = Partial<Record<"location", string>>;
@@ -137,23 +138,34 @@ export default function SignupComplete() {
         location: location.trim(),
       });
 
+      // Set the push-prompt flag BEFORE refreshProfile so that when
+      // profileComplete flips to true, PushPromptMount's effect picks
+      // it up on the same tick. Setting it after refreshProfile would
+      // miss the trigger (effect already ran with no flag).
+      try {
+        if ("Notification" in window && !localStorage.getItem("vmb:pushSetupShown")) {
+          sessionStorage.setItem("vmb:showPushPrompt", "1");
+        }
+      } catch {}
+
       // Re-hydrate the auth context so profileComplete flips to true and the
       // header swaps from the minimal "finishing signup" state to the full
       // logged-in chrome before we navigate away.
       await refreshProfile();
 
+      // Flush a pending project payload (guest started the wizard at
+      // /projects/new, hit submit, then completed signup via Google SSO).
+      // See utils/flushPendingProject.ts for the contract.
+      const pendingTarget = await flushPendingProject(api);
+
       // Read the dedicated OAuth return-to (NOT vmb:returnTo, which can be
-      // poisoned by _app.tsx's auto-stash).
-      let target = "/projects";
+      // poisoned by _app.tsx's auto-stash). Pending project takes
+      // priority over the OAuth return-to.
+      let target = pendingTarget || "/projects";
       try {
         const stored = sessionStorage.getItem("vmb:oauthReturnTo");
-        if (stored && stored.startsWith("/")) target = stored;
+        if (stored && stored.startsWith("/") && !pendingTarget) target = stored;
         sessionStorage.removeItem("vmb:oauthReturnTo");
-      } catch {}
-      try {
-        if ("Notification" in window && !localStorage.getItem("vmb:pushSetupShown")) {
-          sessionStorage.setItem("vmb:showPushPrompt", "1");
-        }
       } catch {}
       router.replace(target);
     } catch (e: any) {

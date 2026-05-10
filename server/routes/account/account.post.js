@@ -19,7 +19,6 @@
  */
 const { updateUserLocationMysql } = require("../../lib/location");
 const { logger, withRequest } = require("../../lib/logger");
-const { notifyNewSignupOfLocalProjects } = require("../../lib/notifyNewSignupOfLocalProjects");
 
 const MAX_USERNAME_SUFFIX_TRIES = 100;
 
@@ -155,16 +154,9 @@ module.exports = (router, ctx) => {
       res.json({ ok: true });
       ctx.logActivity("account.update", "info", req.user.uid, "Account updated");
 
-      // Fire-and-forget: notify new users about live projects in their area
-      if (isNewUser && location) {
-        notifyNewSignupOfLocalProjects({
-          mysqlQuery,
-          broadcastNotification: ctx.broadcastNotification,
-          logActivity: ctx.logActivity,
-          uid,
-          location,
-        }).catch(() => {});
-      }
+      // Removed 2026-05: see signup.post.js for the same change. The
+      // "A neighbour near you is looking for help" notifications didn't
+      // fit the engagement-first signup flow.
 
       return;
     } catch (err) {

@@ -114,25 +114,11 @@ module.exports = (router, ctx) => {
         bedrooms: body.bedrooms,
         answers: body.answers,
         log,
-      }).then(async (classification) => {
-        if (classification) {
-          // Insert DB notification so it appears in the bell
-          try {
-            await mysqlQuery(
-              `INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
-               VALUES (?, 'classification_ready', 'Project insights are ready', ?, ?, NOW())`,
-              [req.user.uid, insertedId, `/projects/${insertedId}`],
-            );
-          } catch {}
-          if (ctx.broadcastNotification) {
-            ctx.broadcastNotification(req.user.uid, {
-              type: "classification_ready",
-              message: "Project insights are ready",
-              projectId: insertedId,
-              linkPath: `/projects/${insertedId}`,
-            });
-          }
-        }
+      }).then(async (_classification) => {
+        // Classification result is stored on the project row server-side.
+        // No homeowner-facing notification (deprecated 2026-05 - the
+        // ready-state ping was noise in the activity feed; see
+        // tests/server/notificationsDeprecated.spec.ts for the guard).
       }).catch((e) => {
         log.warn?.("[projects.post] classifyProject threw", {
           insertedId,

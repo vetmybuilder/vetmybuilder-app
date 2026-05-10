@@ -181,7 +181,7 @@ export default function HowItWorks() {
                 {!user && (
                   <div className="mt-7">
                     <Link
-                      href="/signup"
+                      href="/projects/new"
                       className="inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-4 text-[15px] sm:text-base font-extrabold text-white shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
                       style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
                     >
@@ -375,7 +375,7 @@ export default function HowItWorks() {
             Let&apos;s find yours.
           </p>
           <Link
-            href={user ? "/projects/new" : "/signup"}
+            href="/projects/new"
             className="mt-6 inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-4 text-[15px] sm:text-lg font-extrabold text-white shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
             style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
           >

@@ -11,7 +11,9 @@ import { useRouter } from "next/router";
 import { Search, X } from "lucide-react";
 import LocationField from "@/components/forms/LocationField";
 import DynamicFieldGroup from "@/components/forms/DynamicFieldGroup";
+import PreviewMatchesPanel from "@/components/project/PreviewMatchesPanel";
 import type { Spec } from "@/config/jobFields";
+import type { PreviewMatch } from "@/pages/projects/new";
 
 type Step = { key: string; title: string; subtitle: string };
 
@@ -72,6 +74,13 @@ type PostJobMobileProps = {
    * is a single string parsed from the saved description.
    */
   accessOptionsSingle?: ReadonlyArray<string>;
+
+  // Preview-step props (engagement-first signup). Optional - the /edit
+  // wizard doesn't surface a preview step.
+  previewMatches?: PreviewMatch[] | null;
+  previewLoading?: boolean;
+  previewErr?: string | null;
+  isGuest?: boolean;
 };
 
 const FONT_STACK =
@@ -117,6 +126,10 @@ export default function PostJobMobile(props: PostJobMobileProps) {
     descriptionPlaceholder,
     descriptionMax,
     accessOptionsSingle,
+    previewMatches,
+    previewLoading,
+    previewErr,
+    isGuest,
   } = props;
 
   const router = useRouter();
@@ -353,6 +366,22 @@ export default function PostJobMobile(props: PostJobMobileProps) {
               normalize={normalize}
               getAccessChips={getAccessChips}
             />
+          )}
+
+          {currentStep.key === "preview" && (
+            <div>
+              <PreviewMatchesPanel
+                matches={previewMatches ?? null}
+                loading={!!previewLoading}
+                err={previewErr ?? null}
+                isGuest={!!isGuest}
+              />
+              <p className="mt-4 text-[12.5px] text-slate-500 leading-relaxed text-center">
+                {isGuest
+                  ? "Sign up on the next step to message any of these tradespeople."
+                  : "Post your job to notify these tradespeople."}
+              </p>
+            </div>
           )}
         </div>
 

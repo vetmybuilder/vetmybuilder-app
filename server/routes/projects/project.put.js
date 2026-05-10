@@ -150,24 +150,10 @@ module.exports = (router, ctx) => {
         bedrooms: fields.bedrooms,
         answers: nextAnswers,
         log,
-      }).then(async (classification) => {
-        if (classification) {
-          try {
-            await mysqlQuery(
-              `INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
-               VALUES (?, 'classification_ready', 'Project insights updated', ?, ?, NOW())`,
-              [req.user.uid, id, `/projects/${id}`],
-            );
-          } catch {}
-          if (ctx.broadcastNotification) {
-            ctx.broadcastNotification(req.user.uid, {
-              type: "classification_ready",
-              message: "Project insights updated",
-              projectId: id,
-              linkPath: `/projects/${id}`,
-            });
-          }
-        }
+      }).then(async (_classification) => {
+        // Classification result is stored server-side; no homeowner-facing
+        // notification (mirrors projects.post - "Project insights" was
+        // dropped in 2026-05 for being noise).
       }).catch((e) => {
         log.warn?.("[project.put] classifyProject threw", { id, error: e?.message || e });
       });

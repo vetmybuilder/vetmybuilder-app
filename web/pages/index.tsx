@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/utils/auth";
 import Footer from "@/components/Footer";
 import HomeStats from "@/components/home/HomeStats";
+import HomeContactSection from "@/components/home/HomeContactSection";
 
 function IconProject(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -228,148 +229,167 @@ export default function Home() {
             the cream block so social proof is the first thing in view. */}
         <section className="relative bg-[#fef6e9]" aria-label="Hero">
           <div className="relative aspect-[4/5] sm:aspect-[16/9] lg:aspect-[5/2] xl:aspect-[12/5] overflow-hidden">
+            {/* Mobile-only portrait crop */}
             <Image
-              src="https://images.unsplash.com/photo-1716037991590-c975184b37df?w=1920&q=80&auto=format&fit=crop"
+              src="/hero-mobile.png"
               alt=""
               fill
               priority
-              sizes="100vw"
-              className="object-cover"
+              sizes="(max-width: 767px) 100vw, 0vw"
+              className="md:hidden object-cover object-center"
+            />
+            {/* Desktop wide hero - shifted slightly left so the
+                tradesman in the photo isn't covered by the bottom-right
+                review card. */}
+            <Image
+              src="/hero.png"
+              alt=""
+              fill
+              priority
+              sizes="(min-width: 768px) 100vw, 0vw"
+              className="hidden md:block object-cover object-left scale-[1.08] -translate-x-[6%] origin-left"
             />
             <div
               className="absolute inset-0"
               style={{
                 background:
-                  "linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.20) 30%, rgba(0,0,0,0.10) 55%, rgba(254,246,233,0.55) 85%, #fef6e9 100%)",
+                  "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.10) 40%, rgba(0,0,0,0.30) 70%, rgba(0,0,0,0.45) 100%)",
               }}
             />
 
-            {/* Handwritten community link in the top-right corner. Always
-                visible (it's a brand element, not just a CTA). Routes to a
-                sensible destination based on who's looking. Hidden on mobile
-                because there's no room next to the headline. */}
-            <Link
-              href={isTrades ? "/tradesman/jobs" : user ? "/projects" : "/signup"}
-              onClick={!user ? rememberReturnTo : undefined}
-              className="hidden sm:inline-flex group absolute top-8 right-8 lg:top-10 lg:right-10 items-end gap-1 hover:translate-x-0.5 transition-transform z-10"
-              aria-label="Join our growing community"
-              data-testid="hero-community-link"
-              style={{ fontFamily: "'Caveat', cursive" }}
-            >
-              <span className="text-amber-300 text-[28px] lg:text-[32px] leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.35)] -rotate-[3deg]">
-                join the growing community
-              </span>
-              <svg
-                viewBox="0 0 50 30"
-                className="w-12 h-7 text-amber-300 drop-shadow-[0_2px_4px_rgba(0,0,0,0.35)] -translate-y-1.5 group-hover:translate-x-1 transition-transform"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                aria-hidden
-              >
-                <path d="M3 18 C 14 20, 28 18, 42 8" />
-                <path d="M36 5 L 44 8 L 41 16" />
-              </svg>
-            </Link>
 
-            <div className="absolute inset-0 flex flex-col justify-start pt-20 sm:pt-24 lg:pt-20">
-              <div className="mx-auto w-full max-w-6xl px-5 sm:px-8 lg:px-8">
+            <div className="absolute inset-0 flex flex-col justify-start pt-20 sm:pt-24 md:justify-end md:pt-0 md:pb-12 lg:pb-16">
+              <div className="w-full max-w-6xl mx-auto md:mx-0 px-5 sm:px-8 md:pl-10 lg:pl-14 xl:pl-20">
                 <div className="max-w-2xl">
                 {!isTrades && (
                   <p className="text-[13px] sm:text-sm font-extrabold uppercase tracking-[0.18em] text-white drop-shadow mb-4">
-                    Local tradespeople
+                    Hundreds of vetted tradespeople nearby.
                   </p>
                 )}
                 <h1
-                  className="font-black tracking-[-0.03em] text-white drop-shadow-lg leading-[0.95] text-[52px] sm:text-[68px] lg:text-[72px] xl:text-[80px]"
-                  style={{ fontFamily: "'Sora', sans-serif", fontWeight: 900 }}
+                  className="font-black tracking-[-0.02em] text-amber-300 drop-shadow-lg leading-[0.95] text-[40px] sm:text-[52px] lg:text-[64px] xl:text-[72px]"
+                  style={{ fontFamily: "'Caveat', cursive" }}
                 >
+                  {isTrades ? "Work, your way." : "Let’s find yours."}
+                </h1>
+
+                {/* Desktop-only CTAs sit inside the hero overlay so the
+                    primary action is above the fold without scrolling.
+                    Mobile keeps the existing CTAs in the cream block below
+                    the photo (where they have room to breathe). */}
+                <div className="hidden md:flex mt-6 lg:mt-8 flex-wrap gap-3">
                   {isTrades ? (
+                    <Link
+                      href="/tradesman/jobs"
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-4 text-[15px] lg:text-lg font-extrabold text-white shadow-lg shadow-emerald-500/40 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
+                      style={{ background: "linear-gradient(135deg,#10b981,#059669)" }}
+                    >
+                      View available jobs
+                      <IconArrowRight className="h-5 w-5" />
+                    </Link>
+                  ) : user ? (
                     <>
-                      Work,
-                      <br />
-                      <span
-                        className="text-amber-300"
-                        style={{ fontFamily: "'Caveat', cursive", fontSize: "120%" }}
+                      <Link
+                        href="/projects/new"
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-4 text-[15px] lg:text-lg font-extrabold text-white shadow-lg shadow-indigo-500/40 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
+                        style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
                       >
-                        your way.
-                      </span>
+                        Post a new job
+                        <IconArrowRight className="h-5 w-5" />
+                      </Link>
+                      <Link
+                        href="/projects"
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white/95 backdrop-blur border-[1.5px] border-white/60 px-6 py-3.5 text-[14px] lg:text-base font-extrabold text-slate-800 hover:bg-white transition-colors shadow-lg"
+                      >
+                        My projects
+                      </Link>
                     </>
                   ) : (
                     <>
-                      Sourced,
-                      <br />
-                      <span
-                        className="text-amber-300"
-                        style={{ fontFamily: "'Caveat', cursive", fontSize: "120%" }}
+                      <Link
+                        href="/projects/new"
+                        onClick={rememberReturnTo}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-[13px] lg:text-[14px] font-extrabold text-white shadow-lg shadow-indigo-500/40 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
+                        style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
                       >
-                        the personal way.
-                      </span>
+                        Post a job
+                        <IconArrowRight className="h-4 w-4" />
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-white/95 backdrop-blur border-[1.5px] border-white/60 px-5 py-2.5 text-[13px] lg:text-[14px] font-extrabold text-slate-800 hover:bg-white transition-colors shadow-lg"
+                      >
+                        See how it works
+                      </button>
                     </>
                   )}
-                </h1>
                 </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Review card pinned bottom-right of the hero on desktop /
+                bottom-centre on mobile. White card on top of the photo
+                in both viewports. The hero image is anchored to the
+                left on desktop so the tradesman in the photo isn't
+                covered. */}
+            <div className="absolute bottom-4 left-4 right-4 md:left-auto md:bottom-6 md:right-6 lg:bottom-8 lg:right-8 z-10 mx-auto md:mx-0 w-auto md:w-full max-w-xs">
+              <div className="rounded-2xl bg-white/95 backdrop-blur shadow-xl ring-1 ring-white/40">
+                <HeroReviewCard />
               </div>
             </div>
           </div>
 
-          {/* Floating glassy review card straddling the photo / cream seam */}
-          <div className="relative -mt-20 sm:-mt-24 px-5 sm:px-8 z-10">
-            <div className="mx-auto max-w-2xl">
-              <HeroReviewCard />
-            </div>
-          </div>
-
-          {/* Cream block continuing below the photo */}
-          <div className="px-5 sm:px-8 pt-7 sm:pt-9 pb-9 sm:pb-12 lg:pb-14">
-            <div className="mx-auto max-w-3xl lg:max-w-2xl">
-              <p
-                className="text-[18px] sm:text-xl lg:text-[19px] text-slate-800 leading-[1.4] italic"
-                style={{ fontFamily: "'Sora', sans-serif" }}
-              >
-                {isTrades ? (
-                  <>
-                    No bidding wars, no per-lead fees, no cold-call factories. Just local jobs from homeowners who picked you. We did this{" "}
-                    <span
-                      className="text-amber-700"
-                      style={{ fontFamily: "'Caveat', cursive", fontSize: "120%" }}
-                    >
-                      differently.
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    Five strangers shouldn't cold-call you the second you click{" "}
-                    <span className="text-slate-500">"get a quote"</span>. We did this{" "}
-                    <span
-                      className="text-amber-700"
-                      style={{ fontFamily: "'Caveat', cursive", fontSize: "120%" }}
-                    >
-                      differently.
-                    </span>
-                  </>
-                )}
-              </p>
-              <div className="mt-5 sm:mt-6 flex flex-col sm:flex-row gap-3">
-                <Link
-                  href={isTrades ? "/tradesman/jobs" : user ? "/projects/new" : "/signup"}
-                  onClick={!user ? rememberReturnTo : undefined}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-4 text-[15px] sm:text-lg font-extrabold text-white shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
-                  style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
-                  data-testid="hero-cta"
-                >
-                  {isTrades ? "View available jobs" : "Find your tradesperson"}
-                  <IconArrowRight className="h-5 w-5" />
-                </Link>
-                {user && !isTrades ? (
+          {/* Cream block continuing below the photo. Mobile-only - just
+              CTAs (the supporting paragraph + ratings/verified strip
+              previously here were dropped to match the desktop cleanup).
+              Desktop pulls the CTAs up into the hero overlay so above-
+              the-fold value is clear without scrolling. */}
+          <div className="md:hidden px-5 sm:px-8 pt-6 pb-9">
+            <div className="mx-auto max-w-md">
+              {isTrades ? (
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Link
+                    href="/tradesman/jobs"
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-4 text-[15px] sm:text-lg font-extrabold text-white shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
+                    style={{ background: "linear-gradient(135deg,#10b981,#059669)" }}
+                    data-testid="hero-cta"
+                  >
+                    View available jobs
+                    <IconArrowRight className="h-5 w-5" />
+                  </Link>
+                </div>
+              ) : user ? (
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Link
+                    href="/projects/new"
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-4 text-[15px] sm:text-lg font-extrabold text-white shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
+                    style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
+                    data-testid="hero-cta"
+                  >
+                    Post a new job
+                    <IconArrowRight className="h-5 w-5" />
+                  </Link>
                   <Link
                     href="/projects"
                     className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white border-[1.5px] border-amber-200 px-6 py-3.5 text-[14px] sm:text-base font-bold text-amber-800 hover:bg-amber-50 transition-colors"
                   >
                     My projects
                   </Link>
-                ) : (
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Link
+                    href="/projects/new"
+                    onClick={rememberReturnTo}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-4 text-[15px] sm:text-lg font-extrabold text-white shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
+                    style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
+                    data-testid="hero-cta"
+                  >
+                    Post a job
+                    <IconArrowRight className="h-5 w-5" />
+                  </Link>
                   <button
                     type="button"
                     onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}
@@ -377,34 +397,8 @@ export default function Home() {
                   >
                     See how it works
                   </button>
-                )}
-              </div>
-              {/* Standout rating card + verified strip. Card pulls the eye
-                  to the headline rating; verified pill sits beside it. */}
-              <div className="mt-6 flex flex-wrap items-stretch gap-3">
-                <div className="inline-flex items-center gap-3 rounded-2xl bg-white border border-amber-200 px-4 py-2.5 shadow-sm">
-                  <span
-                    className="text-[28px] sm:text-[32px] font-black tracking-tight text-slate-900 leading-none"
-                    style={{ fontFamily: "'Sora', sans-serif" }}
-                  >
-                    4.9
-                  </span>
-                  <span className="flex flex-col items-start">
-                    <span className="flex items-center gap-0.5 text-amber-500">
-                      {[0, 1, 2, 3, 4].map((i) => (
-                        <StarIcon key={i} className="h-3.5 w-3.5" />
-                      ))}
-                    </span>
-                    <span className="text-[11px] sm:text-[12px] text-slate-500 mt-0.5">
-                      from <strong className="text-slate-700">137</strong> reviews
-                    </span>
-                  </span>
                 </div>
-                <div className="inline-flex items-center gap-1.5 rounded-2xl bg-emerald-50 border border-emerald-200 px-4 py-2.5 text-[13px] font-bold text-emerald-700">
-                  <IconCheck className="h-4 w-4" />
-                  Only verified professionals
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </section>
@@ -529,8 +523,8 @@ export default function Home() {
                     {
                       icon: "🔒",
                       iconBg: "linear-gradient(135deg,#fbbf24,#f59e0b)",
-                      title: "No spam, ever",
-                      body: "We don't sell your number. Tradespeople only message you when you've picked them too.",
+                      title: "You stay in control",
+                      body: "You decide which tradespeople to chat with. No five-stranger pile-on, no contact details handed out without your say-so.",
                     },
                   ]
               ).map((pill) => (
@@ -559,39 +553,11 @@ export default function Home() {
           </div>
         </section>
 
-        {/* FINAL CTA - paper texture, handwritten flourish */}
-        <section
-          className="px-5 sm:px-8 py-14 sm:py-20 text-center"
-          style={{
-            backgroundImage:
-              "radial-gradient(#0000 1px, rgba(255,237,213,0.45) 1px), linear-gradient(135deg,#fff5e0,#ffe2c4)",
-            backgroundSize: "8px 8px, 100% 100%",
-          }}
-        >
-          <h2
-            className="mx-auto max-w-2xl text-[26px] sm:text-4xl font-black tracking-[-0.01em] text-slate-900 leading-tight"
-            style={{ fontFamily: "'Sora', sans-serif" }}
-          >
-            {isTrades
-              ? "Ready to win work the smarter way?"
-              : "Your home deserves better than a lead-gen form."}
-          </h2>
-          <p
-            className="mt-2 text-amber-700 text-[24px] sm:text-3xl leading-none"
-            style={{ fontFamily: "'Caveat', cursive" }}
-          >
-            {isTrades ? "Let's get you set up." : "Let's find yours."}
-          </p>
-          <Link
-            href={isTrades ? "/tradesman/jobs" : user ? "/projects/new" : "/signup"}
-            onClick={!user ? rememberReturnTo : undefined}
-            className="mt-6 inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-4 text-[15px] sm:text-lg font-extrabold text-white shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
-            style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
-          >
-            {isTrades ? "View available jobs" : "Find your tradesperson"}
-            <IconArrowRight className="h-5 w-5" />
-          </Link>
-        </section>
+        {/* Contact us - replaces the old FINAL CTA. Same paper-texture
+            backdrop so the rhythm of the page is unchanged; the section
+            just does a different job (lead capture for general inquiries
+            instead of repeating the hero CTA). */}
+        <HomeContactSection />
       </div>
 
       <Footer />

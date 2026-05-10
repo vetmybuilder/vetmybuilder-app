@@ -14,6 +14,7 @@ import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
 import AccountField from "@/components/forms/AccountField";
 import LocationField from "@/components/forms/LocationField";
+import InstallAppRow from "@/components/InstallAppRow";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
@@ -573,6 +574,11 @@ export default function ManageAccount() {
                 )}
                 <span className="text-gray-300 text-[18px] shrink-0 ml-1">›</span>
               </button>
+
+              {/* Install our app row - mobile-only, self-contained
+                  (renders nothing on desktop or for already-installed
+                  PWAs). */}
+              <InstallAppRow />
 
             </div>
           </>
