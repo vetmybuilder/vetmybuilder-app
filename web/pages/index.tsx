@@ -192,7 +192,7 @@ export default function Home() {
           number: 1,
           icon: IconProject,
           title: "Tell us about your job",
-          tagline: "Takes 2 minutes",
+          tagline: "Takes 1 minute",
           description: "A few details, photos if you have them. We don't sell your number, and we never spam-blast it to a list of cold callers.",
           color: "red",
         },

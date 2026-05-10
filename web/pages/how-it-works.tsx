@@ -56,7 +56,7 @@ const steps = [
     icon: IconProject,
     color: "amber",
     title: "Tell us about your job",
-    tagline: "Takes 2 minutes",
+    tagline: "Takes 1 minute",
     description:
       "Describe what you need in plain English. We work out which trades are involved, the complexity, and an estimated budget range. We don't sell your number, and we never spam-blast it to a list of cold callers.",
     details: [
