@@ -4,7 +4,7 @@ test.describe("Homepage", () => {
   test.describe("Logged-in homeowner", () => {
     test("hero CTA navigates to /projects/new", async ({ homePage }) => {
       await homePage.goto();
-      await homePage.expectHeroCtaLabel(/find your tradesperson/i);
+      await homePage.expectHeroCtaLabel(/post a new job/i);
       await homePage.clickHeroCta();
       await homePage.expectUrl(/\/projects\/new$/);
     });
@@ -13,11 +13,6 @@ test.describe("Homepage", () => {
       await homePage.goto();
       await homePage.clickMyProjectsLink();
       await homePage.expectUrl(/\/projects$/);
-    });
-
-    test("hero community link points to /projects", async ({ homePage }) => {
-      await homePage.goto();
-      await homePage.expectHeroCommunityLinkHref("/projects");
     });
 
     test("shows the homeowner eyebrow above the headline", async ({
@@ -47,14 +42,6 @@ test.describe("Homepage", () => {
       await homePage.expectScrolledToHowItWorks();
     });
 
-    test("hero community link points to /tradesman/jobs", async ({
-      homePage,
-    }) => {
-      await homePage.asTradesperson();
-      await homePage.goto();
-      await homePage.expectHeroCommunityLinkHref("/tradesman/jobs");
-    });
-
     test("hides the homeowner eyebrow above the headline", async ({
       homePage,
     }) => {
@@ -65,12 +52,16 @@ test.describe("Homepage", () => {
   });
 
   test.describe("Guest", () => {
-    test("hero CTA navigates to /signup", async ({ basePage, homePage }) => {
+    // Engagement-first flow: guest hero CTA opens the post-job wizard
+    // directly (no auth wall). The wizard captures the project payload,
+    // then routes the guest to /signup at submit time. See
+    // utils/flushPendingProject.ts for the post-auth flush.
+    test("hero CTA opens the post-job wizard", async ({ basePage, homePage }) => {
       await basePage.logoutViaUrl();
       await homePage.goto();
-      await homePage.expectHeroCtaLabel(/find your tradesperson/i);
+      await homePage.expectHeroCtaLabel(/post a job/i);
       await homePage.clickHeroCta();
-      await homePage.expectUrl(/\/signup/);
+      await homePage.expectUrl(/\/projects\/new$/);
     });
 
     test("See how it works scrolls to the how-it-works section", async ({
@@ -82,15 +73,6 @@ test.describe("Homepage", () => {
       await homePage.expectNoMyProjectsLink();
       await homePage.clickSeeHowItWorks();
       await homePage.expectScrolledToHowItWorks();
-    });
-
-    test("hero community link points to /signup", async ({
-      basePage,
-      homePage,
-    }) => {
-      await basePage.logoutViaUrl();
-      await homePage.goto();
-      await homePage.expectHeroCommunityLinkHref("/signup");
     });
   });
 });

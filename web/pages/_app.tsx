@@ -8,6 +8,7 @@ import { useRouter } from "next/router";
 import AdminLayout from "@/components/AdminLayout";
 import TradesmanLayout from "@/components/TradesmanLayout";
 import CrossTabLogoutWatcher from "@/components/CrossTabLogoutWatcher";
+import PushPromptMount from "@/components/PushPromptMount";
 import PostHogProvider from "@/components/PostHogProvider";
 import { MobileMenuProvider } from "@/utils/mobileMenu";
 import GlobalMobileMenu from "@/components/GlobalMobileMenu";
@@ -249,6 +250,11 @@ export default function MyApp({ Component, pageProps }: AppProps) {
           where SiteHeader (and therefore NotificationsBell) is not
           rendered. */}
       <GlobalSseDispatcher />
+
+      {/* Post-signup notifications opt-in modal. Mounts at the _app level
+          (not inside Layout) so it survives page-level re-renders and
+          works on bare routes like /projects/[id] that don't use Layout. */}
+      <PushPromptMount />
 
       {isBareRoute ? (
         <Component {...pageProps} />

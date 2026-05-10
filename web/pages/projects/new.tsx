@@ -1,6 +1,7 @@
 import Head from "next/head";
-import AuthedOnly from "@/components/AuthedOnly";
 import Layout from "@/components/Layout";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
+import PreviewMatchesPanel from "@/components/project/PreviewMatchesPanel";
 import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 import React, { useMemo, useState, useEffect, useRef } from "react";
@@ -148,6 +149,19 @@ function buildAutoNameSimple(
 }
 
 /* ===== Types ===== */
+export type PreviewMatch = {
+  id: string;
+  company: string;
+  trade: string | null;
+  location: string | null;
+  rating: number | null;
+  reviewCount: number;
+  friendCount: number;
+  photoUrl: string | null;
+  blurb: string | null;
+  isLocal: boolean;
+};
+
 type FormShape = {
   category: string | null;
   selectedTypes: string[];
@@ -216,6 +230,12 @@ export default function NewProject() {
   const [subtypeSearch, setSubtypeSearch] = useState("");
   const [categorySearch, setCategorySearch] = useState("");
 
+  // Preview-step matches (engagement-first signup): fetched when the
+  // homeowner reaches the final preview step.
+  const [previewMatches, setPreviewMatches] = useState<PreviewMatch[] | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewErr, setPreviewErr] = useState<string | null>(null);
+
   const set = <K extends keyof FormShape>(k: K, v: FormShape[K]) =>
     setForm((prev) => ({ ...prev, [k]: v }));
 
@@ -279,10 +299,78 @@ export default function NewProject() {
       { key: "extras", title: "A few more details", subtitle: "These help tradespeople give you an accurate quote." },
       { key: "description", title: "Describe the job", subtitle: "Add any details that will help tradespeople understand what you need." },
       { key: "review", title: "Review your job", subtitle: "Check everything looks right before posting." },
+      { key: "preview", title: "Your local matches", subtitle: "We've found tradespeople who can do this job." },
     ];
   }, [categorySpec, form.category]);
 
   const maxStep = STEPS.length - 1;
+
+  // Fetch preview matches the first time the homeowner reaches the
+  // preview step. We pass the wizard's current trade type + location as
+  // query params; the API filters live tradesmen and pads with nearby
+  // when local supply is thin (see preview-matches.get.js).
+  useEffect(() => {
+    if (STEPS[step]?.key !== "preview") return;
+    if (previewMatches !== null || previewLoading) return;
+
+    const primaryType =
+      form.selectedTypes[0] ||
+      (form.otherEnabled ? form.otherText.trim() : "") ||
+      form.category ||
+      "";
+    if (!primaryType) {
+      setPreviewMatches([]);
+      return;
+    }
+
+    setPreviewLoading(true);
+    setPreviewErr(null);
+    const qs = new URLSearchParams({
+      type: primaryType,
+      ...(form.location ? { location: form.location } : {}),
+    }).toString();
+
+    api
+      .get<{ items: PreviewMatch[] }>(`/api/projects/preview-matches?${qs}`)
+      .then((res: any) => {
+        const data = res?.data ?? res;
+        setPreviewMatches(Array.isArray(data?.items) ? data.items : []);
+      })
+      .catch((e: any) => {
+        setPreviewErr(e?.message || "Failed to load matches");
+        setPreviewMatches([]);
+      })
+      .finally(() => setPreviewLoading(false));
+  }, [STEPS, step, previewMatches, previewLoading, form.selectedTypes, form.otherEnabled, form.otherText, form.category, form.location, api]);
+
+  // Auth-aware + match-aware submit text. Guest with matches sees "Sign
+  // up to message them" so the value of signing up stays visible at the
+  // action moment. Guest with no matches sees "Sign up to post your job"
+  // (no point selling a message they can't send to nobody). Authed users
+  // always see "Post your job".
+  const isPreviewStep = STEPS[step]?.key === "preview";
+  const hasPreviewMatches = (previewMatches?.length || 0) > 0;
+  const submitText = !user
+    ? hasPreviewMatches
+      ? "Sign up to message them"
+      : "Sign up to post your job"
+    : "Post your job";
+
+  // Override the preview step's title + subtitle when we found nothing -
+  // the default copy ("Your local matches" / "We've found tradespeople...")
+  // is misleading when matches.length === 0.
+  function previewStepTitle(): string {
+    if (!isPreviewStep) return STEPS[step].title;
+    if (previewLoading) return "Your local matches";
+    if (hasPreviewMatches) return "Your local matches";
+    return "We're still looking";
+  }
+  function previewStepSubtitle(): string {
+    if (!isPreviewStep) return STEPS[step].subtitle;
+    if (previewLoading) return "Finding tradespeople in your area...";
+    if (hasPreviewMatches) return "Tradespeople nearby who can do this job.";
+    return "No local trades for this job just yet - we'll notify you when one's a fit.";
+  }
 
   function hasAnySubtype() {
     const picked = form.selectedTypes.length > 0;
@@ -325,6 +413,8 @@ export default function NewProject() {
           !!form.propertyType.trim() &&
           Object.keys(detailsStepErrors()).length === 0
         );
+      case "preview":
+        return true;
       default:
         return true;
     }
@@ -423,6 +513,23 @@ export default function NewProject() {
         ...(hasAnswers ? { answers: form.answers } : {}),
       };
 
+      // Guest path: stash the payload and route to signup. After auth
+      // completes, SignupForm flushes it via POST /api/projects with the
+      // new uid and routes to /projects/{id}. If the guest never signs
+      // up, sessionStorage clears with the tab and the draft is lost
+      // (option A - no server-side draft for v1).
+      if (!user) {
+        try {
+          sessionStorage.setItem(
+            "vmb:pendingProjectPayload",
+            JSON.stringify(payload),
+          );
+          sessionStorage.setItem("vmb:returnTo", "/projects");
+        } catch {}
+        router.replace("/signup");
+        return;
+      }
+
       const { data } = await api.post("/api/projects", payload);
       trackProjectCreated(data.project.id, payload.type);
       await new Promise((r) => setTimeout(r, 1200));
@@ -468,7 +575,7 @@ export default function NewProject() {
   const currentStep = STEPS[step];
 
   return (
-    <AuthedOnly>
+    <>
       <Head>
         <title>Post a Job — VetMyBuilder</title>
       </Head>
@@ -508,6 +615,11 @@ export default function NewProject() {
           MATERIALS_OPTIONS={MATERIALS_OPTIONS}
           getAccessChips={getAccessChips}
           normalize={normalize}
+          previewMatches={previewMatches}
+          previewLoading={previewLoading}
+          previewErr={previewErr}
+          isGuest={!user}
+          submitLabel={submitText}
         />
       </div>
 
@@ -517,7 +629,8 @@ export default function NewProject() {
       <Head>
         <style>{`body { background: #fef6e9 !important; }`}</style>
       </Head>
-      <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-12">
+      <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-12 relative overflow-hidden">
+        <BrandWatermarkScatter />
         <div className="relative z-10 mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 pt-6 sm:pt-12 pb-8">
           <div className="relative w-full overflow-hidden rounded-3xl bg-white border border-amber-100 shadow-sm">
 
@@ -559,10 +672,10 @@ export default function NewProject() {
                 style={{ fontFamily: "'Sora', sans-serif" }}
                 data-testid="step-title"
               >
-                {currentStep.title}
+                {previewStepTitle()}
               </h2>
               <p className="text-sm text-slate-500 mb-8">
-                {currentStep.subtitle}
+                {previewStepSubtitle()}
               </p>
 
               {/* ===== CATEGORY ===== */}
@@ -978,6 +1091,24 @@ export default function NewProject() {
                   />
                 </div>
               )}
+
+              {currentStep.key === "preview" && (
+                <div className="px-6 sm:px-10 pt-2 pb-6">
+                  <PreviewMatchesPanel
+                    matches={previewMatches}
+                    loading={previewLoading}
+                    err={previewErr}
+                    isGuest={!user}
+                  />
+                  {hasPreviewMatches && (
+                    <p className="mt-4 text-[12px] text-slate-500 leading-relaxed text-center">
+                      {!user
+                        ? "Sign up on the next step to message any of these tradespeople."
+                        : "Post your job to notify these tradespeople."}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Error */}
@@ -1018,13 +1149,13 @@ export default function NewProject() {
                     type="button"
                     onClick={onCreate}
                     disabled={!isStepValid(step) || busy}
-                    className={`inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold text-white shadow-lg transition-all disabled:opacity-40 disabled:shadow-none ${
+                    className={`inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold text-white shadow-lg shadow-indigo-500/25 transition-all disabled:opacity-40 disabled:shadow-none ${
                       busy ? "cursor-not-allowed" : "hover:shadow-xl hover:scale-[1.01] active:scale-[0.99]"
                     }`}
                     style={
                       busy
                         ? { background: "#94a3b8" }
-                        : { background: "linear-gradient(135deg,#10b981,#059669)" }
+                        : { background: "linear-gradient(135deg,#6366f1,#4f46e5)" }
                     }
                     data-testid="btn-create"
                   >
@@ -1034,7 +1165,7 @@ export default function NewProject() {
                         <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
                       </svg>
                     )}
-                    {busy ? "Creating..." : "Post my job \u2192"}
+                    {busy ? "Creating..." : `${submitText} \u2192`}
                   </button>
                 )}
               </div>
@@ -1055,7 +1186,7 @@ export default function NewProject() {
       </div>
       </Layout>
       </div>
-    </AuthedOnly>
+    </>
   );
 }
 

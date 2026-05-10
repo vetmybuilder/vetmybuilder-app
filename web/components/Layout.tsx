@@ -1,12 +1,7 @@
 // web/components/Layout.tsx
 import { useEffect } from "react";
-import dynamic from "next/dynamic";
 import SiteHeader from "@/components/SiteHeader";
-
-const AddToHomeScreenToast = dynamic(
-  () => import("@/components/AddToHomeScreenToast"),
-  { ssr: false },
-);
+import TradeAcquisitionBanner from "@/components/TradeAcquisitionBanner";
 
 export default function Layout({
   children,
@@ -30,6 +25,7 @@ export default function Layout({
         Skip to content
       </a>
 
+      <TradeAcquisitionBanner />
       <SiteHeader />
 
       <main
@@ -40,7 +36,6 @@ export default function Layout({
         {children}
       </main>
 
-      <AddToHomeScreenToast />
     </>
   );
 }

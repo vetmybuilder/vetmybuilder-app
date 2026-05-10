@@ -8,6 +8,7 @@ import { initFirebase } from "@/utils/firebase";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { useAuth } from "@/utils/auth";
 import { ensureEmailAvailable } from "@/utils/email";
+import { flushPendingProject } from "@/utils/flushPendingProject";
 import RegisterField from "./RegisterField";
 import LocationField from "@/components/forms/LocationField";
 import OAuthSignInButton from "@/components/forms/OAuthSignInButton";
@@ -238,6 +239,16 @@ export default function SignupForm() {
         email,
       });
 
+      // Set the push-prompt flag BEFORE refreshProfile so that when
+      // profileComplete flips to true, PushPromptMount's effect picks
+      // it up on the same tick. Setting it after refreshProfile would
+      // miss the trigger (effect already ran with no flag).
+      try {
+        if ("Notification" in window && !localStorage.getItem("vmb:pushSetupShown")) {
+          sessionStorage.setItem("vmb:showPushPrompt", "1");
+        }
+      } catch {}
+
       // Re-hydrate the auth context from /api/me so profileComplete flips
       // to true before we navigate. Without this, AuthedOnly on /projects
       // would see the stale profileComplete=false (set when /api/me fired
@@ -247,14 +258,15 @@ export default function SignupForm() {
       await refreshProfile();
       trackSignup("email", "homeowner");
 
-      const target = nextPath || "/projects";
+      // Flush a pending project payload (guest started the wizard at
+      // /projects/new, hit submit, got bounced here). See
+      // utils/flushPendingProject.ts for the contract.
+      const pendingTarget = await flushPendingProject(api);
+      const target = pendingTarget || nextPath || "/projects";
 
       try {
         sessionStorage.setItem("vmb:returnTo", target);
         sessionStorage.setItem("vmb:didLoginRedirect", String(Date.now()));
-        if ("Notification" in window && !localStorage.getItem("vmb:pushSetupShown")) {
-          sessionStorage.setItem("vmb:showPushPrompt", "1");
-        }
       } catch {}
 
       router.replace(target);
@@ -303,9 +315,23 @@ export default function SignupForm() {
         onError={(msg) => setErr(msg)}
       />
 
+      <p
+        className="text-center text-[12.5px] text-slate-500"
+        data-testid="signup-already-member"
+      >
+        Already a member?{" "}
+        <Link
+          href={{ pathname: "/login", query: { next: nextPath } }}
+          className="font-extrabold text-indigo-700 hover:underline"
+          data-testid="signup-signin-link"
+        >
+          Sign in
+        </Link>
+      </p>
+
       <div className="flex items-center gap-3 text-[10.5px] uppercase tracking-wider text-slate-400 font-bold">
         <div className="h-px flex-1 bg-slate-200" />
-        <span>or</span>
+        <span>or sign up with email</span>
         <div className="h-px flex-1 bg-slate-200" />
       </div>
 
@@ -469,15 +495,6 @@ export default function SignupForm() {
         {loading ? "Creating…" : "Create account"}
       </button>
 
-      <p className="mt-2 text-center text-[13px] text-slate-500">
-        Already have an account?
-        <Link
-          href={{ pathname: "/login", query: { next: nextPath } }}
-          className="font-extrabold text-indigo-600 hover:text-indigo-700 ml-1"
-        >
-          Sign in
-        </Link>
-      </p>
       </form>
     </div>
   );

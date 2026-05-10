@@ -1,7 +1,6 @@
 // web/components/AuthedOnly.tsx
 import { useAuth, isSignOutInProgress } from "@/utils/auth";
 import { useRouter } from "next/router";
-import Link from "next/link";
 import { useEffect, useRef } from "react";
 
 // Pages where we additionally require a complete homeowner profile (i.e.
@@ -88,34 +87,13 @@ export default function AuthedOnly({
     ensureSignedIn,
   ]);
 
-  if (loading) return <p data-testid="auth-loading">Loading...</p>;
-
-  // Not signed in - the useEffect above is navigating to /login. Render
-  // a small friendly fallback in case the navigation is mid-flight, so
-  // visitors never see a blank screen.
-  if (!user) {
-    return (
-      <div
-        className="mx-auto max-w-md px-4 py-20"
-        data-testid="auth-required-fallback"
-      >
-        <div className="bg-white/95 backdrop-blur rounded-3xl shadow-xl p-8 text-center">
-          <h1 className="text-2xl font-black text-zinc-900 mb-3">
-            Please sign in
-          </h1>
-          <p className="text-zinc-600 mb-6 text-sm">
-            You need to be signed in to view this page.
-          </p>
-          <Link
-            href="/login"
-            className="inline-flex items-center justify-center rounded-full bg-red-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:scale-[1.02] transition-all"
-          >
-            Sign in
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  // Render nothing while the auth state is still hydrating OR while the
+  // useEffect above is navigating to /login. Showing visible chrome
+  // (a "Loading..." string or a "Please sign in" fallback card) caused
+  // a brief flash of an old-design page during route transitions -
+  // returning null keeps the viewport empty for that single tick before
+  // the next route paints.
+  if (loading || !user) return null;
 
   // On homeowner-area pages, hold off rendering protected content until
   // we've confirmed the user has a complete profile. profileComplete being
