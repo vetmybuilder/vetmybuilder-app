@@ -63,7 +63,7 @@ export default function ProjectMobileRecsStrip({ projectId, recs }: Props) {
                 type="button"
                 onClick={() =>
                   router.push(
-                    `/projects/${projectId}/recommendations/${rc.recommendationId}`,
+                    `/builders/${rc.recommendationId}?projectId=${projectId}`,
                   )
                 }
                 className="w-full text-left flex items-center gap-3 px-4 py-3 active:bg-stone-50/60 transition-colors"

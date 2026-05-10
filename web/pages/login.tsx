@@ -24,7 +24,7 @@ import OAuthSignInButton from "@/components/forms/OAuthSignInButton";
  */
 const DEEP_ROUTE_PATTERNS: RegExp[] = [
   /^\/match\/[^/?#]+/, // /match/<matchId>
-  /^\/projects\/\d+(\/|$)/, // /projects/<id> + sub-paths (edit, close, shortlist, recommend, recommendations/[recId])
+  /^\/projects\/\d+(\/|$)/, // /projects/<id> + sub-paths (edit, close, shortlist, recommend)
   /^\/chat\/[^/?#]+/, // /chat/<matchId>
   /^\/builders\/\d+/, // /builders/<recId>
   // Admin entries live under /admin/* and are reached via /admin/login →

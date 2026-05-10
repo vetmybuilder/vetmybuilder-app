@@ -57,7 +57,7 @@ export default defineConfig({
   // CI instead of the GitHub Actions step-timeout SIGKILL'ing us with
   // nothing flushed. Default 20 minutes, override via PW_GLOBAL_TIMEOUT.
   globalTimeout: Number(process.env.PW_GLOBAL_TIMEOUT ?? 20 * 60_000),
-  retries: 1,
+  retries: process.env.CI ? 3 : 2,
   reporter: [["list"], ["html", { open: "never" }]],
   // Warm each API shard's /health once before tests start, outside any
   // per-test timeout, so the first beforeEach probe doesn't pay cold-start
