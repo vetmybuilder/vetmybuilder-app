@@ -286,11 +286,11 @@ export default function Home() {
                   {isTrades ? "Work, your way." : "Let’s find yours."}
                 </h1>
 
-                {/* Desktop-only CTAs sit inside the hero overlay so the
-                    primary action is above the fold without scrolling.
-                    Mobile keeps the existing CTAs in the cream block below
-                    the photo (where they have room to breathe). */}
-                <div className="hidden md:flex mt-6 lg:mt-8 flex-wrap gap-3">
+                {/* CTAs sit inside the hero overlay on every viewport so
+                    the primary action is consistently above the fold.
+                    items-start prevents flex from stretching them to
+                    full-width on mobile (which would dominate the photo). */}
+                <div className="mt-5 md:mt-6 lg:mt-8 flex flex-row flex-wrap items-start gap-2.5 md:gap-3">
                   {isTrades ? (
                     <>
                       <Link
@@ -366,73 +366,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Cream block continuing below the photo. Mobile-only - just
-              CTAs (the supporting paragraph + ratings/verified strip
-              previously here were dropped to match the desktop cleanup).
-              Desktop pulls the CTAs up into the hero overlay so above-
-              the-fold value is clear without scrolling. */}
-          <div className="md:hidden px-5 sm:px-8 pt-6 pb-9">
-            <div className="mx-auto max-w-md">
-              {isTrades ? (
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Link
-                    href="/tradesman/jobs"
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-4 text-[15px] sm:text-lg font-extrabold text-white shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
-                    style={{ background: "linear-gradient(135deg,#10b981,#059669)" }}
-                    data-testid="hero-cta"
-                  >
-                    View available jobs
-                    <IconArrowRight className="h-5 w-5" />
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white border-[1.5px] border-amber-200 px-6 py-3.5 text-[14px] sm:text-base font-bold text-amber-800 hover:bg-amber-50 transition-colors"
-                  >
-                    See how it works
-                  </button>
-                </div>
-              ) : user ? (
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Link
-                    href="/projects/new"
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-4 text-[15px] sm:text-lg font-extrabold text-white shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
-                    style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
-                    data-testid="hero-cta"
-                  >
-                    Post a new job
-                    <IconArrowRight className="h-5 w-5" />
-                  </Link>
-                  <Link
-                    href="/projects"
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white border-[1.5px] border-amber-200 px-6 py-3.5 text-[14px] sm:text-base font-bold text-amber-800 hover:bg-amber-50 transition-colors"
-                  >
-                    My projects
-                  </Link>
-                </div>
-              ) : (
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Link
-                    href="/projects/new"
-                    onClick={rememberReturnTo}
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-4 text-[15px] sm:text-lg font-extrabold text-white shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
-                    style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
-                    data-testid="hero-cta"
-                  >
-                    Post a job
-                    <IconArrowRight className="h-5 w-5" />
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white border-[1.5px] border-amber-200 px-6 py-3.5 text-[14px] sm:text-base font-bold text-amber-800 hover:bg-amber-50 transition-colors"
-                  >
-                    See how it works
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
         </section>
 
         <HomeStats />

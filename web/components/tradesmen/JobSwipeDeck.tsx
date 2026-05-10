@@ -266,7 +266,7 @@ export default function JobSwipeDeck({
               onPointerCancel={isTop && !flipped ? onPointerUp : undefined}
               onContextMenu={isTop ? (e) => e.preventDefault() : undefined}
               onDragStart={isTop ? (e) => e.preventDefault() : undefined}
-              className={`absolute inset-0 ${isTop ? "touch-none select-none will-change-transform" : ""}`}
+              className={`absolute inset-0 ${isTop && !flipped ? "touch-none select-none" : ""} ${isTop ? "will-change-transform" : ""}`}
               style={
                 {
                   zIndex: 10 - i,
@@ -279,11 +279,14 @@ export default function JobSwipeDeck({
                   perspective: "1200px",
                   willChange: "transform, opacity",
                   contain: "layout paint",
-                  // touchAction: none on the inline style as well as the
-                  // class belt-and-braces - on iOS Safari Tailwind's
-                  // touch-none class can be overridden by parent flex
-                  // styles that set touch-action: pan-y.
-                  touchAction: "none",
+                  // touchAction: none locks out scroll inside the back
+                  // face (its overflow-y-auto can't pan when an ancestor
+                  // blocks touch). Apply only while the front face owns
+                  // the gesture. Belt-and-braces with the touch-none
+                  // class above - on iOS Safari Tailwind's class can be
+                  // overridden by parent flex styles that set
+                  // touch-action: pan-y.
+                  touchAction: isTop && !flipped ? "none" : "auto",
                   WebkitTouchCallout: "none",
                   WebkitUserSelect: "none",
                   userSelect: "none",
@@ -310,13 +313,13 @@ export default function JobSwipeDeck({
                     : "none",
                   transform:
                     isTop && flipped ? "rotateY(180deg)" : "rotateY(0deg)",
-                  // Block all child pointer events. The wrapper above
-                  // owns the swipe gesture; without this, iOS Safari
-                  // can pick up "tap" hits on the gradient overlay or
-                  // chip elements and treat the start of a drag as
-                  // text-select, which feels like the swipe needs the
-                  // user to find a "blank" spot before responding.
-                  pointerEvents: "none",
+                  // Block child pointer events ONLY while the front face
+                  // owns the swipe gesture. Without this, iOS Safari picks
+                  // up "tap" hits on the gradient overlay or chip elements
+                  // and treats drag-start as text-select. When flipped,
+                  // the back face needs real clicks (any links/buttons)
+                  // and scroll, so we re-enable.
+                  pointerEvents: isTop && flipped ? "auto" : "none",
                 }}
               >
                 <div
