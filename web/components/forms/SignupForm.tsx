@@ -10,7 +10,6 @@ import { useAuth } from "@/utils/auth";
 import { ensureEmailAvailable } from "@/utils/email";
 import { flushPendingProject } from "@/utils/flushPendingProject";
 import RegisterField from "./RegisterField";
-import LocationField from "@/components/forms/LocationField";
 import OAuthSignInButton from "@/components/forms/OAuthSignInButton";
 import PasswordChecklist, {
   isStrongPassword,
@@ -24,7 +23,6 @@ type FieldErrors = Partial<
     | "email"
     | "password"
     | "confirmPassword"
-    | "location"
     | "betaCode",
     string
   >
@@ -37,7 +35,6 @@ type FormState = {
   email: string;
   password: string;
   confirmPassword: string;
-  location: string;
   betaCode: string;
 };
 
@@ -71,7 +68,6 @@ export default function SignupForm() {
     email: "",
     password: "",
     confirmPassword: "",
-    location: "",
     betaCode: "",
   });
 
@@ -95,14 +91,12 @@ export default function SignupForm() {
     firstName: string;
     lastName: string;
     username: string;
-    location: string;
     idToken: string;
   }) {
     const payload = {
       firstName: input.firstName.trim(),
       lastName: input.lastName.trim(),
       username: input.username.trim(),
-      location: input.location.trim(),
     };
 
     const res = await fetch("/api/account", {
@@ -149,13 +143,11 @@ export default function SignupForm() {
     const usernameTrim = form.username.trim();
     const emailTrim = form.email.trim();
     const passwordTrim = form.password.trim();
-    const locationTrim = form.location.trim();
 
     const clientErrors: FieldErrors = {};
     if (!firstNameTrim) clientErrors.firstName = "First name is required.";
     if (!lastNameTrim) clientErrors.lastName = "Last name is required.";
     if (!usernameTrim) clientErrors.username = "Username is required.";
-    if (!locationTrim) clientErrors.location = "Postcode or city is required.";
     if (!emailTrim) clientErrors.email = "Email is required.";
     if (emailTrim && !isValidEmail(emailTrim)) {
       clientErrors.email = "Enter a valid email address.";
@@ -226,7 +218,6 @@ export default function SignupForm() {
         firstName: form.firstName,
         lastName: form.lastName,
         username: form.username,
-        location: form.location,
         idToken,
       });
 
@@ -397,31 +388,6 @@ export default function SignupForm() {
         autoComplete="username"
         onChange={(v) => set("username", v)}
       />
-
-      <div>
-        <LocationField
-          id="reg-loc"
-          label="Your area"
-          placeholder="E4, N17, Chingford"
-          value={form.location}
-          onChange={(v, meta) => {
-            if (meta) {
-              const token = meta.outward || meta.sector || meta.postcode || v;
-              set("location", token);
-            } else {
-              set("location", v);
-            }
-          }}
-          dataTestId="reg-reg-loc"
-          reasonText="Postcode or borough. We use this to surface local builders."
-          error={fieldErrors.location}
-        />
-        {fieldErrors.location && (
-          <p className="mt-1 text-sm text-red-500 font-medium" role="alert" data-testid="reg-reg-loc-error">
-            {fieldErrors.location}
-          </p>
-        )}
-      </div>
 
       <div>
         <RegisterField

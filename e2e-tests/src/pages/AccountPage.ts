@@ -6,14 +6,12 @@ export type AccountValues = {
   lastName: string;
   email: string;
   username: string;
-  location: string;
 };
 
 export type AccountFieldErrors = {
   firstName?: string;
   lastName?: string;
   username?: string;
-  location?: string;
 };
 
 type AccountEditableValues = Omit<AccountValues, "email">;
@@ -30,7 +28,6 @@ export class AccountPage {
   readonly lastName: Locator;
   readonly email: Locator;
   readonly username: Locator;
-  readonly location: Locator;
 
   readonly saveButton: Locator;
 
@@ -49,7 +46,6 @@ export class AccountPage {
     this.lastName = page.locator("#acc-last");
     this.email = page.locator("#acc-email");
     this.username = page.locator("#acc-username");
-    this.location = page.locator("#acc-location");
 
     this.saveButton = page.getByRole("button", { name: "Save changes" });
 
@@ -98,8 +94,7 @@ export class AccountPage {
 
     await this.firstName.fill(updated.firstName);
     await this.lastName.fill(updated.lastName);
-    // username is read-only — cannot be changed
-    await this.location.fill(updated.location);
+    // username is read-only - cannot be changed
 
     await this.saveChanges();
 
@@ -119,7 +114,6 @@ export class AccountPage {
     await expect(this.lastName).toHaveValue(expected.lastName);
     await expect(this.email).toHaveValue(expected.email);
     await expect(this.username).toHaveValue(expected.username);
-    await expect(this.location).toHaveValue(expected.location);
   }
 
   async hasAccountFieldErrors(expected: AccountFieldErrors) {
@@ -137,10 +131,6 @@ export class AccountPage {
     if (expected.username) {
       await expect(this.username).toHaveAttribute("aria-invalid", "true");
       await expect(this.errorAlert).toContainText(expected.username);
-    }
-    if (expected.location) {
-      await expect(this.location).toHaveAttribute("aria-invalid", "true");
-      await expect(this.errorAlert).toContainText(expected.location);
     }
   }
 

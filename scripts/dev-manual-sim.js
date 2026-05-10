@@ -420,11 +420,13 @@ async function ensureElegantCanonical() {
 async function ensureGhostTrades() {
   const masterUid =
     process.env.MASTER_UID || "SvZkVPUzQeP679OzCtehCPmfoY53"; // Elegant
-  // Per-canonical-trade ghost count. With ~70 canonical trade labels and
-  // PER_TRADE=30, that's ~2100 ghost rows total - enough that any project
-  // type sees 30-60+ matching trades in its deck.
+  // Per-canonical-trade ghost count. With ~85 canonical trade labels and
+  // PER_TRADE=30, that's ~2550 ghost rows total - enough that any project
+  // type sees 30-60+ matching trades in its deck. Bumping this number when
+  // the canonical list grows is what triggers SKIP_DB_WIPE runs to detect
+  // "fewer ghosts than expected" and auto-reseed the new entries.
   const perTrade = Number(process.env.GHOST_PER_TRADE) || 30;
-  const expectedTotal = perTrade * 70; // approx; canonical list size
+  const expectedTotal = perTrade * 85; // approx; canonical list size
 
   // Skip the regenerate if we already have a full set for this master.
   // The seed script wipes + recreates which is fine for first-run but

@@ -212,11 +212,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           isTradesman: !!me.isTradesman,
         }),
       );
-      // A tradesman-only account legitimately has no homeowner postcode.
-      // Treat them as profile-complete so the homeowner-gating logic in
-      // AuthedOnly / GuestOnly / SiteHeader doesn't bounce them to
-      // /signup/complete on reload.
-      setProfileComplete(!!me.postcodeOutward || !!me.isTradesman);
+      // Postcode is no longer captured at signup, so the only thing left
+      // gating profile-completion is whether /api/me returned a usable
+      // row. A successful response always implies the row exists (touchUserMw
+      // upserts on first authed request from the Firebase token), so we
+      // treat any successful /api/me as profile-complete.
+      setProfileComplete(true);
     } catch {
       // non-fatal — caller can retry
     }
@@ -283,10 +284,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             if (!alive) return;
             setUser(merged);
-            // See refreshProfile() above — a tradesman-only account is
-            // legitimately profile-complete despite having no homeowner
-            // postcode.
-            setProfileComplete(!!me.postcodeOutward || !!me.isTradesman);
+            // See refreshProfile() above — postcode is no longer required;
+            // a successful /api/me always means the user row exists.
+            setProfileComplete(true);
 
             // Routing decisions based on profileComplete are owned by the
             // route wrappers (GuestOnly for /signup, /login etc., and

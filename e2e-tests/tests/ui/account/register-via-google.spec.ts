@@ -10,17 +10,16 @@ test.describe("Register via Google (real popup)", () => {
   // covers the same post-OAuth flow without popup choreography.
   test.skip(IS_CI, "real popup tests are unreliable in CI");
 
-  test("clicks Continue with Google, drives the emulator popup, and finishes signup", async ({
+  test("clicks Continue with Google, drives the emulator popup, and lands on /projects", async ({
     registerPage,
-    signupCompletePage,
     homeownerProjectsPage,
   }) => {
     const account = Account.aNewOAuthAccount("google");
 
     await registerPage.goto();
     await registerPage.signInAsNewOAuthAccount("google", account);
-    await signupCompletePage.expectVisible();
-    await signupCompletePage.completeAndExpectRedirect({ location: "E4" });
+    // Postcode is no longer captured at signup, so the OAuth user lands
+    // directly on /projects without a /signup/complete detour.
     await homeownerProjectsPage.expectVisible();
   });
 });

@@ -13,7 +13,6 @@ import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
 import AccountField from "@/components/forms/AccountField";
-import LocationField from "@/components/forms/LocationField";
 import InstallAppRow from "@/components/InstallAppRow";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
@@ -40,7 +39,7 @@ type AccountProfile = {
   updatedAt?: string | null;
 };
 
-type FieldKey = "firstName" | "lastName" | "username" | "location";
+type FieldKey = "firstName" | "lastName" | "username";
 type FieldErrors = Partial<Record<FieldKey, string>>;
 
 // ── Notification types ───────────────────────────────────────────────────────
@@ -165,7 +164,6 @@ export default function ManageAccount() {
     lastName: "",
     email: "",
     username: "",
-    location: "",
   });
 
   const ids = useMemo(
@@ -174,7 +172,6 @@ export default function ManageAccount() {
       last: "acc-last",
       email: "acc-email",
       username: "acc-username",
-      location: "acc-location",
     }),
     [],
   );
@@ -208,7 +205,6 @@ export default function ManageAccount() {
           lastName: (u?.lastName ?? "") || "",
           email: (u?.email ?? "") || "",
           username: (u?.username ?? "") || "",
-          location: (p?.locationRaw ?? "") || "",
         });
       } catch (e: any) {
         if (!alive) return;
@@ -227,15 +223,12 @@ export default function ManageAccount() {
     firstName: string | null;
     lastName: string | null;
     username: string | null;
-    location: string;
   }) => {
     const fe: FieldErrors = {};
 
     if (!next.firstName) fe.firstName = "First name is required.";
     if (!next.lastName) fe.lastName = "Last name is required.";
     if (!next.username) fe.username = "Username is required.";
-    if (!String(next.location || "").trim())
-      fe.location = "Postcode or city is required.";
 
     return fe;
   };
@@ -253,7 +246,6 @@ export default function ManageAccount() {
       firstName: form.firstName.trim() || null,
       lastName: form.lastName.trim() || null,
       username: form.username.trim() || null,
-      location: form.location.trim() || "",
     };
 
     const clientErrors = validate(payload);
@@ -267,9 +259,7 @@ export default function ManageAccount() {
           ? ids.first
           : firstKey === "lastName"
             ? ids.last
-            : firstKey === "username"
-              ? ids.username
-              : ids.location;
+            : ids.username;
 
       queueMicrotask(() => document.getElementById(focusId)?.focus());
       setBusy(false);
@@ -374,12 +364,12 @@ export default function ManageAccount() {
 
   // ── Status pill helpers ────────────────────────────────────────────────────
 
-  // Profile pill: count required fields (firstName, lastName, username, location)
+  // Profile pill: count required fields (firstName, lastName, username)
   const profilePill = useMemo(() => {
     if (loading) return null;
-    const required = [form.firstName, form.lastName, form.username, form.location];
+    const required = [form.firstName, form.lastName, form.username];
     const filled = required.filter((v) => v && v.trim()).length;
-    const empty = 4 - filled;
+    const empty = required.length - filled;
     if (empty === 0) {
       return { label: "All set", color: "emerald" as const };
     }
@@ -663,24 +653,6 @@ export default function ManageAccount() {
                       />
                     </AccountField>
 
-                    <AccountField id={ids.location} label="Postcode or City/Borough" required error={fieldErrors.location} errorId="acc-location-error">
-                      <LocationField
-                        id={ids.location}
-                        label=""
-                        placeholder="e.g., E4, N17, Chingford"
-                        value={form.location}
-                        onChange={(v, meta) => {
-                          if (meta) {
-                            const token = meta.outward || meta.sector || meta.postcode || v;
-                            set("location", token);
-                          } else {
-                            set("location", v);
-                          }
-                        }}
-                        reasonText=""
-                        error={fieldErrors.location}
-                      />
-                    </AccountField>
                   </div>
 
                   <div className="bg-white rounded-2xl shadow-sm p-4 flex flex-col gap-4">

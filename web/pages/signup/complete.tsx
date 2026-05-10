@@ -2,10 +2,13 @@
 // Post-OAuth profile completion page.
 //
 // Reached by users who signed in via a social provider (currently Google)
-// but don't yet have a complete homeowner profile in MySQL - specifically,
-// they're missing a postcode. We only ask for the postcode here; first/last
-// name and username are derived server-side from the Google token claims
-// (`name` and `email`) by POST /api/account.
+// but still owe us terms acceptance (and, when enabled, a beta access
+// code). First/last name and username are derived server-side from the
+// Google token claims (`name` and `email`) by POST /api/account.
+//
+// We no longer ask homeowners for their postcode - matching uses the job
+// location, not the homeowner's. Existing users who set a postcode at
+// signup keep it; new users can add one later from /account if they want.
 
 import { useEffect, useState } from "react";
 import Head from "next/head";
@@ -14,21 +17,16 @@ import { useRouter } from "next/router";
 import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 import { flushPendingProject } from "@/utils/flushPendingProject";
-import LocationField from "@/components/forms/LocationField";
-
-type FieldErrors = Partial<Record<"location", string>>;
 
 export default function SignupComplete() {
   const router = useRouter();
   const api = useApi();
   const { user, loading: authLoading, refreshProfile } = useAuth();
 
-  const [location, setLocation] = useState("");
   const [betaCode, setBetaCode] = useState("");
   const [betaRequired, setBetaRequired] = useState(false);
   const [betaCodeErr, setBetaCodeErr] = useState<string | null>(null);
   const [agreedTerms, setAgreedTerms] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [hydrating, setHydrating] = useState(true);
@@ -60,34 +58,22 @@ export default function SignupComplete() {
       .catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Prefill the postcode if /api/me already has one (e.g. user landed here
-  // by mistake) and bounce them out if onboarding is already complete.
+  // Bounce out immediately if there's nothing left to capture: the user
+  // is signed in, has a row in MySQL (touchUserMw guarantees that on the
+  // first authed request from /api/auth/beta-status above), and beta isn't
+  // gating them. Otherwise drop them on the form to accept terms.
   useEffect(() => {
     if (authLoading || !user) return;
 
     let alive = true;
     (async () => {
       try {
-        const { data } = await api.get("/api/me");
+        // Touch /api/me so the user row + name fields are hydrated from
+        // the Firebase token before we redirect.
+        await api.get("/api/me");
         if (!alive) return;
-
-        setLocation(data?.locationRaw || "");
-
-        // Already complete? Bounce them to wherever they came from. Use the
-        // dedicated `vmb:oauthReturnTo` key (NOT vmb:returnTo) - see the
-        // OAuthSignInButton comment for why.
-        if (data?.postcodeOutward) {
-          let target = "/projects";
-          try {
-            const stored = sessionStorage.getItem("vmb:oauthReturnTo");
-            if (stored && stored.startsWith("/")) target = stored;
-            sessionStorage.removeItem("vmb:oauthReturnTo");
-          } catch {}
-          router.replace(target);
-          return;
-        }
       } catch {
-        // Non-fatal - user can still fill the form manually
+        // Non-fatal - the page will still render the terms form.
       } finally {
         if (alive) setHydrating(false);
       }
@@ -101,14 +87,7 @@ export default function SignupComplete() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
-    setFieldErrors({});
     setBetaCodeErr(null);
-
-    if (!location.trim()) {
-      setFieldErrors({ location: "Postcode or city is required." });
-      setErr("Please enter your postcode or city.");
-      return;
-    }
 
     if (betaRequired) {
       const code = (betaCode || "").trim();
@@ -134,9 +113,10 @@ export default function SignupComplete() {
 
     setLoading(true);
     try {
-      await api.post("/api/account", {
-        location: location.trim(),
-      });
+      // Touch /api/account so any name/username defaulting from Google
+      // claims runs. Postcode is no longer captured here - matching uses
+      // the project location, not the homeowner's.
+      await api.post("/api/account", {});
 
       // Set the push-prompt flag BEFORE refreshProfile so that when
       // profileComplete flips to true, PushPromptMount's effect picks
@@ -169,15 +149,8 @@ export default function SignupComplete() {
       } catch {}
       router.replace(target);
     } catch (e: any) {
-      const status = e?.response?.status;
       const body = e?.response?.data;
-
-      if (status === 400 && body?.fieldErrors) {
-        setFieldErrors(body.fieldErrors as FieldErrors);
-        setErr(body?.message || "Please enter your postcode or city.");
-      } else {
-        setErr(body?.message || "Could not save your profile. Please try again.");
-      }
+      setErr(body?.message || "Could not save your profile. Please try again.");
       setLoading(false);
     }
   }
@@ -204,8 +177,8 @@ export default function SignupComplete() {
               Almost there
             </h1>
             <p className="mt-2 text-[13.5px] text-slate-500 leading-snug">
-              Just one more thing - what&apos;s your postcode? We use it to match
-              you with tradespeople near you.
+              One last step - confirm you&apos;re happy with our terms and
+              you&apos;re in.
             </p>
           </div>
 
@@ -251,36 +224,6 @@ export default function SignupComplete() {
                 )}
               </div>
             )}
-
-            <div>
-              <LocationField
-                id="complete-loc"
-                label="Postcode or City/Borough"
-                placeholder="e.g., E4, N17, Chingford"
-                value={location}
-                onChange={(v, meta) => {
-                  if (meta) {
-                    const token =
-                      meta.outward || meta.sector || meta.postcode || v;
-                    setLocation(token);
-                  } else {
-                    setLocation(v);
-                  }
-                }}
-                dataTestId="complete-complete-loc"
-                reasonText=""
-                error={fieldErrors.location}
-              />
-              {fieldErrors.location && (
-                <p
-                  className="mt-1 text-sm font-medium text-red-600"
-                  role="alert"
-                  data-testid="complete-complete-loc-error"
-                >
-                  {fieldErrors.location}
-                </p>
-              )}
-            </div>
 
             <label
               className="flex items-start gap-2.5 cursor-pointer"

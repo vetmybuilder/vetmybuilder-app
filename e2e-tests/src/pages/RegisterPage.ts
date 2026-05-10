@@ -20,8 +20,7 @@ type FieldKey =
   | "lastName"
   | "username"
   | "email"
-  | "password"
-  | "location";
+  | "password";
 
 type FieldErrors = Partial<Record<FieldKey, string>>;
 
@@ -37,14 +36,12 @@ export class RegisterPage {
   readonly email: Locator;
   readonly password: Locator;
   readonly confirmPassword: Locator;
-  readonly location: Locator;
 
   readonly firstNameError: Locator;
   readonly lastNameError: Locator;
   readonly usernameError: Locator;
   readonly emailError: Locator;
   readonly passwordError: Locator;
-  readonly locationError: Locator;
 
   readonly formError: Locator;
 
@@ -70,18 +67,12 @@ export class RegisterPage {
     this.email = page.getByLabel("Email", { exact: true });
     this.password = page.getByLabel("Password", { exact: true });
     this.confirmPassword = page.getByLabel("Confirm password", { exact: true });
-    // Label was renamed "Postcode or City/Borough" -> "Your area" in
-    // the homeowner-signup form refresh. The input is still the same
-    // LocationField (data-testid="reg-reg-loc" on the wrapping div,
-    // id="reg-loc" on the input itself).
-    this.location = page.getByLabel("Your area", { exact: true });
 
     this.firstNameError = page.getByTestId("reg-reg-fn-error");
     this.lastNameError = page.getByTestId("reg-reg-ln-error");
     this.usernameError = page.getByTestId("reg-reg-un-error");
     this.emailError = page.getByTestId("reg-reg-email-error");
     this.passwordError = page.getByTestId("reg-reg-pass-error");
-    this.locationError = page.getByTestId("reg-reg-loc-error");
 
     this.formError = page.getByTestId("register-error");
 
@@ -124,15 +115,6 @@ export class RegisterPage {
     await this.email.fill(input.email);
     await this.password.fill(input.password);
     await this.confirmPassword.fill(input.password);
-    await this.location.fill(input.location);
-    // Dismiss the postcode autocomplete dropdown so it doesn't block submit.
-    // hasInteracted is reset in the Escape handler so the in-flight async
-    // fetch cannot re-open the dropdown after we dismiss it.
-    await this.location.press("Escape");
-    await this.page
-      .locator('[role="listbox"]')
-      .waitFor({ state: "hidden", timeout: 3_000 })
-      .catch(() => {});
   }
 
   async fillFromAccount(account: Account): Promise<void> {
@@ -235,11 +217,6 @@ export class RegisterPage {
     if (errors.password) {
       await expect(this.passwordError).toHaveText(errors.password);
       await expect(this.password).toHaveClass(/border-red-500/);
-    }
-
-    if (errors.location) {
-      await expect(this.locationError).toHaveText(errors.location);
-      await expect(this.location).toHaveClass(/border-red-500/);
     }
   }
 }
