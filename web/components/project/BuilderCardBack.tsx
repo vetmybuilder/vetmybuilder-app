@@ -132,8 +132,7 @@ export default function BuilderCardBack({
   return (
     <>
     <div
-      className="relative md:rounded-[22px] overflow-hidden bg-white border border-gray-100 shadow-md flex flex-col h-full"
-      style={{ boxShadow: "0 6px 22px rgba(15,23,42,0.08)" }}
+      className="relative md:rounded-[22px] overflow-hidden bg-white flex flex-col h-full"
     >
       {/* Hero band */}
       <div className="px-4 py-4 text-white" style={{ background: heroBg }}>

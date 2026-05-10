@@ -307,7 +307,7 @@ export default function SwipeDeck({
               onPointerCancel={isTop && !flipped ? onPointerUp : undefined}
               onContextMenu={isTop ? (e) => e.preventDefault() : undefined}
               onDragStart={isTop ? (e) => e.preventDefault() : undefined}
-              className={`absolute inset-0 ${isTop ? "touch-none select-none will-change-transform" : ""}`}
+              className={`absolute inset-0 ${isTop && !flipped ? "touch-none select-none" : ""} ${isTop ? "will-change-transform" : ""}`}
               style={
                 {
                   zIndex: 10 - i,
@@ -320,7 +320,10 @@ export default function SwipeDeck({
                   perspective: "1200px",
                   willChange: "transform, opacity",
                   contain: "layout paint",
-                  touchAction: "none",
+                  // touch-action:none locks out scroll inside the back face
+                  // (its overflow-y-auto can't pan when an ancestor blocks
+                  // touch). Apply only while the front face owns the gesture.
+                  touchAction: isTop && !flipped ? "none" : "auto",
                   WebkitTouchCallout: "none",
                   WebkitUserSelect: "none",
                   userSelect: "none",
@@ -347,12 +350,13 @@ export default function SwipeDeck({
                     : "none",
                   transform:
                     isTop && flipped ? "rotateY(180deg)" : "rotateY(0deg)",
-                  // Block all child pointer events. The wrapper above
-                  // owns the swipe gesture; without this, iOS Safari
-                  // can pick up "tap" hits on the gradient overlay or
-                  // chip elements and treat the start of a drag as
-                  // text-select.
-                  pointerEvents: "none",
+                  // Block child pointer events ONLY while the front face
+                  // owns the swipe gesture. Without this, iOS Safari picks
+                  // up "tap" hits on the gradient overlay or chip elements
+                  // and treats drag-start as text-select. When flipped,
+                  // the back face needs real clicks (photo lightbox) so we
+                  // re-enable.
+                  pointerEvents: isTop && flipped ? "auto" : "none",
                 }}
               >
                 <div

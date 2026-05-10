@@ -270,28 +270,47 @@ export default function TradesmanLeadsPage() {
                     <div
                       key={lead.matchId}
                       className="shrink-0 snap-start pr-3 pt-1 pb-3"
-                      style={{ width: "calc(100% - 40px)" }}
+                      style={{
+                        // Single lead: full-width card (minus symmetric
+                        // gutters). Multiple leads: leave 40px so the next
+                        // card's hero peeks past the active card's edge.
+                        width:
+                          leads.length === 1
+                            ? "calc(100% - 16px)"
+                            : "calc(100% - 40px)",
+                      }}
                     >
                       <IncomingLeadCard lead={lead} />
                     </div>
                   ))}
                   {/* Tail spacer so the last card lands flush at the
-                      same scroll-padding as the others. */}
-                  <div className="shrink-0 w-4" />
+                      same scroll-padding as the others. Skip when there's
+                      only one card (no rail to scroll). */}
+                  {leads.length > 1 && <div className="shrink-0 w-4" />}
                 </div>
               </div>
 
-              {/* Single CTA acts on the centred card. Subscribed builder
-                  -> direct match -> /chat. Unsubscribed -> open
-                  SwipePayGate, gate finishes the flow into chat. */}
-              <div className="px-4 pb-3 pt-1 shrink-0">
+              {/* Pass + Reply act on the centred card. Pass drops the
+                  lead from the queue. Reply: subscribed builder -> direct
+                  match -> /chat; unsubscribed -> open SwipePayGate, gate
+                  finishes the flow into chat. */}
+              <div className="px-4 pb-3 pt-1 shrink-0 flex items-center gap-2">
+                <button
+                  onClick={() => respond("left")}
+                  disabled={busy || !current}
+                  className="shrink-0 py-4 px-5 rounded-2xl text-slate-700 font-extrabold text-[15px] tracking-tight bg-white border border-slate-200 disabled:opacity-50"
+                  data-testid="mobile-lead-pass"
+                >
+                  Pass
+                </button>
                 <button
                   onClick={() => respond("right")}
                   disabled={busy || !current}
-                  className="block w-full py-4 px-5 rounded-2xl text-white font-extrabold text-[15px] tracking-tight shadow-[0_10px_24px_rgba(16,185,129,0.3)] disabled:opacity-50"
+                  className="flex-1 py-4 px-5 rounded-2xl text-white font-extrabold text-[15px] tracking-tight shadow-[0_10px_24px_rgba(16,185,129,0.3)] disabled:opacity-50"
                   style={{
                     background: "linear-gradient(135deg,#10b981,#059669)",
                   }}
+                  data-testid="mobile-lead-accept"
                 >
                   Reply to homeowner →
                 </button>
@@ -594,21 +613,15 @@ function DesktopLeadRow({
               >
                 Pass
               </button>
-              {gated ? (
-                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-[11.5px] font-extrabold text-amber-800 bg-amber-50 border border-amber-200">
-                  Subscribe to pitch →
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={onAccept}
-                  disabled={busy}
-                  className="px-3 py-1.5 rounded-full text-[11.5px] font-extrabold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
-                  data-testid={`desktop-lead-accept-${lead.matchId}`}
-                >
-                  Accept &amp; chat →
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={onAccept}
+                disabled={busy}
+                className="px-3 py-1.5 rounded-full text-[11.5px] font-extrabold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
+                data-testid={`desktop-lead-accept-${lead.matchId}`}
+              >
+                Reply to homeowner →
+              </button>
             </div>
           </div>
         </div>

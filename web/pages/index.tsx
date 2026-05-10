@@ -252,8 +252,15 @@ export default function Home() {
             <div
               className="absolute inset-0"
               style={{
+                // Two layered scrims:
+                //   1. Vertical fade darkens the bottom (where mobile +
+                //      desktop CTAs land).
+                //   2. Horizontal fade darkens the left third (where the
+                //      eyebrow + headline live) so white copy stays
+                //      legible over the light interior wall behind the
+                //      tradesperson in the photo.
                 background:
-                  "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.10) 40%, rgba(0,0,0,0.30) 70%, rgba(0,0,0,0.45) 100%)",
+                  "linear-gradient(180deg, rgba(0,0,0,0.12) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0.30) 70%, rgba(0,0,0,0.55) 100%), linear-gradient(90deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.18) 40%, rgba(0,0,0,0) 65%)",
               }}
             />
 
@@ -262,7 +269,13 @@ export default function Home() {
               <div className="w-full max-w-6xl mx-auto md:mx-0 px-5 sm:px-8 md:pl-10 lg:pl-14 xl:pl-20">
                 <div className="max-w-2xl">
                 {!isTrades && (
-                  <p className="text-[13px] sm:text-sm font-extrabold uppercase tracking-[0.18em] text-white drop-shadow mb-4">
+                  <p
+                    className="text-[13px] sm:text-sm font-extrabold uppercase tracking-[0.18em] text-white mb-4"
+                    style={{
+                      textShadow:
+                        "0 1px 2px rgba(0,0,0,0.55), 0 2px 12px rgba(0,0,0,0.45)",
+                    }}
+                  >
                     Hundreds of vetted tradespeople nearby.
                   </p>
                 )}

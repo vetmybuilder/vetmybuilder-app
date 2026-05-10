@@ -340,7 +340,7 @@ function MatchedState({
           <button
             type="button"
             onClick={() =>
-              router.push(
+              router.replace(
                 matchesPathFor({ viewerIsBuilder: match.viewerIsBuilder }),
               )
             }
@@ -394,7 +394,7 @@ function MatchedState({
             <button
               type="button"
               onClick={() =>
-                router.push(
+                router.replace(
                   matchesPathFor({ viewerIsBuilder: match.viewerIsBuilder }),
                 )
               }

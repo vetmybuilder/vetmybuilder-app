@@ -1,27 +1,27 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const get = vi.fn(async () => ({
-  data: {
-    leads: [
-      {
-        matchId: "m1",
-        projectId: "p1",
-        title: "Kitchen extension with bifolds",
-        budget: "£15k–£25k",
-        outward: "E4",
-        startWindow: "1 month",
-        homeownerFirstName: "Sarah",
-        description: "4m rear extension…",
-        trades: ["Building", "Electrics"],
-        source: "recommended",
-        recommenderName: "Alex",
-        pickedHoursAgo: 2,
-      },
-    ],
-    subscriptionActive: true,
-  },
-}));
+const baseLead = {
+  matchId: "m1",
+  projectId: "p1",
+  title: "Kitchen extension with bifolds",
+  budget: "£15k–£25k",
+  outward: "E4",
+  startWindow: "1 month",
+  homeownerFirstName: "Sarah",
+  description: "4m rear extension…",
+  trades: ["Building", "Electrics"],
+  source: "recommended" as const,
+  recommenderName: "Alex",
+  pickedHoursAgo: 2,
+};
+
+let leadsResponse: { leads: any[]; subscriptionActive: boolean } = {
+  leads: [baseLead],
+  subscriptionActive: true,
+};
+
+const get = vi.fn(async () => ({ data: leadsResponse }));
 const post = vi.fn(async () => ({ data: { status: "matched" } }));
 
 vi.mock("@/utils/api", () => ({ useApi: () => ({ get, post }) }));
@@ -71,8 +71,13 @@ vi.mock("@/components/SiteHeader", () => ({
 import TradesmanLeads from "@/pages/tradesman/leads";
 
 describe("Tradesman leads page", () => {
+  beforeEach(() => {
+    get.mockClear();
+    post.mockClear();
+    leadsResponse = { leads: [baseLead], subscriptionActive: true };
+  });
+
   // Targets the desktop lead row (`desktop-lead-accept-<matchId>`).
-  // Mobile flip-card flow is exercised by the Playwright e2e suite.
   // Note: homeownerFirstName ("Sarah") is intentionally NOT surfaced
   // by the new IncomingLeadCard - the card leads with project title +
   // recommender attribution instead.
@@ -89,5 +94,68 @@ describe("Tradesman leads page", () => {
         direction: "right",
       }),
     );
+  });
+
+  it("commits pass on desktop", async () => {
+    render(<TradesmanLeads />);
+    await waitFor(() =>
+      expect(screen.getAllByText(/Kitchen extension/).length).toBeGreaterThan(0),
+    );
+
+    fireEvent.click(screen.getByTestId("desktop-lead-pass-m1"));
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith("/api/swipe-interest/m1/respond", {
+        direction: "left",
+      }),
+    );
+  });
+
+  it("commits reply on mobile", async () => {
+    render(<TradesmanLeads />);
+    await waitFor(() =>
+      expect(screen.getAllByText(/Kitchen extension/).length).toBeGreaterThan(0),
+    );
+
+    fireEvent.click(screen.getByTestId("mobile-lead-accept"));
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith("/api/swipe-interest/m1/respond", {
+        direction: "right",
+      }),
+    );
+  });
+
+  it("commits pass on mobile", async () => {
+    render(<TradesmanLeads />);
+    await waitFor(() =>
+      expect(screen.getAllByText(/Kitchen extension/).length).toBeGreaterThan(0),
+    );
+
+    fireEvent.click(screen.getByTestId("mobile-lead-pass"));
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith("/api/swipe-interest/m1/respond", {
+        direction: "left",
+      }),
+    );
+  });
+
+  // Subscribed-tier lead + builder is NOT subscribed. Reply must open
+  // the SwipePayGate modal and NOT POST /respond - the gate finishes
+  // the flow once payment succeeds.
+  it("opens the paygate when a gated lead is replied to", async () => {
+    leadsResponse = {
+      leads: [{ ...baseLead, source: "subscribed", recommenderName: null }],
+      subscriptionActive: false,
+    };
+
+    render(<TradesmanLeads />);
+    await waitFor(() =>
+      expect(screen.getAllByText(/Kitchen extension/).length).toBeGreaterThan(0),
+    );
+
+    fireEvent.click(screen.getByTestId("mobile-lead-accept"));
+    await waitFor(() =>
+      expect(screen.getByTestId("swipe-paygate")).toBeInTheDocument(),
+    );
+    expect(post).not.toHaveBeenCalled();
   });
 });
