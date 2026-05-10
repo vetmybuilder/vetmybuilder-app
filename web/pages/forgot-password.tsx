@@ -51,8 +51,10 @@ export default function ForgotPassword() {
           <style>{`@media (min-width: 768px) { body { background: #fef6e9 !important; } }`}</style>
         </Head>
 
-        <div className="min-h-screen bg-white md:bg-[#fef6e9] relative overflow-hidden pt-14">
-          <BrandWatermarkScatter />
+        <div className="fixed inset-0 top-14 bg-white md:bg-[#fef6e9] overflow-y-auto">
+          <div className="hidden md:block">
+            <BrandWatermarkScatter />
+          </div>
           <div
             className="relative z-10 mx-auto max-w-md px-5 pt-4 pb-16 md:pt-10"
             data-testid="forgot-password-card"
