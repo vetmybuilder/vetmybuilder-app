@@ -185,11 +185,13 @@ function CloseInner() {
           payload.winnerRecommendationId = winner.id;
           payload.winnerRecId = winner.id;
           payload.winnerFromCommunity = !!winner.fromCommunity;
-        } else if (winner.kind === "share") {
+        } else if (winner.kind === "share" || winner.kind === "match") {
           payload.winnerTradesmanUid = winner.uid;
           payload.winner_tradesman_uid = winner.uid;
+        } else if (winner.kind === "someone-else") {
+          // Off-platform hire - server still marks the project completed.
+          payload.winnerOther = true;
         }
-        // someone-else => no winner ids; server treats it as hired-outside-VMB.
       }
 
       const { data } = await api.post(

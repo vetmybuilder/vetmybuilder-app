@@ -6,7 +6,7 @@
 // tradespeople who shared their profile to this project (/api/tradesmen/shares).
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronRight, Plus, Search, Star, Share2, Check } from "lucide-react";
+import { ChevronRight, Plus, Search, Star, Share2, Heart, Check } from "lucide-react";
 
 import BottomSheet from "@/components/BottomSheet";
 import { useApi } from "@/utils/api";
@@ -14,11 +14,12 @@ import { useApi } from "@/utils/api";
 export type PickedTradesperson =
   | { kind: "rec"; id: number; label: string; fromCommunity?: boolean }
   | { kind: "share"; uid: string; label: string }
+  | { kind: "match"; uid: string; label: string }
   | { kind: "someone-else" };
 
 type Candidate = {
   key: string;
-  groupKey: "rec" | "share";
+  groupKey: "rec" | "share" | "match";
   label: string;
   trades?: string | null;
   yearsTrading?: number | null;
@@ -206,6 +207,29 @@ export default function CloseTradespersonPicker({
         // shares are optional
       }
 
+      try {
+        const { data } = await api.get(
+          `/api/projects/${projectId}/matched-tradespeople`,
+        );
+        const matches: any[] = Array.isArray(data?.matches) ? data.matches : [];
+        for (const m of matches) {
+          const uid = m.tradesmanUid;
+          if (!uid) continue;
+          const display =
+            m.companyName || m.tradesmanName || "Unknown tradesperson";
+          merged.push({
+            key: `match:${uid}`,
+            groupKey: "match",
+            label: display,
+            avatarColor: colorFor(String(uid)),
+            initials: initialsOf(display),
+            uid: String(uid),
+          });
+        }
+      } catch {
+        // matches are optional
+      }
+
       // De-dupe by uid first, then key
       const dedup = new Map<string, Candidate>();
       for (const c of merged) {
@@ -232,6 +256,10 @@ export default function CloseTradespersonPicker({
     () => candidates.filter((c) => c.groupKey === "share"),
     [candidates],
   );
+  const matchList = useMemo(
+    () => candidates.filter((c) => c.groupKey === "match"),
+    [candidates],
+  );
 
   const recMatches = useMemo(
     () => filterByQuery(recList, query),
@@ -241,15 +269,21 @@ export default function CloseTradespersonPicker({
     () => filterByQuery(shareList, query),
     [shareList, query],
   );
+  const matchMatches = useMemo(
+    () => filterByQuery(matchList, query),
+    [matchList, query],
+  );
 
   // Auto-expand groups that have matches when the user is searching.
   const isSearching = query.trim().length > 0;
   const recOpen = isSearching ? recMatches.length > 0 : !!openGroups.rec;
   const shareOpen = isSearching ? shareMatches.length > 0 : !!openGroups.share;
+  const matchOpen = isSearching ? matchMatches.length > 0 : !!openGroups.match;
 
-  const totalMatches = recMatches.length + shareMatches.length;
+  const totalMatches =
+    recMatches.length + shareMatches.length + matchMatches.length;
 
-  function toggleGroup(k: "rec" | "share") {
+  function toggleGroup(k: "rec" | "share" | "match") {
     setOpenGroups((prev) => ({ ...prev, [k]: !prev[k] }));
   }
 
@@ -263,6 +297,8 @@ export default function CloseTradespersonPicker({
       });
     } else if (c.groupKey === "share" && c.uid) {
       setPending({ kind: "share", uid: c.uid, label: c.label });
+    } else if (c.groupKey === "match" && c.uid) {
+      setPending({ kind: "match", uid: c.uid, label: c.label });
     }
   }
 
@@ -281,6 +317,8 @@ export default function CloseTradespersonPicker({
     if (pending.kind === "rec" && c.groupKey === "rec")
       return pending.id === c.recId;
     if (pending.kind === "share" && c.groupKey === "share")
+      return pending.uid === c.uid;
+    if (pending.kind === "match" && c.groupKey === "match")
       return pending.uid === c.uid;
     return false;
   };
@@ -349,6 +387,21 @@ export default function CloseTradespersonPicker({
               open={shareOpen}
               onToggle={() => toggleGroup("share")}
               candidates={shareMatches}
+              query={query}
+              isPending={isPending}
+              onPick={pickCandidate}
+            />
+
+            <AccordionGroup
+              tone="match"
+              icon={<Heart className="w-3.5 h-3.5" />}
+              label="Matched on VetMyBuilder"
+              total={matchList.length}
+              shown={matchMatches.length}
+              isSearching={isSearching}
+              open={matchOpen}
+              onToggle={() => toggleGroup("match")}
+              candidates={matchMatches}
               query={query}
               isPending={isPending}
               onPick={pickCandidate}
@@ -426,7 +479,7 @@ function AccordionGroup({
   isPending,
   onPick,
 }: {
-  tone: "rec" | "share";
+  tone: "rec" | "share" | "match";
   icon: React.ReactNode;
   label: string;
   total: number;
@@ -449,7 +502,9 @@ function AccordionGroup({
   const headerToneClasses =
     tone === "rec"
       ? "bg-indigo-50 text-indigo-700"
-      : "bg-emerald-50 text-emerald-700";
+      : tone === "share"
+      ? "bg-emerald-50 text-emerald-700"
+      : "bg-rose-50 text-rose-700";
 
   return (
     <div className="mb-2">

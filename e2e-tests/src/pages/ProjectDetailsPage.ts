@@ -348,14 +348,57 @@ export class ProjectDetailsPage extends BasePage {
     if (didGoAhead) {
       await this.page.getByTestId("close-segment-yes").click();
       // Drive the mobile picker bottom-sheet.
-      if (opts.selectFirstTradesperson || opts.tradespersonLabel) {
+      if (opts.pickSomeoneElse) {
         await this.page.getByTestId("close-open-picker").click();
-        // Recommendations group is "rec"; expand it then pick the first
-        // option underneath. Picker-group buttons are toggles.
-        await this.page.getByTestId("close-picker-group-rec").click();
+        await this.page.getByTestId("close-picker-someone-else").click();
+        await this.page.getByTestId("close-picker-done").click();
+      } else if (opts.selectFirstTradesperson || opts.tradespersonLabel) {
+        await this.page.getByTestId("close-open-picker").click();
+        await this.page.getByTestId("close-picker-sheet").waitFor({
+          state: "visible",
+        });
+
+        // The picker fetches candidates async, then renders one accordion
+        // group per source (rec / share / match). Poll for whichever
+        // group rendered - short intervals so we don't sit on a fixed
+        // timeout when the data lands fast. The poll's overall budget
+        // (5 s) is short because the fetch is a local API call.
+        const groupNames = ["rec", "share", "match"] as const;
+        let activeGroup: (typeof groupNames)[number] | null = null;
+        await expect
+          .poll(
+            async () => {
+              for (const g of groupNames) {
+                if (
+                  await this.page
+                    .getByTestId(`close-picker-group-${g}`)
+                    .isVisible()
+                    .catch(() => false)
+                ) {
+                  activeGroup = g;
+                  return true;
+                }
+              }
+              return false;
+            },
+            {
+              intervals: [100, 200, 400, 800],
+              timeout: 5_000,
+              message: "picker candidates did not load",
+            },
+          )
+          .toBe(true);
+
         const firstOption = this.page
           .locator('[data-testid^="close-picker-option-"]')
           .first();
+        // Expand the group unless one is already open (e.g. via search).
+        if (!(await firstOption.isVisible().catch(() => false))) {
+          await this.page
+            .getByTestId(`close-picker-group-${activeGroup!}`)
+            .click();
+        }
+        await firstOption.waitFor({ state: "visible", timeout: 3_000 });
         await firstOption.click();
         await this.page.getByTestId("close-picker-done").click();
       }
@@ -406,13 +449,18 @@ export class ProjectDetailsPage extends BasePage {
    */
   async assertProjectIsCompleted(projectId: string | number) {
     await safeGoto(this.page, `/projects/${projectId}`);
+    // Completed projects redirect from /projects/:id to the dedicated
+    // /projects/:id/completed page. Accept either URL: the live page is
+    // valid briefly, then the redirect lands us on /completed. We don't
+    // know which the test catches first so allow both.
     await expect(this.page).toHaveURL(
-      new RegExp(`/projects/${projectId}(\\?.*)?$`),
+      new RegExp(`/projects/${projectId}(/completed)?(\\?.*)?$`),
     );
     await expect(
       this.page
         .getByTestId("project-view-page")
         .or(this.page.getByTestId("closed-project-mobile"))
+        .or(this.page.getByTestId("completed-gallery-page"))
         .filter({ visible: true })
         .first(),
     ).toBeVisible({ timeout: 15_000 });

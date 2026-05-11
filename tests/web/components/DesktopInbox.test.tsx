@@ -68,6 +68,18 @@ vi.mock("@/utils/api", () => ({ useApi: () => apiInstance }));
 
 vi.mock("@/utils/useSseEvent", () => ({ useSseEvent: () => {} }));
 
+// DesktopInbox calls useRouter() to pick up ?matchId=N for deep-links.
+// Provide a minimal stub so the component mounts under jsdom.
+vi.mock("next/router", () => ({
+  useRouter: () => ({
+    isReady: true,
+    pathname: "/matches",
+    query: {},
+    push: vi.fn(),
+    replace: vi.fn(),
+  }),
+}));
+
 import DesktopInbox from "@/components/messaging/DesktopInbox";
 
 describe("<DesktopInbox />", () => {

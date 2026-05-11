@@ -243,6 +243,10 @@ export default function NewProject() {
   const [previewMatches, setPreviewMatches] = useState<PreviewMatch[] | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewErr, setPreviewErr] = useState<string | null>(null);
+  // LocationField reports pilot-area validity here. When non-null, the
+  // postcode the user typed is outside the pilot and we block Continue
+  // on the location step.
+  const [locationPilotErr, setLocationPilotErr] = useState<string | null>(null);
 
   const set = <K extends keyof FormShape>(k: K, v: FormShape[K]) =>
     setForm((prev) => ({ ...prev, [k]: v }));
@@ -402,13 +406,12 @@ export default function NewProject() {
       case "subtypes":
         return hasAnySubtype();
       case "location":
-        // Continue gates only on presence of text. Pilot-area enforcement
-        // happens server-side at POST time (see /api/projects). Trying to
-        // gate on an outward client-side caused too many edge cases with
-        // async commits and bundle staleness; the server's reject -> we
-        // surface the friendly "We're piloting in X" message - is the
-        // single source of truth.
-        return !!form.location.trim();
+        // Continue requires text AND (when LocationField has flagged the
+        // typed postcode as outside the pilot) no active pilot error.
+        // The server is still the source of truth - this client gate
+        // just avoids the user hitting Continue with a clearly invalid
+        // postcode while the "Not in our area yet" alert is on screen.
+        return !!form.location.trim() && !locationPilotErr;
       case "propertyType":
         return !!form.propertyType.trim();
       case "bedrooms":
@@ -876,6 +879,7 @@ export default function NewProject() {
                       set("locationOutward", fromMeta || fromText);
                     }}
                     onDisplayChange={(display) => set("locationDisplay", display)}
+                    onPilotErrChange={setLocationPilotErr}
                     dataTestId="field-location"
                     pilotOnly
                   />

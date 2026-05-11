@@ -433,31 +433,45 @@ function ActivityList({
 }
 
 /**
- * Open a chat in the bottom-right MessagingDock.
+ * Open a chat from the inbox dropdown.
  *
- * On desktop the global MessagingDock is mounted (`hidden md:block`) and
- * listening for the `vmb:openChat` window event - dispatching pops the
- * chat into the bottom-right dock without leaving the current page. On
- * mobile the dock isn't present, so we navigate to the standalone
- * /chat/:matchId page instead.
- *
- * The `projectId` arg is unused now (legacy callers kept it to anchor
- * the dock-pop on the matching project page). Kept in the signature so
- * callers don't all need to change.
+ * Three-way routing:
+ *   - On /matches (desktop two-pane): stay on the page and flip the
+ *     right pane to this thread via the `vmb:selectMatch` event.
+ *   - Already on the relevant /projects/:id (desktop): the dock is
+ *     mounted here; pop it in place via `vmb:openChat`.
+ *   - Any other desktop page: navigate to /projects/:id?openChat=:matchId.
+ *     The project page reads the query on mount and pops the dock.
+ *   - Mobile: navigate to /chat/:matchId (canonical mobile surface).
  */
 function openChatFromInbox(
   router: ReturnType<typeof useRouter>,
   matchId: number,
-  _projectId: number,
+  projectId: number,
 ) {
-  const hasDock =
+  const isDesktop =
     typeof window !== "undefined" &&
     window.matchMedia?.("(min-width: 768px)").matches;
 
-  if (hasDock) {
-    window.dispatchEvent(
-      new CustomEvent("vmb:openChat", { detail: { matchId } }),
-    );
+  if (isDesktop) {
+    if (router.pathname === "/matches") {
+      window.dispatchEvent(
+        new CustomEvent("vmb:selectMatch", { detail: { matchId } }),
+      );
+      return;
+    }
+    const onSameProject =
+      router.pathname === "/projects/[id]" &&
+      Number(
+        Array.isArray(router.query.id) ? router.query.id[0] : router.query.id,
+      ) === Number(projectId);
+    if (onSameProject) {
+      window.dispatchEvent(
+        new CustomEvent("vmb:openChat", { detail: { matchId } }),
+      );
+      return;
+    }
+    router.push(`/projects/${projectId}?openChat=${matchId}`);
     return;
   }
 

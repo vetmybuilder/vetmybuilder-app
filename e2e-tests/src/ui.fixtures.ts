@@ -19,7 +19,7 @@ const RUN_ID =
 const normalizeLocalhost = (url: string) =>
   url.replace("http://localhost", "http://127.0.0.1");
 
-const getWorkerUid = (workerIndex: number): string =>
+export const getWorkerUid = (workerIndex: number): string =>
   process.env[`TEST_USER_UID_${workerIndex}`] ||
   `${process.env.TEST_USER_UID || "e2e-user"}-w${workerIndex}-${RUN_ID}`;
 

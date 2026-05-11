@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useApi } from "@/utils/api";
 import FileGridUploader from "@/components/fileUpload/FileGridUploader";
+import Select from "@/components/forms/Select";
 
 export type RecommendationLite = {
   id: number | string;
@@ -10,8 +11,8 @@ export type RecommendationLite = {
   fromCommunity?: boolean;
 
   /** Where this winner candidate comes from */
-  source?: "recommendation" | "share";
-  /** Tradesman/user uid when source === "share" (or optionally for recs) */
+  source?: "recommendation" | "share" | "match";
+  /** Tradesman/user uid when source === "share"/"match" (or optionally for recs) */
   tradesmanUid?: string | null;
 };
 
@@ -28,6 +29,9 @@ export type ClosePayload = {
 
   /** Optional flag so server can treat community winners differently if needed */
   winnerFromCommunity?: boolean;
+
+  /** Hired off-platform - completes the project with no specific winner uid. */
+  winnerOther?: boolean;
 };
 
 type Props = {
@@ -70,11 +74,13 @@ export default function CloseProjectModal({
   const [recsLoading, setRecsLoading] = useState(false);
 
   /**
-   * Store as a string key because the <select> uses string values.
+   * Store as a string key because the dropdown uses string values.
    *
    * We encode both the source *and* id/uid so the caller can distinguish:
    *   - "rec:123"     → recommendation id 123
    *   - "share:<uid>" → tradesman who shared their profile
+   *   - "match:<uid>" → tradesman matched via swipe deck
+   *   - "other"       → off-platform hire (no winner uid - winnerOther: true)
    */
   const [selectedWinnerKey, setSelectedWinnerKey] = useState<string>("");
 
@@ -208,6 +214,36 @@ export default function CloseProjectModal({
           // shares are optional, so ignore failures here
         }
 
+        // 4) Tradespeople who matched on this project via the swipe deck.
+        //    Without this, a homeowner whose only candidate was a match (no
+        //    recs, no shares) cannot pick anyone in the dropdown.
+        try {
+          const { data: matchData } = await api.get(
+            `/api/projects/${projectId}/matched-tradespeople`,
+          );
+
+          const matchRows: any[] = Array.isArray(matchData?.matches)
+            ? matchData.matches
+            : [];
+
+          for (const m of matchRows) {
+            const uid = m.tradesmanUid || null;
+            if (!uid) continue;
+            const company = m.companyName || null;
+            const name = m.tradesmanName || company || null;
+            merged.push({
+              id: `match:${uid}`,
+              name,
+              company,
+              fromCommunity: false,
+              source: "match",
+              tradesmanUid: String(uid),
+            });
+          }
+        } catch {
+          // matches are optional - keep flow working if endpoint missing
+        }
+
         if (cancelled) return;
 
         // Optional: de-dupe by tradesmanUid so they don't appear twice
@@ -250,29 +286,34 @@ export default function CloseProjectModal({
       let winnerRecommendationId: number | undefined;
       let winnerTradesmanUid: string | undefined;
       let winnerFromCommunity = false;
+      let winnerOther = false;
 
       if (didGoAhead && selected) {
-        // split once only: "rec:<id>" or "share:<uid>"
-        const idx = selected.indexOf(":");
-        const kind = idx >= 0 ? selected.slice(0, idx) : selected;
-        const raw = idx >= 0 ? selected.slice(idx + 1) : "";
+        if (selected === "other") {
+          winnerOther = true;
+        } else {
+          // "rec:<id>", "share:<uid>", or "match:<uid>"
+          const idx = selected.indexOf(":");
+          const kind = idx >= 0 ? selected.slice(0, idx) : selected;
+          const raw = idx >= 0 ? selected.slice(idx + 1) : "";
 
-        if (kind === "rec") {
-          const id = Number(raw);
-          if (Number.isFinite(id)) {
-            winnerRecommendationId = id;
+          if (kind === "rec") {
+            const id = Number(raw);
+            if (Number.isFinite(id)) {
+              winnerRecommendationId = id;
 
-            // keep community flag behaviour for rec-based winners
-            const winnerRec = recs.find(
-              (r) =>
-                (r.source === "recommendation" || !r.source) &&
-                Number(r.id) === id
-            );
-            winnerFromCommunity = !!winnerRec?.fromCommunity;
+              // keep community flag behaviour for rec-based winners
+              const winnerRec = recs.find(
+                (r) =>
+                  (r.source === "recommendation" || !r.source) &&
+                  Number(r.id) === id
+              );
+              winnerFromCommunity = !!winnerRec?.fromCommunity;
+            }
+          } else if (kind === "share" || kind === "match") {
+            winnerTradesmanUid = raw || undefined;
+            winnerFromCommunity = false;
           }
-        } else if (kind === "share") {
-          winnerTradesmanUid = raw || undefined;
-          winnerFromCommunity = false;
         }
       }
 
@@ -290,6 +331,7 @@ export default function CloseProjectModal({
         selectedRecommendationId: winnerRecommendationId,
         winnerTradesmanUid,
         winnerFromCommunity: didGoAhead ? winnerFromCommunity : false,
+        winnerOther: didGoAhead && winnerOther ? true : undefined,
 
         // aliases (to survive parent mapping / older server versions)
         winnerRecommendationId: winnerRecommendationId,
@@ -321,14 +363,46 @@ export default function CloseProjectModal({
     }
   }
 
+  // Build dropdown options once. Must live above the early-return so the
+  // hook count stays stable across open/closed transitions.
+  // "Someone else" is always last so the homeowner can pick an off-platform
+  // hire even when there are zero recs/shares/matches.
+  const dropdownOptions = useMemo(() => {
+    const out = recs.map((r) => {
+      const value =
+        r.source === "share"
+          ? `share:${r.tradesmanUid ?? ""}`
+          : r.source === "match"
+          ? `match:${r.tradesmanUid ?? ""}`
+          : `rec:${String(r.id)}`;
+
+      const base =
+        (r.company && r.company.trim()) ||
+        (r.name && r.name.trim()) ||
+        "Unknown tradesperson";
+
+      const suffix =
+        r.source === "share"
+          ? " (shared profile)"
+          : r.source === "match"
+          ? " (matched)"
+          : "";
+
+      return { label: `${base}${suffix}`, value };
+    });
+
+    out.push({
+      label: "Someone else (tradesperson not on this list)",
+      value: "other",
+    });
+    return out;
+  }, [recs]);
+
   if (!open) return null;
 
-  const hasOptions = recs.length > 0;
   const selectPlaceholder = recsLoading
     ? "Loading tradespeople…"
-    : hasOptions
-    ? "Select a tradesperson…"
-    : "No recommendations yet";
+    : "Select a tradesperson…";
 
   return (
     <div
@@ -497,43 +571,20 @@ export default function CloseProjectModal({
                 >
                   Who did the work?
                 </label>
-                <select
+                <Select
                   id="who-did-work"
-                  value={selectedWinnerKey}
-                  onChange={(e) => setSelectedWinnerKey(e.target.value)}
                   data-testid="select-who-did-work"
-                  className="w-full bg-slate-50 border-[1.5px] border-slate-200 focus:border-indigo-500 rounded-2xl px-3.5 py-3 text-[14px] text-slate-900 focus:outline-none transition-colors appearance-none cursor-pointer"
-                  style={{
-                    backgroundImage:
-                      "url(\"data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")",
-                    backgroundRepeat: "no-repeat",
-                    backgroundPosition: "right 1rem center",
-                    paddingRight: "2.5rem",
-                  }}
-                >
-                  <option value="">{selectPlaceholder}</option>
-                  {recs.map((r) => {
-                    const value =
-                      r.source === "share"
-                        ? `share:${r.tradesmanUid ?? ""}`
-                        : `rec:${String(r.id)}`;
-
-                    const label =
-                      (r.company && r.company.trim()) ||
-                      (r.name && r.name.trim()) ||
-                      "Unknown tradesperson";
-
-                    return (
-                      <option key={value} value={value}>
-                        {label}
-                        {r.source === "share" ? " (shared profile)" : ""}
-                      </option>
-                    );
-                  })}
-                </select>
+                  testIdBase="close-who"
+                  ariaLabel="Who did the work?"
+                  value={selectedWinnerKey}
+                  onChange={(v) => setSelectedWinnerKey(v)}
+                  placeholder={selectPlaceholder}
+                  options={dropdownOptions}
+                  className="w-full"
+                />
                 <p className="mt-1.5 text-[11.5px] text-slate-500 leading-snug">
-                  Pick from your recommendations or any tradesperson who shared
-                  their profile for this project.
+                  Pick from your recommendations, matches, shared profiles, or
+                  choose "Someone else" if you hired off-platform.
                 </p>
               </div>
 

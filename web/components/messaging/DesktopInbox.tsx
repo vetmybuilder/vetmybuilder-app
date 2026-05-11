@@ -22,6 +22,7 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import {
   Sparkles,
   Handshake,
@@ -88,11 +89,44 @@ const ACTIVITY_HIDDEN_TYPES = new Set(["inbox_message_new", "chat_message_new"])
 
 export default function DesktopInbox() {
   const api = useApi();
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>("messages");
   const [matches, setMatches] = useState<MatchRow[]>([]);
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
   const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null);
   const [selectedNotifId, setSelectedNotifId] = useState<number | null>(null);
+
+  // Read ?matchId=N from the URL on mount + whenever it changes (e.g.
+  // header inbox row navigates here with the query). Force the right
+  // pane to that thread so the click feels like an in-place select
+  // rather than a fresh page load.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const raw = router.query.matchId;
+    const v = Array.isArray(raw) ? raw[0] : raw;
+    const n = Number(v);
+    if (Number.isFinite(n) && n > 0) {
+      setSelectedMatchId(n);
+      setTab("messages");
+    }
+  }, [router.isReady, router.query.matchId]);
+
+  // External callers (e.g. InboxDropdown) can dispatch
+  //   window.dispatchEvent(new CustomEvent("vmb:selectMatch", { detail: { matchId } }))
+  // to flip the right pane without a navigation. Used when the user is
+  // already on /matches and clicks a thread in the header dropdown -
+  // pushing to a URL would be a no-op reload.
+  useEffect(() => {
+    function onSelect(e: Event) {
+      const id = Number((e as CustomEvent).detail?.matchId);
+      if (Number.isFinite(id) && id > 0) {
+        setSelectedMatchId(id);
+        setTab("messages");
+      }
+    }
+    window.addEventListener("vmb:selectMatch", onSelect);
+    return () => window.removeEventListener("vmb:selectMatch", onSelect);
+  }, []);
 
   /* ------------------------------ data ------------------------------ */
 
