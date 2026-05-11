@@ -22,6 +22,7 @@
 import { useEffect, useState } from "react";
 import { useApi } from "@/utils/api";
 import { X, FileText, Check, AlertCircle } from "lucide-react";
+import TradesmanManageTab from "@/components/admin/TradesmanManageTab";
 
 export type LeaderboardItem = {
   userId: string;
@@ -62,11 +63,14 @@ type DocEntry = {
   verifiedBy: string | null;
 };
 
-type Tab = "overview" | "docs" | "photos" | "trades" | "activity";
+type Tab = "overview" | "docs" | "photos" | "trades" | "activity" | "manage";
 
 type Props = {
   item: LeaderboardItem | null;
   onClose: () => void;
+  // Called after any drawer-driven mutation that should trigger a
+  // leaderboard refresh (status / plan / spotlight / unlocks).
+  onRefresh?: () => void;
 };
 
 function StatusBadge({ s }: { s: string }) {
@@ -110,7 +114,11 @@ function PlanBadge({ plan }: { plan?: string | null }) {
   );
 }
 
-export default function TradesmanDetailDrawer({ item, onClose }: Props) {
+export default function TradesmanDetailDrawer({
+  item,
+  onClose,
+  onRefresh,
+}: Props) {
   const api = useApi();
   const [tab, setTab] = useState<Tab>("overview");
   const [docs, setDocs] = useState<DocEntry[] | null>(null);
@@ -283,6 +291,7 @@ export default function TradesmanDetailDrawer({ item, onClose }: Props) {
                 ["photos", `Photos (${item.photos})`],
                 ["trades", "Trades & areas"],
                 ["activity", "Activity"],
+                ["manage", "Manage"],
               ] as [Tab, string][]
             ).map(([key, label]) => (
               <button
@@ -323,6 +332,14 @@ export default function TradesmanDetailDrawer({ item, onClose }: Props) {
           {tab === "photos" && <PhotosTab photoCount={item.photos} />}
           {tab === "trades" && <TradesTab item={item} />}
           {tab === "activity" && <ActivityTab item={item} />}
+          {tab === "manage" && (
+            <TradesmanManageTab
+              uid={item.userId}
+              currentStatus={item.status}
+              currentPlan={item.plan}
+              onRefresh={() => onRefresh?.()}
+            />
+          )}
         </div>
       </aside>
     </>

@@ -153,7 +153,7 @@ export default function AdminTradesmenLeaderboardPage() {
               >
                 ← Admin home
               </Link>
-              <AdminRefreshButton onClick={load} />
+              <AdminRefreshButton onRefresh={load} />
             </div>
           </div>
 
@@ -266,6 +266,7 @@ export default function AdminTradesmenLeaderboardPage() {
       <TradesmanDetailDrawer
         item={openItem}
         onClose={() => setOpenItem(null)}
+        onRefresh={load}
       />
     </AuthedOnly>
   );
