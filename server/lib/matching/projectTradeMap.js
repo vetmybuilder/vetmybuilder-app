@@ -284,6 +284,77 @@ const TYPE_TRADES = {
   ],
   "Rubbish Removal": ["Waste Removal / Skip Hire"],
   "Skip Hire": ["Waste Removal / Skip Hire"],
+
+  // Insulation sub-types - the category default surfaces every insulation
+  // specialist plus General Builder, which gave ~134 matches for a single
+  // EWI job on staging. Each sub-type now pulls only the specialists who
+  // actually do that work.
+  "Cavity Wall Insulation": ["Cavity Wall Insulation"],
+  "Draught Proofing": ["Handyman", "Window / Door Fitter", "Carpenter / Joiner"],
+  "External Wall Insulation": ["External Wall Insulation", "General Builder"],
+  "Floor Insulation": ["Loft Insulation", "General Builder"],
+  "Garage Insulation": [
+    "Internal Wall Insulation",
+    "External Wall Insulation",
+    "General Builder",
+  ],
+  "Internal Wall Insulation": [
+    "Internal Wall Insulation",
+    "Plasterer",
+    "General Builder",
+  ],
+  "Loft Insulation": ["Loft Insulation", "Roof Insulation"],
+  "Pipe & Tank Lagging": ["Plumber", "Heating Engineer"],
+  "Room-in-Roof Insulation": [
+    "Roof Insulation",
+    "Loft Insulation",
+    "Loft Conversion Specialist",
+  ],
+  "Soundproofing": [
+    "Dryliner / Partitions",
+    "Plasterer",
+    "Internal Wall Insulation",
+  ],
+  "Underfloor Insulation": ["Loft Insulation", "General Builder"],
+
+  // Electrical sub-types - the category default surfaces Security/Alarms
+  // and Smart Home/AV for every electrical project, which spammed a
+  // "Lighting Installation" homeowner with smart-home installers. Narrow
+  // each sub-type to the actual specialist needed.
+  "Additional Sockets": ["Electrician"],
+  "CCTV & Security Cameras": ["Security / Alarms / CCTV", "Electrician"],
+  "Consumer Unit/Fuse Box Upgrade": ["Electrician"],
+  "Data & Networking": ["Smart Home / AV", "Electrician"],
+  "Doorbell/Intercom Installation": ["Electrician", "Smart Home / AV"],
+  "Downlights/Spotlights": ["Electrician"],
+  "EICR (Electrical Safety Test)": ["Electrician"],
+  "EV Charger Installation": ["Electrician"],
+  "Exterior Lighting": ["Electrician"],
+  "Extractor Fan Wiring": ["Electrician"],
+  "Full Rewire": ["Electrician"],
+  "Lighting Installation (Interior)": ["Electrician"],
+  "Partial Rewire": ["Electrician"],
+  "Smart Switch Installation": ["Electrician", "Smart Home / AV"],
+  "Underfloor Heating (Electric)": ["Underfloor Heating", "Electrician"],
+
+  // Heating & Cooling sub-types - the category default covers 7 trades
+  // (heating, boiler, gas, plumber, AC, heat pumps, underfloor). Most
+  // sub-types want just one or two of those.
+  "Air Conditioning Installation": ["Air Conditioning"],
+  "Flue & Chimney Liner": [
+    "Heating Engineer",
+    "Gas Engineer",
+    "Chimney Sweeping",
+  ],
+  "Heat Pump Installation": ["Heat Pumps", "Heating Engineer"],
+  "Radiator Installation": ["Plumber", "Heating Engineer"],
+  "Radiator Relocation": ["Plumber", "Heating Engineer"],
+  "Smart Thermostat Installation": ["Heating Engineer", "Electrician"],
+  "Underfloor Heating (Wet)": [
+    "Underfloor Heating",
+    "Heating Engineer",
+    "Plumber",
+  ],
 };
 
 // Project type → category. Mirrors web/types/projectTypes.ts. Kept here so
