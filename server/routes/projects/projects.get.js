@@ -303,6 +303,11 @@ module.exports = (router, ctx) => {
         if (rawStatus !== "all") {
           baseParts.push(`p.status = ?`);
           baseParams.push(rawStatus);
+        } else {
+          // Completed projects belong in the Completed tab, not the
+          // generic "my jobs" / Live view. Only hide them when the
+          // caller hasn't explicitly asked for them via ?status=completed.
+          baseParts.push(`p.status <> 'completed'`);
         }
 
         const { sql, params } = applyWhere(baseParts, baseParams);

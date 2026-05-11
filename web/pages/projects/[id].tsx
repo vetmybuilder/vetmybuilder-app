@@ -1315,6 +1315,23 @@ export default function ProjectViewPage() {
   }, [vm.loading, vm.errorStatus, viewerRole, router]);
 
   // ---------------------------------------------------------
+  // 2b) REDIRECT completed projects to their dedicated
+  //     /projects/:id/completed view. The bare /projects/:id
+  //     page is the LIVE homeowner experience (swipe deck,
+  //     pricing chrome, etc.). Completed jobs have their own
+  //     summary + photos + reviews layout; a stale link or a
+  //     bookmark should never land on the live view for a
+  //     job that's already wrapped up.
+  // ---------------------------------------------------------
+  useEffect(() => {
+    if (vm.loading || !vm.project) return;
+    const status = (vm.project as { status?: string } | null)?.status;
+    if (status === "completed") {
+      router.replace(`/projects/${vm.project.id}/completed`);
+    }
+  }, [vm.loading, vm.project, router]);
+
+  // ---------------------------------------------------------
   // 3) Prevent UI render until:
   //    - project is loaded
   //    - role is known

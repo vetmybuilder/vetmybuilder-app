@@ -879,7 +879,14 @@ function OwnerProjects() {
               >
                 {items.map((p) => (
                   <div key={p.id} className="flex flex-col gap-3">
-                    <Link href={`/projects/${p.id}`} className="block hover:shadow-md transition-shadow rounded-3xl">
+                    <Link
+                      href={
+                        p.status === "completed"
+                          ? `/projects/${p.id}/completed`
+                          : `/projects/${p.id}`
+                      }
+                      className="block hover:shadow-md transition-shadow rounded-3xl"
+                    >
                       <ProjectImageCard
                         id={p.id}
                         status={p.status}
