@@ -162,7 +162,7 @@ describe("GET /api/tradesmen/me/docs/:idx", () => {
     );
   });
 
-  it("redirects to /uploads/<key> in disk-fallback mode (no R2)", async () => {
+  it("returns the /uploads/<key> URL in disk-fallback mode (no R2)", async () => {
     // R2 env vars aren't set in the unit test environment, so the
     // production r2.isR2Configured naturally evaluates false here.
     const handlers = loadHandlers(mysqlWithDocs("u_owner"));
@@ -171,8 +171,12 @@ describe("GET /api/tradesmen/me/docs/:idx", () => {
       { user: { uid: "u_owner" }, params: { idx: "0" } },
       res,
     );
-    expect(res.__redirectStatus).toBe(302);
-    expect(res.__redirect).toBe("/uploads/tradesmen-docs/abc.pdf");
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ok: true,
+        url: "/uploads/tradesmen-docs/abc.pdf",
+      }),
+    );
   });
 
   // Note: the "R2 configured → presigned redirect" branch isn't unit-
@@ -235,7 +239,7 @@ describe("GET /api/admin/tradesmen/:uid/docs/:idx", () => {
     );
   });
 
-  it("redirects an admin to any tradesman's doc", async () => {
+  it("returns any tradesman's doc URL to an admin", async () => {
     const handlers = loadHandlers(mysqlWithDocs("u_target"));
     const res = mockRes();
     await handlers[PATH](
@@ -245,10 +249,14 @@ describe("GET /api/admin/tradesmen/:uid/docs/:idx", () => {
       },
       res,
     );
-    expect(res.__redirectStatus).toBe(302);
-    // In the unit-test env R2 isn't configured, so we redirect to the
-    // local upload path. The "presigned URL" code path is exercised
-    // end-to-end on staging (see Postman verification in the PR notes).
-    expect(res.__redirect).toBe("/uploads/tradesmen-docs/abc.pdf");
+    // In the unit-test env R2 isn't configured, so we serve the local
+    // upload path. The "presigned URL" code path is exercised end-to-
+    // end on staging (see Postman verification in the PR notes).
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ok: true,
+        url: "/uploads/tradesmen-docs/abc.pdf",
+      }),
+    );
   });
 });

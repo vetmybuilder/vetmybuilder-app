@@ -45,27 +45,28 @@ function resolveKey(entry) {
   return null;
 }
 
-async function redirectToFile(res, key, log, TAG) {
-  // R2-configured: mint a 5-minute presigned URL and 302 to it.
+async function returnDocUrl(res, key, log, TAG) {
+  // Return JSON `{ url, expiresInSec }` instead of a 302 redirect so
+  // the admin UI can drive the download via `window.open(url)` after
+  // a Bearer-authed fetch. A plain <a href> click on the route URL
+  // would lose the Authorization header and 401; this lets the UI
+  // make the authed call, then open the resolved short-lived URL.
+  res.setHeader("Cache-Control", "no-store, max-age=0");
+
+  // R2-configured: mint a 5-minute presigned URL.
   if (r2.isR2Configured) {
     try {
       const signedUrl = await r2.getPresignedReadUrl(key);
-      // No-store on the 302 itself - we never want a CDN or browser to
-      // cache the redirect since the signed URL inside expires.
-      res.setHeader("Cache-Control", "no-store, max-age=0");
-      return res.redirect(302, signedUrl);
+      return res.json({ ok: true, url: signedUrl, expiresInSec: 300 });
     } catch (e) {
       log.error?.(`${TAG} presign failed`, { error: e?.message || e, key });
       return res.status(500).json({ ok: false, error: "presign_failed" });
     }
   }
-  // Local-disk fallback (no R2 in dev). The key is a relative path
-  // under UPLOAD_DIR (e.g. "tradesmen-docs/<filename>"). Redirect to
-  // the existing /uploads static mount that already serves the same
-  // directory. Same authed-only access pattern - the redirect happens
-  // *after* the auth check, so a third party can't guess the URL.
-  res.setHeader("Cache-Control", "no-store, max-age=0");
-  return res.redirect(302, `/uploads/${key}`);
+  // Local-disk fallback (no R2 in dev). Path under the public /uploads
+  // mount - browser can hit it directly. Auth check still gates *who*
+  // can resolve the path, so a guessed key alone doesn't reveal docs.
+  return res.json({ ok: true, url: `/uploads/${key}`, expiresInSec: 0 });
 }
 
 async function loadDocs(mysqlQuery, ownerUid) {
@@ -107,7 +108,7 @@ module.exports = (router, ctx) => {
     const key = resolveKey(entry);
     if (!key) return res.status(404).json({ ok: false, error: "not_found" });
 
-    return redirectToFile(res, key, log, TAG);
+    return returnDocUrl(res, key, log, TAG);
   });
 
   // ---- Admin endpoint ----
@@ -142,7 +143,7 @@ module.exports = (router, ctx) => {
         targetUid,
         idx,
       });
-      return redirectToFile(res, key, log, TAG);
+      return returnDocUrl(res, key, log, TAG);
     },
   );
 
