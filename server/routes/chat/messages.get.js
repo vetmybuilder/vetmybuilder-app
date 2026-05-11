@@ -145,6 +145,17 @@ module.exports = function mountChatMessagesGet(router, ctx) {
       };
     }
 
+    // `senderUids` lists every uid the CLIENT should treat as "self" on
+    // this thread. For a regular party that's just their own uid. For
+    // the master operator behind a ghost tradesperson, it also includes
+    // the ghost's uid - because messages they send are persisted with
+    // `sender_uid = ghost_uid` so the homeowner sees a single persona.
+    // Without this list the master's view aligns every one of their
+    // own messages as "other party" (gray, left-side) since the senderUid
+    // never matches their viewer uid.
+    const senderUids = [uid];
+    if (viewerIsMasterOfBuilder) senderUids.push(si.builder_uid);
+
     return res.json({
       matchId: si.matchId,
       projectId: si.project_id,
@@ -154,6 +165,7 @@ module.exports = function mountChatMessagesGet(router, ctx) {
       me: {
         role: viewerIsHomeowner ? "homeowner" : "tradesman",
         uid,
+        senderUids,
       },
       messages,
     });

@@ -33,7 +33,7 @@ interface ChatData {
     firstName: string | null;
     avatarUrl?: string | null;
   };
-  me: { role: string; uid: string };
+  me: { role: string; uid: string; senderUids?: string[] };
   messages: ChatMessage[];
 }
 
@@ -115,6 +115,10 @@ export default function ChatWindow({
   }, [data?.messages?.length, minimized]);
 
   const myUid = data?.me?.uid;
+  // Master operators of ghost tradespeople see `senderUids` include both
+  // their uid and the ghost's. Anything in this set should render as
+  // "mine" so the master's own messages show right-aligned in their tone.
+  const mineUids = data?.me?.senderUids ?? (myUid ? [myUid] : []);
   const otherFirst =
     data?.otherParty?.firstName || data?.otherParty?.name || "them";
   const otherName = data?.otherParty?.name || "Loading...";
@@ -328,7 +332,7 @@ export default function ChatWindow({
                 </div>
               ) : (
                 messages.map((m) => {
-                  const mine = m.senderUid === myUid;
+                  const mine = mineUids.includes(m.senderUid);
                   const atts = Array.isArray(m.attachments) ? m.attachments : [];
                   return (
                     <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>

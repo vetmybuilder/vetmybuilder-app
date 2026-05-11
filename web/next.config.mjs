@@ -29,6 +29,23 @@ const nextConfig = {
     "server-w3",
   ],
 
+  async redirects() {
+    // Retired legacy URL. Homeowner chat notifications used to deep-link
+    // here so the project page's bottom dock could pop the chat window.
+    // The standalone /chat/:matchId page is the canonical surface now;
+    // any visit to the old URL (stale notification, bookmark, typed URL)
+    // gets a server-side 308 to the new page so the project view is
+    // never rendered for those requests.
+    return [
+      {
+        source: "/projects/:id",
+        has: [{ type: "query", key: "openChat", value: "(?<m>\\d+)" }],
+        destination: "/chat/:m",
+        permanent: true,
+      },
+    ];
+  },
+
   async rewrites() {
     // API_BASE is always shard-0's server (http://localhost:3100 by default).
     // Workers 1+ are handled by per-shard HTTP proxies (scripts/dev-manual-proxy.js)

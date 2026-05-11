@@ -319,8 +319,6 @@ function buildRouter(ctx) {
   // ---------------- Account / Profile / Me ----------------
   require("./routes/accounts/account.get")(router, ctx);
   require("./routes/account/account.post")(router, ctx);
-  require("./routes/profile/profile.get")(router, ctx);
-  require("./routes/profile/profile.post")(router, ctx);
   require("./routes/me/me.get")(router, ctx);
 
   // ---------------- Projects ----------------
@@ -442,6 +440,7 @@ function buildRouter(ctx) {
   require("./routes/admin/projects.get")(router, ctx);
   require("./routes/admin/projects.delete")(router, ctx);
   require("./routes/admin/tradesmen.get")(router, ctx);
+  require("./routes/admin/cleanup")(router, ctx);
   require("./routes/admin/tradesman.status.post")(router, ctx);
   require("./routes/admin/tradesman.flag.post")(router, ctx);
   require("./routes/admin/subscriptions.post")(router, ctx);

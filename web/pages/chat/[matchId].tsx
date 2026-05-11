@@ -42,6 +42,12 @@ interface OtherParty {
 interface Me {
   role: "homeowner" | "tradesman";
   uid: string;
+  // Every uid this viewer should treat as "self" on this thread. Equals
+  // [uid] for normal callers; for a master operator behind a ghost it
+  // also contains the ghost's uid (messages they send persist with
+  // senderUid = ghost). Server-supplied so the client doesn't need to
+  // know anything about the ghost-trade mechanic.
+  senderUids?: string[];
 }
 
 interface ChatData {
@@ -123,6 +129,22 @@ function ChatPageInner() {
   const api = useApi();
   const { user, token: authToken, loading: authLoading } = useAuth();
   const matchId = router.query.matchId as string | undefined;
+
+  // The legacy /projects/:id?openChat=:matchId URL 308s here via the
+  // next.config.mjs redirect, but Next forwards source query params to
+  // the destination by default - we end up with `?openChat=N` dangling
+  // on the address bar. Strip it once on mount so the URL reads clean.
+  useEffect(() => {
+    if (!router.isReady) return;
+    if (!("openChat" in router.query)) return;
+    const { openChat: _drop, ...rest } = router.query;
+    router.replace(
+      { pathname: router.pathname, query: rest },
+      undefined,
+      { shallow: true },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady]);
 
   const [chatData, setChatData] = useState<ChatData | null>(null);
   const [forbidden, setForbidden] = useState(false);
@@ -501,7 +523,8 @@ function ChatPageInner() {
           {messages.map((msg, i) => {
             const prev = i > 0 ? messages[i - 1]! : null;
             const showTs = shouldShowTimestamp(prev, msg);
-            const isMine = msg.senderUid === me.uid;
+            const selfUids = me.senderUids ?? [me.uid];
+            const isMine = selfUids.includes(msg.senderUid);
             const atts = msg.attachments || [];
             const hasBodyText = msg.body && msg.body.length > 0;
 
