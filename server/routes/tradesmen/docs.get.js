@@ -16,11 +16,10 @@
 // it. The browser fetches the file direct from R2 - the server doesn't
 // proxy bytes.
 
-const {
-  getPresignedReadUrl,
-  publicUrlToKey,
-  isR2Configured,
-} = require("../../lib/r2");
+// Use namespace import so `isR2Configured` is read lazily on each call.
+// Destructuring at the top would freeze the value at module-load time,
+// which makes the disk-fallback path untestable.
+const r2 = require("../../lib/r2");
 const { requireAdmin } = require("../../lib/roles");
 
 function parseDocsJson(raw) {
@@ -41,16 +40,16 @@ function resolveKey(entry) {
   if (!entry || typeof entry !== "object") return null;
   if (typeof entry.fileKey === "string" && entry.fileKey) return entry.fileKey;
   if (typeof entry.fileUrl === "string" && entry.fileUrl) {
-    return publicUrlToKey(entry.fileUrl);
+    return r2.publicUrlToKey(entry.fileUrl);
   }
   return null;
 }
 
 async function redirectToFile(res, key, log, TAG) {
   // R2-configured: mint a 5-minute presigned URL and 302 to it.
-  if (isR2Configured) {
+  if (r2.isR2Configured) {
     try {
-      const signedUrl = await getPresignedReadUrl(key);
+      const signedUrl = await r2.getPresignedReadUrl(key);
       // No-store on the 302 itself - we never want a CDN or browser to
       // cache the redirect since the signed URL inside expires.
       res.setHeader("Cache-Control", "no-store, max-age=0");
@@ -85,7 +84,7 @@ module.exports = (router, ctx) => {
   const TAG = "[tradesmen/docs.get]";
   const adminGuard = requireAdmin(ctx);
 
-  if (!isR2Configured) {
+  if (!r2.isR2Configured) {
     log.info?.(
       `${TAG} R2 not configured - docs will be served from the local /uploads mount`,
     );
