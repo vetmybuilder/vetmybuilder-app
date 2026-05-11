@@ -140,22 +140,33 @@ function ProjectSwipeDesktop({
     refreshRecs();
   }, [refreshRecs]);
 
-  // Legacy /projects/:id?openChat=:matchId URL guard.
-  //
-  // We used to deep-link homeowner chat notifications back to the
-  // project page so the bottom messaging dock could pop the chat
-  // window. That route is retired - the standalone /chat/:matchId
-  // page is the canonical surface now. Any visit that still carries
-  // the param (a stale notification, a bookmark, a typed URL) hard-
-  // redirects to the new chat page; the project page is never
-  // rendered for those URLs.
+  // ?openChat=<matchId> hand-off from the header inbox dropdown.
+  // The dropdown navigates here on a chat-notification click and we
+  // dispatch the dock's open event on mount so the chat pops in the
+  // bottom-right. The query param is then stripped so a refresh doesn't
+  // re-fire the pop. Small timeout to let the dock mount + bind first.
   useEffect(() => {
     const raw = router.query?.openChat;
     const v = Array.isArray(raw) ? raw[0] : raw;
     const matchId = Number(v);
     if (!Number.isFinite(matchId) || matchId <= 0) return;
-    router.replace(`/chat/${matchId}`);
-  }, [router.query?.openChat, router]);
+
+    const t = setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("vmb:openChat", { detail: { matchId } }),
+      );
+    }, 100);
+
+    const { openChat: _drop, ...rest } = router.query;
+    router.replace(
+      { pathname: router.pathname, query: rest },
+      undefined,
+      { shallow: true },
+    );
+
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.query?.openChat]);
 
 
   // Real-time deck update: a tradesperson just paid the per-project

@@ -59,6 +59,31 @@ export class SwipeMatchingApi {
   }
 
   /**
+   * Seed a swipe_interest row pre-set to 'matched' for (projectId, builderUid).
+   * Use this when a spec needs a matched tradesperson to exist for a project
+   * but doesn't want to drive the full homeowner-swipe → builder-accept flow.
+   */
+  async seedMatchedSwipeInterest(params: {
+    projectId: number;
+    homeownerUid: string;
+    builderUid: string;
+  }): Promise<number> {
+    const conn = await this.connectDb();
+    try {
+      const [result] = await conn.query(
+        `INSERT INTO swipe_interest
+           (project_id, homeowner_uid, builder_uid, source, status,
+            homeowner_swiped_at, builder_swiped_at)
+         VALUES (?, ?, ?, 'recommended', 'matched', NOW(), NOW())`,
+        [params.projectId, params.homeownerUid, params.builderUid],
+      );
+      return (result as any).insertId as number;
+    } finally {
+      await conn.end();
+    }
+  }
+
+  /**
    * Insert a minimal project_classifications row. The swipe-deck matcher
    * falls back to area matching when classification is absent, but callers
    * who want to exercise the trade-match path can seed it explicitly.

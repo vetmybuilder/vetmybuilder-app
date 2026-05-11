@@ -146,6 +146,20 @@ function ChatPageInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady]);
 
+  // Desktop never renders this page. The /matches two-pane inbox is
+  // the canonical desktop chat surface; this standalone page exists
+  // only for mobile. If a desktop user lands here (stale email link,
+  // typed URL, manual share), bounce them to /matches with the right
+  // thread auto-selected.
+  useEffect(() => {
+    if (!router.isReady || !matchId) return;
+    if (typeof window === "undefined") return;
+    const isDesktop = window.matchMedia?.("(min-width: 768px)").matches;
+    if (isDesktop) {
+      router.replace(`/matches?matchId=${matchId}`);
+    }
+  }, [router.isReady, matchId, router]);
+
   const [chatData, setChatData] = useState<ChatData | null>(null);
   const [forbidden, setForbidden] = useState(false);
   const [loading, setLoading] = useState(true);

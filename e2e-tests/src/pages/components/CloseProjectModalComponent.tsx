@@ -16,6 +16,8 @@ export type CloseProjectOptions = {
   tradespersonLabel?: string;
   /** Select the first available tradesperson option instead of matching by label. */
   selectFirstTradesperson?: boolean;
+  /** Tick the "Someone else" toggle instead of choosing from the dropdown. */
+  pickSomeoneElse?: boolean;
 
   photoPaths?: string[];
 };
@@ -42,6 +44,8 @@ export class CloseProjectModalComponent {
   readonly otherText: Locator;
 
   readonly whoDidWorkSelect: Locator;
+  readonly whoDidWorkButton: Locator;
+  readonly whoDidWorkListbox: Locator;
 
   readonly cancelButton: Locator;
   readonly confirmButton: Locator;
@@ -72,6 +76,8 @@ export class CloseProjectModalComponent {
     this.otherText = page.getByTestId("input-reason-other-text");
 
     this.whoDidWorkSelect = page.getByTestId("select-who-did-work");
+    this.whoDidWorkButton = page.getByTestId("close-who-button");
+    this.whoDidWorkListbox = page.getByTestId("close-who-listbox");
 
     this.cancelButton = page.getByTestId("btn-cancel-close");
     this.confirmButton = page.getByTestId("btn-confirm-close");
@@ -137,58 +143,49 @@ export class CloseProjectModalComponent {
     }
   }
 
-  private async chooseTradespersonByLabel(label: string) {
-    await expect(this.whoDidWorkSelect).toBeVisible();
-
-    // Poll until a matching option appears — recommendations load asynchronously.
-    let matchedValue: string | null = null;
-
-    await expect
-      .poll(
-        async () => {
-          const options = this.whoDidWorkSelect.locator("option");
-          const count = await options.count();
-          for (let i = 0; i < count; i++) {
-            const text = ((await options.nth(i).textContent()) || "").trim();
-            if (text.toLowerCase().includes(label.toLowerCase())) {
-              matchedValue = await options.nth(i).getAttribute("value");
-              return true;
-            }
-          }
-          return false;
-        },
-        { timeout: 15_000, message: `Waiting for tradesperson option matching "${label}"` },
-      )
-      .toBe(true);
-
-    await this.whoDidWorkSelect.selectOption(matchedValue!);
+  private async openWhoDropdown() {
+    await expect(this.whoDidWorkButton).toBeVisible();
+    await expect(this.whoDidWorkButton).toBeEnabled({ timeout: 15_000 });
+    await this.whoDidWorkButton.click();
+    await expect(this.whoDidWorkListbox).toBeVisible();
   }
 
+  private async chooseTradespersonByLabel(label: string) {
+    await this.openWhoDropdown();
+    const option = this.whoDidWorkListbox
+      .getByRole("option")
+      .filter({ hasText: new RegExp(label, "i") })
+      .first();
+    await expect(option).toBeVisible({ timeout: 15_000 });
+    await option.click();
+    await expect(this.whoDidWorkListbox).toBeHidden();
+  }
+
+  /**
+   * Pick the first non-"Someone else" option in the dropdown. We skip the
+   * synthetic "Someone else" entry because callers asking for the "first"
+   * candidate are testing the rec/share/match path.
+   */
   private async selectFirstAvailableTradesperson() {
-    await expect(this.whoDidWorkSelect).toBeVisible();
+    await this.openWhoDropdown();
+    const option = this.whoDidWorkListbox
+      .getByRole("option")
+      .filter({ hasNotText: /Someone else/i })
+      .first();
+    await expect(option).toBeVisible({ timeout: 15_000 });
+    await option.click();
+    await expect(this.whoDidWorkListbox).toBeHidden();
+  }
 
-    // Poll until at least one non-empty option appears.
-    let firstValue: string | null = null;
-
-    await expect
-      .poll(
-        async () => {
-          const options = this.whoDidWorkSelect.locator("option");
-          const count = await options.count();
-          for (let i = 0; i < count; i++) {
-            const value = await options.nth(i).getAttribute("value");
-            if (value) {
-              firstValue = value;
-              return true;
-            }
-          }
-          return false;
-        },
-        { timeout: 15_000, message: "Waiting for at least one tradesperson option" },
-      )
-      .toBe(true);
-
-    await this.whoDidWorkSelect.selectOption(firstValue!);
+  private async pickSomeoneElseOption() {
+    await this.openWhoDropdown();
+    const option = this.whoDidWorkListbox
+      .getByRole("option")
+      .filter({ hasText: /Someone else/i })
+      .first();
+    await expect(option).toBeVisible({ timeout: 15_000 });
+    await option.click();
+    await expect(this.whoDidWorkListbox).toBeHidden();
   }
 
   private async uploadPhotos(photoPaths: string[]) {
@@ -211,7 +208,9 @@ export class CloseProjectModalComponent {
     } else {
       await expect(this.reasonsFieldset).toBeHidden();
 
-      if (opts.selectFirstTradesperson) {
+      if (opts.pickSomeoneElse) {
+        await this.pickSomeoneElseOption();
+      } else if (opts.selectFirstTradesperson) {
         await this.selectFirstAvailableTradesperson();
       } else if (opts.tradespersonLabel) {
         await this.chooseTradespersonByLabel(opts.tradespersonLabel);

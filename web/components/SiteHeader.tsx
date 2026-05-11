@@ -772,8 +772,9 @@ export default function SiteHeader() {
 
               {/* Messages dropdown trigger - homeowner. Indigo tone,
                   unread from useInboxUnread, /api/matches-backed
-                  InboxDropdown. Pops the bottom-right MessagingDock
-                  open at the same time. */}
+                  InboxDropdown. Only opens the dropdown - the dock
+                  pops when the user actually clicks a row inside the
+                  dropdown (or via /projects/:id?openChat=N). */}
               {displayUser && !isTrades && (
                 <MessagesIconButton
                   buttonRef={btnMessagesRef}
@@ -787,7 +788,6 @@ export default function SiteHeader() {
                   unread={inboxUnread}
                   tone="indigo"
                   testId="nav-messages"
-                  popDockOnOpen
                   renderDropdown={() => (
                     <InboxDropdown onClose={() => setOpenMenu(null)} />
                   )}

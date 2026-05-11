@@ -340,6 +340,7 @@ function buildRouter(ctx) {
   require("./routes/projects/owner-contact.get")(router, ctx);
   require("./routes/projects/unlock-contact.checkout.post")(router, ctx);
   require("./routes/projects/shares.get")(router, ctx);
+  require("./routes/projects/matched-tradespeople.get")(router, ctx);
 
   require("./routes/projects/recommendations.get")(router, ctx);
   require("./routes/projects/recommendations.post")(router, ctx);

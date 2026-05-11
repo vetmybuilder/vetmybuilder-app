@@ -119,6 +119,12 @@ module.exports = (router, ctx) => {
       const winnerFromCommunity = body.winnerFromCommunity;
       const wouldUseAgain = body.wouldUseAgain;
 
+      const winnerOther =
+        body.winnerOther === true ||
+        body.winnerOther === 1 ||
+        body.winnerOther === "1" ||
+        body.winnerOther === "true";
+
       const now = new Date().toISOString().slice(0, 19).replace("T", " ");
 
       // ---------------------------------------------------------
@@ -207,6 +213,12 @@ module.exports = (router, ctx) => {
 
       const hasWinner = !!winnerRecommendationId || !!winnerTradesmanUid;
 
+      // "Someone else" → work went ahead off-platform. Treat as completed so
+      // it appears in the homeowner's Completed tab, just with no winner uid.
+      // Without this flag we'd archive (the legacy "no winner" branch) which
+      // hides the project from the owner.
+      const shouldComplete = didGoAhead && (hasWinner || winnerOther);
+
       log.info(
         {
           didGoAhead,
@@ -214,6 +226,8 @@ module.exports = (router, ctx) => {
           winnerTradesmanUid,
           winnerFromCommunityNum,
           hasWinner,
+          winnerOther,
+          shouldComplete,
         },
         "Close payload normalised"
       );
@@ -231,8 +245,8 @@ module.exports = (router, ctx) => {
              WHERE id = ?`,
             [now, projectId]
           );
-        } else if (hasWinner) {
-          // went ahead + winner → completed
+        } else if (shouldComplete) {
+          // went ahead (with winner OR "someone else") → completed
           await mysqlQuery(
             `UPDATE projects
              SET status = 'completed',
@@ -241,7 +255,8 @@ module.exports = (router, ctx) => {
             [now, projectId]
           );
         } else {
-          // went ahead but hired outside VMB → archived
+          // went ahead but no winner selected and no explicit "someone else"
+          // signal — legacy fallback: archive.
           await mysqlQuery(
             `UPDATE projects
              SET status = 'archived',

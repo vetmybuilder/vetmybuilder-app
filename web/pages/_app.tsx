@@ -211,6 +211,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     "/projects/new",
     "/projects/[id]/edit",
     "/projects/[id]/close",
+    "/projects/[id]/completed",
     "/projects/[id]/recommend",
     "/tradesman/[id]",
     "/builders/[id]",
@@ -318,10 +319,11 @@ export default function MyApp({ Component, pageProps }: AppProps) {
 
       {/* LinkedIn-style messaging dock: bottom-right pill that expands
           into a conversation list and floats individual chat windows.
-          Desktop only - mobile uses /matches + /chat/:id full pages.
-          Scoped to the project detail page only - that's the one place
-          where homeowners actively manage conversations with shortlisted
-          tradespeople, so the dock would be visual noise everywhere else. */}
+          Desktop only - mobile chat lives at /chat/:id, the dock is
+          `hidden md:block`. Scoped to the project detail page only:
+          inbox notification clicks route to /projects/:id?openChat=:matchId
+          and that page reads the query + pops the dock. /matches has
+          its own two-pane inbox, every other surface stays clean. */}
       {router.pathname === "/projects/[id]" && <MessagingDock />}
 
       {/* Trade-side messaging dock: same LinkedIn-style chrome as the
