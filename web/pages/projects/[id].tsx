@@ -269,14 +269,34 @@ function ProjectSwipeDesktop({
             <div className="flex items-center justify-between mb-4">
               <a
                 href="/projects"
-                className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-full bg-white border border-slate-200 shadow-sm px-3.5 py-2 text-[13px] font-bold text-slate-800 hover:border-slate-300 hover:bg-slate-50 transition-colors"
+                data-testid="back-to-jobs"
               >
                 <ChevronLeft className="w-4 h-4" />
                 <span>My jobs</span>
               </a>
               <div className="text-center">
-                <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-indigo-700 mb-0.5">
-                  Your shortlist
+                <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-indigo-700 mb-0.5 inline-flex items-center gap-2">
+                  <span>Your shortlist</span>
+                  {matches && builders.length > 0 && (
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full bg-indigo-600 text-white px-2 py-0.5 text-[10.5px] font-extrabold tracking-normal normal-case"
+                      data-testid="deck-count"
+                    >
+                      <svg
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        aria-hidden
+                        className="h-3 w-3"
+                      >
+                        <path d="M10 9a3 3 0 100-6 3 3 0 000 6zM3 17a7 7 0 1114 0H3z" />
+                      </svg>
+                      {builders.length}{" "}
+                      {builders.length === 1
+                        ? "tradesperson"
+                        : "tradespeople"}
+                    </span>
+                  )}
                 </div>
                 <h1
                   className="text-[22px] font-black tracking-tight text-slate-900 leading-tight"
@@ -292,7 +312,7 @@ function ProjectSwipeDesktop({
                 </h1>
               </div>
               {/* Spacer to balance the back-link so headline stays centred */}
-              <div className="w-[80px]" aria-hidden />
+              <div className="w-[110px]" aria-hidden />
             </div>
 
             <div className="grid md:grid-cols-[280px_1fr_280px] gap-6">
@@ -754,28 +774,56 @@ function ProjectSwipeMobile({
     >
       <div className="h-[env(safe-area-inset-top)]" />
 
-      {/* Back nav row — chevron-left, title centred, edit (pencil) right */}
-      <div className="px-4 pt-2 pb-3 flex items-center justify-between">
+      {/* Back nav row — labelled chevron, count chip centred, more menu right. */}
+      {(() => {
+        const builderCount =
+          (matches?.recommended?.length || 0) +
+          (matches?.paidUnlock?.length || 0) +
+          (matches?.subscribed?.length || 0);
+        return (
+      <div className="px-4 pt-2 pb-3 flex items-center justify-between gap-2">
         <button
           type="button"
-          aria-label="Back"
-          onClick={() => router.back()}
-          className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center"
+          aria-label="Back to my jobs"
+          onClick={() => router.push("/projects")}
+          className="inline-flex items-center gap-1 rounded-full bg-white border border-gray-200 shadow-sm px-3 py-2 text-[13px] font-bold text-gray-800 active:bg-gray-50"
+          data-testid="back-to-jobs-mobile"
         >
-          <ChevronLeft className="w-5 h-5 text-gray-700" />
+          <ChevronLeft className="w-4 h-4" />
+          My jobs
         </button>
-        <div className="text-[15px] font-bold text-gray-500 tracking-tight truncate max-w-[60%] text-center">
-          {projectTitle || "Find your builder"}
-        </div>
+        {matches && builderCount > 0 ? (
+          <div
+            className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 text-white px-3 py-1.5 text-[12px] font-extrabold shadow-sm"
+            data-testid="deck-count-mobile"
+          >
+            <svg
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              aria-hidden
+              className="h-3.5 w-3.5"
+            >
+              <path d="M10 9a3 3 0 100-6 3 3 0 000 6zM3 17a7 7 0 1114 0H3z" />
+            </svg>
+            {builderCount}{" "}
+            {builderCount === 1 ? "tradesperson" : "tradespeople"}
+          </div>
+        ) : (
+          <div className="text-[15px] font-bold text-gray-500 tracking-tight truncate max-w-[55%] text-center">
+            {projectTitle || "Find your builder"}
+          </div>
+        )}
         <button
           type="button"
           aria-label="More project actions"
           onClick={() => setActionsOpen(true)}
-          className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center"
+          className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center shrink-0"
         >
           <MoreHorizontal className="w-5 h-5 text-gray-700" />
         </button>
       </div>
+        );
+      })()}
 
       {matches?.recommendationCards && (
         <ProjectMobileRecsStrip

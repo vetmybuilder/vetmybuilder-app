@@ -309,7 +309,14 @@ export default function SiteHeader() {
     window.location.href = "/";
   }
 
-  const homeHref = "/";
+  // Logo destination: signed-in users go to their "home" (deck for
+   // homeowners, jobs for trades) instead of the marketing landing.
+   // Guests still land on the marketing homepage.
+  const homeHref = displayUser
+    ? isTrades
+      ? "/tradesman/jobs"
+      : "/projects"
+    : "/";
 
   // Owner tabs visible whenever the viewer is a signed-in homeowner and
   // not on an auth screen. Hidden for tradespeople and on /admin/*

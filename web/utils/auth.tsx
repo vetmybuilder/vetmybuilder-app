@@ -288,6 +288,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // a successful /api/me always means the user row exists.
             setProfileComplete(true);
 
+            // Engagement-first signup: a guest who started the wizard at
+            // /projects/new and stashed the payload in sessionStorage now
+            // gets it auto-posted, regardless of which auth path they took
+            // (email signup, OAuth-via-/signup/complete, OAuth-direct, or
+            // login). The redundant calls in SignupForm/login/signup-
+            // complete still work for their own redirect flows; this is
+            // the safety net that catches every other path.
+            try {
+              const hasPending = sessionStorage.getItem(
+                "vmb:pendingProjectPayload",
+              );
+              if (hasPending) {
+                const apiClient = {
+                  post: (path: string, body: unknown) =>
+                    fetch(path, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${t}`,
+                      },
+                      body: JSON.stringify(body),
+                    }).then(async (r) => {
+                      const data = await r.json().catch(() => null);
+                      if (!r.ok) {
+                        const err: any = new Error(
+                          data?.message || data?.error || `HTTP ${r.status}`,
+                        );
+                        err.response = { status: r.status, data };
+                        throw err;
+                      }
+                      return { data };
+                    }),
+                };
+                const { flushPendingProject } = await import(
+                  "@/utils/flushPendingProject"
+                );
+                const target = await flushPendingProject(apiClient as any);
+                if (target) {
+                  window.location.assign(target);
+                }
+              }
+            } catch {
+              /* non-fatal - other flush sites or the next navigation will handle */
+            }
+
             // Routing decisions based on profileComplete are owned by the
             // route wrappers (GuestOnly for /signup, /login etc., and
             // AuthedOnly for /projects etc.). They read profileComplete from

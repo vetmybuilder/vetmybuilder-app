@@ -8,6 +8,7 @@ import React, { useMemo, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import { PROJECT_TYPES, type ProjectTypeCategory } from "@/types/projectTypes";
 import LocationField from "@/components/forms/LocationField";
+import PilotAreasBanner from "@/components/PilotAreasBanner";
 import { trackProjectCreated } from "@/utils/analytics";
 import DynamicFieldGroup, {
   validateGroup,
@@ -170,6 +171,12 @@ type FormShape = {
 
   location: string;
   locationDisplay: string;
+  // Outward code from a confirmed LocationField pick (autocomplete or
+  // typed-then-resolved). Empty string until the user confirms a real
+  // postcode - prevents Continue at the location step on raw typing
+  // (e.g. "SW10" without selecting from the dropdown). Server gate is
+  // belt-and-braces; this is the user-facing block.
+  locationOutward: string;
   propertyType: string;
   bedrooms: number;
 
@@ -211,6 +218,7 @@ export default function NewProject() {
 
     location: "",
     locationDisplay: "",
+    locationOutward: "",
     propertyType: "",
     bedrooms: 0,
 
@@ -394,6 +402,12 @@ export default function NewProject() {
       case "subtypes":
         return hasAnySubtype();
       case "location":
+        // Continue gates only on presence of text. Pilot-area enforcement
+        // happens server-side at POST time (see /api/projects). Trying to
+        // gate on an outward client-side caused too many edge cases with
+        // async commits and bundle staleness; the server's reject -> we
+        // surface the friendly "We're piloting in X" message - is the
+        // single source of truth.
         return !!form.location.trim();
       case "propertyType":
         return !!form.propertyType.trim();
@@ -535,7 +549,15 @@ export default function NewProject() {
       await new Promise((r) => setTimeout(r, 1200));
       router.replace(`/projects/${data.project.id}?justCreated=1`);
     } catch (e: any) {
-      setErr(e?.response?.data?.error || "Failed to create");
+      const data = e?.response?.data;
+      // Server reject for an out-of-pilot postcode - prefer the friendly
+      // message over the bare error code so the user sees the borough
+      // list rather than "location_not_in_pilot".
+      if (data?.error === "location_not_in_pilot") {
+        setErr(data?.message || "We're not in your area yet.");
+      } else {
+        setErr(data?.message || data?.error || "Failed to create");
+      }
       creatingRef.current = false;
       setBusy(false);
     }
@@ -829,13 +851,33 @@ export default function NewProject() {
               {/* ===== LOCATION ===== */}
               {currentStep.key === "location" && (
                 <div className="max-w-sm w-full text-left" data-testid="field-location-wrap">
+                  <PilotAreasBanner />
                   <LocationField
                     id="np-location"
                     label=""
                     value={form.location}
-                    onChange={(v) => set("location", v.toUpperCase())}
+                    onChange={(v, meta) => {
+                      const upper = v.toUpperCase();
+                      set("location", upper);
+                      // Prefer the outward from a confirmed pick (meta).
+                      // Otherwise extract it from the typed text so the
+                      // Continue button doesn't sit disabled while we
+                      // wait for an async commit. The server-side pilot
+                      // gate is the source of truth either way - if the
+                      // typed outward turns out to be unsupported, the
+                      // POST is rejected with the friendly message.
+                      const fromMeta = meta?.outward
+                        ? String(meta.outward).toUpperCase()
+                        : "";
+                      const fromText = (() => {
+                        const m = upper.match(/^([A-Z]{1,2}\d{1,2}[A-Z]?)/);
+                        return m ? m[1] : "";
+                      })();
+                      set("locationOutward", fromMeta || fromText);
+                    }}
                     onDisplayChange={(display) => set("locationDisplay", display)}
                     dataTestId="field-location"
+                    pilotOnly
                   />
                 </div>
               )}

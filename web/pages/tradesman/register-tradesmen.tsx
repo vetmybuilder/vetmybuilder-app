@@ -50,7 +50,8 @@ const UK_PHONE = /^(?:\+44|0)[12378]\d{9}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Step = 1 | 2 | 3 | 4;
-type Doc = { name: string; size: number; type: string };
+import type { SupportingDoc } from "@/components/vendor-register/SupportingDocsField";
+type Doc = SupportingDoc;
 
 export default function TradesmanRegisterV2Page() {
   const api = useApi();
@@ -526,6 +527,7 @@ export default function TradesmanRegisterV2Page() {
         photoCount: photoUrls.length || (form.workPhotos || []).length,
         photoUrls,
         supportingDocCount: (form.docs || []).length,
+        supportingDocs: form.docs || [],
         warrantyMonths,
         discountMinPercent: Math.max(0, Math.round(form.discountMin || 0)),
         discountMaxPercent: Math.max(0, Math.round(form.discountMax || 0)),
@@ -718,15 +720,8 @@ export default function TradesmanRegisterV2Page() {
                 setDiscountMax={(v) => set("discountMax", v)}
                 warranty={form.warranty}
                 setWarranty={(v) => set("warranty", v)}
-                onDocs={(e) => {
-                  const files = Array.from(e.target.files || []);
-                  const mapped: Doc[] = files.map((f) => ({
-                    name: f.name,
-                    size: f.size,
-                    type: f.type || "application/octet-stream",
-                  }));
-                  set("docs", mapped);
-                }}
+                docs={form.docs}
+                onDocsChange={(docs) => set("docs", docs)}
                 onBack={() => setStep(2)}
                 onSaveDraft={onSubmitStep3}
                 busy={busy}

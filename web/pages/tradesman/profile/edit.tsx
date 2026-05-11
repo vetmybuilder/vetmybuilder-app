@@ -69,7 +69,8 @@ import {
 } from "@/utils/serviceAreas";
 
 type Step = 1 | 2 | 3;
-type Doc = { name: string; size: number; type: string };
+import type { SupportingDoc } from "@/components/vendor-register/SupportingDocsField";
+type Doc = SupportingDoc;
 
 type RawProfile = {
   user_id?: string;
@@ -98,7 +99,23 @@ type RawProfile = {
 
   photo_urls?: string[] | null;
   profile_picture_url?: string | null;
+
+  supporting_docs_json?: string | null;
 };
+
+/** Parse supporting_docs_json from /api/tradesmen/me into a typed array. */
+function parseSupportingDocs(raw: string | null | undefined): SupportingDoc[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (d) => d && typeof d === "object" && typeof d.type === "string",
+    );
+  } catch {
+    return [];
+  }
+}
 
 type MeResponse = {
   role: "tradesman" | "user";
@@ -281,7 +298,7 @@ function Inner() {
           discountMin,
           discountMax,
           warranty,
-          docs: [],
+          docs: parseSupportingDocs(p.supporting_docs_json),
           companyNumber: p.company_number || null,
           chStatus: p.ch_status || null,
           existingPhotoUrls,
@@ -499,6 +516,7 @@ function Inner() {
         photoCount: photoUrls.length,
         photoUrls,
         supportingDocCount: (form.docs || []).length,
+        supportingDocs: form.docs || [],
         warrantyMonths,
         discountMinPercent: Math.max(0, Math.round(form.discountMin || 0)),
         discountMaxPercent: Math.max(0, Math.round(form.discountMax || 0)),
@@ -805,15 +823,8 @@ function Inner() {
               setDiscountMax={(v) => set("discountMax", v)}
               warranty={form.warranty}
               setWarranty={(v) => set("warranty", v)}
-              onDocs={(e) => {
-                const files = Array.from(e.target.files || []);
-                const mapped: Doc[] = files.map((f) => ({
-                  name: f.name,
-                  size: f.size,
-                  type: f.type || "application/octet-stream",
-                }));
-                set("docs", mapped);
-              }}
+              docs={form.docs}
+              onDocsChange={(docs) => set("docs", docs)}
               onBack={() => setStep(2)}
               onSaveDraft={onSubmitStep3}
               busy={busy}
@@ -982,15 +993,8 @@ function Inner() {
               setDiscountMax={(v) => set("discountMax", v)}
               warranty={form.warranty}
               setWarranty={(v) => set("warranty", v)}
-              onDocs={(e) => {
-                const files = Array.from(e.target.files || []);
-                const mapped: Doc[] = files.map((f) => ({
-                  name: f.name,
-                  size: f.size,
-                  type: f.type || "application/octet-stream",
-                }));
-                set("docs", mapped);
-              }}
+              docs={form.docs}
+              onDocsChange={(docs) => set("docs", docs)}
               onBack={() => {}}
               onSaveDraft={(e) => e.preventDefault()}
               busy={busy}

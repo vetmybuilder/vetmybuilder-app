@@ -56,12 +56,13 @@ const DRAFT_KEY = "vmb.vendorDraftSso.v1";
 const UK_PHONE = /^(?:\+44|0)[12378]\d{9}$/;
 
 type Step = 1 | 2 | 3;
-type Doc = { name: string; size: number; type: string };
+import type { SupportingDoc } from "@/components/vendor-register/SupportingDocsField";
+type Doc = SupportingDoc;
 
 export default function TradesmanSsoOnboardingPage() {
   const api = useApi();
   const router = useRouter();
-  const { user, loading: authLoading, profileComplete } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const [step, setStep] = useState<Step>(1);
 
@@ -503,6 +504,7 @@ export default function TradesmanSsoOnboardingPage() {
         photoCount: photoUrls.length || (form.workPhotos || []).length,
         photoUrls,
         supportingDocCount: (form.docs || []).length,
+        supportingDocs: form.docs || [],
         warrantyMonths,
         discountMinPercent: Math.max(0, Math.round(form.discountMin || 0)),
         discountMaxPercent: Math.max(0, Math.round(form.discountMax || 0)),
@@ -585,49 +587,13 @@ export default function TradesmanSsoOnboardingPage() {
 
   if (authLoading || hydrating) return null;
 
-  // profileComplete is true when the user has a homeowner postcode OR is
-  // already a tradesman. The tradesman case is already handled above (redirect
-  // to /tradesman/jobs). So if we get here and profileComplete is true,
-  // the user is an existing homeowner trying to create a second role - block it.
-  if (profileComplete === true) {
-    return (
-      <>
-        <Head>
-          <title>Cannot register as tradesperson - VetMyBuilder</title>
-          <style>{`body { background: #fafaf9 !important; }`}</style>
-        </Head>
-        <div className="min-h-screen bg-stone-50 py-16">
-          <div className="mx-auto max-w-md px-4">
-            <div
-              className="rounded-3xl bg-white p-8 shadow-xl shadow-zinc-200/60 sm:p-10 text-center"
-              data-testid="existing-homeowner-block"
-            >
-              <h1 className="text-2xl font-black tracking-tight text-zinc-900 mb-3">
-                Account already exists
-              </h1>
-              <p className="text-sm text-zinc-600 leading-relaxed mb-6">
-                You already have a homeowner account with this email. To
-                register as a tradesperson, please use a different Google
-                account or contact us at{" "}
-                <a
-                  href="mailto:hello@vetmybuilder.com"
-                  className="text-emerald-600 hover:underline font-semibold"
-                >
-                  hello@vetmybuilder.com
-                </a>.
-              </p>
-              <a
-                href="/"
-                className="inline-flex items-center justify-center rounded-full bg-emerald-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/25 hover:scale-[1.02] transition-all"
-              >
-                Back to home
-              </a>
-            </div>
-          </div>
-        </div>
-      </>
-    );
-  }
+  // Note: we used to block here when profileComplete=true on the
+  // assumption that "user row exists = homeowner". Since dropping the
+  // postcode requirement at signup, profileComplete is true for any
+  // signed-in user (touchUserMw auto-creates the user row from the
+  // Firebase token on first authed request). The tradesman case is
+  // already handled above (redirect to /tradesman/jobs); everyone else
+  // is a brand-new OAuth user who's allowed to register as a trade.
 
   return (
     <>
@@ -730,15 +696,8 @@ export default function TradesmanSsoOnboardingPage() {
               setDiscountMax={(v) => set("discountMax", v)}
               warranty={form.warranty}
               setWarranty={(v) => set("warranty", v)}
-              onDocs={(e) => {
-                const files = Array.from(e.target.files || []);
-                const mapped: Doc[] = files.map((f) => ({
-                  name: f.name,
-                  size: f.size,
-                  type: f.type || "application/octet-stream",
-                }));
-                set("docs", mapped);
-              }}
+              docs={form.docs}
+              onDocsChange={(docs) => set("docs", docs)}
               onBack={() => setStep(2)}
               onSaveDraft={onFinishSignup}
               busy={busy}

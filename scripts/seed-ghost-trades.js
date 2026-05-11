@@ -84,163 +84,57 @@ const nowSql = () => {
 const ghostUid = () => `ghost_${crypto.randomBytes(11).toString("hex")}`;
 const uuidv4 = () => crypto.randomUUID();
 
-// ---------- canonical pools ----------
-// Every canonical trade label from web/types/tradeTypes.ts. Matching does
-// an exact-label set intersection, so any drift here silently means a
-// ghost never surfaces. Test guard alongside this file would catch
-// canonicalisation drift if added.
-const ALL_TRADES = [
-  "Air Conditioning",
-  "Architect",
-  "Asbestos Removal",
-  "Basement Conversion",
-  "Bathroom Fitter",
-  "Bin Cleaning",
-  "Boiler Installer",
-  "Bricklayer",
-  "Building Control (Approved Inspector)",
-  "Cabinet Maker",
-  "Carpenter / Joiner",
-  "Carpet Fitter",
-  "Carpet & Upholstery Cleaning",
-  "Cavity Wall Insulation",
-  "Chimney Sweeping",
-  "Cleaning (Builders Clean)",
-  "Commercial / Office Cleaning",
-  "Curtains / Soft Furnishings",
-  "Damp Proofing",
-  "Decking",
-  "Deep / One-off Cleaning",
-  "Drainage Specialist",
-  "Driveway & Patio Cleaning",
-  "Driveways / Paving",
-  "Dryliner / Partitions",
-  "Electrician",
-  "End of Tenancy Cleaning",
-  "External Wall Insulation",
-  "Extension Builder",
-  "Fencing",
-  "Fire Safety",
-  "Flooring Specialist",
-  "Garage Conversion",
-  "Garden Rooms / Offices",
-  "Gutter Cleaning",
-  "Gas Engineer",
-  "General Builder",
-  "Glazier",
-  "Groundworker",
-  "Handyman",
-  "Heat Pumps",
-  "Heating Engineer",
-  "Internal Wall Insulation",
-  "Kitchen Fitter",
-  "Landscaper",
-  "Loft Conversion Specialist",
-  "Loft Insulation",
-  "Mould / Sanitisation Cleaning",
-  "New Build",
-  "Oven Cleaning",
-  "Painter / Decorator",
-  "Party Wall Surveyor",
-  "Plasterer",
-  "Plumber",
-  "Pressure / Jet Washing",
-  "Regular / Domestic Cleaning",
-  "Roof / Moss Removal",
-  "Roof Insulation",
-  "Roofer",
-  "Sash Window Specialist",
-  "Sauna / Steam",
-  "Scaffolder",
-  "Security / Alarms / CCTV",
-  "Shutters / Blinds",
-  "Skylights / Rooflights",
-  "Smart Home / AV",
-  "Solar PV",
-  "Solar Panel Cleaning",
-  "Solar Thermal",
-  "Sprinklers",
-  "Steel Fabrication",
-  "Stone Worktops",
-  "Stonemason",
-  "Structural Engineer",
-  "Suspended Ceilings",
-  "Swimming Pools",
-  "Thatched Roofing",
-  "Tiler",
-  "Timber Treatment",
-  "Underfloor Heating",
-  "Vinyl / LVT Fitter",
-  "Waste Removal / Skip Hire",
-  "Window Cleaning",
-  "Window / Door Fitter",
-  "Wood Floor Sanding",
-];
+// ---------- canonical pools (DERIVED) ----------
+//
+// Single source of truth = web/types/trades.data.json. We derive both
+// ALL_TRADES (the flat label list) and BUCKETS (bucket → labels[]) from
+// it, so adding a new trade means editing only that one file. The
+// drift-guard test in tests/server/matching/tradeCatalog.spec.ts will
+// fail if anything here gets out of sync.
+//
+// EXTRA_BUCKET_ADJACENCIES adds cross-bucket ghosts for trades that
+// commonly span specialties (a Plumber-primary ghost reasonably also
+// lists Heating Engineer as a secondary). Without it, secondary picks
+// are strictly within the same bucket per the catalog.
+const TRADE_CATALOG = require("../web/types/trades.data.json");
 
-// Bucket groupings - secondary trades on a ghost are pulled from the same
-// bucket so a Plumber-primary ghost might also do Heating + Boilers, not
-// Thatched Roofing. Mirrors the "buckets" field in tradeTypes.ts.
-const BUCKETS = {
-  Plumbing: [
-    "Plumber", "Boiler Installer", "Heating Engineer",
-    "Drainage Specialist", "Underfloor Heating", "Bathroom Fitter",
-  ],
-  Heating: [
-    "Heating Engineer", "Boiler Installer", "Underfloor Heating",
-    "Gas Engineer", "Heat Pumps",
-  ],
-  Electrical: [
-    "Electrician", "Security / Alarms / CCTV", "Smart Home / AV",
-  ],
-  HVAC: ["Air Conditioning", "Heat Pumps", "Underfloor Heating"],
-  Renewables: ["Solar PV", "Solar Thermal", "Heat Pumps"],
-  Structure: [
-    "General Builder", "Bricklayer", "Stonemason", "Groundworker",
-    "Structural Engineer", "Extension Builder", "New Build",
-    "Loft Conversion Specialist", "Garage Conversion",
-    "Basement Conversion", "Steel Fabrication", "Damp Proofing",
-  ],
-  Interiors: [
-    "Plasterer", "Carpenter / Joiner", "Cabinet Maker", "Kitchen Fitter",
-    "Bathroom Fitter", "Stone Worktops", "Suspended Ceilings",
-    "Dryliner / Partitions",
-  ],
-  Finishes: [
-    "Tiler", "Painter / Decorator", "Flooring Specialist", "Carpet Fitter",
-    "Wood Floor Sanding", "Vinyl / LVT Fitter", "Curtains / Soft Furnishings",
-    "Shutters / Blinds",
-  ],
-  Exterior: [
-    "Roofer", "Glazier", "Window / Door Fitter", "Sash Window Specialist",
-    "Decking", "Driveways / Paving", "Fencing", "Landscaper",
-    "Skylights / Rooflights", "Thatched Roofing",
-  ],
-  Insulation: [
-    "External Wall Insulation", "Internal Wall Insulation",
-    "Cavity Wall Insulation", "Loft Insulation", "Roof Insulation",
-    "Damp Proofing",
-  ],
-  Specialist: [
-    "Asbestos Removal", "Fire Safety", "Sauna / Steam", "Sprinklers",
-    "Swimming Pools", "Timber Treatment",
-  ],
-  Professional: [
-    "Architect", "Structural Engineer", "Party Wall Surveyor",
-    "Building Control (Approved Inspector)",
-  ],
-  Support: [
-    "Scaffolder", "Waste Removal / Skip Hire",
-  ],
-  Cleaning: [
-    "Cleaning (Builders Clean)", "End of Tenancy Cleaning",
-    "Deep / One-off Cleaning", "Regular / Domestic Cleaning",
-    "Carpet & Upholstery Cleaning", "Oven Cleaning", "Window Cleaning",
-    "Gutter Cleaning", "Pressure / Jet Washing",
-    "Driveway & Patio Cleaning", "Roof / Moss Removal",
-    "Commercial / Office Cleaning", "Bin Cleaning", "Chimney Sweeping",
-    "Mould / Sanitisation Cleaning", "Solar Panel Cleaning",
-  ],
-  General: ["Handyman", "Garden Rooms / Offices", "General Builder"],
+const ALL_TRADES = TRADE_CATALOG
+  .filter((t) => t.active !== false)
+  .map((t) => t.label)
+  .sort();
+
+const BUCKETS = (() => {
+  const out = {};
+  for (const t of TRADE_CATALOG) {
+    if (t.active === false) continue;
+    if (!t.buckets) continue;
+    (out[t.buckets] ||= []).push(t.label);
+  }
+  return out;
+})();
+
+const EXTRA_BUCKET_ADJACENCIES = {
+  Plumbing: ["Heating", "HVAC"],
+  Heating: ["Plumbing"],
+  HVAC: ["Heating"],
+  Renewables: ["Heating"],
+  Insulation: ["Structure"],
+};
+
+// Cross-bucket label additions for trades that naturally span specialties
+// the bucket model can't capture. Keyed by primary trade label, value is
+// a list of canonical labels added to its secondary-pool. Used to keep
+// Plumber-primary ghosts surfacing Bathroom Fitter / Drainage etc. even
+// though those live in other buckets per the catalog.
+const EXTRA_TRADE_LINKS = {
+  "Plumber": ["Bathroom Fitter", "Drainage Specialist", "Boiler Installer", "Heating Engineer"],
+  "Heating Engineer": ["Plumber", "Boiler Installer", "Gas Engineer"],
+  "Bathroom Fitter": ["Plumber", "Tiler", "Electrician"],
+  "Kitchen Fitter": ["Carpenter / Joiner", "Tiler", "Electrician", "Plumber"],
+  "Electrician": ["Security / Alarms / CCTV", "Smart Home / AV"],
+  "Roofer": ["Gutter Cleaning", "Roof / Moss Removal", "Skylights / Rooflights"],
+  "Extension Builder": ["General Builder", "Bricklayer", "Groundworker", "Structural Engineer"],
+  "Loft Conversion Specialist": ["Carpenter / Joiner", "Plasterer", "Electrician"],
 };
 
 // Reverse lookup: trade label -> the buckets it belongs to. Many trades
@@ -256,14 +150,19 @@ const TRADE_BUCKETS = (() => {
 })();
 
 // Pick 2 secondary trades for a ghost whose primary is `trade`. Pulled
-// from the buckets the primary belongs to, so they read as natural
+// from the buckets the primary belongs to (plus the EXTRA_BUCKET_ADJACENCIES
+// for cross-bucket overlaps like Plumbing<>Heating), so they read as natural
 // upsell ("we also do X") rather than a random hodgepodge.
 function pickSecondaries(trade) {
-  const myBuckets = TRADE_BUCKETS[trade] || [];
+  const myBuckets = new Set(TRADE_BUCKETS[trade] || []);
+  for (const b of [...myBuckets]) {
+    for (const adj of EXTRA_BUCKET_ADJACENCIES[b] || []) myBuckets.add(adj);
+  }
   const candidates = new Set();
   for (const b of myBuckets) {
-    for (const t of BUCKETS[b]) candidates.add(t);
+    for (const t of BUCKETS[b] || []) candidates.add(t);
   }
+  for (const t of EXTRA_TRADE_LINKS[trade] || []) candidates.add(t);
   candidates.delete(trade);
   // Always sprinkle in General Builder + Handyman as cross-bucket
   // upsells - they're broadly common secondaries on real trade sites.
