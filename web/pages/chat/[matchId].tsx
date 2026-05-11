@@ -124,6 +124,22 @@ function ChatPageInner() {
   const { user, token: authToken, loading: authLoading } = useAuth();
   const matchId = router.query.matchId as string | undefined;
 
+  // The legacy /projects/:id?openChat=:matchId URL 308s here via the
+  // next.config.mjs redirect, but Next forwards source query params to
+  // the destination by default - we end up with `?openChat=N` dangling
+  // on the address bar. Strip it once on mount so the URL reads clean.
+  useEffect(() => {
+    if (!router.isReady) return;
+    if (!("openChat" in router.query)) return;
+    const { openChat: _drop, ...rest } = router.query;
+    router.replace(
+      { pathname: router.pathname, query: rest },
+      undefined,
+      { shallow: true },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady]);
+
   const [chatData, setChatData] = useState<ChatData | null>(null);
   const [forbidden, setForbidden] = useState(false);
   const [loading, setLoading] = useState(true);

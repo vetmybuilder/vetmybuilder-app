@@ -197,7 +197,6 @@ export default function MyApp({ Component, pageProps }: AppProps) {
   const TRADESMAN_AUTH_PATHS = new Set([
     "/tradesman/projects",
     "/tradesman/profile/edit",
-    "/tradesman/featured",
   ]);
   const isTradesmanRoute = TRADESMAN_AUTH_PATHS.has(router.pathname);
 

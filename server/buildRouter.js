@@ -319,8 +319,6 @@ function buildRouter(ctx) {
   // ---------------- Account / Profile / Me ----------------
   require("./routes/accounts/account.get")(router, ctx);
   require("./routes/account/account.post")(router, ctx);
-  require("./routes/profile/profile.get")(router, ctx);
-  require("./routes/profile/profile.post")(router, ctx);
   require("./routes/me/me.get")(router, ctx);
 
   // ---------------- Projects ----------------
