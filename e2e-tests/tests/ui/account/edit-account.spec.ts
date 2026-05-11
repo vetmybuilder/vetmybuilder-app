@@ -20,7 +20,6 @@ test.describe("Homeowner account", () => {
       firstName: updated.firstName,
       lastName: updated.lastName,
       username: updated.username,
-      location: updated.location,
     });
 
     await siteHeader.assertInitials(updated.initials);
@@ -30,7 +29,6 @@ test.describe("Homeowner account", () => {
       firstName: updated.firstName,
       lastName: updated.lastName,
       username: usernameBefore,
-      location: updated.location,
       email: emailBefore,
     });
 
@@ -42,7 +40,6 @@ test.describe("Homeowner account", () => {
       lastName: updated.lastName,
       email: emailBefore,
       username: usernameBefore,
-      location: updated.location,
     });
   });
 
@@ -56,14 +53,12 @@ test.describe("Homeowner account", () => {
     await accountPage.visit();
     await accountPage.firstName.fill("");
     await accountPage.lastName.fill("");
-    // username is read-only — cannot be cleared
-    await accountPage.location.fill("");
+    // username is read-only - cannot be cleared
     await accountPage.saveButton.click();
 
     await accountPage.hasAccountFieldErrors({
       firstName: "First name is required.",
       lastName: "Last name is required.",
-      location: "Postcode or city is required.",
     });
   });
 });

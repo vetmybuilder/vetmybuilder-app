@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { ChevronLeft, MoreHorizontal } from "lucide-react";
-import BrandWordmark from "@/components/BrandWordmark";
 import { useProjectView } from "@/components/project/views/useProjectView";
 import OwnerProjectView from "@/components/project/views/OwnerProjectView";
 import PriceRangeBadge from "@/components/project/PriceRangeBadge";
@@ -269,14 +268,34 @@ function ProjectSwipeDesktop({
             <div className="flex items-center justify-between mb-4">
               <a
                 href="/projects"
-                className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-full bg-white border border-slate-200 shadow-sm px-3.5 py-2 text-[13px] font-bold text-slate-800 hover:border-slate-300 hover:bg-slate-50 transition-colors"
+                data-testid="back-to-jobs"
               >
                 <ChevronLeft className="w-4 h-4" />
                 <span>My jobs</span>
               </a>
               <div className="text-center">
-                <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-indigo-700 mb-0.5">
-                  Your shortlist
+                <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-indigo-700 mb-0.5 inline-flex items-center gap-2">
+                  <span>Your shortlist</span>
+                  {matches && builders.length > 0 && (
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full bg-indigo-600 text-white px-2 py-0.5 text-[10.5px] font-extrabold tracking-normal normal-case"
+                      data-testid="deck-count"
+                    >
+                      <svg
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        aria-hidden
+                        className="h-3 w-3"
+                      >
+                        <path d="M10 9a3 3 0 100-6 3 3 0 000 6zM3 17a7 7 0 1114 0H3z" />
+                      </svg>
+                      {builders.length}{" "}
+                      {builders.length === 1
+                        ? "tradesperson"
+                        : "tradespeople"}
+                    </span>
+                  )}
                 </div>
                 <h1
                   className="text-[22px] font-black tracking-tight text-slate-900 leading-tight"
@@ -292,7 +311,7 @@ function ProjectSwipeDesktop({
                 </h1>
               </div>
               {/* Spacer to balance the back-link so headline stays centred */}
-              <div className="w-[80px]" aria-hidden />
+              <div className="w-[110px]" aria-hidden />
             </div>
 
             <div className="grid md:grid-cols-[280px_1fr_280px] gap-6">
@@ -754,28 +773,56 @@ function ProjectSwipeMobile({
     >
       <div className="h-[env(safe-area-inset-top)]" />
 
-      {/* Back nav row — chevron-left, title centred, edit (pencil) right */}
-      <div className="px-4 pt-2 pb-3 flex items-center justify-between">
+      {/* Back nav row — labelled chevron, count chip centred, more menu right. */}
+      {(() => {
+        const builderCount =
+          (matches?.recommended?.length || 0) +
+          (matches?.paidUnlock?.length || 0) +
+          (matches?.subscribed?.length || 0);
+        return (
+      <div className="px-4 pt-2 pb-3 flex items-center justify-between gap-2">
         <button
           type="button"
-          aria-label="Back"
-          onClick={() => router.back()}
-          className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center"
+          aria-label="Back to my jobs"
+          onClick={() => router.push("/projects")}
+          className="inline-flex items-center gap-1 rounded-full bg-white border border-gray-200 shadow-sm px-3 py-2 text-[13px] font-bold text-gray-800 active:bg-gray-50"
+          data-testid="back-to-jobs-mobile"
         >
-          <ChevronLeft className="w-5 h-5 text-gray-700" />
+          <ChevronLeft className="w-4 h-4" />
+          My jobs
         </button>
-        <div className="text-[15px] font-bold text-gray-500 tracking-tight truncate max-w-[60%] text-center">
-          {projectTitle || "Find your builder"}
-        </div>
+        {matches && builderCount > 0 ? (
+          <div
+            className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 text-white px-3 py-1.5 text-[12px] font-extrabold shadow-sm"
+            data-testid="deck-count-mobile"
+          >
+            <svg
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              aria-hidden
+              className="h-3.5 w-3.5"
+            >
+              <path d="M10 9a3 3 0 100-6 3 3 0 000 6zM3 17a7 7 0 1114 0H3z" />
+            </svg>
+            {builderCount}{" "}
+            {builderCount === 1 ? "tradesperson" : "tradespeople"}
+          </div>
+        ) : (
+          <div className="text-[15px] font-bold text-gray-500 tracking-tight truncate max-w-[55%] text-center">
+            {projectTitle || "Find your builder"}
+          </div>
+        )}
         <button
           type="button"
           aria-label="More project actions"
           onClick={() => setActionsOpen(true)}
-          className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center"
+          className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center shrink-0"
         >
           <MoreHorizontal className="w-5 h-5 text-gray-700" />
         </button>
       </div>
+        );
+      })()}
 
       {matches?.recommendationCards && (
         <ProjectMobileRecsStrip
@@ -1209,43 +1256,6 @@ function NonOwnerMobileRedirect() {
   );
 }
 
-/**
- * Bare-route mobile 404 used when /projects/[id] errors out (e.g. project
- * deleted, viewer not permitted, or the API is briefly unavailable). Mirrors
- * the desktop 404 content but renders without site chrome so a stale render
- * never bleeds the old layout through.
- */
-function ProjectErrorMobile() {
-  return (
-    <main
-      className="fixed inset-0 bg-white overflow-y-auto flex items-center justify-center"
-      style={{
-        fontFamily:
-          "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
-      }}
-      data-testid="project-view-error-mobile"
-    >
-      <div className="px-6 py-10 max-w-sm w-full text-center">
-        <p className="text-[64px] font-black text-rose-500 leading-none mb-3">
-          404
-        </p>
-        <h1 className="text-[20px] font-extrabold tracking-tight text-gray-900 mb-2">
-          Project not found
-        </h1>
-        <p className="text-[13px] text-gray-500 leading-relaxed mb-6">
-          This project doesn&apos;t exist or is no longer available.
-        </p>
-        <Link
-          href="/projects"
-          className="inline-flex items-center justify-center gap-2 rounded-full bg-rose-500 px-6 py-3 text-[14px] font-bold text-white shadow-lg shadow-rose-500/25"
-        >
-          Back to projects
-        </Link>
-      </div>
-    </main>
-  );
-}
-
 function MetaRow({
   label,
   value,
@@ -1307,6 +1317,18 @@ export default function ProjectViewPage() {
   }, [viewerRole, router]);
 
   // ---------------------------------------------------------
+  // 2a) REDIRECT to the canonical /404 when the project is
+  //     missing or inaccessible. We used to render a bespoke
+  //     "Project not found" panel here, but maintaining two
+  //     404 surfaces drifts - the global /404 page is
+  //     role-aware and brand-correct.
+  // ---------------------------------------------------------
+  useEffect(() => {
+    if (vm.loading || !vm.errorStatus || viewerRole === "unknown") return;
+    router.replace("/404");
+  }, [vm.loading, vm.errorStatus, viewerRole, router]);
+
+  // ---------------------------------------------------------
   // 3) Prevent UI render until:
   //    - project is loaded
   //    - role is known
@@ -1314,56 +1336,11 @@ export default function ProjectViewPage() {
   const ready =
     !vm.loading && !vm.errorStatus && !!vm.project && viewerRole !== "unknown";
 
-  // Project not found or inaccessible
+  // Project not found → redirect handled by the useEffect above.
+  // Render nothing while the navigation lands so the old project shell
+  // doesn't flash on screen.
   if (!vm.loading && vm.errorStatus && viewerRole !== "unknown") {
-    return (
-      <>
-        <Head>
-          <title>Project not found — VetMyBuilder</title>
-          <style>{`body { background: #fafaf9 !important; }`}</style>
-        </Head>
-
-        {/* MOBILE — bare 404 (no desktop site chrome bleed-through) */}
-        <div className="md:hidden">
-          <ProjectErrorMobile />
-        </div>
-
-        {/* DESKTOP — unchanged 404 inside Layout */}
-        <div className="hidden md:block">
-          <Layout>
-            <div className="overflow-x-hidden min-h-screen">
-              <div className="-mt-14 relative min-h-screen flex items-center justify-center overflow-hidden">
-                <div className="relative z-10 w-full max-w-lg px-4 sm:px-0 text-center">
-                  <Link href="/" className="inline-flex items-center mb-10">
-                    <BrandWordmark
-                      tone="indigo"
-                      className="text-xl font-black tracking-tight text-zinc-900"
-                    />
-                  </Link>
-                  <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-10 sm:p-14">
-                    <p className="text-8xl font-black text-red-500 leading-none mb-4">
-                      404
-                    </p>
-                    <h1 className="text-2xl font-black tracking-tight text-zinc-900 mb-3">
-                      Project not found
-                    </h1>
-                    <p className="text-zinc-500 text-sm leading-relaxed mb-8">
-                      This project doesn&apos;t exist or is no longer available.
-                    </p>
-                    <Link
-                      href="/"
-                      className="inline-flex items-center justify-center gap-2 rounded-full bg-red-500 px-8 py-3.5 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] transition-all"
-                    >
-                      Back to home
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Layout>
-        </div>
-      </>
-    );
+    return null;
   }
 
   if (!ready) {

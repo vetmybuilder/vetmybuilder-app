@@ -3,6 +3,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/utils/auth";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 
 function IconProfile(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -159,9 +160,12 @@ export default function HowItWorksTrades() {
       </Head>
 
       <div className="overflow-x-hidden -mt-14">
-        {/* HERO - cream wash with Sora display + Caveat emerald accent (trade tone) */}
-        <section className="relative bg-[#fef6e9] pt-24 pb-12 sm:pt-28 sm:pb-16">
-          <div className="relative mx-auto max-w-6xl px-5 sm:px-8 lg:px-8">
+        {/* HERO - cream wash with Sora display + Caveat emerald accent (trade tone).
+            BrandWatermarkScatter overlays the cream chrome so this page
+            matches /projects, /login, /signup, etc. */}
+        <section className="relative bg-[#fef6e9] pt-24 pb-12 sm:pt-28 sm:pb-16 overflow-hidden">
+          <BrandWatermarkScatter />
+          <div className="relative z-10 mx-auto max-w-6xl px-5 sm:px-8 lg:px-8">
             <div className="grid lg:grid-cols-2 gap-10 items-center">
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100/80 border border-emerald-200 px-3 py-1 text-[12px] font-extrabold uppercase tracking-[0.14em] text-emerald-800 mb-5">
@@ -314,8 +318,9 @@ export default function HowItWorksTrades() {
         </section>
 
         {/* FAQ */}
-        <section className="bg-[#fef6e9] py-16 sm:py-20">
-          <div className="mx-auto max-w-3xl px-5 sm:px-8 lg:px-8">
+        <section className="relative bg-[#fef6e9] py-16 sm:py-20 overflow-hidden">
+          <BrandWatermarkScatter />
+          <div className="relative z-10 mx-auto max-w-3xl px-5 sm:px-8 lg:px-8">
             <div className="text-center mb-10">
               <h2
                 className="text-[32px] sm:text-4xl font-black tracking-[-0.01em] text-slate-900 leading-tight"

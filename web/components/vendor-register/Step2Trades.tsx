@@ -207,7 +207,10 @@ export default function Step2Trades({
             {filtered.length === 0 ? (
               <p className="text-sm text-zinc-400">No matches{query ? ` for "${query}"` : ""}.</p>
             ) : (
-              <div className="flex flex-wrap gap-2" data-testid="selected-trades">
+              <div
+                className="grid grid-cols-2 sm:grid-cols-3 gap-2"
+                data-testid="selected-trades"
+              >
                 {filtered.map((t) => {
                   const label = t.label;
                   const checked = tradeTypes.includes(label);
@@ -218,14 +221,14 @@ export default function Step2Trades({
                       onClick={() => setTradeTypes(toggle(tradeTypes, label))}
                       aria-pressed={checked}
                       aria-label={label}
-                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-all ${
+                      className={`flex items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium leading-tight text-center transition-all ${
                         checked
-                          ? "border border-emerald-500 bg-emerald-50 text-emerald-700 scale-[1.02]"
+                          ? "border border-emerald-500 bg-emerald-50 text-emerald-700"
                           : "bg-white text-zinc-600 border border-zinc-200 hover:border-emerald-300 hover:text-emerald-600"
                       }`}
                     >
                       {checked && <Check className="h-3.5 w-3.5 shrink-0" />}
-                      {label}
+                      <span>{label}</span>
                     </button>
                   );
                 })}

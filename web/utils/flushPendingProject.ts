@@ -49,9 +49,20 @@ export async function flushPendingProject(
     const res = await api.post("/api/projects", payload);
     const data = res?.data ?? res;
     const id = data?.project?.id;
-    if (!id) return null;
+    if (!id) {
+      // eslint-disable-next-line no-console
+      console.warn("[flushPendingProject] POST returned no id", { data });
+      return null;
+    }
     return `/projects/${id}?justCreated=1`;
-  } catch {
+  } catch (e: any) {
+    // eslint-disable-next-line no-console
+    console.warn("[flushPendingProject] POST failed", {
+      status: e?.response?.status,
+      data: e?.response?.data,
+      message: e?.message,
+      payload,
+    });
     return null;
   }
 }

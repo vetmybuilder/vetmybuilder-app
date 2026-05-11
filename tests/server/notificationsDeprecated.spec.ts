@@ -52,4 +52,18 @@ describe("Deprecated notifications - source guards", () => {
     const src = read("server/routes/account/account.post.js");
     expect(src).not.toMatch(/notifyNewSignupOfLocalProjects\s*\(/);
   });
+
+  // Removed 2026-05: when a homeowner posts a project we no longer
+  // notify other homeowners in the same area. Tradespeople still get
+  // matched-job notifications via notifyMatchedTradesmen, and people who
+  // recommended a trade on the project still get the project_live_local
+  // notification - just not random homeowner neighbours.
+  it("publishNotifications.js does not query users by area for project_live_local", () => {
+    const src = read("server/lib/publishNotifications.js");
+    // The old code path queried `users u WHERE (areaWhere)` to collect
+    // every homeowner in the same area. If anyone reintroduces it, this
+    // test fails - a much lighter guard than mocking the whole pipeline.
+    expect(src).not.toMatch(/areaUsers\s*=\s*areaUserRows/);
+    expect(src).not.toMatch(/SELECT u\.uid AS uid\s+FROM users u\s+WHERE \(\$\{areaWhere\}\)/);
+  });
 });

@@ -26,6 +26,29 @@ module.exports = (router, ctx) => {
     return d.toISOString().slice(0, 19).replace("T", " ");
   }
 
+  // One-shot column bootstrap so existing dev/staging DBs pick up the
+  // supporting_docs_json column without a manual ALTER. The schema files
+  // already declare it; this just reconciles installs that were created
+  // before the column existed. Runs once per process.
+  let columnEnsured = false;
+  async function ensureSupportingDocsJsonColumn() {
+    if (columnEnsured) return;
+    columnEnsured = true;
+    try {
+      await mysqlQuery(
+        "ALTER TABLE tradesmen ADD COLUMN supporting_docs_json TEXT NULL",
+      );
+      log.info?.(`${TAG} added supporting_docs_json column`);
+    } catch (err) {
+      // Duplicate column = already there (MySQL error 1060). Anything
+      // else is a real problem worth logging but not fatal.
+      const msg = String(err?.message || "");
+      if (!/Duplicate column|already exists/i.test(msg)) {
+        log.warn?.(`${TAG} ensureSupportingDocsJsonColumn failed`, msg);
+      }
+    }
+  }
+
   // ---- CH + location helpers ----
   let matchByName = ctx.matchByName;
   let extractLocationTokens = ctx.extractLocationTokens;
@@ -138,6 +161,7 @@ module.exports = (router, ctx) => {
 
   // ---------- ROUTE ----------
   router.put("/tradesmen/me", auth, async (req, res) => {
+    await ensureSupportingDocsJsonColumn();
     const uid = req.user.uid;
 
     log.info(`${TAG} incoming update`, {
@@ -228,7 +252,19 @@ module.exports = (router, ctx) => {
       const photoCount =
         (photoUrls && photoUrls.length) || int(body.photoCount, 0);
 
-      const supportingDocCount = int(body.supportingDocCount, 0);
+      // Typed supporting-docs list (insurance, certs, memberships). The
+       // count column drives the trust score; the JSON column captures
+       // what the trade actually claimed for admin review. Older clients
+       // sent only the count - we honour that here too.
+      const supportingDocsArr = Array.isArray(body.supportingDocs)
+        ? body.supportingDocs
+        : [];
+      const supportingDocCount = supportingDocsArr.length > 0
+        ? supportingDocsArr.length
+        : int(body.supportingDocCount, 0);
+      const supportingDocsJson = supportingDocsArr.length
+        ? JSON.stringify(supportingDocsArr)
+        : null;
 
       const discountMinPercent = int(
         body.discountMinPercent ?? body.discountMin,
@@ -327,6 +363,7 @@ module.exports = (router, ctx) => {
             trade_types, service_areas,
             web_verified, web_url, social_links_json, review_links_json,
             offers_discount, warranty_months, photo_count, supporting_doc_count,
+            supporting_docs_json,
             discount_min_percent, discount_max_percent,
             company_number, ch_status, ch_name, ch_checked_at, ch_match_score,
             vmb_score, vmb_badge, created_at, updated_at
@@ -335,6 +372,7 @@ module.exports = (router, ctx) => {
             ?, ?,
             0, ?, ?, ?,
             ?, ?, ?, ?,
+            ?,
             ?, ?,
             ?, ?, ?, ?, ?,
             0, 'bronze', NOW(), NOW()
@@ -353,6 +391,7 @@ module.exports = (router, ctx) => {
             warranty_months     = VALUES(warranty_months),
             photo_count         = VALUES(photo_count),
             supporting_doc_count= VALUES(supporting_doc_count),
+            supporting_docs_json= VALUES(supporting_docs_json),
             discount_min_percent= VALUES(discount_min_percent),
             discount_max_percent= VALUES(discount_max_percent),
             company_number      = COALESCE(VALUES(company_number), company_number),
@@ -377,6 +416,7 @@ module.exports = (router, ctx) => {
             warrantyMonths,
             photoCount,
             supportingDocCount,
+            supportingDocsJson,
             discountMinPercent,
             discountMaxPercent,
             companyNumber,

@@ -62,18 +62,11 @@ module.exports = (router, ctx) => {
     let firstName = (req.body?.firstName ?? "").toString().trim();
     let lastName = (req.body?.lastName ?? "").toString().trim();
     let username = (req.body?.username ?? "").toString().trim();
+    // location is optional — homeowner postcode is no longer captured at
+    // signup. Matching uses the project location, not the homeowner's. If
+    // a user later sets a postcode via /account, it's stored on the
+    // existing schema columns and used as a recommendation-fallback only.
     const location = (req.body?.location ?? "").toString().trim();
-
-    // Only `location` is required from the request body. The rest are
-    // derived from the token below if absent.
-    if (!location) {
-      log.warn({ uid }, "missing required postcode/location");
-      return res.status(400).json({
-        error: "missing_required_fields",
-        message: "Please enter your postcode or city.",
-        fieldErrors: { location: "Postcode or city is required." },
-      });
-    }
 
     // Derive name from the Google `name` claim when not supplied. Splitting
     // on whitespace handles "First Last", "First Middle Last", and the
@@ -141,15 +134,20 @@ module.exports = (router, ctx) => {
           firstName   = VALUES(firstName),
           lastName    = VALUES(lastName),
           username    = VALUES(username),
-          locationRaw = VALUES(locationRaw)
+          locationRaw = COALESCE(VALUES(locationRaw), locationRaw)
         `,
-        [uid, email, firstName, lastName, username, location],
+        [uid, email, firstName, lastName, username, location || null],
       );
 
       log.info({ uid }, "upserted user row in MySQL");
 
-      await updateUserLocationMysql(mysqlQuery, uid, location);
-      log.info({ uid }, "updated user location tokens");
+      // Only refresh derived location tokens when the caller actually sent
+      // a postcode. Empty body shouldn't blow away an existing one set
+      // earlier from /account.
+      if (location) {
+        await updateUserLocationMysql(mysqlQuery, uid, location);
+        log.info({ uid }, "updated user location tokens");
+      }
 
       res.json({ ok: true });
       ctx.logActivity("account.update", "info", req.user.uid, "Account updated");

@@ -39,7 +39,26 @@ module.exports = (router, ctx) => {
     }
   }
 
+  // One-shot column bootstrap so an existing dev/staging install picks up
+  // supporting_docs_json without a manual ALTER. Runs once per process.
+  let columnEnsured = false;
+  async function ensureSupportingDocsJsonColumn() {
+    if (columnEnsured) return;
+    columnEnsured = true;
+    try {
+      await mysqlQuery(
+        "ALTER TABLE tradesmen ADD COLUMN supporting_docs_json TEXT NULL",
+      );
+    } catch (err) {
+      const msg = String(err?.message || "");
+      if (!/Duplicate column|already exists/i.test(msg)) {
+        log.warn?.(`${TAG} supporting_docs_json column ensure failed`, msg);
+      }
+    }
+  }
+
   router.get("/tradesmen/me", auth, async (req, res) => {
+    await ensureSupportingDocsJsonColumn();
     const uid = req.user.uid;
     log.info(`${TAG} request`, { uid });
 
@@ -68,6 +87,7 @@ module.exports = (router, ctx) => {
           review_links_json,
           photo_count,
           supporting_doc_count,
+          supporting_docs_json,
           discount_min_percent,
           discount_max_percent,
           offers_discount,

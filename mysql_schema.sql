@@ -292,6 +292,11 @@ CREATE TABLE IF NOT EXISTS tradesmen (
   ch_match_score INTEGER DEFAULT 0,
   photo_count INTEGER DEFAULT 0,
   supporting_doc_count INTEGER DEFAULT 0,
+  -- Typed list of declared supporting docs (insurance, certs, memberships).
+  -- JSON array of { type, label, customType?, expiresOn? }. The count column
+  -- above is kept in sync from the array length so existing trust-score
+  -- queries still work without joining JSON.
+  supporting_docs_json TEXT NULL,
   offers_discount INTEGER DEFAULT 0,
   warranty_months INTEGER DEFAULT 0,
   web_verified INTEGER DEFAULT 0,
@@ -1012,4 +1017,14 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   attachments_json TEXT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY idx_chat_match (match_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Pilot launch areas. Borough name is the primary key; outward postcode
+-- mapping lives in code (server/lib/boroughPostcodes.js). `enabled=1` means
+-- jobs from postcodes within this borough are accepted by /api/projects.
+-- The full borough set is seeded by server/lib/pilotAreas.js on first read.
+CREATE TABLE IF NOT EXISTS pilot_boroughs (
+  name VARCHAR(100) NOT NULL PRIMARY KEY,
+  enabled TINYINT(1) NOT NULL DEFAULT 0,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

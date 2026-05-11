@@ -10,9 +10,7 @@ test.describe("Homeowner registration", () => {
     siteHeader,
     homeownerProjectsPage,
   }) => {
-    const account = Account.anAccount().withRandomRegistration({
-      location: "E4",
-    });
+    const account = Account.anAccount().withRandomRegistration();
 
     await registerPage.signUp(account);
     await homeownerProjectsPage.expectVisible();
@@ -30,7 +28,6 @@ test.describe("Homeowner registration", () => {
       firstName: "First name is required.",
       lastName: "Last name is required.",
       username: "Username is required.",
-      location: "Postcode or city is required.",
       email: "Email is required.",
       password: "Password is required.",
     });
@@ -56,7 +53,6 @@ test.describe("Homeowner registration", () => {
     await accountApi.createAccount(existing.toApiPayload());
 
     const account = Account.anAccount().withRandomRegistration({
-      location: "E4 7DT",
       username: takenUsername,
       email: `homeowner+${Date.now()}@test.com`,
       password: "Passw0rd!",
@@ -76,8 +72,6 @@ test.describe("Homeowner registration", () => {
     await registerPage.firstName.fill(account.firstName);
     await registerPage.lastName.fill(account.lastName);
     await registerPage.username.fill(account.username);
-    await registerPage.location.fill(account.location);
-    await registerPage.location.press("Escape");
     await registerPage.email.fill(account.requiredEmail);
     await registerPage.password.fill(account.requiredPassword);
     await registerPage.confirmPassword.fill(account.requiredPassword);
@@ -90,7 +84,6 @@ test.describe("Homeowner registration", () => {
 
   test("shows an error when password is too weak", async ({ registerPage }) => {
     const account = Account.anAccount().withRandomRegistration({
-      location: "E4",
       password: "123",
     });
 
@@ -116,7 +109,6 @@ test.describe("Homeowner registration", () => {
     await createAuthUser(takenEmail, password);
 
     const account = Account.anAccount().withRandomRegistration({
-      location: "E4",
       email: takenEmail,
       password,
     });

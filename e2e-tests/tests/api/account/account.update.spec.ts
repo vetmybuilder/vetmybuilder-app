@@ -16,14 +16,13 @@ test.describe("Account APIs", () => {
       firstName: "Test",
       lastName: "User",
       username: `test_${Date.now()}`,
-      location: "London",
     });
 
     expect(res.status()).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
   });
 
-  test("POST /api/account requires location (other fields are derived from token claims)", async ({
+  test("POST /api/account no longer requires location (matching uses project location, not homeowner's)", async ({
     request,
     runtime,
   }) => {
@@ -37,29 +36,15 @@ test.describe("Account APIs", () => {
       firstName: "Test",
       lastName: "User",
       username: `req_${Date.now()}`,
-      location: "London",
     });
     expect(signup.status()).toBe(200);
 
-    // Only `location` is required from the client now — first/last/username
-    // are derived server-side from the Firebase token claims (Google `name`,
-    // email) when not supplied. So omitting them but providing a blank
-    // location should fail with a single fieldError on `location`.
-    const res = await client.post("/api/account", {
-      firstName: null,
-      lastName: null,
-      username: null,
-      location: "",
-    });
-
-    expect(res.status()).toBe(400);
-    expect(await res.json()).toEqual({
-      error: "missing_required_fields",
-      message: "Please enter your postcode or city.",
-      fieldErrors: {
-        location: "Postcode or city is required.",
-      },
-    });
+    // Postcode is no longer captured at signup. An empty body (or one
+    // omitting `location`) must succeed - first/last/username come from
+    // the Firebase token claims when not supplied.
+    const res = await client.post("/api/account", {});
+    expect(res.status()).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
   });
 
   test("POST /api/account enforces username uniqueness", async ({
@@ -85,7 +70,6 @@ test.describe("Account APIs", () => {
       firstName: "Test",
       lastName: "User",
       username: `a_${Date.now()}`,
-      location: "London",
     });
     expect(aSignup.status()).toBe(200);
 
@@ -93,7 +77,6 @@ test.describe("Account APIs", () => {
       firstName: "Test",
       lastName: "User",
       username: `b_${Date.now()}`,
-      location: "London",
     });
     expect(bSignup.status()).toBe(200);
 
@@ -102,7 +85,6 @@ test.describe("Account APIs", () => {
       firstName: "Test",
       lastName: "User",
       username: takenUsername,
-      location: "London",
     });
     expect(aSet.status()).toBe(200);
     expect(await aSet.json()).toEqual({ ok: true });
@@ -114,7 +96,6 @@ test.describe("Account APIs", () => {
       firstName: "Test",
       lastName: "User",
       username: takenUsername,
-      location: "London",
     });
 
     expect(bSet.status()).toBe(409);

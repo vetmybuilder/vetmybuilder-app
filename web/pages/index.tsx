@@ -5,8 +5,8 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/utils/auth";
 import Footer from "@/components/Footer";
-import HomeStats from "@/components/home/HomeStats";
 import HomeContactSection from "@/components/home/HomeContactSection";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 
 function IconProject(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -368,8 +368,6 @@ export default function Home() {
 
         </section>
 
-        <HomeStats />
-
         {/* HOW IT WORKS - warm cream alternating with white. Steps coloured
             per beat (amber / violet / emerald) so each feels distinct. */}
         <section className="bg-white py-14 sm:py-20" id="how-it-works">
@@ -421,8 +419,10 @@ export default function Home() {
           </div>
         </section>
 
-        {/* WHY HOMEOWNERS / TRADES LOVE IT - cream block with soft amber blob */}
+        {/* WHY HOMEOWNERS / TRADES LOVE IT - cream block with soft amber
+            blob + VMB watermark scatter (matches /projects chrome). */}
         <section className="relative overflow-hidden bg-[#fef6e9] py-14 sm:py-20" id="about">
+          <BrandWatermarkScatter />
           <span
             aria-hidden
             className="absolute -top-12 -right-12 w-44 h-44 rounded-full blur-2xl"
@@ -433,7 +433,7 @@ export default function Home() {
             className="absolute bottom-0 -left-16 w-44 h-44 rounded-full blur-2xl"
             style={{ background: "linear-gradient(135deg,#fda4af,#f97316)", opacity: 0.18 }}
           />
-          <div className="relative mx-auto max-w-3xl lg:max-w-5xl px-5 sm:px-8">
+          <div className="relative z-10 mx-auto max-w-3xl lg:max-w-5xl px-5 sm:px-8">
             <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-700 text-center">
               {isTrades ? "Why tradespeople love it" : "Why homeowners love it"}
             </p>

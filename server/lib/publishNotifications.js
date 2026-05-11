@@ -111,28 +111,12 @@ async function firePublishNotifications({
 
     const areaWhere = whereParts.join(" OR ");
 
-    // ---- Local users ----
-    let areaUsers = [];
-    try {
-      const areaUserRows = await mysqlQuery(
-        `SELECT u.uid AS uid
-           FROM users u
-          WHERE (${areaWhere})
-            AND u.uid <> ?`,
-        [...areaParams, project.ownerUserId]
-      );
-
-      areaUsers = areaUserRows
-        .map((r) => (r && r.uid ? String(r.uid) : null))
-        .filter(Boolean);
-
-      log.info?.("[publishNotifications] areaUsers", {
-        id,
-        count: areaUsers.length,
-      });
-    } catch (err) {
-      log.warn?.("[publishNotifications] areaUsers load error", err);
-    }
+    // ---- Local homeowner notifications removed ----
+    // We used to notify every homeowner in the same area when a new
+    // project went live (`project_live_local`). It was noise - homeowners
+    // don't care about other homeowners' jobs. Tradespeople still get
+    // matched-job notifications via notifyMatchedTradesmen above; people
+    // who recommended a trade on this project are still notified below.
 
     // ---- Prior recommenders in area ----
     let recUsers = [];
@@ -160,7 +144,7 @@ async function firePublishNotifications({
       log.warn?.("[publishNotifications] recUsers load error", err);
     }
 
-    const targets = Array.from(new Set([...areaUsers, ...recUsers]));
+    const targets = Array.from(new Set(recUsers));
     log.info?.("[publishNotifications] notification targets", {
       id,
       count: targets.length,

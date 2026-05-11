@@ -1,6 +1,9 @@
 // web/components/vendor-register/Step3Offers.tsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import SupportingDocsField, {
+  type SupportingDoc,
+} from "./SupportingDocsField";
 
 type Props = {
   discountMin: number;
@@ -9,7 +12,8 @@ type Props = {
   setDiscountMax: (v: number) => void;
   warranty: "none" | "3m" | "6m" | "12m" | "24m+";
   setWarranty: (v: "none" | "3m" | "6m" | "12m" | "24m+") => void;
-  onDocs: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  docs: SupportingDoc[];
+  onDocsChange: (docs: SupportingDoc[]) => void;
   onBack: () => void;
   onSaveDraft: (e: React.FormEvent) => void;
   busy?: boolean;
@@ -35,15 +39,14 @@ export default function Step3Offers({
   setDiscountMax,
   warranty,
   setWarranty,
-  onDocs,
+  docs,
+  onDocsChange,
   onSaveDraft,
   okMsg,
   err,
   showTermsCheckbox = false,
 }: Props) {
   const [agreedTerms, setAgreedTerms] = useState(false);
-  const docsInputRef = useRef<HTMLInputElement | null>(null);
-  const [docCount, setDocCount] = useState(0);
 
   // The mock collapses the old dual-slider into a single max-discount track:
   // "0% – {max}%". Force min to 0 so the displayed range stays anchored at 0.
@@ -53,11 +56,6 @@ export default function Step3Offers({
   }, []);
 
   const fillPct = `${(discountMax / MAX_DISCOUNT) * 100}%`;
-
-  const handleDocs = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setDocCount(e.target.files?.length || 0);
-    onDocs(e);
-  };
 
   return (
     <form
@@ -188,33 +186,16 @@ export default function Step3Offers({
         </div>
       </div>
 
-      {/* ── Optional documents ── */}
-      <p className="px-3.5 pt-3 pb-1 text-[10.5px] font-extrabold uppercase tracking-wider text-zinc-500">
-        Optional documents
+      {/* ── Insurance, certs, memberships ──
+          Rendered without an outer card wrapper so the doc tiles become
+          the primary visual unit (native-app feel) instead of a card-
+          inside-a-card. */}
+      <p className="px-3.5 pt-3 pb-1.5 text-[10.5px] font-extrabold uppercase tracking-wider text-zinc-500">
+        Insurance, certs &amp; memberships
       </p>
-      <label
-        htmlFor="vmb-docs-input"
-        className="block bg-white rounded-xl mx-3 my-2 px-4 py-5 text-center cursor-pointer"
-        data-testid="supporting-docs"
-      >
-        <div className="text-[10.5px] font-extrabold uppercase tracking-wider text-zinc-500">
-          Insurance, certs, licences
-        </div>
-        <div className="mt-2 text-sm font-bold text-emerald-600">
-          {docCount > 0
-            ? `${docCount} file${docCount === 1 ? "" : "s"} selected`
-            : "+ Upload"}
-        </div>
-        <input
-          id="vmb-docs-input"
-          ref={docsInputRef}
-          type="file"
-          multiple
-          onChange={handleDocs}
-          className="sr-only"
-          data-testid="input-docs"
-        />
-      </label>
+      <div className="mx-3 my-2">
+        <SupportingDocsField docs={docs} onChange={onDocsChange} />
+      </div>
 
       {okMsg && (
         <p

@@ -182,8 +182,17 @@ describe("POST /api/account — derivation from Firebase claims", () => {
     expect(username).toBe("taken2");
   });
 
-  it("returns 400 when location is missing", async () => {
-    const mysqlQuery = vi.fn();
+  it("accepts a missing location (no longer required at signup) and stores locationRaw=null", async () => {
+    const inserted: any[] = [];
+    const mysqlQuery = vi.fn().mockImplementation(async (sql: string, params: any[]) => {
+      if (/SELECT 1/.test(sql)) return [];
+      if (/INSERT INTO users/.test(sql)) {
+        inserted.push(params);
+        return [];
+      }
+      return [];
+    });
+
     const handler = loadRouteHandler(mysqlQuery);
     const res = mockRes();
 
@@ -195,13 +204,12 @@ describe("POST /api/account — derivation from Firebase claims", () => {
       res,
     );
 
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({
-      error: "missing_required_fields",
-      message: "Please enter your postcode or city.",
-      fieldErrors: { location: "Postcode or city is required." },
-    });
-    expect(mysqlQuery).not.toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ ok: true });
+    const [, , , , , locationRaw] = inserted[0];
+    // Empty/missing location → null in the column, COALESCE preserves any
+    // previously-stored value on update.
+    expect(locationRaw).toBeNull();
   });
 
   it("preserves the 409 username_taken contract when caller supplies a clashing username", async () => {

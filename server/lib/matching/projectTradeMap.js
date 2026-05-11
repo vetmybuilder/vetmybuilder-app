@@ -90,6 +90,8 @@ const CATEGORY_TRADES = {
     "Roof / Moss Removal",
     "Commercial / Office Cleaning",
     "Bin Cleaning",
+    "Domestic Bin Cleaning",
+    "Commercial Bin Cleaning",
     "Chimney Sweeping",
     "Mould / Sanitisation Cleaning",
     "Solar Panel Cleaning",
@@ -252,6 +254,36 @@ const TYPE_TRADES = {
   "Solar Thermal (Hot Water)": ["Solar Thermal", "Plumber"],
   "Heat Pump (Air Source)": ["Heat Pumps", "Heating Engineer"],
   "Heat Pump (Ground Source)": ["Heat Pumps", "Heating Engineer", "Groundworker"],
+
+  // Cleaning sub-types - tight overrides so the deck doesn't fall back
+  // to the whole Cleaning & Waste category (which holds 17 trades). A
+  // homeowner posting "Domestic Bin Cleaning" wants bin cleaners, not
+  // chimney sweeps + window cleaners + everyone else.
+  "Builders’ Clean": ["Cleaning (Builders Clean)"],
+  "Carpet Cleaning": ["Carpet & Upholstery Cleaning"],
+  "Commercial Bin Cleaning": ["Commercial Bin Cleaning", "Bin Cleaning"],
+  "Deep Clean (Kitchen/Bathroom)": [
+    "Deep / One-off Cleaning",
+    "Regular / Domestic Cleaning",
+    "Oven Cleaning",
+  ],
+  "Domestic Bin Cleaning": ["Domestic Bin Cleaning", "Bin Cleaning"],
+  "End-of-Tenancy Cleaning": [
+    "End of Tenancy Cleaning",
+    "Deep / One-off Cleaning",
+    "Carpet & Upholstery Cleaning",
+    "Oven Cleaning",
+  ],
+  "Gutter Cleaning": ["Gutter Cleaning"],
+  "House Clearance": ["Waste Removal / Skip Hire"],
+  "Mould Cleaning": ["Mould / Sanitisation Cleaning"],
+  "Oven Cleaning": ["Oven Cleaning"],
+  "Pressure Washing": [
+    "Pressure / Jet Washing",
+    "Driveway & Patio Cleaning",
+  ],
+  "Rubbish Removal": ["Waste Removal / Skip Hire"],
+  "Skip Hire": ["Waste Removal / Skip Hire"],
 };
 
 // Project type → category. Mirrors web/types/projectTypes.ts. Kept here so
@@ -388,7 +420,9 @@ const TYPE_TO_CATEGORY = {
   // Cleaning & Waste
   "Builders’ Clean": "Cleaning & Waste",
   "Carpet Cleaning": "Cleaning & Waste",
+  "Commercial Bin Cleaning": "Cleaning & Waste",
   "Deep Clean (Kitchen/Bathroom)": "Cleaning & Waste",
+  "Domestic Bin Cleaning": "Cleaning & Waste",
   "End-of-Tenancy Cleaning": "Cleaning & Waste",
   "Gutter Cleaning": "Cleaning & Waste",
   "House Clearance": "Cleaning & Waste",

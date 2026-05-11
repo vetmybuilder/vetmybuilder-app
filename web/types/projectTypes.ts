@@ -170,7 +170,9 @@ export const PROJECT_TYPES: ProjectTypeCategory[] = [
     types: [
       "Builders’ Clean",
       "Carpet Cleaning",
+      "Commercial Bin Cleaning",
       "Deep Clean (Kitchen/Bathroom)",
+      "Domestic Bin Cleaning",
       "End-of-Tenancy Cleaning",
       "Gutter Cleaning",
       "House Clearance",

@@ -8,6 +8,9 @@ const {
   classifyProject,
 } = require("../../lib/ai/projectClassifier");
 const { validateAnswers } = require("../../lib/jobFields");
+const { extractOutward } = require("../../lib/matching/extractOutward");
+const { getEnabledBoroughs, getEnabledBoroughNameSet } = require("../../lib/pilotAreas");
+const { resolveOutwardDistricts } = require("../../lib/postcodesIo");
 const analytics = require("../../lib/analytics");
 
 module.exports = (router, ctx) => {
@@ -21,6 +24,15 @@ module.exports = (router, ctx) => {
     if (!s) return s;
     const fullPC = /\b([A-Z]{1,2}\d{1,2}[A-Z]?)\s*\d[A-Z]{2}\b/gi;
     return s.replace(fullPC, (_, outward) => outward.toUpperCase());
+  };
+
+  // "Waltham Forest" -> "Waltham Forest"
+  // ["Waltham Forest", "Hackney"] -> "Waltham Forest and Hackney"
+  // [a, b, c] -> "a, b and c"
+  const formatBoroughList = (names) => {
+    if (names.length === 1) return names[0];
+    if (names.length === 2) return `${names[0]} and ${names[1]}`;
+    return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
   };
 
   const ProjectSchema = z.object({
@@ -58,6 +70,54 @@ module.exports = (router, ctx) => {
     if (!answersCheck.ok) {
       log.warn?.({ errors: answersCheck.errors }, "[projects.post] invalid answers");
       return res.status(400).json({ error: "invalid_answers", details: answersCheck.errors });
+    }
+
+    // Pilot-area gate. The project's location must resolve (via
+    // postcodes.io's admin_district lookup) to a borough that's currently
+    // enabled in admin. The frontend already validates against the same
+    // set on selection, so this is defence in depth against direct API
+    // calls / stale clients.
+    //
+    // E2E + unit tests bypass via PILOT_AREAS_BYPASS=1 so test scenes can
+    // use postcodes outside the pilot (e.g. "N1" Islington to verify
+    // far-location scoring) without their POSTs being rejected as
+    // "location_not_in_pilot". Prod/staging never set this flag.
+    if (process.env.PILOT_AREAS_BYPASS !== "1") {
+    try {
+      const enabledNames = await getEnabledBoroughNameSet(mysqlQuery);
+      const outward = extractOutward(body.location);
+      const districts = outward
+        ? await resolveOutwardDistricts(outward)
+        : [];
+      const matched = districts.some((d) => enabledNames.has(d));
+
+      if (!matched) {
+        const enabledBoroughs = await getEnabledBoroughs(mysqlQuery);
+        const boroughNames = enabledBoroughs.map((b) => b.name);
+        log.warn?.(
+          { uid, outward, districts, location: body.location },
+          "[projects.post] location outside pilot",
+        );
+        return res.status(400).json({
+          error: "location_not_in_pilot",
+          message: boroughNames.length
+            ? `We're piloting in ${formatBoroughList(boroughNames)}. We'll be opening up more areas soon.`
+            : "We're not yet accepting jobs in any area. Check back soon.",
+          fieldErrors: {
+            location: "Not in our pilot area yet.",
+          },
+          pilotBoroughs: boroughNames,
+        });
+      }
+    } catch (err) {
+      // Don't block project creation if the pilot lookup itself fails -
+      // log loudly and let the post through. Better to take the job and
+      // investigate than refuse a real user (e.g. postcodes.io outage).
+      log.error?.(
+        { err: err?.message },
+        "[projects.post] pilot-area check failed, allowing post",
+      );
+    }
     }
 
     // MySQL-friendly timestamp

@@ -2,6 +2,7 @@
 import Head from "next/head";
 import { useAuth } from "@/utils/auth";
 import ContactForm from "@/components/forms/ContactForm";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 
 function IconArrowRight(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -24,9 +25,12 @@ export default function Contact() {
 
       <div className="overflow-x-hidden -mt-14">
 
-        {/* HERO - cream wash with Sora display + Caveat indigo accent */}
-        <section className="relative bg-[#fef6e9] pt-24 pb-12 sm:pt-28 sm:pb-16">
-          <div className="relative mx-auto max-w-6xl px-5 sm:px-8 lg:px-8">
+        {/* HERO - cream wash with Sora display + Caveat indigo accent.
+            BrandWatermarkScatter overlays the cream chrome so this page
+            matches /projects, /login, /signup, etc. */}
+        <section className="relative bg-[#fef6e9] pt-24 pb-12 sm:pt-28 sm:pb-16 overflow-hidden">
+          <BrandWatermarkScatter />
+          <div className="relative z-10 mx-auto max-w-6xl px-5 sm:px-8 lg:px-8">
             <div className="grid lg:grid-cols-2 gap-10 items-center">
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full bg-amber-100/80 border border-amber-200 px-3 py-1 text-[12px] font-extrabold uppercase tracking-[0.14em] text-amber-800 mb-5">
@@ -67,8 +71,9 @@ export default function Contact() {
         </section>
 
         {/* CONTENT */}
-        <section className="bg-[#fef6e9] pb-16 sm:pb-20">
-          <div className="mx-auto max-w-6xl px-5 sm:px-8 lg:px-8">
+        <section className="relative bg-[#fef6e9] pb-16 sm:pb-20 overflow-hidden">
+          <BrandWatermarkScatter />
+          <div className="relative z-10 mx-auto max-w-6xl px-5 sm:px-8 lg:px-8">
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-12">
 
               {/* Contact details */}

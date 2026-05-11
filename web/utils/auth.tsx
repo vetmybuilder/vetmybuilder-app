@@ -212,11 +212,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           isTradesman: !!me.isTradesman,
         }),
       );
-      // A tradesman-only account legitimately has no homeowner postcode.
-      // Treat them as profile-complete so the homeowner-gating logic in
-      // AuthedOnly / GuestOnly / SiteHeader doesn't bounce them to
-      // /signup/complete on reload.
-      setProfileComplete(!!me.postcodeOutward || !!me.isTradesman);
+      // Postcode is no longer captured at signup, but firstName still is
+      // (via /api/auth/signup). A bare touchUserMw upsert from a fresh
+      // OAuth Firebase token produces a row WITHOUT firstName, and the
+      // /tradesman/login interstitial uses profileComplete=false to detect
+      // that case ("OAuth user who hasn't finished signup"). So we treat
+      // a row with firstName as complete, otherwise incomplete.
+      setProfileComplete(!!me.firstName);
     } catch {
       // non-fatal — caller can retry
     }
@@ -283,10 +285,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             if (!alive) return;
             setUser(merged);
-            // See refreshProfile() above — a tradesman-only account is
-            // legitimately profile-complete despite having no homeowner
-            // postcode.
-            setProfileComplete(!!me.postcodeOutward || !!me.isTradesman);
+            // See refreshProfile() above for the firstName-gating rationale.
+            setProfileComplete(!!me.firstName);
+
+            // Engagement-first signup: a guest who started the wizard at
+            // /projects/new and stashed the payload in sessionStorage now
+            // gets it auto-posted, regardless of which auth path they took
+            // (email signup, OAuth-via-/signup/complete, OAuth-direct, or
+            // login). The redundant calls in SignupForm/login/signup-
+            // complete still work for their own redirect flows; this is
+            // the safety net that catches every other path.
+            try {
+              const hasPending = sessionStorage.getItem(
+                "vmb:pendingProjectPayload",
+              );
+              if (hasPending) {
+                const apiClient = {
+                  post: (path: string, body: unknown) =>
+                    fetch(path, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${t}`,
+                      },
+                      body: JSON.stringify(body),
+                    }).then(async (r) => {
+                      const data = await r.json().catch(() => null);
+                      if (!r.ok) {
+                        const err: any = new Error(
+                          data?.message || data?.error || `HTTP ${r.status}`,
+                        );
+                        err.response = { status: r.status, data };
+                        throw err;
+                      }
+                      return { data };
+                    }),
+                };
+                const { flushPendingProject } = await import(
+                  "@/utils/flushPendingProject"
+                );
+                const target = await flushPendingProject(apiClient as any);
+                if (target) {
+                  window.location.assign(target);
+                }
+              }
+            } catch {
+              /* non-fatal - other flush sites or the next navigation will handle */
+            }
 
             // Routing decisions based on profileComplete are owned by the
             // route wrappers (GuestOnly for /signup, /login etc., and

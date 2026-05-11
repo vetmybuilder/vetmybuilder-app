@@ -7,6 +7,7 @@ import { useRouter } from "next/router";
 import WizardTopBar from "@/components/wizard/WizardTopBar";
 import WizardProgressBar from "@/components/wizard/WizardProgressBar";
 import WizardNavBar from "@/components/wizard/WizardNavBar";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 
 const EMOJI_SCALE = [
   { value: 1, emoji: "😞", label: "Poor" },
@@ -118,14 +119,19 @@ export default function FeedbackPage() {
 
   if (submitted) {
     return (
+      <>
+      <Head>
+        <style>{`body { background: #fef6e9 !important; }`}</style>
+      </Head>
       <main
-        className="fixed inset-0 bg-gray-100 flex flex-col items-center justify-center px-6"
+        className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-12 relative overflow-hidden flex flex-col items-center justify-center px-6"
         style={{
           fontFamily:
             "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
         }}
       >
-        <div className="w-full max-w-md bg-white rounded-3xl border border-gray-200 shadow-lg p-8 sm:p-10 text-center">
+        <BrandWatermarkScatter />
+        <div className="relative z-10 w-full max-w-md bg-white rounded-3xl border border-amber-100 shadow-lg p-8 sm:p-10 text-center">
           <div className="text-6xl mb-4">{"🙏"}</div>
           <h1 className="text-[22px] font-extrabold tracking-tight text-gray-900 mb-2">
             Thanks! We hear you
@@ -142,6 +148,7 @@ export default function FeedbackPage() {
           </Link>
         </div>
       </main>
+      </>
     );
   }
 
@@ -149,10 +156,11 @@ export default function FeedbackPage() {
     <>
       <Head>
         <title>Give Feedback - VetMyBuilder</title>
+        <style>{`body { background: #fef6e9 !important; }`}</style>
       </Head>
 
       <main
-        className="fixed inset-0 bg-gray-100 flex flex-col"
+        className="fixed inset-0 bg-[#fef6e9] flex flex-col"
         style={{
           paddingBottom: "env(safe-area-inset-bottom)",
           fontFamily:

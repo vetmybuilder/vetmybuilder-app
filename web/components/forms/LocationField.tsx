@@ -1,4 +1,5 @@
 import * as React from "react";
+import PilotBlockSheet from "@/components/PilotBlockSheet";
 
 /** UK postcode regex (loose, case-insensitive) */
 const UK_POSTCODE_RE =
@@ -33,6 +34,14 @@ export type LocationFieldProps = {
   onDisplayChange?: (display: string) => void;
   /** Validation error message; sets aria-invalid on the input */
   error?: string;
+  /**
+   * When true, restrict autocomplete + selection to outward codes that
+   * the admin has enabled in the pilot launch areas (/api/pilot/areas).
+   * Selecting an unsupported postcode shows a "not in pilot" message and
+   * does NOT commit the selection. Used by the new-job wizard so a user
+   * typing SW10 sees a friendly message instead of a successful pick.
+   */
+  pilotOnly?: boolean;
 };
 
 function useDebounced<T>(value: T, delay = 200) {
@@ -79,7 +88,7 @@ type Suggestion = PlaceSuggestion | PcSuggestion;
 export default function LocationField({
   id = "location",
   label = "Location",
-  placeholder = "Type a UK postcode (e.g. E4 7ER) or a place (e.g. Chingford) — autocomplete supported",
+  placeholder = "Postcode or place (e.g. E4 7ER, Chingford)",
   value,
   onChange,
   dataTestId,
@@ -87,6 +96,7 @@ export default function LocationField({
   reasonText = "We use your postcode to match you with nearby tradespeople and improve local recommendations. We never share your full address.",
   onDisplayChange,
   error,
+  pilotOnly = false,
 }: LocationFieldProps) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState(value);
@@ -102,6 +112,80 @@ export default function LocationField({
   // Track the display label chosen by the user (e.g. "Chingford, London")
   // so that external value syncs don't overwrite it with the outward code.
   const displayLabel = React.useRef<string | null>(null);
+
+  // Pilot launch areas - only loaded when pilotOnly is true. Used to
+  // validate a picked postcode against the enabled borough set via
+  // postcodes.io's admin_district field (already on the meta we get back
+  // from fetchMeta). enabledBoroughs stays null while loading so we
+  // don't briefly block all picks on mount.
+  const [enabledBoroughs, setEnabledBoroughs] = React.useState<Set<string> | null>(null);
+
+  // Cache outward → admin_district lookups so the per-keystroke filter
+  // doesn't re-hit postcodes.io for the same outward repeatedly.
+  const outwardDistrictsCache = React.useRef<Map<string, string[]>>(new Map());
+  const [pilotErr, setPilotErr] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!pilotOnly) return;
+    let alive = true;
+    (async () => {
+      try {
+        const r = await fetch("/api/pilot/areas");
+        if (!r.ok) return;
+        const data = await r.json();
+        if (!alive) return;
+        const list = Array.isArray(data?.boroughs) ? data.boroughs : [];
+        setEnabledBoroughs(new Set(list.map((b: { name: string }) => b.name)));
+      } catch {
+        // Non-fatal - we let picks through if the pilot lookup fails;
+        // server-side validation is the gate.
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [pilotOnly]);
+
+  /** Resolve outward → admin_district list via postcodes.io, with cache. */
+  async function fetchOutwardDistricts(outward: string): Promise<string[]> {
+    const key = outward.toUpperCase();
+    const cached = outwardDistrictsCache.current.get(key);
+    if (cached) return cached;
+    try {
+      const r = await fetch(
+        `https://api.postcodes.io/outcodes/${encodeURIComponent(key)}`,
+      );
+      if (!r.ok) return [];
+      const data = await r.json();
+      const districts = Array.isArray(data?.result?.admin_district)
+        ? data.result.admin_district.filter(Boolean)
+        : [];
+      outwardDistrictsCache.current.set(key, districts);
+      return districts;
+    } catch {
+      return [];
+    }
+  }
+
+  /** Decide whether a district list intersects the enabled set. */
+  function districtsInPilot(districts: string[]): boolean {
+    if (!pilotOnly) return true;
+    if (!enabledBoroughs) return true; // still loading - don't block
+    return districts.some((d) => enabledBoroughs.has(d));
+  }
+
+  function pilotBlockMessage(): string {
+    const names = enabledBoroughs ? Array.from(enabledBoroughs) : [];
+    if (names.length === 0) {
+      return "We're not yet accepting jobs in this area. Check back soon.";
+    }
+    if (names.length === 1) {
+      return `We're piloting in ${names[0]}. We'll be opening up more areas soon.`;
+    }
+    const last = names[names.length - 1];
+    const head = names.slice(0, -1).join(", ");
+    return `We're piloting in ${head} and ${last}. We'll be opening up more areas soon.`;
+  }
 
   React.useEffect(() => {
     // Sync external value changes without triggering the dropdown,
@@ -149,14 +233,50 @@ export default function LocationField({
           const results: string[] = Array.isArray(data?.result)
             ? data.result
             : [];
-          const list: Suggestion[] = results.slice(0, 12).map((pc) => ({
+          const all: Suggestion[] = results.slice(0, 12).map((pc) => ({
             kind: "postcode",
             label: pc,
             postcode: pc,
             outward: outwardFromPostcode(pc),
           }));
+
+          // Pilot mode: keep results whose outward resolves (via
+          // postcodes.io) to an enabled borough. Lookups are cached so we
+          // hit one /outcodes call per unique outward in the result set.
+          let list: Suggestion[] = all;
+          if (pilotOnly && enabledBoroughs) {
+            const uniqueOutwards = Array.from(
+              new Set(
+                all
+                  .map((s) => (s.kind === "postcode" ? s.outward : null))
+                  .filter(Boolean) as string[],
+              ),
+            );
+            const districtMap = new Map<string, string[]>();
+            await Promise.all(
+              uniqueOutwards.map(async (o) => {
+                districtMap.set(o, await fetchOutwardDistricts(o));
+              }),
+            );
+            list = all.filter((s) => {
+              const o = s.kind === "postcode" ? s.outward : null;
+              if (!o) return false;
+              return districtsInPilot(districtMap.get(o) || []);
+            });
+          }
+
           setSug(list);
           if (hasInteracted.current) setOpen(list.length > 0);
+
+          // Immediate feedback: if pilot mode filtered every result out,
+          // surface the block message as the user types.
+          if (pilotOnly && enabledBoroughs) {
+            if (all.length > 0 && list.length === 0) {
+              setPilotErr(pilotBlockMessage());
+            } else if (list.length > 0) {
+              setPilotErr(null);
+            }
+          }
         } else {
           // Places search — ONLY include rows whose text contains the query
           const resp = await fetch(
@@ -260,7 +380,80 @@ export default function LocationField({
     };
 
     run();
-  }, [debounced]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debounced, pilotOnly, enabledBoroughs]);
+
+  // Tracks the last query we auto-committed so we don't re-fire on the
+  // same value over and over. Onkey strokes push the raw text up via
+  // onChange (meta=null), so we can't dedup by comparing against `value`.
+  const lastAutoCommitRef = React.useRef<string>("");
+
+  // Live pilot check + auto-commit on the typed query. Fires when:
+  //   (a) The typed text is a complete UK postcode → fetchMeta and
+  //       commit it automatically (no Enter or pick required). Means
+  //       the user can just type "E4 0AW" and have Continue enable.
+  //   (b) The typed text contains a recognisable outward → look up
+  //       admin_districts via /outcodes; if outside pilot, surface the
+  //       block sheet (covers "N20" or "N20 0AA" typed without picking).
+  React.useEffect(() => {
+    const q = (debounced || "").trim();
+    const qUpper = q.toUpperCase();
+
+    // Auto-commit a complete postcode regardless of pilot mode.
+    if (UK_POSTCODE_RE.test(q) && qUpper !== lastAutoCommitRef.current) {
+      let alive = true;
+      (async () => {
+        try {
+          const meta = await fetchMeta(q);
+          if (!alive) return;
+          // Pilot enforcement is best-effort on the client. We only block
+          // when we have actually loaded the enabled-borough set AND it
+          // says no. If the pilot fetch failed (enabledBoroughs is null),
+          // we let the commit through - the server gate at POST time is
+          // the source of truth, so a rare out-of-pilot postcode will
+          // get rejected there with the same friendly message.
+          if (
+            pilotOnly &&
+            enabledBoroughs &&
+            (!meta.admin_district ||
+              !enabledBoroughs.has(meta.admin_district))
+          ) {
+            setPilotErr(pilotBlockMessage());
+            return;
+          }
+          setPilotErr(null);
+          lastAutoCommitRef.current = qUpper;
+          onChange(qUpper, meta);
+        } catch {
+          /* user might still be typing - swallow */
+        }
+      })();
+      return () => {
+        alive = false;
+      };
+    }
+
+    // Pilot-only sheet trigger when the typed text has a recognisable
+    // outward but no full postcode yet (e.g. "N20" or "SW10").
+    if (!pilotOnly || !enabledBoroughs) return;
+    const outward = outwardFromPostcode(q);
+    if (!outward) return;
+
+    let alive = true;
+    (async () => {
+      const districts = await fetchOutwardDistricts(outward);
+      if (!alive) return;
+      if (districts.length === 0) return; // unknown outward - ignore
+      const inPilot = districts.some((d) => enabledBoroughs.has(d));
+      if (!inPilot) setPilotErr(pilotBlockMessage());
+      else setPilotErr(null);
+    })();
+    return () => {
+      alive = false;
+    };
+    // pilotBlockMessage / fetchOutwardDistricts / fetchMeta close over enabledBoroughs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debounced, pilotOnly, enabledBoroughs]);
 
   // Fetch borough suggestions (reuse same debounced query; skip if looks like a postcode fragment)
   React.useEffect(() => {
@@ -279,15 +472,20 @@ export default function LocationField({
         if (!r.ok) return;
         const data = await r.json();
         if (Array.isArray(data)) {
-          setBoroughResults(data);
-          if (data.length > 0) setOpen(true);
+          // In pilot mode, hide boroughs that aren't enabled.
+          const filtered =
+            pilotOnly && enabledBoroughs
+              ? data.filter((b: { name: string }) => enabledBoroughs.has(b.name))
+              : data;
+          setBoroughResults(filtered);
+          if (filtered.length > 0) setOpen(true);
         }
       } catch (e: any) {
         if (e?.name !== "AbortError") setBoroughResults([]);
       }
     })();
     return () => controller.abort();
-  }, [debounced]);
+  }, [debounced, pilotOnly, enabledBoroughs]);
 
   async function fetchMeta(postcodeRaw: string): Promise<PostcodeMeta> {
     const pc = postcodeRaw.trim().toUpperCase();
@@ -335,10 +533,29 @@ export default function LocationField({
   async function commitSuggestion(s: Suggestion) {
     try {
       setErr(null);
+      setPilotErr(null);
       const meta =
         s.kind === "postcode"
           ? await fetchMeta(s.postcode)
           : await resolvePlaceToMeta(s);
+
+      // Pilot-area gate. meta.admin_district comes straight from
+      // postcodes.io's /postcodes lookup - the canonical source for the
+      // borough this postcode belongs to.
+      // Pilot enforcement is best-effort on the client. Only block when
+      // we've actually loaded the enabled-borough set AND it rejects this
+      // district. If the pilot list isn't loaded, let the pick through -
+      // the server gate at POST time will catch any genuinely out-of-pilot
+      // postcode with the same message.
+      if (
+        pilotOnly &&
+        enabledBoroughs &&
+        (!meta.admin_district || !enabledBoroughs.has(meta.admin_district))
+      ) {
+        setPilotErr(pilotBlockMessage());
+        return;
+      }
+
       hasInteracted.current = false; // prevent value-sync re-triggering the dropdown
       const displayValue = s.kind === "place" ? s.label : meta.postcode;
       displayLabel.current = s.kind === "place" ? displayValue : null;
@@ -358,6 +575,14 @@ export default function LocationField({
     if (UK_POSTCODE_RE.test(v)) {
       try {
         const meta = await fetchMeta(v);
+        if (
+          pilotOnly &&
+          enabledBoroughs &&
+          (!meta.admin_district || !enabledBoroughs.has(meta.admin_district))
+        ) {
+          setPilotErr(pilotBlockMessage());
+          return;
+        }
         hasInteracted.current = false;
         displayLabel.current = null;
         onChange(meta.outward || meta.postcode, meta);
@@ -366,6 +591,7 @@ export default function LocationField({
         setOpen(false);
         setSug([]);
         setErr(null);
+        setPilotErr(null);
       } catch (e: any) {
         setErr(e?.message || "Postcode not found");
       }
@@ -395,6 +621,22 @@ export default function LocationField({
     } catch {
       setErr("No matching place or postcode");
     }
+  }
+
+  // Dismissing the pilot-block UI also clears the input. Otherwise the
+  // user could close the sheet, leave an out-of-pilot postcode in the
+  // field, and click Continue (which gates only on text presence). By
+  // resetting we force them to enter a fresh value, which re-runs the
+  // pilot check from scratch.
+  function dismissPilotBlock() {
+    setPilotErr(null);
+    setQuery("");
+    setSug([]);
+    setBoroughResults([]);
+    setOpen(false);
+    displayLabel.current = null;
+    lastAutoCommitRef.current = "";
+    onChange("", null);
   }
 
   function onInput(e: React.ChangeEvent<HTMLInputElement>) {
@@ -561,6 +803,42 @@ export default function LocationField({
           {reasonText}
         </p>
       ) : null}
+
+      {/* Desktop pilot-block message - inline panel under the field.
+          Mobile uses the bottom sheet below. */}
+      {pilotErr && (
+        <div
+          className="hidden md:flex mt-2 items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5"
+          role="status"
+          data-testid="pilot-block-inline"
+        >
+          <span aria-hidden className="text-base shrink-0">📍</span>
+          <div className="flex-1 min-w-0">
+            <div className="text-[12.5px] font-extrabold text-amber-900 leading-tight">
+              Not in our area yet
+            </div>
+            <p className="mt-0.5 text-[12px] text-amber-900/80 leading-snug">
+              {pilotErr}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={dismissPilotBlock}
+            className="ml-1 -mt-0.5 text-amber-700 hover:text-amber-900 font-bold text-lg leading-none"
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* iOS-style bottom sheet - mobile only (md:hidden inside the
+          component itself). */}
+      <PilotBlockSheet
+        open={!!pilotErr}
+        message={pilotErr || ""}
+        onClose={dismissPilotBlock}
+      />
     </div>
   );
 }

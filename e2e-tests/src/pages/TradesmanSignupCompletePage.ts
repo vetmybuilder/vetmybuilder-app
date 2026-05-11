@@ -28,12 +28,10 @@ export class TradesmanSignupCompletePage {
   readonly nextButton: Locator;
   readonly continueButton: Locator;
   readonly formError: Locator;
-  readonly existingHomeownerBlock: Locator;
 
   constructor(page: Page) {
     this.page = page;
     this.root = page.getByTestId("tradesman-signup-complete-page");
-    this.existingHomeownerBlock = page.getByTestId("existing-homeowner-block");
     this.step1 = page.getByTestId("step-1");
     this.step2 = page.getByTestId("step-2");
     this.step3 = page.getByTestId("step-3");
@@ -91,18 +89,10 @@ export class TradesmanSignupCompletePage {
     ).toHaveCount(0);
   }
 
-  async expectBlockedAsExistingHomeowner(): Promise<void> {
-    await expect(this.page).toHaveURL(/\/tradesman\/signup\/complete$/, {
-      timeout: 15_000,
-    });
-    await expect(this.existingHomeownerBlock).toBeVisible({ timeout: 15_000 });
-    await expect(this.existingHomeownerBlock).toContainText(
-      "You already have a homeowner account with this email",
-    );
-  }
-
   async expectNotBlocked(): Promise<void> {
-    await expect(this.existingHomeownerBlock).toHaveCount(0);
+    // The legacy "existing homeowner" block screen no longer exists.
+    // Reaching the wizard root means we weren't redirected away and
+    // weren't shown a block.
     await expect(this.root).toBeVisible({ timeout: 15_000 });
   }
 

@@ -300,6 +300,9 @@ function buildRouter(ctx) {
   // ---------------- Boroughs ----------------
   require("./routes/boroughs/search.get")(router, ctx);
 
+  // ---------------- Pilot launch areas ----------------
+  require("./routes/pilot/areas.get")(router, ctx);
+
   // ---------------- Notifications & SSE ----------------
   require("./routes/notifications/stream.get")(router, ctx);
   require("./routes/notifications/notifications.get")(router, ctx);
@@ -392,6 +395,7 @@ function buildRouter(ctx) {
   require("./routes/tradesmen/featured.get")(router, ctx);
   require("./routes/tradesmen/spotlight.get")(router, ctx);
   require("./routes/tradesmen/upload-photos.post")(router, ctx);
+  require("./routes/tradesmen/upload-docs.post")(router, ctx);
   require("./routes/tradesmen/favourites.get")(router, ctx);
   require("./routes/tradesmen/tradesman.get")(router, ctx);
   require("./routes/tradesmen/favourite.post")(router, ctx);
@@ -459,6 +463,8 @@ function buildRouter(ctx) {
   require("./routes/admin/enrich-tradesmen.post")(router, ctx);
   require("./routes/admin/users.get")(router, ctx);
   require("./routes/admin/users.post")(router, ctx);
+  require("./routes/admin/pilot-areas.get")(router, ctx);
+  require("./routes/admin/pilot-areas.patch")(router, ctx);
   require("./routes/admin/users.put")(router, ctx);
   require("./routes/admin/users.delete")(router, ctx);
   require("./routes/admin/dashboard.stats.get")(router, ctx);

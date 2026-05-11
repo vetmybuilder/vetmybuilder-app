@@ -1,11 +1,17 @@
 // server/lib/boroughPostcodes.js
 //
-// Maps London boroughs to their constituent outward postcode codes.
-// Used by pipeline auto-surface to expand location matching from a single
-// outward code to all codes in the same borough.
+// Static borough → outward map used by pipeline auto-surface and the
+// recommendations engine to expand location matching from a single outward
+// code to all codes in the same borough. Pilot-area validation does NOT
+// use this; that path resolves admin_district via postcodes.io instead
+// (see server/lib/pilotAreas.js).
 //
-// Source: Royal Mail / ONS postcode directory. Only includes boroughs
-// relevant to the initial VetMyBuilder launch area.
+// Only the launch-area boroughs are listed - pipeline + recs only run
+// against postcodes near our active operating area, so a UK-wide map
+// would just be dead weight. Add boroughs here if pipeline coverage
+// expands; pilot-areas growth doesn't need an entry here.
+//
+// Source: Royal Mail / ONS postcode directory.
 
 const BOROUGH_POSTCODES = {
   "Waltham Forest": ["E4", "E10", "E11", "E17"],

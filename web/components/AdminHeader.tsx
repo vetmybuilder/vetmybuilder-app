@@ -85,32 +85,65 @@ export default function AdminHeader() {
     router.replace("/");
   }
 
+  // Grouped admin nav. Top-level pills are categories; the underlying
+  // pages live in dropdowns. Adding a new admin page now means appending
+  // to the right group's `dropdown` rather than introducing another pill.
+  const isOn = (path: string) => router.pathname === path;
+  const isOnAny = (paths: string[]) => paths.some(isOn);
+
   const pills: { label: string; href: string; testId: string; active: boolean; dropdown?: { label: string; href: string; testId: string; active: boolean }[] }[] = [
+    {
+      label: "Dashboard",
+      href: "/admin/dashboard",
+      testId: "nav-admin-dashboard",
+      active: isOn("/admin/dashboard"),
+    },
     {
       label: "Tradesmen",
       href: "/admin/tradesmen-leaderboard",
       testId: "nav-admin-tradesmen",
-      active: router.pathname === "/admin/tradesmen-leaderboard" || router.pathname === "/admin/tradesmen",
+      active: isOnAny([
+        "/admin/tradesmen-leaderboard",
+        "/admin/tradesmen",
+        "/admin/verify-company",
+        "/admin/trades-pipeline",
+      ]),
       dropdown: [
-        { label: "Tradesmen leaderboard", href: "/admin/tradesmen-leaderboard", testId: "nav-admin-tradesmen-lb", active: router.pathname === "/admin/tradesmen-leaderboard" || router.pathname === "/admin/tradesmen" },
-        { label: "Verify company", href: "/admin/verify-company", testId: "nav-admin-verify", active: router.pathname === "/admin/verify-company" },
+        { label: "Leaderboard", href: "/admin/tradesmen-leaderboard", testId: "nav-admin-tradesmen-lb", active: isOnAny(["/admin/tradesmen-leaderboard", "/admin/tradesmen"]) },
+        { label: "Verify company", href: "/admin/verify-company", testId: "nav-admin-verify", active: isOn("/admin/verify-company") },
+        { label: "Pipeline", href: "/admin/trades-pipeline", testId: "nav-admin-pipeline", active: isOn("/admin/trades-pipeline") },
       ],
     },
     {
-      label: "Moderation",
-      href: "/admin/recommendation-leaderboard",
-      testId: "nav-admin-moderation",
-      active: router.pathname === "/admin/recommendation-leaderboard",
+      label: "Homeowners",
+      href: "/admin/users",
+      testId: "nav-admin-homeowners",
+      active: isOnAny(["/admin/users", "/admin/projects"]),
       dropdown: [
-        { label: "Recommendation leaderboard", href: "/admin/recommendation-leaderboard", testId: "nav-admin-recs", active: router.pathname === "/admin/recommendation-leaderboard" },
+        { label: "Users", href: "/admin/users", testId: "nav-admin-users", active: isOn("/admin/users") },
+        { label: "Projects", href: "/admin/projects", testId: "nav-admin-projects", active: isOn("/admin/projects") },
       ],
     },
-    { label: "Projects", href: "/admin/projects", testId: "nav-admin-projects", active: router.pathname === "/admin/projects" },
-    { label: "Pipeline", href: "/admin/trades-pipeline", testId: "nav-admin-pipeline", active: router.pathname === "/admin/trades-pipeline" },
-    { label: "Dashboard", href: "/admin/dashboard", testId: "nav-admin-dashboard", active: router.pathname === "/admin/dashboard" },
-    { label: "Users", href: "/admin/users", testId: "nav-admin-users", active: router.pathname === "/admin/users" },
-    { label: "Feedback", href: "/admin/feedback", testId: "nav-admin-feedback", active: router.pathname === "/admin/feedback" },
-    { label: "Pricing", href: "/admin/pricing", testId: "nav-admin-pricing", active: router.pathname === "/admin/pricing" },
+    {
+      label: "Quality",
+      href: "/admin/recommendation-leaderboard",
+      testId: "nav-admin-quality",
+      active: isOnAny(["/admin/recommendation-leaderboard", "/admin/feedback"]),
+      dropdown: [
+        { label: "Recommendation leaderboard", href: "/admin/recommendation-leaderboard", testId: "nav-admin-recs", active: isOn("/admin/recommendation-leaderboard") },
+        { label: "Feedback", href: "/admin/feedback", testId: "nav-admin-feedback", active: isOn("/admin/feedback") },
+      ],
+    },
+    {
+      label: "Settings",
+      href: "/admin/pilot-areas",
+      testId: "nav-admin-settings",
+      active: isOnAny(["/admin/pilot-areas", "/admin/pricing"]),
+      dropdown: [
+        { label: "Pilot areas", href: "/admin/pilot-areas", testId: "nav-admin-pilot-areas", active: isOn("/admin/pilot-areas") },
+        { label: "Pricing", href: "/admin/pricing", testId: "nav-admin-pricing", active: isOn("/admin/pricing") },
+      ],
+    },
   ];
 
   const activePill = "bg-violet-600 text-white font-bold shadow-sm";

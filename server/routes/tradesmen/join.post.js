@@ -131,6 +131,12 @@ module.exports = (router, ctx) => {
     const warranty_months = warrantyToMonths(b?.offer?.warranty);
 
     const supporting_doc_count = docs.length;
+    // Typed declarations from the SupportingDocsField. Old shape was
+    // {name, size, type} (file metadata, never persisted); new shape is
+    // {type, label, customType?, expiresOn?}. Either way we round-trip
+    // the array verbatim into supporting_docs_json so admin can see what
+    // the trade claimed.
+    const supporting_docs_json = docs.length ? JSON.stringify(docs) : null;
     const photo_count = photos.length;
 
     const web_url = websites[0] || null;
@@ -211,6 +217,21 @@ module.exports = (router, ctx) => {
     try {
       log.info(`${TAG} saving draft`, { leadId });
 
+      // One-shot column bootstrap. See me.put.js for the matching call
+      // (shared MySQL pool so either route can be the first to run on a
+      // fresh install). MySQL doesn't have ALTER ... IF NOT EXISTS, so
+      // we swallow the duplicate-column error.
+      try {
+        await mysqlQuery(
+          "ALTER TABLE tradesmen ADD COLUMN supporting_docs_json TEXT NULL",
+        );
+      } catch (err) {
+        const msg = String(err?.message || "");
+        if (!/Duplicate column|already exists/i.test(msg)) {
+          log.warn(`${TAG} supporting_docs_json column ensure failed`, msg);
+        }
+      }
+
       await mysqlQuery(
         `
         INSERT INTO tradesmen (
@@ -219,7 +240,7 @@ module.exports = (router, ctx) => {
           web_verified, web_url, social_links_json,
           company_number, ch_status, ch_name, ch_checked_at, ch_match_score,
           photo_count, discount_min_percent, discount_max_percent, offers_discount,
-          warranty_months, supporting_doc_count,
+          warranty_months, supporting_doc_count, supporting_docs_json,
           likes_count, wins_count,
           subscription_status, status, created_at, updated_at,
           public_id
@@ -230,7 +251,7 @@ module.exports = (router, ctx) => {
           ?, ?, ?,
           ?, ?, ?, ?, ?,
           ?, ?, ?, ?,
-          ?, ?,
+          ?, ?, ?,
           ?, ?,
           'draft', 'draft', NOW(), NOW(),
           UUID()
@@ -257,6 +278,7 @@ module.exports = (router, ctx) => {
           offers_discount       = VALUES(offers_discount),
           warranty_months       = VALUES(warranty_months),
           supporting_doc_count  = VALUES(supporting_doc_count),
+          supporting_docs_json  = VALUES(supporting_docs_json),
           likes_count           = VALUES(likes_count),
           wins_count            = VALUES(wins_count),
           updated_at            = NOW()
@@ -283,6 +305,7 @@ module.exports = (router, ctx) => {
           Math.max(discountMin, discountMax, 0),
           warranty_months,
           supporting_doc_count,
+          supporting_docs_json,
           likes_count,
           wins_count,
         ]
