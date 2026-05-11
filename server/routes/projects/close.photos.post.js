@@ -145,12 +145,13 @@ module.exports = (router, ctx) => {
                   mimetype: f.mimetype,
                   originalname: f.originalname,
                 });
-                filePath = await uploadToR2({
+                const upload = await uploadToR2({
                   buffer: p.buffer,
                   mimetype: p.mimetype,
                   originalname: p.originalname,
                   folder: "closures",
                 });
+                filePath = upload.publicUrl;
                 storedMime = p.mimetype;
                 storedSize = p.buffer?.length ?? storedSize;
               } catch (e) {

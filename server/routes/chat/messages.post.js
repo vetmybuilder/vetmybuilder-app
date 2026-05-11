@@ -146,13 +146,13 @@ module.exports = function mountChatMessagesPost(router, ctx) {
             mimetype: f.mimetype,
             originalname: f.originalname,
           });
-          const url = await uploadToR2({
+          const { publicUrl } = await uploadToR2({
             buffer: p.buffer,
             mimetype: p.mimetype,
             originalname: p.originalname,
             folder: "chat",
           });
-          if (url) attachmentUrls.push(url);
+          if (publicUrl) attachmentUrls.push(publicUrl);
         } else {
           let filename = f.filename || f.originalname || "";
           if (f.path) {

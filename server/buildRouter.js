@@ -395,6 +395,7 @@ function buildRouter(ctx) {
   require("./routes/tradesmen/spotlight.get")(router, ctx);
   require("./routes/tradesmen/upload-photos.post")(router, ctx);
   require("./routes/tradesmen/upload-docs.post")(router, ctx);
+  require("./routes/tradesmen/docs.get")(router, ctx);
   require("./routes/tradesmen/favourites.get")(router, ctx);
   require("./routes/tradesmen/tradesman.get")(router, ctx);
   require("./routes/tradesmen/favourite.post")(router, ctx);
