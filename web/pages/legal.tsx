@@ -5,6 +5,7 @@
 // users can still find the full set.
 import Head from "next/head";
 import Link from "next/link";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 
 type Policy = {
   title: string;
@@ -98,9 +99,12 @@ export default function LegalHub() {
       </Head>
 
       <div className="overflow-x-hidden -mt-14">
-        {/* HERO - cream wash with Sora display + Caveat indigo accent */}
-        <section className="relative bg-[#fef6e9] pt-24 pb-12 sm:pt-28 sm:pb-16">
-          <div className="relative mx-auto max-w-3xl px-5 sm:px-8 lg:px-8">
+        {/* HERO - cream wash with Sora display + Caveat indigo accent.
+            BrandWatermarkScatter overlays the cream chrome so this page
+            matches /projects, /login, /signup, etc. */}
+        <section className="relative bg-[#fef6e9] pt-24 pb-12 sm:pt-28 sm:pb-16 overflow-hidden">
+          <BrandWatermarkScatter />
+          <div className="relative z-10 mx-auto max-w-3xl px-5 sm:px-8 lg:px-8">
             <div className="inline-block rounded-full bg-amber-100/80 border border-amber-200 px-3 py-1 text-[12px] font-extrabold uppercase tracking-[0.14em] text-amber-800 mb-5 whitespace-nowrap">
               Legal & policies
             </div>
@@ -124,8 +128,9 @@ export default function LegalHub() {
         </section>
 
         {/* CONTENT - cream backdrop, white cards with amber border */}
-        <section className="bg-[#fef6e9] pb-16">
-          <div className="mx-auto max-w-3xl px-5 sm:px-8 lg:px-8">
+        <section className="relative bg-[#fef6e9] pb-16 overflow-hidden">
+          <BrandWatermarkScatter />
+          <div className="relative z-10 mx-auto max-w-3xl px-5 sm:px-8 lg:px-8">
             <div className="space-y-8">
               {GROUPS.map((group) => (
                 <div key={group}>

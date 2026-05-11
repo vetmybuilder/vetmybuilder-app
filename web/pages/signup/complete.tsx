@@ -17,6 +17,7 @@ import { useRouter } from "next/router";
 import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 import { flushPendingProject } from "@/utils/flushPendingProject";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 
 export default function SignupComplete() {
   const router = useRouter();
@@ -161,16 +162,15 @@ export default function SignupComplete() {
     <>
       <Head>
         <title>Complete your profile - VetMyBuilder</title>
-      </Head>
-      <Head>
-        {/* Cream brand backdrop on desktop, flat white on mobile - matches
-            /account and the rest of the homeowner journey. */}
-        <style>{`@media (min-width: 768px) { body { background: #fef6e9 !important; } }`}</style>
+        {/* Cream body background matches /projects so the page sits inside
+            the same brand chrome rather than floating on white. */}
+        <style>{`body { background: #fef6e9 !important; }`}</style>
       </Head>
 
-      <div className="fixed inset-0 top-14 bg-white md:bg-[#fef6e9] overflow-y-auto">
+      <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-12 relative overflow-hidden">
+        <BrandWatermarkScatter />
         <div
-          className="mx-auto max-w-md px-5 pt-6 pb-16"
+          className="relative z-10 mx-auto max-w-md px-5 pt-6 pb-16"
           data-testid="signup-complete-page"
         >
           {/* Heading block - VMB wordmark already shown by SiteHeader */}

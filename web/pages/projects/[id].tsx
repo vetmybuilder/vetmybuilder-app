@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { ChevronLeft, MoreHorizontal } from "lucide-react";
-import BrandWordmark from "@/components/BrandWordmark";
 import { useProjectView } from "@/components/project/views/useProjectView";
 import OwnerProjectView from "@/components/project/views/OwnerProjectView";
 import PriceRangeBadge from "@/components/project/PriceRangeBadge";
@@ -1257,43 +1256,6 @@ function NonOwnerMobileRedirect() {
   );
 }
 
-/**
- * Bare-route mobile 404 used when /projects/[id] errors out (e.g. project
- * deleted, viewer not permitted, or the API is briefly unavailable). Mirrors
- * the desktop 404 content but renders without site chrome so a stale render
- * never bleeds the old layout through.
- */
-function ProjectErrorMobile() {
-  return (
-    <main
-      className="fixed inset-0 bg-white overflow-y-auto flex items-center justify-center"
-      style={{
-        fontFamily:
-          "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
-      }}
-      data-testid="project-view-error-mobile"
-    >
-      <div className="px-6 py-10 max-w-sm w-full text-center">
-        <p className="text-[64px] font-black text-rose-500 leading-none mb-3">
-          404
-        </p>
-        <h1 className="text-[20px] font-extrabold tracking-tight text-gray-900 mb-2">
-          Project not found
-        </h1>
-        <p className="text-[13px] text-gray-500 leading-relaxed mb-6">
-          This project doesn&apos;t exist or is no longer available.
-        </p>
-        <Link
-          href="/projects"
-          className="inline-flex items-center justify-center gap-2 rounded-full bg-rose-500 px-6 py-3 text-[14px] font-bold text-white shadow-lg shadow-rose-500/25"
-        >
-          Back to projects
-        </Link>
-      </div>
-    </main>
-  );
-}
-
 function MetaRow({
   label,
   value,
@@ -1355,6 +1317,18 @@ export default function ProjectViewPage() {
   }, [viewerRole, router]);
 
   // ---------------------------------------------------------
+  // 2a) REDIRECT to the canonical /404 when the project is
+  //     missing or inaccessible. We used to render a bespoke
+  //     "Project not found" panel here, but maintaining two
+  //     404 surfaces drifts - the global /404 page is
+  //     role-aware and brand-correct.
+  // ---------------------------------------------------------
+  useEffect(() => {
+    if (vm.loading || !vm.errorStatus || viewerRole === "unknown") return;
+    router.replace("/404");
+  }, [vm.loading, vm.errorStatus, viewerRole, router]);
+
+  // ---------------------------------------------------------
   // 3) Prevent UI render until:
   //    - project is loaded
   //    - role is known
@@ -1362,56 +1336,11 @@ export default function ProjectViewPage() {
   const ready =
     !vm.loading && !vm.errorStatus && !!vm.project && viewerRole !== "unknown";
 
-  // Project not found or inaccessible
+  // Project not found → redirect handled by the useEffect above.
+  // Render nothing while the navigation lands so the old project shell
+  // doesn't flash on screen.
   if (!vm.loading && vm.errorStatus && viewerRole !== "unknown") {
-    return (
-      <>
-        <Head>
-          <title>Project not found — VetMyBuilder</title>
-          <style>{`body { background: #fafaf9 !important; }`}</style>
-        </Head>
-
-        {/* MOBILE — bare 404 (no desktop site chrome bleed-through) */}
-        <div className="md:hidden">
-          <ProjectErrorMobile />
-        </div>
-
-        {/* DESKTOP — unchanged 404 inside Layout */}
-        <div className="hidden md:block">
-          <Layout>
-            <div className="overflow-x-hidden min-h-screen">
-              <div className="-mt-14 relative min-h-screen flex items-center justify-center overflow-hidden">
-                <div className="relative z-10 w-full max-w-lg px-4 sm:px-0 text-center">
-                  <Link href="/" className="inline-flex items-center mb-10">
-                    <BrandWordmark
-                      tone="indigo"
-                      className="text-xl font-black tracking-tight text-zinc-900"
-                    />
-                  </Link>
-                  <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200/60 p-10 sm:p-14">
-                    <p className="text-8xl font-black text-red-500 leading-none mb-4">
-                      404
-                    </p>
-                    <h1 className="text-2xl font-black tracking-tight text-zinc-900 mb-3">
-                      Project not found
-                    </h1>
-                    <p className="text-zinc-500 text-sm leading-relaxed mb-8">
-                      This project doesn&apos;t exist or is no longer available.
-                    </p>
-                    <Link
-                      href="/"
-                      className="inline-flex items-center justify-center gap-2 rounded-full bg-red-500 px-8 py-3.5 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] transition-all"
-                    >
-                      Back to home
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Layout>
-        </div>
-      </>
-    );
+    return null;
   }
 
   if (!ready) {

@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useAuth } from "@/utils/auth";
 import { useRole } from "@/utils/useRole";
 import { trackLogin } from "@/utils/analytics";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import { flushPendingProject } from "@/utils/flushPendingProject";
 import OAuthSignInButton from "@/components/forms/OAuthSignInButton";
 
@@ -393,10 +394,16 @@ export default function Login() {
       <Head>
         <title>Sign in - VetMyBuilder</title>
         <meta name="description" content="Sign in to your VetMyBuilder account." />
+        {/* Cream brand backdrop - matches /projects, /signup/complete, /404. */}
+        <style>{`body { background: #fef6e9 !important; }`}</style>
       </Head>
 
-      <div className="fixed inset-0 top-14 bg-white overflow-y-auto">
-        <div className="mx-auto max-w-md px-5 pt-6 pb-16" data-testid="login-page">
+      <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-12 relative overflow-hidden">
+        <BrandWatermarkScatter />
+        <div className="relative z-10 mx-auto max-w-md px-5 pt-6 pb-16" data-testid="login-page">
+          {/* White card wraps the form so it sits inside the cream chrome,
+              matching /tradesman/login + /signup/complete. */}
+          <div className="bg-white rounded-3xl border border-amber-100 shadow-xl shadow-amber-100/40 p-6 sm:p-8">
           {/* Heading block - VMB wordmark already shown by SiteHeader */}
           <div className="mb-7">
             <h1 className="text-[28px] font-extrabold tracking-[-0.01em] text-slate-900 leading-[1.1]" data-testid="login-title">
@@ -526,6 +533,7 @@ export default function Login() {
               </Link>
             </p>
           )}
+          </div>
         </div>
       </div>
     </>

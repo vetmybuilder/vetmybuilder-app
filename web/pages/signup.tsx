@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import { useState } from "react";
 import SignupForm from "@/components/forms/SignupForm";
 import GuestOnly from "@/components/GuestOnly";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 
 const PENDING_KEY = "vmb:pendingProjectPayload";
 
@@ -39,30 +40,35 @@ export default function Signup() {
       <Head>
         <title>Create account - VetMyBuilder</title>
         <meta name="description" content="Create your free VetMyBuilder homeowner account." />
+        {/* Cream brand backdrop - matches /projects, /login, /404. */}
+        <style>{`body { background: #fef6e9 !important; }`}</style>
       </Head>
 
-      <div className="fixed inset-0 top-14 bg-white overflow-y-auto">
+      <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-12 relative overflow-hidden">
+        <BrandWatermarkScatter />
         <div
-          className="mx-auto max-w-md md:max-w-4xl px-5 pt-6 pb-16 md:flex md:items-start md:gap-10"
+          className="relative z-10 mx-auto max-w-md md:max-w-4xl px-5 pt-6 pb-16 md:flex md:items-start md:gap-10"
           data-testid="register-page"
         >
-          {/* Form column */}
+          {/* Form column - white card on cream chrome, matching /login. */}
           <div className="md:flex-1 md:max-w-md">
-            {/* Heading block - VMB wordmark already shown by SiteHeader */}
-            <div className="mb-6">
-              <h1
-                className="text-[28px] font-extrabold tracking-[-0.01em] text-slate-900 leading-[1.1]"
-                id="register-title"
-                data-testid="register-title"
-              >
-                Find your tradesperson
-              </h1>
-              <p className="mt-2 text-[13.5px] text-slate-500 leading-snug">
-                Free for homeowners. Takes a minute.
-              </p>
-            </div>
+            <div className="bg-white rounded-3xl border border-amber-100 shadow-xl shadow-amber-100/40 p-6 sm:p-8">
+              {/* Heading block - VMB wordmark already shown by SiteHeader */}
+              <div className="mb-6">
+                <h1
+                  className="text-[28px] font-extrabold tracking-[-0.01em] text-slate-900 leading-[1.1]"
+                  id="register-title"
+                  data-testid="register-title"
+                >
+                  Find your tradesperson
+                </h1>
+                <p className="mt-2 text-[13.5px] text-slate-500 leading-snug">
+                  Free for homeowners. Takes a minute.
+                </p>
+              </div>
 
-            <SignupForm />
+              <SignupForm />
+            </div>
           </div>
 
           {/* Right rail: trade banner + brand photo card. The photo is a

@@ -2,6 +2,7 @@
 import Head from "next/head";
 import Link from "next/link";
 import { useRole } from "@/utils/useRole";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 
 export default function NotFound() {
   const { role } = useRole();
@@ -37,16 +38,9 @@ export default function NotFound() {
         <style>{`body { background: #fef6e9 !important; }`}</style>
       </Head>
 
-      <div
-        className="overflow-x-hidden -mt-14 min-h-screen flex items-center justify-center px-4"
-        style={{
-          background:
-            "radial-gradient(circle at 20% 20%, rgba(99,102,241,0.08), transparent 55%)," +
-            "radial-gradient(circle at 80% 80%, rgba(245,158,11,0.10), transparent 55%)," +
-            "#fef6e9",
-        }}
-      >
-        <div className="w-full max-w-lg">
+      <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-12 relative overflow-hidden flex items-center justify-center px-4">
+        <BrandWatermarkScatter />
+        <div className="relative z-10 w-full max-w-lg">
           <div className="bg-white rounded-3xl border border-amber-100 shadow-xl shadow-indigo-200/30 px-8 py-10 sm:px-10 sm:py-12 text-center">
             {/* Tools illustration */}
             <div

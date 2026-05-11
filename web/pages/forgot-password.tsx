@@ -46,15 +46,12 @@ export default function ForgotPassword() {
       <>
         <Head>
           <title>Reset password - VetMyBuilder</title>
-          {/* Mobile stays white; desktop gets the cream brand backdrop so
-              BrandWatermarkScatter has somewhere to sit. */}
-          <style>{`@media (min-width: 768px) { body { background: #fef6e9 !important; } }`}</style>
+          {/* Cream brand backdrop - matches /projects, /login, /404. */}
+          <style>{`body { background: #fef6e9 !important; }`}</style>
         </Head>
 
-        <div className="fixed inset-0 top-14 bg-white md:bg-[#fef6e9] overflow-y-auto">
-          <div className="hidden md:block">
-            <BrandWatermarkScatter />
-          </div>
+        <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-12 relative overflow-hidden">
+          <BrandWatermarkScatter />
           <div
             className="relative z-10 mx-auto max-w-md px-5 pt-4 pb-16 md:pt-10"
             data-testid="forgot-password-card"
@@ -68,6 +65,9 @@ export default function ForgotPassword() {
               <ChevronLeft className="w-5 h-5" />
             </button>
 
+            {/* White card wraps the form so it sits inside the cream chrome,
+                matching /login + /signup + /tradesman/login. */}
+            <div className="bg-white rounded-3xl border border-amber-100 shadow-xl shadow-amber-100/40 p-6 sm:p-8">
             {sent ? (
               <div data-testid="forgot-password-success">
                 <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-indigo-50 mb-4">
@@ -194,6 +194,7 @@ export default function ForgotPassword() {
                 </form>
               </>
             )}
+            </div>
           </div>
         </div>
       </>

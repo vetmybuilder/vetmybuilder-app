@@ -115,10 +115,12 @@ export default function TradesmanLoginAlias() {
       <Head>
         <meta name="robots" content="noindex" />
         <title>Tradesperson • Vetmybuilder</title>
+        {/* Cream brand backdrop - matches /projects, /login, /404. */}
+        <style>{`body { background: #fef6e9 !important; }`}</style>
       </Head>
       {phase === "interstitial" ? (
         <div
-          className="fixed inset-0 top-14 bg-[#fef6e9] overflow-y-auto"
+          className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-12 relative overflow-hidden"
           data-testid="tradesman-login-interstitial"
         >
           <BrandWatermarkScatter />
@@ -171,7 +173,7 @@ export default function TradesmanLoginAlias() {
         </div>
       ) : (
         <div
-          className="fixed inset-0 top-14 bg-white flex items-center justify-center"
+          className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 flex items-center justify-center"
           data-testid="tradesman-login-loading"
         >
           <div className="h-8 w-8 rounded-full border-2 border-slate-200 border-t-emerald-600 animate-spin" />
