@@ -42,6 +42,12 @@ interface OtherParty {
 interface Me {
   role: "homeowner" | "tradesman";
   uid: string;
+  // Every uid this viewer should treat as "self" on this thread. Equals
+  // [uid] for normal callers; for a master operator behind a ghost it
+  // also contains the ghost's uid (messages they send persist with
+  // senderUid = ghost). Server-supplied so the client doesn't need to
+  // know anything about the ghost-trade mechanic.
+  senderUids?: string[];
 }
 
 interface ChatData {
@@ -517,7 +523,8 @@ function ChatPageInner() {
           {messages.map((msg, i) => {
             const prev = i > 0 ? messages[i - 1]! : null;
             const showTs = shouldShowTimestamp(prev, msg);
-            const isMine = msg.senderUid === me.uid;
+            const selfUids = me.senderUids ?? [me.uid];
+            const isMine = selfUids.includes(msg.senderUid);
             const atts = msg.attachments || [];
             const hasBodyText = msg.body && msg.body.length > 0;
 
