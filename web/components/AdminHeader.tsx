@@ -138,10 +138,11 @@ export default function AdminHeader() {
       label: "Settings",
       href: "/admin/pilot-areas",
       testId: "nav-admin-settings",
-      active: isOnAny(["/admin/pilot-areas", "/admin/pricing"]),
+      active: isOnAny(["/admin/pilot-areas", "/admin/pricing", "/admin/cleanup"]),
       dropdown: [
         { label: "Pilot areas", href: "/admin/pilot-areas", testId: "nav-admin-pilot-areas", active: isOn("/admin/pilot-areas") },
         { label: "Pricing", href: "/admin/pricing", testId: "nav-admin-pricing", active: isOn("/admin/pricing") },
+        { label: "Cleanup", href: "/admin/cleanup", testId: "nav-admin-cleanup", active: isOn("/admin/cleanup") },
       ],
     },
   ];

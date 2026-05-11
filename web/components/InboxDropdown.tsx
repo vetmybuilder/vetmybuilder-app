@@ -439,10 +439,10 @@ function ActivityList({
  * the dock is mounted and listening - we just dispatch the existing
  * `vmb:openChat` window event and the dock pops open the chat window.
  *
- * Otherwise we navigate to that project's detail page with an
- * ?openChat=<matchId> query param. The destination page reads the param
- * on mount, dispatches the event, and strips the query (see
- * pages/projects/[id].tsx for the receive side).
+ * Otherwise we navigate straight to the dedicated /chat/:matchId page.
+ * The old behaviour (bouncing through /projects/:id?openChat=:matchId)
+ * landed on a pre-V2 project page that's being retired; the standalone
+ * chat surface is the canonical landing for ALL chat entry points.
  */
 function openChatFromInbox(
   router: ReturnType<typeof useRouter>,
@@ -462,7 +462,7 @@ function openChatFromInbox(
     return;
   }
 
-  router.push(`/projects/${projectId}?openChat=${matchId}`);
+  router.push(`/chat/${matchId}`);
 }
 
 function activityIconFor(type: string): {

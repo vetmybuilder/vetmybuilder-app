@@ -38,13 +38,13 @@ async function fireMatchFormed({ projectId, mysqlQuery, ctx }) {
     const detail = detailRows?.[0];
     if (!detail) return;
 
-    // Homeowner notification deep-links to the project page with an
-    // openChat hand-off so the bottom messaging dock pops the chat
-    // window straight away (web/pages/projects/[id].tsx reads the
-    // ?openChat= query and dispatches `vmb:openChat`). Skips the
-    // separate /match/:matchId celebration screen for the click-through
-    // path - that page still exists for the MatchCelebrationToast flow.
-    const homeownerLinkPath = `/projects/${detail.projectId}?openChat=${detail.matchId}`;
+    // Both sides deep-link to the dedicated /chat/:matchId page. We used
+    // to send the homeowner to /projects/:id?openChat=:matchId so the
+    // bottom messaging dock could pop the chat - that older page is
+    // being retired; the standalone chat surface is now the canonical
+    // landing for ALL chat notifications (the in-app dock still works
+    // when triggered from inside the new /matches hub).
+    const homeownerLinkPath = `/chat/${detail.matchId}`;
     const tradesmanLinkPath = `/chat/${detail.matchId}`;
     const homeownerMessage = `🎉 You matched with ${detail.tradesmanName} on "${detail.projectName}"`;
     const tradesmanMessage = `🎉 You matched with a homeowner on "${detail.projectName}"`;
