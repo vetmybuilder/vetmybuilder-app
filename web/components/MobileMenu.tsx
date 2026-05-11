@@ -401,13 +401,27 @@ export default function MobileMenu({
             </nav>
           )}
 
-          {/* Guest hero */}
+          {/* Guest hero. The text sits on a busy photo (boards/scaffolding
+              etc.) so a soft frosted panel underneath keeps the italic
+              strapline legible without flattening the brand chrome
+              behind it. */}
           {!isAuthed && (
             <div className="flex flex-col items-center justify-center text-center flex-1 px-6">
-              <p className="text-slate-800 text-xl font-light italic leading-relaxed max-w-sm tracking-wide">
-                Find a tradesperson you can trust, recommended by friends and
-                backed by real local reviews.
-              </p>
+              <div className="rounded-2xl bg-white/85 backdrop-blur-sm px-6 py-5 shadow-sm border border-white/60 max-w-sm">
+                <p
+                  className="text-slate-900 text-[26px] font-black tracking-[-0.01em] leading-[1.15]"
+                  style={{ fontFamily: "'Sora', sans-serif" }}
+                >
+                  Post your job -{" "}
+                  <span
+                    className="text-indigo-600"
+                    style={{ fontFamily: "'Caveat', cursive", fontSize: "120%" }}
+                  >
+                    we&apos;ll smart-match
+                  </span>{" "}
+                  the rest.
+                </p>
+              </div>
             </div>
           )}
         </div>
