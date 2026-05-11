@@ -14,6 +14,9 @@
 //     messages: [{ id, senderUid, senderRole, senderName, body, attachments, createdAt }]
 //   }
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { isMasterOfGhost } = require("../../lib/ghostTradesman");
+
 module.exports = function mountChatMessagesGet(router, ctx) {
   const { auth, mysqlQuery } = ctx;
   if (!mysqlQuery) throw new Error("mysqlQuery not attached to ctx");
@@ -73,15 +76,24 @@ module.exports = function mountChatMessagesGet(router, ctx) {
 
     const si = rows[0];
 
-    // Access control
-    if (uid !== si.homeowner_uid && uid !== si.builder_uid) {
+    // Access control. Caller must be a party OR the master operator
+    // behind a ghost trade row (master_uid = caller). The master gets
+    // the same read access as the underlying ghost so notifications
+    // delivered to them ("New message from Chris") open the thread
+    // instead of bouncing to "Conversation unavailable".
+    const viewerIsHomeowner = uid === si.homeowner_uid;
+    const viewerIsBuilder = uid === si.builder_uid;
+    const viewerIsMasterOfBuilder =
+      !viewerIsHomeowner && !viewerIsBuilder
+        ? await isMasterOfGhost(mysqlQuery, si.builder_uid, uid)
+        : false;
+
+    if (!viewerIsHomeowner && !viewerIsBuilder && !viewerIsMasterOfBuilder) {
       return res.status(403).json({ error: "Not a party to this match" });
     }
     if (si.status !== "matched") {
       return res.status(403).json({ error: "Match is not active" });
     }
-
-    const viewerIsHomeowner = uid === si.homeowner_uid;
 
     // Fetch messages
     const msgs = await mysqlQuery(
