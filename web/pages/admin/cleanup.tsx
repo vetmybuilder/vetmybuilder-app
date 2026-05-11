@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState } from "react";
 import AuthedOnly from "@/components/AuthedOnly";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import { useApi } from "@/utils/api";
+import { useAuth } from "@/utils/auth";
 
 type Preview = {
   ok: boolean;
@@ -26,6 +27,7 @@ type Preview = {
 
 export default function AdminCleanupPage() {
   const api = useApi();
+  const { user, loading: authLoading } = useAuth();
 
   const [preview, setPreview] = useState<Preview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,9 +56,16 @@ export default function AdminCleanupPage() {
     }
   }, [api]);
 
+  // Wait for Firebase auth to resolve before firing the preview fetch.
+  // Without this gate the first request goes out before useApi() has a
+  // Bearer token, the server returns 401 "Missing bearer token", and the
+  // admin sees an error on first paint that disappears on the next
+  // re-render. Tab-switch "fixes" it because Firebase has settled by
+  // then.
   useEffect(() => {
+    if (authLoading || !user) return;
     void load();
-  }, [load]);
+  }, [load, authLoading, user]);
 
   async function run(
     opKey: string,

@@ -42,6 +42,13 @@ export type LocationFieldProps = {
    * typing SW10 sees a friendly message instead of a successful pick.
    */
   pilotOnly?: boolean;
+  /**
+   * Fires whenever the internal pilot-area error message changes. Lets
+   * the parent wizard disable its Continue button when the field is
+   * showing a "not in pilot" warning, so the user can't blow past the
+   * gate and hit a 400 on submit.
+   */
+  onPilotErrChange?: (err: string | null) => void;
 };
 
 function useDebounced<T>(value: T, delay = 200) {
@@ -97,6 +104,7 @@ export default function LocationField({
   onDisplayChange,
   error,
   pilotOnly = false,
+  onPilotErrChange,
 }: LocationFieldProps) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState(value);
@@ -124,6 +132,13 @@ export default function LocationField({
   // doesn't re-hit postcodes.io for the same outward repeatedly.
   const outwardDistrictsCache = React.useRef<Map<string, string[]>>(new Map());
   const [pilotErr, setPilotErr] = React.useState<string | null>(null);
+
+  // Bubble pilot-area validity to the parent wizard so it can disable
+  // its Continue button. Wrapping setPilotErr would require touching ~10
+  // call sites; an effect on the state value is cleaner.
+  React.useEffect(() => {
+    onPilotErrChange?.(pilotErr);
+  }, [pilotErr, onPilotErrChange]);
 
   React.useEffect(() => {
     if (!pilotOnly) return;

@@ -354,19 +354,51 @@ export class ProjectDetailsPage extends BasePage {
         await this.page.getByTestId("close-picker-done").click();
       } else if (opts.selectFirstTradesperson || opts.tradespersonLabel) {
         await this.page.getByTestId("close-open-picker").click();
-        // Expand whichever group has candidates - rec/share/match are all
-        // valid sources; only the visible ones render.
-        const groups = ["rec", "share", "match"] as const;
-        for (const g of groups) {
-          const header = this.page.getByTestId(`close-picker-group-${g}`);
-          if (await header.isVisible().catch(() => false)) {
-            await header.click();
-            break;
-          }
-        }
+        await this.page.getByTestId("close-picker-sheet").waitFor({
+          state: "visible",
+        });
+
+        // The picker fetches candidates async, then renders one accordion
+        // group per source (rec / share / match). Poll for whichever
+        // group rendered - short intervals so we don't sit on a fixed
+        // timeout when the data lands fast. The poll's overall budget
+        // (5 s) is short because the fetch is a local API call.
+        const groupNames = ["rec", "share", "match"] as const;
+        let activeGroup: (typeof groupNames)[number] | null = null;
+        await expect
+          .poll(
+            async () => {
+              for (const g of groupNames) {
+                if (
+                  await this.page
+                    .getByTestId(`close-picker-group-${g}`)
+                    .isVisible()
+                    .catch(() => false)
+                ) {
+                  activeGroup = g;
+                  return true;
+                }
+              }
+              return false;
+            },
+            {
+              intervals: [100, 200, 400, 800],
+              timeout: 5_000,
+              message: "picker candidates did not load",
+            },
+          )
+          .toBe(true);
+
         const firstOption = this.page
           .locator('[data-testid^="close-picker-option-"]')
           .first();
+        // Expand the group unless one is already open (e.g. via search).
+        if (!(await firstOption.isVisible().catch(() => false))) {
+          await this.page
+            .getByTestId(`close-picker-group-${activeGroup!}`)
+            .click();
+        }
+        await firstOption.waitFor({ state: "visible", timeout: 3_000 });
         await firstOption.click();
         await this.page.getByTestId("close-picker-done").click();
       }

@@ -74,9 +74,6 @@ test.describe("Close a job", () => {
     await homeownerProjectsPage.hasCompletedCard(created.id);
   });
 
-  // Covers the gap discovered in May 2026: a project whose only candidate
-  // is a swipe-deck match (no recommendations, no shared profiles) used to
-  // be unclosable because the close dropdown only sourced recs + shares.
   test("can close as 'went ahead' when the only candidate is a matched tradesperson", async ({
     request,
     runtime,
@@ -142,14 +139,6 @@ test.describe("Close a job", () => {
     await homeownerProjectsPage.gotoTab("completed");
     await homeownerProjectsPage.hasCompletedCard(created.id);
   });
-
-  // ───────────────────────────────────────────────────────────────────
-  // /projects/[id]/completed page coverage. The close flow above
-  // verifies that a project's *status* flips correctly, but the
-  // editorial /completed page is a separate render path - it surfaces
-  // the winner panel (company name, view-profile link) or the
-  // "Hired off-platform" card depending on who was credited.
-  // ───────────────────────────────────────────────────────────────────
 
   test("/completed shows the winner panel after closing with a matched tradesperson", async ({
     page,
