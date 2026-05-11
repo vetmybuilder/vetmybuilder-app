@@ -435,27 +435,26 @@ function ActivityList({
 /**
  * Open a chat in the bottom-right MessagingDock.
  *
- * If the user is already on the project detail page that owns this match,
- * the dock is mounted and listening - we just dispatch the existing
- * `vmb:openChat` window event and the dock pops open the chat window.
+ * On desktop the global MessagingDock is mounted (`hidden md:block`) and
+ * listening for the `vmb:openChat` window event - dispatching pops the
+ * chat into the bottom-right dock without leaving the current page. On
+ * mobile the dock isn't present, so we navigate to the standalone
+ * /chat/:matchId page instead.
  *
- * Otherwise we navigate straight to the dedicated /chat/:matchId page.
- * The old behaviour (bouncing through /projects/:id?openChat=:matchId)
- * landed on a pre-V2 project page that's being retired; the standalone
- * chat surface is the canonical landing for ALL chat entry points.
+ * The `projectId` arg is unused now (legacy callers kept it to anchor
+ * the dock-pop on the matching project page). Kept in the signature so
+ * callers don't all need to change.
  */
 function openChatFromInbox(
   router: ReturnType<typeof useRouter>,
   matchId: number,
-  projectId: number,
+  _projectId: number,
 ) {
-  const onSameProject =
-    router.pathname === "/projects/[id]" &&
-    Number(
-      Array.isArray(router.query.id) ? router.query.id[0] : router.query.id,
-    ) === Number(projectId);
+  const hasDock =
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(min-width: 768px)").matches;
 
-  if (onSameProject) {
+  if (hasDock) {
     window.dispatchEvent(
       new CustomEvent("vmb:openChat", { detail: { matchId } }),
     );
