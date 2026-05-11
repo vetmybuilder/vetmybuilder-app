@@ -162,8 +162,13 @@ export default function SignupComplete() {
       <Head>
         <title>Complete your profile - VetMyBuilder</title>
       </Head>
+      <Head>
+        {/* Cream brand backdrop on desktop, flat white on mobile - matches
+            /account and the rest of the homeowner journey. */}
+        <style>{`@media (min-width: 768px) { body { background: #fef6e9 !important; } }`}</style>
+      </Head>
 
-      <div className="fixed inset-0 top-14 bg-white overflow-y-auto">
+      <div className="fixed inset-0 top-14 bg-white md:bg-[#fef6e9] overflow-y-auto">
         <div
           className="mx-auto max-w-md px-5 pt-6 pb-16"
           data-testid="signup-complete-page"
