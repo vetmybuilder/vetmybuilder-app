@@ -77,6 +77,12 @@ module.exports = (router, ctx) => {
     // enabled in admin. The frontend already validates against the same
     // set on selection, so this is defence in depth against direct API
     // calls / stale clients.
+    //
+    // E2E + unit tests bypass via PILOT_AREAS_BYPASS=1 so test scenes can
+    // use postcodes outside the pilot (e.g. "N1" Islington to verify
+    // far-location scoring) without their POSTs being rejected as
+    // "location_not_in_pilot". Prod/staging never set this flag.
+    if (process.env.PILOT_AREAS_BYPASS !== "1") {
     try {
       const enabledNames = await getEnabledBoroughNameSet(mysqlQuery);
       const outward = extractOutward(body.location);
@@ -111,6 +117,7 @@ module.exports = (router, ctx) => {
         { err: err?.message },
         "[projects.post] pilot-area check failed, allowing post",
       );
+    }
     }
 
     // MySQL-friendly timestamp

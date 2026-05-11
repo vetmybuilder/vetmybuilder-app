@@ -212,12 +212,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           isTradesman: !!me.isTradesman,
         }),
       );
-      // Postcode is no longer captured at signup, so the only thing left
-      // gating profile-completion is whether /api/me returned a usable
-      // row. A successful response always implies the row exists (touchUserMw
-      // upserts on first authed request from the Firebase token), so we
-      // treat any successful /api/me as profile-complete.
-      setProfileComplete(true);
+      // Postcode is no longer captured at signup, but firstName still is
+      // (via /api/auth/signup). A bare touchUserMw upsert from a fresh
+      // OAuth Firebase token produces a row WITHOUT firstName, and the
+      // /tradesman/login interstitial uses profileComplete=false to detect
+      // that case ("OAuth user who hasn't finished signup"). So we treat
+      // a row with firstName as complete, otherwise incomplete.
+      setProfileComplete(!!me.firstName);
     } catch {
       // non-fatal — caller can retry
     }
@@ -284,9 +285,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             if (!alive) return;
             setUser(merged);
-            // See refreshProfile() above — postcode is no longer required;
-            // a successful /api/me always means the user row exists.
-            setProfileComplete(true);
+            // See refreshProfile() above for the firstName-gating rationale.
+            setProfileComplete(!!me.firstName);
 
             // Engagement-first signup: a guest who started the wizard at
             // /projects/new and stashed the payload in sessionStorage now

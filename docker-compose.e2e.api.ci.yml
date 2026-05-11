@@ -67,6 +67,9 @@ services:
       MYSQL_USER: "root"
       MYSQL_PASSWORD: "root"
       MYSQL_DATABASE: "vetmybuilder_test_s1_4"
+      # Test scenes use postcodes outside the pilot to verify near/far
+      # location scoring - skip the pilot gate so those POSTs aren't 400'd.
+      PILOT_AREAS_BYPASS: "1"
       # E2E cost guard — never let test runs hit billable external APIs.
       MOCK_EXTERNAL_SERVICES: "1"
       GOOGLE_PLACES_API_KEY: ""
@@ -110,6 +113,9 @@ services:
       MYSQL_USER: "root"
       MYSQL_PASSWORD: "root"
       MYSQL_DATABASE: "vetmybuilder_test_s2_4"
+      # Test scenes use postcodes outside the pilot to verify near/far
+      # location scoring - skip the pilot gate so those POSTs aren't 400'd.
+      PILOT_AREAS_BYPASS: "1"
       # E2E cost guard — never let test runs hit billable external APIs.
       MOCK_EXTERNAL_SERVICES: "1"
       GOOGLE_PLACES_API_KEY: ""
@@ -153,6 +159,9 @@ services:
       MYSQL_USER: "root"
       MYSQL_PASSWORD: "root"
       MYSQL_DATABASE: "vetmybuilder_test_s3_4"
+      # Test scenes use postcodes outside the pilot to verify near/far
+      # location scoring - skip the pilot gate so those POSTs aren't 400'd.
+      PILOT_AREAS_BYPASS: "1"
       # E2E cost guard — never let test runs hit billable external APIs.
       MOCK_EXTERNAL_SERVICES: "1"
       GOOGLE_PLACES_API_KEY: ""
@@ -196,6 +205,9 @@ services:
       MYSQL_USER: "root"
       MYSQL_PASSWORD: "root"
       MYSQL_DATABASE: "vetmybuilder_test_s4_4"
+      # Test scenes use postcodes outside the pilot to verify near/far
+      # location scoring - skip the pilot gate so those POSTs aren't 400'd.
+      PILOT_AREAS_BYPASS: "1"
       # E2E cost guard — never let test runs hit billable external APIs.
       MOCK_EXTERNAL_SERVICES: "1"
       GOOGLE_PLACES_API_KEY: ""

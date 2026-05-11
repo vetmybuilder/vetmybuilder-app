@@ -68,6 +68,10 @@ services:
       MYSQL_USER: "root"
       MYSQL_PASSWORD: "root"
       MYSQL_DATABASE: "vetmybuilder_test_s1_4_w0"
+      # Test scenes intentionally use postcodes outside the pilot area
+      # (E5/N1) to verify near-vs-far matching. Skip the pilot-area gate
+      # in E2E so those POSTs don't get rejected.
+      PILOT_AREAS_BYPASS: "1"
       # E2E cost guard — never let test runs hit billable external APIs.
       MOCK_EXTERNAL_SERVICES: "1"
       GOOGLE_PLACES_API_KEY: ""
