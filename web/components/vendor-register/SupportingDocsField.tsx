@@ -26,7 +26,13 @@ export type SupportingDoc = {
   type: SupportingDocType;
   label: string; // freeform - e.g. "Hiscox Public Liability £2m"
   customType?: string; // populated only when type === "other"
-  fileUrl?: string; // server URL of the uploaded proof
+  // Storage identifier returned by /api/tradesmen/upload-docs. The
+  // client never holds a direct public URL anymore - admin + the owner
+  // view files via the authed /api/tradesmen/.../docs/:idx redirect.
+  fileKey?: string;
+  // Legacy field kept readable in case older rows still carry it; we
+  // never write it from the new upload path.
+  fileUrl?: string;
   fileName?: string; // original filename for display
 };
 
@@ -96,9 +102,12 @@ export default function SupportingDocsField({ docs, onChange }: Props) {
       const res: any = await api.post("/api/tradesmen/upload-docs", fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      const url = res?.data?.urls?.[0];
-      if (!url) throw new Error("Upload returned no URL");
-      update(index, { fileUrl: url, fileName: file.name });
+      const entry = res?.data?.files?.[0];
+      if (!entry?.key) throw new Error("Upload returned no key");
+      update(index, {
+        fileKey: entry.key,
+        fileName: entry.fileName || file.name,
+      });
     } catch (e: any) {
       setUploadErrIndex({
         index,
@@ -207,7 +216,7 @@ export default function SupportingDocsField({ docs, onChange }: Props) {
 
                 {/* Upload tile */}
                 <div className="px-3 pt-3 pb-3">
-                  {d.fileUrl ? (
+                  {d.fileKey || d.fileUrl ? (
                     <div
                       className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2.5"
                       data-testid={`doc-attached-${i}`}

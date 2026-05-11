@@ -46,17 +46,27 @@ function resolveKey(entry) {
   return null;
 }
 
-async function streamPresigned(res, key, log, TAG) {
-  try {
-    const signedUrl = await getPresignedReadUrl(key);
-    // No-store on the 302 itself - we never want a CDN or browser to
-    // cache the redirect since the signed URL inside expires.
-    res.setHeader("Cache-Control", "no-store, max-age=0");
-    return res.redirect(302, signedUrl);
-  } catch (e) {
-    log.error?.(`${TAG} presign failed`, { error: e?.message || e, key });
-    return res.status(500).json({ ok: false, error: "presign_failed" });
+async function redirectToFile(res, key, log, TAG) {
+  // R2-configured: mint a 5-minute presigned URL and 302 to it.
+  if (isR2Configured) {
+    try {
+      const signedUrl = await getPresignedReadUrl(key);
+      // No-store on the 302 itself - we never want a CDN or browser to
+      // cache the redirect since the signed URL inside expires.
+      res.setHeader("Cache-Control", "no-store, max-age=0");
+      return res.redirect(302, signedUrl);
+    } catch (e) {
+      log.error?.(`${TAG} presign failed`, { error: e?.message || e, key });
+      return res.status(500).json({ ok: false, error: "presign_failed" });
+    }
   }
+  // Local-disk fallback (no R2 in dev). The key is a relative path
+  // under UPLOAD_DIR (e.g. "tradesmen-docs/<filename>"). Redirect to
+  // the existing /uploads static mount that already serves the same
+  // directory. Same authed-only access pattern - the redirect happens
+  // *after* the auth check, so a third party can't guess the URL.
+  res.setHeader("Cache-Control", "no-store, max-age=0");
+  return res.redirect(302, `/uploads/${key}`);
 }
 
 async function loadDocs(mysqlQuery, ownerUid) {
@@ -77,7 +87,7 @@ module.exports = (router, ctx) => {
 
   if (!isR2Configured) {
     log.info?.(
-      `${TAG} R2 not configured - presigned downloads will return 503 until R2_* env is set`,
+      `${TAG} R2 not configured - docs will be served from the local /uploads mount`,
     );
   }
 
@@ -85,9 +95,6 @@ module.exports = (router, ctx) => {
   router.get("/tradesmen/me/docs/:idx", auth, async (req, res) => {
     const uid = req.user?.uid;
     if (!uid) return res.status(401).json({ ok: false, error: "unauthorized" });
-    if (!isR2Configured) {
-      return res.status(503).json({ ok: false, error: "r2_not_configured" });
-    }
 
     const idx = Number(req.params.idx);
     if (!Number.isInteger(idx) || idx < 0) {
@@ -101,7 +108,7 @@ module.exports = (router, ctx) => {
     const key = resolveKey(entry);
     if (!key) return res.status(404).json({ ok: false, error: "not_found" });
 
-    return streamPresigned(res, key, log, TAG);
+    return redirectToFile(res, key, log, TAG);
   });
 
   // ---- Admin endpoint ----
@@ -113,10 +120,6 @@ module.exports = (router, ctx) => {
     auth,
     adminGuard,
     async (req, res) => {
-      if (!isR2Configured) {
-        return res.status(503).json({ ok: false, error: "r2_not_configured" });
-      }
-
       const targetUid = String(req.params.uid || "").trim();
       const idx = Number(req.params.idx);
       if (!targetUid) {
@@ -140,7 +143,7 @@ module.exports = (router, ctx) => {
         targetUid,
         idx,
       });
-      return streamPresigned(res, key, log, TAG);
+      return redirectToFile(res, key, log, TAG);
     },
   );
 
