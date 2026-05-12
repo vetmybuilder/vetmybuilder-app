@@ -50,6 +50,7 @@ module.exports = function mountChatMessagesGet(router, ctx) {
               si.homeowner_uid, si.builder_uid, si.status, si.source,
               si.project_id,
               p.name AS projectName,
+              p.status AS projectStatus,
               hu.firstName AS homeownerFirstName,
               t.company_name AS builderCompanyName,
               bu.firstName AS builderFirstName,
@@ -160,6 +161,7 @@ module.exports = function mountChatMessagesGet(router, ctx) {
       matchId: si.matchId,
       projectId: si.project_id,
       projectName: si.projectName,
+      projectStatus: si.projectStatus || null,
       source: si.source,
       otherParty,
       me: {

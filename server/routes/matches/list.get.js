@@ -100,6 +100,11 @@ module.exports = function mountGlobalMatches(router, ctx) {
          -- Tinder-style. declined_by_builder and expired don't need a
          -- list view: there's nothing the homeowner can do with them.
          AND si.status IN ('pending', 'matched')
+         -- Hide match rows whose project has been completed. The job is
+         -- done; the homeowner's inbox shouldn't keep advertising it.
+         -- The chat history stays in the DB; /chat/:matchId redirects
+         -- to /projects/:id/completed on direct visit.
+         AND p.status <> 'completed'
        ORDER BY si.status = 'matched' DESC,
                 si.homeowner_swiped_at DESC,
                 si.created_at DESC`,

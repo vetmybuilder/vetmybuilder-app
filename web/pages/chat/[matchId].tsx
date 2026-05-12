@@ -54,6 +54,7 @@ interface ChatData {
   matchId: number;
   projectId: number;
   projectName: string;
+  projectStatus?: string | null;
   otherParty: OtherParty;
   me: Me;
   messages: ChatMessage[];
@@ -261,6 +262,21 @@ function ChatPageInner() {
     if (!user) return;
     fetchMessages(true);
   }, [matchId, authLoading, user, fetchMessages]);
+
+  // If the project for this match has been closed, the conversation is
+  // no longer surfaced in either side's inbox - so a direct URL visit
+  // (stale email link, bookmark) should bounce to a canonical
+  // "this is done" page rather than load a chat the user can never get
+  // back to via the UI.
+  useEffect(() => {
+    if (!chatData) return;
+    if (chatData.projectStatus !== "completed") return;
+    if (chatData.me.role === "homeowner") {
+      router.replace(`/projects/${chatData.projectId}/completed`);
+    } else {
+      router.replace("/tradesman/matches");
+    }
+  }, [chatData, router]);
 
   // ── SSE real-time delivery + 30-second safety poll ─────────────────────────
   useEffect(() => {

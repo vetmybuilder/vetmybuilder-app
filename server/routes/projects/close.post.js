@@ -305,6 +305,52 @@ module.exports = (router, ctx) => {
         log.warn?.({ err: sseErr?.message }, "failed to broadcast inbox_refresh (non-fatal)");
       }
 
+      // Mirror the cleanup on the tradesperson side: every builder who
+      // matched on this project loses their stale notifications too, and
+      // gets a silent inbox_refresh so their live tab updates without a
+      // browser refresh. Without this, the trade keeps seeing the
+      // conversation in their inbox while the homeowner has already
+      // moved on - confusing asymmetric state.
+      try {
+        const tradesRows = await mysqlQuery(
+          `SELECT DISTINCT builder_uid FROM swipe_interest
+             WHERE project_id = ? AND status = 'matched'`,
+          [projectId],
+        );
+        for (const row of tradesRows) {
+          const builderUid = row?.builder_uid;
+          if (!builderUid) continue;
+          try {
+            await mysqlQuery(
+              `DELETE FROM notifications WHERE userId = ? AND projectId = ?`,
+              [builderUid, projectId],
+            );
+          } catch (delErr) {
+            log.warn?.(
+              { err: delErr?.message, builderUid, projectId },
+              "failed to delete tradesperson notifications on close (non-fatal)",
+            );
+          }
+          try {
+            ctx.broadcastNotification?.(builderUid, {
+              type: "inbox_refresh",
+              message: "",
+              projectId,
+            });
+          } catch (sseErr) {
+            log.warn?.(
+              { err: sseErr?.message, builderUid },
+              "failed to broadcast inbox_refresh to tradesperson (non-fatal)",
+            );
+          }
+        }
+      } catch (tErr) {
+        log.warn?.(
+          { err: tErr?.message, projectId },
+          "failed to enumerate matched tradespeople on close (non-fatal)",
+        );
+      }
+
       // ---------------------------------------------------------
       // UPSERT INTO project_closures
       // ---------------------------------------------------------

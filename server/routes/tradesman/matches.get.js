@@ -57,6 +57,11 @@ module.exports = function mountTradesmanMatches(router, ctx) {
                  SELECT user_id FROM tradesmen WHERE master_uid = ?
                ))
           AND si.status = 'matched'
+          -- Mirror the homeowner filter: once a project is completed the
+          -- thread drops off the tradesperson's inbox too. Keeps both sides
+          -- of the conversation symmetric; if the trade visits the chat
+          -- URL directly we redirect them to /tradesman/matches.
+          AND p.status <> 'completed'
         ORDER BY si.updated_at DESC, si.id DESC`,
       [builderUid, builderUid],
     );
