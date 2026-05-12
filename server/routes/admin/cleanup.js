@@ -73,18 +73,33 @@ module.exports = (router, ctx) => {
           ageBuckets[days] = Number(rows?.[0]?.c) || 0;
         }
 
-        // Owner-side notifications still attached to completed projects.
-        // The close-time DELETE that ships with this cleanup card means
-        // new closes leave nothing behind. This count exists so admins
-        // can clear out the historical clutter from before that fix.
-        const closedRows = await mysqlQuery(
+        // Notifications still attached to completed projects, BOTH on the
+        // owner side (where userId = the project owner) AND on the matched
+        // tradesperson side (any builder with a matched swipe_interest row).
+        // close.post.js wipes both groups on close going forward; this
+        // count + button is the one-off backfill for historical rows.
+        // We exclude `project_closed_local` because those belong to NEIGHBOURS
+        // (not the owner or matched trades) and are the intentional "your
+        // neighbour completed a job" feed entries.
+        const closedOwnerRows = await mysqlQuery(
           `SELECT COUNT(*) AS c
              FROM notifications n
              JOIN projects p ON p.id = n.projectId
             WHERE p.status = 'completed'
               AND n.userId = p.ownerUserId`,
         );
-        const closedProjectsForOwners = Number(closedRows?.[0]?.c) || 0;
+        const closedTradeRows = await mysqlQuery(
+          `SELECT COUNT(*) AS c
+             FROM notifications n
+             JOIN projects p ON p.id = n.projectId
+             JOIN swipe_interest si ON si.project_id = p.id
+                                   AND si.builder_uid = n.userId
+                                   AND si.status = 'matched'
+            WHERE p.status = 'completed'`,
+        );
+        const closedProjects =
+          (Number(closedOwnerRows?.[0]?.c) || 0) +
+          (Number(closedTradeRows?.[0]?.c) || 0);
 
         return res.json({
           ok: true,
@@ -92,7 +107,9 @@ module.exports = (router, ctx) => {
             byDeprecatedType: typeCounts,
             legacyLinkPaths,
             olderThan: ageBuckets,
-            closedProjectsForOwners,
+            // Kept under the same key as before for backwards-compat with
+            // the existing client - the value now covers both sides.
+            closedProjectsForOwners: closedProjects,
           },
         });
       } catch (err) {
@@ -218,24 +235,40 @@ module.exports = (router, ctx) => {
   );
 
   // ============ PURGE CLOSED-PROJECT NOTIFICATIONS ============
-  // One-off backfill: deletes the owner's stale activity entries for any
-  // project that is already in status='completed'. Forward-going closes
-  // handle this automatically in close.post.js (DELETE + SSE refresh).
+  // One-off backfill: deletes stale activity entries for any project
+  // already in status='completed'. Forward-going closes handle this
+  // automatically in close.post.js (DELETE + SSE refresh on both sides).
+  //
+  // Two passes, scoped narrowly so we don't accidentally nuke
+  // `project_closed_local` rows that belong to neighbours:
+  //   1. Owner-side: userId = the project owner.
+  //   2. Tradesperson-side: userId = a builder with a matched
+  //      swipe_interest on that project.
   router.post(
     "/admin/cleanup/notifications/purge-closed-projects",
     auth,
     adminGuard,
     async (req, res) => {
       try {
-        const result = await mysqlQuery(
+        const ownerResult = await mysqlQuery(
           `DELETE n FROM notifications n
              JOIN projects p ON p.id = n.projectId
             WHERE p.status = 'completed'
               AND n.userId = p.ownerUserId`,
         );
-        const deleted = Number(result?.affectedRows) || 0;
+        const tradeResult = await mysqlQuery(
+          `DELETE n FROM notifications n
+             JOIN projects p ON p.id = n.projectId
+             JOIN swipe_interest si ON si.project_id = p.id
+                                   AND si.builder_uid = n.userId
+                                   AND si.status = 'matched'
+            WHERE p.status = 'completed'`,
+        );
+        const deleted =
+          (Number(ownerResult?.affectedRows) || 0) +
+          (Number(tradeResult?.affectedRows) || 0);
         log.info?.(
-          `${TAG} purged ${deleted} owner notifications for completed projects`,
+          `${TAG} purged ${deleted} notifications for completed projects (owners + matched trades)`,
           { admin: req.user?.uid },
         );
         return res.json({ ok: true, deleted });

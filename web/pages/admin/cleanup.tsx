@@ -125,13 +125,13 @@ export default function AdminCleanupPage() {
   function purgeClosedProjects() {
     void run(
       "purge-closed-projects",
-      "Delete owner-side notifications for projects already in status=completed? Forward-going closes already do this automatically; this is a one-off backfill.",
+      "Delete notifications for projects already in status=completed (both homeowner and matched-tradesperson sides)? Forward-going closes already do this automatically; this is a one-off backfill.",
       async () => {
         const { data } = await api.post<{ ok: boolean; deleted: number }>(
           "/api/admin/cleanup/notifications/purge-closed-projects",
           {},
         );
-        return `Deleted ${data.deleted} owner notifications for completed projects.`;
+        return `Deleted ${data.deleted} notifications for completed projects.`;
       },
     );
   }
@@ -248,10 +248,10 @@ export default function AdminCleanupPage() {
                 }
               />
 
-              {/* ============ Closed-project owner notifications ============ */}
+              {/* ============ Closed-project notifications (both sides) ============ */}
               <Card
-                title="Delete owner notifications for completed projects"
-                description="One-off backfill. Forward-going closes already strip the owner's activity feed on close.post; this clears the historical clutter from before that fix."
+                title="Delete notifications for completed projects"
+                description="Covers both the homeowner and any matched tradespeople. One-off backfill - forward-going closes strip these on both sides automatically via close.post."
                 count={preview.notifications.closedProjectsForOwners}
                 countLabel="rows to delete"
                 actionLabel="Delete all"
