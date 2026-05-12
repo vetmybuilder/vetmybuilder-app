@@ -21,9 +21,10 @@ export class HomeownerProjectsPage {
   readonly tipRow: Locator;
 
   // Filters
-  readonly filtersToolbar: Locator;
-  readonly typeFilterButton: Locator;
-  readonly statusFilterButton: Locator;
+  // Desktop is a permanent checkbox sidebar (one row per category +
+  // a search input); mobile is a bottom-sheet-driven chip row.
+  readonly filtersSurface: Locator;
+  readonly filterSearchInput: Locator;
   readonly resetFiltersLink: Locator;
 
   constructor(page: Page) {
@@ -55,21 +56,17 @@ export class HomeownerProjectsPage {
     this.vmbScoreRow = page.getByText(/Trust score/i);
     this.tipRow = page.getByText(/Always ask for a written quote/i);
 
-    // Desktop renders a labeled "Filter by / Type / Status" toolbar;
-    // mobile renders a chip row (Type + Sort, no Status). Both wrappers
-    // sit in the DOM at all times - filter to whichever is visible to
-    // avoid strict-mode and hidden-element failures.
-    this.filtersToolbar = page
-      .getByText(/^Filter by$/i)
+    // Desktop renders a permanent checkbox sidebar (one row per
+    // PROJECT_TYPES category, with a search input above); mobile
+    // renders a chip row with a bottom-sheet picker for Type. Both
+    // wrappers sit in the DOM at all times - filter to whichever is
+    // visible to avoid strict-mode and hidden-element failures.
+    this.filtersSurface = page
+      .getByTestId("projects-filter-checklist")
       .or(page.getByTestId("projects-mobile-filter-chips"))
       .filter({ visible: true });
-    this.typeFilterButton = page
-      .getByRole("button", { name: /^Type$/i })
-      .filter({ visible: true });
-    this.statusFilterButton = page
-      .getByRole("button", { name: /^Status$/i })
-      .filter({ visible: true });
-    this.resetFiltersLink = page.getByRole("button", { name: /reset/i });
+    this.filterSearchInput = page.getByTestId("projects-filter-search");
+    this.resetFiltersLink = page.getByTestId("projects-filter-reset");
   }
 
   async goto() {
@@ -99,13 +96,14 @@ export class HomeownerProjectsPage {
   }
 
   findProjectById(projectId: string | number): Locator {
-    // Desktop renders `project-image-card-{id}`, mobile renders
-    // `mobile-project-card-{id}`. Filter to the visible one so the
-    // same lookup works on either viewport.
+    // Desktop renders a single hero-row `project-card-link-{id}` (post
+    // 2026-05 redesign); mobile renders `mobile-project-card-{id}`.
+    // Filter to whichever is visible so the lookup works on either
+    // viewport.
     const id = String(projectId);
     return this.page
       .locator(
-        `[data-testid="project-image-card-${id}"], [data-testid="mobile-project-card-${id}"]`,
+        `[data-testid="project-card-link-${id}"], [data-testid="mobile-project-card-${id}"]`,
       )
       .filter({ visible: true });
   }
@@ -253,18 +251,18 @@ export class HomeownerProjectsPage {
   }
 
   async assertFiltersVisible() {
-    await expect(this.filtersToolbar).toBeVisible();
-    await expect(this.typeFilterButton).toBeVisible();
-    // Status filter only exists in the desktop toolbar; mobile uses a
-    // sort chip in its place.
+    await expect(this.filtersSurface).toBeVisible();
     if (!this.isMobile()) {
-      await expect(this.statusFilterButton).toBeVisible();
+      await expect(this.filterSearchInput).toBeVisible();
     }
   }
 
   /**
    * Apply the Type filter for the given project type label.
-   *   - Desktop: opens the "Type" toolbar dropdown and clicks the menu item.
+   *   - Desktop: clicks the matching category checkbox in the sidebar.
+   *     Callers may pass either a category name ("Plumbing") or a leaf
+   *     type — the leaf is mapped back to its parent category for the
+   *     checkbox click.
    *   - Mobile: opens the Type chip's bottom-sheet picker and taps the
    *     matching option (the picker auto-closes on select).
    */
@@ -272,15 +270,24 @@ export class HomeownerProjectsPage {
     if (this.isMobile()) {
       await this.page.getByTestId("chip-type").click();
       await this.page.getByTestId(`picker-option-${type}`).click();
-    } else {
-      await this.typeFilterButton.click();
-      await this.page.getByRole("menuitem", { name: type }).click();
+      return;
     }
+
+    // Desktop checkbox lookup. Wait for the sidebar to mount first
+    // (auth gate + tab redirect on /projects means the checklist
+    // isn't in the DOM immediately after navigation).
+    await expect(
+      this.page.getByTestId("projects-filter-checklist"),
+    ).toBeVisible({ timeout: 15_000 });
+
+    const target = this.page.getByTestId(`projects-filter-category-${type}`);
+    await expect(target).toBeAttached({ timeout: 10_000 });
+    await target.check();
   }
 
   /**
-   * Clear the active Type filter.
-   *   - Desktop: clicks the "Reset" link in the toolbar.
+   * Clear all active filters.
+   *   - Desktop: clicks the "Reset" link above the checkbox list.
    *   - Mobile: reopens the Type chip and taps "Clear filter" inside
    *     the bottom-sheet picker.
    */
@@ -291,6 +298,14 @@ export class HomeownerProjectsPage {
     } else {
       await this.resetFiltersLink.click();
     }
+  }
+
+  /**
+   * Type into the desktop filter search box. Mobile has no equivalent.
+   */
+  async searchFilterTypes(query: string) {
+    if (this.isMobile()) return;
+    await this.filterSearchInput.fill(query);
   }
 
   async hasProjectVisible(projectId: string | number) {
@@ -306,7 +321,7 @@ export class HomeownerProjectsPage {
     await expect(
       this.page
         .locator(
-          `[data-testid="project-image-card-${id}"], [data-testid="mobile-project-card-${id}"]`,
+          `[data-testid="project-card-link-${id}"], [data-testid="mobile-project-card-${id}"]`,
         )
         .filter({ visible: true }),
     ).toHaveCount(0);

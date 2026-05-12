@@ -170,11 +170,6 @@ function dispatchPageView(path: string, gsid: string) {
   } catch {
     /* noop */
   }
-
-  if (process.env.NODE_ENV !== "production") {
-    // eslint-disable-next-line no-console
-    console.debug("[vmb] page_view", { path, gsid });
-  }
 }
 
 export default function MyApp({ Component, pageProps }: AppProps) {

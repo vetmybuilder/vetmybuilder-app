@@ -51,11 +51,10 @@ export function useRole(): { role: Role; loading: boolean } {
       /* sessionStorage unavailable */
     }
 
-    // Fast path: SiteHeader may have already resolved the role
     try {
       const cached = sessionStorage.getItem("vmb:isTradesman");
-      if (cached !== null) {
-        setRole(cached === "1" ? "tradesman" : "user");
+      if (cached === "1") {
+        setRole("tradesman");
         setLoading(false);
         return;
       }

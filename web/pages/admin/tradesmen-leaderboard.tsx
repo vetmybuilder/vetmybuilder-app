@@ -145,7 +145,7 @@ export default function AdminTradesmenLeaderboardPage() {
         <BrandWatermarkScatter />
         <main
           className="relative z-10 mx-auto max-w-6xl px-6 py-8"
-          data-testid="tradesmen-leaderboard-page"
+          data-testid="admin-leaderboard-page"
         >
           {/* Title row */}
           <div className="flex items-start justify-between gap-3 mb-6">
@@ -249,7 +249,10 @@ export default function AdminTradesmenLeaderboardPage() {
           {/* Error / forbidden states */}
           {forbidden && (
             <div className="rounded-2xl bg-rose-50 border border-rose-200 p-5 text-rose-700">
-              You need admin access to view the leaderboard.
+              <p className="font-extrabold">Access restricted</p>
+              <p className="text-sm mt-0.5">
+                You need admin access to view the leaderboard.
+              </p>
             </div>
           )}
           {err && !forbidden && (
