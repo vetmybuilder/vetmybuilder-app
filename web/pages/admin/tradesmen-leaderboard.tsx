@@ -394,7 +394,7 @@ function RowCard({
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <StatusBadge s={item.status} />
+              <StatusBadge s={item.status} testid={`tradesman-status-${item.userId}`} />
               <PlanBadge plan={item.plan} />
             </div>
           </div>
@@ -455,7 +455,7 @@ function RowCard({
   );
 }
 
-function StatusBadge({ s }: { s: string }) {
+function StatusBadge({ s, testid }: { s: string; testid?: string }) {
   const map: Record<string, { cls: string; dot: string }> = {
     active: {
       cls: "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -473,6 +473,7 @@ function StatusBadge({ s }: { s: string }) {
   const m = map[s] || map.draft;
   return (
     <span
+      data-testid={testid}
       className={`inline-flex items-center gap-1.5 rounded-full ${m.cls} border-[1.5px] px-2.5 py-0.5 text-[11px] font-extrabold`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${m.dot}`} />
