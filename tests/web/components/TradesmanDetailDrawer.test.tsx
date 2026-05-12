@@ -54,9 +54,20 @@ const baseItem: LeaderboardItem = {
 describe("<TradesmanDetailDrawer />", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Default docs response - empty so the initial render doesn't blow
-    // up when a test hops to the Docs tab without setting its own mock.
-    get.mockResolvedValue({ data: { docs: [] } });
+    // URL-aware default. The drawer fetches docs on mount; tabs that
+    // exercise photos/activity fetch on tab open. Each test can still
+    // override with mockResolvedValueOnce (which takes precedence over
+    // the implementation) for its specific case.
+    get.mockImplementation(async (url: string) => {
+      if (url.endsWith("/docs")) return { data: { docs: [] } };
+      if (url.endsWith("/photos")) return { data: { photos: [] } };
+      if (url.endsWith("/activity")) {
+        return {
+          data: { events: [], profile: { createdAt: null, updatedAt: null } },
+        };
+      }
+      return { data: {} };
+    });
   });
 
   it("renders nothing when item is null", () => {
@@ -89,7 +100,7 @@ describe("<TradesmanDetailDrawer />", () => {
     expect(screen.getByTestId("manage-tab-stub")).toBeInTheDocument();
   });
 
-  it("lazy-loads docs only when the Docs tab is opened", async () => {
+  it("loads docs eagerly on drawer open so Overview can show the verified count", async () => {
     get.mockResolvedValueOnce({
       data: {
         docs: [
@@ -110,38 +121,41 @@ describe("<TradesmanDetailDrawer />", () => {
 
     render(<TradesmanDetailDrawer item={baseItem} onClose={vi.fn()} />);
 
-    // No fetch on initial mount - only when Docs is selected.
-    expect(get).not.toHaveBeenCalled();
+    // Docs fetch fires on mount so the Overview tab's
+    // "Docs admin-reviewed (X/N)" panel renders the right number
+    // without having to wait for the user to visit the Docs tab.
+    await waitFor(() => {
+      expect(get).toHaveBeenCalledWith("/api/admin/tradesmen/u-1/docs");
+    });
 
     fireEvent.click(screen.getByTestId("drawer-tab-docs"));
 
-    await waitFor(() => {
-      expect(get).toHaveBeenCalledWith(
-        "/api/admin/tradesmen/u-1/docs",
-      );
-    });
     await waitFor(() => {
       expect(screen.getByText(/policy\.pdf/)).toBeInTheDocument();
     });
   });
 
   it("calls PATCH when 'Mark verified' is clicked", async () => {
-    get.mockResolvedValueOnce({
-      data: {
-        docs: [
-          {
-            type: "public_liability",
-            label: "Public liability insurance",
-            customType: null,
-            fileName: "policy.pdf",
-            fileKey: "u-1/public_liability.pdf",
-            fileUrl: null,
-            verified: false,
-            verifiedAt: null,
-            verifiedBy: null,
+    get.mockImplementation(async (url: string) => {
+      if (url.endsWith("/docs"))
+        return {
+          data: {
+            docs: [
+              {
+                type: "public_liability",
+                label: "Public liability insurance",
+                customType: null,
+                fileName: "policy.pdf",
+                fileKey: "u-1/public_liability.pdf",
+                fileUrl: null,
+                verified: false,
+                verifiedAt: null,
+                verifiedBy: null,
+              },
+            ],
           },
-        ],
-      },
+        };
+      return { data: {} };
     });
     patch.mockResolvedValueOnce({
       data: {
@@ -176,6 +190,105 @@ describe("<TradesmanDetailDrawer />", () => {
         { verified: true },
       );
     });
+  });
+
+  it("lazy-loads photos when the Photos tab is opened", async () => {
+    // Two distinct mock responses: docs fire eagerly on drawer mount,
+    // photos fire only when the user clicks into the tab.
+    get.mockImplementation(async (url: string) => {
+      if (url.endsWith("/docs")) return { data: { docs: [] } };
+      if (url.endsWith("/photos")) {
+        return {
+          data: {
+            photos: [
+              { id: 1, url: "/uploads/p1.jpg", sortOrder: 0 },
+              { id: 2, url: "/uploads/p2.jpg", sortOrder: 1 },
+            ],
+          },
+        };
+      }
+      return { data: {} };
+    });
+
+    render(<TradesmanDetailDrawer item={baseItem} onClose={vi.fn()} />);
+
+    // Docs URL fires on mount; photos must NOT fire until the tab opens.
+    await waitFor(() => {
+      expect(
+        get.mock.calls.some((c) => String(c[0]).endsWith("/docs")),
+      ).toBe(true);
+    });
+    expect(
+      get.mock.calls.some((c) => String(c[0]).endsWith("/photos")),
+    ).toBe(false);
+
+    fireEvent.click(screen.getByTestId("drawer-tab-photos"));
+
+    await waitFor(() => {
+      expect(
+        get.mock.calls.some((c) => String(c[0]).endsWith("/photos")),
+      ).toBe(true);
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("drawer-photos")).toBeInTheDocument();
+    });
+  });
+
+  it("shows an empty state on the Photos tab when no photos are returned", async () => {
+    get.mockResolvedValueOnce({ data: { photos: [] } });
+
+    render(<TradesmanDetailDrawer item={baseItem} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByTestId("drawer-tab-photos"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("drawer-photos-empty")).toBeInTheDocument();
+    });
+  });
+
+  it("Activity tab fetches the audit feed and renders events", async () => {
+    // URL-aware override: docs (eager) gets the default empty response;
+    // activity (lazy-on-tab) returns one canned event.
+    get.mockImplementation(async (url: string) => {
+      if (url.endsWith("/docs")) return { data: { docs: [] } };
+      if (url.endsWith("/activity")) {
+        return {
+          data: {
+            events: [
+              {
+                id: 99,
+                action: "status_change",
+                actorUid: "admin-1",
+                details: { status: "inactive" },
+                createdAt: "2026-05-12T12:00:00Z",
+              },
+            ],
+            profile: {
+              createdAt: "2026-01-01T00:00:00Z",
+              updatedAt: "2026-05-12T12:00:00Z",
+            },
+          },
+        };
+      }
+      return { data: {} };
+    });
+
+    render(<TradesmanDetailDrawer item={baseItem} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByTestId("drawer-tab-activity"));
+
+    await waitFor(() => {
+      expect(
+        get.mock.calls.some((c) =>
+          String(c[0]).endsWith("/activity"),
+        ),
+      ).toBe(true);
+    });
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("drawer-activity-event-99"),
+      ).toBeInTheDocument();
+    });
+    // The friendly label resolves "status_change" → "Status changed".
+    expect(screen.getByText("Status changed")).toBeInTheDocument();
   });
 
   it("calls onClose when the X button is clicked", () => {

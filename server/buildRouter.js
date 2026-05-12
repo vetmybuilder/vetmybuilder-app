@@ -445,6 +445,8 @@ function buildRouter(ctx) {
   require("./routes/admin/cleanup")(router, ctx);
   require("./routes/admin/tradesman-docs.get")(router, ctx);
   require("./routes/admin/tradesman-doc-verify.patch")(router, ctx);
+  require("./routes/admin/tradesman-photos.get")(router, ctx);
+  require("./routes/admin/tradesman-activity.get")(router, ctx);
   require("./routes/admin/tradesman.status.post")(router, ctx);
   require("./routes/admin/tradesman.flag.post")(router, ctx);
   require("./routes/admin/subscriptions.post")(router, ctx);

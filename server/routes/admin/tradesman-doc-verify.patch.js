@@ -12,6 +12,7 @@
 // race window is acceptable since only admin writes here.
 
 const { requireAdmin } = require("../../lib/roles");
+const { logAdminAction } = require("../../lib/adminAuditLog");
 
 function parseDocsJson(raw) {
   if (!raw) return [];
@@ -78,6 +79,19 @@ module.exports = (router, ctx) => {
           uid,
           idx,
           verified,
+        });
+
+        await logAdminAction({
+          mysqlQuery,
+          actorUid: req.user?.uid,
+          targetUid: uid,
+          action: verified ? "doc_verify" : "doc_unverify",
+          details: {
+            docIdx: idx,
+            docType: docs[idx]?.type || null,
+            docLabel: docs[idx]?.label || null,
+          },
+          log,
         });
 
         return res.json({ ok: true, doc: docs[idx] });

@@ -48,6 +48,17 @@ const FILTER_LABELS: Record<FilterKey, string> = {
   hasWebsites: "Has website",
 };
 
+// Allowlist mirrored server-side in routes/tradesmen/leaderboard.get.js.
+// Keep in sync; a value the server doesn't recognise falls back to "score".
+type SortKey = "score" | "recent" | "joined" | "photos" | "docs";
+const SORT_LABELS: Record<SortKey, string> = {
+  score: "Top score",
+  recent: "Recently active",
+  joined: "Recently joined",
+  photos: "Most photos",
+  docs: "Most docs",
+};
+
 export default function AdminTradesmenLeaderboardPage() {
   const { user } = useAuth();
   const api = useApi();
@@ -69,6 +80,7 @@ export default function AdminTradesmenLeaderboardPage() {
     hasDiscount: false,
     hasWebsites: false,
   });
+  const [sort, setSort] = useState<SortKey>("score");
 
   const [loading, setLoading] = useState(false);
   const [forbidden, setForbidden] = useState(false);
@@ -85,10 +97,11 @@ export default function AdminTradesmenLeaderboardPage() {
     (Object.keys(filters) as FilterKey[]).forEach((k) => {
       if (filters[k]) p.set(k, "1");
     });
+    if (sort !== "score") p.set("sort", sort);
     p.set("limit", String(limit));
     p.set("offset", String(offset));
     return p.toString();
-  }, [q, trade, near, filters, offset]);
+  }, [q, trade, near, filters, sort, offset]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -182,7 +195,7 @@ export default function AdminTradesmenLeaderboardPage() {
                 testid="filter-near"
               />
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {(Object.keys(FILTER_LABELS) as FilterKey[]).map((k) => {
                 const on = filters[k];
                 return (
@@ -201,6 +214,35 @@ export default function AdminTradesmenLeaderboardPage() {
                   </button>
                 );
               })}
+
+              {/* Sort dropdown - sits on the same row as the filter
+                  chips for compact triage. Keys are kept in sync with
+                  the server allowlist; an unknown value falls back to
+                  "score" server-side. */}
+              <div className="ml-auto flex items-center gap-2">
+                <label
+                  htmlFor="leaderboard-sort"
+                  className="text-xs font-extrabold uppercase tracking-[0.12em] text-slate-500"
+                >
+                  Sort
+                </label>
+                <select
+                  id="leaderboard-sort"
+                  value={sort}
+                  onChange={(e) => {
+                    setSort(e.target.value as SortKey);
+                    setOffset(0);
+                  }}
+                  data-testid="leaderboard-sort"
+                  className="rounded-full bg-white border-[1.5px] border-amber-200 px-3 py-1.5 text-xs font-bold text-slate-700 focus:border-indigo-300 focus:outline-none cursor-pointer"
+                >
+                  {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
+                    <option key={k} value={k}>
+                      {SORT_LABELS[k]}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 

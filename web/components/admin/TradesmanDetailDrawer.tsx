@@ -23,6 +23,9 @@ import { useEffect, useState } from "react";
 import { useApi } from "@/utils/api";
 import { X, FileText, Check, AlertCircle } from "lucide-react";
 import TradesmanManageTab from "@/components/admin/TradesmanManageTab";
+import LightboxGallery, {
+  type GalleryImage,
+} from "@/components/LightboxGallery";
 
 export type LeaderboardItem = {
   userId: string;
@@ -139,9 +142,12 @@ export default function TradesmanDetailDrawer({
     }
   }, [open, uid]);
 
-  // Lazy-load docs when the Docs tab is opened
+  // Load docs as soon as the drawer opens (not gated on tab). The
+  // Overview tab uses verifiedDocsCount in its trust panel; if we wait
+  // until the Docs tab is opened the count shows 0/N until the admin
+  // navigates away and back. One fetch per drawer open is cheap enough.
   useEffect(() => {
-    if (!open || !uid || tab !== "docs" || docs !== null) return;
+    if (!open || !uid || docs !== null) return;
     let cancelled = false;
     setDocsLoading(true);
     setDocsErr(null);
@@ -329,7 +335,9 @@ export default function TradesmanDetailDrawer({
               onOpenDoc={openDoc}
             />
           )}
-          {tab === "photos" && <PhotosTab photoCount={item.photos} />}
+          {tab === "photos" && (
+            <PhotosTab uid={item.userId} photoCount={item.photos} />
+          )}
           {tab === "trades" && <TradesTab item={item} />}
           {tab === "activity" && <ActivityTab item={item} />}
           {tab === "manage" && (
@@ -546,33 +554,89 @@ function DocsTab({
   );
 }
 
-function PhotosTab({ photoCount }: { photoCount: number }) {
-  // Photo URLs aren't in the leaderboard payload yet - placeholder grid
-  // so the visual rhythm stays consistent. A follow-up commit will pipe
-  // the actual gallery through.
-  if (photoCount === 0) {
+// Lazy-loads the real portfolio gallery the first time the Photos tab
+// is opened. Same pattern as DocsTab. Empty / loading / error states all
+// match the rest of the drawer's tone.
+function PhotosTab({ uid, photoCount }: { uid: string; photoCount: number }) {
+  const api = useApi();
+  const [photos, setPhotos] = useState<
+    Array<{ id: number; url: string | null }> | null
+  >(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setErr(null);
+    (async () => {
+      try {
+        const { data } = await api.get<{
+          photos: Array<{ id: number; url: string | null }>;
+        }>(`/api/admin/tradesmen/${uid}/photos`);
+        if (cancelled) return;
+        setPhotos(Array.isArray(data?.photos) ? data.photos : []);
+      } catch (e: unknown) {
+        if (cancelled) return;
+        const e2 = e as { message?: string };
+        setErr(e2?.message || "Failed to load photos");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [api, uid]);
+
+  if (loading) {
     return (
-      <div className="text-center py-10 text-sm text-slate-500">
-        <div className="text-4xl mb-2">📷</div>
-        No photos uploaded yet.
+      <div className="text-center py-10 text-sm text-slate-500" data-testid="drawer-photos-loading">
+        Loading photos…
       </div>
     );
   }
+
+  if (err) {
+    return (
+      <div
+        className="rounded-2xl bg-rose-50 border border-rose-200 p-4 text-sm text-rose-700"
+        data-testid="drawer-photos-error"
+        role="alert"
+      >
+        {err}
+      </div>
+    );
+  }
+
+  const safePhotos = (photos || []).filter(
+    (p): p is { id: number; url: string } => !!p.url,
+  );
+
+  if (safePhotos.length === 0) {
+    return (
+      <div
+        className="text-center py-10 text-sm text-slate-500"
+        data-testid="drawer-photos-empty"
+      >
+        <div className="text-4xl mb-2">📷</div>
+        {photoCount > 0
+          ? "Photos not available."
+          : "No photos uploaded yet."}
+      </div>
+    );
+  }
+
+  const images: GalleryImage[] = safePhotos.map((p) => ({
+    id: p.id,
+    thumbUrl: p.url,
+    fullUrl: p.url,
+    alt: "",
+  }));
+
   return (
-    <div className="grid grid-cols-3 gap-3" data-testid="drawer-photos">
-      {Array.from({ length: Math.min(photoCount, 9) }).map((_, k) => (
-        <div
-          key={k}
-          className="aspect-square rounded-xl bg-gradient-to-br from-amber-100 to-amber-200 border border-amber-200 flex items-center justify-center text-amber-700 font-bold"
-        >
-          {k + 1}
-        </div>
-      ))}
-      {photoCount > 9 && (
-        <div className="col-span-3 text-xs text-slate-500 text-center mt-1">
-          +{photoCount - 9} more
-        </div>
-      )}
+    <div data-testid="drawer-photos">
+      <LightboxGallery images={images} cols={3} rounded="rounded-xl" />
     </div>
   );
 }
@@ -630,11 +694,127 @@ function TradesTab({ item }: { item: LeaderboardItem }) {
   );
 }
 
+type AuditEvent = {
+  id: number;
+  action: string;
+  actorUid: string | null;
+  details: Record<string, unknown> | null;
+  createdAt: string | null;
+};
+
+const ACTION_LABELS: Record<string, string> = {
+  status_change: "Status changed",
+  doc_verify: "Document verified",
+  doc_unverify: "Document unverified",
+  sub_grant: "Subscription granted",
+  sub_revoke: "Subscription revoked",
+  unlock_grant: "Project unlock granted",
+  unlock_revoke: "Project unlock revoked",
+};
+
+const ACTION_TONE: Record<string, { bg: string }> = {
+  status_change: { bg: "bg-indigo-500" },
+  doc_verify: { bg: "bg-emerald-500" },
+  doc_unverify: { bg: "bg-amber-500" },
+  sub_grant: { bg: "bg-emerald-500" },
+  sub_revoke: { bg: "bg-rose-500" },
+  unlock_grant: { bg: "bg-emerald-500" },
+  unlock_revoke: { bg: "bg-rose-500" },
+};
+
+function eventDetailLine(ev: AuditEvent): string | null {
+  const d = ev.details || {};
+  switch (ev.action) {
+    case "status_change":
+      return d.status ? `Set to ${d.status}` : null;
+    case "doc_verify":
+    case "doc_unverify":
+      return d.docLabel ? String(d.docLabel) : null;
+    case "sub_grant":
+      return d.tier ? `Tier ${d.tier}` : null;
+    case "unlock_grant":
+    case "unlock_revoke":
+      return d.projectId ? `Project #${d.projectId}` : null;
+    default:
+      return null;
+  }
+}
+
 function ActivityTab({ item }: { item: LeaderboardItem }) {
-  // Minimal log derived from row metadata. Full activity stream comes
-  // later (audit log table not exposed yet).
+  const api = useApi();
+  const [events, setEvents] = useState<AuditEvent[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setErr(null);
+    (async () => {
+      try {
+        const { data } = await api.get<{
+          events: AuditEvent[];
+          profile: { createdAt: string | null; updatedAt: string | null };
+        }>(`/api/admin/tradesmen/${item.userId}/activity`);
+        if (cancelled) return;
+        setEvents(Array.isArray(data?.events) ? data.events : []);
+      } catch (e: unknown) {
+        if (cancelled) return;
+        const e2 = e as { message?: string };
+        setErr(e2?.message || "Failed to load activity");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [api, item.userId]);
+
   return (
     <ol className="space-y-3 text-sm" data-testid="drawer-activity">
+      {loading && (
+        <li className="text-slate-500 text-sm" data-testid="drawer-activity-loading">
+          Loading activity…
+        </li>
+      )}
+      {err && !loading && (
+        <li
+          className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-rose-700"
+          data-testid="drawer-activity-error"
+          role="alert"
+        >
+          {err}
+        </li>
+      )}
+      {/* Audit events first - newest at top, server-ordered. */}
+      {!loading &&
+        !err &&
+        (events || []).map((ev) => {
+          const tone = ACTION_TONE[ev.action]?.bg || "bg-slate-400";
+          const label = ACTION_LABELS[ev.action] || ev.action;
+          const detail = eventDetailLine(ev);
+          return (
+            <li
+              key={`audit-${ev.id}`}
+              className="flex gap-3"
+              data-testid={`drawer-activity-event-${ev.id}`}
+            >
+              <span className={`w-2 h-2 rounded-full ${tone} mt-2 shrink-0`} />
+              <div className="min-w-0">
+                <div className="font-extrabold truncate">{label}</div>
+                {detail && (
+                  <div className="text-xs text-slate-600">{detail}</div>
+                )}
+                <div className="text-xs text-slate-500">
+                  {ev.createdAt || ""}
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      {/* Profile timeline still rendered at the bottom so an empty
+          audit log still has something visual. */}
       <li className="flex gap-3">
         <span className="w-2 h-2 rounded-full bg-emerald-500 mt-2 shrink-0" />
         <div>

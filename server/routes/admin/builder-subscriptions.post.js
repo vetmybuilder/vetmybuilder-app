@@ -27,6 +27,7 @@
 const {
   syncSubscriptionCache,
 } = require("../../lib/subscriptions/syncSubscriptionCache");
+const { logAdminAction } = require("../../lib/adminAuditLog");
 
 const VALID_TIERS = new Set(["week_1", "week_2", "month_1"]);
 
@@ -86,6 +87,15 @@ module.exports = (router, ctx) => {
           `Granted ${tier} to ${userId}`,
         );
 
+        await logAdminAction({
+          mysqlQuery,
+          actorUid: req.user?.uid,
+          targetUid: userId,
+          action: "sub_grant",
+          details: { tier, days },
+          log,
+        });
+
         return res.json({
           ok: true,
           userId,
@@ -123,6 +133,14 @@ module.exports = (router, ctx) => {
           req.user?.uid,
           `Revoked subscription for ${userId}`,
         );
+
+        await logAdminAction({
+          mysqlQuery,
+          actorUid: req.user?.uid,
+          targetUid: userId,
+          action: "sub_revoke",
+          log,
+        });
 
         return res.json({ ok: true, userId });
       } catch (e) {

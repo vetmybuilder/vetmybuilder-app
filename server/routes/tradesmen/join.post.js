@@ -145,16 +145,22 @@ module.exports = (router, ctx) => {
     const likes_count = int(b.likesCount, 0);
     const wins_count = int(b.winsCount, 0);
 
-    // Web verification
+    // Web verification. verifyWebPresence takes (url, socials, opts) and
+    // returns { verified, website, socials, reasons }. The previous call
+    // here passed an options object as the URL arg and read .ok off the
+    // return value - neither matched the function's contract, so
+    // web_verified was silently always 0 on signup.
     let web_verified = 0;
     try {
       if (web_url || social_links.length) {
-        const vr = await verifyWebPresence({
-          website: web_url,
-          socials: social_links,
+        const vr = await verifyWebPresence(web_url, social_links, {
+          vendorName: company_name,
         });
-        web_verified = vr?.ok ? 1 : 0;
-        log.info(`${TAG} web presence`, { ok: !!vr?.ok });
+        web_verified = vr?.verified ? 1 : 0;
+        log.info(`${TAG} web presence`, {
+          verified: !!vr?.verified,
+          reasons: vr?.reasons,
+        });
       }
     } catch (e) {
       log.warn(`${TAG} web presence check failed`, { error: e?.message });

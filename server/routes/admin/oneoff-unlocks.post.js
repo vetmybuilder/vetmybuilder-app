@@ -20,6 +20,8 @@
 //        Returns { items: [{ projectId, projectName, status, approvedAt }] }
 //        for active rows belonging to this tradesman.
 
+const { logAdminAction } = require("../../lib/adminAuditLog");
+
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
   const log = ctx.log || console;
@@ -70,6 +72,15 @@ module.exports = (router, ctx) => {
           `Granted unlock for project ${projectId} to ${buyerUid}`,
         );
 
+        await logAdminAction({
+          mysqlQuery,
+          actorUid: req.user?.uid,
+          targetUid: buyerUid,
+          action: "unlock_grant",
+          details: { projectId },
+          log,
+        });
+
         return res.json({ ok: true, buyerUid, projectId });
       } catch (e) {
         log.error?.(`[admin/oneoff-unlocks/grant] ${e?.message || e}`);
@@ -103,6 +114,15 @@ module.exports = (router, ctx) => {
           req.user?.uid,
           `Revoked unlock for project ${projectId} from ${buyerUid}`,
         );
+
+        await logAdminAction({
+          mysqlQuery,
+          actorUid: req.user?.uid,
+          targetUid: buyerUid,
+          action: "unlock_revoke",
+          details: { projectId },
+          log,
+        });
 
         return res.json({
           ok: true,
