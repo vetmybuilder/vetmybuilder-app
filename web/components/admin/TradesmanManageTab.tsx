@@ -357,7 +357,10 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <details className="rounded-xl border border-amber-100 bg-white p-4 open:bg-amber-50/40">
+    <details
+      open
+      className="rounded-xl border border-amber-100 bg-white p-4 open:bg-amber-50/40"
+    >
       <summary className="cursor-pointer flex items-center justify-between gap-3 list-none">
         <span className="font-extrabold text-slate-900 text-sm">{title}</span>
         {hint && (
