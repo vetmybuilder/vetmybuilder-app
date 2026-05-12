@@ -1,6 +1,7 @@
 // server/routes/tradesmen/me.put.js
 const { claimPipelineEntry } = require("../../lib/claimPipelineEntry");
 const { cleanPhone, isValidUKPhone } = require("../../lib/phone");
+const { verifyWebPresence } = require("../../lib/webPresence");
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
@@ -198,7 +199,29 @@ module.exports = (router, ctx) => {
       const tradeTypes = toCSV(body.tradeTypes);
       const serviceAreas = toCSV(body.serviceAreas);
       const website = (body.website || "").trim() || null;
-      const socialLinks = JSON.stringify(toArr(body.socialLinks));
+      const socialLinksArr = toArr(body.socialLinks);
+      const socialLinks = JSON.stringify(socialLinksArr);
+
+      // Re-verify web presence on every profile update. join.post sets
+      // web_verified at signup; without this, a tradesperson who adds or
+      // changes their website later keeps the old verified flag (which
+      // defaults to 0) and "Website confirmed" stays unticked in admin.
+      // Network failures keep the flag at 0 - same behaviour as signup.
+      let webVerified = 0;
+      try {
+        if (website || socialLinksArr.length) {
+          const vr = await verifyWebPresence(website, socialLinksArr, {
+            vendorName: body.companyName || body.contactName || undefined,
+          });
+          webVerified = vr?.verified ? 1 : 0;
+          log.info(`${TAG} web presence`, {
+            verified: !!vr?.verified,
+            reasons: vr?.reasons,
+          });
+        }
+      } catch (e) {
+        log.warn(`${TAG} web presence check failed`, { error: e?.message });
+      }
 
       // External review-platform links (Trustpilot / Bark / etc.). The
       // tradesperson supplies a public profile URL per platform; we
@@ -370,7 +393,7 @@ module.exports = (router, ctx) => {
           ) VALUES (
             ?, ?, ?, ?, ?,
             ?, ?,
-            0, ?, ?, ?,
+            ?, ?, ?, ?,
             ?, ?, ?, ?,
             ?,
             ?, ?,
@@ -384,6 +407,7 @@ module.exports = (router, ctx) => {
             email               = VALUES(email),
             trade_types         = VALUES(trade_types),
             service_areas       = VALUES(service_areas),
+            web_verified        = VALUES(web_verified),
             web_url             = VALUES(web_url),
             social_links_json   = VALUES(social_links_json),
             review_links_json   = VALUES(review_links_json),
@@ -409,6 +433,7 @@ module.exports = (router, ctx) => {
             email,
             tradeTypes,
             serviceAreas,
+            webVerified,
             website,
             socialLinks,
             reviewLinks,

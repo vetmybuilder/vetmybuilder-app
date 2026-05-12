@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { MoreHorizontal } from "lucide-react";
 import { useApi } from "@/utils/api";
+import { useAuth } from "@/utils/auth";
 import { useMobileMenu } from "@/utils/mobileMenu";
 import { useSseEvent } from "@/utils/useSseEvent";
 import TradesmanOnly from "@/components/TradesmanOnly";
@@ -55,6 +56,7 @@ function toCardData(item: any, builderTrades: string[]): JobCardData {
 export default function TradesmanJobsDeckPage() {
   const api = useApi();
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const { openMenu } = useMobileMenu();
 
   const [jobs, setJobs] = useState<JobCardData[]>([]);
@@ -74,7 +76,11 @@ export default function TradesmanJobsDeckPage() {
   const [topJob, setTopJob] = useState<JobCardData | null>(null);
 
   useEffect(() => {
-    if (!router.isReady) return;
+    // Wait for both the router AND Firebase auth before firing. Without
+    // the auth guard the request goes out with no Bearer token, the
+    // server 401s, and the page silently shows the "No jobs posted yet"
+    // empty state — even when the API would have returned a card.
+    if (!router.isReady || authLoading || !user) return;
     let alive = true;
     (async () => {
       setLoading(true);
@@ -141,7 +147,7 @@ export default function TradesmanJobsDeckPage() {
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router.isReady, router.query.focus]);
+  }, [router.isReady, router.query.focus, authLoading, user?.uid]);
 
   // ── SSE: listen for new project matches ────────────────────────────────────
   useSseEvent<{ projectId: number; projectName: string; projectType: string; location: string }>(

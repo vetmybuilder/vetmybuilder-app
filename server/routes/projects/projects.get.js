@@ -67,7 +67,7 @@ module.exports = (router, ctx) => {
 
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
     const pageSize = Math.min(
-      50,
+      500,
       Math.max(1, parseInt(String(req.query.pageSize ?? "10"), 10))
     );
     const offset = (page - 1) * pageSize;
@@ -189,6 +189,7 @@ module.exports = (router, ctx) => {
         for (const r of rows) {
           r.matchedCount = 0;
           r.waitingCount = 0;
+          r.unreadCount = 0;
         }
         return;
       }
@@ -221,6 +222,47 @@ module.exports = (router, ctx) => {
         for (const r of rows) {
           r.matchedCount = 0;
           r.waitingCount = 0;
+        }
+      }
+
+      // Unread chat-messages per project. Unread = a message from the
+      // other party (sender_uid <> homeowner uid) that's newer than the
+      // most recent message the homeowner sent on that thread. Same rule
+      // /api/matches uses for the bell, just rolled up per project_id.
+      // chat_messages may be absent in older test mocks, so we degrade
+      // to 0 across the board on any error.
+      try {
+        const placeholders = ids.map(() => "?").join(",");
+        const unreadRows = await mysqlQuery(
+          `SELECT si.project_id AS projectId, COUNT(*) AS c
+             FROM chat_messages cm
+             JOIN swipe_interest si ON si.id = cm.match_id
+             LEFT JOIN (
+               SELECT match_id, MAX(created_at) AS myLast
+                 FROM chat_messages
+                WHERE sender_uid = ?
+                GROUP BY match_id
+             ) mine ON mine.match_id = cm.match_id
+            WHERE si.project_id IN (${placeholders})
+              AND si.status = 'matched'
+              AND cm.sender_uid <> ?
+              AND (mine.myLast IS NULL OR cm.created_at > mine.myLast)
+            GROUP BY si.project_id`,
+          [uid, ...ids, uid],
+        );
+        const unreadById = new Map();
+        for (const row of unreadRows) {
+          unreadById.set(Number(row.projectId), Number(row.c) || 0);
+        }
+        for (const r of rows) {
+          r.unreadCount = unreadById.get(Number(r.id)) || 0;
+        }
+      } catch (e) {
+        log.warn?.("[projects.get] unread count enrichment failed", {
+          error: e?.message,
+        });
+        for (const r of rows) {
+          r.unreadCount = 0;
         }
       }
     }
@@ -321,6 +363,12 @@ module.exports = (router, ctx) => {
         );
         const total = countRows[0]?.c || 0;
 
+        // Mine-tab ordering: matched-count first, then the caller's
+        // chosen sort, then id as a stable tiebreaker. Putting matched
+        // projects ahead of unmatched ones means a new mutual swipe
+        // bubbles a card to the top of the homeowner's list on the
+        // next refresh - matches what the user expects when activity
+        // is happening.
         const rows = await mysqlQuery(
           `SELECT p.*,
                   CASE WHEN f.userId IS NULL THEN 0 ELSE 1 END AS isFavourite,
@@ -333,7 +381,11 @@ module.exports = (router, ctx) => {
              SELECT MAX(id) FROM project_classifications WHERE project_id = p.id
            )
            ${sql}
-           ORDER BY p.${sort} ${order}, p.id ${order}
+           ORDER BY
+             (SELECT COUNT(*) FROM swipe_interest si
+               WHERE si.project_id = p.id AND si.status = 'matched') DESC,
+             p.${sort} ${order},
+             p.id ${order}
            LIMIT ${pageSize} OFFSET ${offset}`,
           [uid, ...params]
         );

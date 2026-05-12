@@ -395,6 +395,7 @@ function buildRouter(ctx) {
   require("./routes/tradesmen/spotlight.get")(router, ctx);
   require("./routes/tradesmen/upload-photos.post")(router, ctx);
   require("./routes/tradesmen/upload-docs.post")(router, ctx);
+  require("./routes/tradesmen/docs.get")(router, ctx);
   require("./routes/tradesmen/favourites.get")(router, ctx);
   require("./routes/tradesmen/tradesman.get")(router, ctx);
   require("./routes/tradesmen/favourite.post")(router, ctx);
@@ -442,6 +443,10 @@ function buildRouter(ctx) {
   require("./routes/admin/projects.delete")(router, ctx);
   require("./routes/admin/tradesmen.get")(router, ctx);
   require("./routes/admin/cleanup")(router, ctx);
+  require("./routes/admin/tradesman-docs.get")(router, ctx);
+  require("./routes/admin/tradesman-doc-verify.patch")(router, ctx);
+  require("./routes/admin/tradesman-photos.get")(router, ctx);
+  require("./routes/admin/tradesman-activity.get")(router, ctx);
   require("./routes/admin/tradesman.status.post")(router, ctx);
   require("./routes/admin/tradesman.flag.post")(router, ctx);
   require("./routes/admin/subscriptions.post")(router, ctx);

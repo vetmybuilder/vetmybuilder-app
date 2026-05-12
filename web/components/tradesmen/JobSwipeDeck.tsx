@@ -401,62 +401,67 @@ function JobSwipeDeckEmpty({ noJobsYet = false }: { noJobsYet?: boolean }) {
     : "You've swiped through every job near you. We'll surface new ones as they come in.";
   const icon = noJobsYet ? "🛠️" : "✓";
   return (
-    <div className="relative min-h-[520px] flex flex-col items-center justify-center px-7 py-10 text-center overflow-hidden">
-      {/* Confetti */}
+    <div className="relative min-h-[520px] flex items-center justify-center px-4 py-10">
       <div
-        className="pointer-events-none absolute inset-0 overflow-hidden"
-        aria-hidden
+        className="relative w-full max-w-[420px] bg-white rounded-3xl border border-amber-100 shadow-sm px-7 py-10 flex flex-col items-center text-center overflow-hidden"
+        data-testid="job-swipe-empty"
       >
-        {CONFETTI.map((c, i) => (
-          <span
-            key={i}
-            className="absolute opacity-70"
-            style={{
-              left: c.left,
-              top: c.top,
-              background: c.bg,
-              width: 7,
-              height: 7,
-              borderRadius: 2,
-              transform: `rotate(${c.rot}deg)`,
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Icon circle */}
-      <div
-        className="relative w-24 h-24 rounded-full flex items-center justify-center mb-5"
-        style={{
-          background: "linear-gradient(135deg, #6ee7b7, #10b981)",
-          boxShadow: "0 12px 36px rgba(16,185,129,0.25)",
-        }}
-      >
-        <span className="text-white text-[44px] leading-none font-bold">
-          {icon}
-        </span>
-      </div>
-
-      <h2 className="relative text-[26px] font-extrabold tracking-[-0.02em] leading-[1.2] text-gray-900">
-        {heading}
-      </h2>
-      <p className="relative mt-2.5 text-[14px] text-gray-500 leading-[1.5] max-w-[290px]">
-        {sub}
-      </p>
-
-      {!noJobsYet && (
-        <div className="relative mt-7 w-full max-w-[320px]">
-          <Link
-            href="/tradesman/jobs/list"
-            className="flex items-center justify-center gap-2 py-4 px-5 rounded-2xl text-white font-extrabold text-[15px] tracking-tight shadow-[0_10px_24px_rgba(16,185,129,0.3)]"
-            style={{
-              background: "linear-gradient(135deg, #10b981, #059669)",
-            }}
-          >
-            Browse all jobs &rarr;
-          </Link>
+        {/* Confetti scoped to the card so it stays inside the border. */}
+        <div
+          className="pointer-events-none absolute inset-0 overflow-hidden"
+          aria-hidden
+        >
+          {CONFETTI.map((c, i) => (
+            <span
+              key={i}
+              className="absolute opacity-70"
+              style={{
+                left: c.left,
+                top: c.top,
+                background: c.bg,
+                width: 7,
+                height: 7,
+                borderRadius: 2,
+                transform: `rotate(${c.rot}deg)`,
+              }}
+            />
+          ))}
         </div>
-      )}
+
+        {/* Icon circle */}
+        <div
+          className="relative w-24 h-24 rounded-full flex items-center justify-center mb-5"
+          style={{
+            background: "linear-gradient(135deg, #6ee7b7, #10b981)",
+            boxShadow: "0 12px 36px rgba(16,185,129,0.25)",
+          }}
+        >
+          <span className="text-white text-[44px] leading-none font-bold">
+            {icon}
+          </span>
+        </div>
+
+        <h2 className="relative text-[24px] font-extrabold tracking-[-0.02em] leading-[1.2] text-gray-900">
+          {heading}
+        </h2>
+        <p className="relative mt-2.5 text-[14px] text-gray-500 leading-[1.5] max-w-[290px]">
+          {sub}
+        </p>
+
+        {!noJobsYet && (
+          <div className="relative mt-7 w-full max-w-[320px]">
+            <Link
+              href="/tradesman/jobs/list"
+              className="flex items-center justify-center gap-2 py-4 px-5 rounded-2xl text-white font-extrabold text-[15px] tracking-tight shadow-[0_10px_24px_rgba(16,185,129,0.3)]"
+              style={{
+                background: "linear-gradient(135deg, #10b981, #059669)",
+              }}
+            >
+              Browse all jobs &rarr;
+            </Link>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

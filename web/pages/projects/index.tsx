@@ -7,13 +7,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { type ProjectTabKey } from "@/components/ProjectTabs";
 import { useRouter } from "next/router";
 import { useAuth } from "@/utils/auth";
-import ProjectImageCard from "@/components/project/ProjectImageCard";
-import ProjectInfoCard from "@/components/project/ProjectInfoCard";
+import { getJobCategoryImage } from "@/utils/jobCategoryImage";
 import { useTradesmanLabels } from "@/hooks/useTradesmanLabels";
 import CompletedProjectCard from "@/components/project/CompletedProjectCard";
-import ProjectFilters, {
-  type ProjectFiltersValue,
-} from "@/components/filters/ProjectFilters";
+import ProjectTypeChecklist from "@/components/filters/ProjectTypeChecklist";
 import FavouriteTradesmenSection from "@/components/tradesmen/FavouriteTradesmenSection";
 import FavouritesListMobile from "@/components/tradesmen/FavouritesListMobile";
 import RecommendationsListMobile from "@/components/tradesmen/RecommendationsListMobile";
@@ -327,7 +324,10 @@ function OwnerProjects() {
   }, [router.isReady, router.query.tab, tab]);
 
   // ---- Filters ----
-  const [chipType, setChipType] = useState<string>("");
+  // Multi-select on desktop (checkbox sidebar). Mobile still uses a single-
+  // type dropdown, so we expose chipType (the first selected type) to it.
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const chipType = selectedTypes[0] ?? "";
   const [chipStatus, setChipStatus] = useState<string>("");
   // Mobile tab handler sets a fresh chipStatus and then pushes a tab change
   // through the URL — that tab change should NOT auto-clear the status it
@@ -338,7 +338,7 @@ function OwnerProjects() {
       skipFilterResetRef.current = false;
       return;
     }
-    setChipType("");
+    setSelectedTypes([]);
     setChipStatus("");
   }, [tab]);
 
@@ -346,14 +346,16 @@ function OwnerProjects() {
   const [sort, setSort] = useState<"createdAt" | "name">("createdAt");
   const [order, setOrder] = useState<"asc" | "desc">("desc");
 
-  // Progressive loading
-  const PAGE_SIZE = 10;
+  // Single-shot load: server returns every row for the current tab. The
+  // client filters by checkbox selection and progressively reveals rows
+  // with `visibleCount` to keep the initial paint cheap on very long lists.
+  const FETCH_PAGE_SIZE = 500;
+  const VISIBLE_BATCH = 20;
   const [items, setItems] = useState<Project[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
   const [announce, setAnnounce] = useState("");
+  const [visibleCount, setVisibleCount] = useState(VISIBLE_BATCH);
 
   // Independent per-mobile-tab totals so the All/Live/Completed pill counts
   // stay correct regardless of which tab is currently selected.
@@ -373,11 +375,16 @@ function OwnerProjects() {
 
     setItems([]);
     setTotal(0);
-    setPage(1);
-    setHasMore(true);
-  }, [tab, chipType, chipStatus, sort, order]);
+    setVisibleCount(VISIBLE_BATCH);
+  }, [tab, sort, order]);
 
-  async function fetchPage(p = 1) {
+  // Reset the progressive-render window when the filter shape changes so a
+  // newly-narrow list starts from the top rather than mid-scroll.
+  useEffect(() => {
+    setVisibleCount(VISIBLE_BATCH);
+  }, [selectedTypes, chipStatus]);
+
+  async function fetchAll() {
     const mySeq = ++reqSeqRef.current;
 
     // Never fetch projects for non-projects tabs
@@ -385,7 +392,6 @@ function OwnerProjects() {
       setLoading(false);
       setItems([]);
       setTotal(0);
-      setHasMore(false);
       return;
     }
 
@@ -396,10 +402,12 @@ function OwnerProjects() {
         tab: String(tab),
         sort,
         order,
-        page: String(p),
-        pageSize: String(PAGE_SIZE),
+        page: "1",
+        pageSize: String(FETCH_PAGE_SIZE),
       });
-      if (chipType) params.set("type", chipType);
+      // Type filter is applied client-side so multi-select works without
+      // round-tripping. Status remains server-side because the API has
+      // tab-specific status semantics (e.g. "mine" hides completed by default).
       if (chipStatus) params.set("status", chipStatus as any);
 
       const res = await api.get<ApiList>(`/api/projects?${params.toString()}`);
@@ -408,27 +416,15 @@ function OwnerProjects() {
       if (mySeq !== reqSeqRef.current) return;
 
       const newItems = res.data.items ?? [];
-      const nextTotal = Number(res.data.total ?? 0);
+      const nextTotal = Number(res.data.total ?? newItems.length);
 
-      setItems((prev) => {
-        const merged = p === 1 ? newItems : [...prev, ...newItems];
-        const totalSoFar = merged.length;
-
-        // keep these in sync with the same response we just applied
-        setTotal(nextTotal);
-        setHasMore(totalSoFar < nextTotal);
-        setPage(p);
-        setAnnounce(`Loaded ${totalSoFar} of ${nextTotal} projects`);
-
-        return merged;
-      });
+      setItems(newItems);
+      setTotal(nextTotal);
+      setAnnounce(`Loaded ${newItems.length} of ${nextTotal} projects`);
     } catch {
       if (mySeq !== reqSeqRef.current) return;
-      if (p === 1) {
-        setItems([]);
-        setTotal(0);
-        setHasMore(false);
-      }
+      setItems([]);
+      setTotal(0);
     } finally {
       if (mySeq === reqSeqRef.current) {
         setLoading(false);
@@ -436,7 +432,7 @@ function OwnerProjects() {
     }
   }
 
-  const inputsKey = `${tab}|${chipType}|${chipStatus}|${sort}|${order}`;
+  const inputsKey = `${tab}|${chipStatus}|${sort}|${order}`;
   useEffect(() => {
     if (authLoading || !user || !router.isReady) return;
 
@@ -446,11 +442,10 @@ function OwnerProjects() {
       setLoading(false);
       setItems([]);
       setTotal(0);
-      setHasMore(false);
       return;
     }
 
-    fetchPage(1);
+    fetchAll();
 
     // invalidate if inputs change / component unmounts before request resolves
     return () => {
@@ -503,37 +498,67 @@ function OwnerProjects() {
   // _app.tsx) re-broadcasts every server notification as `vmb:notification`.
   useEffect(() => {
     if (tab === "favourites" || tab === "recommendations") return;
+    // Coalesce bursts (e.g. several chat_message_new in a row) into one
+    // refetch a beat later. Without this every keystroke from the other
+    // party would round-trip the whole list.
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const RELOAD_TYPES = new Set([
+      "recommendation_new",
+      "chat_message_new",
+      "match_formed",
+    ]);
     function onNotif(e: Event) {
       const data = (e as CustomEvent).detail || {};
       const t = String(data?.type || "").toLowerCase();
-      if (t === "recommendation_new") {
-        fetchPage(1);
-      }
+      if (!RELOAD_TYPES.has(t)) return;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        fetchAll();
+      }, 400);
     }
     window.addEventListener("vmb:notification", onNotif);
-    return () => window.removeEventListener("vmb:notification", onNotif);
+    return () => {
+      window.removeEventListener("vmb:notification", onNotif);
+      if (timer) clearTimeout(timer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, inputsKey]);
 
+  // Filter the loaded rows by the checkbox selection. Empty selection
+  // means "all" — same contract the old single-value filter used.
+  const filteredItems = useMemo(() => {
+    if (selectedTypes.length === 0) return items;
+    const set = new Set(selectedTypes);
+    return items.filter((p) => p.type && set.has(p.type));
+  }, [items, selectedTypes]);
+
+  const visibleItems = useMemo(
+    () => filteredItems.slice(0, visibleCount),
+    [filteredItems, visibleCount],
+  );
+  const hasMoreVisible = visibleCount < filteredItems.length;
+
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    if (tab === "favourites" || tab === "recommendations") return; // no infinite scroll for favourites / recommendations
+    if (tab === "favourites" || tab === "recommendations") return;
     if (!sentinelRef.current) return;
+    if (!hasMoreVisible) return;
 
     const io = new IntersectionObserver(
       (entries) => {
-        const vis = entries.some((e) => e.isIntersecting);
-        if (vis && hasMore && !loading) {
-          fetchPage(page + 1);
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisibleCount((c) =>
+            Math.min(c + VISIBLE_BATCH, filteredItems.length),
+          );
         }
       },
-      { rootMargin: "200px" },
+      { rootMargin: "300px" },
     );
 
     io.observe(sentinelRef.current);
     return () => io.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasMore, loading, page, inputsKey, tab]);
+  }, [hasMoreVisible, filteredItems.length, tab]);
 
   const isCompletedLikeView =
     tab === "completed" || tab === "completedCommunity";
@@ -544,27 +569,6 @@ function OwnerProjects() {
     api,
   );
 
-  const { typeOptions, statusOptions } = useMemo(() => {
-    const types = new Set<string>();
-    const statuses = new Set<Status>();
-    for (const p of items) {
-      if (p?.type) types.add(p.type);
-      if (p?.status) statuses.add(p.status);
-    }
-    const typeOptions = Array.from(types).sort((a, b) =>
-      a.localeCompare(b, undefined, { sensitivity: "base" }),
-    );
-    const orderMap: Record<Status, number> = {
-      live: 0,
-      pending: 1,
-      completed: 2,
-    };
-    const statusOptions = Array.from(statuses).sort(
-      (a, b) => orderMap[a] - orderMap[b],
-    );
-    return { typeOptions, statusOptions };
-  }, [items]);
-
   const SkeletonCard = () => (
     <div className="rounded-2xl border border-zinc-200 p-3 animate-pulse">
       <div className="aspect-[4/3] rounded-xl bg-zinc-200 mb-3" />
@@ -573,6 +577,23 @@ function OwnerProjects() {
         <div className="h-3 w-1/2 bg-zinc-200 rounded" />
         <div className="h-3 w-2/3 bg-zinc-200 rounded" />
         <div className="h-3 w-1/3 bg-zinc-200 rounded" />
+      </div>
+    </div>
+  );
+
+  // Skeleton tuned to the new horizontal hero-row layout so the loading
+  // state doesn't visually contradict the row rhythm below it.
+  const HeroRowSkeleton = () => (
+    <div className="rounded-3xl border border-amber-100 bg-white p-3 animate-pulse flex items-stretch gap-5">
+      <div className="w-[148px] h-[120px] rounded-2xl bg-zinc-200 shrink-0" />
+      <div className="flex-1 flex flex-col justify-center gap-2">
+        <div className="h-3 w-24 bg-zinc-200 rounded" />
+        <div className="h-5 w-3/5 bg-zinc-200 rounded" />
+        <div className="flex gap-3 mt-1">
+          <div className="h-3 w-16 bg-zinc-200 rounded" />
+          <div className="h-3 w-20 bg-zinc-200 rounded" />
+          <div className="h-3 w-16 bg-zinc-200 rounded" />
+        </div>
       </div>
     </div>
   );
@@ -619,7 +640,7 @@ function OwnerProjects() {
   // NOT NULL`, but the user closed it intentionally so the pill should read
   // Completed.
   const mobileItems: MobileProject[] = useMemo(() => {
-    return items.map((p) => ({
+    return filteredItems.map((p) => ({
       id: p.id,
       name: p.name,
       type: p.type ?? null,
@@ -637,7 +658,7 @@ function OwnerProjects() {
       matchedCount: (p as any).matchedCount ?? null,
       waitingCount: (p as any).waitingCount ?? null,
     }));
-  }, [items, tab]);
+  }, [filteredItems, tab]);
 
   return (
     <>
@@ -652,7 +673,7 @@ function OwnerProjects() {
             tab={mobileTab}
             onChangeTab={handleMobileTabChange}
             chipType={chipType}
-            onChangeType={setChipType}
+            onChangeType={(v) => setSelectedTypes(v ? [v] : [])}
             chipStatus={chipStatus}
             onChangeStatus={setChipStatus}
             sort={mobileSort}
@@ -660,8 +681,8 @@ function OwnerProjects() {
             items={mobileItems}
             loading={loading}
             counts={mobileCounts}
-            hasMore={hasMore}
-            onLoadMore={() => fetchPage(page + 1)}
+            hasMore={false}
+            onLoadMore={undefined}
           />
         )}
         {showPushPrompt && (
@@ -676,18 +697,19 @@ function OwnerProjects() {
     <Head>
       <style>{`body { background: #fef6e9 !important; }`}</style>
     </Head>
-    <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-12 relative overflow-hidden">
+    <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-4 pb-12 relative overflow-hidden">
       <BrandWatermarkScatter />
       <div
-        className="mx-auto max-w-7xl px-6 lg:px-8 pt-3 relative z-10"
+        className="mx-auto max-w-7xl px-6 lg:px-8 relative z-10"
         data-testid="projects-page"
       >
 
-        {/* TOOLBAR + Safety section are job-specific - hidden when the
-            user is on the Favourites or Recommendations tab, both of
-            which render their own self-contained heading + content. */}
+        {/* Title bar - shown for the project-list tabs (mine /
+            completed); favourites + recommendations render their own
+            self-contained chrome below. Filters used to live here on
+            the right; they now sit in a permanent left sidebar in the
+            grid below the title. */}
         {tab !== "favourites" && tab !== "recommendations" && (
-        <>
         <div className="bg-white rounded-2xl border border-amber-100 shadow-sm px-4 py-3 mb-5 flex items-center gap-4 flex-wrap">
           <h1
             className="text-xl font-black tracking-tight text-slate-900"
@@ -701,83 +723,7 @@ function OwnerProjects() {
               jobs
             </span>
           </h1>
-
-          <div className="flex-1" />
-
-          {/* Filters */}
-          <ProjectFilters
-            typeOptions={typeOptions}
-            statusOptions={statusOptions as any}
-            items={items as any}
-            value={{ type: chipType, status: chipStatus }}
-            onChange={(next: ProjectFiltersValue) => {
-              setChipType(next.type);
-              setChipStatus(next.status);
-            }}
-          />
-
         </div>
-
-        {/* SAFETY & VERIFICATION - kept, brand-toned to amber/emerald cream palette */}
-        <section
-          aria-label="Safety and verification"
-          data-testid="projects-safety-card"
-          className="mb-5"
-        >
-          <div className="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
-            <button
-              onClick={() => setSafetyOpen((v) => !v)}
-              className="flex w-full items-center justify-between px-5 py-4 text-left hover:bg-amber-50/50 transition-colors"
-            >
-              <div className="flex items-center gap-4">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50">
-                  <Shield className="h-5 w-5 text-emerald-600" />
-                </div>
-                <div>
-                  <h2 className="font-extrabold text-slate-900">Safety &amp; verification</h2>
-                  <p className="text-sm text-slate-500">We combine official checks with community signals to help you hire with confidence.</p>
-                </div>
-              </div>
-              {safetyOpen
-                ? <ChevronUp className="h-5 w-5 text-amber-500 shrink-0 ml-4" />
-                : <ChevronDown className="h-5 w-5 text-amber-500 shrink-0 ml-4" />
-              }
-            </button>
-
-            {safetyOpen && (
-              <div className="border-t border-amber-100 px-5 pb-5 pt-4 space-y-4">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50">
-                    <Building2 className="h-4 w-4 text-emerald-600" />
-                  </div>
-                  <div>
-                    <p className="font-extrabold text-slate-900">Verified businesses</p>
-                    <p className="text-sm text-slate-500">We check tradespeople against official UK business registers and show a verified badge when we confirm a match.</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-4">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50">
-                    <Star className="h-4 w-4 text-amber-500" />
-                  </div>
-                  <div>
-                    <p className="font-extrabold text-slate-900">Trust score</p>
-                    <p className="text-sm text-slate-500">Every tradesperson is scored based on real signals: community recommendations, completed work, photos, and responsiveness - not who pays the most.</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-4">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50">
-                    <Lightbulb className="h-4 w-4 text-emerald-600" />
-                  </div>
-                  <div>
-                    <p className="font-extrabold text-emerald-700">Tip</p>
-                    <p className="text-sm text-slate-500">Always ask for a written quote, check proof of insurance, and keep all messages and agreements in writing.</p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-        </>
         )}
 
         {/* Main content */}
@@ -791,12 +737,92 @@ function OwnerProjects() {
           </div>
         ) : (
           <div data-testid="projects-list">
+            {/* Two-column desktop layout: permanent left filter panel
+                (formerly two dropdowns in the top toolbar) + right
+                column with the safety banner stacked on top of the
+                actual job rows. Collapses to a single column under lg. */}
+            <div className="grid grid-cols-1 lg:grid-cols-[240px,1fr] gap-6">
+              <aside
+                className="lg:sticky lg:top-6 self-start"
+                data-testid="projects-filter-sidebar"
+              >
+                <div className="bg-white rounded-2xl border border-amber-100 shadow-sm px-4 py-4">
+                  <ProjectTypeChecklist
+                    selectedTypes={selectedTypes}
+                    onChangeTypes={setSelectedTypes}
+                  />
+                </div>
+              </aside>
+
+              <div className="min-w-0">
+                {/* SAFETY & VERIFICATION — now sits inside the right
+                    column of the grid so the filter panel runs the full
+                    height of the list, not just the rows. */}
+                <section
+                  aria-label="Safety and verification"
+                  data-testid="projects-safety-card"
+                  className="mb-5"
+                >
+                  <div className="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
+                    <button
+                      onClick={() => setSafetyOpen((v) => !v)}
+                      className="flex w-full items-center justify-between px-5 py-4 text-left hover:bg-amber-50/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50">
+                          <Shield className="h-5 w-5 text-emerald-600" />
+                        </div>
+                        <div>
+                          <h2 className="font-extrabold text-slate-900">Safety &amp; verification</h2>
+                          <p className="text-sm text-slate-500">We combine official checks with community signals to help you hire with confidence.</p>
+                        </div>
+                      </div>
+                      {safetyOpen
+                        ? <ChevronUp className="h-5 w-5 text-amber-500 shrink-0 ml-4" />
+                        : <ChevronDown className="h-5 w-5 text-amber-500 shrink-0 ml-4" />
+                      }
+                    </button>
+
+                    {safetyOpen && (
+                      <div className="border-t border-amber-100 px-5 pb-5 pt-4 space-y-4">
+                        <div className="flex items-start gap-4">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50">
+                            <Building2 className="h-4 w-4 text-emerald-600" />
+                          </div>
+                          <div>
+                            <p className="font-extrabold text-slate-900">Verified businesses</p>
+                            <p className="text-sm text-slate-500">We check tradespeople against official UK business registers and show a verified badge when we confirm a match.</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-4">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50">
+                            <Star className="h-4 w-4 text-amber-500" />
+                          </div>
+                          <div>
+                            <p className="font-extrabold text-slate-900">Trust score</p>
+                            <p className="text-sm text-slate-500">Every tradesperson is scored based on real signals: community recommendations, completed work, photos, and responsiveness - not who pays the most.</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-4">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50">
+                            <Lightbulb className="h-4 w-4 text-emerald-600" />
+                          </div>
+                          <div>
+                            <p className="font-extrabold text-emerald-700">Tip</p>
+                            <p className="text-sm text-slate-500">Always ask for a written quote, check proof of insurance, and keep all messages and agreements in writing.</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </section>
+
             {tab === "completed" || tab === "completedCommunity" ? (
               <div
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
                 data-testid="projects-card-grid-completed"
               >
-                {items.map((p) => {
+                {filteredItems.map((p) => {
                   const recId =
                     (p as any)._winnerRecommendationId ??
                     (p as any)._winner_rec_id ??
@@ -845,7 +871,7 @@ function OwnerProjects() {
                   );
                 })}
                 {loading && [...Array(4)].map((_, i) => <SkeletonCard key={`skc-${i}`} />)}
-                {items.length === 0 && !loading && (
+                {filteredItems.length === 0 && !loading && (
                   <div className="col-span-full" data-testid="projects-empty">
                     <div className="rounded-3xl bg-white border border-amber-100 shadow-sm px-6 py-12 text-center">
                       <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 mx-auto mb-4">
@@ -873,69 +899,168 @@ function OwnerProjects() {
                 )}
               </div>
             ) : (
-              <div
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-                data-testid="projects-card-grid"
-              >
-                {items.map((p) => (
-                  <div key={p.id} className="flex flex-col gap-3">
+              // Desktop live-jobs view: horizontal hero rows. Each project
+              // is a single wide card with photo on the left, title +
+              // metadata in the middle, and Open CTA on the right. Replaces
+              // the older 4-col grid of photo-card + info-card stacks.
+              // Mobile still uses ProjectsListMobile above.
+              <div className="space-y-3" data-testid="projects-card-grid">
+                {visibleItems.map((p) => {
+                  const href =
+                    p.status === "completed"
+                      ? `/projects/${p.id}/completed`
+                      : `/projects/${p.id}`;
+                  const imageUrl =
+                    p.coverPhotoUrl || getJobCategoryImage(p.type);
+                  return (
                     <Link
-                      href={
-                        p.status === "completed"
-                          ? `/projects/${p.id}/completed`
-                          : `/projects/${p.id}`
-                      }
-                      className="block hover:shadow-md transition-shadow rounded-3xl"
+                      key={p.id}
+                      href={href}
+                      data-testid={`project-card-link-${p.id}`}
+                      className="group block bg-white rounded-3xl shadow-sm border border-amber-100 hover:shadow-xl hover:shadow-zinc-300/40 hover:border-amber-200 transition-all p-3"
                     >
-                      <ProjectImageCard
-                        id={p.id}
-                        status={p.status}
-                        imageUrl={p.coverPhotoUrl}
-                        type={p.type}
-                        name={p.name}
-                      />
+                      <div className="flex items-stretch gap-5">
+                        {/* Photo */}
+                        <div
+                          className="relative w-[148px] h-[120px] rounded-2xl overflow-hidden shrink-0 bg-zinc-100"
+                          style={{
+                            backgroundImage: `url(${imageUrl})`,
+                            backgroundSize: "cover",
+                            backgroundPosition: "center",
+                          }}
+                          aria-hidden
+                        >
+                          {p.status === "live" && (
+                            <span className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full bg-emerald-500 text-white px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.16em]">
+                              Live
+                            </span>
+                          )}
+                          {p.status === "completed" && (
+                            <span className="absolute top-2 left-2 inline-flex items-center rounded-full bg-indigo-500 text-white px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.16em]">
+                              Completed
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0 flex flex-col justify-center">
+                          {p.type && (
+                            <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-amber-700">
+                              {p.type}
+                            </p>
+                          )}
+                          <h3
+                            className="mt-0.5 text-[18px] font-black text-slate-900 truncate"
+                            style={{ fontFamily: "'Sora', sans-serif" }}
+                          >
+                            {p.name}
+                          </h3>
+                          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-slate-600">
+                            {p.location && (
+                              <span className="inline-flex items-center gap-1 font-semibold">
+                                <span aria-hidden>📍</span> {p.location}
+                              </span>
+                            )}
+                            {p.propertyType && (
+                              <span className="inline-flex items-center gap-1 font-semibold">
+                                <span aria-hidden>🏠</span> {p.propertyType}
+                              </span>
+                            )}
+                            {p.bedrooms != null && (
+                              <span className="inline-flex items-center gap-1 font-semibold">
+                                <span aria-hidden>🛏️</span> {p.bedrooms} beds
+                              </span>
+                            )}
+                            {p.createdAt && (
+                              <span className="inline-flex items-center gap-1 font-semibold">
+                                <span aria-hidden>🗓</span>{" "}
+                                {new Date(p.createdAt).toLocaleDateString(
+                                  "en-GB",
+                                  {
+                                    day: "2-digit",
+                                    month: "2-digit",
+                                    year: "numeric",
+                                  },
+                                )}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Right: count chips + Open CTA. Counts come from
+                            attachMatchCounts on the server (matchedCount =
+                            mutual swipes, unreadCount = unseen homeowner
+                            messages). Both default to 0 if the API is older
+                            or the data isn't there yet. */}
+                        <div className="hidden lg:flex flex-col justify-center items-end shrink-0 gap-2">
+                          <div className="flex items-center gap-2">
+                            {((p as any).unreadCount ?? 0) > 0 && (
+                              <span className="inline-flex items-baseline gap-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 px-2.5 py-0.5">
+                                <span className="text-[13px] font-black leading-none">
+                                  {(p as any).unreadCount}
+                                </span>
+                                <span className="text-[9.5px] font-bold uppercase tracking-[0.12em]">
+                                  msgs
+                                </span>
+                              </span>
+                            )}
+                            {((p as any).matchedCount ?? 0) > 0 && (
+                              <span className="inline-flex items-baseline gap-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-0.5">
+                                <span className="text-[13px] font-black leading-none">
+                                  {(p as any).matchedCount}
+                                </span>
+                                <span className="text-[9.5px] font-bold uppercase tracking-[0.12em]">
+                                  matches
+                                </span>
+                              </span>
+                            )}
+                          </div>
+                          <span className="rounded-full bg-indigo-600 group-hover:bg-indigo-700 text-white text-[12px] font-extrabold px-4 py-1.5 transition-colors">
+                            Open →
+                          </span>
+                        </div>
+                      </div>
                     </Link>
-                    <ProjectInfoCard
-                      id={p.id}
-                      name={p.name}
-                      type={p.type}
-                      location={p.location}
-                      propertyType={p.propertyType}
-                      bedrooms={p.bedrooms}
-                      createdAt={p.createdAt}
-                      status={p.status}
-                    />
-                  </div>
-                ))}
-                {loading && [...Array(4)].map((_, i) => <SkeletonCard key={`sk-${i}`} />)}
-                {items.length === 0 && !loading && (
-                  <div className="col-span-full" data-testid="projects-empty">
-                    <EmptyState onNewProject={() => router.push("/projects/new")} />
+                  );
+                })}
+                {loading &&
+                  [...Array(3)].map((_, i) => <HeroRowSkeleton key={`sk-${i}`} />)}
+                {filteredItems.length === 0 && !loading && (
+                  <div data-testid="projects-empty">
+                    {items.length === 0 ? (
+                      <EmptyState onNewProject={() => router.push("/projects/new")} />
+                    ) : (
+                      <div className="bg-white rounded-2xl border border-amber-100 shadow-sm flex flex-col items-center justify-center py-16 px-6 text-center">
+                        <h3 className="mb-2 text-base font-semibold text-slate-900">
+                          No jobs match those filters
+                        </h3>
+                        <p className="max-w-sm text-sm text-slate-500">
+                          Try clearing a checkbox or two on the left.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
             )}
 
+            {/* IntersectionObserver target — keep just above the end-of-
+                list caption so more rows reveal as the user scrolls. */}
             <div ref={sentinelRef} />
 
-            {/* Footer */}
-            <div className="mt-8 flex items-center justify-between">
-              <p className="text-sm font-medium text-zinc-700 bg-white/80 backdrop-blur-sm rounded-full px-4 py-1.5">
-                Showing {items.length} of {total} project{total !== 1 ? "s" : ""}
+            {!loading && filteredItems.length > 0 && !hasMoreVisible && (
+              <p
+                className="mt-10 text-center text-[12px] font-semibold uppercase tracking-[0.18em] text-indigo-600"
+                data-testid="projects-end"
+              >
+                {filteredItems.length === 1
+                  ? "End of list - 1 job"
+                  : `End of list - ${filteredItems.length} jobs`}
               </p>
-              {hasMore ? (
-                <button
-                  className="inline-flex items-center justify-center rounded-full bg-zinc-900 px-6 py-2.5 text-sm font-bold text-white hover:bg-zinc-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                  onClick={() => fetchPage(page + 1)}
-                  disabled={loading}
-                  id="load-more"
-                  data-testid="load-more"
-                >
-                  {loading ? "Loading…" : "Load more"}
-                </button>
-              ) : null}
-            </div>
+            )}
             <div className="sr-only" aria-live="polite">{announce}</div>
+              </div>{/* /right grid column */}
+            </div>{/* /2-col grid */}
           </div>
         )}
       </div>

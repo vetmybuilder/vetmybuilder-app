@@ -16,6 +16,7 @@
 
 const { logger, withRequest } = require("../../lib/logger");
 const { enrichTradesmanWithGoogle } = require("../../lib/ai/googleEnricher");
+const { logAdminAction } = require("../../lib/adminAuditLog");
 
 module.exports = (router, ctx) => {
   const { mysqlQuery, auth, extractLocationTokens } = ctx;
@@ -301,6 +302,14 @@ module.exports = (router, ctx) => {
 
           res.json({ ok: true, tradesman: row, promoted: false });
           ctx.logActivity("admin.tradesman.status", "info", req.user.uid, `Tradesman ${srcUid} → ${status}`);
+          await logAdminAction({
+            mysqlQuery,
+            actorUid: req.user.uid,
+            targetUid: srcUid,
+            action: "status_change",
+            details: { status },
+            log: logger,
+          });
           return;
         }
 
@@ -344,6 +353,14 @@ module.exports = (router, ctx) => {
 
           res.json({ ok: true, tradesman: row, promoted: false });
           ctx.logActivity("admin.tradesman.status", "info", req.user.uid, `Tradesman ${srcUid} → ${status}`);
+          await logAdminAction({
+            mysqlQuery,
+            actorUid: req.user.uid,
+            targetUid: srcUid,
+            action: "status_change",
+            details: { status },
+            log: logger,
+          });
           return;
         }
 

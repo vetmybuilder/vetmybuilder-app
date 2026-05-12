@@ -1028,3 +1028,19 @@ CREATE TABLE IF NOT EXISTS pilot_boroughs (
   enabled TINYINT(1) NOT NULL DEFAULT 0,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Admin audit log. Append-only record of mutations performed by admin
+-- staff against a target tradesperson. Powers the drawer's Activity tab
+-- and is the canonical "what did admin do here" trail for audits.
+-- target_uid + created_at is the primary read path (the activity feed),
+-- actor_uid is for filtering by admin if we ever need it.
+CREATE TABLE IF NOT EXISTS admin_audit_log (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  actor_uid    VARCHAR(128) NOT NULL,
+  target_uid   VARCHAR(128) NOT NULL,
+  action       VARCHAR(64) NOT NULL,
+  details_json TEXT NULL,
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_audit_target_created (target_uid, created_at),
+  KEY idx_audit_actor_created (actor_uid, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

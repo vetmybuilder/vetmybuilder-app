@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/utils/auth";
+import { useRole } from "@/utils/useRole";
 import Footer from "@/components/Footer";
 import HomeContactSection from "@/components/home/HomeContactSection";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
@@ -142,13 +143,26 @@ function HeroReviewCard() {
 }
 
 export default function Home() {
-  const { user } = useAuth();
-
-  const isTrades = user
-    ? (() => {
-        try { return sessionStorage.getItem("vmb:isTradesman") === "1"; } catch { return false; }
-      })()
-    : false;
+  const { user, loading: authLoading } = useAuth();
+  // useRole resolves the trade/homeowner split with proper fallbacks:
+  // sessionStorage cache first, then /api/tradesmen/me. Reading the
+  // sessionStorage flag directly (the old behaviour) defaulted to
+  // false whenever the cache hadn't been populated yet - which meant
+  // a tradesperson landing on / before SiteHeader had fetched their
+  // role would see the homeowner "Post a new job" / "My projects"
+  // CTAs. This hook handles that race.
+  const { role, loading: roleLoading } = useRole();
+  const isTrades = !!user && role === "tradesman";
+  // Three-state gate to kill the hero-CTA flicker on URL-bar
+  // navigation:
+  //   1. authLoading — auth not yet resolved, we don't even know if
+  //      there's a user. Render nothing so we don't briefly show the
+  //      guest CTAs and then swap.
+  //   2. user && roleLoading — useRole still resolving for a known
+  //      signed-in viewer. Render nothing so a tradesperson never sees
+  //      the homeowner "Post a new job" branch flash through.
+  // Guests with auth resolved render their unauth CTAs immediately.
+  const isResolvingRole = authLoading || (!!user && roleLoading);
 
   function rememberReturnTo() {
     try {
@@ -291,21 +305,30 @@ export default function Home() {
                     items-start prevents flex from stretching them to
                     full-width on mobile (which would dominate the photo). */}
                 <div className="mt-5 md:mt-6 lg:mt-8 flex flex-row flex-wrap items-start gap-2.5 md:gap-3">
-                  {isTrades ? (
+                  {/*
+                    Hero CTA sizing is shared across every viewer state
+                    (guest / homeowner / trade) so the three branches read
+                    as the same UI - only the action and colour change.
+                    Sized to the guest pair (rounded-xl, px-5 py-2.5, text
+                    [13px]/lg:[14px]); the larger variant used to live on
+                    the logged-in branches and dwarfed the rest of the
+                    hero overlay.
+                  */}
+                  {isResolvingRole ? null : isTrades ? (
                     <>
                       <Link
                         href="/tradesman/jobs"
                         data-testid="hero-cta"
-                        className="inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-4 text-[15px] lg:text-lg font-extrabold text-white shadow-lg shadow-emerald-500/40 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-[13px] lg:text-[14px] font-extrabold text-white shadow-lg shadow-emerald-500/40 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
                         style={{ background: "linear-gradient(135deg,#10b981,#059669)" }}
                       >
                         View available jobs
-                        <IconArrowRight className="h-5 w-5" />
+                        <IconArrowRight className="h-4 w-4" />
                       </Link>
                       <button
                         type="button"
                         onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}
-                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white/95 backdrop-blur border-[1.5px] border-white/60 px-6 py-3.5 text-[14px] lg:text-base font-extrabold text-slate-800 hover:bg-white transition-colors shadow-lg"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-white/95 backdrop-blur border-[1.5px] border-white/60 px-5 py-2.5 text-[13px] lg:text-[14px] font-extrabold text-slate-800 hover:bg-white transition-colors shadow-lg"
                       >
                         See how it works
                       </button>
@@ -315,15 +338,15 @@ export default function Home() {
                       <Link
                         href="/projects/new"
                         data-testid="hero-cta"
-                        className="inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-4 text-[15px] lg:text-lg font-extrabold text-white shadow-lg shadow-indigo-500/40 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-[13px] lg:text-[14px] font-extrabold text-white shadow-lg shadow-indigo-500/40 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
                         style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
                       >
                         Post a new job
-                        <IconArrowRight className="h-5 w-5" />
+                        <IconArrowRight className="h-4 w-4" />
                       </Link>
                       <Link
                         href="/projects"
-                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white/95 backdrop-blur border-[1.5px] border-white/60 px-6 py-3.5 text-[14px] lg:text-base font-extrabold text-slate-800 hover:bg-white transition-colors shadow-lg"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-white/95 backdrop-blur border-[1.5px] border-white/60 px-5 py-2.5 text-[13px] lg:text-[14px] font-extrabold text-slate-800 hover:bg-white transition-colors shadow-lg"
                       >
                         My projects
                       </Link>

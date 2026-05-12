@@ -1,9 +1,4 @@
 // tests/server/matches.list.completedFilter.spec.ts
-//
-// Regression guard: the homeowner inbox must NOT surface match rows for
-// completed projects. The filter lives in the SQL WHERE clause; if anyone
-// strips it during a refactor the homeowner's bell starts showing chat
-// threads for closed jobs again (the May 2026 bug).
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import mountMatches from "../../server/routes/matches/list.get";

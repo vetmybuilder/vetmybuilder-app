@@ -1007,6 +1007,19 @@ CREATE TABLE IF NOT EXISTS recommendation_invites (
   INDEX idx_recommendation_invites_lastnudged (lastNudgedAt)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Admin audit log. Append-only record of mutations performed by admin
+-- staff against a target tradesperson. Powers the drawer's Activity tab.
+CREATE TABLE IF NOT EXISTS admin_audit_log (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  actor_uid    VARCHAR(128) NOT NULL,
+  target_uid   VARCHAR(128) NOT NULL,
+  action       VARCHAR(64) NOT NULL,
+  details_json TEXT NULL,
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_audit_target_created (target_uid, created_at),
+  KEY idx_audit_actor_created (actor_uid, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS chat_messages (
   id INT AUTO_INCREMENT PRIMARY KEY,
   match_id INT NOT NULL,

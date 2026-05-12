@@ -81,6 +81,19 @@ module.exports = (router, ctx) => {
       const limit = Math.max(1, Math.min(200, int(req.query.limit, 25)));
       const offset = Math.max(0, int(req.query.offset, 0));
 
+      // Sort key. Allowlisted so a typo or hostile param can't drop an
+      // arbitrary expression into ORDER BY. Default = score (the leaderboard's
+      // raison d'etre); other keys give admins quick triage angles.
+      const SORT_CLAUSES = {
+        score: "t.vmb_score DESC, t.updated_at DESC, t.company_name ASC",
+        recent: "t.updated_at DESC, t.vmb_score DESC, t.company_name ASC",
+        joined: "t.created_at DESC, t.company_name ASC",
+        photos: "COALESCE(t.photo_count, 0) DESC, t.vmb_score DESC, t.company_name ASC",
+        docs: "COALESCE(JSON_LENGTH(t.supporting_docs_json), 0) DESC, t.vmb_score DESC, t.company_name ASC",
+      };
+      const sortKey = String(req.query.sort || "score").trim().toLowerCase();
+      const orderBy = SORT_CLAUSES[sortKey] || SORT_CLAUSES.score;
+
       const where = [];
       const params = [];
 
@@ -149,7 +162,8 @@ module.exports = (router, ctx) => {
       if (chVerifiedOnly)
         where.push(`LOWER(COALESCE(t.ch_status,'')) = 'verified'`);
       if (hasPhotos) where.push(`COALESCE(t.photo_count, 0) >= 3`);
-      if (hasDocs) where.push(`COALESCE(t.supporting_doc_count, 0) >= 2`);
+      if (hasDocs)
+        where.push(`COALESCE(JSON_LENGTH(t.supporting_docs_json), 0) >= 2`);
       if (hasDiscount) {
         where.push(`
           (
@@ -257,7 +271,10 @@ module.exports = (router, ctx) => {
           t.discount_min_percent,
           t.discount_max_percent,
           t.warranty_months,
-          t.supporting_doc_count,
+          -- Derived from the docs JSON so a stale t.supporting_doc_count
+          -- (which used to drift when the count column wasn't recomputed
+          -- on doc delete) can never lie to the leaderboard UI.
+          COALESCE(JSON_LENGTH(t.supporting_docs_json), 0) AS supporting_doc_count,
           t.likes_count,
           t.wins_count,
 
@@ -313,7 +330,7 @@ module.exports = (router, ctx) => {
          AND bs.status = 'active'
          AND bs.current_period_end > NOW()
         ${whereSql}
-        ORDER BY t.vmb_score DESC, t.updated_at DESC, t.company_name ASC
+        ORDER BY ${orderBy}
         LIMIT ${limit} OFFSET ${offset}
         `,
         params

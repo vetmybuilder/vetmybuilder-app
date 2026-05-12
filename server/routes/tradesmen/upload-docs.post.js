@@ -3,12 +3,19 @@
 // POST /api/tradesmen/upload-docs
 // Auth: required
 // Body: multipart/form-data with one or more files in field `docs`.
-// Returns: { ok: true, urls: ["/uploads/tradesmen-docs/<file>", ...] }
+// Returns: { ok: true, files: [{ key, fileName }, ...] }
 //
 // Sister of upload-photos. Accepts PDFs in addition to images so trades
 // can upload insurance certs, trade certifications and membership proof.
 // Stored under tradesmen-docs/ to keep them separate from portfolio
-// photos (different access pattern - admin verifies, not public-facing).
+// photos.
+//
+// Unlike photo uploads, the response no longer hands back a directly-
+// reachable public URL. Callers must store the bare `key` in
+// `supporting_docs_json` and request a short-lived presigned URL via
+// the dedicated download endpoint (GET /api/tradesmen/:uid/docs/:idx
+// for admin, GET /api/tradesmen/me/docs/:idx for the owner). That keeps
+// insurance + cert documents out of the public R2 bucket.
 //
 // We do NOT image-sanitise these (PDFs aren't images, and an image cert
 // uploaded as proof should keep its metadata - the cropping/EXIF strip
@@ -85,20 +92,28 @@ module.exports = (router, ctx) => {
         return res.status(400).json({ ok: false, error: "no_files" });
       }
 
-      let urls;
+      let entries;
       if (isR2Configured) {
-        urls = await Promise.all(
-          files.map((f) =>
-            uploadToR2({
+        entries = await Promise.all(
+          files.map(async (f) => {
+            const { key } = await uploadToR2({
               buffer: f.buffer,
               mimetype: f.mimetype,
               originalname: f.originalname,
               folder: "tradesmen-docs",
-            }),
-          ),
+            });
+            return { key, fileName: f.originalname || null };
+          }),
         );
       } else {
-        urls = files.map((f) => `/uploads/tradesmen-docs/${f.filename}`);
+        // Local-disk fallback for dev when R2 isn't configured. The
+        // local path doubles as the "key" so the download endpoint can
+        // route through the same code path; the file is served via the
+        // existing /uploads static mount when needed.
+        entries = files.map((f) => ({
+          key: `tradesmen-docs/${f.filename}`,
+          fileName: f.originalname || null,
+        }));
       }
 
       log.info(`${TAG} upload success`, {
@@ -106,7 +121,10 @@ module.exports = (router, ctx) => {
         fileCount: files.length,
         storage: isR2Configured ? "r2" : "local",
       });
-      res.json({ ok: true, urls });
+      // Also return `urls: []` (always empty) so any old client checking
+      // for `.urls` doesn't 500 - they'll just see no entries and move
+      // on to read the new `files` shape.
+      res.json({ ok: true, files: entries, urls: [] });
       ctx.logActivity?.("tradesman.docs", "info", uid, "Supporting docs uploaded");
       return;
     } catch (e) {
