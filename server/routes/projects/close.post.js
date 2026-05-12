@@ -279,15 +279,30 @@ module.exports = (router, ctx) => {
         });
       }
 
-      // Mark all notifications for this project as read
+      // Closing a project retires its activity feed for the owner. Stale
+      // "New message from X" / match-formed / recommendation entries are
+      // no longer actionable once the job is closed - keeping them in
+      // the bell just clutters. We DELETE rather than mark-read so they
+      // disappear from the inbox dropdown immediately, then fire a
+      // silent SSE so any open tab refetches its inbox without a
+      // browser refresh.
       try {
         await mysqlQuery(
-          `UPDATE notifications SET readAt = COALESCE(readAt, NOW())
-            WHERE userId = ? AND projectId = ? AND readAt IS NULL`,
+          `DELETE FROM notifications WHERE userId = ? AND projectId = ?`,
           [uid, projectId],
         );
       } catch (markErr) {
-        log.warn?.({ err: markErr?.message, projectId }, "failed to mark notifications read on close (non-fatal)");
+        log.warn?.({ err: markErr?.message, projectId }, "failed to delete owner notifications on close (non-fatal)");
+      }
+
+      try {
+        ctx.broadcastNotification?.(uid, {
+          type: "inbox_refresh",
+          message: "",
+          projectId,
+        });
+      } catch (sseErr) {
+        log.warn?.({ err: sseErr?.message }, "failed to broadcast inbox_refresh (non-fatal)");
       }
 
       // ---------------------------------------------------------

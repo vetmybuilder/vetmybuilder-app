@@ -22,6 +22,7 @@ type Preview = {
     byDeprecatedType: Record<string, number>;
     legacyLinkPaths: number;
     olderThan: Record<string, number>; // keys are "30" / "60" / "90" / "180"
+    closedProjectsForOwners: number;
   };
 };
 
@@ -117,6 +118,20 @@ export default function AdminCleanupPage() {
           {},
         );
         return `Rewrote ${data.updated} legacy linkPaths.`;
+      },
+    );
+  }
+
+  function purgeClosedProjects() {
+    void run(
+      "purge-closed-projects",
+      "Delete owner-side notifications for projects already in status=completed? Forward-going closes already do this automatically; this is a one-off backfill.",
+      async () => {
+        const { data } = await api.post<{ ok: boolean; deleted: number }>(
+          "/api/admin/cleanup/notifications/purge-closed-projects",
+          {},
+        );
+        return `Deleted ${data.deleted} owner notifications for completed projects.`;
       },
     );
   }
@@ -230,6 +245,24 @@ export default function AdminCleanupPage() {
                   preview.notifications.legacyLinkPaths === 0
                     ? "neutral"
                     : "primary"
+                }
+              />
+
+              {/* ============ Closed-project owner notifications ============ */}
+              <Card
+                title="Delete owner notifications for completed projects"
+                description="One-off backfill. Forward-going closes already strip the owner's activity feed on close.post; this clears the historical clutter from before that fix."
+                count={preview.notifications.closedProjectsForOwners}
+                countLabel="rows to delete"
+                actionLabel="Delete all"
+                actionTestid="cleanup-purge-closed-projects"
+                onAction={purgeClosedProjects}
+                busy={busyOp === "purge-closed-projects"}
+                disabled={preview.notifications.closedProjectsForOwners === 0}
+                tone={
+                  preview.notifications.closedProjectsForOwners === 0
+                    ? "neutral"
+                    : "danger"
                 }
               />
 

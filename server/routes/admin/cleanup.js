@@ -18,6 +18,11 @@
 //   POST /api/admin/cleanup/notifications/purge-older-than
 //        body { days: number, type?: string }
 //                                          → DELETE notifications older than N days, optional type filter
+//
+//   POST /api/admin/cleanup/notifications/purge-closed-projects
+//        no body                           → DELETE owner-side notifications for completed projects
+//                                            (one-off backfill for jobs closed BEFORE the
+//                                            close-time DELETE was added on 2026-05-12)
 
 const { requireAdmin } = require("../../lib/roles");
 
@@ -68,12 +73,26 @@ module.exports = (router, ctx) => {
           ageBuckets[days] = Number(rows?.[0]?.c) || 0;
         }
 
+        // Owner-side notifications still attached to completed projects.
+        // The close-time DELETE that ships with this cleanup card means
+        // new closes leave nothing behind. This count exists so admins
+        // can clear out the historical clutter from before that fix.
+        const closedRows = await mysqlQuery(
+          `SELECT COUNT(*) AS c
+             FROM notifications n
+             JOIN projects p ON p.id = n.projectId
+            WHERE p.status = 'completed'
+              AND n.userId = p.ownerUserId`,
+        );
+        const closedProjectsForOwners = Number(closedRows?.[0]?.c) || 0;
+
         return res.json({
           ok: true,
           notifications: {
             byDeprecatedType: typeCounts,
             legacyLinkPaths,
             olderThan: ageBuckets,
+            closedProjectsForOwners,
           },
         });
       } catch (err) {
@@ -193,6 +212,37 @@ module.exports = (router, ctx) => {
         return res.json({ ok: true, deleted });
       } catch (err) {
         log.error?.(`${TAG} purge-older-than failed`, { error: err?.message });
+        return res.status(500).json({ ok: false, error: "purge_failed" });
+      }
+    },
+  );
+
+  // ============ PURGE CLOSED-PROJECT NOTIFICATIONS ============
+  // One-off backfill: deletes the owner's stale activity entries for any
+  // project that is already in status='completed'. Forward-going closes
+  // handle this automatically in close.post.js (DELETE + SSE refresh).
+  router.post(
+    "/admin/cleanup/notifications/purge-closed-projects",
+    auth,
+    adminGuard,
+    async (req, res) => {
+      try {
+        const result = await mysqlQuery(
+          `DELETE n FROM notifications n
+             JOIN projects p ON p.id = n.projectId
+            WHERE p.status = 'completed'
+              AND n.userId = p.ownerUserId`,
+        );
+        const deleted = Number(result?.affectedRows) || 0;
+        log.info?.(
+          `${TAG} purged ${deleted} owner notifications for completed projects`,
+          { admin: req.user?.uid },
+        );
+        return res.json({ ok: true, deleted });
+      } catch (err) {
+        log.error?.(`${TAG} purge-closed-projects failed`, {
+          error: err?.message,
+        });
         return res.status(500).json({ ok: false, error: "purge_failed" });
       }
     },
