@@ -124,8 +124,8 @@ export const test = uiBaseTest.extend<{
     await use(new PipelineApi(adminApiClient, runtime.dbName));
   },
 
-  swipeMatchingApi: async ({ runtime }, use) => {
-    await use(new SwipeMatchingApi(runtime.dbName));
+  swipeMatchingApi: async ({ apiClient }, use) => {
+    await use(new SwipeMatchingApi(apiClient));
   },
 
   swipeDeckPage: async ({ page }, use) => {

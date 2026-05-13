@@ -305,6 +305,7 @@ function buildRouter(ctx) {
   require("./routes/__test__/auth/id-token.post")(router, ctx);
   require("./routes/__test__/auth/session.post")(router, ctx);
   require("./routes/__test__/sim/live-projects.get")(router, ctx);
+  require("./routes/__test__/swipe-matching")(router, ctx);
 
   // ---------------- contact ----------------
   require("./routes/contact/contact.post")(router, ctx);
