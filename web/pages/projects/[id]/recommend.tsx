@@ -8,8 +8,12 @@ import Layout from "@/components/Layout";
 import FileGridUploader from "@/components/fileUpload/FileGridUploader";
 import RecommendMobile from "@/components/recommend/RecommendMobile";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
-import { ChevronLeft, Sparkles, Star, ThumbsUp } from "lucide-react";
+import { ChevronLeft, Sparkles, ThumbsUp } from "lucide-react";
 import { trackRecommendationMade } from "@/utils/analytics";
+import {
+  RATING_CATEGORIES,
+  StarRow,
+} from "@/components/ratings/StarRatingList";
 
 type Project = {
   id: number;
@@ -77,58 +81,6 @@ const inputErrorClass =
   "w-full bg-amber-50/40 rounded-2xl border-[1.5px] border-rose-400 px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:border-rose-500 focus:bg-white focus:outline-none transition-colors";
 const labelClass =
   "block text-[11px] font-extrabold uppercase tracking-[0.16em] text-indigo-700 mb-2";
-
-const RATING_CATEGORIES: Array<{
-  key: "quality" | "reliability" | "communication" | "trust" | "value";
-  label: string;
-}> = [
-  { key: "quality", label: "Quality of work" },
-  { key: "reliability", label: "Reliability" },
-  { key: "communication", label: "Communication" },
-  { key: "trust", label: "Trust" },
-  { key: "value", label: "Value for money" },
-];
-
-function StarRow({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  onChange: (n: number) => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 bg-white border border-amber-100 rounded-2xl px-4 py-3">
-      <div className="text-[13px] font-extrabold tracking-tight text-zinc-900">
-        {label}
-      </div>
-      <div className="flex gap-1">
-        {[1, 2, 3, 4, 5].map((n) => {
-          const on = value >= n;
-          return (
-            <button
-              key={n}
-              type="button"
-              aria-label={`${label}: ${n} of 5 stars`}
-              aria-pressed={value === n}
-              onClick={() => onChange(value === n ? 0 : n)}
-              className="p-0.5"
-            >
-              <Star
-                className={`w-5 h-5 ${
-                  on
-                    ? "fill-amber-400 text-amber-400"
-                    : "fill-transparent text-zinc-300"
-                }`}
-              />
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return (

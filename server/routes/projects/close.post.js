@@ -125,6 +125,64 @@ module.exports = (router, ctx) => {
         body.winnerOther === "1" ||
         body.winnerOther === "true";
 
+      // CR3 satisfaction + boost. All optional - pre-CR3 callers (and the
+      // off-platform branch) won't send these and we persist NULL/0.
+      const satisfiedRaw = body.satisfied;
+      const satisfiedNum =
+        satisfiedRaw === true ||
+        satisfiedRaw === 1 ||
+        satisfiedRaw === "1" ||
+        satisfiedRaw === "yes" ||
+        satisfiedRaw === "true"
+          ? 1
+          : satisfiedRaw === false ||
+              satisfiedRaw === 0 ||
+              satisfiedRaw === "0" ||
+              satisfiedRaw === "no" ||
+              satisfiedRaw === "false"
+            ? 0
+            : null;
+
+      const overallRatingRaw = Number(body.overallRating);
+      const overallRating =
+        Number.isFinite(overallRatingRaw) &&
+        overallRatingRaw >= 0 &&
+        overallRatingRaw <= 5
+          ? overallRatingRaw
+          : null;
+
+      // ratings_json must be a {quality,reliability,...} shape. We accept
+      // either an object on body.ratings or a pre-stringified JSON. Drop
+      // anything else.
+      const RATING_KEYS = [
+        "quality",
+        "reliability",
+        "communication",
+        "trust",
+        "value",
+      ];
+      let ratingsJson = null;
+      if (body.ratings && typeof body.ratings === "object") {
+        const clean = {};
+        for (const k of RATING_KEYS) {
+          const n = Number(body.ratings[k]);
+          clean[k] = Number.isFinite(n) && n >= 0 && n <= 5 ? n : 0;
+        }
+        // Only persist if at least one non-zero - saves churn for the
+        // "satisfied=yes" path that doesn't collect category ratings.
+        if (Object.values(clean).some((v) => v > 0)) {
+          ratingsJson = JSON.stringify(clean);
+        }
+      }
+
+      const boostConsentNum =
+        body.boostConsent === true ||
+        body.boostConsent === 1 ||
+        body.boostConsent === "1" ||
+        body.boostConsent === "true"
+          ? 1
+          : 0;
+
       const now = new Date().toISOString().slice(0, 19).replace("T", " ");
 
       // ---------------------------------------------------------
@@ -235,34 +293,29 @@ module.exports = (router, ctx) => {
       // ---------------------------------------------------------
       // APPLY PROJECT STATUS TRANSITION
       // ---------------------------------------------------------
+      // CR3: every closure archives the project. The completed tab is
+      // gone from the homeowner UI so there's no reason to hold rows
+      // in 'completed'. We still stamp completedAt when work went
+      // ahead so analytics can distinguish completions from drop-offs,
+      // but the visible status is always 'archived'. Boost consent
+      // lives separately on project_closures.boost_consent.
       try {
-        if (!didGoAhead) {
-          // did NOT go ahead → archived
+        if (didGoAhead) {
           await mysqlQuery(
             `UPDATE projects
              SET status = 'archived',
-                 archivedAt = ?
-             WHERE id = ?`,
-            [now, projectId]
-          );
-        } else if (shouldComplete) {
-          // went ahead (with winner OR "someone else") → completed
-          await mysqlQuery(
-            `UPDATE projects
-             SET status = 'completed',
+                 archivedAt = ?,
                  completedAt = COALESCE(completedAt, ?)
              WHERE id = ?`,
-            [now, projectId]
+            [now, now, projectId],
           );
         } else {
-          // went ahead but no winner selected and no explicit "someone else"
-          // signal — legacy fallback: archive.
           await mysqlQuery(
             `UPDATE projects
              SET status = 'archived',
                  archivedAt = ?
              WHERE id = ?`,
-            [now, projectId]
+            [now, projectId],
           );
         }
       } catch (err) {
@@ -371,6 +424,10 @@ module.exports = (router, ctx) => {
                  winner_tradesman_uid = ?,
                  winner_from_community = ?,
                  wouldUseAgain = ?,
+                 satisfied = ?,
+                 overall_rating = ?,
+                 ratings_json = ?,
+                 boost_consent = ?,
                  createdBy = ?,
                  createdAt = ?
              WHERE projectId = ?`,
@@ -382,6 +439,10 @@ module.exports = (router, ctx) => {
               winnerTradesmanUid || null,
               winnerFromCommunityNum,
               wouldUseAgainNorm,
+              satisfiedNum,
+              overallRating,
+              ratingsJson,
+              boostConsentNum,
               uid,
               now,
               projectId,
@@ -393,8 +454,10 @@ module.exports = (router, ctx) => {
              (projectId, didGoAhead, reasons, otherReason,
               winnerRecommendationId, winner_tradesman_uid,
               winner_from_community,
-              wouldUseAgain, createdBy, createdAt)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              wouldUseAgain,
+              satisfied, overall_rating, ratings_json, boost_consent,
+              createdBy, createdAt)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               projectId,
               didGoAhead ? 1 : 0,
@@ -404,6 +467,10 @@ module.exports = (router, ctx) => {
               winnerTradesmanUid || null,
               winnerFromCommunityNum,
               wouldUseAgainNorm,
+              satisfiedNum,
+              overallRating,
+              ratingsJson,
+              boostConsentNum,
               uid,
               now,
             ]

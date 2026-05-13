@@ -22,6 +22,24 @@
 .animate-bounce-slow { animation: bounce-slow 2s ease-in-out infinite; }
 .animate-bounce-slow:hover { animation: none; }
 
+/* ---------- Live pill glow ----------
+   Soft emerald halo that pulses around the LIVE pill on /projects job
+   cards. Signals "this is open / actively receiving recommendations"
+   without needing a separate text affordance. */
+@keyframes vmb-live-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0 rgba(16, 185, 129, 0.55),
+      0 0 0 0 rgba(16, 185, 129, 0.3);
+  }
+  50% {
+    box-shadow:
+      0 0 0 6px rgba(16, 185, 129, 0),
+      0 0 10px 2px rgba(16, 185, 129, 0.45);
+  }
+}
+.animate-live-glow { animation: vmb-live-glow 1.8s ease-in-out infinite; }
+
 /* ---------- Header Join button gradient drift ---------- */
 @keyframes vmb-join-shift {
   0%   { background-position: 0% 50%; }

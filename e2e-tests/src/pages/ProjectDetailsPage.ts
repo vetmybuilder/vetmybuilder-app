@@ -402,6 +402,15 @@ export class ProjectDetailsPage extends BasePage {
         await firstOption.click();
         await this.page.getByTestId("close-picker-done").click();
       }
+
+      // CR3 satisfaction flow on the mobile wizard. Off-platform hires
+      // skip the question entirely so we don't drive it for them.
+      if (opts.satisfied && !opts.pickSomeoneElse) {
+        await this.page.getByTestId(`satisfied-${opts.satisfied}`).click();
+        if (opts.satisfied === "yes" && opts.boost) {
+          await this.page.getByTestId("close-boost-checkbox").check();
+        }
+      }
     } else {
       await this.page.getByTestId("close-segment-no").click();
       const reasons = opts.reasons ?? [];
@@ -441,32 +450,14 @@ export class ProjectDetailsPage extends BasePage {
   }
 
   /**
-   * After closing as "went ahead", the project becomes completed and
-   * remains visible to the owner. Visiting the URL should still load
-   * the project page (not 404). Waits for the project view to fully
-   * render before returning so any follow-up navigation in the test
-   * isn't interrupted by this page's in-flight load.
+   * After closing as "went ahead", the project is archived in the DB
+   * (CR3: every closure archives regardless of boost). The project URL
+   * 404s for the homeowner. This is structurally the same as the
+   * "didn't go ahead" outcome - the helper is kept as an alias so the
+   * close-job spec reads naturally for the went-ahead path.
    */
   async assertProjectIsCompleted(projectId: string | number) {
-    await safeGoto(this.page, `/projects/${projectId}`);
-    // Completed projects redirect from /projects/:id to the dedicated
-    // /projects/:id/completed page. Accept either URL: the live page is
-    // valid briefly, then the redirect lands us on /completed. We don't
-    // know which the test catches first so allow both.
-    await expect(this.page).toHaveURL(
-      new RegExp(`/projects/${projectId}(/completed)?(\\?.*)?$`),
-    );
-    await expect(
-      this.page
-        .getByTestId("project-view-page")
-        .or(this.page.getByTestId("closed-project-mobile"))
-        .or(this.page.getByTestId("completed-gallery-page"))
-        .filter({ visible: true })
-        .first(),
-    ).toBeVisible({ timeout: 15_000 });
-    await expect(
-      this.page.getByText(/project not found/i).or(this.page.getByText(/^404$/)),
-    ).not.toBeVisible();
+    await this.assertNotVisibleToOwner(projectId);
   }
 
   async hasHomeownerProjectDetails(

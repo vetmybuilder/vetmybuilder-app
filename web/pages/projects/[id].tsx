@@ -272,11 +272,13 @@ function ProjectSwipeDesktop({
                 <span>My jobs</span>
               </a>
               <div className="text-center">
-                <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-indigo-700 mb-0.5 inline-flex items-center gap-2">
-                  <span>Your shortlist</span>
-                  {matches && builders.length > 0 && (
+                {/* "Your shortlist" eyebrow removed — the SiteHeader's
+                    contextual title already says it. The count chip
+                    stays so the homeowner sees how deep their deck is. */}
+                {matches && builders.length > 0 && (
+                  <div className="mb-1.5">
                     <span
-                      className="inline-flex items-center gap-1 rounded-full bg-indigo-600 text-white px-2 py-0.5 text-[10.5px] font-extrabold tracking-normal normal-case"
+                      className="inline-flex items-center gap-1 rounded-full bg-indigo-600 text-white px-2.5 py-0.5 text-[11px] font-extrabold"
                       data-testid="deck-count"
                     >
                       <svg
@@ -292,8 +294,8 @@ function ProjectSwipeDesktop({
                         ? "tradesperson"
                         : "tradespeople"}
                     </span>
-                  )}
-                </div>
+                  </div>
+                )}
                 <h1
                   className="text-[22px] font-black tracking-tight text-slate-900 leading-tight"
                   style={{ fontFamily: "'Sora', sans-serif" }}
@@ -1337,8 +1339,11 @@ export default function ProjectViewPage() {
   useEffect(() => {
     if (vm.loading || !vm.project) return;
     const status = (vm.project as { status?: string } | null)?.status;
+    // Completed projects no longer have their own page (CR3). Bounce
+    // the homeowner back to the projects list instead of leaving them
+    // on a single-project view they can't act on.
     if (status === "completed") {
-      router.replace(`/projects/${vm.project.id}/completed`);
+      router.replace("/projects");
     }
   }, [vm.loading, vm.project, router]);
 

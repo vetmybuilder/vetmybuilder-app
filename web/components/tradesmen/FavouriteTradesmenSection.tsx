@@ -110,20 +110,33 @@ export default function FavouriteTradesmenSection() {
       aria-label="Favourite tradesmen"
       data-testid="favourites-tradesmen-section"
     >
-      <div className="pb-3">
-        <h1
-          className="text-3xl font-black tracking-tight text-slate-900"
-          style={{ fontFamily: "'Sora', sans-serif" }}
-        >
-          Favourites
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          {loading
-            ? "Loading…"
-            : items.length === 0
-              ? "Tradespeople you save from your shortlists will appear here."
-              : `${items.length} saved.`}
-        </p>
+      {/* Title bar - mirrors the "My jobs" header on /projects so this
+          tab reads as part of the same surface rather than floating
+          loose copy on the cream backdrop. */}
+      <div className="bg-white rounded-2xl border border-amber-100 shadow-sm px-5 py-4 mb-5 relative z-10">
+        <div className="flex items-center gap-3">
+          <span
+            aria-hidden
+            className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50"
+          >
+            <Heart className="h-4.5 w-4.5 text-rose-500" />
+          </span>
+          <div>
+            <h1
+              className="text-xl font-black tracking-tight text-slate-900 leading-none"
+              style={{ fontFamily: "'Sora', sans-serif" }}
+            >
+              Favourites
+            </h1>
+            <p className="mt-1 text-[12.5px] text-slate-500">
+              {loading
+                ? "Loading…"
+                : items.length === 0
+                  ? "Tradespeople you save from your shortlists will appear here."
+                  : `${items.length} saved.`}
+            </p>
+          </div>
+        </div>
       </div>
 
       {error && !loading && (

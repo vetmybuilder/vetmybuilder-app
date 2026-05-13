@@ -272,7 +272,10 @@ function ChatPageInner() {
     if (!chatData) return;
     if (chatData.projectStatus !== "completed") return;
     if (chatData.me.role === "homeowner") {
-      router.replace(`/projects/${chatData.projectId}/completed`);
+      // Completed views are retired for homeowners (CR3) - send them
+      // back to the main projects list instead of a standalone page
+      // that now just redirects anyway.
+      router.replace("/projects");
     } else {
       router.replace("/tradesman/matches");
     }

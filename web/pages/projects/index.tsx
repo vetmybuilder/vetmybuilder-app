@@ -275,8 +275,6 @@ function OwnerProjects() {
     if (typeof window === "undefined") return "mine";
     const allowed: OwnerTab[] = [
       "mine",
-      "completed",
-      "completedCommunity",
       "recommended",
       "favourites",
       "recommendations",
@@ -306,10 +304,16 @@ function OwnerProjects() {
     const raw = router.query?.tab;
     const t = (Array.isArray(raw) ? raw[0] : raw) as string | undefined;
 
+    // Completed views are gone from the homeowner experience (closures are
+    // archive-only after CR3). Any stale link or bookmark hitting these
+    // tabs is silently rewritten to the default /projects view.
+    if (t === "completed" || t === "completedCommunity") {
+      router.replace({ pathname: "/projects" }, undefined, { shallow: true });
+      return;
+    }
+
     const allowed: OwnerTab[] = [
       "mine",
-      "completed",
-      "completedCommunity",
       "recommended",
       "favourites",
       "recommendations",
@@ -321,7 +325,7 @@ function OwnerProjects() {
     if (next !== tab) {
       setTab(next);
     }
-  }, [router.isReady, router.query.tab, tab]);
+  }, [router.isReady, router.query.tab, tab, router]);
 
   // ---- Filters ----
   // Multi-select on desktop (checkbox sidebar). Mobile still uses a single-
@@ -704,27 +708,9 @@ function OwnerProjects() {
         data-testid="projects-page"
       >
 
-        {/* Title bar - shown for the project-list tabs (mine /
-            completed); favourites + recommendations render their own
-            self-contained chrome below. Filters used to live here on
-            the right; they now sit in a permanent left sidebar in the
-            grid below the title. */}
-        {tab !== "favourites" && tab !== "recommendations" && (
-        <div className="bg-white rounded-2xl border border-amber-100 shadow-sm px-4 py-3 mb-5 flex items-center gap-4 flex-wrap">
-          <h1
-            className="text-xl font-black tracking-tight text-slate-900"
-            style={{ fontFamily: "'Sora', sans-serif" }}
-          >
-            {tab === "completed" || tab === "completedCommunity" ? "Completed " : "My "}
-            <span
-              className="text-indigo-600"
-              style={{ fontFamily: "'Caveat', cursive", fontSize: "120%" }}
-            >
-              jobs
-            </span>
-          </h1>
-        </div>
-        )}
+        {/* In-page title bar removed - SiteHeader now renders the
+            contextual "My jobs" / "Favourites" / etc. title in the
+            centre, so a second copy here would be redundant. */}
 
         {/* Main content */}
         {tab === "favourites" ? (
@@ -743,9 +729,13 @@ function OwnerProjects() {
                 actual job rows. Collapses to a single column under lg. */}
             <div className="grid grid-cols-1 lg:grid-cols-[240px,1fr] gap-6">
               <aside
-                className="lg:sticky lg:top-6 self-start"
+                className="self-start"
                 data-testid="projects-filter-sidebar"
               >
+                {/* Sticky behaviour was making the filter drift below the
+                    Safety card as the user scrolled, which read as a
+                    misalignment. With both columns scrolling together
+                    their top edges stay locked. */}
                 <div className="bg-white rounded-2xl border border-amber-100 shadow-sm px-4 py-4">
                   <ProjectTypeChecklist
                     selectedTypes={selectedTypes}
@@ -931,7 +921,7 @@ function OwnerProjects() {
                           aria-hidden
                         >
                           {p.status === "live" && (
-                            <span className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full bg-emerald-500 text-white px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.16em]">
+                            <span className="animate-live-glow absolute top-2 left-2 inline-flex items-center gap-1 rounded-full bg-emerald-500 text-white px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.16em]">
                               Live
                             </span>
                           )}
@@ -971,19 +961,6 @@ function OwnerProjects() {
                                 <span aria-hidden>🛏️</span> {p.bedrooms} beds
                               </span>
                             )}
-                            {p.createdAt && (
-                              <span className="inline-flex items-center gap-1 font-semibold">
-                                <span aria-hidden>🗓</span>{" "}
-                                {new Date(p.createdAt).toLocaleDateString(
-                                  "en-GB",
-                                  {
-                                    day: "2-digit",
-                                    month: "2-digit",
-                                    year: "numeric",
-                                  },
-                                )}
-                              </span>
-                            )}
                           </div>
                         </div>
 
@@ -992,7 +969,7 @@ function OwnerProjects() {
                             mutual swipes, unreadCount = unseen homeowner
                             messages). Both default to 0 if the API is older
                             or the data isn't there yet. */}
-                        <div className="hidden lg:flex flex-col justify-center items-end shrink-0 gap-2">
+                        <div className="hidden lg:flex flex-col justify-center items-end shrink-0 gap-2 pr-4">
                           <div className="flex items-center gap-2">
                             {((p as any).unreadCount ?? 0) > 0 && (
                               <span className="inline-flex items-baseline gap-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 px-2.5 py-0.5">
@@ -1015,8 +992,14 @@ function OwnerProjects() {
                               </span>
                             )}
                           </div>
-                          <span className="rounded-full bg-indigo-600 group-hover:bg-indigo-700 text-white text-[12px] font-extrabold px-4 py-1.5 transition-colors">
-                            Open →
+                          <span className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-indigo-600 group-hover:text-indigo-800 transition-colors">
+                            <span
+                              aria-hidden
+                              className="transition-transform duration-300 ease-out group-hover:translate-x-1"
+                            >
+                              →
+                            </span>
+                            View
                           </span>
                         </div>
                       </div>
@@ -1069,17 +1052,9 @@ function OwnerProjects() {
         <PushPrompt onComplete={() => setShowPushPrompt(false)} />
       )}
 
-      {/* Floating Post-a-Job button: fixed bottom-right of the viewport so
-          it's always reachable while the user scrolls a long jobs list. */}
-      <Link
-        href="/projects/new"
-        className="fixed bottom-6 right-6 z-30 inline-flex items-center gap-2 rounded-full pl-5 pr-6 py-3 text-sm font-extrabold text-white shadow-xl hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all"
-        style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
-        data-testid="btn-post-a-job"
-      >
-        <Plus className="h-5 w-5" />
-        Post a job
-      </Link>
+      {/* Floating Post-a-Job FAB removed - the action lives in the
+          SiteHeader's right cluster now (testid header-post-a-job),
+          so it's always reachable without a separate floating button. */}
     </div>
         </Layout>
       </div>

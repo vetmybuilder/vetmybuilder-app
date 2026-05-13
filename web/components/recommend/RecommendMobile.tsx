@@ -11,7 +11,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/router";
-import { CheckCircle2, Star, X } from "lucide-react";
+import { CheckCircle2, X } from "lucide-react";
+import {
+  RATING_CATEGORIES,
+  StarRow,
+} from "@/components/ratings/StarRatingList";
 
 import FileGridUploader from "@/components/fileUpload/FileGridUploader";
 
@@ -61,13 +65,9 @@ type Props = {
   onSubmit: (e: React.FormEvent) => void | Promise<void>;
 };
 
-const CATEGORIES: Array<{ key: keyof Ratings; label: string }> = [
-  { key: "quality", label: "Quality of work" },
-  { key: "reliability", label: "Reliability" },
-  { key: "communication", label: "Communication" },
-  { key: "trust", label: "Trust" },
-  { key: "value", label: "Value for money" },
-];
+// CATEGORIES used to be declared locally — it now lives in the shared
+// ratings module so the close-job modal can iterate the same list.
+const CATEGORIES = RATING_CATEGORIES;
 
 export default function RecommendMobile({
   projectName,
@@ -300,6 +300,8 @@ function Step1({
             label={cat.label}
             value={ratings[cat.key]}
             onChange={(n) => setRating(cat.key, n)}
+            rowClassName="flex items-center justify-between gap-3 bg-white border-[1.5px] border-gray-200 rounded-2xl px-3.5 py-3"
+            testIdPrefix="recommend-star"
           />
         ))}
       </div>
@@ -476,48 +478,6 @@ function Step2({
 }
 
 /* ----- Subcomponents ----- */
-
-function StarRow({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  onChange: (n: number) => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 bg-white border-[1.5px] border-gray-200 rounded-2xl px-3.5 py-3">
-      <div className="text-[13px] font-extrabold tracking-tight text-gray-900">
-        {label}
-      </div>
-      <div className="flex gap-1">
-        {[1, 2, 3, 4, 5].map((n) => {
-          const on = value >= n;
-          return (
-            <button
-              key={n}
-              type="button"
-              aria-label={`${label}: ${n} of 5 stars`}
-              aria-pressed={value === n}
-              onClick={() => onChange(value === n ? 0 : n)}
-              className="p-0.5"
-              data-testid={`recommend-star-${label.replace(/\s+/g, "-").toLowerCase()}-${n}`}
-            >
-              <Star
-                className={`w-5 h-5 ${
-                  on
-                    ? "fill-amber-400 text-amber-400"
-                    : "fill-transparent text-gray-300"
-                }`}
-              />
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 function SectionDivider({ children }: { children: React.ReactNode }) {
   return (

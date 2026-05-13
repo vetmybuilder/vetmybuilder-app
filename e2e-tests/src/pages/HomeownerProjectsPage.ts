@@ -5,12 +5,6 @@ import Project from "../models/Project";
 export class HomeownerProjectsPage {
   readonly page: Page;
 
-  // Page / navigation
-  readonly myProjectsTab: Locator;
-  readonly completedTab: Locator;
-  readonly communityTab: Locator;
-  readonly favouritesTab: Locator;
-
   // Safety & verification accordion
   readonly safetyAccordion: Locator;
   readonly safetyHeading: Locator;
@@ -29,11 +23,6 @@ export class HomeownerProjectsPage {
 
   constructor(page: Page) {
     this.page = page;
-
-    this.myProjectsTab = page.getByRole("link", { name: /my jobs/i });
-    this.completedTab = page.getByRole("link", { name: /completed/i });
-    this.communityTab = page.getByRole("link", { name: /community/i });
-    this.favouritesTab = page.getByRole("link", { name: /favourites/i });
 
     // /projects renders both a desktop card (data-testid=projects-safety-card)
     // and a mobile card (data-testid=projects-mobile-safety-card). Both
@@ -106,36 +95,6 @@ export class HomeownerProjectsPage {
         `[data-testid="project-card-link-${id}"], [data-testid="mobile-project-card-${id}"]`,
       )
       .filter({ visible: true });
-  }
-
-  findCompletedCardById(projectId: string | number): Locator {
-    // Desktop renders the dedicated `CompletedProjectCard` (testid
-    // `completed-card-{id}`); mobile reuses the same `mobile-project-
-    // card-{id}` for every status. Filter to whichever is visible for
-    // the current viewport.
-    const id = String(projectId);
-    return this.page
-      .locator(
-        `[data-testid="completed-card-${id}"], [data-testid="mobile-project-card-${id}"]`,
-      )
-      .filter({ visible: true });
-  }
-
-  async hasCompletedCard(projectId: string | number) {
-    await expect(this.findCompletedCardById(projectId)).toBeVisible({
-      timeout: 15_000,
-    });
-  }
-
-  async hasNoCompletedCard(projectId: string | number) {
-    const id = String(projectId);
-    await expect(
-      this.page
-        .locator(
-          `[data-testid="completed-card-${id}"], [data-testid="mobile-project-card-${id}"]`,
-        )
-        .filter({ visible: true }),
-    ).toHaveCount(0);
   }
 
   async clickBuilderLink(projectId: string | number) {

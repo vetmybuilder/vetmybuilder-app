@@ -247,6 +247,27 @@ function buildRouter(ctx) {
       // eslint-disable-next-line no-console
       console.warn("[buildRouter] swipe_interest.source MODIFY:", e?.message);
     }
+
+    // CR3: project_closures gets four new columns - satisfaction signal,
+    // overall + per-category ratings, and the boost-and-photo-consent flag.
+    // ALTERs are idempotent (we swallow "duplicate column" errors below).
+    const cr3ClosureColumns = [
+      `ALTER TABLE project_closures ADD COLUMN satisfied TINYINT NULL DEFAULT NULL`,
+      `ALTER TABLE project_closures ADD COLUMN overall_rating TINYINT NULL DEFAULT NULL`,
+      `ALTER TABLE project_closures ADD COLUMN ratings_json TEXT NULL`,
+      `ALTER TABLE project_closures ADD COLUMN boost_consent TINYINT NOT NULL DEFAULT 0`,
+    ];
+    for (const sql of cr3ClosureColumns) {
+      try {
+        await ctx.mysqlQuery(sql);
+      } catch (e) {
+        const msg = String(e?.message || "").toLowerCase();
+        if (!msg.includes("duplicate column") && !msg.includes("already exists")) {
+          // eslint-disable-next-line no-console
+          console.warn("[buildRouter] project_closures CR3 ALTER:", sql, e?.message);
+        }
+      }
+    }
   })();
   {
     const { makeLogActivity } = require("./lib/activityLog");
@@ -388,6 +409,7 @@ function buildRouter(ctx) {
   require("./routes/tradesmen/interest.post")(router, ctx);
   require("./routes/tradesmen/interest.get")(router, ctx);
   require("./routes/tradesmen/leaderboard.get")(router, ctx);
+  require("./routes/tradesmen/recent-completed.get")(router, ctx);
   require("./routes/tradesmen/precheck.post")(router, ctx);
   require("./routes/tradesmen/shares.post")(router, ctx);
   require("./routes/tradesmen/shares.get")(router, ctx);

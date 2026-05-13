@@ -690,12 +690,6 @@ export default function ProjectsListMobile({
           active={tab === "live"}
           onClick={() => onChangeTab("live")}
         />
-        <TabChip
-          label="Completed"
-          count={counts?.completed}
-          active={tab === "completed"}
-          onClick={() => onChangeTab("completed")}
-        />
       </div>
 
       {/* Filter chips */}
