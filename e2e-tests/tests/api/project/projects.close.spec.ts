@@ -39,7 +39,10 @@ test.describe("POST /api/projects/:id/close", () => {
     const closeBody = await closeRes.json();
     expect(closeBody.ok).toBe(true);
     expect(closeBody.project).toBeTruthy();
-    expect(closeBody.project.status).toBe("completed");
+    // CR3: every closure archives the project. completedAt is stamped
+    // when didGoAhead=true and is the new "this actually happened" signal.
+    expect(closeBody.project.status).toBe("archived");
+    expect(closeBody.project.completedAt).toBeTruthy();
   });
 
   test("didGoAhead=false archives the project", async ({ apiClient }) => {
@@ -170,7 +173,8 @@ test.describe("POST /api/projects/:id/close", () => {
     expect(body.ok).toBe(true);
     expect(body.project).toBeTruthy();
     expect(body.project.id).toBe(project.id);
-    expect(body.project.status).toBe("completed");
+    expect(body.project.status).toBe("archived");
+    expect(body.project.completedAt).toBeTruthy();
   });
 
   test("didGoAhead=true with winnerTradesmanUid (no recommendation id) completes the project", async ({
@@ -197,7 +201,8 @@ test.describe("POST /api/projects/:id/close", () => {
     expect(body.ok).toBe(true);
     expect(body.project).toBeTruthy();
     expect(body.project.id).toBe(project.id);
-    expect(body.project.status).toBe("completed");
+    expect(body.project.status).toBe("archived");
+    expect(body.project.completedAt).toBeTruthy();
   });
 
   test("winner_tradesman_uid is auto-resolved from recommendation company name on close", async ({
@@ -243,17 +248,19 @@ test.describe("POST /api/projects/:id/close", () => {
     expect(closeRes.status()).toBe(200);
     const closeBody = await closeRes.json();
     expect(closeBody.ok).toBe(true);
-    expect(closeBody.project.status).toBe("completed");
+    expect(closeBody.project.status).toBe("archived");
+    expect(closeBody.project.completedAt).toBeTruthy();
 
-    // Verify winner_tradesman_uid was auto-resolved by checking the completed tab.
-    // GET /api/projects?tab=completed returns _winnerTradesmanUid via JOIN on project_closures.
-    const listRes = await apiClient.get("/api/projects?tab=completed");
-    expect(listRes.status()).toBe(200);
-    const listBody = await listRes.json();
-
-    const found = (listBody.items as any[]).find((p: any) => p.id === project.id);
-    expect(found).toBeTruthy();
-    expect(found._winnerTradesmanUid).toBe(tradesmanUid);
+    // CR3: the /api/projects?tab=completed list was retired (homeowner
+    // completed tab is gone from the UI). Verify the auto-resolved
+    // winner_tradesman_uid via the per-project closure endpoint instead.
+    const closureRes = await apiClient.get(
+      `/api/projects/${project.id}/closure`,
+    );
+    expect(closureRes.status()).toBe(200);
+    const closure = await closureRes.json();
+    expect(closure.winner).toBeTruthy();
+    expect(closure.winner.tradesmanUid).toBe(tradesmanUid);
   });
 
   test("project_closed_local notification is sent to nearby users after a completed close", async ({
@@ -295,7 +302,9 @@ test.describe("POST /api/projects/:id/close", () => {
       wouldUseAgain: true,
     });
     expect(closeRes.status()).toBe(200);
-    expect((await closeRes.json()).project.status).toBe("completed");
+    const closeBody = await closeRes.json();
+    expect(closeBody.project.status).toBe("archived");
+    expect(closeBody.project.completedAt).toBeTruthy();
 
     // Poll the neighbour's notifications for the project_closed_local entry
     // (the notification is written in a background async block so we allow a short delay)

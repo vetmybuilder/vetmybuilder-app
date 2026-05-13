@@ -169,7 +169,7 @@ test.describe("POST /api/recommendations/magic/:token", () => {
     });
   });
 
-  test("magic recommendation is rejected when project is completed", async ({
+  test("magic recommendation is rejected when project has been closed with a winner", async ({
     apiClient,
     request,
     runtime,
@@ -205,7 +205,10 @@ test.describe("POST /api/recommendations/magic/:token", () => {
 
     const closeBody = await closeRes.json();
     expect(closeBody.ok).toBe(true);
-    expect(closeBody.project.status).toBe("completed");
+    // CR3: didGoAhead=true closures land in 'archived' with completedAt
+    // stamped (the "completed" status is retired).
+    expect(closeBody.project.status).toBe("archived");
+    expect(closeBody.project.completedAt).toBeTruthy();
 
     // Magic recommendation should now be rejected because project is no longer live
     const res = await request.post(

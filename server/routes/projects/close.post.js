@@ -541,7 +541,14 @@ module.exports = (router, ctx) => {
       ctx.logActivity("project.close", "info", req.user.uid, `Project #${projectId}, didGoAhead=${!!didGoAhead}`);
 
       // ---- BACKGROUND: notify local users that a neighbour completed a project ----
-      if (project && project.status === "completed" && typeof extractLocationTokens === "function") {
+      // CR3: every closure archives the project, so we can't gate on
+      // status anymore. didGoAhead is the new "this actually happened"
+      // signal; completedAt is stamped alongside it.
+      if (
+        project &&
+        didGoAhead &&
+        typeof extractLocationTokens === "function"
+      ) {
         (async () => {
           try {
             const locTokens = extractLocationTokens(project.location);

@@ -74,10 +74,17 @@ module.exports = (router, ctx) => {
       const getCompletedCount = async (ownerUid) => {
         if (!ownerUid) return 0;
         if (completedCache.has(ownerUid)) return completedCache.get(ownerUid);
+        // CR3: close.post no longer sets status='completed'; every closure
+        // archives the project and stamps completedAt when didGoAhead=true.
+        // Count both the legacy 'completed' rows and the new "archived +
+        // has closure" rows so the trust signal survives the transition.
         const countRows = await mysqlQuery(
           `SELECT COUNT(*) AS c
-             FROM projects
-            WHERE ownerUserId = ? AND LOWER(status) = 'completed'`,
+             FROM projects p
+        LEFT JOIN project_closures pc ON pc.projectId = p.id
+            WHERE p.ownerUserId = ?
+              AND (LOWER(p.status) = 'completed'
+                   OR (LOWER(p.status) = 'archived' AND pc.projectId IS NOT NULL))`,
           [ownerUid],
         );
         const c = Number(countRows?.[0]?.c || 0);
