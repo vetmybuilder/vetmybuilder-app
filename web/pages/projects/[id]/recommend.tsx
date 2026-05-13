@@ -8,7 +8,7 @@ import Layout from "@/components/Layout";
 import FileGridUploader from "@/components/fileUpload/FileGridUploader";
 import RecommendMobile from "@/components/recommend/RecommendMobile";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
-import { ChevronLeft, Sparkles, ThumbsUp } from "lucide-react";
+import { ChevronLeft, Sparkles, Star, ThumbsUp } from "lucide-react";
 import { trackRecommendationMade } from "@/utils/analytics";
 import {
   RATING_CATEGORIES,

@@ -15,15 +15,29 @@ module.exports = (router, ctx) => {
 
   /**
    * POST /api/__test__/recommendations/link-tradesman
-   * Body: { projectId, tradesmanUid, recommenderUid?, company }
+   * Body: {
+   *   projectId, tradesmanUid, company,
+   *   recommenderUid?,           // existing user uid
+   *   recommenderFirstName?,     // when set, creates a fresh recommender
+   *                              // user with this firstName so the deck
+   *                              // shows "Recommended by <firstName>"
+   * }
    * Inserts a 'platform' recommendation already linked to an on-platform
    * tradesperson, mirroring the end-state of the rec→tradesman matcher.
+   * Returns { recommendationId, recommenderUid } so the caller can refer
+   * to the (possibly fresh) recommender uid in later assertions.
    */
   router.post("/__test__/recommendations/link-tradesman", async (req, res) => {
     const ok = assertTestAccess(req, res);
     if (ok !== true) return;
 
-    const { projectId, tradesmanUid, recommenderUid, company } = req.body || {};
+    const {
+      projectId,
+      tradesmanUid,
+      recommenderUid,
+      recommenderFirstName,
+      company,
+    } = req.body || {};
     if (!projectId || !tradesmanUid || !company) {
       return res
         .status(400)
@@ -31,17 +45,39 @@ module.exports = (router, ctx) => {
     }
 
     try {
+      let resolvedRecommenderUid = recommenderUid ?? null;
+
+      if (recommenderFirstName) {
+        if (!resolvedRecommenderUid) {
+          resolvedRecommenderUid = `rec-${Date.now()}-${Math.random()
+            .toString(16)
+            .slice(2, 8)}`;
+        }
+        await mysqlQuery(
+          `INSERT INTO users (uid, email, createdAt, firstName)
+           VALUES (?, ?, NOW(), ?)
+           ON DUPLICATE KEY UPDATE firstName = VALUES(firstName)`,
+          [
+            resolvedRecommenderUid,
+            `${resolvedRecommenderUid}@test.local`,
+            String(recommenderFirstName),
+          ],
+        );
+      }
+
       const result = await mysqlQuery(
         `INSERT INTO recommendations
            (projectId, recommenderUserId, createdAt, name, company, rating,
             comment, isAnonymous, source, linked_tradesman_uid)
          VALUES (?, ?, NOW(), 'Jane Doe', ?, 5,
                  'Great work', 0, 'platform', ?)`,
-        [projectId, recommenderUid ?? null, company, tradesmanUid],
+        [projectId, resolvedRecommenderUid, company, tradesmanUid],
       );
-      return res
-        .status(201)
-        .json({ ok: true, recommendationId: result.insertId });
+      return res.status(201).json({
+        ok: true,
+        recommendationId: result.insertId,
+        recommenderUid: resolvedRecommenderUid,
+      });
     } catch (e) {
       console.error("[__test__/recommendations/link-tradesman] error", e);
       return res.status(500).json({ error: "insert failed" });
@@ -50,32 +86,56 @@ module.exports = (router, ctx) => {
 
   /**
    * POST /api/__test__/project-classifications
-   * Body: { projectId, recommendedTrades: string[] }
-   * Seeds the project_classifications row that the swipe deck reads for
-   * the trade-match path.
+   * Body: {
+   *   projectId,
+   *   recommendedTrades: string[],
+   *   aiSummary?: string,        // -> structured.summary, read by JobCardBack
+   *   keyConcerns?: string[],    // -> structured.key_concerns
+   * }
+   * Seeds the project_classifications row the swipe deck reads. Extended
+   * with the AI fields jobs.get.js surfaces on the tradesman deck (so
+   * tests can assert summary / key-concerns rendering without running the
+   * real classifier).
    */
   router.post("/__test__/project-classifications", async (req, res) => {
     const ok = assertTestAccess(req, res);
     if (ok !== true) return;
 
-    const { projectId, recommendedTrades } = req.body || {};
+    const { projectId, recommendedTrades, aiSummary, keyConcerns } =
+      req.body || {};
     if (!projectId || !Array.isArray(recommendedTrades)) {
       return res
         .status(400)
         .json({ error: "projectId and recommendedTrades[] are required" });
     }
 
+    const structured = {
+      recommended_trades: recommendedTrades,
+      ...(aiSummary ? { summary: String(aiSummary) } : {}),
+      ...(Array.isArray(keyConcerns) ? { key_concerns: keyConcerns } : {}),
+    };
+
     try {
+      // jobs.get reads the LATEST classification per project
+      // (ORDER BY classified_at DESC). Project create/update fires the
+      // real classifier fire-and-forget; that async write can land
+      // BEFORE or AFTER this test seed depending on stub latency.
+      // Stamp the seed row with a far-future classified_at so it wins
+      // the ordering deterministically regardless of timing.
+      await mysqlQuery(
+        `DELETE FROM project_classifications WHERE project_id = ?`,
+        [projectId],
+      );
       await mysqlQuery(
         `INSERT INTO project_classifications
            (project_id, classifier_version, raw_description, structured,
-            cost_pence, latency_ms)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+            cost_pence, latency_ms, classified_at)
+         VALUES (?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 1 YEAR))`,
         [
           projectId,
           "e2e-test",
           "seeded for swipe-matching smoke test",
-          JSON.stringify({ recommended_trades: recommendedTrades }),
+          JSON.stringify(structured),
           0,
           0,
         ],
@@ -88,15 +148,93 @@ module.exports = (router, ctx) => {
   });
 
   /**
+   * POST /api/__test__/tradesmen-stats
+   * Body: {
+   *   tradesmanUid,
+   *   googleRating?: number,           // -> tradesmen.google_rating
+   *   googleReviewsCount?: number,     // -> tradesmen.google_reviews_count
+   *   chStatus?: string,               // -> tradesmen.ch_status ('verified' shows badge)
+   *   yearsTrading?: number,           // backdates tradesmen.created_at by N years
+   * }
+   * Stat fields the BuilderCard / JobCard rely on. Production exposes
+   * these through scraped Google reviews + Companies House verification,
+   * neither of which we run in e2e - so set them directly.
+   */
+  router.post("/__test__/tradesmen-stats", async (req, res) => {
+    const ok = assertTestAccess(req, res);
+    if (ok !== true) return;
+
+    const {
+      tradesmanUid,
+      googleRating,
+      googleReviewsCount,
+      chStatus,
+      yearsTrading,
+    } = req.body || {};
+    if (!tradesmanUid) {
+      return res.status(400).json({ error: "tradesmanUid is required" });
+    }
+
+    const updates = [];
+    const params = [];
+    if (googleRating != null) {
+      updates.push("google_rating = ?");
+      params.push(Number(googleRating));
+    }
+    if (googleReviewsCount != null) {
+      updates.push("google_reviews_count = ?");
+      params.push(Number(googleReviewsCount));
+    }
+    if (chStatus != null) {
+      updates.push("ch_status = ?");
+      params.push(String(chStatus));
+    }
+    if (yearsTrading != null) {
+      updates.push("created_at = DATE_SUB(NOW(), INTERVAL ? YEAR)");
+      params.push(Number(yearsTrading));
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: "no fields to update" });
+    }
+
+    params.push(tradesmanUid);
+
+    try {
+      await mysqlQuery(
+        `UPDATE tradesmen SET ${updates.join(", ")} WHERE user_id = ?`,
+        params,
+      );
+      return res.status(200).json({ ok: true });
+    } catch (e) {
+      console.error("[__test__/tradesmen-stats] error", e);
+      return res.status(500).json({ error: "update failed" });
+    }
+  });
+
+  /**
+   * POST /api/__test__/users
+   * (Already exists in __test__/users.post.js for general user seeding.)
+   * For incoming-lead surface tests we need to ensure a homeowner uid
+   * resolves to a known firstName, so the rec→deck pipeline surfaces
+   * "Recommended by Alex" - that uses /__test__/users which is already
+   * wired in buildRouter.
+   */
+
+  /**
    * POST /api/__test__/swipe-interest
    * Body: {
    *   projectId, homeownerUid, builderUid,
    *   source?: 'recommended' | 'subscribed' | 'paid_unlock',  // default 'recommended'
    *   status?: 'pending' | 'matched' | 'declined_by_homeowner'
    *          | 'declined_by_builder' | 'expired',             // default 'matched'
+   *   homeownerSwiped?: boolean,    // default true - sets homeowner_swiped_at
+   *   builderSwiped?: boolean,      // default true - sets builder_swiped_at
    * }
    * Pins a swipe_interest row to a chosen status without driving the full
-   * mutual-swipe flow.
+   * mutual-swipe flow. The two `*Swiped` flags let callers seed
+   * "homeowner picked you, awaiting builder" (status=pending,
+   * homeownerSwiped=true, builderSwiped=false) for incoming-lead tests.
    */
   router.post("/__test__/swipe-interest", async (req, res) => {
     const ok = assertTestAccess(req, res);
@@ -108,6 +246,8 @@ module.exports = (router, ctx) => {
       builderUid,
       source = "recommended",
       status = "matched",
+      homeownerSwiped = true,
+      builderSwiped = true,
     } = req.body || {};
     if (!projectId || !homeownerUid || !builderUid) {
       return res.status(400).json({
@@ -115,12 +255,15 @@ module.exports = (router, ctx) => {
       });
     }
 
+    const homeownerAt = homeownerSwiped ? "NOW()" : "NULL";
+    const builderAt = builderSwiped ? "NOW()" : "NULL";
+
     try {
       const result = await mysqlQuery(
         `INSERT INTO swipe_interest
            (project_id, homeowner_uid, builder_uid, source, status,
             homeowner_swiped_at, builder_swiped_at)
-         VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
+         VALUES (?, ?, ?, ?, ?, ${homeownerAt}, ${builderAt})`,
         [projectId, homeownerUid, builderUid, source, status],
       );
       return res.status(201).json({ ok: true, id: result.insertId });

@@ -5,8 +5,8 @@ import {
   SWIPE_SCENARIO_AREA,
 } from "../../../src/apiHelper/swipeMatching/seedSwipeScenario";
 
-test.describe("Top tradesperson surfaces on the homeowner deck", () => {
-  test("builder with a boosted closure that has photos: front shows Top tradesperson chip, back shows Recently completed band, tapping the band opens the photo lightbox", async ({
+test.describe("Top tradesperson badge on the swipe deck", () => {
+  test("Homeowner can open the photo lightbox on a Top tradesperson's previous job", async ({
     request,
     runtime,
     projectApi,
@@ -36,16 +36,24 @@ test.describe("Top tradesperson surfaces on the homeowner deck", () => {
 
     await swipeDeckPage.visitForProject(projectId);
     await swipeDeckPage.hasRenderedDeck();
-    await swipeDeckPage.showsTopTradespersonChip();
+
+    await swipeDeckPage.hasBuilderCardDetails({
+      company: builder.tradesman.companyName,
+      tier: "recommended",
+      topTradesperson: true,
+    });
 
     await swipeDeckPage.flipCard();
-    await swipeDeckPage.showsRecentCompletedBandFor(SWIPE_SCENARIO_AREA);
+    await swipeDeckPage.hasBuilderCardDetails({
+      company: builder.tradesman.companyName,
+      recentlyCompletedIn: SWIPE_SCENARIO_AREA,
+    });
 
     await swipeDeckPage.tapRecentCompletedBand();
     await swipeDeckPage.showsLightbox();
   });
 
-  test("builder with a boosted closure but no photos: front shows Top tradesperson chip, back shows Recently completed band as a static (non-clickable) div, tapping the band does not open the photo lightbox", async ({
+  test("Homeowner sees the Top tradesperson badge without a lightbox when the previous job has no photos", async ({
     request,
     runtime,
     projectApi,
@@ -75,10 +83,18 @@ test.describe("Top tradesperson surfaces on the homeowner deck", () => {
 
     await swipeDeckPage.visitForProject(projectId);
     await swipeDeckPage.hasRenderedDeck();
-    await swipeDeckPage.showsTopTradespersonChip();
+
+    await swipeDeckPage.hasBuilderCardDetails({
+      company: builder.tradesman.companyName,
+      tier: "recommended",
+      topTradesperson: true,
+    });
 
     await swipeDeckPage.flipCard();
-    await swipeDeckPage.showsRecentCompletedBandFor(SWIPE_SCENARIO_AREA);
+    await swipeDeckPage.hasBuilderCardDetails({
+      company: builder.tradesman.companyName,
+      recentlyCompletedIn: SWIPE_SCENARIO_AREA,
+    });
     await swipeDeckPage.recentCompletedBandIsStatic();
 
     await swipeDeckPage.tapRecentCompletedBand();

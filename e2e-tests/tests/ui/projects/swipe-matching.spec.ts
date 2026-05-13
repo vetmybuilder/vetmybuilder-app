@@ -1,15 +1,15 @@
-import { test } from "../../src/ui.fixtures";
+import { test } from "../../../src/ui.fixtures";
 import {
   seedSwipeScenario,
   SWIPE_SCENARIO_COMPANY,
-} from "../../src/apiHelper/swipeMatching/seedSwipeScenario";
+} from "../../../src/apiHelper/swipeMatching/seedSwipeScenario";
 
-test.describe("Swipe-matching", () => {
+test.describe("Homeowner and tradesperson matching", () => {
   test.beforeEach(() => {
     test.setTimeout(120_000);
   });
 
-  test("homeowner Like + builder accept forms a match and renders the It's a match page", async ({
+  test("Homeowner and tradesperson form a match", async ({
     request,
     runtime,
     apiClient,
@@ -52,7 +52,7 @@ test.describe("Swipe-matching", () => {
     await matchPage.showsCallCta();
   });
 
-  test("homeowner Like + builder decline does not form a match", async ({
+  test("Tradesperson declines a homeowner's interest", async ({
     request,
     runtime,
     projectApi,
@@ -88,7 +88,7 @@ test.describe("Swipe-matching", () => {
     });
   });
 
-  test("homeowner Pass declines the builder and no match is formed", async ({
+  test("Homeowner passes on a tradesperson", async ({
     request,
     runtime,
     projectApi,

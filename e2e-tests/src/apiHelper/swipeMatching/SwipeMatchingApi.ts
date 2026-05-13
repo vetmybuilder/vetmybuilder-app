@@ -45,20 +45,27 @@ export class SwipeMatchingApi {
     projectId: number;
     tradesmanUid: string;
     recommenderUid?: string;
+    /** When set, seeds a fresh recommender user with this firstName so
+     *  the deck shows "Recommended by <firstName>". */
+    recommenderFirstName?: string;
     company: string;
-  }): Promise<number> {
+  }): Promise<{ recommendationId: number; recommenderUid: string | null }> {
     const res = await this.apiClient.post(
       `/api/__test__/recommendations/link-tradesman`,
       {
         projectId: params.projectId,
         tradesmanUid: params.tradesmanUid,
         recommenderUid: params.recommenderUid ?? null,
+        recommenderFirstName: params.recommenderFirstName,
         company: params.company,
       },
     );
     await assertOk(res, "linkTradesmanToProject");
     const body = await res.json();
-    return Number(body.recommendationId);
+    return {
+      recommendationId: Number(body.recommendationId),
+      recommenderUid: body.recommenderUid ?? null,
+    };
   }
 
   /**
@@ -93,15 +100,66 @@ export class SwipeMatchingApi {
   async classifyProject(params: {
     projectId: number;
     recommendedTrades: string[];
+    aiSummary?: string;
+    keyConcerns?: string[];
   }): Promise<void> {
     const res = await this.apiClient.post(
       `/api/__test__/project-classifications`,
       {
         projectId: params.projectId,
         recommendedTrades: params.recommendedTrades,
+        aiSummary: params.aiSummary,
+        keyConcerns: params.keyConcerns,
       },
     );
     await assertOk(res, "classifyProject");
+  }
+
+  /**
+   * Set the stat fields shown on the homeowner BuilderCard / tradesman
+   * JobCard. Production fills these from Google reviews scraping +
+   * Companies House verification; in e2e they're set directly.
+   */
+  async seedTradesmanStats(params: {
+    tradesmanUid: string;
+    googleRating?: number;
+    googleReviewsCount?: number;
+    chStatus?: "verified" | "matched" | "pending" | "missing";
+    yearsTrading?: number;
+  }): Promise<void> {
+    const res = await this.apiClient.post(`/api/__test__/tradesmen-stats`, {
+      tradesmanUid: params.tradesmanUid,
+      googleRating: params.googleRating,
+      googleReviewsCount: params.googleReviewsCount,
+      chStatus: params.chStatus,
+      yearsTrading: params.yearsTrading,
+    });
+    await assertOk(res, "seedTradesmanStats");
+  }
+
+  /**
+   * Seed a swipe_interest row at status='pending' where only the
+   * homeowner has swiped. This is the data shape the tradesman sees as
+   * an "incoming lead" on /tradesman/leads.
+   */
+  async seedHomeownerPendingSwipe(params: {
+    projectId: number;
+    homeownerUid: string;
+    builderUid: string;
+    source?: "recommended" | "subscribed";
+  }): Promise<number> {
+    const res = await this.apiClient.post(`/api/__test__/swipe-interest`, {
+      projectId: params.projectId,
+      homeownerUid: params.homeownerUid,
+      builderUid: params.builderUid,
+      source: params.source ?? "recommended",
+      status: "pending",
+      homeownerSwiped: true,
+      builderSwiped: false,
+    });
+    await assertOk(res, "seedHomeownerPendingSwipe");
+    const body = await res.json();
+    return Number(body.id);
   }
 
   /**
