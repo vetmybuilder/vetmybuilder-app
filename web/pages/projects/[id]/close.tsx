@@ -8,7 +8,7 @@
 import Head from "next/head";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { Camera, Check, ChevronRight, X } from "lucide-react";
+import { Camera, Check, ChevronRight, Sparkles, X } from "lucide-react";
 
 import AuthedOnly from "@/components/AuthedOnly";
 import { useApi } from "@/utils/api";
@@ -16,6 +16,12 @@ import { useAuth } from "@/utils/auth";
 import CloseTradespersonPicker, {
   type PickedTradesperson,
 } from "@/components/project/CloseTradespersonPicker";
+import {
+  StarRatingList,
+  StarRow,
+  EMPTY_RATINGS,
+  type RatingsState,
+} from "@/components/ratings/StarRatingList";
 
 type Reason = {
   value: "budget" | "quote_too_high" | "no_show" | "tradesman_unavailable" | "other";
@@ -43,7 +49,7 @@ export default function CloseProjectPage() {
 function CloseGate() {
   const router = useRouter();
 
-  // Desktop fallback — redirect back to the project page where the existing
+  // Desktop fallback - redirect back to the project page where the existing
   // modal handles closing. We only want to expose the new mobile UI on small
   // viewports, matching the rest of the mobile redesign.
   useEffect(() => {
@@ -58,7 +64,7 @@ function CloseGate() {
   return (
     <>
       <Head>
-        <title>Close project — VetMyBuilder</title>
+        <title>Close project - VetMyBuilder</title>
       </Head>
       <div className="md:hidden min-h-screen bg-white">
         <CloseInner />
@@ -87,6 +93,28 @@ function CloseInner() {
   const [busy, setBusy] = useState(false);
   const [submitErr, setSubmitErr] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // CR3 additions ─────────────────────────────────────────────
+  // UI-only in this bite; server doesn't read these yet.
+  const [satisfied, setSatisfied] = useState<"yes" | "no" | null>(null);
+  const [ratings, setRatings] = useState<RatingsState>(EMPTY_RATINGS);
+  const [overallRating, setOverallRating] = useState(0);
+  // Default ON: boosting is the high-value action for both sides, so
+  // the homeowner opts out rather than in.
+  const [boostConsent, setBoostConsent] = useState(true);
+
+  // Wipe the satisfaction sub-state when the homeowner changes who did
+  // the work or toggles "didn't go ahead". Mirrors the desktop modal.
+  useEffect(() => {
+    setSatisfied(null);
+    setRatings(EMPTY_RATINGS);
+    setOverallRating(0);
+    setBoostConsent(true);
+  }, [winner, didGoAhead]);
+
+  // Whether the satisfaction branch is meaningful for the current winner.
+  // Off-platform hires have no profile to rate or boost.
+  const askSatisfaction = !!winner && winner.kind !== "someone-else";
 
   // Load project for the headline
   useEffect(() => {
@@ -194,6 +222,20 @@ function CloseInner() {
         }
       }
 
+      // CR3: include satisfaction + boost only when the question was
+      // actually asked (real tradesperson selected and homeowner
+      // answered). Off-platform + "didn't go ahead" submit without it.
+      if (askSatisfaction && satisfied !== null) {
+        payload.satisfied = satisfied;
+        if (satisfied === "yes") {
+          payload.overallRating = overallRating;
+          payload.boostConsent = boostConsent;
+        } else {
+          payload.ratings = ratings;
+          payload.boostConsent = false;
+        }
+      }
+
       const { data } = await api.post(
         `/api/projects/${projectId}/close`,
         payload,
@@ -212,7 +254,7 @@ function CloseInner() {
             { headers: { "Content-Type": "multipart/form-data" } },
           );
         } catch {
-          // photos are non-blocking — project is already closed.
+          // photos are non-blocking - project is already closed.
         }
       }
 
@@ -366,6 +408,75 @@ function CloseInner() {
               </p>
             </div>
 
+            {/* CR3: Were you satisfied? */}
+            {askSatisfaction && (
+              <div className="px-6 pt-5" data-testid="close-satisfaction">
+                <div className="text-[10.5px] font-extrabold uppercase tracking-[0.06em] text-gray-500 mb-2">
+                  Were you satisfied with the work?
+                </div>
+                <div
+                  role="radiogroup"
+                  aria-label="Were you satisfied with the work?"
+                  className="grid grid-cols-2 gap-2"
+                >
+                  <MobileChoice
+                    active={satisfied === "no"}
+                    tone="rose"
+                    label="No"
+                    onClick={() => setSatisfied("no")}
+                    testId="satisfied-no"
+                  />
+                  <MobileChoice
+                    active={satisfied === "yes"}
+                    tone="emerald"
+                    label="Yes"
+                    onClick={() => setSatisfied("yes")}
+                    testId="satisfied-yes"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* CR3 "No" branch: shared 5-category star ratings. */}
+            {askSatisfaction && satisfied === "no" && (
+              <div className="px-6 pt-5" data-testid="close-ratings">
+                <div className="text-[10.5px] font-extrabold uppercase tracking-[0.06em] text-gray-500 mb-2">
+                  Rate the tradesperson
+                </div>
+                <StarRatingList
+                  value={ratings}
+                  onChange={setRatings}
+                  testIdPrefix="close-rating-star"
+                />
+                <p className="mt-2 text-[11px] text-gray-500 leading-snug">
+                  Stays private - only the tradesperson and our admin team
+                  see this.
+                </p>
+              </div>
+            )}
+
+            {/* Overall rating: 1-5 stars above the photos in the Yes
+                branch. Hidden in the No branch (which already collects
+                the granular 5-row breakdown) and for off-platform
+                hires (no profile to rate). */}
+            {askSatisfaction && satisfied === "yes" && (
+              <div className="px-6 pt-5" data-testid="close-overall-rating">
+                <div className="text-[10.5px] font-extrabold uppercase tracking-[0.06em] text-gray-500 mb-2">
+                  Overall rating
+                </div>
+                <StarRow
+                  label="Overall"
+                  value={overallRating}
+                  onChange={setOverallRating}
+                  testIdPrefix="close-overall-star"
+                />
+              </div>
+            )}
+
+            {/* Photos: hidden in the "No" branch (the rating is the
+                closure signal). Off-platform hires + "Yes" branch show
+                photos as before. */}
+            {(!askSatisfaction || satisfied === "yes") && (
             <div className="px-6 pt-5">
               <div className="text-[10.5px] font-extrabold uppercase tracking-[0.06em] text-gray-500 mb-2">
                 Photos of the completed work
@@ -414,6 +525,41 @@ function CloseInner() {
                 </div>
               )}
             </div>
+            )}
+
+            {/* CR3 boost-and-consent: only in the satisfied=yes branch. */}
+            {askSatisfaction && satisfied === "yes" && (
+              <div className="px-6 pt-5">
+                <label
+                  className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/60 px-4 py-3 cursor-pointer"
+                  data-testid="close-boost"
+                >
+                  <input
+                    type="checkbox"
+                    checked={boostConsent}
+                    onChange={(e) => setBoostConsent(e.target.checked)}
+                    className="mt-0.5 h-5 w-5 rounded border-amber-300 text-indigo-600 focus:ring-indigo-500"
+                    data-testid="close-boost-checkbox"
+                  />
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5 text-amber-600" />
+                      <span className="text-[13.5px] font-extrabold text-slate-900">
+                        Give them a boost
+                      </span>
+                    </span>
+                    <span className="block mt-0.5 text-[12px] text-slate-600 leading-relaxed">
+                      We&apos;ll mark them as a top tradesperson in your
+                      area, and the photos you uploaded above may be shown
+                      anonymously on their profile so future homeowners can
+                      see their work. Your name and exact address are never
+                      shown. Closing also archives this job - it won&apos;t
+                      appear in your list again.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            )}
           </>
         )}
 
@@ -539,5 +685,38 @@ function CloseInner() {
         onPick={(p) => setWinner(p)}
       />
     </div>
+  );
+}
+
+function MobileChoice({
+  active,
+  tone,
+  label,
+  onClick,
+  testId,
+}: {
+  active: boolean;
+  tone: "rose" | "emerald";
+  label: string;
+  onClick: () => void;
+  testId: string;
+}) {
+  const activeCls =
+    tone === "emerald"
+      ? "bg-emerald-50 border-emerald-300 text-emerald-700 ring-2 ring-emerald-200"
+      : "bg-rose-50 border-rose-300 text-rose-700 ring-2 ring-rose-200";
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      data-testid={testId}
+      onClick={onClick}
+      className={`rounded-2xl border-[1.5px] py-3 text-[14px] font-extrabold transition-all ${
+        active ? activeCls : "bg-white border-gray-200 text-gray-700"
+      }`}
+    >
+      {label}
+    </button>
   );
 }

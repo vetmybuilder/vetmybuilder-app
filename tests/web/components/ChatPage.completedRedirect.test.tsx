@@ -4,7 +4,10 @@
 // has been closed the chat thread drops out of both inboxes, but a user
 // might still hit the URL via an old email link or bookmark. The page
 // must redirect them to a canonical "this is done" surface:
-//   - homeowner → /projects/:id/completed
+//   - homeowner → /projects  (CR3 retired the per-project completed page;
+//                              the projects list is the new home for
+//                              "this is done" since /completed just
+//                              redirected anyway)
 //   - tradesman → /tradesman/matches
 //
 // Without this guard anyone removing the redirect effect in
@@ -102,7 +105,7 @@ describe("<ChatPage /> - completed-project redirect", () => {
     get.mockReset();
   });
 
-  it("redirects a homeowner viewer to /projects/:id/completed", async () => {
+  it("redirects a homeowner viewer to /projects", async () => {
     get.mockResolvedValueOnce({
       data: { ...baseChatData, projectStatus: "completed" },
     });
@@ -110,7 +113,7 @@ describe("<ChatPage /> - completed-project redirect", () => {
     render(<ChatPage />);
 
     await waitFor(() => {
-      expect(replace).toHaveBeenCalledWith("/projects/95/completed");
+      expect(replace).toHaveBeenCalledWith("/projects");
     });
   });
 
@@ -147,7 +150,7 @@ describe("<ChatPage /> - completed-project redirect", () => {
     // fire. 50ms is enough — the effect would have run by then.
     await new Promise((r) => setTimeout(r, 50));
 
-    expect(replace).not.toHaveBeenCalledWith("/projects/95/completed");
+    expect(replace).not.toHaveBeenCalledWith("/projects");
     expect(replace).not.toHaveBeenCalledWith("/tradesman/matches");
   });
 });

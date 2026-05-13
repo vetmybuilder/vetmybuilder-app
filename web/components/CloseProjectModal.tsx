@@ -1,7 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Sparkles } from "lucide-react";
 import { useApi } from "@/utils/api";
 import FileGridUploader from "@/components/fileUpload/FileGridUploader";
 import Select from "@/components/forms/Select";
+import {
+  StarRatingList,
+  StarRow,
+  EMPTY_RATINGS,
+  type RatingsState,
+} from "@/components/ratings/StarRatingList";
 
 export type RecommendationLite = {
   id: number | string;
@@ -32,6 +39,17 @@ export type ClosePayload = {
 
   /** Hired off-platform - completes the project with no specific winner uid. */
   winnerOther?: boolean;
+
+  /** CR3: post-job satisfaction signal. Null when the homeowner went
+   *  off-platform or the work didn't go ahead. */
+  satisfied?: "yes" | "no" | null;
+  /** CR3: single overall rating (1-5), only collected in the Yes branch. */
+  overallRating?: number;
+  /** CR3: 5-category breakdown, only collected in the No branch. */
+  ratings?: Record<string, number>;
+  /** CR3: "Give them a boost" — doubles as photo-sharing consent and
+   *  flips the project to archived. */
+  boostConsent?: boolean;
 };
 
 type Props = {
@@ -90,6 +108,30 @@ export default function CloseProjectModal({
   const [photoConsent, setPhotoConsent] = useState(false);
   const MAX_FILES = 20;
 
+  // CR3 additions ─────────────────────────────────────────────
+  // Only meaningful when didGoAhead AND a tradesperson (not "other")
+  // is selected. UI-only in this bite - server doesn't read these yet.
+  const [satisfied, setSatisfied] = useState<"yes" | "no" | null>(null);
+  const [ratings, setRatings] = useState<RatingsState>(EMPTY_RATINGS);
+  // Single overall rating used in the "Yes" branch (the granular 5-row
+  // breakdown lives in the "No" branch where we want richer signals).
+  const [overallRating, setOverallRating] = useState(0);
+  // "Give them a boost" doubles as consent: ticking it means the photos
+  // uploaded above may be shown anonymously on this tradesperson's profile.
+  // Default ON: boosting is the high-value action for both sides, so
+  // the homeowner opts out rather than in. Copy + consent text are
+  // explicit about what ticking it means.
+  const [boostConsent, setBoostConsent] = useState(true);
+
+  // Reset the satisfaction sub-state when the homeowner changes who did
+  // the work, or toggles "didn't go ahead". Keeps the UI honest.
+  useEffect(() => {
+    setSatisfied(null);
+    setRatings(EMPTY_RATINGS);
+    setOverallRating(0);
+    setBoostConsent(true);
+  }, [selectedWinnerKey, didGoAhead]);
+
   // Reset when closing
   useEffect(() => {
     if (!open) {
@@ -102,6 +144,10 @@ export default function CloseProjectModal({
       setSelectedWinnerKey("");
       setFiles([]);
       setPhotoConsent(false);
+      setSatisfied(null);
+      setRatings(EMPTY_RATINGS);
+      setOverallRating(0);
+      setBoostConsent(true);
     }
   }, [open]);
 
@@ -317,6 +363,25 @@ export default function CloseProjectModal({
         }
       }
 
+      // CR3 fields — only include when the satisfaction sub-flow was
+      // actually used (didGoAhead, a real tradesperson was picked, and
+      // the homeowner answered the question). Off-platform hires and
+      // "didn't go ahead" closures still submit with these omitted so
+      // the server persists NULL/0.
+      const askedSatisfaction =
+        didGoAhead &&
+        !!selectedWinnerKey &&
+        selectedWinnerKey !== "other" &&
+        satisfied !== null;
+      const cr3Fields = askedSatisfaction
+        ? {
+            satisfied,
+            overallRating: satisfied === "yes" ? overallRating : undefined,
+            ratings: satisfied === "no" ? ratings : undefined,
+            boostConsent: satisfied === "yes" ? boostConsent : false,
+          }
+        : {};
+
       // Send a payload with alias keys too, so parent/server mapping can't drop it.
       const payload: ClosePayload & Record<string, any> = {
         didGoAhead,
@@ -340,6 +405,8 @@ export default function CloseProjectModal({
 
         winner_tradesman_uid: winnerTradesmanUid,
         _winnerTradesmanUid: winnerTradesmanUid,
+
+        ...cr3Fields,
       };
 
       await onSubmit(payload);
@@ -561,7 +628,7 @@ export default function CloseProjectModal({
             </fieldset>
           )}
 
-          {/* Who did the work + photos if it DID go ahead */}
+          {/* Who did the work + (CR3) satisfaction branch + photos. */}
           {didGoAhead && (
             <>
               <div>
@@ -588,18 +655,133 @@ export default function CloseProjectModal({
                 </p>
               </div>
 
-              <div>
-                <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-500 mb-2">
-                  Photos of the completed work
+              {/* CR3: ask satisfaction once a real tradesperson is selected.
+                  Off-platform ("other") skips this - we have no profile to
+                  rate or boost. */}
+              {selectedWinnerKey &&
+                selectedWinnerKey !== "other" && (
+                  <div data-testid="close-satisfaction">
+                    <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-500 mb-2">
+                      Were you satisfied with the work?
+                    </div>
+                    <div
+                      role="radiogroup"
+                      aria-label="Were you satisfied with the work?"
+                      className="grid grid-cols-2 gap-2"
+                    >
+                      <SatisfiedChoice
+                        active={satisfied === "no"}
+                        tone="rose"
+                        label="No"
+                        onClick={() => setSatisfied("no")}
+                        testId="satisfied-no"
+                      />
+                      <SatisfiedChoice
+                        active={satisfied === "yes"}
+                        tone="emerald"
+                        label="Yes"
+                        onClick={() => setSatisfied("yes")}
+                        testId="satisfied-yes"
+                      />
+                    </div>
+                  </div>
+                )}
+
+              {/* CR3 "No" branch: 5 category star ratings (shared with
+                  /projects/:id/recommend). No free-text. */}
+              {selectedWinnerKey &&
+                selectedWinnerKey !== "other" &&
+                satisfied === "no" && (
+                  <div data-testid="close-ratings">
+                    <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-500 mb-2">
+                      Rate the tradesperson
+                    </div>
+                    <StarRatingList
+                      value={ratings}
+                      onChange={setRatings}
+                      testIdPrefix="close-rating-star"
+                    />
+                    <p className="mt-2 text-[11.5px] text-slate-500 leading-snug">
+                      Stays private - only the tradesperson and our admin team
+                      see this.
+                    </p>
+                  </div>
+                )}
+
+              {/* Overall rating: 1-5 stars above the photos, only in the
+                  satisfied=yes branch. The 5-category breakdown stays in
+                  the No branch where richer signals are useful. */}
+              {selectedWinnerKey &&
+                selectedWinnerKey !== "other" &&
+                satisfied === "yes" && (
+                  <div data-testid="close-overall-rating">
+                    <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-500 mb-2">
+                      Overall rating
+                    </div>
+                    <StarRow
+                      label="Overall"
+                      value={overallRating}
+                      onChange={setOverallRating}
+                      testIdPrefix="close-overall-star"
+                    />
+                  </div>
+                )}
+
+              {/* Photos: shown when satisfied=yes OR the homeowner went
+                  off-platform. Hidden when satisfied=no (the rating IS
+                  the closure signal). */}
+              {(satisfied === "yes" ||
+                selectedWinnerKey === "other" ||
+                (!selectedWinnerKey && false)) && (
+                <div>
+                  <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-500 mb-2">
+                    Photos of the completed work
+                  </div>
+                  <FileGridUploader
+                    files={files}
+                    onChange={setFiles}
+                    maxFiles={MAX_FILES}
+                    maxSizeMB={10}
+                    onConsentChange={setPhotoConsent}
+                  />
                 </div>
-                <FileGridUploader
-                  files={files}
-                  onChange={setFiles}
-                  maxFiles={MAX_FILES}
-                  maxSizeMB={10}
-                  onConsentChange={setPhotoConsent}
-                />
-              </div>
+              )}
+
+              {/* CR3 boost-and-consent: only shown in the "Yes" branch.
+                  Ticking it means the photos uploaded above may be shown
+                  anonymously on this tradesperson's profile. */}
+              {selectedWinnerKey &&
+                selectedWinnerKey !== "other" &&
+                satisfied === "yes" && (
+                  <label
+                    className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/60 px-4 py-3 cursor-pointer"
+                    data-testid="close-boost"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={boostConsent}
+                      onChange={(e) => setBoostConsent(e.target.checked)}
+                      className="mt-0.5 h-5 w-5 rounded border-amber-300 text-indigo-600 focus:ring-indigo-500"
+                      data-testid="close-boost-checkbox"
+                    />
+                    <span className="min-w-0">
+                      <span className="flex items-center gap-1.5">
+                        <Sparkles className="h-3.5 w-3.5 text-amber-600" />
+                        <span className="text-[13.5px] font-extrabold text-slate-900">
+                          Give them a boost
+                        </span>
+                      </span>
+                      <span className="block mt-0.5 text-[12px] text-slate-600 leading-relaxed">
+                        We&apos;ll mark them as a top tradesperson in your
+                        area, and the photos you uploaded above may be shown
+                        anonymously on their profile so future homeowners can
+                        see their work. Your name and exact address are never
+                        shown. Closing also archives this job - it won&apos;t
+                        appear in your list again.
+                      </span>
+                    </span>
+                  </label>
+                )}
             </>
           )}
         </div>
@@ -685,6 +867,39 @@ function SegmentBtn({
         active
           ? "bg-white text-slate-900 shadow"
           : "text-slate-500 hover:text-slate-700"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function SatisfiedChoice({
+  active,
+  tone,
+  label,
+  onClick,
+  testId,
+}: {
+  active: boolean;
+  tone: "rose" | "emerald";
+  label: string;
+  onClick: () => void;
+  testId: string;
+}) {
+  const activeCls =
+    tone === "emerald"
+      ? "bg-emerald-50 border-emerald-300 text-emerald-700 ring-2 ring-emerald-200"
+      : "bg-rose-50 border-rose-300 text-rose-700 ring-2 ring-rose-200";
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      data-testid={testId}
+      onClick={onClick}
+      className={`rounded-2xl border-[1.5px] py-3 text-[14px] font-extrabold transition-all ${
+        active ? activeCls : "bg-white border-slate-200 text-slate-700"
       }`}
     >
       {label}

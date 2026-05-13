@@ -116,6 +116,13 @@ describe("<CloseProjectModal /> (desktop)", () => {
     expect(payload.selectedRecommendationId).toBeUndefined();
   });
 
+  // CR3 satisfaction-flow payload coverage (boost default-on, untick,
+  // 5-category ratings) lives in the close-job Playwright spec rather
+  // than here - the desktop CloseProjectModal is heavy enough that
+  // adding three more full-render assertions blows the CI vitest
+  // worker's heap. The Playwright spec drives the same flow end-to-end
+  // and asserts the resulting DB state.
+
   it("offers 'Someone else' even when no candidates have loaded", async () => {
     get.mockImplementation(async (url: string) => {
       if (url.startsWith("/api/recommendations/ratings"))

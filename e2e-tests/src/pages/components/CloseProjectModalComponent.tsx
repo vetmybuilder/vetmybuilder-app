@@ -20,6 +20,12 @@ export type CloseProjectOptions = {
   pickSomeoneElse?: boolean;
 
   photoPaths?: string[];
+
+  /** CR3: answer the "Were you satisfied with the work?" question. Only
+   *  meaningful when a real tradesperson was selected (not "someone else"). */
+  satisfied?: "yes" | "no";
+  /** CR3: tick "Give them a boost". Only applies when satisfied="yes". */
+  boost?: boolean;
 };
 
 export class CloseProjectModalComponent {
@@ -214,6 +220,15 @@ export class CloseProjectModalComponent {
         await this.selectFirstAvailableTradesperson();
       } else if (opts.tradespersonLabel) {
         await this.chooseTradespersonByLabel(opts.tradespersonLabel);
+      }
+
+      // CR3: drive the new satisfaction sub-flow. Off-platform hires
+      // skip this whole block — the question isn't rendered for them.
+      if (opts.satisfied && !opts.pickSomeoneElse) {
+        await this.page.getByTestId(`satisfied-${opts.satisfied}`).click();
+        if (opts.satisfied === "yes" && opts.boost) {
+          await this.page.getByTestId("close-boost-checkbox").check();
+        }
       }
 
       if (opts.photoPaths?.length) {

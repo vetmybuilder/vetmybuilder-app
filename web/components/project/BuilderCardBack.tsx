@@ -11,10 +11,11 @@
 // has (matches API row) if the fetch fails or hasn't returned yet.
 
 import { useEffect, useState } from "react";
-import { ShieldCheck } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import type { BuilderCardBuilder } from "./BuilderCard";
 import { useApi } from "@/utils/api";
 import PhotoLightbox from "@/components/PhotoLightbox";
+import { useRecentCompleted } from "@/hooks/useRecentCompleted";
 
 export interface BuilderCardBackBuilder extends BuilderCardBuilder {
   primaryTrade?: string | null;
@@ -45,6 +46,15 @@ export default function BuilderCardBack({
   // Recommendation-card backs are local to the swipe deck — there's no
   // tradesperson to fetch, so we just show what the card already has.
   const isRecCard = !!builder.isRecommendation;
+
+  // CR3: recent completed work (boosted closures). Shows an emerald
+  // "Recently completed in {area}" band above the photos when present.
+  // Tapping the band opens the lightbox with the most recent closure's
+  // photos. Rec cards short-circuit (no uid to query).
+  const recentCompleted = useRecentCompleted(
+    !isRecCard ? builder.uid : null,
+  );
+  const topClosure = recentCompleted.items[0] || null;
 
   useEffect(() => {
     if (isRecCard || !builder.uid) return;
@@ -197,13 +207,59 @@ export default function BuilderCardBack({
           bar so the last chip / paragraph never sits under the buttons.
           (Same trick as the front face's gradient overlay.) */}
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-28 space-y-3">
-        {builder.chVerified && (
-          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50">
-            <span className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0">
-              <ShieldCheck className="w-3.5 h-3.5" />
-            </span>
-            <span className="text-[12px] font-bold text-emerald-800">Verified</span>
-          </div>
+        {/* Verified pill is intentionally not duplicated here - the
+            front of the card already carries it in the chip row. */}
+
+        {/* CR3: emerald band whenever this tradesperson has at least one
+            boosted closure — even if no photos were uploaded. The
+            previous homeowner ticked boost so the social signal still
+            counts; the tap-to-lightbox affordance just turns off when
+            there's nothing to open. */}
+        {topClosure && (
+          (() => {
+            const hasPhotos = topClosure.photos.length > 0;
+            const inner = (
+              <>
+                <Sparkles className="h-4 w-4 shrink-0" />
+                <span className="min-w-0">
+                  <span className="block text-[11.5px] font-extrabold leading-tight">
+                    Recently completed
+                    {topClosure.area ? ` in ${topClosure.area}` : " nearby"}
+                  </span>
+                  {hasPhotos && (
+                    <span className="block text-[10.5px] text-white/85">
+                      Tap to see the work
+                    </span>
+                  )}
+                </span>
+              </>
+            );
+            const classes =
+              "w-full text-left rounded-2xl px-3 py-2.5 text-white flex items-center gap-2.5 shadow-sm";
+            return hasPhotos ? (
+              <button
+                type="button"
+                data-testid="card-recent-completed-band"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightbox({ photos: topClosure.photos, index: 0 });
+                }}
+                className={`${classes} transition-shadow hover:shadow-md`}
+                style={{ background: "linear-gradient(135deg,#10b981,#047857)" }}
+              >
+                {inner}
+              </button>
+            ) : (
+              <div
+                data-testid="card-recent-completed-band"
+                data-band-static="1"
+                className={classes}
+                style={{ background: "linear-gradient(135deg,#10b981,#047857)" }}
+              >
+                {inner}
+              </div>
+            );
+          })()
         )}
 
         {galleryToShow.length > 0 && (

@@ -25,6 +25,7 @@ type SetupArgs = {
 
 type SetupResult = {
   owner: Account;
+  ownerUid: string;
   ownerClient: Awaited<ReturnType<typeof authedApiForUid>>;
   project: Project;
   projectId: number;
@@ -63,6 +64,7 @@ export async function setupOwnerWithLiveProject(
 
   return {
     owner,
+    ownerUid: ownerAuthUser.uid,
     ownerClient,
     project,
     projectId: created.id,

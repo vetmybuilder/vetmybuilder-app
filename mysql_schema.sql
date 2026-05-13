@@ -162,6 +162,20 @@ CREATE TABLE IF NOT EXISTS project_closures (
   winner_from_community TINYINT NOT NULL DEFAULT 0,
   wouldUseAgain INTEGER DEFAULT NULL,
 
+  -- CR3 satisfaction + boost columns.
+  -- satisfied: 1=yes, 0=no, NULL=not asked (off-platform hire, didn't
+  -- go ahead, or legacy pre-CR3 rows).
+  satisfied TINYINT NULL DEFAULT NULL,
+  -- 0-5 single rating collected in the satisfied=yes branch.
+  overall_rating TINYINT NULL DEFAULT NULL,
+  -- JSON object {quality,reliability,communication,trust,value} — only
+  -- populated in the satisfied=no branch.
+  ratings_json TEXT NULL,
+  -- "Give them a boost" doubles as consent for the closure photos to
+  -- appear anonymously on the tradesperson's profile, and flips the
+  -- project to archived (the completed tab is gone for homeowners).
+  boost_consent TINYINT NOT NULL DEFAULT 0,
+
   createdBy TEXT,                        -- uid
   createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 

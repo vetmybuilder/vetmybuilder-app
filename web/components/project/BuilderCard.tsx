@@ -5,6 +5,8 @@
 // separate "stat row" beneath the photo. Same props as before so callers
 // don't need to change.
 import Image from "next/image";
+import { Star } from "lucide-react";
+import { useRecentCompleted } from "@/hooks/useRecentCompleted";
 
 export type BuilderTier = "recommended" | "ai-matched" | "paid_unlock";
 
@@ -40,6 +42,14 @@ export default function BuilderCard({
   const isRecCard = !!builder.isRecommendation;
   const isRec = builder.tier === "recommended";
   const isPaid = builder.tier === "paid_unlock";
+
+  // CR3: surface a "Top tradesperson" chip when this builder has at
+  // least one boosted closure. Rec cards don't have a uid we can query,
+  // so the hook short-circuits with topTradesperson=false there.
+  const { topTradesperson } = useRecentCompleted(
+    !isRecCard ? builder.uid : null,
+  );
+
   const title = builder.companyName || builder.displayName || "Builder";
   const initial = (title || "?").trim().charAt(0).toUpperCase();
   const yrLabel =
@@ -163,6 +173,17 @@ export default function BuilderCard({
           {builder.chVerified && (
             <Chip className="bg-emerald-500/85 text-white">✓ Verified</Chip>
           )}
+          {/* CR3: top tradesperson chip - boosted by at least one
+              homeowner who closed a job with them. */}
+          {topTradesperson && (
+            <Chip
+              className="bg-amber-100 text-amber-800 border border-amber-300"
+              testId="card-top-tradesperson"
+            >
+              <Star className="h-3 w-3 fill-amber-700 inline-block mr-1" />
+              Top tradesperson
+            </Chip>
+          )}
         </div>
 
         {/* Attribution / why-match */}
@@ -225,12 +246,15 @@ function BadgePill({
 function Chip({
   children,
   className = "",
+  testId,
 }: {
   children: React.ReactNode;
   className?: string;
+  testId?: string;
 }) {
   return (
     <span
+      data-testid={testId}
       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full backdrop-blur ${
         className || "bg-white/15 text-white"
       }`}

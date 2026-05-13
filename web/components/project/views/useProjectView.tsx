@@ -382,15 +382,11 @@ export function useProjectView() {
       const updated: Project = data?.project ?? project;
       setCloseOpen(false);
       // Navigate away from the now-closed project before flipping vm
-      // state. Archived projects are invisible to the owner so the
-      // /projects/{id} page would 404 if we stayed; completed jobs live
-      // under the Completed tab, so jump there directly.
-      if (updated.status === "archived") {
+      // state. Archived AND completed projects are both invisible to
+      // the homeowner now (post-CR3 the completed tab is retired), so
+      // drop them back on the main /projects list in either case.
+      if (updated.status === "archived" || updated.status === "completed") {
         router.replace("/projects");
-        return;
-      }
-      if (updated.status === "completed") {
-        router.replace("/projects?tab=completed");
         return;
       }
       setProject(updated);

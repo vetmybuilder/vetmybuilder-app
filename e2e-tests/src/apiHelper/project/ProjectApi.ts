@@ -83,7 +83,19 @@ export class ProjectApi {
 
   async closeProject(
     projectId: string | number,
-    options: { didGoAhead: boolean; reasons?: string[] },
+    options: {
+      didGoAhead: boolean;
+      reasons?: string[];
+      // Winner identification (one of these, optional):
+      winnerRecommendationId?: number | string;
+      winnerTradesmanUid?: string;
+      winnerOther?: boolean;
+      // CR3 satisfaction + boost:
+      satisfied?: "yes" | "no";
+      overallRating?: number;
+      ratings?: Record<string, number>;
+      boostConsent?: boolean;
+    },
   ) {
     const res = await this.apiClient.post(
       `/api/projects/${projectId}/close`,

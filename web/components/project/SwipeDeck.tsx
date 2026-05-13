@@ -288,10 +288,26 @@ export default function SwipeDeck({
 
   return (
     <div className="relative h-full w-full flex flex-col">
+      {/* Desktop-only action bar above the card (user-testing redesign).
+          Mobile keeps the legacy "buttons below the card" layout — the
+          duplicate bar at the bottom of this component handles that.
+          Rendering twice + responsive-hiding is the cheapest way to
+          flip vertical position purely with Tailwind classes. */}
+      <div className="hidden md:flex px-4 pt-1 pb-3 items-center justify-center">
+        <SwipeActionBar
+          disabled={busy}
+          onPass={() => commit("left")}
+          onInfo={() => setFlipped((v) => !v)}
+          onLike={() => commit("right")}
+          floating
+        />
+      </div>
       {/* Card stack - takes available vertical space, padded so the card
           doesn't kiss the screen edges and the rounded corners + drop
-          shadow have room to breathe. */}
-      <div className="relative flex-1 min-h-[420px] mx-4 mt-2 mb-3">
+          shadow have room to breathe. Desktop bumps to 540px so the
+          photo gets more presence; mobile stays at the legacy 420px
+          so the bottom action bar still fits on smaller phones. */}
+      <div className="relative flex-1 min-h-[420px] md:min-h-[540px] mx-4 mt-2 mb-3">
         {visible.map((b, i) => {
           const isTop = i === 0;
           return (
@@ -394,10 +410,9 @@ export default function SwipeDeck({
         })}
       </div>
 
-      {/* Action bar - sits OUTSIDE / BELOW the card, on the page chrome
-          rather than floating over the photo. Indigo Like button is the
-          homeowner's brand colour (matching the warm-blue page bg). */}
-      <div className="px-4 pb-4 pt-1 flex items-center justify-center">
+      {/* Mobile-only action bar below the card (legacy layout). The
+          desktop variant lives at the top of this component. */}
+      <div className="md:hidden px-4 pb-4 pt-1 flex items-center justify-center">
         <SwipeActionBar
           disabled={busy}
           onPass={() => commit("left")}

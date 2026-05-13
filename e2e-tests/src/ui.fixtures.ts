@@ -8,6 +8,7 @@ import PipelineApi from "./apiHelper/pipeline/PipelineApi";
 import SwipeMatchingApi from "./apiHelper/swipeMatching/SwipeMatchingApi";
 import SwipeDeckPage from "./pages/SwipeDeckPage";
 import MatchPage from "./pages/MatchPage";
+import TradesmanLeadsDeckPage from "./pages/TradesmanLeadsDeckPage";
 
 type ApiClient = ReturnType<typeof api>;
 
@@ -38,6 +39,7 @@ export const test = uiBaseTest.extend<{
   swipeMatchingApi: SwipeMatchingApi;
   swipeDeckPage: SwipeDeckPage;
   matchPage: MatchPage;
+  tradesmanLeadsDeckPage: TradesmanLeadsDeckPage;
   basePage: BasePage;
 }>({
   login: [
@@ -124,8 +126,8 @@ export const test = uiBaseTest.extend<{
     await use(new PipelineApi(adminApiClient, runtime.dbName));
   },
 
-  swipeMatchingApi: async ({ runtime }, use) => {
-    await use(new SwipeMatchingApi(runtime.dbName));
+  swipeMatchingApi: async ({ apiClient }, use) => {
+    await use(new SwipeMatchingApi(apiClient));
   },
 
   swipeDeckPage: async ({ page }, use) => {
@@ -134,6 +136,10 @@ export const test = uiBaseTest.extend<{
 
   matchPage: async ({ page }, use) => {
     await use(new MatchPage(page));
+  },
+
+  tradesmanLeadsDeckPage: async ({ page }, use) => {
+    await use(new TradesmanLeadsDeckPage(page));
   },
 });
 

@@ -145,16 +145,19 @@ describe("Projects list (mobile + desktop)", () => {
     );
   });
 
-  it("does not render a Drafts tab on mobile", async () => {
+  it("renders only the All / Live pills on mobile (Drafts + Completed are gone)", async () => {
+    // Completed projects have no homeowner-facing surface post-CR3 -
+    // the closure → archive flow makes the Completed tab redundant, so
+    // the mobile pill row was stripped to just All + Live.
     render(<ProjectsPage />);
     await waitFor(() => {
       expect(screen.getByTestId("projects-mobile-tabs")).toBeInTheDocument();
     }, WAIT);
     const tabs = screen.getByTestId("projects-mobile-tabs");
     expect(tabs).not.toHaveTextContent(/Drafts/);
+    expect(tabs).not.toHaveTextContent(/Completed/);
     expect(tabs).toHaveTextContent(/All/);
     expect(tabs).toHaveTextContent(/Live/);
-    expect(tabs).toHaveTextContent(/Completed/);
   });
 
   // (Mobile Completed-tab behaviour is covered by the Playwright e2e

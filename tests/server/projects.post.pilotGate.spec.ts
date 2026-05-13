@@ -5,7 +5,7 @@
 // still POST a banned postcode - the server must refuse it.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../../server/lib/logger.js", () => ({
+vi.mock("../../server/lib/logger", () => ({
   logger: {
     info: vi.fn(),
     warn: vi.fn(),
@@ -17,15 +17,15 @@ vi.mock("../../server/lib/logger.js", () => ({
 
 // classifyProject fires AI work in the background after the row is inserted;
 // we stub it so the route doesn't try to hit the model in tests.
-vi.mock("../../server/lib/ai/projectClassifier.js", () => ({
+vi.mock("../../server/lib/ai/projectClassifier", () => ({
   classifyProject: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("../../server/lib/publishNotifications.js", () => ({
+vi.mock("../../server/lib/publishNotifications", () => ({
   firePublishNotifications: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("../../server/lib/analytics.js", () => ({
+vi.mock("../../server/lib/analytics", () => ({
   trackProjectCreated: vi.fn(),
 }));
 
@@ -34,17 +34,21 @@ vi.mock("../../server/lib/analytics.js", () => ({
 const { mockResolveOutwardDistricts } = vi.hoisted(() => ({
   mockResolveOutwardDistricts: vi.fn(async () => [] as string[]),
 }));
-vi.mock("../../server/lib/postcodesIo.js", () => ({
+vi.mock("../../server/lib/postcodesIo", () => ({
   resolveOutwardDistricts: mockResolveOutwardDistricts,
   resolvePostcodeDistrict: vi.fn(async () => null),
   clearPostcodesIoCache: vi.fn(),
 }));
 
 // Reset the in-process pilot cache between tests so getEnabledOutwardSet
-// reflects whatever fake mysqlQuery says today.
+// reflects whatever fake mysqlQuery says today. Also disable the
+// PILOT_AREAS_BYPASS escape hatch (set in .env so the e2e suite can use
+// non-pilot postcodes) - this spec is specifically exercising the gate,
+// so the bypass would short-circuit every assertion.
 beforeEach(() => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require("../../server/lib/pilotAreas").invalidateCache();
+  delete process.env.PILOT_AREAS_BYPASS;
 });
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -99,7 +103,9 @@ describe("POST /api/projects - pilot-area gate", () => {
     // postcodes.io says SW10 is in Kensington and Chelsea.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     // (use hoisted mockResolveOutwardDistricts directly)
-    mockResolveOutwardDistricts.mockResolvedValueOnce(["Kensington and Chelsea"]);
+    mockResolveOutwardDistricts.mockImplementation(async () => [
+      "Kensington and Chelsea",
+    ]);
 
     const handler = loadRouteHandler(mysqlQuery);
     const res = mockRes();
@@ -137,7 +143,7 @@ describe("POST /api/projects - pilot-area gate", () => {
 
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     // (use hoisted mockResolveOutwardDistricts directly)
-    mockResolveOutwardDistricts.mockResolvedValueOnce(["Waltham Forest"]);
+    mockResolveOutwardDistricts.mockImplementation(async () => ["Waltham Forest"]);
 
     const handler = loadRouteHandler(mysqlQuery);
     const res = mockRes();
@@ -172,7 +178,10 @@ describe("POST /api/projects - pilot-area gate", () => {
 
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     // (use hoisted mockResolveOutwardDistricts directly)
-    mockResolveOutwardDistricts.mockResolvedValueOnce(["Greenwich", "Bromley"]);
+    mockResolveOutwardDistricts.mockImplementation(async () => [
+      "Greenwich",
+      "Bromley",
+    ]);
 
     const handler = loadRouteHandler(mysqlQuery);
     const res = mockRes();
@@ -201,7 +210,9 @@ describe("POST /api/projects - pilot-area gate", () => {
 
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     // (use hoisted mockResolveOutwardDistricts directly)
-    mockResolveOutwardDistricts.mockResolvedValueOnce(["Kensington and Chelsea"]);
+    mockResolveOutwardDistricts.mockImplementation(async () => [
+      "Kensington and Chelsea",
+    ]);
 
     const handler = loadRouteHandler(mysqlQuery);
     const res = mockRes();

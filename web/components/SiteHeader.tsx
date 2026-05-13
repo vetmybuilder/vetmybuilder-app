@@ -1,7 +1,7 @@
 // web/components/SiteHeader.tsx
 import Link from "next/link";
 import React, { useMemo, useRef, useState, useEffect } from "react";
-import { UserCog, LogOut } from "lucide-react";
+import { UserCog, LogOut, Heart, FolderOpen, Plus } from "lucide-react";
 import { useAuth, signOutUser } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
@@ -13,17 +13,73 @@ import TradesmanInboxDropdown, {
 } from "@/components/TradesmanInboxDropdown";
 import MessagesIconButton from "@/components/header/MessagesIconButton";
 
-// Owner project tabs - rendered in the centre of the header for any
-// signed-in homeowner. Clicking a tab from anywhere routes to /projects
-// with the right ?tab= query, so the user can jump to favourites
-// without first walking to /projects. Recommendations live on each
-// project's right rail, so they don't need a global tab here.
-const OWNER_TABS = [
-  { key: "mine", label: "Live" },
-  { key: "completed", label: "Completed" },
-  { key: "favourites", label: "Favourites" },
-] as const;
-type OwnerTabKey = (typeof OWNER_TABS)[number]["key"];
+// Resolve a contextual "you are here" title for the homeowner header
+// centre. Returns null when the route doesn't have a recognisable title
+// or the page already provides its own dominant heading. The "script"
+// half (when set) is rendered in the brand's Caveat hand-drawn font.
+function getOwnerHeaderTitle(
+  pathname: string,
+  rawTab: string | string[] | undefined,
+): { plain: string; script?: string } | null {
+  const tab = String(Array.isArray(rawTab) ? rawTab[0] : rawTab || "");
+
+  if (pathname === "/projects") {
+    if (tab === "favourites") return { plain: "Favourites" };
+    if (tab === "recommendations") return { plain: "Recommendations" };
+    return { plain: "My", script: "jobs" };
+  }
+  if (pathname === "/projects/new") return { plain: "Post a", script: "job" };
+  if (pathname === "/projects/[id]/edit") return { plain: "Edit job" };
+  if (pathname === "/projects/[id]") return { plain: "Your", script: "shortlist" };
+  if (pathname === "/account") return { plain: "Account" };
+  return null;
+}
+
+function OwnerHeaderTitle({
+  pathname,
+  rawTab,
+}: {
+  pathname: string;
+  rawTab: string | string[] | undefined;
+}) {
+  const title = getOwnerHeaderTitle(pathname, rawTab);
+  if (!title) return null;
+  return (
+    <div
+      className="hidden md:flex flex-1 items-center justify-center"
+      data-testid="owner-header-title"
+    >
+      <div className="flex items-baseline gap-1.5 text-[17px]">
+        <span
+          className="font-black text-slate-900"
+          style={{ fontFamily: "'Sora', sans-serif" }}
+        >
+          {title.plain}
+        </span>
+        {title.script && (
+          <span
+            className="text-indigo-600"
+            style={{
+              fontFamily: "'Caveat', cursive",
+              fontSize: "26px",
+              lineHeight: 1,
+            }}
+          >
+            {title.script}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Owner project tabs - retired in May 2026. Live was the only one left
+// after Completed and Favourites moved into the avatar dropdown, and a
+// solo pill in the centre looked awkward. The constant + types remain
+// only so any dead reference doesn't crash; OWNER_TABS is intentionally
+// empty and not rendered anywhere.
+const OWNER_TABS = [] as const;
+type OwnerTabKey = string;
 
 // Trade-side primary nav - mirrors the homeowner OWNER_TABS but routes
 // to the trade-side equivalents. Rendered in the centre of the header
@@ -393,6 +449,16 @@ export default function SiteHeader() {
                 </Link>
               </div>
 
+              {/* Homeowners get a contextual "you are here" page title
+                  in the centre (mirrors the title rendered in the other
+                  header variant). */}
+              {showOwnerTabs && (
+                <OwnerHeaderTitle
+                  pathname={router.pathname}
+                  rawTab={router.query?.tab}
+                />
+              )}
+
               {/* Trade-side tabs - rendered on the homepage too so a
                   signed-in tradesperson can jump straight to Jobs /
                   Matches / etc without opening the avatar dropdown. */}
@@ -488,11 +554,31 @@ export default function SiteHeader() {
                           <div className="p-1.5">
                             <Link
                               role="menuitem"
+                              href="/projects"
+                              className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-amber-50 hover:text-slate-900 transition-colors"
+                              onClick={() => setOpenMenu(null)}
+                              data-testid="menu-jobs"
+                            >
+                              <FolderOpen className="h-4 w-4 text-indigo-600" />
+                              <span>My jobs</span>
+                            </Link>
+                            <Link
+                              role="menuitem"
+                              href="/projects?tab=favourites"
+                              className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-amber-50 hover:text-slate-900 transition-colors"
+                              onClick={() => setOpenMenu(null)}
+                              data-testid="menu-favourites"
+                            >
+                              <Heart className="h-4 w-4 text-rose-500" />
+                              <span>Favourites</span>
+                            </Link>
+                            <Link
+                              role="menuitem"
                               href="/account"
                               className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-amber-50 hover:text-slate-900 transition-colors"
                               onClick={() => setOpenMenu(null)}
                             >
-                              <UserCog className="h-4 w-4 text-slate-400" />
+                              <UserCog className="h-4 w-4 text-amber-700" />
                               <span>Manage account</span>
                             </Link>
                           </div>
@@ -582,7 +668,7 @@ export default function SiteHeader() {
                             className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-emerald-50 hover:text-slate-900 transition-colors"
                             onClick={() => setOpenMenu(null)}
                           >
-                            <UserCog className="h-4 w-4 text-slate-400" />
+                            <UserCog className="h-4 w-4 text-amber-700" />
                             <span>Account</span>
                           </Link>
                         </div>
@@ -673,44 +759,15 @@ export default function SiteHeader() {
               </Link>
             </div>
 
-            {/* Centre: owner project tabs (Live / Completed / Favourites /
-                Recommendations). Acts as primary nav for homeowners so any
-                page can jump straight to a tab. Desktop only. */}
+            {/* Homeowners get a contextual "you are here" page title in
+                the centre - replaces the retired Live / Completed /
+                Favourites pill row. Title is derived from the route so
+                the header reads cohesively as the user navigates. */}
             {showOwnerTabs && (
-              <div className="hidden md:flex flex-1 items-center justify-center">
-                <div
-                  className="inline-flex rounded-full bg-amber-50 p-1"
-                  role="tablist"
-                  aria-label="Project sections"
-                  data-testid="owner-tabs"
-                >
-                  {OWNER_TABS.map((t) => {
-                    const active = activeOwnerTab === t.key;
-                    return (
-                      <button
-                        key={t.key}
-                        type="button"
-                        role="tab"
-                        aria-selected={active}
-                        data-testid={`owner-tab-${t.key}`}
-                        onClick={() => handleOwnerTabClick(t.key)}
-                        className={`rounded-full px-3 py-1 text-[12.5px] font-bold transition-colors ${
-                          active
-                            ? "text-white shadow-sm"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                        style={
-                          active
-                            ? { background: "linear-gradient(135deg,#6366f1,#4f46e5)" }
-                            : {}
-                        }
-                      >
-                        {t.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <OwnerHeaderTitle
+                pathname={router.pathname}
+                rawTab={router.query?.tab}
+              />
             )}
 
             {/* Trade-side primary nav: Jobs / Jobs list / Matches /
@@ -768,7 +825,22 @@ export default function SiteHeader() {
                 </Link>
               )}
 
-              {/* Post a Job button removed from header - now a floating button on the projects page */}
+              {/* Post a Job CTA - homeowner only. Replaces the floating
+                  bottom-right FAB so the primary action is always at
+                  the top of the page where users look first. */}
+              {displayUser && !isTrades && (
+                <Link
+                  href="/projects/new"
+                  className="hidden sm:inline-flex items-center gap-2 rounded-full pl-3.5 pr-5 py-2 text-[13.5px] font-extrabold text-white shadow-sm hover:shadow-md transition-all group"
+                  style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
+                  data-testid="header-post-a-job"
+                >
+                  {/* + rotates 90deg on hover; pure CSS via group-hover so
+                      no React state needed. */}
+                  <Plus className="h-4 w-4 transition-transform duration-300 ease-out group-hover:rotate-90" />
+                  Post a job
+                </Link>
+              )}
 
               {/* Messages dropdown trigger - homeowner. Indigo tone,
                   unread from useInboxUnread, /api/matches-backed
@@ -897,7 +969,7 @@ export default function SiteHeader() {
                           onClick={() => setOpenMenu(null)}
                           data-testid="menu-account"
                         >
-                          <UserCog className="h-4 w-4 text-slate-400" />
+                          <UserCog className="h-4 w-4 text-amber-700" />
                           <span>Manage account</span>
                         </Link>
                       </div>
@@ -993,11 +1065,31 @@ export default function SiteHeader() {
                       <div className="p-1.5">
                         <Link
                           role="menuitem"
+                          href="/projects"
+                          className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-amber-50 hover:text-slate-900 transition-colors"
+                          onClick={() => setOpenMenu(null)}
+                          data-testid="menu-jobs"
+                        >
+                          <FolderOpen className="h-4 w-4 text-indigo-600" />
+                          <span>My jobs</span>
+                        </Link>
+                        <Link
+                          role="menuitem"
+                          href="/projects?tab=favourites"
+                          className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-amber-50 hover:text-slate-900 transition-colors"
+                          onClick={() => setOpenMenu(null)}
+                          data-testid="menu-favourites"
+                        >
+                          <Heart className="h-4 w-4 text-rose-500" />
+                          <span>Favourites</span>
+                        </Link>
+                        <Link
+                          role="menuitem"
                           href="/account"
                           className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-amber-50 hover:text-slate-900 transition-colors"
                           onClick={() => setOpenMenu(null)}
                         >
-                          <UserCog className="h-4 w-4 text-slate-400" />
+                          <UserCog className="h-4 w-4 text-amber-700" />
                           <span>Manage account</span>
                         </Link>
                       </div>
