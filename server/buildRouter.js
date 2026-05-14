@@ -324,6 +324,7 @@ function buildRouter(ctx) {
 
   // ---------------- Pilot launch areas ----------------
   require("./routes/pilot/areas.get")(router, ctx);
+  require("./routes/pilot/project-types.get")(router, ctx);
 
   // ---------------- Notifications & SSE ----------------
   require("./routes/notifications/stream.get")(router, ctx);
@@ -495,6 +496,8 @@ function buildRouter(ctx) {
   require("./routes/admin/users.post")(router, ctx);
   require("./routes/admin/pilot-areas.get")(router, ctx);
   require("./routes/admin/pilot-areas.patch")(router, ctx);
+  require("./routes/admin/pilot-project-types.get")(router, ctx);
+  require("./routes/admin/pilot-project-types.patch")(router, ctx);
   require("./routes/admin/users.put")(router, ctx);
   require("./routes/admin/users.delete")(router, ctx);
   require("./routes/admin/dashboard.stats.get")(router, ctx);

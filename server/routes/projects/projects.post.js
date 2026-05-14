@@ -10,6 +10,11 @@ const {
 const { validateAnswers } = require("../../lib/jobFields");
 const { extractOutward } = require("../../lib/matching/extractOutward");
 const { getEnabledBoroughs, getEnabledBoroughNameSet } = require("../../lib/pilotAreas");
+const {
+  getEnabledTypeNameSet,
+  getEnabledCategoryNameSet,
+} = require("../../lib/pilotProjectTypes");
+const { TYPE_TO_CATEGORY } = require("../../lib/matching/projectTradeMap");
 const { resolveOutwardDistricts } = require("../../lib/postcodesIo");
 const analytics = require("../../lib/analytics");
 
@@ -118,6 +123,44 @@ module.exports = (router, ctx) => {
         "[projects.post] pilot-area check failed, allowing post",
       );
     }
+    }
+
+    // Pilot project-type gate. body.type is a leaf (e.g. "Bathroom
+    // Remodel (Full)") - reject the post when admin has that leaf, OR its
+    // whole category, disabled. Same defence-in-depth pattern as the
+    // borough gate: the frontend already greys out disabled options, but
+    // a stale client could still POST. Runs AFTER the borough gate so
+    // existing tests that stub only the borough table aren't disturbed.
+    if (process.env.PILOT_AREAS_BYPASS !== "1") {
+      try {
+        const enabledTypes = await getEnabledTypeNameSet(mysqlQuery);
+        const enabledCategories = await getEnabledCategoryNameSet(mysqlQuery);
+        const category = TYPE_TO_CATEGORY[body.type] || null;
+        const typeAllowed = enabledTypes.has(body.type);
+        const categoryAllowed = category
+          ? enabledCategories.has(category)
+          : false;
+        if (!typeAllowed && !categoryAllowed) {
+          log.warn?.(
+            { uid, type: body.type, category },
+            "[projects.post] project type outside pilot",
+          );
+          return res.status(400).json({
+            error: "project_type_not_available",
+            message:
+              "We're not yet accepting jobs of this type. Pick a different category - we'll be opening up more soon.",
+            fieldErrors: {
+              type: "This job type isn't live yet.",
+            },
+          });
+        }
+      } catch (err) {
+        // Fail-open: same behaviour as the borough gate.
+        log.error?.(
+          { err: err?.message },
+          "[projects.post] project-type pilot check failed, allowing post",
+        );
+      }
     }
 
     // MySQL-friendly timestamp

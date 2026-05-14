@@ -1061,3 +1061,18 @@ CREATE TABLE IF NOT EXISTS pilot_boroughs (
   enabled TINYINT(1) NOT NULL DEFAULT 0,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Pilot launch project-types. Mirror of pilot_boroughs but for project
+-- categories/leaves. Source of truth for which project types are live at
+-- launch; admin toggles `enabled` per leaf. A category is considered
+-- "live" in the homeowner UI when at least one of its leaves is enabled.
+-- Canonical leaf list lives in web/types/projectTypes.ts; server/lib/
+-- pilotProjectTypes.js seeds this table from that catalog on first read,
+-- with the 11 starting categories enabled and the rest disabled.
+CREATE TABLE IF NOT EXISTS pilot_project_types (
+  type_name VARCHAR(200) NOT NULL PRIMARY KEY,
+  category VARCHAR(100) NOT NULL,
+  enabled TINYINT(1) NOT NULL DEFAULT 0,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_pilot_project_types_category (category)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
