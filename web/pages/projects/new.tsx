@@ -15,6 +15,7 @@ import DynamicFieldGroup, {
 } from "@/components/forms/DynamicFieldGroup";
 import { getSpecForSelection, type AnswersShape } from "@/config/jobFields";
 import PostJobMobile from "@/components/project/PostJobMobile";
+import MatchShuffleAnimation from "@/components/project/MatchShuffleAnimation";
 
 /* ===== Category icons ===== */
 
@@ -243,6 +244,40 @@ export default function NewProject() {
   const [previewMatches, setPreviewMatches] = useState<PreviewMatch[] | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewErr, setPreviewErr] = useState<string | null>(null);
+
+  // Desktop post-job flow: once the user hits "Post your job" the wizard
+  // swaps the preview step content for a shuffle animation while the
+  // create call is in flight, then reveals the same 3 matches with a
+  // single "View tradespeople" CTA into the project's swipe deck.
+  // Mobile keeps the PostJobMobile redirect-on-success flow.
+  const [matchingPhase, setMatchingPhase] = useState<
+    "idle" | "shuffling" | "revealed"
+  >("idle");
+  const [shuffleSettled, setShuffleSettled] = useState(false);
+  // Track whether the in-flight shuffle was kicked off by a guest. Guests
+  // can't POST a project until they've signed up, so their revealed-state
+  // button routes to /signup instead of a project id. A ref (not state)
+  // so flipping it doesn't force a re-render mid-shuffle.
+  const guestFlowRef = useRef(false);
+  useEffect(() => {
+    if (matchingPhase !== "shuffling") return;
+    if (!shuffleSettled) return;
+    // POST is deferred for both paths: guests do it post-signup
+    // (flushPendingProject); authed users do it on the "View
+    // tradespeople" click (commitAndView). So the shuffle settling is
+    // the only gate for entering the revealed state.
+    setMatchingPhase("revealed");
+  }, [matchingPhase, shuffleSettled]);
+
+  // Auto-trigger the shuffle the moment the homeowner lands on the
+  // preview step (after Continue on Review). The static "3 cards visible
+  // immediately" intermediate state is gone - they go straight from
+  // Review -> shuffle -> reveal.
+  // Guard: only fire once per visit. The creatingRef inside onCreate
+  // also prevents double-fires from a re-render mid-shuffle.
+  // NOTE: this useEffect must live AFTER `STEPS` is declared further
+  // down (TDZ would throw at render time otherwise).
+  const previewAutoFiredRef = useRef(false);
   // LocationField reports pilot-area validity here. When non-null, the
   // postcode the user typed is outside the pilot and we block Continue
   // on the location step.
@@ -316,6 +351,27 @@ export default function NewProject() {
   }, [categorySpec, form.category]);
 
   const maxStep = STEPS.length - 1;
+
+  // Auto-trigger the shuffle the moment the homeowner lands on the
+  // preview step (after Continue on Review). No "3 cards visible
+  // immediately" intermediate state - they go straight from Review ->
+  // shuffle -> reveal. Lives here (rather than next to the other
+  // matchingPhase effects above) because it reads STEPS, which is
+  // declared just above.
+  useEffect(() => {
+    if (STEPS[step]?.key !== "preview") {
+      previewAutoFiredRef.current = false;
+      return;
+    }
+    if (previewAutoFiredRef.current) return;
+    if (matchingPhase !== "idle") return;
+    previewAutoFiredRef.current = true;
+    onCreate();
+    // onCreate is stable on a ref-protected creatingRef; suppress
+    // exhaustive-deps so the auto-trigger doesn't re-fire just because
+    // onCreate's identity changes between renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, STEPS, matchingPhase]);
 
   // Fetch preview matches the first time the homeowner reaches the
   // preview step. We pass the wizard's current trade type + location as
@@ -470,92 +526,119 @@ export default function NewProject() {
 
   /* ===== Submit ===== */
 
+  // Holds the built payload from onCreate while the shuffle plays so
+  // commitAndView (authed "View tradespeople" click) can POST it without
+  // re-deriving the form. Stored on a ref so it survives renders without
+  // triggering re-shuffles when set.
+  const authedPayloadRef = useRef<Record<string, unknown> | null>(null);
   const creatingRef = useRef(false);
-  async function onCreate() {
+
+  /**
+   * Build the payload + kick off the shuffle. Does NOT POST.
+   * - Guest: payload is stashed in sessionStorage for SignupForm to flush
+   *   after auth; revealed-state CTA routes to /signup.
+   * - Authed: payload is held in `authedPayloadRef`; revealed-state CTA
+   *   ("View tradespeople") triggers commitAndView which actually POSTs.
+   *
+   * Deferring the POST until the button click means there's no race
+   * between the shuffle ending and the POST returning - the homeowner
+   * physically clicks the button to commit, then we await the response
+   * before redirecting.
+   */
+  function onCreate() {
     if (!isStepValid(maxStep)) return;
+
+    const primaryType =
+      form.selectedTypes[0] || normalize(form.otherText || "General work");
+
+    const extras = form.selectedTypes.slice(1);
+    const descExtras =
+      extras.length > 0
+        ? `\n\nAdditional work types: ${extras.join(", ")}${
+            form.otherEnabled && form.otherText.trim()
+              ? `, ${normalize(form.otherText)}`
+              : ""
+          }`
+        : form.otherEnabled && form.otherText.trim()
+          ? `\n\nAdditional work types: ${normalize(form.otherText)}`
+          : "";
+
+    const autoName = buildAutoNameSimple(
+      primaryType,
+      form.location,
+      form.propertyType,
+    );
+
+    const hasAnswers =
+      categorySpec &&
+      Object.keys(form.answers).some((k) => k !== "_version");
+
+    const descLines: string[] = [];
+    if (form.timeframe) descLines.push(`Timeframe: ${form.timeframe}.`);
+    if (form.budget) descLines.push(`Budget: ${form.budget}.`);
+    if (form.materials) descLines.push(`Materials: ${form.materials}.`);
+    if (form.access.length > 0) {
+      const accessChips = getAccessChips(form.category);
+      const labels = form.access.map((v) => {
+        const chip = accessChips.find((c) => c.value === v);
+        return chip ? chip.label : v;
+      });
+      descLines.push(`Access: ${labels.join(", ")}.`);
+    }
+    if (form.description.trim()) descLines.push(form.description.trim());
+    const fullDescription = normalize(descLines.join("\n") + descExtras);
+
+    const payload: Record<string, unknown> = {
+      name: autoName,
+      type: primaryType,
+      location: form.location,
+      description: fullDescription,
+      propertyType: form.propertyType,
+      bedrooms: Number(form.bedrooms) || 0,
+      ...(hasAnswers ? { answers: form.answers } : {}),
+    };
+
+    if (!user) {
+      try {
+        sessionStorage.setItem(
+          "vmb:pendingProjectPayload",
+          JSON.stringify(payload),
+        );
+        sessionStorage.setItem("vmb:returnTo", "/projects");
+      } catch {}
+      guestFlowRef.current = true;
+      authedPayloadRef.current = null;
+    } else {
+      guestFlowRef.current = false;
+      authedPayloadRef.current = payload;
+    }
+
+    setErr(null);
+    setMatchingPhase("shuffling");
+    setShuffleSettled(false);
+  }
+
+  /**
+   * Authed-user click handler for "View tradespeople". POSTs the project
+   * the wizard built, then routes to its swipe deck. Button is disabled
+   * while in flight so a second click can't fire the POST twice.
+   */
+  async function commitAndView() {
     if (creatingRef.current) return;
+    const payload = authedPayloadRef.current;
+    if (!payload) {
+      setErr("Couldn't find your job details. Please go back and try again.");
+      return;
+    }
     creatingRef.current = true;
     setBusy(true);
     setErr(null);
-
     try {
-      const primaryType =
-        form.selectedTypes[0] || normalize(form.otherText || "General work");
-
-      const extras = form.selectedTypes.slice(1);
-      const descExtras =
-        extras.length > 0
-          ? `\n\nAdditional work types: ${extras.join(", ")}${
-              form.otherEnabled && form.otherText.trim()
-                ? `, ${normalize(form.otherText)}`
-                : ""
-            }`
-          : form.otherEnabled && form.otherText.trim()
-            ? `\n\nAdditional work types: ${normalize(form.otherText)}`
-            : "";
-
-      const autoName = buildAutoNameSimple(
-        primaryType,
-        form.location,
-        form.propertyType,
-      );
-
-      const hasAnswers =
-        categorySpec &&
-        Object.keys(form.answers).some((k) => k !== "_version");
-
-      // Build description from structured fields + free text
-      const descLines: string[] = [];
-      if (form.timeframe) descLines.push(`Timeframe: ${form.timeframe}.`);
-      if (form.budget) descLines.push(`Budget: ${form.budget}.`);
-      if (form.materials) descLines.push(`Materials: ${form.materials}.`);
-      if (form.access.length > 0) {
-        const accessChips = getAccessChips(form.category);
-        const labels = form.access.map((v) => {
-          const chip = accessChips.find((c) => c.value === v);
-          return chip ? chip.label : v;
-        });
-        descLines.push(`Access: ${labels.join(", ")}.`);
-      }
-      if (form.description.trim()) descLines.push(form.description.trim());
-      const fullDescription = normalize(descLines.join("\n") + descExtras);
-
-      const payload = {
-        name: autoName,
-        type: primaryType,
-        location: form.location,
-        description: fullDescription,
-        propertyType: form.propertyType,
-        bedrooms: Number(form.bedrooms) || 0,
-        ...(hasAnswers ? { answers: form.answers } : {}),
-      };
-
-      // Guest path: stash the payload and route to signup. After auth
-      // completes, SignupForm flushes it via POST /api/projects with the
-      // new uid and routes to /projects/{id}. If the guest never signs
-      // up, sessionStorage clears with the tab and the draft is lost
-      // (option A - no server-side draft for v1).
-      if (!user) {
-        try {
-          sessionStorage.setItem(
-            "vmb:pendingProjectPayload",
-            JSON.stringify(payload),
-          );
-          sessionStorage.setItem("vmb:returnTo", "/projects");
-        } catch {}
-        router.replace("/signup");
-        return;
-      }
-
       const { data } = await api.post("/api/projects", payload);
-      trackProjectCreated(data.project.id, payload.type);
-      await new Promise((r) => setTimeout(r, 1200));
+      trackProjectCreated(data.project.id, (payload as { type: string }).type);
       router.replace(`/projects/${data.project.id}?justCreated=1`);
     } catch (e: any) {
       const data = e?.response?.data;
-      // Server reject for an out-of-pilot postcode - prefer the friendly
-      // message over the bare error code so the user sees the borough
-      // list rather than "location_not_in_pilot".
       if (data?.error === "location_not_in_pilot") {
         setErr(data?.message || "We're not in your area yet.");
       } else {
@@ -645,6 +728,10 @@ export default function NewProject() {
           previewErr={previewErr}
           isGuest={!user}
           submitLabel={submitText}
+          matchingPhase={matchingPhase}
+          onShuffleSettled={() => setShuffleSettled(true)}
+          guestFlow={!user}
+          onCommitAndView={commitAndView}
         />
       </div>
 
@@ -656,11 +743,14 @@ export default function NewProject() {
       </Head>
       <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-12 relative overflow-hidden">
         <BrandWatermarkScatter />
-        <div className="relative z-10 mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 pt-6 sm:pt-12 pb-8">
+        <div className="relative z-10 mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 pt-1 sm:pt-1 pb-8">
           <div className="relative w-full overflow-hidden rounded-3xl bg-white border border-amber-100 shadow-sm">
 
-            {/* Progress dots + step counter */}
-            <div className="flex items-center gap-1.5 px-6 pt-6 sm:px-10 sm:pt-8">
+            {/* Progress dots + step counter. Preview step uses tighter
+                top padding so the matches + CTA sit inside the fold. */}
+            <div className={`flex items-center gap-1.5 px-6 sm:px-10 ${
+              currentStep.key === "preview" ? "pt-4 sm:pt-5" : "pt-6 sm:pt-8"
+            }`}>
               {STEPS.map((_, i) => (
                 <button
                   key={i}
@@ -675,8 +765,15 @@ export default function NewProject() {
               ))}
             </div>
 
-            {/* Active step content */}
-            <div className="px-6 py-6 sm:px-10 sm:py-10 min-h-[28rem] flex flex-col items-center text-center relative">
+            {/* Active step content. On the preview step the matches +
+                reveal CTA add up to a tall layout; trim padding + drop
+                the min-height so the View tradespeople button sits
+                inside the fold on common laptop viewports. */}
+            <div className={`px-6 sm:px-10 flex flex-col items-center text-center relative ${
+              currentStep.key === "preview"
+                ? "py-2 sm:py-3"
+                : "py-6 sm:py-10 min-h-[28rem]"
+            }`}>
 
               {/* Close button */}
               <button
@@ -689,17 +786,29 @@ export default function NewProject() {
                 &#10005;
               </button>
 
-              <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-indigo-600 mb-2">
-                Step {step + 1} of {STEPS.length}
-              </div>
+              {/* Step counter is redundant on the preview step - the
+                  progress bar at the top already shows we're on the
+                  final step, and dropping it lets the matches + CTA
+                  sit higher in the fold. */}
+              {currentStep.key !== "preview" && (
+                <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-indigo-600 mb-2">
+                  Step {step + 1} of {STEPS.length}
+                </div>
+              )}
               <h2
-                className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 mb-1"
+                className={`font-black tracking-tight text-slate-900 mb-1 ${
+                  currentStep.key === "preview"
+                    ? "text-xl sm:text-2xl"
+                    : "text-2xl sm:text-3xl"
+                }`}
                 style={{ fontFamily: "'Sora', sans-serif" }}
                 data-testid="step-title"
               >
                 {previewStepTitle()}
               </h2>
-              <p className="text-sm text-slate-500 mb-8">
+              <p className={`text-sm text-slate-500 ${
+                currentStep.key === "preview" ? "mb-3" : "mb-8"
+              }`}>
                 {previewStepSubtitle()}
               </p>
 
@@ -1138,7 +1247,27 @@ export default function NewProject() {
                 </div>
               )}
 
-              {currentStep.key === "preview" && (
+              {/* Shuffle phase. Auto-fires the moment the user lands on
+                  the preview step (no idle "3 cards visible" intermediate
+                  state). idle is only present for the single render tick
+                  before the auto-trigger useEffect promotes us to
+                  shuffling. */}
+              {currentStep.key === "preview" && matchingPhase !== "revealed" && (
+                <div className="px-6 sm:px-10 pt-2 pb-6">
+                  <MatchShuffleAnimation
+                    active={matchingPhase === "shuffling"}
+                    onSettled={() => setShuffleSettled(true)}
+                  />
+                  <p className="mt-2 text-[13px] text-slate-500 leading-relaxed text-center">
+                    Finding tradespeople near you...
+                  </p>
+                </div>
+              )}
+
+              {/* Revealed: matches fade back in and the wizard offers a
+                  single CTA into the next destination (signup for guests,
+                  the project's swipe deck for authed users). */}
+              {currentStep.key === "preview" && matchingPhase === "revealed" && (
                 <div className="px-6 sm:px-10 pt-2 pb-6">
                   <PreviewMatchesPanel
                     matches={previewMatches}
@@ -1146,13 +1275,6 @@ export default function NewProject() {
                     err={previewErr}
                     isGuest={!user}
                   />
-                  {hasPreviewMatches && (
-                    <p className="mt-4 text-[12px] text-slate-500 leading-relaxed text-center">
-                      {!user
-                        ? "Sign up on the next step to message any of these tradespeople."
-                        : "Post your job to notify these tradespeople."}
-                    </p>
-                  )}
                 </div>
               )}
             </div>
@@ -1164,7 +1286,11 @@ export default function NewProject() {
               </p>
             )}
 
-            {/* Bottom navigation */}
+            {/* Bottom navigation. Hidden on the preview step entirely -
+                that step auto-triggers the shuffle on entry, so the
+                user never needs Previous / Post your job there. The
+                only action on preview is the revealed-state CTA below. */}
+            {currentStep.key !== "preview" && (
             <div className="flex items-center justify-between px-6 pb-6 sm:px-10 sm:pb-8">
                 {step > 0 ? (
                   <button
@@ -1215,6 +1341,56 @@ export default function NewProject() {
                   </button>
                 )}
               </div>
+            )}
+
+            {/* Revealed-state CTA. Guests get a sign-up push with a
+                value-prop line (message tradespeople, get free quotes).
+                Authed users get a direct route into the project's swipe
+                deck. */}
+            {matchingPhase === "revealed" && (
+              <div className="flex flex-col items-center gap-3 px-6 pb-6 sm:px-10 sm:pb-8">
+                {guestFlowRef.current ? (
+                  <>
+                    <p className="text-[13px] text-slate-600 leading-relaxed text-center max-w-md">
+                      Sign up to message these tradespeople, get free quotes
+                      and track your job - all in one place.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => router.push("/signup")}
+                      className="inline-flex items-center gap-1.5 px-6 py-3 rounded-xl text-sm font-extrabold text-white shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
+                      style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
+                      data-testid="btn-signup"
+                    >
+                      Sign up to message them &#8594;
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={commitAndView}
+                    disabled={busy}
+                    className={`inline-flex items-center gap-1.5 px-6 py-3 rounded-xl text-sm font-extrabold text-white shadow-lg shadow-indigo-500/25 transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
+                      busy ? "" : "hover:shadow-xl hover:scale-[1.01] active:scale-[0.99]"
+                    }`}
+                    style={{
+                      background: busy
+                        ? "#94a3b8"
+                        : "linear-gradient(135deg,#6366f1,#4f46e5)",
+                    }}
+                    data-testid="btn-view-tradespeople"
+                  >
+                    {busy && (
+                      <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+                        <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
+                      </svg>
+                    )}
+                    {busy ? "Posting your job..." : "View tradespeople →"}
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Progress dots at bottom */}
             <div className="flex items-center justify-center gap-1.5 pb-6">

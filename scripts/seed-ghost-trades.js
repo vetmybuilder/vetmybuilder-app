@@ -298,7 +298,7 @@ const BIO_SNIPPETS = [
   "Family-run business with over {years} years of experience across {area} and surrounding boroughs.",
   "{years}+ years on the tools, fully insured, free quotes within 48 hours.",
   "Local {trade_lower} based in {area}. Most jobs completed within the week.",
-  "We do clean, tidy work and stand by everything we do - 12-month workmanship guarantee on every job.",
+  "Clean, tidy work backed by a 12-month workmanship guarantee.",
   "{area}-based since {since}. We take pride in turning up on time and clearing up properly.",
   "Reliable, friendly, no-nonsense. We'll talk you through the work before we start.",
 ];

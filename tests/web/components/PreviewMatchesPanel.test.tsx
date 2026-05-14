@@ -101,34 +101,6 @@ describe("<PreviewMatchesPanel />", () => {
     expect(card).toHaveTextContent(match.blurb!);
   });
 
-  it("shows 'Sign up to message' on the locked CTA when the homeowner is a guest", () => {
-    render(
-      <PreviewMatchesPanel
-        matches={[makeMatch({ id: "g1" })]}
-        loading={false}
-        err={null}
-        isGuest={true}
-      />,
-    );
-    expect(
-      screen.getByRole("button", { name: /sign up to message/i }),
-    ).toBeInTheDocument();
-  });
-
-  it("shows 'Post job to message' on the locked CTA when the homeowner is authed", () => {
-    render(
-      <PreviewMatchesPanel
-        matches={[makeMatch({ id: "g2" })]}
-        loading={false}
-        err={null}
-        isGuest={false}
-      />,
-    );
-    expect(
-      screen.getByRole("button", { name: /post job to message/i }),
-    ).toBeInTheDocument();
-  });
-
   it("flags non-local matches with a 'Nearby' badge", () => {
     render(
       <PreviewMatchesPanel

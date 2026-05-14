@@ -80,17 +80,17 @@ describe("<DynamicFieldGroup /> — flooring", () => {
       });
       expect(screen.getByTestId("field-flooring-size-value")).toHaveValue(42);
 
-      // Laminate chip should have the selected styling (amber border)
+      // Laminate chip should have the selected styling (indigo border)
       const laminateChip = screen.getByTestId("field-flooring-floor_type-laminate");
-      expect(laminateChip.className).toContain("border-amber");
+      expect(laminateChip.className).toContain("border-indigo");
 
       // Removal chip should have selected styling
       const removalChip = screen.getByTestId("field-flooring-removal_required");
-      expect(removalChip.className).toContain("border-amber");
+      expect(removalChip.className).toContain("border-indigo");
 
       // Subfloor needs_levelling chip should have selected styling
       const subfloorChip = screen.getByTestId("field-flooring-subfloor_condition-needs_levelling");
-      expect(subfloorChip.className).toContain("border-amber");
+      expect(subfloorChip.className).toContain("border-indigo");
     });
   });
 

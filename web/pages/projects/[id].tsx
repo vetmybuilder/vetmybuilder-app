@@ -3,7 +3,7 @@ import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
-import { ChevronLeft, MoreHorizontal } from "lucide-react";
+import { ChevronLeft, MoreHorizontal, Pencil, CheckCircle2 } from "lucide-react";
 import { useProjectView } from "@/components/project/views/useProjectView";
 import OwnerProjectView from "@/components/project/views/OwnerProjectView";
 import PriceRangeBadge from "@/components/project/PriceRangeBadge";
@@ -256,13 +256,19 @@ function ProjectSwipeDesktop({
         <style>{`body { background: #fef6e9 !important; }`}</style>
       </Head>
       <Layout>
-        <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-6 relative overflow-hidden">
+        {/* SiteHeader is sticky and Layout's <main> already pads pt-14
+            below it. We DON'T want a second pt-14 here - that'd push
+            the content 56px below the header bottom (the visible cream
+            gap users complained about). -mt-14 plus pt-0 keeps the
+            cream background extending under the header on scroll
+            without adding any vertical space. */}
+        <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 md:pt-3 pb-2 relative overflow-hidden">
           <BrandWatermarkScatter />
           <div
-            className="mx-auto max-w-6xl px-6 pt-3 relative z-10"
+            className="mx-auto max-w-6xl px-6 pt-0 relative z-10"
             data-testid="project-view-page"
           >
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-6">
               <a
                 href="/projects"
                 className="inline-flex items-center gap-1.5 rounded-full bg-white border border-slate-200 shadow-sm px-3.5 py-2 text-[13px] font-bold text-slate-800 hover:border-slate-300 hover:bg-slate-50 transition-colors"
@@ -276,7 +282,7 @@ function ProjectSwipeDesktop({
                     contextual title already says it. The count chip
                     stays so the homeowner sees how deep their deck is. */}
                 {matches && builders.length > 0 && (
-                  <div className="mb-1.5">
+                  <div>
                     <span
                       className="inline-flex items-center gap-1 rounded-full bg-indigo-600 text-white px-2.5 py-0.5 text-[11px] font-extrabold"
                       data-testid="deck-count"
@@ -316,11 +322,13 @@ function ProjectSwipeDesktop({
             <div className="grid md:grid-cols-[280px_1fr_280px] gap-6">
               {/* LEFT RAIL */}
               <aside className="space-y-4">
-                {/* Project summary card */}
-                <div className="bg-white border border-amber-100 rounded-3xl p-5 shadow-sm">
-                  <div className="text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-indigo-700 mb-1.5">
-                    Live job
-                  </div>
+                {/* Project summary card. Indigo pill on the top edge
+                    replaces the in-card "Live job" eyebrow so the card
+                    matches the share-card / community-recs pattern. */}
+                <div className="bg-white border-2 border-indigo-400 rounded-3xl p-5 shadow-md relative">
+                  <span className="absolute -top-2.5 left-5 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white bg-indigo-600 px-2 py-0.5 rounded-full">
+                    Manage
+                  </span>
                   <h2
                     className="text-[19px] font-black tracking-tight leading-tight text-slate-900"
                     style={{ fontFamily: "'Sora', sans-serif" }}
@@ -351,16 +359,18 @@ function ProjectSwipeDesktop({
                   <div className="mt-4 space-y-2">
                     <Link
                       href={`/projects/${projectId}/edit`}
-                      className="inline-flex items-center justify-center gap-1.5 w-full text-center rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[12px] font-bold py-2 hover:bg-amber-100 transition-colors"
+                      className="inline-flex items-center justify-center gap-2 w-full text-center rounded-full bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2.5 text-[12.5px] font-bold hover:bg-amber-100 transition-colors"
                     >
+                      <Pencil className="w-3.5 h-3.5" strokeWidth={2.4} />
                       Edit job details
                     </Link>
                     <button
                       type="button"
                       onClick={onCloseProject}
                       data-testid="btn-mark-completed"
-                      className="inline-flex items-center justify-center gap-1.5 w-full text-center rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[12px] font-bold py-2 hover:bg-emerald-100 transition-colors"
+                      className="inline-flex items-center justify-center gap-2 w-full text-center rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-2.5 text-[12.5px] font-bold hover:bg-emerald-100 transition-colors"
                     >
+                      <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={2.4} />
                       Mark as completed
                     </button>
                   </div>
@@ -445,7 +455,7 @@ function ProjectSwipeDesktop({
                   <button
                     type="button"
                     onClick={copyLink}
-                    className="mt-2.5 w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2.5 text-[12.5px] font-bold hover:bg-amber-100 transition-colors"
+                    className="mt-2.5 w-full inline-flex items-center justify-center gap-2 rounded-full bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2.5 text-[12.5px] font-bold hover:bg-amber-100 transition-colors"
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                       <rect x="9" y="9" width="13" height="13" rx="2" />
@@ -514,10 +524,10 @@ function ProjectSwipeDesktop({
                   swiping); the sidebar list is a quick at-a-glance view
                   of who has been recommended and by whom. */}
               <aside className="space-y-4">
-                <div className="bg-white border border-amber-100 rounded-3xl p-5 shadow-sm">
-                  <div className="text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-indigo-700 mb-1.5">
+                <div className="bg-white border-2 border-indigo-400 rounded-3xl p-5 shadow-md relative">
+                  <span className="absolute -top-2.5 left-5 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white bg-indigo-600 px-2 py-0.5 rounded-full">
                     Recommendations
-                  </div>
+                  </span>
                   <h3
                     className="text-[16px] font-black tracking-tight text-slate-900 leading-tight"
                     style={{ fontFamily: "'Sora', sans-serif" }}
@@ -771,6 +781,15 @@ function ProjectSwipeMobile({
       data-testid="project-view-page"
     >
       <div className="h-[env(safe-area-inset-top)]" />
+
+      {/* Always-present hook for e2e assertions. The visible title in the
+          header row is conditional (replaced by a "X tradespeople" chip
+          once any builders surface), so tests can't rely on it. This
+          mounts the title regardless. sr-only keeps it out of the
+          rendered layout but in the DOM. */}
+      <span className="sr-only" data-testid="project-title-mobile">
+        {projectTitle}
+      </span>
 
       {/* Back nav row — labelled chevron, count chip centred, more menu right. */}
       {(() => {

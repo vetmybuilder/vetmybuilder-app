@@ -398,12 +398,13 @@ export default function Login() {
         <style>{`body { background: #fef6e9 !important; }`}</style>
       </Head>
 
-      <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-12 relative overflow-hidden">
+      {/* Mobile: form fills the viewport edge-to-edge so the cream
+          chrome doesn't frame it (matches the post-restyle on /signup).
+          Desktop: keep the card-on-cream chrome. */}
+      <div className="bg-white md:bg-[#fef6e9] min-h-screen -mt-14 pt-0 md:pt-14 pb-0 md:pb-12 relative overflow-hidden">
         <BrandWatermarkScatter />
-        <div className="relative z-10 mx-auto max-w-md px-5 pt-6 pb-16" data-testid="login-page">
-          {/* White card wraps the form so it sits inside the cream chrome,
-              matching /tradesman/login + /signup/complete. */}
-          <div className="bg-white rounded-3xl border border-amber-100 shadow-xl shadow-amber-100/40 p-6 sm:p-8">
+        <div className="relative z-10 mx-auto max-w-none md:max-w-md px-0 md:px-5 pt-0 md:pt-6 pb-0 md:pb-16" data-testid="login-page">
+          <div className="bg-white border-0 shadow-none px-5 pt-5 pb-6 md:rounded-3xl md:border md:border-amber-100 md:shadow-xl md:shadow-amber-100/40 md:p-8">
           {/* Heading block - VMB wordmark already shown by SiteHeader */}
           <div className="mb-7">
             <h1 className="text-[28px] font-extrabold tracking-[-0.01em] text-slate-900 leading-[1.1]" data-testid="login-title">

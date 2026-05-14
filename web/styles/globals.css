@@ -47,6 +47,18 @@
   100% { background-position: 0% 50%; }
 }
 
+/* ---------- Match-shuffle scanner sweep ----------
+   Used by MatchShuffleAnimation: a soft white highlight that travels
+   left-to-right across the round face frame while the shuffle decelerates,
+   reinforcing the "searching tradespeople" signal. */
+@keyframes match-shuffle-sweep {
+  from { left: -40%; }
+  to   { left: 100%; }
+}
+.animate-match-shuffle-sweep {
+  animation: match-shuffle-sweep 1.2s linear infinite;
+}
+
 /* ---------- Modal animation ---------- */
 @keyframes modalIn {
   from { opacity: 0; transform: scale(0.95) translateY(10px); }

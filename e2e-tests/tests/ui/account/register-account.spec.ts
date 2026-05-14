@@ -58,25 +58,9 @@ test.describe("Homeowner registration", () => {
       password: "Passw0rd!",
     });
 
-
     await registerPage.goto();
-
-    await registerPage.page.context().clearCookies();
-    await registerPage.page.evaluate(() => {
-      localStorage.clear();
-      sessionStorage.clear();
-    });
-    await registerPage.page.reload();
-    await registerPage.goto();
-
-    await registerPage.firstName.fill(account.firstName);
-    await registerPage.lastName.fill(account.lastName);
-    await registerPage.username.fill(account.username);
-    await registerPage.email.fill(account.requiredEmail);
-    await registerPage.password.fill(account.requiredPassword);
-    await registerPage.confirmPassword.fill(account.requiredPassword);
-    await registerPage.agreeToTerms();
-    await registerPage.submitButton.click();
+    await registerPage.fillFromAccount(account);
+    await registerPage.submit();
     await expect(registerPage.errorAlert.first()).toContainText(
       "That username is already taken.",
     );
