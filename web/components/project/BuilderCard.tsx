@@ -80,7 +80,7 @@ export default function BuilderCard({
 
   return (
     <div
-      className="relative md:rounded-[22px] overflow-hidden bg-gray-200 h-full w-full md:shadow-md"
+      className="relative overflow-hidden bg-gray-200 h-full w-full md:shadow-md"
     >
       {photoSrc ? (
         <Image

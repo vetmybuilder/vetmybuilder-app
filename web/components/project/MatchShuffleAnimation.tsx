@@ -13,10 +13,13 @@ import { useEffect, useRef, useState } from "react";
 
 export type ShuffleFace = {
   initial: string;
-  /** Gradient start colour. */
+  /** Gradient start colour. Used as the fallback when photoUrl is unset. */
   from: string;
   /** Gradient end colour. */
   to: string;
+  /** Real tradesperson photo. When set, the cycled frame renders this image
+   *  instead of the initial/gradient fallback. */
+  photoUrl?: string | null;
 };
 
 const DEFAULT_FACES: ShuffleFace[] = [
@@ -69,6 +72,16 @@ export default function MatchShuffleAnimation({
     onSettledRef.current = onSettled;
   }, [onSettled]);
 
+  // Hold faces in a ref so the cycle's `face = (face + 1) % faces.length`
+  // reads the LATEST faces array without forcing the effect (and the
+  // shuffle animation) to restart when previewMatches arrives mid-shuffle.
+  // Without this the photo swap would jolt the animation back to its
+  // initial step.
+  const facesRef = useRef(faces);
+  useEffect(() => {
+    facesRef.current = faces;
+  }, [faces]);
+
   useEffect(() => {
     if (!active) {
       setProgressArmed(false);
@@ -85,7 +98,7 @@ export default function MatchShuffleAnimation({
 
     function tick() {
       setCurrentFace(face);
-      face = (face + 1) % faces.length;
+      face = (face + 1) % Math.max(1, facesRef.current.length);
       if (stepIndex >= INTERVALS_MS.length) {
         setPhase("settled");
         onSettledRef.current?.();
@@ -99,7 +112,7 @@ export default function MatchShuffleAnimation({
       cancelAnimationFrame(raf);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [active, faces.length]);
+  }, [active]);
 
   return (
     <div
@@ -123,11 +136,15 @@ export default function MatchShuffleAnimation({
             }`}
             style={{
               fontSize: 96,
-              background: `linear-gradient(135deg, ${face.from}, ${face.to})`,
+              backgroundImage: face.photoUrl
+                ? `url(${face.photoUrl})`
+                : `linear-gradient(135deg, ${face.from}, ${face.to})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
             }}
             aria-hidden
           >
-            {face.initial}
+            {face.photoUrl ? null : face.initial}
           </div>
         ))}
         {/* Scanner sweep. Width = 40% of frame; keyframe drives left

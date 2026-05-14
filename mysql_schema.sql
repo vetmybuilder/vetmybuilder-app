@@ -72,6 +72,11 @@ CREATE TABLE IF NOT EXISTS notifications (
   linkPath TEXT,
   createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   readAt DATETIME NULL,
+  -- Soft-delete timestamp. The inbox `Activity` tab dismisses rows by
+  -- stamping this; the GET endpoints filter dismissed rows out. Keeping
+  -- the row (instead of hard delete) lets us add Undo / audit / "show
+  -- dismissed" without touching every emitter that INSERTs here.
+  dismissed_at DATETIME NULL,
   FOREIGN KEY(projectId) REFERENCES projects(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -665,6 +670,12 @@ CREATE TABLE IF NOT EXISTS swipe_interest (
   builder_swiped_at        DATETIME NULL,
   intro_message            TEXT NULL,
   boost_expires_at         DATETIME NULL,
+  -- Per-side "mark all as read" timestamps. The inbox `Messages` tab
+  -- bumps these via POST /api/matches/read-all so the unread query in
+  -- matches/list.get.js can treat anything older than the stamp as
+  -- read, even when the user hasn't replied yet.
+  homeowner_last_read_at   DATETIME NULL,
+  builder_last_read_at     DATETIME NULL,
   created_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
                            ON UPDATE CURRENT_TIMESTAMP,

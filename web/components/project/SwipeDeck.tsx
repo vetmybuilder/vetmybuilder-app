@@ -11,13 +11,23 @@
 // content-only: BuilderCard / BuilderCardBack instead of Job; indigo
 // action bar instead of emerald; queue prop-reactivity for paid-unlock
 // SSE additions; rec-card dismissal endpoint; ShareProjectModal in empty.
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/router";
 import { useApi } from "@/utils/api";
 import BuilderCard, { BuilderCardBuilder } from "./BuilderCard";
 import BuilderCardBack from "./BuilderCardBack";
 import SwipeActionBar from "./SwipeActionBar";
 import ShareProjectModal from "./ShareProjectModal";
+import MatchShuffleAnimation, {
+  type ShuffleFace,
+} from "./MatchShuffleAnimation";
+
+// Cards-per-page in the swipe deck. After the homeowner has swiped
+// through one page, the "Finding more tradespeople..." loader plays
+// (~9s via MatchShuffleAnimation) before the next page reveals. Keeps
+// each session focused on a manageable shortlist instead of an
+// endless ranked list.
+const DECK_PAGE_SIZE = 10;
 
 export interface SwipeDeckBuilder extends BuilderCardBuilder {
   source?: "recommended" | "subscribed" | "paid_unlock";
@@ -44,6 +54,15 @@ export default function SwipeDeck({
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
   const [flipped, setFlipped] = useState(false);
+
+  // Batching: deck reveals DECK_PAGE_SIZE cards at a time. Each time
+  // the homeowner reaches the end of the current page we play the
+  // "Finding more tradespeople..." loader then either reveal the next
+  // page or fall through to the All Caught Up state.
+  const [pagesShown, setPagesShown] = useState(1);
+  const [batchPhase, setBatchPhase] = useState<
+    "deck" | "fetching" | "exhausted"
+  >("deck");
 
   // Internal queue snapshot. Parent prop updates (e.g. when a paid_unlock
   // SSE event triggers a matches refetch) are treated as additions and
@@ -257,19 +276,115 @@ export default function SwipeDeck({
     applyCardTransform(0, false);
   }
 
-  if (!current) {
-    // Differentiate "freshly posted, no candidates yet" from "you've
-    // swiped through every candidate". If the array is empty from the
-    // start, it's the former; otherwise the user worked through it.
+  // Page-batch transition. When the homeowner's index reaches the end
+  // of the currently revealed page, swap the deck for the fetching
+  // loader. The loader's onSettled callback (below) decides whether
+  // to reveal the next page or transition to the exhausted state.
+  const revealedCount = Math.min(pagesShown * DECK_PAGE_SIZE, queue.length);
+  useEffect(() => {
+    if (queue.length === 0) return;
+    if (batchPhase !== "deck") return;
+    if (index < revealedCount) return;
+    setBatchPhase("fetching");
+  }, [index, revealedCount, queue.length, batchPhase]);
+
+  // Faces for the "Finding more tradespeople..." loader: prefer the
+  // upcoming batch's photos so the cycle teases who's coming next.
+  // Falls back to the previous batch when the user is about to land
+  // on the All Caught Up screen (no upcoming page exists).
+  const fetchingFaces = useMemo<ShuffleFace[] | undefined>(() => {
+    const upcomingStart = revealedCount;
+    const upcomingEnd = Math.min(
+      revealedCount + DECK_PAGE_SIZE,
+      queue.length,
+    );
+    const sourceSlice =
+      upcomingEnd > upcomingStart
+        ? queue.slice(upcomingStart, upcomingEnd)
+        : queue.slice(Math.max(0, queue.length - DECK_PAGE_SIZE));
+    const photos = sourceSlice
+      .map((b) => b.photoUrl)
+      .filter((u): u is string => !!u);
+    if (photos.length === 0) return undefined;
+    const palette = [
+      { from: "#a78bfa", to: "#7c3aed" },
+      { from: "#fb923c", to: "#ea580c" },
+      { from: "#34d399", to: "#059669" },
+      { from: "#60a5fa", to: "#2563eb" },
+      { from: "#f472b6", to: "#db2777" },
+      { from: "#ef4444", to: "#b91c1c" },
+    ];
+    const frames = Math.max(6, photos.length);
+    return Array.from({ length: frames }, (_, i) => ({
+      initial: "",
+      photoUrl: photos[i % photos.length],
+      from: palette[i % palette.length].from,
+      to: palette[i % palette.length].to,
+    }));
+  }, [queue, revealedCount]);
+
+  function onFetchingSettled() {
+    // After the loader: reveal the next page, or - if every card in
+    // the queue is already revealed - transition to All Caught Up.
+    if (revealedCount >= queue.length) {
+      setBatchPhase("exhausted");
+    } else {
+      setPagesShown((p) => p + 1);
+      setBatchPhase("deck");
+    }
+  }
+
+  if (queue.length === 0) {
+    // Freshly-posted project with zero candidates - "Searching for
+    // tradespeople" copy (no batching loader: there's nothing to load).
+    return <SwipeDeckEmpty projectId={projectId} noBuildersYet />;
+  }
+
+  if (batchPhase === "fetching") {
+    return (
+      <div className="relative min-h-[420px] md:min-h-[560px] flex flex-col items-center justify-center px-7 py-6 text-center">
+        <MatchShuffleAnimation
+          active
+          onSettled={onFetchingSettled}
+          faces={fetchingFaces}
+        />
+        <div className="mt-4 inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.18em] text-indigo-600">
+          <svg
+            aria-hidden
+            viewBox="0 0 24 24"
+            className="w-3 h-3"
+            fill="currentColor"
+          >
+            <path d="M12 2 9.5 9.5 2 12l7.5 2.5L12 22l2.5-7.5L22 12l-7.5-2.5z" />
+          </svg>
+          Finding more tradespeople
+        </div>
+        <h2
+          className="mt-2 font-black tracking-tight text-slate-900 text-xl sm:text-2xl"
+          style={{ fontFamily: "'Sora', sans-serif" }}
+        >
+          Your next shortlist is on the way
+        </h2>
+        <p className="mt-2 text-sm text-slate-500 leading-relaxed max-w-[300px]">
+          Pulling in the next batch of local matches for your project.
+        </p>
+      </div>
+    );
+  }
+
+  if (batchPhase === "exhausted" || !current) {
     return (
       <SwipeDeckEmpty
         projectId={projectId}
-        noBuildersYet={queue.length === 0}
+        noBuildersYet={false}
       />
     );
   }
 
-  const visible = queue.slice(index, index + 4);
+  // Clamp the visible peek window to the current page so the stack
+  // doesn't leak cards from the next batch behind the active one.
+  const visibleEnd = Math.min(index + 4, revealedCount);
+  const visible = queue.slice(index, visibleEnd);
 
   // Peek-1 sits behind at scale 0.86 / opacity 0.7 - visibly smaller +
   // faded so the deck reads as a stack. When the top flies off the user
@@ -378,7 +493,7 @@ export default function SwipeDeck({
                 }}
               >
                 <div
-                  className="absolute inset-0 rounded-3xl overflow-hidden"
+                  className="absolute inset-0 overflow-hidden"
                   style={{
                     backfaceVisibility: "hidden",
                     WebkitBackfaceVisibility: "hidden",
@@ -394,7 +509,7 @@ export default function SwipeDeck({
                   />
                 </div>
                 <div
-                  className="absolute inset-0 rounded-3xl overflow-hidden"
+                  className="absolute inset-0 overflow-hidden"
                   style={{
                     backfaceVisibility: "hidden",
                     WebkitBackfaceVisibility: "hidden",

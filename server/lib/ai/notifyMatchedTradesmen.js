@@ -84,7 +84,7 @@ async function notifyMatchedTradesmen({
 
       try {
         const message = `A new ${projectType || "project"} in ${projectLocation || "your area"} was just posted — it matches your profile.`;
-        const linkPath = `/tradesman/projects?open=${projectId}`;
+        const linkPath = `/tradesman/jobs?open=${projectId}`;
         await mysqlQuery(
           `INSERT INTO notifications
             (userId, type, message, projectId, linkPath, createdAt)

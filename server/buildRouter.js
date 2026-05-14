@@ -330,6 +330,7 @@ function buildRouter(ctx) {
   require("./routes/notifications/notifications.get")(router, ctx);
   require("./routes/notifications/notification.read.post")(router, ctx);
   require("./routes/notifications/read-all.post")(router, ctx);
+  require("./routes/notifications/dismiss-all.post")(router, ctx);
   require("./routes/notifications/notification.delete")(router, ctx);
   require("./routes/notifications/preferences.get")(router, ctx);
   require("./routes/notifications/preferences.put")(router, ctx);
@@ -432,6 +433,7 @@ function buildRouter(ctx) {
   require("./routes/swipe/respond.post")(router, ctx);
   require("./routes/matches/list.get.js")(router, ctx);
   require("./routes/matches/get.js")(router, ctx);
+  require("./routes/matches/read-all.post.js")(router, ctx);
   require("./routes/tradesman/incoming-interest.get.js")(router, ctx);
   require("./routes/tradesman/matches.get.js")(router, ctx);
 

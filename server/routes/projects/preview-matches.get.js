@@ -31,6 +31,9 @@
 
 const { extractLocationTokens } = require("../../lib/location");
 const { getBoroughCodes } = require("../../lib/boroughPostcodes");
+const {
+  getTradesForProjectType,
+} = require("../../lib/matching/projectTradeMap");
 
 const MAX_ITEMS = 3;
 
@@ -54,18 +57,21 @@ function firstSentence(s) {
   return (m ? m[0] : t).slice(0, 180).trim();
 }
 
-function tradeWordsFor(type) {
-  const words = new Set();
-  const lower = String(type || "").toLowerCase();
-  words.add(lower);
-  for (const w of lower.split(/[\s,/&()]+/).filter(Boolean)) {
-    if (w.length < 3) continue;
-    words.add(w);
-    if (w.endsWith("ing")) words.add(w.slice(0, -3));
-    if (w.endsWith("er")) words.add(w.slice(0, -2));
-    if (w.endsWith("s")) words.add(w.slice(0, -1));
-  }
-  return [...words].filter((w) => w.length >= 3);
+// Match only ghosts whose trade_types CSV contains one of the
+// canonical trades for this project type as an exact comma-separated
+// token. Mirrors what the swipe deck's rankBuilders does, so the
+// preview grid surfaces the same supply set the homeowner sees on
+// the deck rather than a sloppy substring match.
+//
+// The previous implementation stemmed the project type into bag-of-
+// words (`tradeWordsFor("Carpet Removal")` → ["carpet", "removal",
+// "carpet removal"]) and ran `trade_types LIKE '%removal%'`, which
+// happily matched Waste Removal / Asbestos Removal / Roof Moss
+// Removal and "Carpet & Upholstery Cleaning" — none of which fit a
+// carpet-fitting job.
+function canonicalTradesForType(type) {
+  const trades = getTradesForProjectType(type) || [];
+  return Array.from(new Set(trades.filter(Boolean)));
 }
 
 module.exports = (router, ctx) => {
@@ -84,7 +90,7 @@ module.exports = (router, ctx) => {
         return res.status(400).json({ error: "type required" });
       }
 
-      const tradeList = tradeWordsFor(type);
+      const tradeList = canonicalTradesForType(type);
       if (tradeList.length === 0) {
         return res.json({ items: [] });
       }
@@ -93,15 +99,28 @@ module.exports = (router, ctx) => {
       const outward = locTokens?.outward || null;
       const boroughCodes = outward ? getBoroughCodes(outward) : [];
 
+      // Exact comma-separated match on trade_types. `REPLACE(..., ', ', ',')`
+      // normalises the CSV so a stored "Carpet Fitter, Tiler" still hits
+      // FIND_IN_SET. Each trade contributes one OR'd condition so any
+      // primary OR secondary trade match counts.
       const tradeConditions = tradeList
-        .map(() => "LOWER(t.trade_types) LIKE ?")
+        .map(() => "FIND_IN_SET(?, REPLACE(t.trade_types, ', ', ',')) > 0")
         .join(" OR ");
-      const tradeParams = tradeList.map((w) => `%${w}%`);
+      const tradeParams = tradeList.slice();
 
       // Avatar prefers tradesmen.profile_picture_url, falling back to the
       // first portfolio photo (sorted by sort_order then upload date).
       // Most trades haven't set an explicit avatar so the fallback is the
       // common case in practice.
+      // Boost ghosts whose PRIMARY trade matches above ones whose
+      // secondary trade matches - a Carpet Fitter (primary) wins over a
+      // Curtains business (primary) that happens to list Carpet as a
+      // secondary upsell. Built as an OR'd CASE so the placeholders
+      // line up with the same tradeList we use in the WHERE.
+      const primaryMatchExpr = tradeList
+        .map(() => "SUBSTRING_INDEX(t.trade_types, ',', 1) = ?")
+        .join(" OR ");
+
       const baseSelect = `
         SELECT
           t.user_id,
@@ -118,6 +137,7 @@ module.exports = (router, ctx) => {
           ) AS profile_picture_url,
           t.about,
           t.vmb_score,
+          CASE WHEN ${primaryMatchExpr} THEN 1 ELSE 0 END AS is_primary_match,
           (SELECT COUNT(*) FROM recommendations r
              WHERE r.linked_tradesman_uid = t.user_id
                AND r.homeowner_unfavourited_at IS NULL
@@ -146,9 +166,9 @@ module.exports = (router, ctx) => {
         const localRows = await mysqlQuery(
           `${baseSelect}
             AND (${areaConditions})
-          ORDER BY t.vmb_score DESC, rec_count DESC
+          ORDER BY is_primary_match DESC, t.vmb_score DESC, rec_count DESC
           LIMIT ${MAX_ITEMS}`,
-          [...tradeParams, ...areaParams],
+          [...tradeParams, ...tradeParams, ...areaParams],
         );
         for (const r of localRows) {
           rows.push({ ...r, _isLocal: true });
@@ -161,9 +181,9 @@ module.exports = (router, ctx) => {
         const need = MAX_ITEMS - rows.length;
         const padRows = await mysqlQuery(
           `${baseSelect}
-          ORDER BY t.vmb_score DESC, rec_count DESC
+          ORDER BY is_primary_match DESC, t.vmb_score DESC, rec_count DESC
           LIMIT ${need + rows.length}`,
-          tradeParams,
+          [...tradeParams, ...tradeParams],
         );
         for (const r of padRows) {
           if (rows.length >= MAX_ITEMS) break;

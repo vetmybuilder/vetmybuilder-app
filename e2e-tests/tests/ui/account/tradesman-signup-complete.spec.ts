@@ -2,7 +2,7 @@ import { test, expect } from "../../../src/ui.fixtures";
 import { mockPostcodesIo } from "../../../src/helpers/PostcodesIoMock";
 
 test.describe("Tradesman SSO onboarding — /tradesman/signup/complete", () => {
-  test("an authenticated no-profile user can walk the wizard and land on /tradesman/projects", async ({
+  test("an authenticated no-profile user can walk the wizard and land on /tradesman/jobs", async ({
     page,
     authHelper,
     tradesmanSignupCompletePage,
@@ -37,7 +37,7 @@ test.describe("Tradesman SSO onboarding — /tradesman/signup/complete", () => {
     await authHelper.logout();
     await authHelper.loginAsUidWithoutProfile();
     await mockPostcodesIo(page);
-    await page.goto("/login?next=/tradesman/projects");
+    await page.goto("/login?next=/tradesman/jobs");
     await page.evaluate(() => {
       sessionStorage.setItem("vmb:oauthIntent", "tradesman");
     });

@@ -1255,9 +1255,16 @@ function WinnerAvatar({
  */
 function NonOwnerMobileRedirect() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   useEffect(() => {
-    router.replace("/projects");
-  }, [router]);
+    if (authLoading) return;
+    // Guests don't have a `/projects` list (it's AuthedOnly and would
+    // bounce them onwards to /login), so they go straight home -
+    // avoids the visible flicker chain "/projects/{id} → /projects →
+    // /login". Authed non-owners keep the old behaviour and land on
+    // their own projects list.
+    router.replace(user ? "/projects" : "/");
+  }, [router, user, authLoading]);
   return (
     <main
       className="fixed inset-0 bg-white flex items-center justify-center"
@@ -1268,7 +1275,7 @@ function NonOwnerMobileRedirect() {
       data-testid="project-non-owner-redirect-mobile"
     >
       <div className="text-[13px] font-semibold text-gray-400">
-        Returning to your projects…
+        Loading…
       </div>
     </main>
   );
@@ -1327,11 +1334,13 @@ export default function ProjectViewPage() {
   }, [api, user, authLoading]);
 
   // ---------------------------------------------------------
-  // 2) REDIRECT tradesmen away from homeowner project views
+  // 2) REDIRECT tradesmen away from homeowner project views.
+  // /tradesman/jobs is the canonical trade home (swipe deck); the
+  // old /tradesman/projects list view was deleted.
   // ---------------------------------------------------------
   useEffect(() => {
     if (viewerRole !== "trades") return;
-    router.replace("/tradesman/projects");
+    router.replace("/tradesman/jobs");
   }, [viewerRole, router]);
 
   // ---------------------------------------------------------

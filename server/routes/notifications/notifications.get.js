@@ -40,6 +40,7 @@ module.exports = (router, ctx) => {
              FROM notifications n
              LEFT JOIN projects p ON p.id = n.projectId
             WHERE n.userId = ?
+              AND n.dismissed_at IS NULL
               AND n.createdAt > DATE_SUB(NOW(), INTERVAL 30 DAY)
               AND NOT (p.ownerUserId = ? AND p.status IN ('completed', 'archived'))
             ORDER BY n.createdAt DESC`,
@@ -53,6 +54,7 @@ module.exports = (router, ctx) => {
              LEFT JOIN projects p ON p.id = n.projectId
             WHERE n.userId = ?
               AND n.readAt IS NULL
+              AND n.dismissed_at IS NULL
               AND n.createdAt > DATE_SUB(NOW(), INTERVAL 30 DAY)
               AND NOT (p.ownerUserId = ? AND p.status IN ('completed', 'archived'))`,
           [uid, uid]
@@ -110,6 +112,7 @@ module.exports = (router, ctx) => {
         `SELECT id, type, message, projectId, linkPath, createdAt, readAt
            FROM notifications
           WHERE userId = ?
+            AND dismissed_at IS NULL
             AND createdAt > DATE_SUB(NOW(), INTERVAL 30 DAY)
           ORDER BY createdAt DESC
           LIMIT ${limit}`,
@@ -122,6 +125,7 @@ module.exports = (router, ctx) => {
            LEFT JOIN projects p ON p.id = n.projectId
           WHERE n.userId = ?
             AND n.readAt IS NULL
+            AND n.dismissed_at IS NULL
             AND n.createdAt > DATE_SUB(NOW(), INTERVAL 30 DAY)
             AND NOT (p.ownerUserId = ? AND p.status IN ('completed', 'archived'))`,
         [uid, uid]

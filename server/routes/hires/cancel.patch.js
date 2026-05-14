@@ -119,7 +119,7 @@ module.exports = (router, ctx) => {
               "hire_cancelled",
               `${ownerFirstName} cancelled the hire for "${projectName}"`,
               hire.projectId,
-              `/tradesman/projects`,
+              `/tradesman/jobs`,
               now,
             ],
           );
@@ -128,7 +128,7 @@ module.exports = (router, ctx) => {
             type: "hire_cancelled",
             message: `${ownerFirstName} cancelled the hire for "${projectName}"`,
             projectId: hire.projectId,
-            linkPath: `/tradesman/projects`,
+            linkPath: `/tradesman/jobs`,
           });
 
           sendPushToUser({
@@ -136,7 +136,7 @@ module.exports = (router, ctx) => {
             type: "hire_cancelled",
             title: "VetMyBuilder",
             body: `${ownerFirstName} cancelled the hire for "${projectName}"`,
-            linkPath: `/tradesman/projects`,
+            linkPath: `/tradesman/jobs`,
             mysqlQuery,
             logActivity: ctx.logActivity,
           });

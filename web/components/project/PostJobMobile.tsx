@@ -94,6 +94,10 @@ type PostJobMobileProps = {
   /** Authed-user revealed-state CTA. POSTs the job then routes to the
    *  swipe deck. Required when guestFlow=false. */
   onCommitAndView?: () => void | Promise<void>;
+  /** Real tradesperson photos to cycle through the shuffle frame.
+   *  Falls back to the gradient/initial defaults when undefined (e.g.
+   *  while previewMatches is still loading). */
+  shuffleFaces?: import("./MatchShuffleAnimation").ShuffleFace[];
 };
 
 const FONT_STACK =
@@ -147,6 +151,7 @@ export default function PostJobMobile(props: PostJobMobileProps) {
     onShuffleSettled,
     guestFlow,
     onCommitAndView,
+    shuffleFaces,
   } = props;
 
   const router = useRouter();
@@ -393,6 +398,7 @@ export default function PostJobMobile(props: PostJobMobileProps) {
               <MatchShuffleAnimation
                 active={matchingPhase === "shuffling"}
                 onSettled={() => onShuffleSettled?.()}
+                faces={shuffleFaces}
               />
               <p className="mt-2 text-[13px] text-slate-500 leading-relaxed text-center">
                 Finding tradespeople near you...

@@ -39,7 +39,7 @@ test.describe("OAuth button visibility", () => {
   test("Google SSO button is visible on the tradesperson login page", async ({
     page,
   }) => {
-    // /tradesman/login redirects to /login?next=/tradesman/projects, which
+    // /tradesman/login redirects to /login?next=/tradesman/jobs, which
     // renders the shared login page in vendor-flow mode.
     await safeGoto(page, "/tradesman/login");
     await expect(page.getByTestId("login-page")).toBeVisible();

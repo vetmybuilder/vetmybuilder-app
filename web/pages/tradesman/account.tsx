@@ -633,7 +633,7 @@ function DesktopHub({
           title="Profile"
           hint="Company details, photos, trades, verification."
           status={profileCompletion}
-          href="/tradesman/profile/edit"
+          href="/tradesman/profile"
         />
         <Tile
           icon="🔔"
