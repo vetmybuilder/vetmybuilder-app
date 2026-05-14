@@ -174,7 +174,7 @@ module.exports = (router, ctx) => {
               "hire_received",
               message,
               projectId,
-              `/tradesman/projects`,
+              `/tradesman/jobs`,
               now,
             ],
           );
@@ -183,7 +183,7 @@ module.exports = (router, ctx) => {
             type: "hire_received",
             message,
             projectId,
-            linkPath: `/tradesman/projects`,
+            linkPath: `/tradesman/jobs`,
           });
 
           sendPushToUser({
@@ -191,7 +191,7 @@ module.exports = (router, ctx) => {
             type: "hire_received",
             title: "VetMyBuilder",
             body: message,
-            linkPath: `/tradesman/projects`,
+            linkPath: `/tradesman/jobs`,
             mysqlQuery,
             logActivity: ctx.logActivity,
           });
@@ -349,7 +349,7 @@ module.exports = (router, ctx) => {
               "hire_received",
               message,
               projectId,
-              `/tradesman/projects`,
+              `/tradesman/jobs`,
               now,
             ],
           );
@@ -358,7 +358,7 @@ module.exports = (router, ctx) => {
             type: "hire_received",
             message,
             projectId,
-            linkPath: `/tradesman/projects`,
+            linkPath: `/tradesman/jobs`,
           });
 
           sendPushToUser({
@@ -366,7 +366,7 @@ module.exports = (router, ctx) => {
             type: "hire_received",
             title: "VetMyBuilder",
             body: message,
-            linkPath: `/tradesman/projects`,
+            linkPath: `/tradesman/jobs`,
             mysqlQuery,
             logActivity: ctx.logActivity,
           });

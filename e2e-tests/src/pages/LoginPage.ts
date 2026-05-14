@@ -123,9 +123,9 @@ export class LoginPage {
     );
   }
 
-  /** Navigate to the trade-facing login form (next=/tradesman/projects). */
+  /** Navigate to the trade-facing login form (next=/tradesman/jobs). */
   async gotoTradeForm() {
-    await this.goto("/tradesman/projects");
+    await this.goto("/tradesman/jobs");
   }
 
   /**

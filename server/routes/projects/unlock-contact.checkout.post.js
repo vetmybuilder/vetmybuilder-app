@@ -194,7 +194,7 @@ module.exports = (router, ctx) => {
           ? `${process.env.NEXT_PUBLIC_WEB_BASE || "http://localhost:3000"}/payments/success?sessionId={CHECKOUT_SESSION_ID}&projectId=${pid}`
           : undefined;
         const cancelUrl = isStripe
-          ? `${process.env.NEXT_PUBLIC_WEB_BASE || "http://localhost:3000"}/tradesman/projects`
+          ? `${process.env.NEXT_PUBLIC_WEB_BASE || "http://localhost:3000"}/tradesman/jobs`
           : undefined;
 
         const session = await payments.createSession({

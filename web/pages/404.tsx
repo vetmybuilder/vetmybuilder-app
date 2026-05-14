@@ -5,7 +5,7 @@ import { useRole } from "@/utils/useRole";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 
 export default function NotFound() {
-  const { role } = useRole();
+  const { role, loading: roleLoading } = useRole();
   const isTradesman = role === "tradesman";
   const isGuest = role === "guest";
 
@@ -31,17 +31,54 @@ export default function NotFound() {
       ? { href: "/signup", label: "Get started" }
       : { href: "/projects/new", label: "Post a job" };
 
+  // Hold the page in a neutral state until useRole resolves. Without
+  // this we briefly render the homeowner copy + "Go home" CTA for any
+  // authed viewer before the role lookup completes - then swap to the
+  // tradesman copy + emerald "Browse jobs" CTA, which reads as a
+  // flicker. Mirrors the access-checking shell on /projects/[id]/recommend.
+  if (roleLoading) {
+    return (
+      <>
+        <Head>
+          <title>Page not found - VetMyBuilder</title>
+          <style>{`
+            body { background: #ffffff !important; }
+            @media (min-width: 768px) {
+              body { background: #fef6e9 !important; }
+            }
+          `}</style>
+        </Head>
+        <div className="fixed inset-0 flex items-center justify-center bg-white md:bg-[#fef6e9]">
+          <div className="inline-flex items-center gap-2 text-[13px] font-semibold text-slate-500">
+            <span className="w-4 h-4 rounded-full border-2 border-slate-300 border-t-indigo-600 animate-spin" />
+            Loading…
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <Head>
         <title>Page not found - VetMyBuilder</title>
-        <style>{`body { background: #fef6e9 !important; }`}</style>
+        {/* Mobile: edge-to-edge white shell so the 404 fills the
+            viewport (matches /signup, /login, /forgot-password etc).
+            Desktop: cream brand backdrop with the watermark scatter. */}
+        <style>{`
+          body { background: #ffffff !important; }
+          @media (min-width: 768px) {
+            body { background: #fef6e9 !important; }
+          }
+        `}</style>
       </Head>
 
-      <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-12 relative overflow-hidden flex items-center justify-center px-4">
-        <BrandWatermarkScatter />
-        <div className="relative z-10 w-full max-w-lg">
-          <div className="bg-white rounded-3xl border border-amber-100 shadow-xl shadow-indigo-200/30 px-8 py-10 sm:px-10 sm:py-12 text-center">
+      <div className="bg-white md:bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-0 md:pb-12 relative overflow-hidden flex items-center justify-center px-0 md:px-4">
+        <div className="hidden md:block">
+          <BrandWatermarkScatter />
+        </div>
+        <div className="relative z-10 w-full max-w-none md:max-w-lg min-h-[calc(100vh-3.5rem)] md:min-h-0 flex flex-col items-center justify-start md:justify-center pt-6 md:pt-0">
+          <div className="w-full bg-white rounded-none md:rounded-3xl border-0 md:border md:border-amber-100 shadow-none md:shadow-xl md:shadow-indigo-200/30 px-6 py-6 md:py-12 sm:px-10 text-center">
             {/* Tools illustration */}
             <div
               className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-2xl text-[40px] leading-none"
@@ -109,10 +146,6 @@ export default function NotFound() {
                 {secondary.label}
               </Link>
             </div>
-          </div>
-
-          <div className="mt-5 text-center text-[12px] text-slate-400">
-            VetMyBuilder
           </div>
         </div>
       </div>

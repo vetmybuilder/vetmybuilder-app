@@ -30,7 +30,7 @@ function setup(initial: string[] = []) {
 }
 
 describe("ProjectTypeChecklist", () => {
-  it("renders every PROJECT_TYPES category as a checkbox", () => {
+  it("renders every PROJECT_TYPES category as a toggleable pill", () => {
     setup();
     for (const cat of PROJECT_TYPES) {
       expect(
@@ -80,10 +80,10 @@ describe("ProjectTypeChecklist", () => {
       ...kitchen.types,
     ]);
 
-    const cb = screen.getByTestId(
-      "projects-filter-category-Insulation",
-    ) as HTMLInputElement;
-    expect(cb.checked).toBe(true);
+    const cb = screen.getByTestId("projects-filter-category-Insulation");
+    // Selected pills carry aria-pressed="true" instead of the old
+    // checkbox's `.checked` boolean.
+    expect(cb.getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(cb);
 
     const passed = onChangeTypes.mock.calls[0][0] as string[];

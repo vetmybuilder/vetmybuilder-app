@@ -432,10 +432,13 @@ module.exports = function mountGlobalMatches(router, ctx) {
         // chat_messages absent / mock didn't supply - leave map empty.
       }
 
-      // Unread = messages from the OTHER party newer than the most recent
-      // message I (the viewer) sent. If I've never sent anything, every
-      // message from the other side counts as unread. If they haven't sent
-      // anything, unread is 0. Single batched correlated count below.
+      // Unread = messages from the OTHER party newer than BOTH (a) the
+      // most recent message I sent and (b) the last time I tapped
+      // "Mark all as read" on the Inbox Messages tab (stored per-side
+      // on swipe_interest as homeowner_last_read_at / builder_last_read_at).
+      // Taking the GREATEST of those two timestamps means a fresh
+      // mark-all-read suppresses old messages even when I haven't
+      // replied, but a new message after the stamp still counts.
       try {
         const unreadRows = await mysqlQuery(
           `SELECT cm.match_id AS matchId, COUNT(*) AS c
@@ -447,11 +450,22 @@ module.exports = function mountGlobalMatches(router, ctx) {
                   AND match_id IN (${ph})
                 GROUP BY match_id
              ) mine ON mine.match_id = cm.match_id
+             LEFT JOIN swipe_interest si ON si.id = cm.match_id
             WHERE cm.match_id IN (${ph})
               AND cm.sender_uid <> ?
-              AND (mine.myLast IS NULL OR cm.created_at > mine.myLast)
+              AND cm.created_at > COALESCE(
+                GREATEST(
+                  COALESCE(mine.myLast, '1970-01-01'),
+                  COALESCE(
+                    CASE WHEN si.homeowner_uid = ? THEN si.homeowner_last_read_at END,
+                    CASE WHEN si.builder_uid = ? THEN si.builder_last_read_at END,
+                    '1970-01-01'
+                  )
+                ),
+                '1970-01-01'
+              )
             GROUP BY cm.match_id`,
-          [uid, ...matchIds, ...matchIds, uid],
+          [uid, ...matchIds, ...matchIds, uid, uid, uid],
         );
         for (const r of unreadRows || []) {
           unreadByMatch.set(Number(r.matchId), Number(r.c) || 0);

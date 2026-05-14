@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { MessageSquare, Sparkles, Handshake, Bell } from "lucide-react";
+import { MessageSquare, Sparkles, Handshake, Bell, X } from "lucide-react";
 import { useApi } from "@/utils/api";
 
 type Tab = "messages" | "activity";
@@ -47,9 +47,15 @@ type NotificationRow = {
 };
 
 // Activity tab hides notification types that are already represented in
-// the Messages tab. inbox_message_new is implied by a thread's unread
-// dot, so showing it twice is just noise.
-const ACTIVITY_HIDDEN_TYPES = new Set(["inbox_message_new"]);
+// the Messages tab. Both forms cover the same event - a new chat
+// message on an existing thread - and the Messages tab already
+// surfaces it via the per-row unread dot + badge. Showing them in
+// Activity duplicates the signal and clutters the feed when a
+// homeowner gets a burst of replies on one thread.
+const ACTIVITY_HIDDEN_TYPES = new Set([
+  "inbox_message_new",
+  "chat_message_new",
+]);
 
 /* ----------------------------- shared hook ----------------------------- */
 
@@ -227,6 +233,57 @@ export default function InboxDropdown({ onClose }: { onClose: () => void }) {
         </div>
       </div>
 
+      {/* Bulk action bar — tab-aware. Messages tab gets "Mark all as
+          read", Activity tab gets "Clear all". Only renders when
+          there's something to act on. */}
+      {tab === "messages" && messagesUnread > 0 && (
+        <div className="px-4 pb-2">
+          <button
+            type="button"
+            onClick={async () => {
+              // Optimistic: zero out unreadCount across every match locally
+              // so the badge clears immediately, even before the network
+              // round-trip lands.
+              publish({
+                matches: state.matches.map((m) => ({ ...m, unreadCount: 0 })),
+              });
+              try {
+                await api.post("/api/matches/read-all", {});
+              } catch {
+                /* best-effort - the next refetch will re-sync if the call failed */
+              }
+            }}
+            className="text-[12px] font-bold text-indigo-600 hover:text-indigo-700"
+            data-testid="inbox-mark-all-read"
+          >
+            Mark all as read
+          </button>
+        </div>
+      )}
+      {tab === "activity" && activity.length > 0 && (
+        <div className="px-4 pb-2">
+          <button
+            type="button"
+            onClick={async () => {
+              // Optimistic: drop every notification from local state so
+              // the list empties out instantly. The endpoint stamps
+              // dismissed_at server-side; future fetches won't return
+              // them.
+              publish({ notifications: [] });
+              try {
+                await api.post("/api/notifications/dismiss-all", {});
+              } catch {
+                /* best-effort */
+              }
+            }}
+            className="text-[12px] font-bold text-indigo-600 hover:text-indigo-700"
+            data-testid="inbox-clear-all"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
+
       {/* Body */}
       <div className="max-h-[420px] overflow-y-auto">
         {tab === "messages" ? (
@@ -236,7 +293,22 @@ export default function InboxDropdown({ onClose }: { onClose: () => void }) {
             router={router}
           />
         ) : (
-          <ActivityList items={activity} onClose={onClose} router={router} />
+          <ActivityList
+            items={activity}
+            onClose={onClose}
+            router={router}
+            onDismiss={(id) => {
+              // Optimistic: drop the single row out of local state.
+              publish({
+                notifications: state.notifications.filter((n) => n.id !== id),
+              });
+              api
+                .delete(`/api/notifications/${id}`)
+                .catch(() => {
+                  /* best-effort */
+                });
+            }}
+          />
         )}
       </div>
     </div>
@@ -364,10 +436,12 @@ function ActivityList({
   items,
   onClose,
   router,
+  onDismiss,
 }: {
   items: NotificationRow[];
   onClose: () => void;
   router: ReturnType<typeof useRouter>;
+  onDismiss: (id: number) => void;
 }) {
   if (items.length === 0) return <EmptyState kind="activity" />;
 
@@ -392,7 +466,11 @@ function ActivityList({
         const interceptToDock =
           matchIdFromLink != null && n.projectId != null;
         return (
-          <li key={n.id}>
+          <li
+            key={n.id}
+            className="group relative flex items-stretch hover:bg-amber-50/60 transition-colors"
+            data-testid={`inbox-activity-row-${n.id}`}
+          >
             <Link
               href={href}
               onClick={(e) => {
@@ -406,7 +484,7 @@ function ActivityList({
                 }
                 onClose();
               }}
-              className="w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-amber-50/60 transition-colors"
+              className="flex-1 min-w-0 text-left px-4 py-3 flex items-start gap-3"
             >
               <span
                 className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${meta.bg}`}
@@ -425,6 +503,22 @@ function ActivityList({
                 <span className="h-2 w-2 rounded-full bg-indigo-600 mt-1.5 shrink-0" />
               )}
             </Link>
+            {/* Dismiss this single notification. Sits outside the Link
+                so the click never bubbles into a navigation. Always
+                visible on touch surfaces; reveals on hover on desktop. */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDismiss(n.id);
+              }}
+              aria-label="Dismiss notification"
+              data-testid={`inbox-activity-dismiss-${n.id}`}
+              className="shrink-0 self-start mt-3 mr-3 inline-flex h-6 w-6 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
           </li>
         );
       })}

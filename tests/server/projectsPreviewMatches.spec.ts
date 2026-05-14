@@ -161,7 +161,15 @@ describe("GET /api/projects/preview-matches", () => {
     const handler = loadHandler({ mysqlQuery: q });
     const res = mockRes();
 
-    await handler({ query: { type: "Builder", location: "E4 1AA" } }, res);
+    // "Loft Conversion" is in PROJECT_TYPES → maps to canonical trades
+    // (General Builder, Loft Conversion Specialist, etc) so the route
+    // builds + executes its SQL instead of early-returning []. Mocked
+    // rows below stay generic — `mysqlQuery` is a spy so the SQL
+    // itself isn't asserted, just the response shaping.
+    await handler(
+      { query: { type: "Loft Conversion", location: "E4 1AA" } },
+      res,
+    );
 
     const body = res.json.mock.calls[0][0];
     expect(body.items).toHaveLength(3);
@@ -188,7 +196,7 @@ describe("GET /api/projects/preview-matches", () => {
     const handler = loadHandler({ mysqlQuery: q });
     const res = mockRes();
 
-    await handler({ query: { type: "Builder" } }, res);
+    await handler({ query: { type: "Loft Conversion" } }, res);
 
     expect(q).toHaveBeenCalledTimes(1);
     const body = res.json.mock.calls[0][0];

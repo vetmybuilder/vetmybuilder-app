@@ -48,8 +48,18 @@ module.exports = (router, ctx) => {
         return res.status(403).json({ error: "Forbidden" });
       }
 
-      // Hard-delete the notification
-      await mysqlQuery(`DELETE FROM notifications WHERE id = ?`, [id]);
+      // Soft-delete: stamp dismissed_at. The Activity tab's GET query
+      // already filters `dismissed_at IS NULL`, so the row disappears
+      // from the user's inbox while staying on disk for analytics,
+      // audit, and future "Undo / show dismissed" affordances.
+      // Idempotent — re-dismissing a dismissed row is a no-op.
+      await mysqlQuery(
+        `UPDATE notifications
+            SET dismissed_at = NOW()
+          WHERE id = ?
+            AND dismissed_at IS NULL`,
+        [id],
+      );
 
       ctx.logActivity?.(
         "notification.dismissed",
@@ -58,7 +68,7 @@ module.exports = (router, ctx) => {
         `Notification #${id} dismissed`
       );
 
-      log.info({ id, uid }, "Notification deleted");
+      log.info({ id, uid }, "Notification soft-dismissed");
       return res.json({ ok: true });
     } catch (err) {
       log.error(

@@ -50,7 +50,7 @@ export default function MockPaymentCanceled() {
                 Review my account
               </Link>
               <Link
-                href="/tradesman/projects"
+                href="/tradesman/jobs"
                 className="h-11 rounded-full border border-slate-300 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                 data-testid="btn-cancel-trades"
               >

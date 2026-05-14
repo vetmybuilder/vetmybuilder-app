@@ -94,7 +94,7 @@ test.describe("Sign in", () => {
   test("shows tradesman registration link when next points to a tradesman path", async ({
     loginPage,
   }) => {
-    await loginPage.goto("/tradesman/projects");
+    await loginPage.goto("/tradesman/jobs");
     await loginPage.hasVendorSignupLink();
   });
 });

@@ -54,11 +54,15 @@ const get = vi.fn(async (url: string) => {
   return { data: {} };
 });
 const post = vi.fn(async () => ({ data: {} }));
+// The per-row dismiss action uses axios.delete, so the mocked api
+// needs to expose it. Returns the same { data: {} } shape every other
+// stub uses.
+const del = vi.fn(async () => ({ data: {} }));
 
 // Stable api reference: the dropdown's useInboxUnread hook depends on
 // the api object via useCallback, so a fresh object each render would
 // loop refetch -> setState -> render -> refetch.
-const apiInstance = { get, post };
+const apiInstance = { get, post, delete: del };
 vi.mock("@/utils/api", () => ({
   useApi: () => apiInstance,
 }));
@@ -95,6 +99,7 @@ describe("<InboxDropdown />", () => {
   beforeEach(() => {
     get.mockClear();
     post.mockClear();
+    del.mockClear();
   });
 
   it("renders match rows on the Messages tab by default", async () => {
@@ -138,5 +143,62 @@ describe("<InboxDropdown />", () => {
     render(<Harness onClose={vi.fn()} />);
     const viewAll = screen.getByRole("link", { name: /view all/i });
     expect(viewAll).toHaveAttribute("href", "/matches");
+  });
+
+  it("shows Mark-all-as-read on Messages when unread messages exist and POSTs /api/matches/read-all on click", async () => {
+    render(<Harness onClose={vi.fn()} />);
+
+    // Default tab is Messages, and the seed data has unreadCount > 0,
+    // so the bulk action surfaces.
+    const btn = await screen.findByTestId("inbox-mark-all-read");
+    fireEvent.click(btn);
+
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith("/api/matches/read-all", {}),
+    );
+
+    // Optimistic local update should clear the unread badge announce.
+    expect(screen.queryByLabelText("2 unread")).not.toBeInTheDocument();
+  });
+
+  it("shows Clear-all on Activity when items exist and POSTs /api/notifications/dismiss-all on click", async () => {
+    render(<Harness onClose={vi.fn()} />);
+
+    fireEvent.click(
+      await screen.findByRole("tab", { name: /activity/i }),
+    );
+
+    const btn = await screen.findByTestId("inbox-clear-all");
+    fireEvent.click(btn);
+
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith(
+        "/api/notifications/dismiss-all",
+        {},
+      ),
+    );
+
+    // Optimistic: notifications drop out of the visible list.
+    expect(
+      screen.queryByText(/Priya recommended a tradesperson/),
+    ).not.toBeInTheDocument();
+  });
+
+  it("per-row dismiss DELETEs /api/notifications/:id and drops the row optimistically", async () => {
+    render(<Harness onClose={vi.fn()} />);
+
+    fireEvent.click(
+      await screen.findByRole("tab", { name: /activity/i }),
+    );
+
+    const dismiss = await screen.findByTestId("inbox-activity-dismiss-101");
+    fireEvent.click(dismiss);
+
+    await waitFor(() =>
+      expect(del).toHaveBeenCalledWith("/api/notifications/101"),
+    );
+    expect(
+      screen.queryByText(/Priya recommended a tradesperson/),
+    ).not.toBeInTheDocument();
   });
 });

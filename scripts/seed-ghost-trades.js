@@ -164,10 +164,14 @@ function pickSecondaries(trade) {
   }
   for (const t of EXTRA_TRADE_LINKS[trade] || []) candidates.add(t);
   candidates.delete(trade);
-  // Always sprinkle in General Builder + Handyman as cross-bucket
-  // upsells - they're broadly common secondaries on real trade sites.
-  if (trade !== "General Builder") candidates.add("General Builder");
-  if (trade !== "Handyman") candidates.add("Handyman");
+  // Previously this sprinkled "General Builder" + "Handyman" into
+  // every ghost's secondary list as "broadly common upsells". That
+  // made every project that recommended General Builder (e.g. EWI,
+  // extensions, structural work) pull in unrelated specialists -
+  // Kitchen Fitters, Sprinklers, Swimming Pools, Curtains, etc -
+  // because they all carried "General Builder" as a secondary. The
+  // bucket + adjacency map already produces realistic, on-trade
+  // upsells, so we no longer force a global cross-bucket link.
   return sample([...candidates], 2);
 }
 
@@ -316,19 +320,210 @@ function makeBio({ trade, area, years, since }) {
     .join(" ");
 }
 
-// pravatar.cc serves 70+ deterministic portrait avatars by id. Free,
-// no auth, stable URLs. We rotate ids 1..70 across the 100 ghosts so
-// each ghost has a believable headshot. If we want fully unique faces
-// later we can swap to a curated R2 bucket.
-function profilePictureUrl(idx) {
-  const id = (idx % 70) + 1;
-  return `https://i.pravatar.cc/600?img=${id}`;
-}
+// Loremflickr keyword per trade. The seed script uses this to fetch a
+// trade-themed Flickr photo per ghost: same trade keyword, unique
+// `lock` seed per ghost (and per portfolio slot) so every card on the
+// preview matches grid renders a DIFFERENT photo of plumbing /
+// roofing / electrical work etc. Keywords are kept short and common
+// so Flickr's tag pool has lots of matching photos to draw from -
+// rare specialisations fall back to a broader parent (e.g. Stonemason
+// → masonry, Sash Window Specialist → window). Whenever a tag returns
+// nothing, loremflickr serves a generic fallback photo, so coverage
+// is best-effort but always renders something.
+const TRADE_KEYWORD = {
+  "Air Conditioning": "air-conditioning",
+  "Architect": "architect",
+  "Asbestos Removal": "demolition",
+  "Basement Conversion": "basement",
+  "Bathroom Fitter": "bathroom",
+  "Bin Cleaning": "bin",
+  "Boiler Installer": "boiler",
+  "Bricklayer": "bricklayer",
+  "Building Control (Approved Inspector)": "construction-inspector",
+  "Cabinet Maker": "cabinet,wood",
+  "Carpenter / Joiner": "carpenter",
+  "Carpet & Upholstery Cleaning": "carpet,cleaning",
+  "Carpet Fitter": "carpet",
+  "Cavity Wall Insulation": "insulation",
+  "Chimney Sweeping": "chimney",
+  "Cleaning (Builders Clean)": "cleaning",
+  "Commercial / Office Cleaning": "office-cleaning",
+  "Commercial Bin Cleaning": "bin",
+  "Curtains / Soft Furnishings": "curtains",
+  "Damp Proofing": "damp,wall",
+  "Decking": "deck,garden",
+  "Deep / One-off Cleaning": "cleaning",
+  "Domestic Bin Cleaning": "bin",
+  "Drainage Specialist": "drain",
+  "Driveway & Patio Cleaning": "driveway,cleaning",
+  "Driveways / Paving": "driveway",
+  "Dryliner / Partitions": "drywall",
+  "Electrician": "electrician",
+  "End of Tenancy Cleaning": "cleaning",
+  "Extension Builder": "house-extension",
+  "External Wall Insulation": "insulation",
+  "Fencing": "fence",
+  "Fire Safety": "fire-alarm",
+  "Flooring Specialist": "flooring",
+  "Garage Conversion": "garage",
+  "Garden Rooms / Offices": "garden-room",
+  "Gas Engineer": "boiler",
+  "General Builder": "builder",
+  "Glazier": "window-glass",
+  "Groundworker": "construction-site",
+  "Gutter Cleaning": "gutter",
+  "Handyman": "handyman",
+  "Heat Pumps": "heat-pump",
+  "Heating Engineer": "heating",
+  "Internal Wall Insulation": "insulation",
+  "Kitchen Fitter": "kitchen",
+  "Landscaper": "landscaping",
+  "Loft Conversion Specialist": "loft",
+  "Loft Insulation": "insulation",
+  "Mould / Sanitisation Cleaning": "mould,wall",
+  "New Build": "construction",
+  "Oven Cleaning": "oven,cleaning",
+  "Painter / Decorator": "painter",
+  "Party Wall Surveyor": "surveyor",
+  "Plasterer": "plasterer",
+  "Plumber": "plumber",
+  "Pressure / Jet Washing": "pressure-washing",
+  "Regular / Domestic Cleaning": "cleaning",
+  "Roof / Moss Removal": "roof",
+  "Roof Insulation": "insulation",
+  "Roofer": "roofer",
+  "Sash Window Specialist": "window",
+  "Sauna / Steam": "sauna",
+  "Scaffolder": "scaffolding",
+  "Security / Alarms / CCTV": "cctv",
+  "Shutters / Blinds": "blinds",
+  "Skylights / Rooflights": "skylight",
+  "Smart Home / AV": "smart-home",
+  "Solar Panel Cleaning": "solar-panel",
+  "Solar PV": "solar-panel",
+  "Solar Thermal": "solar-panel",
+  "Sprinklers": "sprinkler",
+  "Steel Fabrication": "steel,welding",
+  "Stone Worktops": "kitchen-worktop",
+  "Stonemason": "masonry",
+  "Structural Engineer": "engineer,construction",
+  "Suspended Ceilings": "ceiling",
+  "Swimming Pools": "swimming-pool",
+  "Thatched Roofing": "thatched-roof",
+  "Tiler": "tiler",
+  "Timber Treatment": "timber",
+  "Underfloor Heating": "underfloor-heating",
+  "Vinyl / LVT Fitter": "flooring",
+  "Waste Removal / Skip Hire": "skip",
+  "Window / Door Fitter": "window",
+  "Window Cleaning": "window-cleaning",
+  "Wood Floor Sanding": "wood-floor",
+};
 
-// Lorem Picsum's seed feature returns a stable image per seed string.
-// We use it for tradesmen_photos so each ghost has a small "portfolio".
-function portfolioPhotoUrl(seed) {
-  return `https://picsum.photos/seed/${encodeURIComponent(seed)}/800/800`;
+// Local-fallback job-image slug per trade. Used only when an explicit
+// override or test mode pins images to the offline set. Kept in sync
+// with web/public/job-images/{slug}.jpg.
+const TRADE_TO_CATEGORY_SLUG = {
+  "Air Conditioning": "heating-and-cooling",
+  "Architect": "building-and-construction",
+  "Asbestos Removal": "cleaning-and-waste",
+  "Basement Conversion": "extensions-and-conversions",
+  "Bathroom Fitter": "bathroom",
+  "Bin Cleaning": "cleaning-and-waste",
+  "Boiler Installer": "heating-and-cooling",
+  "Bricklayer": "building-and-construction",
+  "Building Control (Approved Inspector)": "building-and-construction",
+  "Cabinet Maker": "carpentry-and-joinery",
+  "Carpenter / Joiner": "carpentry-and-joinery",
+  "Carpet & Upholstery Cleaning": "cleaning-and-waste",
+  "Carpet Fitter": "flooring",
+  "Cavity Wall Insulation": "insulation",
+  "Chimney Sweeping": "cleaning-and-waste",
+  "Cleaning (Builders Clean)": "cleaning-and-waste",
+  "Commercial / Office Cleaning": "cleaning-and-waste",
+  "Commercial Bin Cleaning": "cleaning-and-waste",
+  "Curtains / Soft Furnishings": "bedroom",
+  "Damp Proofing": "damp-and-waterproofing",
+  "Decking": "landscaping-and-garden",
+  "Deep / One-off Cleaning": "cleaning-and-waste",
+  "Domestic Bin Cleaning": "cleaning-and-waste",
+  "Drainage Specialist": "plumbing",
+  "Driveway & Patio Cleaning": "cleaning-and-waste",
+  "Driveways / Paving": "exterior-and-structure",
+  "Dryliner / Partitions": "tiling-and-plastering",
+  "Electrician": "electrical",
+  "End of Tenancy Cleaning": "cleaning-and-waste",
+  "Extension Builder": "extensions-and-conversions",
+  "External Wall Insulation": "insulation",
+  "Fencing": "fencing-and-gates",
+  "Fire Safety": "accessibility-and-safety",
+  "Flooring Specialist": "flooring",
+  "Garage Conversion": "extensions-and-conversions",
+  "Garden Rooms / Offices": "extensions-and-conversions",
+  "Gas Engineer": "heating-and-cooling",
+  "General Builder": "building-and-construction",
+  "Glazier": "windows-and-doors",
+  "Groundworker": "exterior-and-structure",
+  "Gutter Cleaning": "cleaning-and-waste",
+  "Handyman": "repairs-and-maintenance",
+  "Heat Pumps": "energy-and-renewables",
+  "Heating Engineer": "heating-and-cooling",
+  "Internal Wall Insulation": "insulation",
+  "Kitchen Fitter": "kitchen",
+  "Landscaper": "landscaping-and-garden",
+  "Loft Conversion Specialist": "extensions-and-conversions",
+  "Loft Insulation": "insulation",
+  "Mould / Sanitisation Cleaning": "damp-and-waterproofing",
+  "New Build": "building-and-construction",
+  "Oven Cleaning": "cleaning-and-waste",
+  "Painter / Decorator": "painting-and-decorating",
+  "Party Wall Surveyor": "building-and-construction",
+  "Plasterer": "tiling-and-plastering",
+  "Plumber": "plumbing",
+  "Pressure / Jet Washing": "cleaning-and-waste",
+  "Regular / Domestic Cleaning": "cleaning-and-waste",
+  "Roof / Moss Removal": "roofing",
+  "Roof Insulation": "insulation",
+  "Roofer": "roofing",
+  "Sash Window Specialist": "windows-and-doors",
+  "Sauna / Steam": "bathroom",
+  "Scaffolder": "repairs-and-maintenance",
+  "Security / Alarms / CCTV": "smart-home-and-security",
+  "Shutters / Blinds": "windows-and-doors",
+  "Skylights / Rooflights": "windows-and-doors",
+  "Smart Home / AV": "smart-home-and-security",
+  "Solar Panel Cleaning": "cleaning-and-waste",
+  "Solar PV": "energy-and-renewables",
+  "Solar Thermal": "energy-and-renewables",
+  "Sprinklers": "landscaping-and-garden",
+  "Steel Fabrication": "metalwork-and-fabrication",
+  "Stone Worktops": "kitchen",
+  "Stonemason": "exterior-and-structure",
+  "Structural Engineer": "building-and-construction",
+  "Suspended Ceilings": "tiling-and-plastering",
+  "Swimming Pools": "landscaping-and-garden",
+  "Thatched Roofing": "roofing",
+  "Tiler": "tiling-and-plastering",
+  "Timber Treatment": "damp-and-waterproofing",
+  "Underfloor Heating": "heating-and-cooling",
+  "Vinyl / LVT Fitter": "flooring",
+  "Waste Removal / Skip Hire": "cleaning-and-waste",
+  "Window / Door Fitter": "windows-and-doors",
+  "Window Cleaning": "cleaning-and-waste",
+  "Wood Floor Sanding": "flooring",
+};
+
+// Returns a trade-themed photo URL. Uses loremflickr.com which serves
+// Creative-Commons Flickr photos matching a tag, with a deterministic
+// `lock` seed so the same (trade, lock) pair always yields the same
+// photo (stable across reseeds + page reloads). Different `lock`
+// values per ghost / per portfolio slot guarantee the preview-matches
+// grid shows three DIFFERENT photos instead of the same category
+// hero. Local `/job-images/{slug}.jpg` stays as the documented
+// fallback when loremflickr fails to load on the client.
+function tradeImageUrl(trade, lock) {
+  const keyword = TRADE_KEYWORD[trade] || "tradesman";
+  return `https://loremflickr.com/800/800/${encodeURIComponent(keyword)}?lock=${lock}`;
 }
 
 // ---------- main ----------
@@ -398,7 +593,14 @@ async function main() {
       const since = new Date().getFullYear() - years;
       const uid = ghostUid();
       const publicId = uuidv4();
-      const profilePic = profilePictureUrl(created);
+      // `created` is the global ghost index. Multiplied so each ghost
+      // gets its own contiguous block of lock seeds (one for the
+      // profile photo + up to 6 portfolio slots) and no two ghosts
+      // ever share a photo - the preview matches grid finally shows
+      // three distinct trade photos rather than three copies of the
+      // category hero.
+      const lockBase = (created + 1) * 100;
+      const profilePic = tradeImageUrl(trade, lockBase);
       const portfolioCount = rand(3, 6);
       // Single contactable phone + email shared across all ghosts so any
       // tester who somehow surfaces these reaches the master operator
@@ -458,9 +660,15 @@ async function main() {
         [uid],
       );
 
-      // Portfolio photos. The first photo doubles as profile_picture_url
-      // so the matches grid + chat avatar both have something to show
-      // even if Lorem Picsum stutters.
+      // Portfolio photos. All point at the same trade-themed category
+      // image so the gallery on the back of the card reads as the
+      // ghost's actual line of work (a plumber shows plumbing, a
+      // roofer shows roofing, etc.). Same image repeated across the
+      // sort_order slots is acceptable here - real tradespeople
+      // upload multiple shots of similar jobs anyway, and swapping to
+      // truly distinct per-photo images would need a curated bucket
+      // per trade. The first photo also doubles as the chat/grid
+      // avatar via profile_picture_url above.
       const photosCreatedAt = nowSql();
       for (let p = 0; p < portfolioCount; p++) {
         await conn.execute(
@@ -469,7 +677,7 @@ async function main() {
            VALUES (?, ?, ?, ?)`,
           [
             uid,
-            portfolioPhotoUrl(`${slug(company)}-${p}`),
+            tradeImageUrl(trade, lockBase + p + 1),
             p + 1,
             photosCreatedAt,
           ],

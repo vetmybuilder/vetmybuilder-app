@@ -418,6 +418,34 @@ export default function NewProject() {
   // always see "Post your job".
   const isPreviewStep = STEPS[step]?.key === "preview";
   const hasPreviewMatches = (previewMatches?.length || 0) > 0;
+
+  // Build the shuffle frames from the actual preview matches so the
+  // round face frame cycles through real tradesperson photos rather
+  // than the generic gradient + initial fallback. Stable order +
+  // memoised so MatchShuffleAnimation never restarts mid-cycle when
+  // matches arrive. Cycles the available photos out to at least 6
+  // frames so the deceleration still feels varied with 1-2 matches.
+  const shuffleFaces = useMemo(() => {
+    const photos = (previewMatches ?? [])
+      .map((m) => m.photoUrl)
+      .filter((u): u is string => !!u);
+    if (photos.length === 0) return undefined; // fall through to defaults
+    const palette = [
+      { from: "#a78bfa", to: "#7c3aed" },
+      { from: "#fb923c", to: "#ea580c" },
+      { from: "#34d399", to: "#059669" },
+      { from: "#60a5fa", to: "#2563eb" },
+      { from: "#f472b6", to: "#db2777" },
+      { from: "#ef4444", to: "#b91c1c" },
+    ];
+    const frames = Math.max(6, photos.length);
+    return Array.from({ length: frames }, (_, i) => ({
+      initial: "",
+      photoUrl: photos[i % photos.length],
+      from: palette[i % palette.length].from,
+      to: palette[i % palette.length].to,
+    }));
+  }, [previewMatches]);
   const submitText = !user
     ? hasPreviewMatches
       ? "Sign up to message them"
@@ -732,6 +760,7 @@ export default function NewProject() {
           onShuffleSettled={() => setShuffleSettled(true)}
           guestFlow={!user}
           onCommitAndView={commitAndView}
+          shuffleFaces={shuffleFaces}
         />
       </div>
 
@@ -1257,6 +1286,7 @@ export default function NewProject() {
                   <MatchShuffleAnimation
                     active={matchingPhase === "shuffling"}
                     onSettled={() => setShuffleSettled(true)}
+                    faces={shuffleFaces}
                   />
                   <p className="mt-2 text-[13px] text-slate-500 leading-relaxed text-center">
                     Finding tradespeople near you...

@@ -9,7 +9,7 @@ test.describe("Tradesman login - dual-role interstitial", () => {
     await authHelper.ensureGuest();
     await tradesmanLoginPage.goto();
 
-    // Tradesman post-login destination renamed /tradesman/projects ->
+    // Tradesman post-login destination renamed /tradesman/jobs ->
     // /tradesman/jobs (commit 683f7c2 "feat: rename Projects section to
     // Jobs in burger menu").
     await tradesmanLoginPage.expectRedirectedTo(

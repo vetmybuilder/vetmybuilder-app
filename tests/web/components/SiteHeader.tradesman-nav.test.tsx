@@ -34,9 +34,9 @@ vi.mock("@/utils/api", () => ({
 // Mock next/router
 vi.mock("next/router", () => ({
   useRouter: () => ({
-    pathname: "/tradesman/projects",
+    pathname: "/tradesman/jobs",
     query: {},
-    asPath: "/tradesman/projects",
+    asPath: "/tradesman/jobs",
     push: vi.fn(),
     replace: vi.fn(),
   }),

@@ -218,12 +218,11 @@ export class HomeownerProjectsPage {
 
   /**
    * Apply the Type filter for the given project type label.
-   *   - Desktop: clicks the matching category checkbox in the sidebar.
-   *     Callers may pass either a category name ("Plumbing") or a leaf
-   *     type — the leaf is mapped back to its parent category for the
-   *     checkbox click.
-   *   - Mobile: opens the Type chip's bottom-sheet picker and taps the
-   *     matching option (the picker auto-closes on select).
+   *   - Desktop: clicks the matching category pill in the sidebar
+   *     (used to be a checkbox; now a toggleable button with
+   *     aria-pressed). Callers may pass a category name ("Plumbing").
+   *   - Mobile: opens the Type chip's bottom-sheet picker and taps
+   *     the matching option (the picker auto-closes on select).
    */
   async selectTypeFilter(type: string) {
     if (this.isMobile()) {
@@ -232,7 +231,7 @@ export class HomeownerProjectsPage {
       return;
     }
 
-    // Desktop checkbox lookup. Wait for the sidebar to mount first
+    // Desktop pill lookup. Wait for the sidebar to mount first
     // (auth gate + tab redirect on /projects means the checklist
     // isn't in the DOM immediately after navigation).
     await expect(
@@ -241,7 +240,7 @@ export class HomeownerProjectsPage {
 
     const target = this.page.getByTestId(`projects-filter-category-${type}`);
     await expect(target).toBeAttached({ timeout: 10_000 });
-    await target.check();
+    await target.click();
   }
 
   /**

@@ -31,7 +31,7 @@ test.describe("Hire notifications", () => {
     expect(notification).toBeTruthy();
     expect(notification!.projectId).toBe(project.id);
     expect(notification!.message).toContain(project.name);
-    expect(notification!.linkPath).toBe("/tradesman/projects");
+    expect(notification!.linkPath).toBe("/tradesman/jobs");
   });
 
   // Cross-suite pollution: passes when run in isolation OR with a small
@@ -145,7 +145,7 @@ test.describe("Hire notifications", () => {
     expect(notification!.projectId).toBe(project.id);
     expect(notification!.message).toContain(homeowner.firstName);
     expect(notification!.message).toContain(project.name);
-    expect(notification!.linkPath).toBe("/tradesman/projects");
+    expect(notification!.linkPath).toBe("/tradesman/jobs");
   });
 
   test("does NOT notify when cancelling a pending_invite (no tradesman to notify)", async ({
