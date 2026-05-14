@@ -50,24 +50,23 @@ export default function ForgotPassword() {
           <style>{`body { background: #fef6e9 !important; }`}</style>
         </Head>
 
-        <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-12 relative overflow-hidden">
+        {/* Mobile: form fills the viewport edge-to-edge so the cream
+            chrome doesn't frame it. Desktop: card-on-cream chrome. */}
+        <div className="bg-white md:bg-[#fef6e9] min-h-screen -mt-14 pt-0 md:pt-14 pb-0 md:pb-12 relative overflow-hidden">
           <BrandWatermarkScatter />
           <div
-            className="relative z-10 mx-auto max-w-md px-5 pt-4 pb-16 md:pt-10"
+            className="relative z-10 mx-auto max-w-none md:max-w-md px-0 md:px-5 pt-0 md:pt-10 pb-0 md:pb-16"
             data-testid="forgot-password-card"
           >
-            <button
-              type="button"
-              aria-label="Back"
-              onClick={() => router.back()}
-              className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-700 mb-4"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-
-            {/* White card wraps the form so it sits inside the cream chrome,
-                matching /login + /signup + /tradesman/login. */}
-            <div className="bg-white rounded-3xl border border-amber-100 shadow-xl shadow-amber-100/40 p-6 sm:p-8">
+            <div className="bg-white border-0 shadow-none px-5 pt-5 pb-6 md:rounded-3xl md:border md:border-amber-100 md:shadow-xl md:shadow-amber-100/40 md:p-8">
+              <button
+                type="button"
+                aria-label="Back"
+                onClick={() => router.back()}
+                className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-700 mb-4"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
             {sent ? (
               <div data-testid="forgot-password-success">
                 <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-indigo-50 mb-4">

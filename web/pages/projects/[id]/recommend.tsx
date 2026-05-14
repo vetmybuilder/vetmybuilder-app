@@ -267,7 +267,12 @@ export default function RecommendOnPlatform() {
         try {
           const { data } = await api.get("/api/tradesmen/me");
           if (data?.role === "tradesman" || !!data?.profile) {
-            router.replace(`/projects/${project.id}`);
+            // Skip the intermediate /projects/[id] hop - that page
+            // itself bounces tradesmen to /tradesman/jobs, so going
+            // there first means the user briefly sees the homeowner
+            // project view (and its pay-gate) before the second
+            // redirect lands.
+            router.replace("/tradesman/jobs");
             return;
           }
         } catch {}
@@ -474,6 +479,35 @@ export default function RecommendOnPlatform() {
 
   const isProjectUnavailable = !loading && !!pageError && !project;
 
+  // Until the access check resolves we don't know whether this viewer
+  // is a homeowner, a guest, or a tradesman being bounced back to
+  // /tradesman/jobs. Rendering the full page chrome (Layout, cream
+  // backdrop, watermark, "Back" link, loading cards) for the half-
+  // second the trade check is in flight produced a visible flash of
+  // the recommend UI before the redirect landed. Bail to a neutral
+  // full-screen shell instead so the tradesman never sees the
+  // homeowner-only page even for a frame. The unavailable-project
+  // state has its own copy and stays rendered as a real result.
+  const accessCheckPending = allowed !== true && !isProjectUnavailable;
+  if (accessCheckPending) {
+    return (
+      <>
+        <Head>
+          <title>Recommend a tradesperson - VetMyBuilder</title>
+        </Head>
+        <div
+          className="fixed inset-0 flex items-center justify-center bg-[#fef6e9]"
+          data-testid="recommend-access-checking"
+        >
+          <div className="inline-flex items-center gap-2 text-[13px] font-semibold text-slate-500">
+            <span className="w-4 h-4 rounded-full border-2 border-slate-300 border-t-indigo-600 animate-spin" />
+            Loading…
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <Head>
@@ -542,9 +576,21 @@ export default function RecommendOnPlatform() {
           <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-10 relative overflow-hidden">
             <BrandWatermarkScatter />
             <div className="relative z-10 mx-auto max-w-[1180px] px-6 pt-4">
+              {/* Back destination depends on who's looking. The
+                  recommend page is publicly shareable, so a guest who
+                  follows the link from a friend has no business landing
+                  on the homeowner-only /projects/{id} view (which then
+                  bounces them again to /projects → /login, flashing
+                  intermediate chrome each hop). Only the project owner
+                  goes back to their own project page; everyone else
+                  goes home. */}
               <a
-                href={project ? `/projects/${project.id}` : "/projects"}
-                className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-slate-600 hover:text-slate-900 transition-colors mb-4"
+                href={
+                  user && project && project.ownerUserId === user.uid
+                    ? `/projects/${project.id}`
+                    : "/"
+                }
+                className="inline-flex items-center gap-1.5 rounded-full bg-white border border-gray-200 shadow-sm px-4 py-2.5 text-[13.5px] font-bold text-gray-800 hover:bg-gray-50 hover:border-gray-300 active:scale-[0.98] transition-all mb-4"
               >
                 <ChevronLeft className="w-4 h-4" />
                 <span>Back</span>

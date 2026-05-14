@@ -194,7 +194,7 @@ export function useProjectView() {
   const canPublish = isOwner && !isClosed && !isLive;
 
   const backHref = isTrades
-    ? "/tradesman/projects"
+    ? "/tradesman/jobs"
     : `/projects${sourceTab ? `?tab=${sourceTab}` : ""}`;
 
   const [recsRefreshKey, setRecsRefreshKey] = useState(0);

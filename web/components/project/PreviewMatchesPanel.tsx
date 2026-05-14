@@ -39,7 +39,7 @@ function MiniStars({ n }: { n: number }) {
   );
 }
 
-function MatchCard({ match, isGuest }: { match: PreviewMatch; isGuest: boolean }) {
+function MatchCard({ match }: { match: PreviewMatch }) {
   const initials = (match.company || "?")
     .trim()
     .split(/\s+/)
@@ -108,21 +108,16 @@ function MatchCard({ match, isGuest }: { match: PreviewMatch; isGuest: boolean }
           )}
         </div>
         {match.blurb && (
-          <p className="hidden sm:block mt-2 text-[12px] text-slate-600 italic line-clamp-2">
+          // `hidden sm:line-clamp-4` rather than `hidden sm:block
+          // line-clamp-2`: setting `block` after `line-clamp` in the
+          // class list silently overrides line-clamp's `display:
+          // -webkit-box`, so the clamp doesn't apply and long bios run
+          // 6+ lines. Using sm:line-clamp-4 as the show-on-desktop
+          // utility flips display + caps at 4 lines in one go.
+          <p className="hidden sm:line-clamp-4 mt-2 text-[12px] text-slate-600 italic">
             &ldquo;{match.blurb}&rdquo;
           </p>
         )}
-
-        {/* Locked CTA - inline within the row on mobile, full-width
-            footer on desktop */}
-        <button
-          type="button"
-          disabled
-          className="mt-2 sm:mt-auto sm:pt-3 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 sm:py-2.5 rounded-xl bg-slate-100 text-slate-400 text-[11px] sm:text-[12.5px] font-extrabold cursor-not-allowed"
-        >
-          <span className="text-[10px] sm:text-[11px]">🔒</span>
-          {isGuest ? "Sign up to message" : "Post job to message"}
-        </button>
       </div>
     </article>
   );
@@ -147,6 +142,19 @@ export default function PreviewMatchesPanel({
   err,
   isGuest,
 }: Props) {
+  // Stable wrapper so e2e tests can assert "the reveal panel mounted"
+  // regardless of which branch (error / loading / empty / populated)
+  // renders inside it. Without this the assertion would have to know
+  // which branch the test env hits, which is brittle (test DB seeding
+  // determines whether matches come back).
+  return (
+    <div data-testid="preview-matches-panel">
+      {renderBody({ matches, loading, err, isGuest })}
+    </div>
+  );
+}
+
+function renderBody({ matches, loading, err, isGuest }: Props) {
   if (err) {
     return (
       <div className="rounded-2xl border border-rose-200 bg-rose-50/60 p-4 text-[13px] text-rose-700">
@@ -208,7 +216,7 @@ export default function PreviewMatchesPanel({
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {matches.map((m) => (
-          <MatchCard key={m.id} match={m} isGuest={isGuest} />
+          <MatchCard key={m.id} match={m} />
         ))}
       </div>
     </div>

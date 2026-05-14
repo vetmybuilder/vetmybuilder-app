@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { MessageSquare, Sparkles, Handshake, Bell } from "lucide-react";
+import { MessageSquare, Sparkles, Handshake, Bell, X } from "lucide-react";
 import { useApi } from "@/utils/api";
 
 type Tab = "messages" | "activity";
@@ -239,6 +239,50 @@ export default function TradesmanInboxDropdown({
         </div>
       </div>
 
+      {/* Bulk action bar — Messages "Mark all as read", Activity
+          "Clear all". Same affordances as the homeowner dropdown so
+          the inbox feels like one product across both sides. */}
+      {tab === "messages" && messagesUnread > 0 && (
+        <div className="px-4 pb-2">
+          <button
+            type="button"
+            onClick={async () => {
+              publish({
+                matches: state.matches.map((m) => ({ ...m, unreadCount: 0 })),
+              });
+              try {
+                await api.post("/api/matches/read-all", {});
+              } catch {
+                /* best-effort */
+              }
+            }}
+            className="text-[12px] font-bold text-emerald-700 hover:text-emerald-800"
+            data-testid="inbox-mark-all-read"
+          >
+            Mark all as read
+          </button>
+        </div>
+      )}
+      {tab === "activity" && activity.length > 0 && (
+        <div className="px-4 pb-2">
+          <button
+            type="button"
+            onClick={async () => {
+              publish({ notifications: [] });
+              try {
+                await api.post("/api/notifications/dismiss-all", {});
+              } catch {
+                /* best-effort */
+              }
+            }}
+            className="text-[12px] font-bold text-emerald-700 hover:text-emerald-800"
+            data-testid="inbox-clear-all"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
+
       <div className="max-h-[60vh] overflow-y-auto">
         {tab === "messages" ? (
           <MessagesList
@@ -251,6 +295,14 @@ export default function TradesmanInboxDropdown({
             items={activity}
             onClose={onClose}
             router={router}
+            onDismiss={(id) => {
+              publish({
+                notifications: state.notifications.filter((n) => n.id !== id),
+              });
+              api.delete(`/api/notifications/${id}`).catch(() => {
+                /* best-effort */
+              });
+            }}
           />
         )}
       </div>
@@ -335,10 +387,12 @@ function ActivityList({
   items,
   onClose,
   router,
+  onDismiss,
 }: {
   items: NotificationRow[];
   onClose: () => void;
   router: ReturnType<typeof useRouter>;
+  onDismiss: (id: number) => void;
 }) {
   if (items.length === 0) return <EmptyState kind="activity" />;
   return (
@@ -358,7 +412,11 @@ function ActivityList({
         })();
         const interceptToDock = matchIdFromLink != null;
         return (
-          <li key={n.id}>
+          <li
+            key={n.id}
+            className="group relative flex items-stretch hover:bg-amber-50/60 transition-colors"
+            data-testid={`inbox-activity-row-${n.id}`}
+          >
             <Link
               href={href}
               onClick={(e) => {
@@ -368,7 +426,7 @@ function ActivityList({
                 }
                 onClose();
               }}
-              className="w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-amber-50/60 transition-colors"
+              className="flex-1 min-w-0 text-left px-4 py-3 flex items-start gap-3"
             >
               <span
                 className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${meta.bg}`}
@@ -390,6 +448,19 @@ function ActivityList({
                 <span className="h-2 w-2 rounded-full bg-emerald-600 mt-1.5 shrink-0" />
               )}
             </Link>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDismiss(n.id);
+              }}
+              aria-label="Dismiss notification"
+              data-testid={`inbox-activity-dismiss-${n.id}`}
+              className="shrink-0 self-start mt-3 mr-3 inline-flex h-6 w-6 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
           </li>
         );
       })}

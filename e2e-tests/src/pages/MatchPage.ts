@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
+import { safeGoto } from "../helpers/navigation";
 
 export class MatchPage {
   readonly page: Page;
@@ -35,7 +36,11 @@ export class MatchPage {
   }
 
   async visit(matchId: string | number): Promise<void> {
-    await this.page.goto(`/match/${matchId}`, { waitUntil: "domcontentloaded" });
+    // Use safeGoto: the homeowner is still on /projects/{id} when we
+    // call this, and any in-flight client-side navigation (e.g. an SSE
+    // event after the builder accepted) can race the match goto. The
+    // helper retries on "interrupted by another navigation".
+    await safeGoto(this.page, `/match/${matchId}`);
     await expect(this.heading).toBeVisible({ timeout: 15_000 });
   }
 

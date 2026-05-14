@@ -337,18 +337,76 @@ function OwnerProjects() {
   // through the URL — that tab change should NOT auto-clear the status it
   // just set. Flag set by the mobile handler, consumed once.
   const skipFilterResetRef = useRef(false);
+  // Sorting
+  const [sort, setSort] = useState<"createdAt" | "name">("createdAt");
+  const [order, setOrder] = useState<"asc" | "desc">("desc");
+
+  // Persist filter selections in sessionStorage per-tab so a homeowner
+  // who picks "Insulation" on /projects, taps a job, then hits Back
+  // (browser arrow or the in-app "My jobs" chevron) lands on /projects
+  // with their filters intact. Tab change still resets — each tab gets
+  // its own slot, the load effect below rehydrates the new tab.
+  function filterStorageKey(forTab: string) {
+    return `vmb:projects:filters:${forTab}`;
+  }
+  function loadFiltersFor(forTab: string): {
+    selectedTypes: string[];
+    chipStatus: string;
+    sort: "createdAt" | "name";
+    order: "asc" | "desc";
+  } | null {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = window.sessionStorage.getItem(filterStorageKey(forTab));
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return {
+        selectedTypes: Array.isArray(parsed.selectedTypes)
+          ? parsed.selectedTypes.filter((t: unknown) => typeof t === "string")
+          : [],
+        chipStatus: typeof parsed.chipStatus === "string" ? parsed.chipStatus : "",
+        sort: parsed.sort === "name" ? "name" : "createdAt",
+        order: parsed.order === "asc" ? "asc" : "desc",
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  // Tab-change handler: pull the new tab's saved selections in. Mobile
+  // tab handler (skipFilterResetRef) still wins so it can set a fresh
+  // chipStatus without us trampling it on the same tick.
   useEffect(() => {
     if (skipFilterResetRef.current) {
       skipFilterResetRef.current = false;
       return;
     }
-    setSelectedTypes([]);
-    setChipStatus("");
+    const stored = loadFiltersFor(tab);
+    setSelectedTypes(stored?.selectedTypes ?? []);
+    setChipStatus(stored?.chipStatus ?? "");
+    setSort(stored?.sort ?? "createdAt");
+    setOrder(stored?.order ?? "desc");
   }, [tab]);
 
-  // Sorting
-  const [sort, setSort] = useState<"createdAt" | "name">("createdAt");
-  const [order, setOrder] = useState<"asc" | "desc">("desc");
+  // Persist on every filter change. Skips the very first paint so the
+  // hydrate effect above can populate state without us writing the
+  // initial-blank values back over the saved blob.
+  const persistMountedRef = useRef(false);
+  useEffect(() => {
+    if (!persistMountedRef.current) {
+      persistMountedRef.current = true;
+      return;
+    }
+    if (typeof window === "undefined") return;
+    try {
+      window.sessionStorage.setItem(
+        filterStorageKey(tab),
+        JSON.stringify({ selectedTypes, chipStatus, sort, order }),
+      );
+    } catch {
+      /* sessionStorage full / blocked - filters just won't persist */
+    }
+  }, [tab, selectedTypes, chipStatus, sort, order]);
 
   // Single-shot load: server returns every row for the current tab. The
   // client filters by checkbox selection and progressively reveals rows

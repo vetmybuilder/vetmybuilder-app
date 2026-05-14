@@ -190,7 +190,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
   // Tradesman authenticated pages only — excludes public profile (/tradesman/[id])
   // and login/register which have their own backgrounds
   const TRADESMAN_AUTH_PATHS = new Set([
-    "/tradesman/projects",
+    "/tradesman/jobs",
     "/tradesman/profile/edit",
   ]);
   const isTradesmanRoute = TRADESMAN_AUTH_PATHS.has(router.pathname);

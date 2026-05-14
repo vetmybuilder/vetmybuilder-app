@@ -13,6 +13,7 @@ import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 import { ChevronLeft, Pencil, ShieldCheck } from "lucide-react";
 import PhotoLightbox from "@/components/PhotoLightbox";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 
 type MeResponse = {
   role: "tradesman" | "user";
@@ -86,11 +87,20 @@ function Inner() {
     <>
       <Head>
         <title>Profile - VetMyBuilder</title>
-        <style>{`body { background: #ffffff !important; }`}</style>
+        {/* Mobile keeps the white full-bleed shell so the emerald hero
+            reads as a native screen. Desktop swaps to the cream brand
+            backdrop the rest of the app uses. */}
+        <style>{`
+          body { background: #ffffff !important; }
+          @media (min-width: 768px) {
+            body { background: #fef6e9 !important; }
+          }
+        `}</style>
       </Head>
 
+      {/* MOBILE - existing full-bleed emerald hero + scrollable card stack */}
       <main
-        className="fixed inset-0 bg-white flex flex-col"
+        className="md:hidden fixed inset-0 bg-white flex flex-col"
         style={{
           paddingBottom: "env(safe-area-inset-bottom)",
           fontFamily:
@@ -329,6 +339,322 @@ function Inner() {
           )}
         </div>
       </main>
+
+      {/* DESKTOP - cream backdrop, centred container, hero card on top
+          and a 2-column body (trades / areas / contact on the left,
+          photo gallery on the right). Same state as the mobile branch
+          above. */}
+      <div
+        className="hidden md:block"
+        data-testid="tradesman-profile-page-desktop"
+      >
+        <div className="bg-[#fef6e9] min-h-screen pb-16 relative overflow-hidden">
+          <BrandWatermarkScatter />
+          <div className="relative z-10 mx-auto max-w-4xl px-6 pt-6">
+            {/* Crumb row - small gray-circle back chevron (matches the
+                WizardTopBar pattern used on /tradesman/profile/edit
+                etc) + emerald Edit button on the right. */}
+            <div className="flex items-center justify-between mb-5">
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="inline-flex items-center gap-1.5 rounded-full bg-white border border-gray-200 shadow-sm px-4 py-2.5 text-[13.5px] font-bold text-gray-800 hover:bg-gray-50 hover:border-gray-300 active:scale-[0.98] transition-all"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/tradesman/profile/edit")}
+                data-testid="btn-edit-profile-desktop"
+                className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-extrabold text-white shadow-md transition-all hover:scale-[1.01]"
+                style={{
+                  background:
+                    "linear-gradient(135deg, #10b981, #047857)",
+                  boxShadow: "0 8px 22px rgba(16,185,129,0.30)",
+                }}
+              >
+                <Pencil className="w-4 h-4" />
+                Edit profile
+              </button>
+            </div>
+
+            {loading && (
+              <div className="bg-white rounded-3xl border border-emerald-100 shadow-sm p-10 text-center text-sm text-slate-500">
+                Loading…
+              </div>
+            )}
+
+            {err && !loading && (
+              <div className="bg-white rounded-3xl border border-rose-100 shadow-sm p-10 text-center text-sm text-rose-600">
+                {err}
+              </div>
+            )}
+
+            {profile && !loading && (
+              <>
+                {/* HERO CARD - emerald gradient band hosting avatar +
+                    identity, stats sit just below */}
+                <div className="rounded-3xl overflow-hidden shadow-md border border-emerald-100">
+                  <div
+                    className="relative px-8 pt-10 pb-14 text-center"
+                    style={{
+                      background:
+                        "linear-gradient(160deg,#047857 0%,#10b981 60%,#6ee7b7 100%)",
+                    }}
+                  >
+                    {profile.profilePictureUrl ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={profile.profilePictureUrl}
+                        alt=""
+                        className="mx-auto w-28 h-28 rounded-full object-cover shadow-xl border-4 border-white/50"
+                      />
+                    ) : (
+                      <div className="mx-auto w-28 h-28 rounded-full bg-white/95 flex items-center justify-center text-[38px] font-black text-emerald-700 shadow-xl border-4 border-white/50">
+                        {heroLetter}
+                      </div>
+                    )}
+                    <h1
+                      className="mt-5 text-[28px] font-black tracking-tight text-white leading-tight drop-shadow"
+                      style={{ fontFamily: "'Sora', sans-serif" }}
+                      data-testid="profile-name-desktop"
+                    >
+                      {profile.companyName ||
+                        profile.contactName ||
+                        "Your business"}
+                    </h1>
+                    {profile.outward && (
+                      <div className="mt-1 text-[14px] text-white/90 drop-shadow">
+                        {profile.outward}
+                      </div>
+                    )}
+                    {profile.verified && (
+                      <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-[12.5px] font-extrabold text-emerald-700 shadow-md">
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        Verified
+                      </div>
+                    )}
+                  </div>
+                  {/* Stats row - sits on the bottom of the hero, white
+                      panel with 3 columns. */}
+                  <div className="bg-white px-6 py-5 grid grid-cols-3 text-center divide-x divide-slate-100">
+                    <Stat
+                      label="Rating"
+                      value={
+                        <span className="inline-flex items-center gap-0.5">
+                          <span className="text-amber-500">★</span>
+                          {profile.stats.stars.toFixed(1)}
+                        </span>
+                      }
+                      color="text-amber-700"
+                    />
+                    <Stat
+                      label="Completed"
+                      value={profile.stats.completed}
+                      color="text-emerald-700"
+                    />
+                    <Stat
+                      label="Strength"
+                      value={
+                        profile.stats.score == null
+                          ? "-"
+                          : `${profile.stats.score}`
+                      }
+                      color="text-violet-700"
+                    />
+                  </div>
+                </div>
+
+                {/* BODY GRID - left column: chips + contact. right
+                    column: gallery. Stacks single-column under lg
+                    when both columns would crush. */}
+                <div className="mt-8 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-6">
+                  <div className="flex flex-col gap-6">
+                    {profile.trades.length > 0 && (
+                      <section className="bg-white rounded-3xl border border-emerald-100 shadow-sm p-6">
+                        <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-3">
+                          Trades offered
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {profile.trades.map((t) => (
+                            <span
+                              key={t}
+                              className="rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[12.5px] font-semibold px-3 py-1"
+                            >
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      </section>
+                    )}
+
+                    {profile.serviceAreas.length > 0 && (
+                      <section className="bg-white rounded-3xl border border-amber-100 shadow-sm p-6">
+                        <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-3">
+                          Service areas
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {profile.serviceAreas.map((a) => (
+                            <span
+                              key={a}
+                              className="rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[12.5px] font-semibold px-3 py-1"
+                            >
+                              {a}
+                            </span>
+                          ))}
+                        </div>
+                      </section>
+                    )}
+
+                    {(profile.phone || profile.email || profile.website) && (
+                      <section className="bg-white rounded-3xl border border-emerald-100 shadow-sm overflow-hidden">
+                        <div className="px-6 pt-5 pb-2 text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700">
+                          Contact
+                        </div>
+                        <div className="divide-y divide-slate-100">
+                          {profile.phone && (
+                            <ContactRow
+                              label="Phone"
+                              value={profile.phone}
+                              href={`tel:${profile.phone}`}
+                            />
+                          )}
+                          {profile.email && (
+                            <ContactRow
+                              label="Email"
+                              value={profile.email}
+                              href={`mailto:${profile.email}`}
+                            />
+                          )}
+                          {profile.website && (
+                            <ContactRow
+                              label="Website"
+                              value={prettyDomain(profile.website)}
+                              href={
+                                profile.website.startsWith("http")
+                                  ? profile.website
+                                  : `https://${profile.website}`
+                              }
+                            />
+                          )}
+                        </div>
+                      </section>
+                    )}
+                  </div>
+
+                  {/* RECENT WORK - right column, lets the gallery
+                      breathe at desktop widths. Falls back to a
+                      friendly empty state when the trade hasn't
+                      uploaded anything yet so the column doesn't
+                      collapse. */}
+                  <section className="bg-white rounded-3xl border border-emerald-100 shadow-sm p-6">
+                    {/* Header row carries the count so the section
+                        scales honestly regardless of supply — 3 photos
+                        vs 30+ both read the same. */}
+                    <div className="flex items-baseline justify-between mb-3">
+                      <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700">
+                        Recent work
+                      </div>
+                      {profile.gallery.length > 0 && (
+                        <div className="text-[12px] font-bold text-slate-500">
+                          {profile.gallery.length} photo
+                          {profile.gallery.length === 1 ? "" : "s"}
+                        </div>
+                      )}
+                    </div>
+                    {profile.gallery.length > 0 ? (
+                      (() => {
+                        // 2-col grid. When the trade has more than 4
+                        // photos we show the first 3 + a "+N more"
+                        // overlay tile on slot 4 so the section is
+                        // always exactly 2 rows. When they have 4 or
+                        // fewer we just show them all directly (no
+                        // empty/half row, no useless +0 tile).
+                        const CAP = 4;
+                        const showAll = profile.gallery.length <= CAP;
+                        const visibleCount = showAll
+                          ? profile.gallery.length
+                          : CAP - 1;
+                        const previewSrcs = profile.gallery.slice(
+                          0,
+                          visibleCount,
+                        );
+                        const overflow = showAll
+                          ? 0
+                          : profile.gallery.length - visibleCount;
+                        const overflowSrc =
+                          overflow > 0 ? profile.gallery[visibleCount] : null;
+                        return (
+                          <div className="grid grid-cols-2 gap-2">
+                            {previewSrcs.map((src, i) => (
+                              <button
+                                key={i}
+                                type="button"
+                                onClick={() =>
+                                  setLightbox({
+                                    photos: profile.gallery,
+                                    index: i,
+                                  })
+                                }
+                                className="relative aspect-square w-full rounded-xl overflow-hidden focus:outline-none focus:ring-2 focus:ring-emerald-400 group"
+                                aria-label="Open photo"
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={src}
+                                  alt=""
+                                  className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
+                                  loading="lazy"
+                                />
+                              </button>
+                            ))}
+                            {overflow > 0 && overflowSrc && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setLightbox({
+                                    photos: profile.gallery,
+                                    index: visibleCount,
+                                  })
+                                }
+                                className="relative aspect-square w-full rounded-xl overflow-hidden focus:outline-none focus:ring-2 focus:ring-emerald-400 group"
+                                aria-label={`Open photo gallery, ${overflow} more`}
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={overflowSrc}
+                                  alt=""
+                                  className="w-full h-full object-cover"
+                                  loading="lazy"
+                                />
+                                <span className="absolute inset-0 bg-slate-900/65 flex items-center justify-center text-white font-extrabold text-[20px] group-hover:bg-slate-900/75 transition-colors">
+                                  +{overflow}
+                                </span>
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-6 py-10 text-center">
+                        <div className="text-[14px] font-extrabold text-slate-900">
+                          No photos yet
+                        </div>
+                        <p className="mt-1 text-[12.5px] text-slate-500 leading-relaxed max-w-[280px] mx-auto">
+                          Add a few photos of your work to give homeowners
+                          something to recognise you by.
+                        </p>
+                      </div>
+                    )}
+                  </section>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
       <PhotoLightbox
         open={lightbox !== null}
         photos={lightbox?.photos || []}

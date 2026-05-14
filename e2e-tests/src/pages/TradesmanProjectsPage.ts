@@ -11,7 +11,7 @@ export class TradesmanProjectsPage extends BasePage {
   }
 
   async visit() {
-    await safeGoto(this.page, "/tradesman/projects");
+    await safeGoto(this.page, "/tradesman/jobs");
     await expect(this.page.getByTestId("tradesman-projects-page")).toBeVisible({
       timeout: 30_000,
     });

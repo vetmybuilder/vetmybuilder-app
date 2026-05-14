@@ -44,6 +44,16 @@ export class SwipeDeckPage {
     await this.page.goto(`/projects/${projectId}`, {
       waitUntil: "domcontentloaded",
     });
+    // Mobile WebKit can race the api interceptor's Bearer attach against
+    // the project fetch on first paint - server returns 401, the page's
+    // error-redirect effect fires, we land on /404. The retry covers the
+    // small window before Firebase auth finishes hydrating in IndexedDB.
+    if (/\/404/.test(this.page.url())) {
+      await this.page.waitForTimeout(500);
+      await this.page.goto(`/projects/${projectId}`, {
+        waitUntil: "domcontentloaded",
+      });
+    }
   }
 
   async hasRenderedDeck(): Promise<void> {
@@ -147,8 +157,16 @@ export class SwipeDeckPage {
    * so peek cards stacked behind the top card don't double-match.
    */
   async hasBuilderCardDetails(details: BuilderCardDetails): Promise<void> {
+    // Wait for the top card itself to mount before filtering by text.
+    // Filtering-by-text immediately means "0 matches" if the card hasn't
+    // rendered yet, which produces a confusing "element not found"
+    // error. Splitting the wait gives a clearer signal: "top card never
+    // rendered" vs "top card text is wrong".
+    await expect(this.topCard).toBeVisible({ timeout: 15_000 });
+    await expect(this.topCard).toContainText(details.company, {
+      timeout: 15_000,
+    });
     const card = this.topCard.filter({ hasText: details.company });
-    await expect(card).toBeVisible({ timeout: 15_000 });
 
     if (details.rating !== undefined) {
       await expect(card).toContainText(

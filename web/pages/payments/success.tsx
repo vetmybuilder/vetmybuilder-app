@@ -31,7 +31,7 @@ export default function PaymentSuccess() {
 
       if (projectId) {
         setTimeout(() => {
-          router.replace(`/tradesman/projects?unlock=success&open=${projectId}`);
+          router.replace(`/tradesman/jobs?unlock=success&open=${projectId}`);
         }, 2000);
       }
     })();
@@ -70,7 +70,7 @@ export default function PaymentSuccess() {
                 The job details are now unlocked. Redirecting you back...
               </p>
               <Link
-                href="/tradesman/projects"
+                href="/tradesman/jobs"
                 className="mt-6 inline-flex items-center justify-center rounded-full bg-red-500 px-6 py-3 text-sm font-bold text-white hover:bg-red-600 transition-colors"
               >
                 Back to jobs
@@ -90,7 +90,7 @@ export default function PaymentSuccess() {
                 We couldn't confirm your payment. Please try again or contact support.
               </p>
               <Link
-                href="/tradesman/projects"
+                href="/tradesman/jobs"
                 className="mt-6 inline-flex items-center justify-center rounded-full bg-red-500 px-6 py-3 text-sm font-bold text-white hover:bg-red-600 transition-colors"
               >
                 Back to jobs

@@ -255,35 +255,23 @@ function Inner() {
     );
   }
 
+  // Bounce to the canonical /404 page when the tradesman can't be
+  // loaded - single source of truth for the brand-correct, role-
+  // aware 404 surface. Replaces the legacy red-styled inline 404
+  // that used to live here. The redirect fires in a useEffect so
+  // it runs after render, and we render a neutral shell in the
+  // meantime so the old UI never flashes.
   if (err) {
-    return (
-      <>
-        <Head>
-          <title>Tradesman not found — VetMyBuilder</title>
-        </Head>
-        <div className="overflow-x-hidden min-h-screen">
-          <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
-            <div className="relative z-10 w-full max-w-lg px-4 sm:px-0 text-center">
-              <div className="bg-white rounded-2xl sm:rounded-3xl shadow-sm p-6 sm:p-14">
-                <p className="text-8xl font-black text-red-500 leading-none mb-4">404</p>
-                <h1 className="text-2xl font-black tracking-tight text-zinc-900 mb-3">
-                  Tradesman not found
-                </h1>
-                <p className="text-zinc-500 text-sm leading-relaxed mb-8">
-                  This tradesman profile doesn&apos;t exist or is no longer available.
-                </p>
-                <a
-                  href="/"
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-red-500 px-8 py-3.5 text-sm font-bold text-white shadow-lg shadow-red-500/25 hover:shadow-xl hover:scale-[1.02] transition-all"
-                >
-                  Back to home
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </>
-    );
+    if (typeof window !== "undefined") {
+      // router.replace inside a render is a no-op on the first pass,
+      // but Next caches the navigation so the second tick swaps to
+      // /404 cleanly. Wrapped in setTimeout(0) so we don't update
+      // router during the current render cycle.
+      setTimeout(() => {
+        router.replace("/404");
+      }, 0);
+    }
+    return null;
   }
 
   if (!item) return null;

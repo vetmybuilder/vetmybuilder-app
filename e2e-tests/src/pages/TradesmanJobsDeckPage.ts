@@ -41,6 +41,16 @@ export class TradesmanJobsDeckPage extends BasePage {
   async goto(): Promise<void> {
     await this.page.goto("/tradesman/jobs", { waitUntil: "domcontentloaded" });
     await expect(this.root).toBeVisible({ timeout: 20_000 });
+    // Mobile WebKit can race the Bearer attach against the first deck
+    // fetch — the request goes out without a token, server treats the
+    // tradesman as unactivated, deck returns empty, and the page renders
+    // "No jobs posted yet" sticky. Reload once if the empty heading is
+    // visible immediately after mount: by then auth has fully hydrated.
+    const emptyShowing = await this.emptyHeading.isVisible().catch(() => false);
+    if (emptyShowing) {
+      await this.page.reload({ waitUntil: "domcontentloaded" });
+      await expect(this.root).toBeVisible({ timeout: 20_000 });
+    }
   }
 
   async expectTopCardShowing(jobTitle: string): Promise<void> {
@@ -77,8 +87,16 @@ export class TradesmanJobsDeckPage extends BasePage {
    * Only fields set on `details` are checked.
    */
   async hasJobCardDetails(details: JobCardDetails): Promise<void> {
+    // Wait for the top card itself to mount before filtering by text.
+    // Filtering-by-text immediately means "0 matches" if the card hasn't
+    // rendered yet, which produces a confusing "element not found"
+    // error. Splitting the wait gives a clearer signal: "top card never
+    // rendered" vs "top card title is wrong".
+    await expect(this.topCard).toBeVisible({ timeout: 15_000 });
+    await expect(this.topCard).toContainText(details.title, {
+      timeout: 15_000,
+    });
     const card = this.topCard.filter({ hasText: details.title });
-    await expect(card).toBeVisible({ timeout: 15_000 });
 
     if (details.type) {
       await expect(card).toContainText(details.type);

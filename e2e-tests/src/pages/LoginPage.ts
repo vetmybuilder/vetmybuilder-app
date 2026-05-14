@@ -68,6 +68,32 @@ export class LoginPage {
   async loginExpectSuccess(email: string, password: string) {
     await this.login(email, password);
     await expect(this.page).not.toHaveURL(/\/login/, { timeout: 15_000 });
+    // Wait for the new user's Firebase auth state to fully settle in
+    // IndexedDB. Without this a subsequent page.goto can fire while
+    // auth.currentUser is still null (mobile WebKit re-hydration is
+    // slow), which triggers a 401 from the api interceptor and the
+    // page redirects away (e.g. /projects/X -> /projects or /404).
+    await this.page
+      .waitForFunction(
+        (expectedEmail) => {
+          const w = window as any;
+          const auth =
+            w?.firebaseAuth ||
+            w?.auth ||
+            (typeof w?.firebase?.auth === "function" ? w.firebase.auth() : null);
+          const user = auth?.currentUser;
+          if (!user) return false;
+          if (!expectedEmail) return true;
+          return (user.email || "").toLowerCase() === expectedEmail.toLowerCase();
+        },
+        email,
+        { timeout: 15_000 },
+      )
+      .catch(() => {
+        /* Best-effort: not every page exposes `firebaseAuth` on window,
+           and the URL check above already confirms the form submission
+           succeeded. */
+      });
   }
 
   async loginWith(email: string, password: string) {
@@ -97,9 +123,9 @@ export class LoginPage {
     );
   }
 
-  /** Navigate to the trade-facing login form (next=/tradesman/projects). */
+  /** Navigate to the trade-facing login form (next=/tradesman/jobs). */
   async gotoTradeForm() {
-    await this.goto("/tradesman/projects");
+    await this.goto("/tradesman/jobs");
   }
 
   /**

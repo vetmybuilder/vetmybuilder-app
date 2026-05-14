@@ -44,25 +44,60 @@ export default function Signup() {
         <style>{`body { background: #fef6e9 !important; }`}</style>
       </Head>
 
-      <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-12 relative overflow-hidden">
+      {/* SiteHeader is sticky and Layout's <main> already pads pt-14
+          below it. The wrapper uses -mt-14 to extend its cream bg under
+          the header (so scroll feels continuous on desktop) but pt-0 on
+          mobile so the inner content sits immediately below the header
+          instead of 56px down. */}
+      <div className="bg-white md:bg-[#fef6e9] min-h-screen -mt-14 pt-0 md:pt-14 pb-0 md:pb-12 relative overflow-hidden">
         <BrandWatermarkScatter />
+        {/* Mobile: edge-to-edge white surface so the cream chrome
+            doesn't frame the form. Desktop: keep the card-on-cream
+            chrome with the side rail. */}
         <div
-          className="relative z-10 mx-auto max-w-md md:max-w-4xl px-5 pt-6 pb-16 md:flex md:items-start md:gap-10"
+          className="relative z-10 mx-auto max-w-none md:max-w-4xl px-0 md:px-5 pt-0 md:pt-6 pb-0 md:pb-16 md:flex md:items-start md:gap-10"
           data-testid="register-page"
         >
-          {/* Form column - white card on cream chrome, matching /login. */}
           <div className="md:flex-1 md:max-w-md">
-            <div className="bg-white rounded-3xl border border-amber-100 shadow-xl shadow-amber-100/40 p-6 sm:p-8">
-              {/* Heading block - VMB wordmark already shown by SiteHeader */}
-              <div className="mb-6">
+            <div className="bg-white border-0 shadow-none px-5 pt-5 pb-6 md:rounded-3xl md:border md:border-amber-100 md:shadow-xl md:shadow-amber-100/40 md:p-8">
+              {/* Compact mobile-first trade banner ABOVE the form so
+                  guests who landed here by mistake (tradesperson, not
+                  homeowner) see the right entry point without scrolling
+                  past the whole signup form. Hidden on desktop where
+                  the side rail covers the same role. */}
+              <Link
+                href="/tradesman/register-tradesmen"
+                onClick={handleTradeRailClick}
+                className="md:hidden flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 hover:bg-emerald-50 transition-colors p-3 mb-5"
+                data-testid="signup-trade-banner-mobile"
+              >
+                <span
+                  aria-hidden
+                  className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-base shrink-0"
+                  style={{ background: "linear-gradient(135deg,#10b981,#059669)" }}
+                >
+                  🔧
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-emerald-700">
+                    New tradesperson?
+                  </div>
+                  <div className="font-extrabold text-[14px] text-slate-900 leading-tight">
+                    Register your business
+                  </div>
+                </div>
+                <span className="text-emerald-600 text-xl shrink-0" aria-hidden>→</span>
+              </Link>
+
+              <div className="mb-5 md:mb-6">
                 <h1
-                  className="text-[28px] font-extrabold tracking-[-0.01em] text-slate-900 leading-[1.1]"
+                  className="text-[24px] md:text-[28px] font-extrabold tracking-[-0.01em] text-slate-900 leading-[1.1]"
                   id="register-title"
                   data-testid="register-title"
                 >
                   Find your tradesperson
                 </h1>
-                <p className="mt-2 text-[13.5px] text-slate-500 leading-snug">
+                <p className="mt-1.5 text-[13.5px] text-slate-500 leading-snug">
                   Free for homeowners. Takes a minute.
                 </p>
               </div>
@@ -71,19 +106,18 @@ export default function Signup() {
             </div>
           </div>
 
-          {/* Right rail: trade banner + brand photo card. The photo is a
-              placeholder slot that can be swapped for an MPU ad later. */}
-          <div className="md:w-72 md:shrink-0 mt-8 md:mt-20 space-y-4">
+          {/* Right rail (desktop only): trade banner + brand photo. */}
+          <div className="hidden md:block md:w-72 md:shrink-0 md:mt-20 space-y-4">
             <Link
               href="/tradesman/register-tradesmen"
               onClick={handleTradeRailClick}
-              className="block rounded-2xl border border-emerald-200 bg-emerald-50/60 hover:bg-emerald-50 transition-colors p-4 md:p-5"
+              className="block rounded-2xl border border-emerald-200 bg-emerald-50/60 hover:bg-emerald-50 transition-colors p-5"
               data-testid="signup-trade-banner"
             >
-              <div className="flex md:flex-col items-center md:items-start gap-3 md:gap-4 md:text-left text-left">
+              <div className="flex flex-col items-start gap-4 text-left">
                 <span
                   aria-hidden
-                  className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-white text-lg md:text-xl shrink-0"
+                  className="w-12 h-12 rounded-xl flex items-center justify-center text-white text-xl shrink-0"
                   style={{ background: "linear-gradient(135deg,#10b981,#059669)" }}
                 >
                   🔧
@@ -92,24 +126,22 @@ export default function Signup() {
                   <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700">
                     New tradesperson?
                   </div>
-                  <div className="font-extrabold text-[15px] md:text-[17px] text-slate-900 leading-snug">
+                  <div className="font-extrabold text-[17px] text-slate-900 leading-snug">
                     Register your business
                   </div>
-                  <p className="hidden md:block mt-2 text-[13px] text-slate-600 leading-relaxed">
+                  <p className="mt-2 text-[13px] text-slate-600 leading-relaxed">
                     Win local work without paying per lead. No commission.
                   </p>
-                  <span className="hidden md:inline-flex mt-3 items-center gap-1 text-emerald-700 font-bold text-sm">
+                  <span className="inline-flex mt-3 items-center gap-1 text-emerald-700 font-bold text-sm">
                     Get started <span aria-hidden>→</span>
                   </span>
                 </div>
-                <span className="md:hidden text-emerald-600 text-xl shrink-0" aria-hidden>→</span>
               </div>
             </Link>
 
-            {/* Brand mood photo. Hidden on mobile to avoid pushing the trade
-                banner further down. Easy to swap for an MPU ad slot later. */}
+            {/* Brand mood photo. Easy to swap for an MPU ad slot later. */}
             <div
-              className="hidden md:block rounded-2xl overflow-hidden shadow-sm aspect-[4/5] bg-cover bg-center"
+              className="rounded-2xl overflow-hidden shadow-sm aspect-[4/5] bg-cover bg-center"
               data-testid="signup-side-rail-photo"
               style={{
                 backgroundImage:

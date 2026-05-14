@@ -12,6 +12,10 @@ export class CreateProjectPage {
   private readonly nextBtn: Locator;
   private readonly createBtn: Locator;
   private readonly prevBtn: Locator;
+  private readonly shuffle: Locator;
+  private readonly signupCta: Locator;
+  private readonly viewTradespeopleCta: Locator;
+  private readonly previewPanel: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -21,6 +25,10 @@ export class CreateProjectPage {
     this.nextBtn = this.surface.getByTestId("btn-next");
     this.createBtn = this.surface.getByTestId("btn-create");
     this.prevBtn = this.surface.getByTestId("btn-prev");
+    this.shuffle = this.surface.getByTestId("match-shuffle");
+    this.signupCta = this.surface.getByTestId("btn-signup");
+    this.viewTradespeopleCta = this.surface.getByTestId("btn-view-tradespeople");
+    this.previewPanel = this.surface.getByTestId("preview-matches-panel");
   }
 
   /**
@@ -36,10 +44,23 @@ export class CreateProjectPage {
       .filter({ visible: true });
   }
 
-  async createProject(
+  /**
+   * Walk the homeowner through every wizard step from category up to and
+   * including the Review step's "Continue" click. Stops there - landing
+   * on the preview step auto-fires the match shuffle (see new.tsx), and
+   * tests asserting intermediate states (shuffle visible, matches
+   * revealed, sign-up vs View tradespeople CTA) call the discrete
+   * `expect*` / `click*` helpers below.
+   *
+   * For tests that just want the legacy "fill wizard, end up on the
+   * project page" outcome, use `createProject` which composes this
+   * helper with `clickViewTradespeople`.
+   */
+  async fillWizardThroughReview(
     input: CreateProjectInput,
     isMobile: boolean,
-  ): Promise<string> {
+  ): Promise<void> {
+    void isMobile; // kept for signature parity; the surface getter handles viewport
     await this.page.goto("/projects/new", { waitUntil: "domcontentloaded" });
     await this.page.waitForURL("**/projects/new", { timeout: 30_000 });
 
@@ -88,29 +109,75 @@ export class CreateProjectPage {
     }
     await this.next();
 
-    // Review step. Wizard now ends with a Preview step (step 9 of 9)
-    // showing the homeowner's local matches before they post. Continue
-    // through review, then submit from the preview step.
+    // Review step. Clicking Continue here transitions to the preview
+    // step which auto-fires the shuffle - we stop after that click so
+    // the caller can observe the shuffle / reveal lifecycle.
     await this.waitForStep("Review your job");
     await this.assertReviewStep(input);
     await this.next();
+  }
 
-    // Preview step. Title varies based on whether we found local
-    // matches or not, so wait for either form. The Create button
-    // (btn-create) is the submit on this step regardless.
-    await this.waitForStep(/Your local matches|We're still looking/i, true);
+  /**
+   * Composite assertion for the preview step: shuffle plays, three
+   * match cards land, and the auth-appropriate CTA is on screen with
+   * the right copy.
+   *   - `signup`            -> guest path ("Sign up to message them")
+   *   - `view-tradespeople` -> authed path ("View tradespeople")
+   */
+  async hasMatchReveal(opts: {
+    cta: "signup" | "view-tradespeople";
+  }): Promise<void> {
+    await expect(this.shuffle).toBeVisible({ timeout: 15_000 });
+    // Wait for the reveal stage (panel mounts in any of error / loading
+    // / empty / populated branches - all share the same wrapper testid).
+    await expect(this.previewPanel).toBeVisible({ timeout: 30_000 });
+    if (opts.cta === "signup") {
+      await expect(this.signupCta).toBeVisible({ timeout: 30_000 });
+      await expect(this.signupCta).toContainText(/sign up to message/i);
+    } else {
+      await expect(this.viewTradespeopleCta).toBeVisible({ timeout: 30_000 });
+      await expect(this.viewTradespeopleCta).toContainText(
+        /view tradespeople/i,
+      );
+    }
+  }
 
-    await this.createBtn.click();
-
+  /**
+   * Click the authed View tradespeople CTA and wait for the swipe
+   * deck redirect. Returns the created project id.
+   */
+  async clickViewTradespeople(): Promise<string> {
+    await this.viewTradespeopleCta.click();
     await this.page.waitForURL(
       (url) => /^\/projects\/\d+\/?$/.test(url.pathname),
       { timeout: 30_000 },
     );
-
     const { pathname } = new URL(this.page.url());
-    const projectId = pathname.split("/").filter(Boolean).pop() as string;
+    return pathname.split("/").filter(Boolean).pop() as string;
+  }
 
-    return projectId;
+  /**
+   * Guest revealed-state CTA. Clicks Sign up and waits for the
+   * /signup route to load.
+   */
+  async clickSignup(): Promise<void> {
+    await this.signupCta.click();
+    await this.page.waitForURL(/\/signup\b/, { timeout: 30_000 });
+  }
+
+  /**
+   * Authed end-to-end: walk the wizard, observe the shuffle/reveal,
+   * commit via "View tradespeople", end up on the swipe deck. Returns
+   * the new project's id. Used by existing specs that want the
+   * "fill + create + land on project page" outcome.
+   */
+  async createProject(
+    input: CreateProjectInput,
+    isMobile: boolean,
+  ): Promise<string> {
+    await this.fillWizardThroughReview(input, isMobile);
+    await this.hasMatchReveal({ cta: "view-tradespeople" });
+    return this.clickViewTradespeople();
   }
 
   private async selectCategory(category: string) {

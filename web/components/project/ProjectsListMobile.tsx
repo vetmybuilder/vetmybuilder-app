@@ -659,38 +659,31 @@ export default function ProjectsListMobile({
         </button>
       </div>
 
-      {/* Hero */}
+      {/* Hero. Count is now surfaced here (next to the title) since
+          the All / Live tab chips below were redundant - every project
+          we render is already live - and have been removed. */}
       <div className="px-5 pt-5 pb-3">
-        <h1 className="text-[28px] font-extrabold tracking-[-0.02em] text-gray-900 leading-tight">
-          My jobs
-        </h1>
+        <div className="flex items-baseline gap-2.5 flex-wrap">
+          <h1 className="text-[28px] font-extrabold tracking-[-0.02em] text-gray-900 leading-tight">
+            My jobs
+          </h1>
+          {typeof counts?.live === "number" && counts.live > 0 && (
+            <span
+              className="inline-flex items-center justify-center rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-0.5 text-[12px] font-extrabold"
+              data-testid="projects-mobile-count"
+            >
+              {counts.live} live
+            </span>
+          )}
+        </div>
         <p className="text-[13px] text-gray-500 mt-1">
-          Your live and draft jobs in one place.
+          Tap a project to view recommendations, matches and progress.
         </p>
       </div>
 
       {/* Safety card */}
       <SafetyCard onOpen={() => setSafetyOpen(true)} />
       <SafetySheet open={safetyOpen} onClose={() => setSafetyOpen(false)} />
-
-      {/* Tabs */}
-      <div
-        className="px-5 pt-3.5 pb-1 flex gap-2 overflow-x-auto no-scrollbar"
-        data-testid="projects-mobile-tabs"
-      >
-        <TabChip
-          label="All"
-          count={counts?.all}
-          active={tab === "all"}
-          onClick={() => onChangeTab("all")}
-        />
-        <TabChip
-          label="Live"
-          count={counts?.live}
-          active={tab === "live"}
-          onClick={() => onChangeTab("live")}
-        />
-      </div>
 
       {/* Filter chips */}
       <div
