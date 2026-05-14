@@ -333,7 +333,7 @@ function Inner() {
       warrantyMonths: profile.warranty_months ?? null,
       trades: parseCsv(profile.trade_types),
       serviceAreas: parseCsv(profile.service_areas),
-      supportingDocCount: 0,
+      supportingDocCount: parseSupportingDocs(profile.supporting_docs_json).length,
       websiteUrl: profile.web_url ?? null,
       socialLinks: socialsArray,
       offersDiscount: !!profile.offers_discount,

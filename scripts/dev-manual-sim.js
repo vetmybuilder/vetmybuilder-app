@@ -306,8 +306,57 @@ async function ensureElegantCanonical() {
 
     const ELEGANT_ABOUT = [
       "Family-run building firm based in north-east London. We handle full kitchen and bathroom fits, external wall insulation, and end-to-end refurbs across E4 and the surrounding boroughs.",
-      "Most of our work comes from word of mouth — neighbours recommending us to neighbours. We turn up when we say we will, leave the place tidier than we found it, and stand behind the work for a year after we hand the keys back.",
+      "Most of our work comes from word of mouth - neighbours recommending us to neighbours. We turn up when we say we will, leave the place tidier than we found it, and stand behind the work for a year after we hand the keys back.",
     ].join("\n\n");
+
+    // Stage Elegant's insurance / cert PDFs into the local uploads dir.
+    // The /api/tradesmen/me/docs/:idx endpoint resolves fileKey -> /uploads/<key>
+    // when R2 isn't configured (dev + staging). Source PDFs are committed
+    // under web/public/seed-files/ so we can rehydrate on every restart
+    // without depending on R2 or hand-curated upload dirs.
+    const SEED_DIR = path.join(__dirname, "..", "web", "public", "seed-files");
+    const UPLOADS_DOCS_DIR = path.join(__dirname, "..", "uploads", "tradesmen-docs");
+    try {
+      fs.mkdirSync(UPLOADS_DOCS_DIR, { recursive: true });
+    } catch {}
+    const ELEGANT_DOCS = [
+      {
+        type: "employer_liability",
+        label: "Employers Liability Certificate",
+        src: "employers-liability-certificate.pdf",
+        dst: "elegant-employers-liability.pdf",
+      },
+      {
+        type: "public_liability",
+        label: "Public Liability Schedule",
+        src: "public-liability-schedule.pdf",
+        dst: "elegant-public-liability.pdf",
+      },
+      {
+        type: "trade_certification",
+        label: "EWI Installer Certificate",
+        src: "ewi-installer-certificate.pdf",
+        dst: "elegant-ewi-installer.pdf",
+      },
+    ];
+    for (const d of ELEGANT_DOCS) {
+      try {
+        fs.copyFileSync(
+          path.join(SEED_DIR, d.src),
+          path.join(UPLOADS_DOCS_DIR, d.dst),
+        );
+      } catch (e) {
+        log(`Elegant doc copy skipped (${d.src}): ${e.message}`);
+      }
+    }
+    const ELEGANT_SUPPORTING_DOCS_JSON = JSON.stringify(
+      ELEGANT_DOCS.map((d) => ({
+        type: d.type,
+        label: d.label,
+        fileKey: `tradesmen-docs/${d.dst}`,
+        fileName: d.src,
+      })),
+    );
 
     await conn.query(
       `INSERT INTO tradesmen
@@ -318,7 +367,7 @@ async function ensureElegantCanonical() {
           google_rating, google_reviews_count,
           vmb_score, vmb_badge, status,
           web_url, social_links_json,
-          photo_count, supporting_doc_count,
+          photo_count, supporting_doc_count, supporting_docs_json,
           warranty_months, discount_min_percent, discount_max_percent,
           offers_discount, profile_picture_url, about)
        VALUES (?, 'Elegant Building Services Ltd', 'Adam',
@@ -330,7 +379,7 @@ async function ensureElegantCanonical() {
                4.9, 137,
                93, 'platinum', 'active',
                'https://elegantbuilding.co.uk/', ?,
-               ?, 1,
+               ?, 3, ?,
                12, 0, 5,
                1, ?, ?)
        ON DUPLICATE KEY UPDATE
@@ -351,6 +400,7 @@ async function ensureElegantCanonical() {
          social_links_json = VALUES(social_links_json),
          photo_count = VALUES(photo_count),
          supporting_doc_count = VALUES(supporting_doc_count),
+         supporting_docs_json = VALUES(supporting_docs_json),
          warranty_months = VALUES(warranty_months),
          discount_min_percent = VALUES(discount_min_percent),
          discount_max_percent = VALUES(discount_max_percent),
@@ -362,6 +412,7 @@ async function ensureElegantCanonical() {
         ELEGANT_TRADES,
         ELEGANT_SOCIALS,
         ELEGANT_PHOTO_URLS.length,
+        ELEGANT_SUPPORTING_DOCS_JSON,
         ELEGANT_PHOTO_URLS[0],
         ELEGANT_ABOUT,
       ],
@@ -386,8 +437,11 @@ async function ensureElegantCanonical() {
       [ELEGANT_UID],
     );
 
-    // Insurance placeholder PDF lives at web/public/seed-files - served
-    // by Next.js at /seed-files/elegant-insurance-placeholder.pdf.
+    // Mirror the same three docs into the dedicated
+    // tradesmen_insurance_policies / tradesmen_certifications tables so
+    // admin vetting screens have structured data alongside the JSON blob.
+    // Certificate paths point at the same /uploads/tradesmen-docs/ files
+    // the supporting_docs_json entries reference, so any link resolves.
     await conn.query(
       `DELETE FROM tradesmen_insurance_policies WHERE user_id = ?`,
       [ELEGANT_UID],
@@ -395,14 +449,43 @@ async function ensureElegantCanonical() {
     await conn.query(
       `INSERT INTO tradesmen_insurance_policies
          (user_id, provider, policy_number, coverage_type,
-          public_liability_pennies, certificate_path, verified_status)
-       VALUES (?, 'Placeholder Insurance Co.', 'POL-DEV-0001',
-               'public_liability', 200000000,
-               '/seed-files/elegant-insurance-placeholder.pdf', 'queued')`,
+          employer_liability_pennies, certificate_path,
+          issued_on, expires_on, verified_status)
+       VALUES (?, 'Hiscox Insurance', 'EL-ELEGANT-0001',
+               'employers_liability', 1000000000,
+               '/uploads/tradesmen-docs/elegant-employers-liability.pdf',
+               '2025-04-01', '2026-03-31', 'verified')`,
+      [ELEGANT_UID],
+    );
+    await conn.query(
+      `INSERT INTO tradesmen_insurance_policies
+         (user_id, provider, policy_number, coverage_type,
+          public_liability_pennies, certificate_path,
+          issued_on, expires_on, verified_status)
+       VALUES (?, 'Hiscox Insurance', 'PL-ELEGANT-0001',
+               'public_liability', 500000000,
+               '/uploads/tradesmen-docs/elegant-public-liability.pdf',
+               '2025-04-01', '2026-03-31', 'verified')`,
       [ELEGANT_UID],
     );
 
-    log("Elegant canonical upserted (with photos + insurance + socials)");
+    await conn.query(
+      `DELETE FROM tradesmen_certifications
+        WHERE user_id = ? AND authority = ? AND name = ?`,
+      [ELEGANT_UID, "Insulation Assurance Authority", "EWI Installer"],
+    );
+    await conn.query(
+      `INSERT INTO tradesmen_certifications
+         (user_id, authority, name, reference_no,
+          issued_on, expires_on, proof_doc_path, verified_status)
+       VALUES (?, 'Insulation Assurance Authority',
+               'EWI Installer', 'EWI-INST-ELEGANT-0001',
+               '2025-01-15', '2028-01-15',
+               '/uploads/tradesmen-docs/elegant-ewi-installer.pdf', 'verified')`,
+      [ELEGANT_UID],
+    );
+
+    log("Elegant canonical upserted (with photos + supporting_docs_json + insurance + EWI cert + socials)");
   } catch (err) {
     log(`Elegant upsert skipped: ${err.message}`);
   } finally {

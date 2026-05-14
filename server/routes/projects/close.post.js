@@ -540,63 +540,17 @@ module.exports = (router, ctx) => {
       analytics.trackProjectClosed(req.user?.uid, { projectId });
       ctx.logActivity("project.close", "info", req.user.uid, `Project #${projectId}, didGoAhead=${!!didGoAhead}`);
 
-      // ---- BACKGROUND: notify local users that a neighbour completed a project ----
-      // CR3: every closure archives the project, so we can't gate on
-      // status anymore. didGoAhead is the new "this actually happened"
-      // signal; completedAt is stamped alongside it.
-      if (
-        project &&
-        didGoAhead &&
-        typeof extractLocationTokens === "function"
-      ) {
-        (async () => {
-          try {
-            const locTokens = extractLocationTokens(project.location);
-            const whereParts = [];
-            const areaParams = [];
-            const { getBoroughCodes } = require("../../lib/boroughPostcodes");
-            if (locTokens.full)    { whereParts.push("u.postcode = ?");        areaParams.push(locTokens.full); }
-            if (locTokens.sector)  { whereParts.push("u.postcodeSector = ?");  areaParams.push(locTokens.sector); }
-            if (locTokens.outward) {
-              for (const code of getBoroughCodes(locTokens.outward)) {
-                whereParts.push("u.postcodeOutward = ?"); areaParams.push(code);
-              }
-            }
-            if (locTokens.city)    { whereParts.push("LOWER(u.city) = ?");     areaParams.push(String(locTokens.city).toLowerCase()); }
-            if (!whereParts.length) return;
-
-            const areaWhere = whereParts.join(" OR ");
-            const areaUserRows = await mysqlQuery(
-              `SELECT u.uid FROM users u WHERE (${areaWhere}) AND u.uid <> ?`,
-              [...areaParams, project.ownerUserId]
-            );
-
-            const message = `A neighbour completed a project in your area — "${project.name}"`;
-            const linkPath = `/projects/${projectId}/completed`;
-            for (const row of areaUserRows) {
-              await mysqlQuery(
-                `INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
-                 VALUES (?, 'project_closed_local', ?, ?, ?, NOW())`,
-                [row.uid, message, projectId, linkPath]
-              );
-              broadcastNotification?.(row.uid, { type: "project_closed_local", message, projectId, linkPath });
-
-              sendPushToUser({
-                uid: row.uid,
-                type: "project_closed_local",
-                title: "VetMyBuilder",
-                body: message,
-                linkPath,
-                mysqlQuery,
-                logActivity: ctx.logActivity,
-              });
-            }
-            log.info({ projectId, count: areaUserRows.length }, "project_closed_local notifications sent");
-          } catch (e) {
-            log.warn({ error: e?.message }, "project_closed_local notification error");
-          }
-        })();
-      }
+      // The legacy "neighbour completed a project in your area"
+      // broadcast used to fan a `project_closed_local` notification
+      // out to every user in the project's postcode area on close.
+      // Removed deliberately: the area query was indiscriminate and
+      // included tradespeople, who got noisy "your neighbour finished
+      // a job" inbox rows + push pings that didn't belong on their
+      // side of the marketplace. Closure is no longer a notification-
+      // worthy event for anyone other than the homeowner + the
+      // matched tradesperson (which is handled by other paths). Old
+      // rows stay in DB; the cleanup job in admin/cleanup.js sweeps
+      // them.
 
       return;
     } catch (err) {
