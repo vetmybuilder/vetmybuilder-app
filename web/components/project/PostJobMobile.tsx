@@ -12,6 +12,7 @@ import { Search, X } from "lucide-react";
 import LocationField from "@/components/forms/LocationField";
 import DynamicFieldGroup from "@/components/forms/DynamicFieldGroup";
 import PreviewMatchesPanel from "@/components/project/PreviewMatchesPanel";
+import MatchShuffleAnimation from "@/components/project/MatchShuffleAnimation";
 import type { Spec } from "@/config/jobFields";
 import type { PreviewMatch } from "@/pages/projects/new";
 
@@ -81,6 +82,18 @@ type PostJobMobileProps = {
   previewLoading?: boolean;
   previewErr?: string | null;
   isGuest?: boolean;
+
+  // Shuffle-then-reveal flow on the preview step. The parent (new.tsx)
+  // owns `matchingPhase` and the commit handler; this shell just renders
+  // the right view per phase and forwards the settle callback.
+  matchingPhase?: "idle" | "shuffling" | "revealed";
+  onShuffleSettled?: () => void;
+  /** True when the wizard is being driven by a guest. Determines the
+   *  revealed-state CTA (sign-up vs. commit-and-view). */
+  guestFlow?: boolean;
+  /** Authed-user revealed-state CTA. POSTs the job then routes to the
+   *  swipe deck. Required when guestFlow=false. */
+  onCommitAndView?: () => void | Promise<void>;
 };
 
 const FONT_STACK =
@@ -130,6 +143,10 @@ export default function PostJobMobile(props: PostJobMobileProps) {
     previewLoading,
     previewErr,
     isGuest,
+    matchingPhase = "idle",
+    onShuffleSettled,
+    guestFlow,
+    onCommitAndView,
   } = props;
 
   const router = useRouter();
@@ -368,7 +385,22 @@ export default function PostJobMobile(props: PostJobMobileProps) {
             />
           )}
 
-          {currentStep.key === "preview" && (
+          {currentStep.key === "preview" && matchingPhase !== "revealed" && (
+            // Shuffle phase. Auto-fires from the parent's useEffect the
+            // moment we land on the preview step, so the user never sees
+            // a static "3 cards visible" intermediate state.
+            <div className="pt-4">
+              <MatchShuffleAnimation
+                active={matchingPhase === "shuffling"}
+                onSettled={() => onShuffleSettled?.()}
+              />
+              <p className="mt-2 text-[13px] text-slate-500 leading-relaxed text-center">
+                Finding tradespeople near you...
+              </p>
+            </div>
+          )}
+
+          {currentStep.key === "preview" && matchingPhase === "revealed" && (
             <div>
               <PreviewMatchesPanel
                 matches={previewMatches ?? null}
@@ -376,11 +408,6 @@ export default function PostJobMobile(props: PostJobMobileProps) {
                 err={previewErr ?? null}
                 isGuest={!!isGuest}
               />
-              <p className="mt-4 text-[12.5px] text-slate-500 leading-relaxed text-center">
-                {isGuest
-                  ? "Sign up on the next step to message any of these tradespeople."
-                  : "Post your job to notify these tradespeople."}
-              </p>
             </div>
           )}
         </div>
@@ -395,11 +422,39 @@ export default function PostJobMobile(props: PostJobMobileProps) {
         )}
       </div>
 
-      {/* FOOTER */}
+      {/* FOOTER. Behaviour on the preview step matches desktop:
+          - shuffling: footer hidden (no Back / no Post buttons)
+          - revealed: single CTA - sign-up for guests, View tradespeople
+            (POST + redirect) for authed users
+          - any other step: Back + Continue/Post as before */}
       <div
         className="fixed inset-x-0 bottom-0 bg-white border-t border-gray-100 px-5 pt-3"
         style={{ paddingBottom: "max(20px, env(safe-area-inset-bottom))" }}
       >
+        {currentStep.key === "preview" && matchingPhase === "shuffling" ? null : currentStep.key === "preview" && matchingPhase === "revealed" ? (
+          <div className="flex">
+            {guestFlow ? (
+              <button
+                type="button"
+                onClick={() => router.push("/signup")}
+                className="flex-1 py-3.5 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white font-extrabold text-[15px] tracking-tight shadow-[0_8px_22px_rgba(99,102,241,0.3)]"
+                data-testid="btn-signup"
+              >
+                Sign up to message them &#8594;
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onCommitAndView?.()}
+                disabled={busy}
+                className="flex-1 py-3.5 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white font-extrabold text-[15px] tracking-tight shadow-[0_8px_22px_rgba(99,102,241,0.3)] disabled:opacity-60"
+                data-testid="btn-view-tradespeople"
+              >
+                {busy ? "Posting your job..." : "View tradespeople →"}
+              </button>
+            )}
+          </div>
+        ) : (
         <div className="flex gap-2">
           {step > 0 && (
             <button
@@ -422,6 +477,7 @@ export default function PostJobMobile(props: PostJobMobileProps) {
             {busy ? busyText : isLastStep ? submitText : "Continue"}
           </button>
         </div>
+        )}
       </div>
     </main>
   );

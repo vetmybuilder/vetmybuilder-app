@@ -293,7 +293,7 @@ export default function SwipeDeck({
           duplicate bar at the bottom of this component handles that.
           Rendering twice + responsive-hiding is the cheapest way to
           flip vertical position purely with Tailwind classes. */}
-      <div className="hidden md:flex px-4 pt-1 pb-3 items-center justify-center">
+      <div className="hidden md:flex px-4 pt-0 pb-2 items-center justify-center">
         <SwipeActionBar
           disabled={busy}
           onPass={() => commit("left")}
@@ -304,10 +304,12 @@ export default function SwipeDeck({
       </div>
       {/* Card stack - takes available vertical space, padded so the card
           doesn't kiss the screen edges and the rounded corners + drop
-          shadow have room to breathe. Desktop bumps to 540px so the
-          photo gets more presence; mobile stays at the legacy 420px
-          so the bottom action bar still fits on smaller phones. */}
-      <div className="relative flex-1 min-h-[420px] md:min-h-[540px] mx-4 mt-2 mb-3">
+          shadow have room to breathe. Desktop bumps to 560px so the
+          photo gets more presence (page-level paddings around the deck
+          have been trimmed elsewhere so this still fits a standard
+          laptop viewport without scrolling); mobile stays at the legacy
+          420px so the bottom action bar still fits on smaller phones. */}
+      <div className="relative flex-1 min-h-[420px] md:min-h-[560px] mx-4 mt-1 mb-2">
         {visible.map((b, i) => {
           const isTop = i === 0;
           return (

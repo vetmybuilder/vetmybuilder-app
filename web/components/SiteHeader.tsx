@@ -827,8 +827,11 @@ export default function SiteHeader() {
 
               {/* Post a Job CTA - homeowner only. Replaces the floating
                   bottom-right FAB so the primary action is always at
-                  the top of the page where users look first. */}
-              {displayUser && !isTrades && (
+                  the top of the page where users look first. Hidden on
+                  the /projects/new wizard itself - showing a "Post a
+                  job" button while the user is literally posting a job
+                  is confusing. */}
+              {displayUser && !isTrades && router.pathname !== "/projects/new" && (
                 <Link
                   href="/projects/new"
                   className="hidden sm:inline-flex items-center gap-2 rounded-full pl-3.5 pr-5 py-2 text-[13.5px] font-extrabold text-white shadow-sm hover:shadow-md transition-all group"

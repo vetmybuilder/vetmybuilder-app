@@ -13,6 +13,7 @@ import DynamicFieldGroup, {
 } from "@/components/forms/DynamicFieldGroup";
 import { getSpecForSelection, type AnswersShape } from "@/config/jobFields";
 import PostJobMobile from "@/components/project/PostJobMobile";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 
 /* ===== Outer page: auth + gate ===== */
 export default function EditProjectPage() {
@@ -487,10 +488,16 @@ function EditProjectInner() {
         />
       </div>
 
-      {/* DESKTOP — unchanged: original wizard inside Layout chrome */}
+      {/* DESKTOP — wizard inside Layout chrome. Cream bg + watermark
+          scatter mirror /projects/new and /projects/[id] so the editing
+          UX feels like one continuous flow (not a stranded white page). */}
       <div className="hidden md:block">
+      <Head>
+        <style>{`body { background: #fef6e9 !important; }`}</style>
+      </Head>
       <Layout>
-      <div className="relative min-h-screen overflow-hidden" data-testid="project-edit-page">
+      <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 md:pt-3 pb-2 relative overflow-hidden" data-testid="project-edit-page">
+        <BrandWatermarkScatter />
         <div className="relative z-10 mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 pt-4 sm:pt-20 pb-8">
           <div className="relative w-full overflow-hidden rounded-3xl bg-white shadow-xl shadow-zinc-200/60" data-testid="wizard-edit">
 
@@ -502,7 +509,7 @@ function EditProjectInner() {
                   type="button"
                   onClick={() => { if (i < step) goToStep(i); }}
                   className={`h-2 rounded-full transition-all duration-300 flex-1 ${
-                    i < step ? "bg-green-500 cursor-pointer hover:bg-green-400" : i === step ? "bg-amber-500 cursor-default" : "bg-zinc-200 cursor-default"
+                    i < step ? "bg-indigo-600 cursor-pointer hover:bg-indigo-700" : i === step ? "bg-indigo-400 cursor-default" : "bg-zinc-200 cursor-default"
                   }`}
                   disabled={i >= step}
                 />
@@ -523,7 +530,7 @@ function EditProjectInner() {
                 &#10005;
               </button>
 
-              <div className="text-xs font-semibold text-amber-500 uppercase tracking-wider mb-2">
+              <div className="text-xs font-semibold text-indigo-500 uppercase tracking-wider mb-2">
                 Step {step + 1} of {STEPS.length}
               </div>
               <h2 className="text-2xl sm:text-3xl font-black text-zinc-900 mb-1" data-testid="step-title">
@@ -538,7 +545,7 @@ function EditProjectInner() {
                     <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">&#128269;</span>
                     <input
                       type="text"
-                      className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-zinc-200 text-sm font-medium text-zinc-900 placeholder:text-zinc-400 focus:border-amber-500 focus:outline-none transition-colors"
+                      className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-zinc-200 text-sm font-medium text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none transition-colors"
                       placeholder="Search categories..."
                       value={categorySearch}
                       onChange={(e) => setCategorySearch(e.target.value)}
@@ -563,7 +570,7 @@ function EditProjectInner() {
                         aria-pressed={form.category === cat}
                         className={`flex flex-col items-center gap-1.5 p-4 rounded-2xl border-2 transition-colors text-center ${
                           form.category === cat
-                            ? "border-amber-500 bg-amber-50"
+                            ? "border-indigo-500 bg-indigo-50"
                             : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50"
                         }`}
                         data-testid={`category-${cat}`}
@@ -587,7 +594,7 @@ function EditProjectInner() {
                       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">&#128269;</span>
                       <input
                         type="text"
-                        className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-zinc-200 text-sm font-medium text-zinc-900 placeholder:text-zinc-400 focus:border-amber-500 focus:outline-none transition-colors"
+                        className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-zinc-200 text-sm font-medium text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none transition-colors"
                         placeholder="Search work types..."
                         value={subtypeSearch}
                         onChange={(e) => setSubtypeSearch(e.target.value)}
@@ -597,9 +604,9 @@ function EditProjectInner() {
                   {form.selectedTypes.length > 0 && (
                     <div className="flex flex-wrap gap-2 justify-center mb-4">
                       {form.selectedTypes.map((t) => (
-                        <span key={t} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 border-2 border-amber-500 text-amber-800">
+                        <span key={t} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 border-2 border-indigo-500 text-indigo-800">
                           {t}
-                          <button type="button" onClick={() => toggleSubtype(t)} className="w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center text-[10px] font-bold">x</button>
+                          <button type="button" onClick={() => toggleSubtype(t)} className="w-4 h-4 rounded-full bg-indigo-500 text-white flex items-center justify-center text-[10px] font-bold">x</button>
                         </span>
                       ))}
                     </div>
@@ -610,9 +617,9 @@ function EditProjectInner() {
                       return (
                         <button key={t} type="button" onClick={() => toggleSubtype(t)}
                           className={`flex items-center gap-2.5 px-4 h-12 rounded-xl border-2 text-sm font-medium transition-colors text-left ${
-                            checked ? "border-amber-500 bg-amber-50 text-amber-800" : "border-zinc-200 text-zinc-700 hover:border-zinc-300"
+                            checked ? "border-indigo-500 bg-indigo-50 text-indigo-800" : "border-zinc-200 text-zinc-700 hover:border-zinc-300"
                           }`}>
-                          <span className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center border-2 text-[10px] font-bold ${checked ? "bg-amber-500 border-amber-500 text-white" : "border-zinc-300"}`}>
+                          <span className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center border-2 text-[10px] font-bold ${checked ? "bg-indigo-500 border-indigo-500 text-white" : "border-zinc-300"}`}>
                             {checked && "\u2713"}
                           </span>
                           {t}
@@ -630,7 +637,7 @@ function EditProjectInner() {
                     <button key={pt.label} type="button"
                       onClick={() => { set("propertyType", pt.label); setTimeout(() => setStep((s) => s + 1), 150); }}
                       className={`flex items-center gap-3 px-4 h-14 rounded-2xl border-2 text-left transition-colors ${
-                        form.propertyType === pt.label ? "border-amber-500 bg-amber-50" : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50"
+                        form.propertyType === pt.label ? "border-indigo-500 bg-indigo-50" : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50"
                       }`}
                       data-testid={`property-${pt.label}`}>
                       <span className="text-xl">{pt.icon}</span>
@@ -650,7 +657,7 @@ function EditProjectInner() {
                       <button key={b} type="button"
                         onClick={() => { set("bedrooms", numVal); setTimeout(() => setStep((s) => s + 1), 150); }}
                         className={`w-11 h-11 sm:w-14 sm:h-14 rounded-2xl border-2 text-base sm:text-lg font-bold transition-colors ${
-                          selected ? "border-amber-500 bg-amber-50 text-amber-800" : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
+                          selected ? "border-indigo-500 bg-indigo-50 text-indigo-800" : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
                         }`}
                         data-testid={`beds-${b}`}>{b}</button>
                     );
@@ -675,7 +682,7 @@ function EditProjectInner() {
                     <div className="grid grid-cols-2 gap-2" data-testid="field-timeframe">
                       {TIMEFRAMES.map((t) => (
                         <button key={t} type="button" onClick={() => set("timeframe", form.timeframe === t ? "" : t)}
-                          className={`px-4 h-11 rounded-xl border-2 text-sm font-medium transition-colors ${form.timeframe === t ? "border-amber-500 bg-amber-50 text-amber-800" : "border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}>{t}</button>
+                          className={`px-4 h-11 rounded-xl border-2 text-sm font-medium transition-colors ${form.timeframe === t ? "border-indigo-500 bg-indigo-50 text-indigo-800" : "border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}>{t}</button>
                       ))}
                     </div>
                   </div>
@@ -684,7 +691,7 @@ function EditProjectInner() {
                     <div className="grid grid-cols-3 gap-2" data-testid="field-budget">
                       {BUDGETS.map((b) => (
                         <button key={b} type="button" onClick={() => set("budget", form.budget === b ? "" : b)}
-                          className={`px-4 h-11 rounded-xl border-2 text-sm font-medium transition-colors ${form.budget === b ? "border-amber-500 bg-amber-50 text-amber-800" : "border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}>{b}</button>
+                          className={`px-4 h-11 rounded-xl border-2 text-sm font-medium transition-colors ${form.budget === b ? "border-indigo-500 bg-indigo-50 text-indigo-800" : "border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}>{b}</button>
                       ))}
                     </div>
                   </div>
@@ -693,7 +700,7 @@ function EditProjectInner() {
                     <div className="grid grid-cols-2 gap-2" data-testid="field-materials">
                       {MATERIALS_OPTIONS.map((m) => (
                         <button key={m} type="button" onClick={() => set("materials", form.materials === m ? "" : m)}
-                          className={`px-4 h-11 rounded-xl border-2 text-sm font-medium transition-colors ${form.materials === m ? "border-amber-500 bg-amber-50 text-amber-800" : "border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}>{m}</button>
+                          className={`px-4 h-11 rounded-xl border-2 text-sm font-medium transition-colors ${form.materials === m ? "border-indigo-500 bg-indigo-50 text-indigo-800" : "border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}>{m}</button>
                       ))}
                     </div>
                   </div>
@@ -702,7 +709,7 @@ function EditProjectInner() {
                     <div className="grid grid-cols-2 gap-2" data-testid="field-access">
                       {ACCESS_OPTIONS.map((a) => (
                         <button key={a} type="button" onClick={() => set("access", form.access === a ? "" : a)}
-                          className={`px-4 h-11 rounded-xl border-2 text-sm font-medium transition-colors ${form.access === a ? "border-amber-500 bg-amber-50 text-amber-800" : "border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}>{a}</button>
+                          className={`px-4 h-11 rounded-xl border-2 text-sm font-medium transition-colors ${form.access === a ? "border-indigo-500 bg-indigo-50 text-indigo-800" : "border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}>{a}</button>
                       ))}
                     </div>
                   </div>
@@ -713,7 +720,7 @@ function EditProjectInner() {
               {currentStep.key === "description" && (
                 <div className="max-w-lg w-full">
                   <textarea
-                    className="w-full min-h-[160px] p-4 rounded-2xl border-2 border-zinc-200 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-amber-500 focus:outline-none transition-colors resize-vertical leading-relaxed"
+                    className="w-full min-h-[160px] p-4 rounded-2xl border-2 border-zinc-200 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none transition-colors resize-vertical leading-relaxed"
                     placeholder="Any extra details for tradespeople..."
                     value={form.description}
                     maxLength={200}
@@ -765,7 +772,7 @@ function EditProjectInner() {
 
               {step < maxStep ? (
                 <button type="button" onClick={next} disabled={!isStepValid(step) || busy}
-                  className="inline-flex items-center gap-1 px-5 py-2.5 rounded-xl bg-amber-500 text-xs sm:text-sm font-bold text-white shadow-lg shadow-amber-500/25 hover:bg-amber-600 disabled:opacity-40 disabled:shadow-none transition-colors"
+                  className="inline-flex items-center gap-1 px-5 py-2.5 rounded-xl bg-indigo-500 text-xs sm:text-sm font-bold text-white shadow-lg shadow-indigo-500/25 hover:bg-indigo-600 disabled:opacity-40 disabled:shadow-none transition-colors"
                   data-testid="wizard-next-edit">
                   Continue &#8594;
                 </button>
@@ -785,7 +792,7 @@ function EditProjectInner() {
             <div className="flex items-center justify-center gap-1.5 pb-6">
               {STEPS.map((_, i) => (
                 <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${
-                  i === step ? "w-5 bg-amber-500" : i < step ? "w-1.5 bg-green-500" : "w-1.5 bg-zinc-200"
+                  i === step ? "w-5 bg-indigo-600" : i < step ? "w-1.5 bg-indigo-600" : "w-1.5 bg-zinc-200"
                 }`} />
               ))}
             </div>
@@ -806,7 +813,7 @@ function ReviewSection({ label, value, onEdit, last }: { label: string; value: s
         <div className="text-sm font-medium text-zinc-900">{value || "\u2014"}</div>
       </div>
       {onEdit && (
-        <button type="button" onClick={onEdit} className="text-xs font-semibold text-amber-500 hover:text-amber-600 ml-4 flex-shrink-0 mt-0.5">Edit</button>
+        <button type="button" onClick={onEdit} className="text-xs font-semibold text-indigo-500 hover:text-indigo-600 ml-4 flex-shrink-0 mt-0.5">Edit</button>
       )}
     </div>
   );

@@ -116,7 +116,7 @@ function FieldRenderer({
           <input
             type="number"
             inputMode="numeric"
-            className="w-44 rounded-xl border-2 border-zinc-200 px-4 py-3 text-sm text-zinc-900 focus:border-amber-500 focus:outline-none transition-colors"
+            className="w-44 rounded-xl border-2 border-zinc-200 px-4 py-3 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none transition-colors"
             value={value ?? ""}
             min={0}
             onChange={(e) => {
@@ -153,7 +153,7 @@ function FieldRenderer({
                 onClick={() => onChange(selected ? null : o.value)}
                 className={`px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-colors ${
                   selected
-                    ? "border-amber-500 bg-amber-50 text-amber-800"
+                    ? "border-indigo-500 bg-indigo-50 text-indigo-800"
                     : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
                 }`}
                 data-testid={`${testIdBase}-${o.value}`}
@@ -177,13 +177,13 @@ function FieldRenderer({
         onClick={() => onChange(!value)}
         className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-colors ${
           value === true
-            ? "border-amber-500 bg-amber-50 text-amber-800"
+            ? "border-indigo-500 bg-indigo-50 text-indigo-800"
             : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
         }`}
         data-testid={testIdBase}
       >
         <span className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center border-2 text-[10px] font-bold ${
-          value === true ? "bg-amber-500 border-amber-500 text-white" : "border-zinc-300"
+          value === true ? "bg-indigo-500 border-indigo-500 text-white" : "border-zinc-300"
         }`}>
           {value === true && "\u2713"}
         </span>
@@ -213,7 +213,7 @@ function FieldRenderer({
               data-testid={`${testIdBase}-kind-${branch.key}-label`}
               className={`inline-flex items-center gap-2 rounded-xl border-2 px-4 py-2 text-sm font-medium cursor-pointer transition-colors ${
                 activeKind === branch.key
-                  ? "border-amber-500 bg-amber-50 text-amber-800"
+                  ? "border-indigo-500 bg-indigo-50 text-indigo-800"
                   : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300"
               }`}
             >
@@ -239,7 +239,7 @@ function FieldRenderer({
             type="number"
             inputMode="numeric"
             min={0}
-            className="w-44 rounded-xl border-2 border-zinc-200 px-4 py-3 text-sm text-zinc-900 focus:border-amber-500 focus:outline-none transition-colors"
+            className="w-44 rounded-xl border-2 border-zinc-200 px-4 py-3 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none transition-colors"
             value={currentValue}
             onChange={(e) => {
               const raw = e.target.value;

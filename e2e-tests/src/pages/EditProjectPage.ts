@@ -72,7 +72,21 @@ export class EditProjectPage extends BasePage {
   async save() {
     await expect(this.saveBtn).toBeVisible();
     await expect(this.saveBtn).toBeEnabled();
-    await this.saveBtn.click();
+    // Wait for the PUT to finish AND the redirect to settle before
+    // returning - otherwise tests that immediately read the project
+    // back via the API race the in-flight PUT and see stale data.
+    await Promise.all([
+      this.page.waitForResponse(
+        (res) =>
+          /\/api\/projects\/\d+$/.test(new URL(res.url()).pathname) &&
+          res.request().method() === "PUT",
+        { timeout: 15_000 },
+      ),
+      this.saveBtn.click(),
+    ]);
+    await this.page.waitForURL(/\/projects\/\d+\/?(\?|$)/, {
+      timeout: 15_000,
+    });
   }
 
   async waitForWizard() {

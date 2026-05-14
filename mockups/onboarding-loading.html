@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Onboarding loading - mockups</title>
+<style>
+  :root {
+    --bg: #fef6e9;
+    --modal: #ffffff;
+    --indigo: #4f46e5;
+    --indigo-soft: #6366f1;
+    --indigo-faint: #c7d2fe;
+    --ink: #0f172a;
+    --ink-soft: #475569;
+    --line: #e5e7eb;
+    --green: #16a34a;
+    --amber: #f59e0b;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  .page {
+    min-height: 100vh;
+    padding: 40px 24px 80px;
+  }
+  .tabs {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 32px;
+  }
+  .tab {
+    background: white;
+    border: 1px solid var(--line);
+    color: var(--ink);
+    border-radius: 999px;
+    padding: 10px 20px;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .tab:hover { border-color: var(--indigo-soft); }
+  .tab.active {
+    background: var(--indigo);
+    border-color: var(--indigo);
+    color: white;
+  }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ----- Shared modal frame ----- */
+  .modal {
+    background: var(--modal);
+    border-radius: 28px;
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 40px 48px 56px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.08);
+    position: relative;
+  }
+  .modal .progress-bars {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 32px;
+  }
+  .modal .progress-bars span {
+    flex: 1;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--indigo);
+  }
+  .modal .progress-bars span:last-child {
+    background: var(--indigo-faint);
+  }
+  .close {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-soft);
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .eyebrow {
+    text-align: center;
+    color: var(--indigo);
+    font-weight: 800;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    margin-bottom: 8px;
+  }
+  h1.title {
+    text-align: center;
+    margin: 0 0 8px;
+    font-size: 32px;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+  }
+  p.subtitle {
+    text-align: center;
+    margin: 0 0 28px;
+    color: var(--ink-soft);
+    font-size: 15px;
+  }
+
+  /* Status line under each animation */
+  .status {
+    text-align: center;
+    margin-top: 28px;
+    color: var(--ink-soft);
+    font-size: 14px;
+    font-weight: 600;
+    height: 22px;
+    overflow: hidden;
+    position: relative;
+  }
+  .status .item {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .status .item.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .ticker-bar {
+    margin: 24px auto 0;
+    width: 320px;
+    height: 4px;
+    background: var(--indigo-faint);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+  }
+  .ticker-bar::after {
+    content: "";
+    position: absolute;
+    left: -40%;
+    top: 0;
+    bottom: 0;
+    width: 40%;
+    background: var(--indigo);
+    animation: bar 1.6s linear infinite;
+  }
+  @keyframes bar {
+    to { left: 100%; }
+  }
+
+  /* ===========================================================
+     CONCEPT A - Faces shuffle fast then slow, settle on 3 matches
+     =========================================================== */
+  .stage-a {
+    min-height: 420px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* Shuffle phase: one big circular face cycling */
+  .a-shuffle {
+    width: 240px;
+    height: 240px;
+    border-radius: 50%;
+    overflow: hidden;
+    box-shadow: 0 18px 48px rgba(0,0,0,0.14);
+    border: 6px solid white;
+    position: relative;
+    background: #f1f5f9;
+    transition: opacity 0.4s, transform 0.4s;
+  }
+  .a-shuffle .face {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--c1), var(--c2));
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 96px;
+    font-weight: 900;
+    opacity: 0;
+    transition: opacity 0.08s;
+  }
+  .a-shuffle .face.show { opacity: 1; }
+  /* Scanner sweep across the face to reinforce "searching" */
+  .a-shuffle::after {
+    content: "";
+    position: absolute;
+    left: -40%;
+    top: 0; bottom: 0;
+    width: 40%;
+    background: linear-gradient(
+      to right,
+      transparent,
+      rgba(255,255,255,0.55),
+      transparent
+    );
+    animation: aSweep 1.2s linear infinite;
+    z-index: 2;
+    pointer-events: none;
+  }
+  @keyframes aSweep {
+    to { left: 100%; }
+  }
+  .a-shuffle.gone {
+    opacity: 0;
+    transform: scale(0.85);
+    pointer-events: none;
+  }
+
+  /* Reveal phase: the 3 final match cards */
+  .a-reveal {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.5s 0.2s;
+    pointer-events: none;
+  }
+  .a-reveal.in { opacity: 1; }
+  .a-result {
+    width: 200px;
+    border-radius: 16px;
+    overflow: hidden;
+    background: white;
+    border: 1px solid var(--line);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.08);
+    transform: translateY(20px) scale(0.92);
+    opacity: 0;
+    transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.55s;
+  }
+  .a-reveal.in .a-result { transform: translateY(0) scale(1); opacity: 1; }
+  .a-reveal.in .a-result:nth-child(1) { transition-delay: 0.05s; }
+  .a-reveal.in .a-result:nth-child(2) { transition-delay: 0.18s; }
+  .a-reveal.in .a-result:nth-child(3) { transition-delay: 0.31s; }
+  .a-result .photo {
+    height: 140px;
+    background: linear-gradient(135deg, var(--c1), var(--c2));
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+    font-weight: 900;
+  }
+  .a-result .body { padding: 12px 14px 14px; }
+  .a-result .name {
+    font-weight: 800;
+    font-size: 14px;
+    margin-bottom: 2px;
+  }
+  .a-result .trade {
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-bottom: 8px;
+  }
+  .a-result .verified {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--green);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  /* ===========================================================
+     CONCEPT B - Map + radar pings
+     =========================================================== */
+  .stage-b {
+    height: 360px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .map {
+    width: 560px;
+    height: 320px;
+    border-radius: 20px;
+    background:
+      radial-gradient(ellipse at 30% 40%, #eef2ff 0%, transparent 60%),
+      radial-gradient(ellipse at 70% 60%, #ede9fe 0%, transparent 60%),
+      linear-gradient(135deg, #f8fafc, #eef2ff);
+    border: 1px solid var(--line);
+    overflow: hidden;
+    position: relative;
+  }
+  /* Abstract "road" lines */
+  .map::before, .map::after {
+    content: "";
+    position: absolute;
+    background: rgba(99,102,241,0.12);
+  }
+  .map::before {
+    left: 0; right: 0; top: 40%;
+    height: 2px;
+    transform: rotate(-8deg);
+  }
+  .map::after {
+    top: 0; bottom: 0; left: 55%;
+    width: 2px;
+    transform: rotate(6deg);
+  }
+  .ping-center {
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 18px; height: 18px;
+    background: var(--indigo);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 0 0 rgba(79,70,229,0.5);
+    animation: pingDot 1.6s infinite;
+    z-index: 2;
+  }
+  @keyframes pingDot {
+    0% { box-shadow: 0 0 0 0 rgba(79,70,229,0.6); }
+    100% { box-shadow: 0 0 0 60px rgba(79,70,229,0); }
+  }
+  .b-avatar {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: white;
+    padding: 6px 12px 6px 6px;
+    border-radius: 999px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.1);
+    opacity: 0;
+    transform: scale(0.5);
+    animation: popIn 0.6s forwards;
+  }
+  .b-avatar .ring {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--c1), var(--c2));
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-weight: 900; font-size: 14px;
+  }
+  .b-avatar .label {
+    font-size: 12px; font-weight: 700; color: var(--ink);
+  }
+  @keyframes popIn {
+    0% { opacity: 0; transform: scale(0.4); }
+    60% { opacity: 1; transform: scale(1.08); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  .b-avatar.a1 { left: 12%; top: 22%; --c1: #6366f1; --c2: #4338ca; animation-delay: 0.4s; }
+  .b-avatar.a2 { left: 70%; top: 18%; --c1: #14b8a6; --c2: #0d9488; animation-delay: 1.2s; }
+  .b-avatar.a3 { left: 18%; top: 70%; --c1: #f59e0b; --c2: #d97706; animation-delay: 2.0s; }
+  .b-avatar.a4 { left: 64%; top: 72%; --c1: #ec4899; --c2: #be185d; animation-delay: 2.8s; }
+  .b-counter {
+    position: absolute;
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+    background: var(--indigo);
+    color: white;
+    padding: 6px 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  /* ===========================================================
+     CONCEPT C - Vertical reel (slot machine)
+     =========================================================== */
+  .stage-c {
+    height: 360px;
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+  }
+  .reel {
+    width: 200px;
+    height: 320px;
+    border-radius: 20px;
+    background: white;
+    border: 1px solid var(--line);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.08);
+    overflow: hidden;
+    position: relative;
+  }
+  .reel::before, .reel::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0;
+    height: 60px;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .reel::before {
+    top: 0;
+    background: linear-gradient(to bottom, white, transparent);
+  }
+  .reel::after {
+    bottom: 0;
+    background: linear-gradient(to top, white, transparent);
+  }
+  .reel-track {
+    display: flex;
+    flex-direction: column;
+    animation: reel 0.6s linear infinite;
+  }
+  .reel:nth-child(1) .reel-track { animation-duration: 0.5s; }
+  .reel:nth-child(2) .reel-track { animation-duration: 0.6s; }
+  .reel:nth-child(3) .reel-track { animation-duration: 0.7s; }
+  @keyframes reel {
+    from { transform: translateY(0); }
+    to   { transform: translateY(-160px); }
+  }
+  .reel-item {
+    height: 160px;
+    flex-shrink: 0;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .reel-item .photo {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--c1), var(--c2));
+    color: white;
+    font-weight: 900;
+    font-size: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .reel-item .text { font-size: 12px; line-height: 1.4; }
+  .reel-item .text strong { display: block; font-weight: 800; font-size: 13px; }
+  .reel-item .text .area { color: var(--ink-soft); }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="tabs">
+    <button class="tab active" data-tab="a">A · Card shuffle</button>
+    <button class="tab" data-tab="b">B · Map pings</button>
+    <button class="tab" data-tab="c">C · Slot reel</button>
+  </div>
+
+  <!-- =================== CONCEPT A =================== -->
+  <div class="panel active" data-panel="a">
+    <div class="modal">
+      <button class="close">✕</button>
+      <div class="progress-bars">
+        <span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <div class="eyebrow">FINDING YOUR MATCHES</div>
+      <h1 class="title">Searching tradespeople near you</h1>
+      <p class="subtitle">We're checking who's available in your area right now</p>
+
+      <div class="stage-a">
+        <div class="a-shuffle" id="aShuffle">
+          <div class="face" style="--c1:#a78bfa;--c2:#7c3aed">P</div>
+          <div class="face" style="--c1:#fb923c;--c2:#ea580c">S</div>
+          <div class="face" style="--c1:#34d399;--c2:#059669">T</div>
+          <div class="face" style="--c1:#60a5fa;--c2:#2563eb">H</div>
+          <div class="face" style="--c1:#f472b6;--c2:#db2777">W</div>
+          <div class="face" style="--c1:#ef4444;--c2:#b91c1c">R</div>
+          <div class="face" style="--c1:#06b6d4;--c2:#0e7490">J</div>
+          <div class="face" style="--c1:#facc15;--c2:#ca8a04">M</div>
+        </div>
+        <div class="a-reveal" id="aReveal">
+          <div class="a-result">
+            <div class="photo" style="--c1:#f472b6;--c2:#db2777">W</div>
+            <div class="body">
+              <div class="name">Window Cleaning Pro</div>
+              <div class="trade">Window Cleaning · N15</div>
+              <div class="verified">✓ Verified</div>
+            </div>
+          </div>
+          <div class="a-result">
+            <div class="photo" style="--c1:#60a5fa;--c2:#2563eb">H</div>
+            <div class="body">
+              <div class="name">Hughes &amp; Sons</div>
+              <div class="trade">Oven Cleaning · E10</div>
+              <div class="verified">✓ Verified</div>
+            </div>
+          </div>
+          <div class="a-result">
+            <div class="photo" style="--c1:#34d399;--c2:#059669">T</div>
+            <div class="body">
+              <div class="name">Thompson Domestic</div>
+              <div class="trade">Bin Cleaning · E10</div>
+              <div class="verified">✓ Verified</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="status">
+        <div class="item show">Scanning your area...</div>
+        <div class="item">Matching trade specialists...</div>
+        <div class="item">Checking credentials...</div>
+        <div class="item">Almost ready...</div>
+      </div>
+      <div class="ticker-bar"></div>
+    </div>
+  </div>
+
+  <!-- =================== CONCEPT B =================== -->
+  <div class="panel" data-panel="b">
+    <div class="modal">
+      <button class="close">✕</button>
+      <div class="progress-bars">
+        <span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <div class="eyebrow">FINDING YOUR MATCHES</div>
+      <h1 class="title">Pinpointing tradespeople in E10</h1>
+      <p class="subtitle">Looking for available, verified pros in your postcode</p>
+
+      <div class="stage-b">
+        <div class="map">
+          <div class="ping-center"></div>
+          <div class="b-avatar a1">
+            <div class="ring">H</div>
+            <div class="label">Hughes &amp; Sons</div>
+          </div>
+          <div class="b-avatar a2">
+            <div class="ring">T</div>
+            <div class="label">Thompson Domestic</div>
+          </div>
+          <div class="b-avatar a3">
+            <div class="ring">W</div>
+            <div class="label">Window Cleaning Pro</div>
+          </div>
+          <div class="b-avatar a4">
+            <div class="ring">P</div>
+            <div class="label">Pollard &amp; Co</div>
+          </div>
+          <div class="b-counter">Found 4 nearby</div>
+        </div>
+      </div>
+
+      <div class="status">
+        <div class="item show">Scanning your area...</div>
+        <div class="item">Checking who's available...</div>
+        <div class="item">Verifying credentials...</div>
+        <div class="item">Almost ready...</div>
+      </div>
+      <div class="ticker-bar"></div>
+    </div>
+  </div>
+
+  <!-- =================== CONCEPT C =================== -->
+  <div class="panel" data-panel="c">
+    <div class="modal">
+      <button class="close">✕</button>
+      <div class="progress-bars">
+        <span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <div class="eyebrow">FINDING YOUR MATCHES</div>
+      <h1 class="title">Lining up your top 3 tradespeople</h1>
+      <p class="subtitle">Each slot will lock in once we've found the best fit</p>
+
+      <div class="stage-c">
+        <div class="reel">
+          <div class="reel-track">
+            <div class="reel-item"><div class="photo" style="--c1:#a78bfa;--c2:#7c3aed">P</div><div class="text"><strong>Pollard &amp; Co</strong><div class="area">Electricians · E17</div></div></div>
+            <div class="reel-item"><div class="photo" style="--c1:#34d399;--c2:#059669">T</div><div class="text"><strong>Thompson Domestic</strong><div class="area">Cleaning · E10</div></div></div>
+            <div class="reel-item"><div class="photo" style="--c1:#fb923c;--c2:#ea580c">S</div><div class="text"><strong>Sons &amp; Daughters</strong><div class="area">Plumbers · E10</div></div></div>
+            <div class="reel-item"><div class="photo" style="--c1:#60a5fa;--c2:#2563eb">H</div><div class="text"><strong>Hughes &amp; Sons</strong><div class="area">Oven cleaning · E10</div></div></div>
+            <div class="reel-item"><div class="photo" style="--c1:#f472b6;--c2:#db2777">W</div><div class="text"><strong>Window Cleaning Pro</strong><div class="area">Window cleaning · N15</div></div></div>
+          </div>
+        </div>
+        <div class="reel">
+          <div class="reel-track">
+            <div class="reel-item"><div class="photo" style="--c1:#fb923c;--c2:#ea580c">S</div><div class="text"><strong>Sons &amp; Daughters</strong><div class="area">Plumbers · E10</div></div></div>
+            <div class="reel-item"><div class="photo" style="--c1:#a78bfa;--c2:#7c3aed">P</div><div class="text"><strong>Pollard &amp; Co</strong><div class="area">Electricians · E17</div></div></div>
+            <div class="reel-item"><div class="photo" style="--c1:#34d399;--c2:#059669">T</div><div class="text"><strong>Thompson Domestic</strong><div class="area">Cleaning · E10</div></div></div>
+            <div class="reel-item"><div class="photo" style="--c1:#f472b6;--c2:#db2777">W</div><div class="text"><strong>Window Cleaning Pro</strong><div class="area">Window cleaning · N15</div></div></div>
+            <div class="reel-item"><div class="photo" style="--c1:#60a5fa;--c2:#2563eb">H</div><div class="text"><strong>Hughes &amp; Sons</strong><div class="area">Oven cleaning · E10</div></div></div>
+          </div>
+        </div>
+        <div class="reel">
+          <div class="reel-track">
+            <div class="reel-item"><div class="photo" style="--c1:#34d399;--c2:#059669">T</div><div class="text"><strong>Thompson Domestic</strong><div class="area">Cleaning · E10</div></div></div>
+            <div class="reel-item"><div class="photo" style="--c1:#60a5fa;--c2:#2563eb">H</div><div class="text"><strong>Hughes &amp; Sons</strong><div class="area">Oven cleaning · E10</div></div></div>
+            <div class="reel-item"><div class="photo" style="--c1:#a78bfa;--c2:#7c3aed">P</div><div class="text"><strong>Pollard &amp; Co</strong><div class="area">Electricians · E17</div></div></div>
+            <div class="reel-item"><div class="photo" style="--c1:#fb923c;--c2:#ea580c">S</div><div class="text"><strong>Sons &amp; Daughters</strong><div class="area">Plumbers · E10</div></div></div>
+            <div class="reel-item"><div class="photo" style="--c1:#f472b6;--c2:#db2777">W</div><div class="text"><strong>Window Cleaning Pro</strong><div class="area">Window cleaning · N15</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="status">
+        <div class="item show">Spinning through nearby pros...</div>
+        <div class="item">Locking in your top 3...</div>
+        <div class="item">Almost ready...</div>
+      </div>
+      <div class="ticker-bar"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Tab switcher
+  const tabs = document.querySelectorAll(".tab");
+  const panels = document.querySelectorAll(".panel");
+  tabs.forEach(t => t.addEventListener("click", () => {
+    tabs.forEach(x => x.classList.remove("active"));
+    panels.forEach(x => x.classList.remove("active"));
+    t.classList.add("active");
+    document.querySelector(`[data-panel="${t.dataset.tab}"]`).classList.add("active");
+  }));
+
+  // Status text rotator - cycles through .item lines in every panel
+  document.querySelectorAll(".status").forEach(s => {
+    const items = s.querySelectorAll(".item");
+    let i = 0;
+    setInterval(() => {
+      items[i].classList.remove("show");
+      i = (i + 1) % items.length;
+      items[i].classList.add("show");
+    }, 1500);
+  });
+
+  // Concept A: decelerating face shuffle, then reveal of 3 final matches.
+  // Intervals start at 60ms and ease out to ~700ms so the shuffle has a
+  // satisfying "slot-machine slowing" feel before settling.
+  (function runShuffleA() {
+    const shuffle = document.getElementById("aShuffle");
+    const reveal = document.getElementById("aReveal");
+    if (!shuffle || !reveal) return;
+    const faces = shuffle.querySelectorAll(".face");
+
+    const intervals = [
+      60, 60, 60, 60, 70, 70, 80, 90, 100, 115,
+      135, 160, 195, 240, 300, 380, 500, 700,
+    ];
+    const REVEAL_HOLD_MS = 2400;
+    const RESET_MS = 600;
+
+    function tick(idx) {
+      faces.forEach((f, i) => f.classList.toggle("show", i === idx));
+    }
+
+    function loop() {
+      shuffle.classList.remove("gone");
+      reveal.classList.remove("in");
+      let step = 0;
+      let face = 0;
+      const total = intervals.length;
+      function next() {
+        tick(face);
+        face = (face + 1) % faces.length;
+        if (step >= total) {
+          shuffle.classList.add("gone");
+          setTimeout(() => reveal.classList.add("in"), 300);
+          setTimeout(loop, REVEAL_HOLD_MS + RESET_MS);
+          return;
+        }
+        setTimeout(next, intervals[step++]);
+      }
+      next();
+    }
+    loop();
+  })();
+</script>
+</body>
+</html>

@@ -171,6 +171,11 @@ export class RegisterPage {
     await widget.signInAsNewAccount(input);
   }
 
+  async hasForm(): Promise<void> {
+    await expect(this.page).toHaveURL(/\/signup\b/, { timeout: 15_000 });
+    await expect(this.form).toBeVisible({ timeout: 15_000 });
+  }
+
   async hasAlert(text: string): Promise<void> {
     await expect(this.errorAlert).toContainText(text);
   }
