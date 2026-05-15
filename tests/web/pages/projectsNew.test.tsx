@@ -41,6 +41,17 @@ const get = vi.fn(async (url: string) => {
 });
 const post = vi.fn();
 
+// The category step fetches /api/pilot/project-types via window.fetch to
+// drive the "Coming soon" greying. Stub it so the picker behaves as it
+// did pre-gating inside these tests - the wizard tests cover navigation,
+// not the launch gate. Real gating behaviour is exercised in server-side
+// gate specs + the admin-toggle integration paths.
+//
+// Returning a never-resolving promise keeps `pilotCategoryNames` null,
+// which the picker treats as "loading: all categories live" - matching
+// the pre-gating behaviour these tests were written against.
+globalThis.fetch = vi.fn(() => new Promise(() => {})) as any;
+
 vi.mock("@/utils/api", () => ({ useApi: () => ({ get, post }) }));
 
 vi.mock("@/utils/auth", () => ({

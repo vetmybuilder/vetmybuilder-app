@@ -336,16 +336,37 @@ export default function NewProject() {
   }, [form.category]);
 
   const filteredCategories = useMemo(() => {
-    if (!categorySearch.trim()) return CATEGORY_OPTIONS;
-    const q = categorySearch.toLowerCase();
-    return CATEGORY_OPTIONS.filter((c) => c.toLowerCase().includes(q));
-  }, [CATEGORY_OPTIONS, categorySearch]);
+    const base = !categorySearch.trim()
+      ? CATEGORY_OPTIONS
+      : CATEGORY_OPTIONS.filter((c) =>
+          c.toLowerCase().includes(categorySearch.toLowerCase()),
+        );
+    // Live categories first, then "Coming soon" ones - both alpha within
+    // their group. Until the pilot list loads we treat everything as
+    // live so the order doesn't shift under the user mid-fetch.
+    return [...base].sort((a, b) => {
+      const aLive =
+        pilotCategoryNames === null || pilotCategoryNames.has(a);
+      const bLive =
+        pilotCategoryNames === null || pilotCategoryNames.has(b);
+      if (aLive === bLive) return a.localeCompare(b);
+      return aLive ? -1 : 1;
+    });
+  }, [CATEGORY_OPTIONS, categorySearch, pilotCategoryNames]);
 
   const filteredSubtypes = useMemo(() => {
-    if (!subtypeSearch.trim()) return SUBTYPE_OPTIONS;
-    const q = subtypeSearch.toLowerCase();
-    return SUBTYPE_OPTIONS.filter((t) => t.toLowerCase().includes(q));
-  }, [SUBTYPE_OPTIONS, subtypeSearch]);
+    const base = !subtypeSearch.trim()
+      ? SUBTYPE_OPTIONS
+      : SUBTYPE_OPTIONS.filter((t) =>
+          t.toLowerCase().includes(subtypeSearch.toLowerCase()),
+        );
+    return [...base].sort((a, b) => {
+      const aLive = pilotTypeNames === null || pilotTypeNames.has(a);
+      const bLive = pilotTypeNames === null || pilotTypeNames.has(b);
+      if (aLive === bLive) return a.localeCompare(b);
+      return aLive ? -1 : 1;
+    });
+  }, [SUBTYPE_OPTIONS, subtypeSearch, pilotTypeNames]);
 
   /* ===== Steps ===== */
 
@@ -924,8 +945,8 @@ export default function NewProject() {
                         <span className="text-2xl">{CATEGORY_ICONS[cat] || "\u{1F3E0}"}</span>
                         <span className="text-xs font-semibold text-zinc-700 leading-tight">{cat}</span>
                         {!isLive && (
-                          <span className="absolute top-1 right-1 px-1.5 py-0.5 rounded-full bg-zinc-900 text-white text-[9px] font-bold uppercase tracking-wide">
-                            Soon
+                          <span className="absolute top-1 right-1 px-1.5 py-[1px] rounded-full bg-zinc-900 text-white text-[8px] font-semibold whitespace-nowrap">
+                            Coming soon
                           </span>
                         )}
                       </button>
@@ -1016,8 +1037,8 @@ export default function NewProject() {
                               </span>
                               <span className="flex-1 truncate">{t}</span>
                               {!isLive && (
-                                <span className="px-1.5 py-0.5 rounded-full bg-zinc-900 text-white text-[9px] font-bold uppercase tracking-wide flex-shrink-0">
-                                  Soon
+                                <span className="px-1.5 py-[1px] rounded-full bg-zinc-900 text-white text-[8px] font-semibold whitespace-nowrap flex-shrink-0">
+                                  Coming soon
                                 </span>
                               )}
                             </button>

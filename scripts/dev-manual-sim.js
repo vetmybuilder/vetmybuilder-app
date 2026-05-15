@@ -510,7 +510,23 @@ async function ensureGhostTrades() {
   // runs to detect "fewer ghosts than expected" and auto-reseed.
   const perTrade = Number(process.env.GHOST_PER_TRADE) || 30;
   const tradeCatalog = require("../web/types/trades.data.json");
-  const tradeCount = tradeCatalog.filter((t) => t.active !== false).length;
+  // Match the filter in seed-ghost-trades.js: only seed trades that serve
+  // at least one currently-live project category. Without this, the
+  // "already seeded" precheck below over-counts the expected total against
+  // a smaller actual set and ends up regenerating ghosts on every restart.
+  const {
+    DEFAULT_ENABLED_CATEGORIES,
+  } = require("../server/lib/pilotProjectTypes");
+  const {
+    CATEGORY_TRADES,
+  } = require("../server/lib/matching/projectTradeMap");
+  const liveTrades = new Set();
+  for (const cat of DEFAULT_ENABLED_CATEGORIES) {
+    for (const t of CATEGORY_TRADES[cat] || []) liveTrades.add(t);
+  }
+  const tradeCount = tradeCatalog.filter(
+    (t) => t.active !== false && liveTrades.has(t.label),
+  ).length;
   const expectedTotal = perTrade * tradeCount;
 
   // Skip the regenerate if we already have a full set for this master.
