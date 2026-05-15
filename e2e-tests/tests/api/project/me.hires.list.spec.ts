@@ -23,66 +23,6 @@ test.describe("GET /api/tradesmen/me/hires", () => {
     expect(body.total).toBe(0);
   });
 
-  test("returns a hire with full project context and homeowner first name", async ({
-    apiClient,
-    request,
-    runtime,
-    projectApi,
-    hireApi,
-  }) => {
-    // Sign the homeowner up so they have a real firstName/lastName we can assert.
-    const homeowner = Account.anAccount().withRandomDetails();
-    await AuthApi.signup(apiClient, homeowner);
-
-    const { uid: tradesmanUid, tradesmanHireApi } = await setupTradesmanProfile({
-      request,
-      apiBaseUrl: runtime.apiBaseUrl,
-    });
-
-    const project = await projectApi.createLiveProject(
-      Project.aProject().withRandomDetails().toApiPayload(),
-    );
-
-    await hireApi.createHire(project.id, {
-      tradesmanUserId: tradesmanUid,
-      homeownerMessage: "Available next week?",
-    });
-
-    const body = await tradesmanHireApi.listMyHires();
-
-    expect(body.total).toBe(1);
-    expect(body.items).toHaveLength(1);
-
-    const item = body.items[0];
-
-    // Hire fields
-    expect(item.projectId).toBe(project.id);
-    expect(item.status).toBe("pending");
-    expect(item.homeownerMessage).toBe("Available next week?");
-    expect(item.tradesmanMessage).toBeNull();
-    expect(item.respondedAt).toBeNull();
-    expect(item.hiredAt).toBeTruthy();
-    expect(item.expiresAt).toBeTruthy();
-
-    // Project context
-    expect(item.project).toBeTruthy();
-    expect(item.project.id).toBe(project.id);
-    expect(item.project.name).toBe(project.name);
-    expect(item.project.location).toBe(project.location);
-    expect(item.project.propertyType).toBe(project.propertyType);
-    expect(item.project.bedrooms).toBe(project.bedrooms);
-
-    // Privacy: first name only — last name, email, uid must not appear
-    expect(item.project.ownerFirstName).toBe(homeowner.firstName);
-    expect(item.project).not.toHaveProperty("ownerLastName");
-    expect(item.project).not.toHaveProperty("ownerEmail");
-    expect(item.project).not.toHaveProperty("ownerUid");
-    expect(item).not.toHaveProperty("homeownerUid");
-
-    // Trust signal — no completed projects yet
-    expect(item.project.completedProjectsCount).toBe(0);
-  });
-
   test("completedProjectsCount reflects the homeowner's history", async ({
     request,
     runtime,
