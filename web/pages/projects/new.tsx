@@ -7,6 +7,7 @@ import { useApi } from "@/utils/api";
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import { PROJECT_TYPES, type ProjectTypeCategory } from "@/types/projectTypes";
+import ComingSoonSheet from "@/components/ComingSoonSheet";
 import LocationField from "@/components/forms/LocationField";
 import PilotAreasBanner from "@/components/PilotAreasBanner";
 import { trackProjectCreated } from "@/utils/analytics";
@@ -283,6 +284,42 @@ export default function NewProject() {
   // on the location step.
   const [locationPilotErr, setLocationPilotErr] = useState<string | null>(null);
 
+  // Open ComingSoonSheet when a homeowner taps a disabled-at-launch
+  // category tile, capturing their demand signal + optional opt-in
+  // instead of letting the click silently no-op.
+  const [comingSoonCategory, setComingSoonCategory] = useState<string | null>(null);
+
+  // Pilot project-type gate. /api/pilot/project-types tells us which
+  // categories have at least one enabled leaf, and which individual
+  // leaves are live. Disabled categories render with a "Coming soon"
+  // badge and refuse selection; disabled leaves are greyed out inside an
+  // otherwise-enabled category.
+  const [pilotTypeNames, setPilotTypeNames] = useState<Set<string> | null>(
+    null,
+  );
+  const [pilotCategoryNames, setPilotCategoryNames] = useState<Set<string> | null>(
+    null,
+  );
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/pilot/project-types")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        const types = Array.isArray(data.types) ? data.types : [];
+        const categories = Array.isArray(data.categories) ? data.categories : [];
+        setPilotTypeNames(new Set(types.map((t: any) => t.typeName)));
+        setPilotCategoryNames(new Set(categories));
+      })
+      .catch(() => {
+        // Fail-open client-side: if the endpoint is unreachable, don't
+        // grey anything out. The server still enforces the gate on POST.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const set = <K extends keyof FormShape>(k: K, v: FormShape[K]) =>
     setForm((prev) => ({ ...prev, [k]: v }));
 
@@ -305,16 +342,37 @@ export default function NewProject() {
   }, [form.category]);
 
   const filteredCategories = useMemo(() => {
-    if (!categorySearch.trim()) return CATEGORY_OPTIONS;
-    const q = categorySearch.toLowerCase();
-    return CATEGORY_OPTIONS.filter((c) => c.toLowerCase().includes(q));
-  }, [CATEGORY_OPTIONS, categorySearch]);
+    const base = !categorySearch.trim()
+      ? CATEGORY_OPTIONS
+      : CATEGORY_OPTIONS.filter((c) =>
+          c.toLowerCase().includes(categorySearch.toLowerCase()),
+        );
+    // Live categories first, then "Coming soon" ones - both alpha within
+    // their group. Until the pilot list loads we treat everything as
+    // live so the order doesn't shift under the user mid-fetch.
+    return [...base].sort((a, b) => {
+      const aLive =
+        pilotCategoryNames === null || pilotCategoryNames.has(a);
+      const bLive =
+        pilotCategoryNames === null || pilotCategoryNames.has(b);
+      if (aLive === bLive) return a.localeCompare(b);
+      return aLive ? -1 : 1;
+    });
+  }, [CATEGORY_OPTIONS, categorySearch, pilotCategoryNames]);
 
   const filteredSubtypes = useMemo(() => {
-    if (!subtypeSearch.trim()) return SUBTYPE_OPTIONS;
-    const q = subtypeSearch.toLowerCase();
-    return SUBTYPE_OPTIONS.filter((t) => t.toLowerCase().includes(q));
-  }, [SUBTYPE_OPTIONS, subtypeSearch]);
+    const base = !subtypeSearch.trim()
+      ? SUBTYPE_OPTIONS
+      : SUBTYPE_OPTIONS.filter((t) =>
+          t.toLowerCase().includes(subtypeSearch.toLowerCase()),
+        );
+    return [...base].sort((a, b) => {
+      const aLive = pilotTypeNames === null || pilotTypeNames.has(a);
+      const bLive = pilotTypeNames === null || pilotTypeNames.has(b);
+      if (aLive === bLive) return a.localeCompare(b);
+      return aLive ? -1 : 1;
+    });
+  }, [SUBTYPE_OPTIONS, subtypeSearch, pilotTypeNames]);
 
   /* ===== Steps ===== */
 
@@ -856,30 +914,52 @@ export default function NewProject() {
                     />
                   </div>
                   <div className="grid grid-cols-3 gap-3">
-                  {filteredCategories.map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => {
-                        set("category", cat);
-                        set("selectedTypes", []);
-                        set("otherEnabled", false);
-                        set("otherText", "");
-                        setSubtypeSearch("");
-                        setTimeout(() => setStep((s) => s + 1), 150);
-                      }}
-                      aria-pressed={form.category === cat}
-                      className={`flex flex-col items-center gap-1.5 p-4 rounded-2xl border-2 transition-colors text-center ${
-                        form.category === cat
-                          ? "border-indigo-500 bg-indigo-50"
-                          : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50"
-                      }`}
-                      data-testid={`category-${cat}`}
-                    >
-                      <span className="text-2xl">{CATEGORY_ICONS[cat] || "\u{1F3E0}"}</span>
-                      <span className="text-xs font-semibold text-zinc-700 leading-tight">{cat}</span>
-                    </button>
-                  ))}
+                  {filteredCategories.map((cat) => {
+                    // If the pilot list hasn't loaded yet (null), treat
+                    // everything as enabled so the picker isn't blank.
+                    // Once loaded, an empty Set means nothing is live.
+                    const isLive =
+                      pilotCategoryNames === null
+                        ? true
+                        : pilotCategoryNames.has(cat);
+                    const isSelected = form.category === cat;
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => {
+                          if (!isLive) {
+                            setComingSoonCategory(cat);
+                            return;
+                          }
+                          set("category", cat);
+                          set("selectedTypes", []);
+                          set("otherEnabled", false);
+                          set("otherText", "");
+                          setSubtypeSearch("");
+                          setTimeout(() => setStep((s) => s + 1), 150);
+                        }}
+                        aria-pressed={isSelected}
+                        aria-disabled={!isLive}
+                        className={`relative flex flex-col items-center gap-1.5 p-4 rounded-2xl border-2 transition-colors text-center ${
+                          !isLive
+                            ? "border-zinc-200 bg-zinc-50 opacity-60 cursor-pointer hover:border-zinc-300"
+                            : isSelected
+                              ? "border-indigo-500 bg-indigo-50"
+                              : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50"
+                        }`}
+                        data-testid={`category-${cat}`}
+                      >
+                        <span className="text-2xl">{CATEGORY_ICONS[cat] || "\u{1F3E0}"}</span>
+                        <span className="text-xs font-semibold text-zinc-700 leading-tight">{cat}</span>
+                        {!isLive && (
+                          <span className="absolute top-1 right-1 px-1.5 py-[1px] rounded-full bg-zinc-900 text-white text-[8px] font-semibold whitespace-nowrap">
+                            Coming soon
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                   {filteredCategories.length === 0 && categorySearch && (
                     <p className="col-span-3 text-sm text-zinc-400 text-center py-4">No categories match &ldquo;{categorySearch}&rdquo;</p>
                   )}
@@ -936,15 +1016,26 @@ export default function NewProject() {
                           const checked = form.selectedTypes.some(
                             (x) => x.toLowerCase() === t.toLowerCase(),
                           );
+                          const isLive =
+                            pilotTypeNames === null
+                              ? true
+                              : pilotTypeNames.has(t);
                           return (
                             <button
                               key={t}
                               type="button"
-                              onClick={() => toggleSubtype(t)}
-                              className={`flex items-center gap-2.5 px-4 h-12 rounded-xl border-2 text-sm font-medium transition-colors text-left ${
-                                checked
-                                  ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                                  : "border-zinc-200 text-zinc-700 hover:border-zinc-300"
+                              disabled={!isLive}
+                              onClick={() => {
+                                if (!isLive) return;
+                                toggleSubtype(t);
+                              }}
+                              aria-disabled={!isLive}
+                              className={`relative flex items-center gap-2.5 px-4 h-12 rounded-xl border-2 text-sm font-medium transition-colors text-left ${
+                                !isLive
+                                  ? "border-zinc-200 bg-zinc-50 text-zinc-400 opacity-60 cursor-not-allowed"
+                                  : checked
+                                    ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                                    : "border-zinc-200 text-zinc-700 hover:border-zinc-300"
                               }`}
                             >
                               <span className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center border-2 text-[10px] font-bold ${
@@ -952,7 +1043,12 @@ export default function NewProject() {
                               }`}>
                                 {checked && "\u2713"}
                               </span>
-                              {t}
+                              <span className="flex-1 truncate">{t}</span>
+                              {!isLive && (
+                                <span className="px-1.5 py-[1px] rounded-full bg-zinc-900 text-white text-[8px] font-semibold whitespace-nowrap flex-shrink-0">
+                                  Coming soon
+                                </span>
+                              )}
                             </button>
                           );
                         })}
@@ -1438,6 +1534,11 @@ export default function NewProject() {
       </div>
       </Layout>
       </div>
+      <ComingSoonSheet
+        open={comingSoonCategory !== null}
+        category={comingSoonCategory || ""}
+        onClose={() => setComingSoonCategory(null)}
+      />
     </>
   );
 }

@@ -98,9 +98,31 @@ const uuidv4 = () => crypto.randomUUID();
 // are strictly within the same bucket per the catalog.
 const TRADE_CATALOG = require("../web/types/trades.data.json");
 
+// Filter to trades that serve at least one currently-live project category.
+// Source of truth: the same DEFAULT_ENABLED_CATEGORIES set used by the
+// pilot project-type gate, x-referenced against CATEGORY_TRADES.
+// When you flip a new category live in admin, update DEFAULT_ENABLED_CATEGORIES
+// in server/lib/pilotProjectTypes.js and re-run this seed - the trade list
+// here picks up the change automatically.
+const {
+  DEFAULT_ENABLED_CATEGORIES,
+} = require("../server/lib/pilotProjectTypes");
+const {
+  CATEGORY_TRADES,
+} = require("../server/lib/matching/projectTradeMap");
+
+const LIVE_TRADES = (() => {
+  const trades = new Set();
+  for (const cat of DEFAULT_ENABLED_CATEGORIES) {
+    for (const t of CATEGORY_TRADES[cat] || []) trades.add(t);
+  }
+  return trades;
+})();
+
 const ALL_TRADES = TRADE_CATALOG
   .filter((t) => t.active !== false)
   .map((t) => t.label)
+  .filter((label) => LIVE_TRADES.has(label))
   .sort();
 
 const BUCKETS = (() => {
@@ -164,6 +186,11 @@ function pickSecondaries(trade) {
   }
   for (const t of EXTRA_TRADE_LINKS[trade] || []) candidates.add(t);
   candidates.delete(trade);
+  // Drop secondaries whose trade is not in the live launch set so ghost
+  // profiles don't display "we also do <category-that's-coming-soon>".
+  for (const t of [...candidates]) {
+    if (!LIVE_TRADES.has(t)) candidates.delete(t);
+  }
   // Previously this sprinkled "General Builder" + "Handyman" into
   // every ghost's secondary list as "broadly common upsells". That
   // made every project that recommended General Builder (e.g. EWI,

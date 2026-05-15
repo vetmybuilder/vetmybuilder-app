@@ -48,6 +48,8 @@ vi.mock("../../server/lib/postcodesIo", () => ({
 beforeEach(() => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require("../../server/lib/pilotAreas").invalidateCache();
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require("../../server/lib/pilotProjectTypes").invalidateCache();
   delete process.env.PILOT_AREAS_BYPASS;
 });
 
@@ -82,16 +84,37 @@ function mockRes() {
 
 const VALID_BODY = {
   name: "Bath swap",
-  type: "Bathroom Installation",
+  type: "New Bathroom Installation",
   description: "Pull old bath, fit new",
   propertyType: "Semi-Detached",
   bedrooms: 3,
 };
 
+// Stub the project-type pilot table so the type gate (which runs after
+// the borough gate) doesn't refuse VALID_BODY.type for being unavailable.
+// These tests only exercise the borough gate; the type-gate behaviour is
+// covered in projects.post.pilotProjectTypeGate.spec.ts.
+function stubProjectTypesQueries(sql: string): any[] | null {
+  if (/CREATE TABLE IF NOT EXISTS pilot_project_types/.test(sql)) return [];
+  if (/INSERT IGNORE INTO pilot_project_types/.test(sql)) return [];
+  if (/SELECT type_name, category, enabled FROM pilot_project_types/.test(sql)) {
+    return [
+      {
+        type_name: "New Bathroom Installation",
+        category: "Bathroom",
+        enabled: 1,
+      },
+    ];
+  }
+  return null;
+}
+
 describe("POST /api/projects - pilot-area gate", () => {
   it("rejects when the postcode's admin_district is not in the enabled set", async () => {
     // Pilot DB: only Waltham Forest enabled.
     const mysqlQuery = vi.fn().mockImplementation(async (sql: string) => {
+      const stub = stubProjectTypesQueries(sql);
+      if (stub) return stub;
       if (/CREATE TABLE IF NOT EXISTS pilot_boroughs/.test(sql)) return [];
       if (/INSERT IGNORE INTO pilot_boroughs/.test(sql)) return [];
       if (/SELECT name, enabled FROM pilot_boroughs/.test(sql)) {
@@ -126,6 +149,8 @@ describe("POST /api/projects - pilot-area gate", () => {
   it("allows a postcode whose admin_district IS in the enabled set", async () => {
     const inserts: Array<{ sql: string; params: any[] }> = [];
     const mysqlQuery = vi.fn().mockImplementation(async (sql: string, params: any[]) => {
+      const stub = stubProjectTypesQueries(sql);
+      if (stub) return stub;
       if (/CREATE TABLE IF NOT EXISTS pilot_boroughs/.test(sql)) return [];
       if (/INSERT IGNORE INTO pilot_boroughs/.test(sql)) return [];
       if (/SELECT name, enabled FROM pilot_boroughs/.test(sql)) {
@@ -161,6 +186,8 @@ describe("POST /api/projects - pilot-area gate", () => {
     // SE9 covers both Greenwich (disabled) and Bromley (enabled).
     const inserts: Array<{ sql: string; params: any[] }> = [];
     const mysqlQuery = vi.fn().mockImplementation(async (sql: string, params: any[]) => {
+      const stub = stubProjectTypesQueries(sql);
+      if (stub) return stub;
       if (/CREATE TABLE IF NOT EXISTS pilot_boroughs/.test(sql)) return [];
       if (/INSERT IGNORE INTO pilot_boroughs/.test(sql)) return [];
       if (/SELECT name, enabled FROM pilot_boroughs/.test(sql)) {
@@ -197,6 +224,8 @@ describe("POST /api/projects - pilot-area gate", () => {
 
   it("formats the borough list nicely when multiple are enabled", async () => {
     const mysqlQuery = vi.fn().mockImplementation(async (sql: string) => {
+      const stub = stubProjectTypesQueries(sql);
+      if (stub) return stub;
       if (/CREATE TABLE IF NOT EXISTS pilot_boroughs/.test(sql)) return [];
       if (/INSERT IGNORE INTO pilot_boroughs/.test(sql)) return [];
       if (/SELECT name, enabled FROM pilot_boroughs/.test(sql)) {

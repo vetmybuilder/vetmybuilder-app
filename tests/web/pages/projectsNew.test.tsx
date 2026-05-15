@@ -39,7 +39,18 @@ const get = vi.fn(async (url: string) => {
   }
   return { data: {} };
 });
-const post = vi.fn();
+const post = vi.fn(async () => ({ data: { ok: true } }));
+
+// The category step fetches /api/pilot/project-types via window.fetch to
+// drive the "Coming soon" greying. Stub it so the picker behaves as it
+// did pre-gating inside these tests - the wizard tests cover navigation,
+// not the launch gate. Real gating behaviour is exercised in server-side
+// gate specs + the admin-toggle integration paths.
+//
+// Returning a never-resolving promise keeps `pilotCategoryNames` null,
+// which the picker treats as "loading: all categories live" - matching
+// the pre-gating behaviour these tests were written against.
+globalThis.fetch = vi.fn(() => new Promise(() => {})) as any;
 
 vi.mock("@/utils/api", () => ({ useApi: () => ({ get, post }) }));
 
@@ -79,6 +90,7 @@ vi.mock("@/components/AuthedOnly", () => ({
 }));
 
 import NewProjectPage from "@/pages/projects/new";
+import { PROJECT_TYPES } from "@/types/projectTypes";
 
 describe("Post a job - desktop wizard", () => {
   beforeEach(() => {
@@ -155,6 +167,112 @@ describe("Post a job - desktop wizard", () => {
 
     expect(desktop.getByTestId("step-title")).toHaveTextContent(
       "What do you need done?",
+    );
+  });
+});
+
+describe("Post a job - launch gating on the category picker", () => {
+  // Re-stub fetch to return a curated /api/pilot/project-types payload
+  // for these tests so we can assert greying + click behaviour against
+  // a known disabled category.
+  const liveCategories = ["Bathroom", "Plumbing", "Electrical"];
+  const liveTypes = PROJECT_TYPES.filter((c) =>
+    liveCategories.includes(c.category),
+  ).flatMap((c) =>
+    c.types.map((t: string) => ({ typeName: t, category: c.category })),
+  );
+
+  beforeEach(() => {
+    push.mockClear();
+    replace.mockClear();
+    get.mockClear();
+    post.mockClear();
+    globalThis.fetch = vi.fn(async (url: any) => {
+      if (typeof url === "string" && url.includes("/api/pilot/project-types")) {
+        return {
+          ok: true,
+          json: async () => ({
+            types: liveTypes,
+            categories: liveCategories,
+          }),
+        } as any;
+      }
+      // Demand-signal POSTs from the modal - resolve cheap so the
+      // useEffect doesn't dangle.
+      return { ok: true, json: async () => ({ ok: true }) } as any;
+    }) as any;
+  });
+
+  const WAIT = { timeout: 5000 };
+
+  it("renders a 'Coming soon' badge on disabled categories", async () => {
+    render(<NewProjectPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId("wizard-new")).toBeInTheDocument();
+    }, WAIT);
+    const desktop = within(screen.getByTestId("wizard-new"));
+
+    // Bedroom is NOT in our live set -> should show the badge.
+    await waitFor(() => {
+      const tile = desktop.getByTestId("category-Bedroom");
+      expect(tile).toHaveTextContent(/coming soon/i);
+    }, WAIT);
+
+    // Bathroom IS live -> no badge.
+    const liveTile = desktop.getByTestId("category-Bathroom");
+    expect(liveTile).not.toHaveTextContent(/coming soon/i);
+  });
+
+  it("clicking a disabled tile opens the ComingSoonSheet instead of advancing", async () => {
+    render(<NewProjectPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId("wizard-new")).toBeInTheDocument();
+    }, WAIT);
+    const desktop = within(screen.getByTestId("wizard-new"));
+
+    // Wait for the pilot fetch to settle so isLive is populated.
+    await waitFor(() => {
+      expect(
+        desktop.getByTestId("category-Bedroom"),
+      ).toHaveTextContent(/coming soon/i);
+    }, WAIT);
+
+    fireEvent.click(desktop.getByTestId("category-Bedroom"));
+
+    // Modal opened.
+    await waitFor(() => {
+      expect(screen.getByTestId("coming-soon-sheet")).toBeInTheDocument();
+    }, WAIT);
+
+    // Wizard step title is unchanged - the click did NOT advance.
+    expect(desktop.getByTestId("step-title")).toHaveTextContent(
+      "What do you need done?",
+    );
+  });
+
+  it("clicking a live tile still advances normally", async () => {
+    render(<NewProjectPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId("wizard-new")).toBeInTheDocument();
+    }, WAIT);
+    const desktop = within(screen.getByTestId("wizard-new"));
+
+    // Wait for the picker to know what's live, else the click would
+    // race with the gating state hydrating.
+    await waitFor(() => {
+      const tile = desktop.getByTestId("category-Bathroom");
+      expect(tile).not.toHaveTextContent(/coming soon/i);
+    }, WAIT);
+
+    fireEvent.click(desktop.getByTestId("category-Bathroom"));
+
+    await waitFor(
+      () => {
+        expect(desktop.getByTestId("step-title")).toHaveTextContent(
+          /What type of bathroom work\?/i,
+        );
+      },
+      { timeout: 2000 },
     );
   });
 });
