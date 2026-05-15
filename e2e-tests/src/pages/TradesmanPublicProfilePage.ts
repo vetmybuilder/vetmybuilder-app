@@ -101,15 +101,11 @@ export class TradesmanPublicProfilePage extends BasePage {
       await expect(this.contactCard).toBeVisible();
     }
 
-    if (tradesman.phone) {
-      // Both desktop and mobile trees render `tradesman-phone`; the inactive
-      // one is CSS-hidden, so filter by visibility.
-      const phoneLink = this.page
-        .getByTestId("tradesman-phone")
-        .filter({ visible: true });
-      await expect(phoneLink).toBeVisible();
-      await expect(phoneLink).toHaveAttribute("href", `tel:${tradesman.phone}`);
-    }
+    // Phone + email are intentionally NOT exposed on the public profile
+    // (2026-05 security hardening: contact info only reveals after a
+    // mutual swipe or paid unlock, not on `/tradesmen/:publicId`).
+    // We assert the website link below because the web URL is supposed
+    // to be public marketing info.
 
     if (tradesman.website) {
       const websiteLink = this.page
