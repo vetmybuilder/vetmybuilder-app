@@ -1076,3 +1076,21 @@ CREATE TABLE IF NOT EXISTS pilot_project_types (
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   KEY idx_pilot_project_types_category (category)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Demand signals captured when a homeowner taps a "Coming soon" project
+-- category in the new-project picker. Each tap inserts a row (anonymous
+-- if no contact info supplied); rows with notify_when_live=1 are
+-- qualified leads who left an email or postcode for launch notification.
+-- Aggregated counts on /admin/pilot-project-types drive which category
+-- to flip live next.
+CREATE TABLE IF NOT EXISTS category_demand_signals (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  category VARCHAR(100) NOT NULL,
+  user_uid VARCHAR(128) NULL,
+  email VARCHAR(255) NULL,
+  postcode VARCHAR(20) NULL,
+  notify_when_live TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_category_demand_signals_category (category),
+  KEY idx_category_demand_signals_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

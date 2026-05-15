@@ -21,6 +21,13 @@ type ProjectType = {
   enabled: boolean;
 };
 
+type DemandRow = {
+  category: string;
+  totalTaps: number;
+  optedInCount: number;
+  lastTapAt: string | null;
+};
+
 export default function AdminPilotProjectTypes() {
   return (
     <AuthedOnly>
@@ -32,6 +39,7 @@ export default function AdminPilotProjectTypes() {
 function PilotProjectTypesInner() {
   const api = useApi();
   const [types, setTypes] = useState<ProjectType[]>([]);
+  const [demand, setDemand] = useState<Map<string, DemandRow>>(new Map());
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -49,9 +57,25 @@ function PilotProjectTypesInner() {
     }
   }, [api]);
 
+  const fetchDemand = useCallback(async () => {
+    try {
+      const { data } = await api.get("/api/admin/demand-signals");
+      const map = new Map<string, DemandRow>();
+      for (const r of data?.byCategory || []) {
+        map.set(r.category, r);
+      }
+      setDemand(map);
+    } catch {
+      // Demand counts are advisory - if the endpoint fails (e.g. table
+      // not yet created on a fresh install) we render zero counts rather
+      // than blocking the admin page.
+    }
+  }, [api]);
+
   useEffect(() => {
     fetchTypes();
-  }, [fetchTypes]);
+    fetchDemand();
+  }, [fetchTypes, fetchDemand]);
 
   // Group leaves by category, preserving server-side ordering (alpha).
   const grouped = useMemo(() => {
@@ -201,6 +225,20 @@ function PilotProjectTypesInner() {
                       <span className="text-xs text-slate-500 flex-shrink-0">
                         {g.enabledCount}/{g.totalCount}
                       </span>
+                      {(() => {
+                        const d = demand.get(g.category);
+                        if (!d || d.totalTaps === 0) return null;
+                        return (
+                          <span
+                            className="text-[10px] font-bold uppercase tracking-wide flex-shrink-0 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300"
+                            title={`${d.totalTaps} taps on "Coming soon", ${d.optedInCount} left contact info`}
+                            data-testid={`demand-badge-${g.category}`}
+                          >
+                            Demand: {d.totalTaps}
+                            {d.optedInCount > 0 ? ` (${d.optedInCount} opted in)` : ""}
+                          </span>
+                        );
+                      })()}
                     </button>
                     <label className="inline-flex cursor-pointer items-center gap-2">
                       <span className="text-xs text-slate-400 select-none">

@@ -7,6 +7,7 @@ import { useApi } from "@/utils/api";
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import { PROJECT_TYPES, type ProjectTypeCategory } from "@/types/projectTypes";
+import ComingSoonSheet from "@/components/ComingSoonSheet";
 import LocationField from "@/components/forms/LocationField";
 import PilotAreasBanner from "@/components/PilotAreasBanner";
 import { trackProjectCreated } from "@/utils/analytics";
@@ -282,6 +283,11 @@ export default function NewProject() {
   // postcode the user typed is outside the pilot and we block Continue
   // on the location step.
   const [locationPilotErr, setLocationPilotErr] = useState<string | null>(null);
+
+  // Open ComingSoonSheet when a homeowner taps a disabled-at-launch
+  // category tile, capturing their demand signal + optional opt-in
+  // instead of letting the click silently no-op.
+  const [comingSoonCategory, setComingSoonCategory] = useState<string | null>(null);
 
   // Pilot project-type gate. /api/pilot/project-types tells us which
   // categories have at least one enabled leaf, and which individual
@@ -921,9 +927,11 @@ export default function NewProject() {
                       <button
                         key={cat}
                         type="button"
-                        disabled={!isLive}
                         onClick={() => {
-                          if (!isLive) return;
+                          if (!isLive) {
+                            setComingSoonCategory(cat);
+                            return;
+                          }
                           set("category", cat);
                           set("selectedTypes", []);
                           set("otherEnabled", false);
@@ -935,7 +943,7 @@ export default function NewProject() {
                         aria-disabled={!isLive}
                         className={`relative flex flex-col items-center gap-1.5 p-4 rounded-2xl border-2 transition-colors text-center ${
                           !isLive
-                            ? "border-zinc-200 bg-zinc-50 opacity-50 cursor-not-allowed"
+                            ? "border-zinc-200 bg-zinc-50 opacity-60 cursor-pointer hover:border-zinc-300"
                             : isSelected
                               ? "border-indigo-500 bg-indigo-50"
                               : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50"
@@ -1526,6 +1534,11 @@ export default function NewProject() {
       </div>
       </Layout>
       </div>
+      <ComingSoonSheet
+        open={comingSoonCategory !== null}
+        category={comingSoonCategory || ""}
+        onClose={() => setComingSoonCategory(null)}
+      />
     </>
   );
 }

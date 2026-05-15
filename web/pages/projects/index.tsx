@@ -36,7 +36,7 @@ function EmptyState({ onNewProject }: { onNewProject: () => void }) {
       </p>
       <button
         onClick={onNewProject}
-        className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-semibold text-white hover:bg-emerald-600 transition-colors"
+        className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
       >
         <Plus className="h-4 w-4" />
         Post a Job

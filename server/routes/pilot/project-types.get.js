@@ -48,7 +48,11 @@ module.exports = function mountPilotProjectTypesGet(router, ctx) {
       const categories = Array.from(
         await getEnabledCategoryNameSet(mysqlQuery),
       ).sort();
-      res.set("Cache-Control", "public, max-age=60");
+      // no-store rather than max-age=60: admin toggles need to be
+      // reflected immediately. The server-side 30s in-process cache
+      // (server/lib/pilotProjectTypes.js) still absorbs hot read load
+      // and is invalidated synchronously on PATCH.
+      res.set("Cache-Control", "no-store, max-age=0");
       return res.status(200).json({
         types: enabled.map((t) => ({
           typeName: t.typeName,

@@ -326,6 +326,10 @@ function buildRouter(ctx) {
   require("./routes/pilot/areas.get")(router, ctx);
   require("./routes/pilot/project-types.get")(router, ctx);
 
+  // ---------------- Demand signals ----------------
+  // Public endpoint - homeowners tapping "Coming soon" categories.
+  require("./routes/demand-signal.post")(router, ctx);
+
   // ---------------- Notifications & SSE ----------------
   require("./routes/notifications/stream.get")(router, ctx);
   require("./routes/notifications/notifications.get")(router, ctx);
@@ -498,6 +502,7 @@ function buildRouter(ctx) {
   require("./routes/admin/pilot-areas.patch")(router, ctx);
   require("./routes/admin/pilot-project-types.get")(router, ctx);
   require("./routes/admin/pilot-project-types.patch")(router, ctx);
+  require("./routes/admin/demand-signals.get")(router, ctx);
   require("./routes/admin/users.put")(router, ctx);
   require("./routes/admin/users.delete")(router, ctx);
   require("./routes/admin/dashboard.stats.get")(router, ctx);

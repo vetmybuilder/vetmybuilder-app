@@ -73,6 +73,12 @@ export default defineConfig({
           timeout: 120_000,
           env: {
             ...envStringsOnly(process.env),
+            // Open the project-type picker UI in local e2e runs so tests
+            // using disabled-at-launch categories (Appliances/Flooring/etc)
+            // can still click the tiles. Local dev:manual outside playwright
+            // intentionally omits this so the "Coming soon" launch UX is
+            // testable manually.
+            PILOT_PROJECT_TYPES_OPEN: "1",
           },
         },
       }
