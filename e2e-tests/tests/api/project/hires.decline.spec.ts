@@ -2,7 +2,9 @@ import { test, expect } from "../../../src/fixtures";
 import Project from "../../../src/models/Project";
 import { setupTradesmanProfile } from "../../../src/apiHelper/tradesman/setupTradesmanProfile";
 
-test.describe("PATCH /api/hires/:id/decline", () => {
+// SKIPPED 2026-05: the "hires" feature was removed from the new
+// swipe-deck UI. Kept for reference if hire flows are reintroduced.
+test.describe.skip("PATCH /api/hires/:id/decline", () => {
   test("tradesman declines a pending hire", async ({
     request,
     runtime,

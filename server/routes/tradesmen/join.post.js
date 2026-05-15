@@ -3,10 +3,82 @@
 /**
  * POST /tradesmen/join   (no auth)
  * Saves a draft vendor (user_id = lead_*), runs CH match + web check,
- * and computes VMB score on the 0.0–10.0 scale.
+ * and computes VMB score on the 0.0-10.0 scale.
+ *
+ * Security: this route is intentionally public (supply-side "claim my
+ * business" flow), so we lean on three defences instead of auth:
+ *   1. Zod schema validation on req.body - reject anything unexpected.
+ *   2. express-rate-limit per IP - 5 requests / 15min on this route.
+ *   3. URL hygiene: every persisted URL must pass normalizeUrl and start
+ *      with https:// (no http://internal-host/...). webPresence.js does
+ *      the heavy SSRF lifting (DNS + private-IP block) before fetch.
  */
+const { z } = require("zod");
+const rateLimit = require("express-rate-limit");
 const analytics = require("../../lib/analytics");
 const { claimPipelineEntry } = require("../../lib/claimPipelineEntry");
+const { normalizeUrl } = require("../../lib/webPresence");
+
+// ---------- input schema ----------
+const DocSchema = z.object({
+  type: z.string().max(80),
+  label: z.string().max(200),
+  fileKey: z.string().max(300).optional(),
+  fileUrl: z.string().url().max(500).optional(),
+  // Allow extra harmless fields the form might send (customType, expiresOn,
+  // legacy name/size/type from File objects). Zod's default strips them.
+}).passthrough();
+
+const JoinSchema = z.object({
+  companyName: z.string().min(2).max(120),
+  tradeTypes: z.string().max(500).optional(),
+  serviceAreas: z.string().max(500).optional(),
+  websites: z.array(z.string().url().max(500)).max(10).optional(),
+  docs: z.array(DocSchema).max(20).optional(),
+  workPhotos: z.array(z.string().url().max(500)).max(20).optional(),
+  email: z.string().email().max(255).optional(),
+  phone: z.string().max(50).optional(),
+  contactName: z.string().max(120).optional(),
+  companyNumber: z.string().max(20).optional(),
+  offer: z
+    .object({
+      discountMin: z.number().min(0).max(100).optional(),
+      discountMax: z.number().min(0).max(100).optional(),
+      warranty: z.string().max(50).optional(),
+    })
+    .optional(),
+  likesCount: z.number().int().min(0).max(100000).optional(),
+  winsCount: z.number().int().min(0).max(100000).optional(),
+}).passthrough();
+
+// Per-IP limiter for the join route specifically. 5 attempts per 15min
+// is enough for a legit retry after a typo, far below what an abuser
+// would need to scrape or fuzz.
+const joinLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "rate_limited" },
+  // Match the skip pattern in server/lib/rateLimiters.js so vitest + E2E
+  // don't trip the limit when the same test shard fires many join calls.
+  skip: () =>
+    process.env.NODE_ENV === "test" ||
+    process.env.PILOT_AREAS_BYPASS === "1",
+});
+
+// httpsOnly: keep only URLs that survive normalizeUrl AND start with
+// https://. We don't want plain-http URLs persisted for trade marketing,
+// and normalizeUrl already drops anything that resolves to a private host
+// via its scheme/IP literal checks.
+function httpsOnly(urls) {
+  const out = [];
+  for (const raw of urls) {
+    const norm = normalizeUrl(raw);
+    if (norm && /^https:\/\//i.test(norm)) out.push(norm);
+  }
+  return out;
+}
 
 module.exports = (router, ctx) => {
   const { enrichTradesmanWithGoogle } = require("../../lib/ai/googleEnricher");
@@ -59,7 +131,7 @@ module.exports = (router, ctx) => {
     return 0;
   };
 
-  /** Compute VMB score 0–10.0 (1dp) */
+  /** Compute VMB score 0-10.0 (1dp) */
   function computeScore10(row) {
     const areas = toArrayCsv(row.service_areas);
     const trades = toArrayCsv(row.trade_types);
@@ -100,35 +172,47 @@ module.exports = (router, ctx) => {
   }
 
   // ---------- ROUTE ----------
-  router.post(ROUTE, async (req, res) => {
-    const b = req.body || {};
-    const companyName = String(b.companyName || "").trim();
+  router.post(ROUTE, joinLimiter, async (req, res) => {
+    // Validate body up front. Anything that fails the schema gets a
+    // structured 400 instead of being silently coerced.
+    let payload;
+    try {
+      payload = JoinSchema.parse(req.body || {});
+    } catch (err) {
+      const details = err?.issues || err?.errors || [];
+      log.warn(`${TAG} invalid payload`, { details });
+      return res.status(400).json({ error: "invalid_payload", details });
+    }
 
-    log.info(`${TAG} hit`, {
-      companyName,
-      tradeTypes: b.tradeTypes,
-      serviceAreas: b.serviceAreas,
-    });
-
+    const companyName = payload.companyName.trim();
     if (!companyName) {
-      log.warn(`${TAG} missing companyName`);
+      // Zod's min(2) covers most of this, but a string of pure whitespace
+      // still passes min(2). Preserve the old explicit error.
       return res.status(400).json({ error: "companyName is required" });
     }
 
-    const trade_types = String(b.tradeTypes || "").trim();
-    const service_areas = String(b.serviceAreas || "").trim();
+    log.info(`${TAG} hit`, {
+      companyName,
+      tradeTypes: payload.tradeTypes,
+      serviceAreas: payload.serviceAreas,
+    });
 
-    const websites = Array.isArray(b.websites)
-      ? b.websites.filter(Boolean)
-      : [];
-    const docs = Array.isArray(b.docs) ? b.docs : [];
-    const photos = Array.isArray(b.workPhotos)
-      ? b.workPhotos.filter(Boolean)
-      : [];
+    const trade_types = String(payload.tradeTypes || "").trim();
+    const service_areas = String(payload.serviceAreas || "").trim();
 
-    const discountMin = int(b?.offer?.discountMin, 0);
-    const discountMax = int(b?.offer?.discountMax, 0);
-    const warranty_months = warrantyToMonths(b?.offer?.warranty);
+    // URL hygiene: drop anything that doesn't normalise to a clean https
+    // URL. webPresence.normalizeUrl already rejects non-http(s) schemes
+    // and bare-IP private hosts. The /^https:\/\// gate kills the
+    // remaining http:// case so we never persist plaintext URLs.
+    const websitesIn = Array.isArray(payload.websites) ? payload.websites : [];
+    const websites = httpsOnly(websitesIn);
+    const photosIn = Array.isArray(payload.workPhotos) ? payload.workPhotos : [];
+    const photos = httpsOnly(photosIn);
+    const docs = Array.isArray(payload.docs) ? payload.docs : [];
+
+    const discountMin = int(payload?.offer?.discountMin, 0);
+    const discountMax = int(payload?.offer?.discountMax, 0);
+    const warranty_months = warrantyToMonths(payload?.offer?.warranty);
 
     const supporting_doc_count = docs.length;
     // Typed declarations from the SupportingDocsField. Old shape was
@@ -142,19 +226,18 @@ module.exports = (router, ctx) => {
     const web_url = websites[0] || null;
     const social_links = websites.slice(1);
 
-    const likes_count = int(b.likesCount, 0);
-    const wins_count = int(b.winsCount, 0);
+    const likes_count = int(payload.likesCount, 0);
+    const wins_count = int(payload.winsCount, 0);
 
     // Web verification. verifyWebPresence takes (url, socials, opts) and
     // returns { verified, website, socials, reasons }. The previous call
-    // here passed an options object as the URL arg and read .ok off the
-    // return value - neither matched the function's contract, so
-    // web_verified was silently always 0 on signup.
+    // here referenced an undefined `company_name`, so vendorName always
+    // came through as undefined - fixed.
     let web_verified = 0;
     try {
       if (web_url || social_links.length) {
         const vr = await verifyWebPresence(web_url, social_links, {
-          vendorName: company_name,
+          vendorName: companyName,
         });
         web_verified = vr?.verified ? 1 : 0;
         log.info(`${TAG} web presence`, {
@@ -292,9 +375,9 @@ module.exports = (router, ctx) => {
         [
           leadId,
           companyName,
-          b.contactName ?? null,
-          b.phone ?? null,
-          b.email ?? null,
+          payload.contactName ?? null,
+          payload.phone ?? null,
+          payload.email ?? null,
           trade_types,
           service_areas,
           web_verified,

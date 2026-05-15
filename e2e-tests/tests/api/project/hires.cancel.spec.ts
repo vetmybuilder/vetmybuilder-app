@@ -5,7 +5,9 @@ import HireApi from "../../../src/apiHelper/project/HireApi";
 import { authedApiForUid } from "../../../src/api/services/client";
 import { setupTradesmanProfile } from "../../../src/apiHelper/tradesman/setupTradesmanProfile";
 
-test.describe("PATCH /api/hires/:id/cancel", () => {
+// SKIPPED 2026-05: the "hires" feature was removed from the new
+// swipe-deck UI. Kept for reference if hire flows are reintroduced.
+test.describe.skip("PATCH /api/hires/:id/cancel", () => {
   /* ----------------------------------------------------------------------
    * Pre-acceptance cancellation
    * -------------------------------------------------------------------- */

@@ -18,7 +18,7 @@ test.describe("GET /api/notifications", () => {
     expect(unread).toBe(0);
   });
 
-  test("returns notifications after a hire creates one", async ({
+  test.skip("returns notifications after a hire creates one", async ({
     request,
     runtime,
     projectApi,

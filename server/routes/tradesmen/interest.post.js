@@ -1,6 +1,7 @@
 // server/routes/tradesmen/interest.post.js
 
 const analytics = require("../../lib/analytics");
+const { publicWriteLimiter } = require("../../lib/rateLimiters");
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery, requireTradesman = null } = ctx;
@@ -13,6 +14,7 @@ module.exports = (router, ctx) => {
 
   router.post(
     "/tradesmen/interest",
+    publicWriteLimiter,
     auth,
     maybe(requireTradesman),
     async (req, res) => {

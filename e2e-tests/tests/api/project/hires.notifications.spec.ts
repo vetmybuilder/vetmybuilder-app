@@ -5,7 +5,9 @@ import Recommendation from "../../../src/models/Recommendation";
 import { AuthApi } from "../../../src/apiHelper/auth/AuthApi";
 import { setupTradesmanProfile } from "../../../src/apiHelper/tradesman/setupTradesmanProfile";
 
-test.describe("Hire notifications", () => {
+// SKIPPED 2026-05: the "hires" feature was removed from the new
+// swipe-deck UI. Kept for reference if hire flows are reintroduced.
+test.describe.skip("Hire notifications", () => {
   test("tradesman receives a hire_received notification when hired", async ({
     request,
     runtime,

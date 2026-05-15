@@ -221,11 +221,49 @@ module.exports = (router, ctx) => {
 
       /* 1) Load tradesman row — try public_id first, fall back to user_id.
             If the public_id column doesn't exist yet (pre-migration prod DB),
-            fall back to user_id-only lookup. */
+            fall back to user_id-only lookup.
+
+            SECURITY: do NOT SELECT *. Explicitly list non-PII columns so
+            tradesperson phone/email never leak through this public-profile
+            endpoint. Internal-only columns (master_uid, is_seed) are also
+            excluded. Contact info is only revealed via /api/matches/:matchId
+            (post-mutual-swipe) or after a paid unlock. */
+      // Columns shared by both branches (excluding public_id, which may not
+      // exist on pre-migration DBs).
+      const TRADESMAN_COLS_BASE = `
+        user_id,
+        company_name,
+        contact_name,
+        trade_types,
+        service_areas,
+        subscription_status,
+        plan,
+        purchased_plan,
+        company_number,
+        ch_status,
+        photo_count,
+        offers_discount,
+        warranty_months,
+        web_url,
+        vmb_score,
+        vmb_badge,
+        social_links_json,
+        review_links_json,
+        likes_count,
+        wins_count,
+        status,
+        profile_picture_url,
+        about,
+        google_place_id,
+        google_rating,
+        google_reviews_count,
+        created_at
+      `;
+
       let rows;
       try {
         rows = await mysqlQuery(
-          `SELECT * FROM tradesmen WHERE public_id = ? OR user_id = ? LIMIT 1`,
+          `SELECT ${TRADESMAN_COLS_BASE}, public_id FROM tradesmen WHERE public_id = ? OR user_id = ? LIMIT 1`,
           [publicId, publicId]
         );
       } catch (e) {
@@ -235,7 +273,7 @@ module.exports = (router, ctx) => {
           log.warn(`${TAG} public_id column missing, falling back to user_id lookup`);
           try {
             rows = await mysqlQuery(
-              `SELECT * FROM tradesmen WHERE user_id = ? LIMIT 1`,
+              `SELECT ${TRADESMAN_COLS_BASE} FROM tradesmen WHERE user_id = ? LIMIT 1`,
               [publicId]
             );
           } catch (e2) {
@@ -325,8 +363,9 @@ module.exports = (router, ctx) => {
         score: normaliseScore(Number(row.vmb_score ?? 0)),
         location: { outward },
 
-        phone: row.phone || null,
-        email: row.email || null,
+        // SECURITY: phone/email intentionally omitted from this
+        // public-profile endpoint. Contact info is only revealed via
+        // /api/matches/:matchId (post-mutual-swipe) or paid unlock.
         website: row.web_url || null,
         socials: parseSocials(row.social_links_json),
         reviewLinks: parseReviewLinks(row.review_links_json),

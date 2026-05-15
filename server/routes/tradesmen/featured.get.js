@@ -307,9 +307,35 @@ module.exports = (router, ctx) => {
 
       let rows;
       try {
+        // SECURITY: do NOT SELECT *. Explicitly list non-PII columns so
+        // tradesperson phone/email never leak through the directory.
+        // Internal/admin-only columns (master_uid, is_seed) are also
+        // excluded.
         rows = await mysqlQuery(
           `
-          SELECT *
+          SELECT
+            user_id,
+            public_id,
+            company_name,
+            contact_name,
+            trade_types,
+            service_areas,
+            subscription_status,
+            plan,
+            purchased_plan,
+            company_number,
+            ch_status,
+            photo_count,
+            offers_discount,
+            warranty_months,
+            web_url,
+            vmb_score,
+            vmb_badge,
+            social_links_json,
+            likes_count,
+            wins_count,
+            status,
+            profile_picture_url
             FROM tradesmen
            WHERE COALESCE(status,'active') != 'banned'
         `
@@ -365,8 +391,9 @@ module.exports = (router, ctx) => {
             // ✅ NEW: remove location entirely (Option A)
             location: null,
 
-            phone: r.phone || null,
-            email: r.email || null,
+            // SECURITY: phone/email intentionally omitted from the
+            // directory shape. Contact info is only revealed after a
+            // mutual match (/api/matches/:matchId) or paid unlock.
             website: r.web_url || null,
             socials: parseSocials(r.social_links_json),
             companyNumber: r.company_number || null,

@@ -324,14 +324,20 @@ module.exports = (router, ctx) => {
         const n = Number(v);
         return Number.isFinite(n) && n >= 1 && n <= 5 ? n : null;
       };
+      // SECURITY: recommender PII (real name / phone / email) is owner-only.
+      // Community / live viewers see only the masked `recommender.name` field
+      // computed below (firstName, first word, or "Guest"/"Anonymous").
+      // Tradesperson contact info on the linked tradesman + the `contact`
+      // block is also owner-only - non-owners must go via the matches
+      // endpoint or a paid unlock to surface contact details.
       const recommendation = {
         id: row.id,
         company: row.company,
         comment: row.comment,
         createdAt: row.createdAt,
-        name: row.name,
-        email: row.email,
-        phone: row.phone == null ? null : String(row.phone),
+        name: isOwner ? row.name : null,
+        email: isOwner ? row.email : null,
+        phone: isOwner ? (row.phone == null ? null : String(row.phone)) : null,
         isAnonymous: row.isAnonymous,
         likes: Number(row.likes || 0),
         myLike,
@@ -361,20 +367,29 @@ module.exports = (router, ctx) => {
                "Guest"),
         },
 
-        // Linked tradesman details (null if no link)
+        // Linked tradesman details (null if no link). Contact fields are
+        // owner-only - non-owners must go via /api/matches/:matchId or a
+        // paid unlock to see phone/email.
         tradesman: linkedTradesmanUid
           ? {
               uid: linkedTradesmanUid,
               photoUrl: row.tradesmanPhotoUrl || null,
-              phone: row.tradesmanPhone ? String(row.tradesmanPhone) : null,
-              email: row.tradesmanEmail || null,
+              phone: isOwner
+                ? (row.tradesmanPhone ? String(row.tradesmanPhone) : null)
+                : null,
+              email: isOwner ? (row.tradesmanEmail || null) : null,
             }
           : null,
 
-        // Contact fallback: tradesman first, then rec's own fields
+        // Contact fallback: tradesman first, then rec's own fields. Owner-only.
         contact: {
-          phone: (row.tradesmanPhone ? String(row.tradesmanPhone) : null) || (row.phone ? String(row.phone) : null),
-          email: row.tradesmanEmail || row.email || row.companyEmail || null,
+          phone: isOwner
+            ? ((row.tradesmanPhone ? String(row.tradesmanPhone) : null) ||
+               (row.phone ? String(row.phone) : null))
+            : null,
+          email: isOwner
+            ? (row.tradesmanEmail || row.email || row.companyEmail || null)
+            : null,
         },
 
         // 🔥 NOW MASKED

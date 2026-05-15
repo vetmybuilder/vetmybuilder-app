@@ -6,7 +6,9 @@ import { setupTradesmanProfile } from "../../../src/apiHelper/tradesman/setupTra
 import HireApi from "../../../src/apiHelper/project/HireApi";
 import { uniq } from "../../../src/utils/formatters";
 
-test.describe("GET /api/projects/:projectId/hires", () => {
+// SKIPPED 2026-05: the "hires" feature was removed from the new
+// swipe-deck UI. Kept for reference if hire flows are reintroduced.
+test.describe.skip("GET /api/projects/:projectId/hires", () => {
   async function liveProjectForOwner(apiClient: any): Promise<number> {
     const projectRes = await apiClient.post(
       "/api/projects",
