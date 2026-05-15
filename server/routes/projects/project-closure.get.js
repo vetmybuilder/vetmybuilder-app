@@ -25,12 +25,7 @@
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
   const { logger, withRequest } = require("../../lib/logger");
-
-  function norm(s) {
-    return String(s || "")
-      .toLowerCase()
-      .replace(/\s+/g, "");
-  }
+  const { extractLocationTokens } = require("../../lib/location");
 
   router.get("/projects/:id/closure", auth, async (req, res) => {
     const projectId = Number(req.params.id);
@@ -87,49 +82,40 @@ module.exports = (router, ctx) => {
     if (viewerUid === project.ownerUserId) {
       allow = true;
     } else {
-      // 2) Completed + same-area check
+      // 2) Completed + same-area check.
+      //
+      // SECURITY: the previous implementation did a substring match between
+      // project.location and any of the viewer's raw user fields (including
+      // free-text city). That allowed trivial bypass - e.g. setting city to
+      // "e" or "lo" matched virtually any UK postcode. We now require an
+      // EXACT match on postcode_outward (e.g. "E4" == "E4") only, using the
+      // shared extractLocationTokens helper, and ignore tokens < 2 chars.
       if (project.status === "completed") {
         try {
-          const meRows = await mysqlQuery(
-            `
-            SELECT locationRaw,
-                   postcodeOutward,
-                   postcodeSector,
-                   postcode,
-                   city
-            FROM users
-            WHERE uid = ?
-            `,
-            [viewerUid]
-          );
-          const me = meRows[0] || null;
+          const projTokens = extractLocationTokens(project.location || "");
+          const projOutward = projTokens?.outward || null;
 
-          const tokens = [];
-          if (me) {
-            const candidateFields = [
-              me.locationRaw,
-              me.postcodeOutward,
-              me.postcodeSector,
-              me.postcode,
-              me.city,
-            ];
-            for (const v of candidateFields) {
-              const s = String(v || "").trim();
-              if (s) tokens.push(s);
+          if (projOutward && projOutward.length >= 2) {
+            const meRows = await mysqlQuery(
+              `
+              SELECT postcodeOutward
+              FROM users
+              WHERE uid = ?
+              `,
+              [viewerUid]
+            );
+            const me = meRows[0] || null;
+            const meOutward = me?.postcodeOutward
+              ? String(me.postcodeOutward).trim().toUpperCase()
+              : null;
+
+            if (
+              meOutward &&
+              meOutward.length >= 2 &&
+              meOutward === String(projOutward).toUpperCase()
+            ) {
+              allow = true;
             }
-          }
-
-          const normTokens = Array.from(new Set(tokens.map(norm))).filter(
-            Boolean
-          );
-          const projLoc = norm(project.location);
-
-          if (
-            projLoc &&
-            normTokens.length > 0 &&
-            normTokens.some((t) => projLoc.includes(t))
-          ) {
-            allow = true;
           }
         } catch (err) {
           log.error({ err }, "Failed during same-area visibility check");
