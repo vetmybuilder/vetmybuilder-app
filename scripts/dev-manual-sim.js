@@ -7,6 +7,7 @@ require("dotenv").config({ path: ".env.e2e.local" });
 const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const { logger } = require("../server/lib/logger");
 
 // Never run sim auto-start during E2E tests
 if (process.env.TEST_ENV === "e2e" || process.env.CI) {
@@ -20,7 +21,7 @@ if (process.env.TEST_ENV === "e2e" || process.env.CI) {
 if (process.env.NODE_ENV === "production") {
   const FORCE_OVERRIDE = "yes-i-really-want-to-burn-money-on-prod";
   if (process.env.VMB_FORCE_SIM_IN_PROD !== FORCE_OVERRIDE) {
-    console.error(
+    logger.error(
       "[dev-manual-sim] REFUSING TO RUN: NODE_ENV=production. This script " +
       "starts the local-dev simulator, which creates fake tradesmen and " +
       "fires paid Google Places API calls. It must never run on prod.",
@@ -34,8 +35,7 @@ const POLL_INTERVAL_MS = 2000;
 const MAX_WAIT_MS = 120_000;
 
 function log(msg) {
-  const t = new Date().toTimeString().slice(0, 8);
-  console.log(`  [sim-autostart ${t}] ${msg}`);
+  logger.info(`[sim-autostart] ${msg}`);
 }
 
 async function waitForServer() {

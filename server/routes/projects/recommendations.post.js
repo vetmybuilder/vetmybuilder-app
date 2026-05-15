@@ -74,9 +74,9 @@ module.exports = (router, ctx) => {
       searchCompanies = ch.searchCompanies || searchCompanies;
       getCompanyProfile = ch.getCompanyProfile || getCompanyProfile;
     } catch (e) {
-      console.warn(
-        "[recommendations.post] Companies House helpers not available:",
-        e?.message || e
+      (ctx.log || console).warn(
+        { err: e?.message || e },
+        "[recommendations.post] Companies House helpers not available"
       );
     }
   }
@@ -184,9 +184,9 @@ module.exports = (router, ctx) => {
             }
           }
         } catch (e) {
-          console.warn(
-            "[recommendations.post] failed to load project for owner/location hint:",
-            e?.message || e
+          (ctx.log || console).warn(
+            { err: e?.message || e },
+            "[recommendations.post] failed to load project for owner/location hint"
           );
         }
 
@@ -224,9 +224,9 @@ module.exports = (router, ctx) => {
             resolvedBy = "db";
           }
         } catch (e) {
-          console.warn(
-            "[recommendations.post] local company lookup failed:",
-            e?.message || e
+          (ctx.log || console).warn(
+            { err: e?.message || e },
+            "[recommendations.post] local company lookup failed"
           );
         }
 
@@ -282,9 +282,9 @@ module.exports = (router, ctx) => {
               }
             }
           } catch (e) {
-            console.warn(
-              "[recommendations.post] CH resolve failed:",
-              e?.message || e
+            (ctx.log || console).warn(
+              { err: e?.message || e },
+              "[recommendations.post] CH resolve failed"
             );
           }
         }
@@ -358,9 +358,9 @@ module.exports = (router, ctx) => {
                 : undefined,
           });
         } catch (e) {
-          console.warn(
-            "[recommendations.post] queueCompanyVerification failed:",
-            e?.message || e
+          (ctx.log || console).warn(
+            { err: e?.message || e },
+            "[recommendations.post] queueCompanyVerification failed"
           );
         }
 
@@ -396,7 +396,7 @@ module.exports = (router, ctx) => {
             }
           }
         } catch (e) {
-          console.warn("[recommendation auto-like] failed", e?.message || e);
+          (ctx.log || console).warn({ err: e?.message || e }, "[recommendation auto-like] failed");
         }
 
         /* ---------- Photos (R2 or local disk) ---------- */
@@ -429,7 +429,7 @@ module.exports = (router, ctx) => {
                 storedMime = p.mimetype;
                 storedSize = p.buffer?.length ?? storedSize;
               } catch (e) {
-                console.warn("[recommendations.post] R2 upload failed:", e?.message || e);
+                (ctx.log || console).warn({ err: e?.message || e }, "[recommendations.post] R2 upload failed");
                 continue;
               }
             } else {
@@ -445,9 +445,9 @@ module.exports = (router, ctx) => {
                   fPath = p.filePath;
                   storedMime = p.mimetype;
                 } catch (e) {
-                  console.warn(
-                    "[recommendations.post] processFile failed:",
-                    e?.message || e,
+                  (ctx.log || console).warn(
+                    { err: e?.message || e },
+                    "[recommendations.post] processFile failed",
                   );
                 }
               }
@@ -477,9 +477,9 @@ module.exports = (router, ctx) => {
             try {
               await mysqlQuery(sql, params);
             } catch (e) {
-              console.warn(
-                "[recommendations.post] inserting recommendation_photos failed:",
-                e?.message || e
+              (ctx.log || console).warn(
+                { err: e?.message || e },
+                "[recommendations.post] inserting recommendation_photos failed"
               );
             }
           }
@@ -532,9 +532,9 @@ module.exports = (router, ctx) => {
                 logActivity: ctx.logActivity,
               });
             } catch (e) {
-              console.warn(
-                "[recommendations.post] failed to insert notification into MySQL:",
-                e?.message || e
+              (ctx.log || console).warn(
+                { err: e?.message || e },
+                "[recommendations.post] failed to insert notification into MySQL"
               );
             }
 
@@ -547,13 +547,13 @@ module.exports = (router, ctx) => {
                 linkPath,
               });
             } catch (e) {
-              console.warn("[notify-owner platform] failed:", e?.message || e);
+              (ctx.log || console).warn({ err: e?.message || e }, "[notify-owner platform] failed");
             }
           }
         } catch (e) {
-          console.warn(
-            "[recommendations.post] owner lookup/notify failed:",
-            e?.message || e
+          (ctx.log || console).warn(
+            { err: e?.message || e },
+            "[recommendations.post] owner lookup/notify failed"
           );
         }
 
@@ -625,9 +625,9 @@ module.exports = (router, ctx) => {
                 projectArea,
               });
             } catch (e) {
-              console.warn(
-                "[recommendations.post] off-platform invite failed:",
-                e?.message || e,
+              (ctx.log || console).warn(
+                { err: e?.message || e },
+                "[recommendations.post] off-platform invite failed",
               );
             }
           });
@@ -647,7 +647,7 @@ module.exports = (router, ctx) => {
         ctx.logActivity("rec.create", "info", req.user?.uid || "guest", `Rec for project #${projectId}, company="${company}"`);
         return;
       } catch (err) {
-        console.error("recommendations.post error:", err);
+        (ctx.log || console).error({ err: err?.message || err }, "recommendations.post error");
         return res
           .status(500)
           .json({ error: "Internal error creating recommendation" });

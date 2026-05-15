@@ -13,14 +13,11 @@ const {
 const TAG = "[googlePlaces]";
 
 // -------------------------------------
-// Logger (module-level)
+// Logger (module-level). Backed by Pino so output is coloured in dev and
+// JSON-structured in prod.
 // -------------------------------------
-const QUIET = ["warn", "error", "fatal", "silent"].includes(process.env.LOG_LEVEL || "info");
-const log = {
-  info: (...a) => { if (!QUIET) console.log(...a); },
-  warn: (...a) => console.warn(...a),
-  error: (...a) => console.error(...a),
-};
+const { logger } = require("./logger");
+const log = logger.child({ module: "googlePlaces" });
 
 // Try global fetch (Node 18+); fallback to node-fetch if present
 let fetchFn = global.fetch;

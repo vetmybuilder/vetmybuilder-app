@@ -11,7 +11,7 @@ module.exports = (router, ctx) => {
         userCount: rows[0].count,
       });
     } catch (err) {
-      console.error("MySQL test error:", err);
+      (ctx?.log || console).error({ err: err?.message }, "MySQL test error");
       res.status(500).json({
         ok: false,
         error: err.message,

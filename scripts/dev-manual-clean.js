@@ -5,10 +5,11 @@ require("dotenv").config({ path: ".env.e2e.local" });
 const fs = require("fs");
 const path = require("path");
 const mysql = require("mysql2/promise");
+const { logger } = require("../server/lib/logger");
 
 const db = process.env.VMB_E2E_DB;
 if (!db) {
-  console.error("[VMB] VMB_E2E_DB not set in .env.e2e.local");
+  logger.error("[VMB] VMB_E2E_DB not set in .env.e2e.local");
   process.exit(1);
 }
 
@@ -43,7 +44,7 @@ async function main() {
 
   const schemaPath = findSchemaFile();
   if (!schemaPath) {
-    console.error(
+    logger.error(
       "[VMB] Could not find mysql_schema.sql (checked repo root + server/).",
     );
     process.exit(1);
@@ -51,8 +52,8 @@ async function main() {
 
   const schemaSql = fs.readFileSync(schemaPath, "utf8");
 
-  console.log(`[VMB] wiping database: ${db}`);
-  console.log(`[VMB] applying schema from: ${schemaPath}`);
+  logger.info(`[VMB] wiping database: ${db}`);
+  logger.info(`[VMB] applying schema from: ${schemaPath}`);
 
   // 1) Drop + recreate DB (no database selected yet)
   const adminConn = await mysql.createConnection({
@@ -80,10 +81,10 @@ async function main() {
   await dbConn.query(schemaSql);
   await dbConn.end();
 
-  console.log("[VMB] done (db wiped + schema applied)");
+  logger.info("[VMB] done (db wiped + schema applied)");
 }
 
 main().catch((err) => {
-  console.error("[VMB] clean failed:", err?.message || err);
+  logger.error({ err: err?.message || err }, "[VMB] clean failed");
   process.exit(1);
 });

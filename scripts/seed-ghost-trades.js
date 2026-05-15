@@ -26,6 +26,7 @@ require("dotenv").config({
 });
 const crypto = require("crypto");
 const mysql = require("mysql2/promise");
+const { logger } = require("../server/lib/logger");
 
 const args = Object.fromEntries(
   process.argv.slice(2).map((a) => {
@@ -556,8 +557,8 @@ function tradeImageUrl(trade, lock) {
 // ---------- main ----------
 async function main() {
   const TOTAL = ALL_TRADES.length * PER_TRADE;
-  console.log(
-    `${TAG} starting — master_uid=${MASTER_UID} per_trade=${PER_TRADE} ` +
+  logger.info(
+    `${TAG} starting - master_uid=${MASTER_UID} per_trade=${PER_TRADE} ` +
       `trades=${ALL_TRADES.length} total=${TOTAL} db=${DB_NAME}`,
   );
 
@@ -623,7 +624,7 @@ async function main() {
         `DELETE FROM user_roles WHERE uid IN (${ph})`,
         oldUids,
       );
-      console.log(`${TAG} wiped ${oldUids.length} existing ghost(s)`);
+      logger.info(`${TAG} wiped ${oldUids.length} existing ghost(s)`);
     }
 
     // ---- 2. Generate + insert ----
@@ -746,16 +747,16 @@ async function main() {
       created++;
       if (created % 50 === 0) {
         const total = ALL_TRADES.length * PER_TRADE;
-        console.log(`${TAG} ${created}/${total}…`);
+        logger.info(`${TAG} ${created}/${total}...`);
       }
      }
     }
 
     await conn.commit();
-    console.log(`${TAG} done — created ${created} ghost(s) for ${MASTER_UID}`);
+    logger.info(`${TAG} done - created ${created} ghost(s) for ${MASTER_UID}`);
   } catch (err) {
     await conn.rollback().catch(() => {});
-    console.error(`${TAG} failed`, err);
+    logger.error({ err: err?.message }, `${TAG} failed`);
     process.exitCode = 1;
   } finally {
     await conn.end();

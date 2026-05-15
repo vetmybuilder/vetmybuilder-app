@@ -8,6 +8,7 @@ const { readState, writeState } = require("./state");
 const builders = require("./fixtures/builders.json");
 const neighbours = require("./fixtures/neighbours.json");
 const comments = require("./fixtures/comments.json");
+const { logger } = require("../../server/lib/logger");
 
 const PHOTOS_DIR = path.resolve(__dirname, "fixtures/photos");
 
@@ -44,7 +45,7 @@ function delay(ms) {
 }
 
 function log(msg) {
-  console.log(`  [${new Date().toLocaleTimeString()}] ${msg}`);
+  logger.info(`[sim] ${msg}`);
 }
 
 function getProjectState(state, projectId) {
@@ -162,7 +163,7 @@ async function runWave1(projectId, state, fast, opts = {}) {
   const { skipDelay = false, actionJitter = null, skipBuilderInterest = false } = opts;
   const ps = getProjectState(state, projectId);
 
-  console.log(`\n[run] Wave 1 — all 3 neighbours recommend Elegant + first batch of others`);
+  logger.info(`[run] Wave 1 - all 3 neighbours recommend Elegant + first batch of others`);
   if (!skipDelay) await delay(timing.wave1);
 
   // All 3 neighbours recommend Elegant Building Services (idx 5) — guaranteed top
@@ -211,7 +212,7 @@ async function runWave2(projectId, state, fast, opts = {}) {
   const { skipDelay = false, actionJitter = null, skipBuilderInterest = false } = opts;
   const ps = getProjectState(state, projectId);
 
-  console.log(`\n[run] Wave 2 — more neighbour recommendations + more builder interest + likes on Elegant`);
+  logger.info(`[run] Wave 2 - more neighbour recommendations + more builder interest + likes on Elegant`);
   if (!skipDelay) await delay(timing.wave2);
 
   // Sarah recommends builder-002 and builder-004 (Sarah: 4 recs total)
@@ -263,7 +264,7 @@ async function runWave3(projectId, state, fast, opts = {}) {
   const { skipDelay = false, actionJitter = null, skipBuilderInterest = false } = opts;
   const ps = getProjectState(state, projectId);
 
-  console.log(`\n[run] Wave 3 — Rachel's remaining recs + final builder interest + likes`);
+  logger.info(`[run] Wave 3 - Rachel's remaining recs + final builder interest + likes`);
   if (!skipDelay) await delay(timing.wave3);
 
   // Rachel recommends builder-001 and builder-003 (Rachel: 3 recs total)
@@ -312,23 +313,23 @@ async function run(projectId, fast) {
   const completed = ps.wavesCompleted;
 
   if (completed.includes(1) && completed.includes(2) && completed.includes(3)) {
-    console.log(
-      `\n[run] All waves already completed for project ${projectId}. Nothing to do.`
+    logger.info(
+      `[run] All waves already completed for project ${projectId}. Nothing to do.`
     );
-    console.log("[run] Run `node scripts/simulate.js reset` and re-seed to start fresh.\n");
+    logger.info("[run] Run `node scripts/simulate.js reset` and re-seed to start fresh.");
     return;
   }
 
-  console.log(
-    `\n[run] Starting simulation for project ${projectId}${fast ? " (--fast)" : ""}...`
+  logger.info(
+    `[run] Starting simulation for project ${projectId}${fast ? " (--fast)" : ""}...`
   );
 
   if (!completed.includes(1)) await runWave1(projectId, state, fast);
   if (!completed.includes(2)) await runWave2(projectId, state, fast);
   if (!completed.includes(3)) await runWave3(projectId, state, fast);
 
-  console.log(`\n[run] Simulation complete for project ${projectId}.`);
-  console.log("[run] Your shortlist has 6 builders — Elegant Building Services leads with 3 endorsements.\n");
+  logger.info(`[run] Simulation complete for project ${projectId}.`);
+  logger.info("[run] Your shortlist has 6 builders - Elegant Building Services leads with 3 endorsements.");
 }
 
 module.exports = { run, runWave1, runWave2, runWave3, expressInterest };

@@ -374,13 +374,27 @@ logger.info(
   "boot env",
 );
 
-console.log(
-  `\n[VMB] API running on port ${PORT} using database: ${process.env.MYSQL_DATABASE}\n`,
+logger.info(
+  { port: PORT, db: process.env.MYSQL_DATABASE },
+  "[VMB] API running",
 );
 
 /* -------------------- Start server -------------------- */
-const httpServer = app.listen(PORT, "0.0.0.0", () => {
+const httpServer = app.listen(PORT, "0.0.0.0", async () => {
   logger.info({ port: PORT }, "server started");
+
+  // Apply any pending schema migrations before serving traffic that
+  // depends on them. Failure here is logged but doesn't crash the
+  // server - the alternative (refusing to start) would take prod down
+  // on every transient DB blip. Real schema errors surface in the
+  // request logs the same way they did before, and the next deploy
+  // (or restart) retries. Migration runner: server/lib/migrate.js
+  try {
+    const { runMigrations } = require("./lib/migrate");
+    await runMigrations(logger);
+  } catch (err) {
+    logger.error({ err: err?.message }, "[migrate] runner failed at boot");
+  }
 
   // Production sentinel: warn loudly if simulator data is found in the
   // live DB. See server/lib/simDataSentinel.js for the incident note.

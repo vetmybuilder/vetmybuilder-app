@@ -12,6 +12,7 @@
 
 const http = require("http");
 const net = require("net");
+const { logger } = require("../server/lib/logger");
 
 const SHARD_INDEX = parseInt(process.env.SHARD_INDEX || "1", 10);
 const LISTEN_PORT = 3000 + SHARD_INDEX;
@@ -42,8 +43,9 @@ function proxyHttpRequest(req, res, targetPort) {
   });
 
   proxyReq.on("error", (err) => {
-    console.error(
-      `[proxy:${LISTEN_PORT}] upstream error to :${targetPort}: ${err.message}`,
+    logger.error(
+      { err: err?.message || err },
+      `[proxy:${LISTEN_PORT}] upstream error to :${targetPort}`,
     );
     if (!res.headersSent) res.writeHead(502);
     res.end("Bad Gateway");
@@ -76,11 +78,11 @@ server.on("upgrade", (req, socket, head) => {
 });
 
 server.on("error", (err) => {
-  console.error(`[proxy:${LISTEN_PORT}] server error:`, err.message);
+  logger.error({ err: err?.message || err }, `[proxy:${LISTEN_PORT}] server error`);
 });
 
 server.listen(LISTEN_PORT, "127.0.0.1", () => {
-  console.log(
-    `[proxy:${LISTEN_PORT}] started → /api|uploads → :${API_PORT}, rest → :${WEB_PORT}`,
+  logger.info(
+    `[proxy:${LISTEN_PORT}] started -> /api|uploads -> :${API_PORT}, rest -> :${WEB_PORT}`,
   );
 });

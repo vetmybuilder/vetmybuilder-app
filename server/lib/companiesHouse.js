@@ -20,13 +20,11 @@ const TAG = "[CH]";
 
 // -------------------------------------------------------
 // Local logger (module-level). Routes may wrap calls with ctx.log.
+// Backed by the central Pino logger so output stays coloured + structured
+// in dev and JSON-formatted in prod.
 // -------------------------------------------------------
-const QUIET = ["warn", "error", "fatal", "silent"].includes(process.env.LOG_LEVEL || "info");
-const log = {
-  info: (...a) => { if (!QUIET) console.log(...a); },
-  warn: (...a) => console.warn(...a),
-  error: (...a) => console.error(...a),
-};
+const { logger } = require("./logger");
+const log = logger.child({ module: "companiesHouse" });
 
 /* =======================================================
    CONFIG HELPERS

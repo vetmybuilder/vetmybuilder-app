@@ -1,5 +1,7 @@
 // server/lib/companyVerifyHelpers.js
 
+const { logger } = require("./logger");
+
 function _normName(s = "") {
   return String(s)
     .toLowerCase()
@@ -44,9 +46,9 @@ function makeQueueCompanyVerification({ mysqlQuery, matchByName }) {
       `,
       [recId, nowIso]
     ).catch((e) => {
-      console.warn(
-        "[companyVerifyHelpers] initial queue insert failed (mysql):",
-        e?.message || e
+      logger.warn(
+        { err: e?.message || e },
+        "[companyVerifyHelpers] initial queue insert failed (mysql)",
       );
     });
 
@@ -122,9 +124,9 @@ function makeQueueCompanyVerification({ mysqlQuery, matchByName }) {
             [errMsg, errTime, recId]
           );
         } catch (inner) {
-          console.error(
-            "[companyVerifyHelpers] failed to mark error state:",
-            inner?.message || inner
+          logger.error(
+            { err: inner?.message || inner },
+            "[companyVerifyHelpers] failed to mark error state",
           );
         }
       }

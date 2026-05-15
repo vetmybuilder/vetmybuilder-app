@@ -16,6 +16,7 @@ require("dotenv").config({ path: ".env.e2e.local" });
 
 const mysql2 = require("mysql2/promise");
 const { BOT_UIDS } = require("./config");
+const { logger } = require("../../server/lib/logger");
 
 const CHRIS_UID = "chris-morris-homeowner-dev";
 
@@ -73,13 +74,13 @@ async function main() {
     );
     const project = projects[0];
     if (!project) {
-      console.error(
+      logger.error(
         `[seed-chris-hires] No live project found for ${CHRIS_UID}. ` +
           `Create one in the UI first, then re-run.`,
       );
       process.exit(1);
     }
-    console.log(`[seed-chris-hires] Using project ${project.id} (${project.name})`);
+    logger.info(`[seed-chris-hires] Using project ${project.id} (${project.name})`);
 
     // 2. Wipe existing hires for this project so the script is idempotent
     const [delResult] = await conn.query(
@@ -87,7 +88,7 @@ async function main() {
       [project.id],
     );
     if (delResult.affectedRows > 0) {
-      console.log(`[seed-chris-hires] Cleared ${delResult.affectedRows} existing hire(s)`);
+      logger.info(`[seed-chris-hires] Cleared ${delResult.affectedRows} existing hire(s)`);
     }
 
     // 3. Insert one hire per plan entry
@@ -104,8 +105,8 @@ async function main() {
         [tradesmanUid],
       );
       if (tmRows.length === 0) {
-        console.warn(
-          `[seed-chris-hires] Skipping builder idx ${plan.builderIdx} — ` +
+        logger.warn(
+          `[seed-chris-hires] Skipping builder idx ${plan.builderIdx} - ` +
             `no tradesman row for ${tradesmanUid} (run the sim first).`,
         );
         continue;
@@ -137,10 +138,10 @@ async function main() {
         ],
       );
       inserted++;
-      console.log(`  + ${plan.status.padEnd(9)} ${company}`);
+      logger.info(`[seed-chris-hires] + ${plan.status.padEnd(9)} ${company}`);
     }
 
-    console.log(`[seed-chris-hires] Done — inserted ${inserted} hire(s) on main project.`);
+    logger.info(`[seed-chris-hires] Done - inserted ${inserted} hire(s) on main project.`);
 
     // 4. Extra projects + hires for Elegant
     const elegantUid = BOT_UIDS.builders[5];
@@ -149,11 +150,11 @@ async function main() {
       [elegantUid],
     );
     if (elegantRows.length === 0) {
-      console.warn(`[seed-chris-hires] Skipping Elegant extras — no tradesman row for ${elegantUid}`);
+      logger.warn(`[seed-chris-hires] Skipping Elegant extras - no tradesman row for ${elegantUid}`);
       return;
     }
 
-    // Wipe any prior extras (idempotent) — match by name prefix tag.
+    // Wipe any prior extras (idempotent) - match by name prefix tag.
     const TAG = "[chris-elegant-seed]";
     const [oldExtras] = await conn.query(
       `SELECT id FROM projects WHERE ownerUserId = ? AND name LIKE ?`,
@@ -164,7 +165,7 @@ async function main() {
       await conn.query(`DELETE FROM hires WHERE projectId IN (?)`, [oldIds]);
       await conn.query(`DELETE FROM notifications WHERE projectId IN (?)`, [oldIds]);
       await conn.query(`DELETE FROM projects WHERE id IN (?)`, [oldIds]);
-      console.log(`[seed-chris-hires] Cleared ${oldIds.length} previous Elegant extra project(s)`);
+      logger.info(`[seed-chris-hires] Cleared ${oldIds.length} previous Elegant extra project(s)`);
     }
 
     let extrasInserted = 0;
@@ -212,16 +213,16 @@ async function main() {
         ],
       );
       extrasInserted++;
-      console.log(`  + Elegant ${extra.status.padEnd(9)} on project "${extra.name}"`);
+      logger.info(`[seed-chris-hires] + Elegant ${extra.status.padEnd(9)} on project "${extra.name}"`);
     }
 
-    console.log(`[seed-chris-hires] Done — ${extrasInserted} Elegant extra project/hire pair(s).`);
+    logger.info(`[seed-chris-hires] Done - ${extrasInserted} Elegant extra project/hire pair(s).`);
   } finally {
     await conn.end();
   }
 }
 
 main().catch((err) => {
-  console.error("[seed-chris-hires] Failed:", err);
+  logger.error({ err: err?.message || err }, "[seed-chris-hires] Failed");
   process.exit(1);
 });

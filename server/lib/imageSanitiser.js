@@ -33,6 +33,7 @@
 
 const fs = require("node:fs/promises");
 const path = require("node:path");
+const { logger } = require("./logger");
 
 // sharp is lazy-required so unit tests that don't touch uploads don't
 // need to load the native binaries.
@@ -42,9 +43,9 @@ function getSharp() {
   try {
     _sharp = require("sharp");
   } catch (e) {
-    console.warn(
+    logger.warn(
+      { err: e?.message || String(e) },
       "[imageSanitiser] sharp unavailable - skipping normalisation",
-      { error: e?.message || String(e) },
     );
     _sharp = false;
   }
@@ -62,9 +63,9 @@ function getHeicConvert() {
   try {
     _heicConvert = require("heic-convert");
   } catch (e) {
-    console.warn(
+    logger.warn(
+      { err: e?.message || String(e) },
       "[imageSanitiser] heic-convert unavailable - HEIC uploads will be stored as-is",
-      { error: e?.message || String(e) },
     );
     _heicConvert = false;
   }
@@ -87,9 +88,10 @@ async function heicToJpeg(buffer) {
     });
     return Buffer.from(ab);
   } catch (e) {
-    console.warn("[imageSanitiser] heicToJpeg failed", {
-      error: e?.message || String(e),
-    });
+    logger.warn(
+      { err: e?.message || String(e) },
+      "[imageSanitiser] heicToJpeg failed",
+    );
     return null;
   }
 }
@@ -159,12 +161,15 @@ async function processBuffer({ buffer, mimetype = "", originalname = "" }) {
         : result.originalname,
     };
   } catch (err) {
-    console.warn("[imageSanitiser] processBuffer failed, passing original", {
-      error: err?.message || String(err),
-      mimetype: result.mimetype,
-      originalname: result.originalname,
-      size: buffer.length,
-    });
+    logger.warn(
+      {
+        err: err?.message || String(err),
+        mimetype: result.mimetype,
+        originalname: result.originalname,
+        size: buffer.length,
+      },
+      "[imageSanitiser] processBuffer failed, passing original",
+    );
     return result;
   }
 }
@@ -239,11 +244,14 @@ async function processFile({
     await fs.writeFile(result.filePath, cleaned);
     return result;
   } catch (err) {
-    console.warn("[imageSanitiser] processFile failed, leaving file as-is", {
-      error: err?.message || String(err),
-      filePath: result.filePath,
-      mimetype: result.mimetype,
-    });
+    logger.warn(
+      {
+        err: err?.message || String(err),
+        filePath: result.filePath,
+        mimetype: result.mimetype,
+      },
+      "[imageSanitiser] processFile failed, leaving file as-is",
+    );
     return result;
   }
 }

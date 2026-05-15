@@ -6,6 +6,7 @@
 
 const { enrichMessage } = require("./ai/enrichNotificationMessage");
 const { sendPushToUser } = require("./pushSender");
+const { logger } = require("./logger");
 
 const SUFFIXES =
   /\b(ltd|limited|inc|plc|llp|co|company)\b/gi;
@@ -69,9 +70,9 @@ async function matchAndNotifyTradesman({
           [tradesmanUserId, recommendationId]
         );
       } catch (e) {
-        console.warn(
-          "[matchAndNotifyTradesman] linking recommendation failed:",
-          e?.message || e
+        logger.warn(
+          { err: e?.message || e },
+          "[matchAndNotifyTradesman] linking recommendation failed",
         );
       }
     }
@@ -137,9 +138,9 @@ async function matchAndNotifyTradesman({
       );
     }
   } catch (err) {
-    console.warn(
-      "[matchAndNotifyTradesman] fire-and-forget error:",
-      err?.message || err
+    logger.warn(
+      { err: err?.message || err },
+      "[matchAndNotifyTradesman] fire-and-forget error",
     );
   }
 }

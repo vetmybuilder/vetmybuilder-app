@@ -16,6 +16,7 @@
 
 const { sendPushToUser } = require("./pushSender");
 const { resolveGhostNotificationTarget } = require("./ghostTradesman");
+const { logger } = require("./logger");
 
 /**
  * @param {object} opts
@@ -98,7 +99,7 @@ async function fireMatchFormed({ projectId, mysqlQuery, ctx }) {
       logActivity: ctx.logActivity,
     });
   } catch (err) {
-    console.warn("[fireMatchFormed] match_formed notification failed:", err?.message);
+    logger.warn({ err: err?.message }, "[fireMatchFormed] match_formed notification failed");
   }
 }
 

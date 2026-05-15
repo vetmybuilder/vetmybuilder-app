@@ -18,6 +18,7 @@ require("dotenv").config({
 });
 
 const mysql2 = require("mysql2/promise");
+const { logger } = require("../../server/lib/logger");
 
 const DB_CONFIG = {
   host: process.env.MYSQL_HOST || "127.0.0.1",
@@ -236,11 +237,11 @@ const RECOMMENDATIONS = [
 
 async function main() {
   const conn = await mysql2.createConnection(DB_CONFIG);
-  console.log(`\n[ai-seed] Connected to ${DB_CONFIG.database}\n`);
+  logger.info(`[ai-seed] Connected to ${DB_CONFIG.database}`);
 
   try {
     // 1. Insert homeowners
-    console.log("[ai-seed] Creating homeowners...");
+    logger.info("[ai-seed] Creating homeowners...");
     for (const h of HOMEOWNERS) {
       const outward = h.location.split(" ")[0];
       await conn.query(
@@ -250,10 +251,10 @@ async function main() {
         [h.uid, h.email, h.firstName, h.lastName, h.email.split("@")[0], h.location, outward],
       );
     }
-    console.log(`  ✓ ${HOMEOWNERS.length} homeowners`);
+    logger.info(`[ai-seed] ${HOMEOWNERS.length} homeowners`);
 
     // 2. Insert tradesmen
-    console.log("[ai-seed] Creating tradesmen...");
+    logger.info("[ai-seed] Creating tradesmen...");
     for (const t of TRADESMEN) {
       await conn.query(
         `INSERT INTO tradesmen (user_id, company_name, contact_name, email, trade_types, service_areas, status, created_at, updated_at, public_id)
@@ -266,10 +267,10 @@ async function main() {
         [t.uid, t.companyName, t.contactName, t.email, t.tradeTypes, t.serviceAreas, t.status],
       );
     }
-    console.log(`  ✓ ${TRADESMEN.length} tradesmen`);
+    logger.info(`[ai-seed] ${TRADESMEN.length} tradesmen`);
 
     // 3. Insert projects
-    console.log("[ai-seed] Creating projects...");
+    logger.info("[ai-seed] Creating projects...");
     const projectIds = [];
     for (let i = 0; i < PROJECTS.length; i++) {
       const p = PROJECTS[i];
@@ -281,10 +282,10 @@ async function main() {
       );
       projectIds.push(result.insertId);
     }
-    console.log(`  ✓ ${projectIds.length} projects (IDs: ${projectIds.join(", ")})`);
+    logger.info(`[ai-seed] ${projectIds.length} projects (IDs: ${projectIds.join(", ")})`);
 
     // 4. Insert recommendations
-    console.log("[ai-seed] Creating recommendations...");
+    logger.info("[ai-seed] Creating recommendations...");
     let recCount = 0;
     for (const rec of RECOMMENDATIONS) {
       const projectId = projectIds[rec.projectIdx];
@@ -297,16 +298,16 @@ async function main() {
       );
       recCount++;
     }
-    console.log(`  ✓ ${recCount} recommendations`);
+    logger.info(`[ai-seed] ${recCount} recommendations`);
 
     // 5. Run AI modules
-    console.log("\n[ai-seed] Running AI modules in stub mode...\n");
+    logger.info("[ai-seed] Running AI modules in stub mode...");
 
     // Use LLM_MODE from env (default: auto-detect based on ANTHROPIC_API_KEY)
     if (!process.env.LLM_MODE) {
       process.env.LLM_MODE = process.env.ANTHROPIC_API_KEY ? "real" : "stub";
     }
-    console.log(`  LLM_MODE = ${process.env.LLM_MODE}\n`);
+    logger.info(`[ai-seed] LLM_MODE = ${process.env.LLM_MODE}`);
 
     const { classifyProject } = require("../../server/lib/ai/projectClassifier");
     const { computeRecommendationSignals } = require("../../server/lib/ai/recommendationSignaller");
@@ -321,7 +322,7 @@ async function main() {
     };
 
     // 5a. Classify projects
-    console.log("── Project Classification ──");
+    logger.info("[ai-seed] -- Project Classification --");
     const silentLog = { info: () => {}, warn: () => {}, error: () => {} };
     for (let i = 0; i < PROJECTS.length; i++) {
       const p = PROJECTS[i];
@@ -335,11 +336,11 @@ async function main() {
         bedrooms: p.bedrooms,
         log: silentLog,
       });
-      console.log(`  ${p.name.slice(0, 50).padEnd(50)} → ${result ? JSON.stringify(result) : "null"}`);
+      logger.info(`  ${p.name.slice(0, 50).padEnd(50)} -> ${result ? JSON.stringify(result) : "null"}`);
     }
 
     // 5b. Recommendation signals
-    console.log("\n── Recommendation Signals ──");
+    logger.info("[ai-seed] -- Recommendation Signals --");
     const [allRecs] = await conn.query("SELECT id, comment FROM recommendations ORDER BY id");
     for (const rec of allRecs) {
       const result = await computeRecommendationSignals({
@@ -350,14 +351,14 @@ async function main() {
       });
       const preview = (rec.comment || "").slice(0, 40).padEnd(40);
       if (result) {
-        console.log(`  rec#${String(rec.id).padEnd(3)} "${preview}" → words=${result.wordCount} generic=${result.genericScore} sentiment=${result.sentiment} themes=${JSON.stringify(result.themes)}`);
+        logger.info(`  rec#${String(rec.id).padEnd(3)} "${preview}" -> words=${result.wordCount} generic=${result.genericScore} sentiment=${result.sentiment} themes=${JSON.stringify(result.themes)}`);
       } else {
-        console.log(`  rec#${String(rec.id).padEnd(3)} "${preview}" → null`);
+        logger.info(`  rec#${String(rec.id).padEnd(3)} "${preview}" -> null`);
       }
     }
 
     // 5c. Builder summaries
-    console.log("\n── Builder Summaries ──");
+    logger.info("[ai-seed] -- Builder Summaries --");
     for (const t of TRADESMEN) {
       const [recs] = await conn.query(
         "SELECT r.id, r.comment FROM recommendations r WHERE r.company = ?",
@@ -371,17 +372,17 @@ async function main() {
         recommendationIds: recs.map((r) => r.id),
         log: silentLog,
       });
-      console.log(`  ${t.companyName.padEnd(35)} → ${result ? JSON.stringify(result.bullets) : "null"} (${recs.length} recs)`);
+      logger.info(`  ${t.companyName.padEnd(35)} -> ${result ? JSON.stringify(result.bullets) : "null"} (${recs.length} recs)`);
     }
 
     // 5d. Job matching
-    console.log("\n── Job Matching (scores) ──");
+    logger.info("[ai-seed] -- Job Matching (scores) --");
     for (let i = 0; i < PROJECTS.length; i++) {
       const p = PROJECTS[i];
       // In stub mode the classifier always returns ["General Builder"]
       // Use a more realistic set based on the project type
       const recTrades = [p.type];
-      console.log(`\n  Project: ${p.name}`);
+      logger.info(`  Project: ${p.name}`);
       const matches = [];
       for (const t of TRADESMEN) {
         const result = scoreMatch({
@@ -398,38 +399,38 @@ async function main() {
       }
       matches.sort((a, b) => b.total - a.total);
       for (const m of matches) {
-        console.log(`    ${m.name.padEnd(35)} total=${m.total} (trade=${m.trade} loc=${m.location} recency=${m.recency})`);
+        logger.info(`    ${m.name.padEnd(35)} total=${m.total} (trade=${m.trade} loc=${m.location} recency=${m.recency})`);
       }
-      if (matches.length === 0) console.log("    (no matches)");
+      if (matches.length === 0) logger.info("    (no matches)");
     }
 
     // 5e. Notify matched tradesmen (for first project)
-    console.log("\n── Notify Matched Tradesmen (project #1) ──");
+    logger.info("[ai-seed] -- Notify Matched Tradesmen (project #1) --");
     const notifyResult = await notifyMatchedTradesmen({
       mysqlQuery,
       projectId: projectIds[0],
-      log: { info: (...a) => console.log("    [notify]", ...a), warn: () => {}, error: () => {} },
+      log: { info: (...a) => logger.info(`[notify] ${a.join(" ")}`), warn: () => {}, error: () => {} },
     });
-    console.log(`  Result: notified=${notifyResult.notified} skipped=${notifyResult.skipped}`);
+    logger.info(`[ai-seed] Result: notified=${notifyResult.notified} skipped=${notifyResult.skipped}`);
 
     // Summary
-    console.log("\n── DB Row Counts ──");
+    logger.info("[ai-seed] -- DB Row Counts --");
     const tables = ["project_classifications", "recommendation_signals", "builder_summaries", "ai_inference_log"];
     for (const t of tables) {
       try {
         const [rows] = await conn.query(`SELECT COUNT(*) as n FROM ${t}`);
-        console.log(`  ${t.padEnd(30)} ${rows[0].n}`);
+        logger.info(`  ${t.padEnd(30)} ${rows[0].n}`);
       } catch {
-        console.log(`  ${t.padEnd(30)} (table not found — restart dev:manual on this branch)`);
+        logger.info(`  ${t.padEnd(30)} (table not found - restart dev:manual on this branch)`);
       }
     }
-    console.log("\n[ai-seed] Done.\n");
+    logger.info("[ai-seed] Done.");
   } finally {
     await conn.end();
   }
 }
 
 main().catch((err) => {
-  console.error("[ai-seed] Fatal error:", err);
+  logger.error({ err: err?.message || err }, "[ai-seed] Fatal error");
   process.exit(1);
 });
