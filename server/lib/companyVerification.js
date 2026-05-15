@@ -1,4 +1,5 @@
 // server/lib/companyVerification.js
+const { logger } = require("./logger");
 const TAG = "[companyVerification]";
 
 /**
@@ -50,9 +51,9 @@ function queueVerification(queueCompanyVerificationFn, payload) {
         sourceTag,
       });
     } catch (e) {
-      console.warn(
-        `${TAG} queueVerification error for recId=${recId}:`,
-        e?.message || e
+      logger.warn(
+        { err: e?.message || e, recId },
+        `${TAG} queueVerification error`,
       );
     }
   });

@@ -28,6 +28,7 @@ const { mintToken, apiPost } = require("./api-client");
 const { readState, writeState } = require("./state");
 const { runWave1, runWave2, runWave3, expressInterest } = require("./run");
 const { seedOneCompletedProject, completedProjectFixtureCount } = require("./seed");
+const { logger } = require("../../server/lib/logger");
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -42,7 +43,7 @@ function sleep(ms) {
 }
 
 function log(msg) {
-  console.log(`  [daemon ${new Date().toLocaleTimeString()}] ${msg}`);
+  logger.info(`[daemon] ${msg}`);
 }
 
 // Builder state keys in recommendationIds — mirrors what run.js uses
@@ -107,7 +108,7 @@ async function simulateProject(projectId) {
   if (!state.projects?.[projectId]?.wavesCompleted?.includes(1)) {
     await runWave1(projectId, state, false, waveOpts);
   } else {
-    log(`Project ${projectId}: wave 1 already complete — skipping`);
+    log(`Project ${projectId}: wave 1 already complete - skipping`);
   }
 
   // --- Wave 2 ---
@@ -119,7 +120,7 @@ async function simulateProject(projectId) {
   if (!state.projects?.[projectId]?.wavesCompleted?.includes(2)) {
     await runWave2(projectId, state, false, waveOpts);
   } else {
-    log(`Project ${projectId}: wave 2 already complete — skipping`);
+    log(`Project ${projectId}: wave 2 already complete - skipping`);
   }
 
   // --- Wave 3 ---
@@ -131,7 +132,7 @@ async function simulateProject(projectId) {
   if (!state.projects?.[projectId]?.wavesCompleted?.includes(3)) {
     await runWave3(projectId, state, false, waveOpts);
   } else {
-    log(`Project ${projectId}: wave 3 already complete — skipping`);
+    log(`Project ${projectId}: wave 3 already complete - skipping`);
   }
 
   log(`Project ${projectId}: all waves complete`);
@@ -199,7 +200,7 @@ async function completedProjectsLoop() {
     const seededCount = state.completedProjectsSeedCount || 0;
 
     if (seededCount >= completedProjectFixtureCount) {
-      log("All completed projects seeded — completed projects loop done");
+      log("All completed projects seeded - completed projects loop done");
       return;
     }
 
@@ -234,7 +235,7 @@ async function poll() {
   const state = readState();
 
   if (!state.seeded) {
-    log("Bot pool not seeded yet — skipping poll (run `simulate.js seed` first)");
+    log("Bot pool not seeded yet - skipping poll (run `simulate.js seed` first)");
     return;
   }
 
@@ -263,7 +264,7 @@ async function poll() {
     }
 
     inProgress.add(id);
-    log(`New live project detected: ${id} — scheduling waves`);
+    log(`New live project detected: ${id} - scheduling waves`);
 
     simulateProject(id)
       .catch((e) => log(`simulateProject(${id}) error: ${e.message}`))
@@ -279,8 +280,8 @@ async function startDaemon() {
   log("Sim daemon starting (SIM_MODE=auto)");
   log(
     `Poll interval: ${DAEMON_TIMING.pollInterval / 1000}s | ` +
-      `Wave 1: ${DAEMON_TIMING.wave1DelayMin / 1000}–${DAEMON_TIMING.wave1DelayMax / 1000}s after live | ` +
-      `Action jitter: ${DAEMON_TIMING.actionJitterMin / 1000}–${DAEMON_TIMING.actionJitterMax / 1000}s`,
+      `Wave 1: ${DAEMON_TIMING.wave1DelayMin / 1000}-${DAEMON_TIMING.wave1DelayMax / 1000}s after live | ` +
+      `Action jitter: ${DAEMON_TIMING.actionJitterMin / 1000}-${DAEMON_TIMING.actionJitterMax / 1000}s`,
   );
 
   // Run an immediate poll so projects published before the daemon started are picked up
@@ -296,7 +297,7 @@ async function startDaemon() {
     const uid = BOT_UIDS.builders[i];
     const minS = DAEMON_TIMING.builderCheckIntervalMin[i] / 1000;
     const maxS = DAEMON_TIMING.builderCheckIntervalMax[i] / 1000;
-    log(`${uid} check interval: ${minS}–${maxS}s`);
+    log(`${uid} check interval: ${minS}-${maxS}s`);
     runBuilderLoop(i).catch((e) => log(`Builder loop ${uid} crashed: ${e.message}`));
   }
 
@@ -304,7 +305,7 @@ async function startDaemon() {
   const seededSoFar = readState().completedProjectsSeedCount || 0;
   if (seededSoFar < completedProjectFixtureCount) {
     log(
-      `Completed projects: ${seededSoFar}/${completedProjectFixtureCount} seeded — drip-feed loop starting`,
+      `Completed projects: ${seededSoFar}/${completedProjectFixtureCount} seeded - drip-feed loop starting`,
     );
     completedProjectsLoop().catch((e) =>
       log(`Completed projects loop error: ${e.message}`),

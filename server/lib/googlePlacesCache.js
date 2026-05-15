@@ -29,6 +29,7 @@
 
 const crypto = require("crypto");
 const { query } = require("./mysql");
+const { logger } = require("./logger");
 
 const TAG = "[gp-cache]";
 
@@ -88,7 +89,7 @@ async function getCached(operation, args) {
     return { hit: true, payload: row.payload ?? null };
   } catch (e) {
     // Cache failures must never break the actual feature. Treat as miss.
-    console.warn(`${TAG} read failed`, { error: e?.message || e });
+    logger.warn({ err: e?.message || e }, `${TAG} read failed`);
     return { hit: false };
   }
 }
@@ -111,7 +112,7 @@ async function setCached(operation, args, payload) {
       [key, payload === null ? null : JSON.stringify(payload)],
     );
   } catch (e) {
-    console.warn(`${TAG} write failed`, { error: e?.message || e });
+    logger.warn({ err: e?.message || e }, `${TAG} write failed`);
   }
 }
 

@@ -38,7 +38,7 @@ module.exports = (router, ctx) => {
       );
       return res.json({ ok: true });
     } catch (e) {
-      console.error("[unfavourite] error:", e?.message);
+      (ctx?.log || console).error({ err: e?.message }, "[unfavourite] error");
       return res.status(500).json({ error: "internal_error" });
     }
   });

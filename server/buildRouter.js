@@ -235,8 +235,7 @@ function buildRouter(ctx) {
     } catch (e) {
       const msg = String(e?.message || "").toLowerCase();
       if (!msg.includes("duplicate column") && !msg.includes("already exists")) {
-        // eslint-disable-next-line no-console
-        console.warn("[buildRouter] chat_messages.attachments_json ALTER:", e?.message);
+        ctx.log?.warn?.({ err: e?.message }, "[buildRouter] chat_messages.attachments_json ALTER failed");
       }
     }
     try {
@@ -244,8 +243,7 @@ function buildRouter(ctx) {
         `ALTER TABLE swipe_interest MODIFY source ENUM('recommended', 'subscribed', 'paid_unlock') NOT NULL`,
       );
     } catch (e) {
-      // eslint-disable-next-line no-console
-      console.warn("[buildRouter] swipe_interest.source MODIFY:", e?.message);
+      ctx.log?.warn?.({ err: e?.message }, "[buildRouter] swipe_interest.source MODIFY failed");
     }
 
     // CR3: project_closures gets four new columns - satisfaction signal,
@@ -263,8 +261,7 @@ function buildRouter(ctx) {
       } catch (e) {
         const msg = String(e?.message || "").toLowerCase();
         if (!msg.includes("duplicate column") && !msg.includes("already exists")) {
-          // eslint-disable-next-line no-console
-          console.warn("[buildRouter] project_closures CR3 ALTER:", sql, e?.message);
+          ctx.log?.warn?.({ err: e?.message, sql }, "[buildRouter] project_closures CR3 ALTER failed");
         }
       }
     }

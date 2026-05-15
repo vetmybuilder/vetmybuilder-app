@@ -9,6 +9,7 @@ const builders = require("./fixtures/builders.json");
 const neighbours = require("./fixtures/neighbours.json");
 const completedProjectFixtures = require("./fixtures/completed-projects.json");
 const comments = require("./fixtures/comments.json");
+const { logger } = require("../../server/lib/logger");
 
 const BUILDER_PHOTOS_DIR = path.resolve(__dirname, "fixtures/builder-photos");
 
@@ -62,7 +63,7 @@ async function uploadBuilderPhotos(uid, filenames) {
   for (const filename of filenames) {
     const filePath = path.join(BUILDER_PHOTOS_DIR, filename);
     if (!fs.existsSync(filePath)) {
-      console.warn(`  ! Photo file not found, skipping: ${filePath}`);
+      logger.warn(`[seed] Photo file not found, skipping: ${filePath}`);
       continue;
     }
     const ext = path.extname(filename).toLowerCase();
@@ -119,7 +120,7 @@ function dbConfig() {
 }
 
 async function seedBuilders(adminUid) {
-  console.log("\n[seed] Seeding builders...");
+  logger.info("[seed] Seeding builders...");
   const mysql2 = require("mysql2/promise");
 
   for (let i = 0; i < BOT_UIDS.builders.length; i++) {
@@ -150,7 +151,7 @@ async function seedBuilders(adminUid) {
       const joinData = await joinRes.json();
       const leadId = joinData.id;
       if (!leadId) throw new Error(`join returned no id for ${uid}`);
-      console.log(`  + ${uid} joined as lead ${leadId} (${profile.companyName})`);
+      logger.info(`[seed] + ${uid} joined as lead ${leadId} (${profile.companyName})`);
 
       // Step 3: Activate and assign to the bot UID.
       const activateRes = await apiPost(
@@ -162,9 +163,9 @@ async function seedBuilders(adminUid) {
         const body = await activateRes.text().catch(() => "");
         throw new Error(`activate failed for ${uid}: ${activateRes.status} ${body}`);
       }
-      console.log(`  ✓ ${uid} activated and assigned`);
+      logger.info(`[seed] ${uid} activated and assigned`);
     } else {
-      console.log(`  ~ ${uid} already active — re-patching profile`);
+      logger.info(`[seed] ${uid} already active - re-patching profile`);
     }
 
     // Step 4: Resolve photos — prefer local files, fall back to photoUrls from fixture
@@ -180,7 +181,7 @@ async function seedBuilders(adminUid) {
           : -1;
         profilePictureUrl =
           picIdx >= 0 && uploaded[picIdx] ? uploaded[picIdx] : uploaded[0] || null;
-        console.log(`  ✓ ${uid} local photos uploaded (${photoUrls.length})`);
+        logger.info(`[seed] ${uid} local photos uploaded (${photoUrls.length})`);
       }
       // else: silently use photoUrls fallback already set above
     }
@@ -214,14 +215,14 @@ async function seedBuilders(adminUid) {
       throw new Error(`Profile PUT failed for ${uid}: ${putRes.status} ${body}`);
     }
 
-    console.log(
-      `  ✓ ${uid} profile patched — phone: ${profile.phone || "none"}, photos: ${photoUrls.length}`
+    logger.info(
+      `[seed] ${uid} profile patched - phone: ${profile.phone || "none"}, photos: ${photoUrls.length}`
     );
   }
 }
 
 async function seedNeighbours() {
-  console.log("\n[seed] Seeding neighbours...");
+  logger.info("[seed] Seeding neighbours...");
 
   for (let i = 0; i < BOT_UIDS.neighbours.length; i++) {
     const uid = BOT_UIDS.neighbours[i];
@@ -230,7 +231,7 @@ async function seedNeighbours() {
     // Idempotency check — skip if account already exists
     const check = await apiGet("/api/me", uid);
     if (check.ok) {
-      console.log(`  ✓ ${uid} already exists — skipping`);
+      logger.info(`[seed] ${uid} already exists - skipping`);
       continue;
     }
 
@@ -241,7 +242,7 @@ async function seedNeighbours() {
         `Failed to create neighbour ${uid}: ${res.status} ${body}`
       );
     }
-    console.log(`  + ${uid} account created (${neighbour.firstName} ${neighbour.lastName})`);
+    logger.info(`[seed] + ${uid} account created (${neighbour.firstName} ${neighbour.lastName})`);
   }
 }
 
@@ -292,7 +293,7 @@ async function seedElegantSpotlight() {
       [elegantUid]
     );
 
-    console.log(`  ✓ ${elegantUid} given active spotlight placement`);
+    logger.info(`[seed] ${elegantUid} given active spotlight placement`);
 
     // Boost Elegant's recommendation scores so they show green (70+) in the UI.
     // Add extra likes from sim neighbours and mark as friend recommendation.
@@ -317,7 +318,7 @@ async function seedElegantSpotlight() {
     }
 
     if (elegantRecs.length > 0) {
-      console.log(`  ✓ Boosted ${elegantRecs.length} Elegant recommendation(s) with 8 likes each + friend source`);
+      logger.info(`[seed] Boosted ${elegantRecs.length} Elegant recommendation(s) with 8 likes each + friend source`);
     }
 
     // Also bump Elegant's photo count in the tradesmen table
@@ -325,7 +326,7 @@ async function seedElegantSpotlight() {
       `UPDATE tradesmen SET photo_count = 10 WHERE user_id = ?`,
       [elegantUid]
     ).catch(() => {});
-    console.log(`  ✓ ${elegantUid} photo count set to 10`);
+    logger.info(`[seed] ${elegantUid} photo count set to 10`);
   } finally {
     await conn.end();
   }
@@ -364,7 +365,7 @@ async function seedPipelineEntries() {
        VALUES ('E4 Home Renovations Ltd', 'General Builder,Kitchen Fitter,External Wall Insulation,Bathroom Fitter,Plasterer', 'E4', 4.5, 42, 75, 'approved', '07700 900456', NOW())`,
     );
 
-    console.log("  ✓ Pipeline entries seeded (1 claimed by Elegant, 1 unclaimed)");
+    logger.info("[seed] Pipeline entries seeded (1 claimed by Elegant, 1 unclaimed)");
   } finally {
     await conn.end();
   }
@@ -385,7 +386,7 @@ async function seedOneCompletedProject(fixtureIndex, state) {
   const recommenderName = `${neighbours[fixture.recommenderIdx].firstName} ${neighbours[fixture.recommenderIdx].lastName}`;
   const builderCompany = builders[fixture.builderIdx].companyName;
 
-  console.log(`\n[seed] Seeding completed project ${fixtureIndex + 1}/${completedProjectFixtures.length}...`);
+  logger.info(`[seed] Seeding completed project ${fixtureIndex + 1}/${completedProjectFixtures.length}...`);
 
   // 1. Create project as the sim neighbour / homeowner
   const createRes = await apiPost("/api/projects", fixture.project, ownerUid);
@@ -396,7 +397,7 @@ async function seedOneCompletedProject(fixtureIndex, state) {
   const createData = await createRes.json();
   const projectId = createData.project?.id;
   if (!projectId) throw new Error(`Project creation returned no id for ${ownerUid}`);
-  console.log(`  + Project ${projectId} created (${fixture.project.type}) owned by ${ownerName}`);
+  logger.info(`[seed] + Project ${projectId} created (${fixture.project.type}) owned by ${ownerName}`);
 
   // 2. Set project live directly in DB — skips the publish API so no
   //    "new project in your area" notification is sent to real users.
@@ -411,7 +412,7 @@ async function seedOneCompletedProject(fixtureIndex, state) {
       await conn2.end();
     }
   }
-  console.log(`  ✓ Project ${projectId} set live (silent)`);
+  logger.info(`[seed] Project ${projectId} set live (silent)`);
 
   // 3. Add recommendation from another neighbour
   const recRes = await apiPost(
@@ -432,7 +433,7 @@ async function seedOneCompletedProject(fixtureIndex, state) {
   }
   const recData = await recRes.json();
   const recId = recData.recommendationId;
-  console.log(`  + Recommendation ${recId} added by ${recommenderName} (${builderCompany})`);
+  logger.info(`[seed] + Recommendation ${recId} added by ${recommenderName} (${builderCompany})`);
 
   // 4. Close the project with the winner
   const builderUid = BOT_UIDS.builders[fixture.builderIdx];
@@ -450,14 +451,14 @@ async function seedOneCompletedProject(fixtureIndex, state) {
     const body = await closeRes.text().catch(() => "");
     throw new Error(`Close failed for project ${projectId}: ${closeRes.status} ${body}`);
   }
-  console.log(`  ✓ Project ${projectId} closed as completed (winner: ${builderCompany})`);
+  logger.info(`[seed] Project ${projectId} closed as completed (winner: ${builderCompany})`);
 
   // 5. Upload closure photos (best-effort — skipped if no photos available)
   try {
     await uploadClosurePhotos(projectId, ownerUid, fixture.photoCount || 3);
-    console.log(`  ✓ Closure photos uploaded for project ${projectId}`);
+    logger.info(`[seed] Closure photos uploaded for project ${projectId}`);
   } catch (e) {
-    console.warn(`  ! Closure photo upload skipped for project ${projectId}: ${e.message}`);
+    logger.warn({ err: e?.message || e }, `[seed] Closure photo upload skipped for project ${projectId}`);
   }
 
   // Advance the seed count in state
@@ -467,7 +468,7 @@ async function seedOneCompletedProject(fixtureIndex, state) {
 
 async function seed() {
   assertGuards();
-  console.log("\n[seed] Starting bot pool seeding...");
+  logger.info("[seed] Starting bot pool seeding...");
 
   const adminUid = getAdminUid();
 
@@ -482,7 +483,7 @@ async function seed() {
   if (!state.projects) state.projects = {};
   writeState(state);
 
-  console.log("\n[seed] Done. Run `node scripts/simulate.js run --project-id=<id>` to start simulation.\n");
+  logger.info("[seed] Done. Run `node scripts/simulate.js run --project-id=<id>` to start simulation.");
 }
 
 module.exports = { seed, seedOneCompletedProject, completedProjectFixtureCount: completedProjectFixtures.length };

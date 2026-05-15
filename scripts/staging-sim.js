@@ -8,8 +8,9 @@
 
 const { spawn } = require("child_process");
 const mysql2 = require("mysql2/promise");
+const { logger } = require("../server/lib/logger");
 
-const log = (msg) => console.log(`  [staging-sim ${new Date().toLocaleTimeString()}] ${msg}`);
+const log = (msg) => logger.info(`[staging-sim] ${msg}`);
 
 const DB_CONFIG = {
   host: process.env.MYSQL_HOST || "localhost",

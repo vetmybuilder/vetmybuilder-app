@@ -173,8 +173,7 @@ module.exports = function mountChatMessagesPost(router, ctx) {
           }
         }
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.warn(`${TAG} attachment skipped:`, err?.message);
+        (ctx?.log || console).warn({ err: err?.message }, `${TAG} attachment skipped`);
       }
     }
 

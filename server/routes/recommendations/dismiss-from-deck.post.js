@@ -38,7 +38,7 @@ module.exports = (router, ctx) => {
       );
       return res.json({ ok: true });
     } catch (e) {
-      console.error("[dismiss-from-deck] error:", e?.message);
+      (ctx?.log || console).error({ err: e?.message }, "[dismiss-from-deck] error");
       return res.status(500).json({ error: "internal_error" });
     }
   });

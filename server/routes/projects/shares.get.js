@@ -121,7 +121,7 @@ module.exports = (router, ctx) => {
 
       return res.json({ ok: true, items, total: items.length });
     } catch (e) {
-      console.error(`${TAG} error`, e?.message || e);
+      (ctx?.log || console).error({ err: e?.message || e }, `${TAG} error`);
       return res.status(500).json({ error: "Failed to load shares" });
     }
   });

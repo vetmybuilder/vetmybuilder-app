@@ -1,5 +1,7 @@
 "use strict";
 
+const { logger } = require("../../server/lib/logger");
+
 async function deleteSimData(recIds) {
   const mysql2 = require("mysql2/promise");
 
@@ -40,7 +42,7 @@ async function deleteSimData(recIds) {
       "SELECT id FROM projects WHERE ownerUserId LIKE 'sim-%'"
     );
     const simProjectIds = simProjectRows.map((r) => r.id);
-    console.log(`  [db] found ${simProjectIds.length} sim-owned project(s) to delete`);
+    logger.info(`[db] found ${simProjectIds.length} sim-owned project(s) to delete`);
 
     if (simProjectIds.length > 0) {
       try {
@@ -48,29 +50,29 @@ async function deleteSimData(recIds) {
           "DELETE FROM project_closure_photos WHERE projectId IN (?)",
           [simProjectIds]
         );
-        console.log(`  [db] deleted ${r1.affectedRows} closure photo(s)`);
+        logger.info(`[db] deleted ${r1.affectedRows} closure photo(s)`);
       } catch (e) {
-        console.warn(`  [db] project_closure_photos delete skipped: ${e.message}`);
+        logger.warn({ err: e?.message || e }, "[db] project_closure_photos delete skipped");
       }
       try {
         const [r2] = await conn.query(
           "DELETE FROM project_closures WHERE projectId IN (?)",
           [simProjectIds]
         );
-        console.log(`  [db] deleted ${r2.affectedRows} project closure(s)`);
+        logger.info(`[db] deleted ${r2.affectedRows} project closure(s)`);
       } catch (e) {
-        console.warn(`  [db] project_closures delete skipped: ${e.message}`);
+        logger.warn({ err: e?.message || e }, "[db] project_closures delete skipped");
       }
       const [r3] = await conn.query(
         "DELETE FROM recommendations WHERE projectId IN (?)",
         [simProjectIds]
       );
-      console.log(`  [db] deleted ${r3.affectedRows} recommendation(s)`);
+      logger.info(`[db] deleted ${r3.affectedRows} recommendation(s)`);
       const [r4] = await conn.query(
         "DELETE FROM projects WHERE id IN (?)",
         [simProjectIds]
       );
-      console.log(`  [db] deleted ${r4.affectedRows} project(s)`);
+      logger.info(`[db] deleted ${r4.affectedRows} project(s)`);
     }
 
     // Delete neighbour-submitted recommendations on other projects (recommenderUserId = sim-neighbour-*)
