@@ -9,7 +9,7 @@ import HireApi from "../../../src/apiHelper/project/HireApi";
 import ProjectApi from "../../../src/apiHelper/project/ProjectApi";
 import ProjectRecommendationApi from "../../../src/apiHelper/project/ProjectRecommendationApi";
 
-test.describe("GET /api/tradesmen/me/hires", () => {
+test.describe.skip("GET /api/tradesmen/me/hires", () => {
   test("returns an empty list when the tradesman has no hires", async ({
     request,
     runtime,

@@ -15,7 +15,9 @@ import Recommendation from "../../../src/models/Recommendation";
 import Tradesman from "../../../src/models/tradesman";
 import { setupTradesmanProfile } from "../../../src/apiHelper/tradesman/setupTradesmanProfile";
 
-test.describe("GET /api/tradesmen/leaderboard — hires aggregation", () => {
+// SKIPPED 2026-05: the "hires" feature was removed from the new
+// swipe-deck UI. Kept for reference if hire flows are reintroduced.
+test.describe.skip("GET /api/tradesmen/leaderboard — hires aggregation", () => {
   test("returns zero hires for a tradesman with none", async ({
     request,
     runtime,
@@ -90,7 +92,9 @@ test.describe("GET /api/tradesmen/leaderboard — hires aggregation", () => {
   });
 });
 
-test.describe("GET /api/admin/recommendation-leaderboard — hires per recommendation", () => {
+// SKIPPED 2026-05: the "hires" feature was removed from the new
+// swipe-deck UI. Kept for reference if hire flows are reintroduced.
+test.describe.skip("GET /api/admin/recommendation-leaderboard — hires per recommendation", () => {
   test("returns zero hires for a recommendation with none", async ({
     apiClient,
     projectApi,

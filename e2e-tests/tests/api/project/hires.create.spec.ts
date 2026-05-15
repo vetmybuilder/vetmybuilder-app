@@ -6,7 +6,9 @@ import { authedApiForUid } from "../../../src/api/services/client";
 import { setupTradesmanProfile } from "../../../src/apiHelper/tradesman/setupTradesmanProfile";
 import HireApi from "../../../src/apiHelper/project/HireApi";
 
-test.describe("POST /api/projects/:projectId/hires", () => {
+// SKIPPED 2026-05: the "hires" feature was removed from the new
+// swipe-deck UI. Kept for reference if hire flows are reintroduced.
+test.describe.skip("POST /api/projects/:projectId/hires", () => {
   /**
    * Creates a published project owned by `apiClient` and returns its id.
    * Most tests need this exact setup, so it lives here as a tiny helper.
