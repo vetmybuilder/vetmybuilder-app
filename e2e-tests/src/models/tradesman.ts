@@ -220,14 +220,20 @@ export default class Tradesman {
     return this;
   }
 
-  withDocs(countOrDocs: number | string[]): Tradesman {
+  withDocs(countOrDocs: number | any[]): Tradesman {
     if (Array.isArray(countOrDocs)) {
-      this.docs = countOrDocs.filter(Boolean).map(String);
+      this.docs = countOrDocs.filter(Boolean) as any;
       return this;
     }
 
+    // Doc entries must match the server's Zod schema:
+    //   { type: string, label: string, fileKey?: string, fileUrl?: URL }
     const n = Math.max(0, Number(countOrDocs) || 0);
-    this.docs = Array.from({ length: n }).map((_, i) => `doc-${i + 1}.pdf`);
+    this.docs = Array.from({ length: n }).map((_, i) => ({
+      type: "trade_certification",
+      label: `Doc ${i + 1}`,
+      fileUrl: `https://example.com/doc-${i + 1}.pdf`,
+    })) as any;
     return this;
   }
 
@@ -237,9 +243,11 @@ export default class Tradesman {
       return this;
     }
 
+    // Photo entries must be absolute URLs per the server's Zod schema
+    // (the SSRF hardening also requires they survive normalizeUrl).
     const n = Math.max(0, Number(countOrUrls) || 0);
     this.workPhotos = Array.from({ length: n }).map(
-      (_, i) => `/uploads/tradesmen/lead_photo_${i + 1}.jpg`
+      (_, i) => `https://example.com/lead_photo_${i + 1}.jpg`,
     );
     return this;
   }

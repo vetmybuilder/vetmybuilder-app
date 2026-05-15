@@ -36,8 +36,13 @@ test.describe("POST /api/tradesmen/join", () => {
       },
     });
 
+    // Schema-level rejection (2026-05 SSRF + abuse hardening). The body
+    // is now validated by zod up front; failure returns invalid_payload
+    // with a details array rather than the legacy ad-hoc message.
     expect(res.status()).toBe(400);
-    expect(await res.json()).toEqual({ error: "companyName is required" });
+    const body = await res.json();
+    expect(body.error).toBe("invalid_payload");
+    expect(Array.isArray(body.details)).toBe(true);
   });
 
   test("400 when companyName is blank/whitespace", async ({
@@ -99,10 +104,12 @@ test.describe("POST /api/tradesmen/join", () => {
     expect(body.id.startsWith("lead_")).toBe(true);
   });
 
-  test("clamps discountMin/discountMax into 0..100 and still creates", async ({
+  test("rejects discountMin/discountMax outside 0..100 with 400", async ({
     request,
     runtime,
   }) => {
+    // 2026-05: route used to silently clamp; the new strict zod schema
+    // refuses values outside 0..100 so misbehaving clients fail loudly.
     const tradesman = Tradesman.aTradesman()
       .withRandomDetails()
       .withOffer({ discountMin: -50, discountMax: 500, warranty: "12m" });
@@ -111,13 +118,9 @@ test.describe("POST /api/tradesmen/join", () => {
       data: tradesman.toJoinPayload(),
     });
 
-    expect(res.status()).toBe(201);
-
+    expect(res.status()).toBe(400);
     const body = await res.json();
-    expect(body.ok).toBe(true);
-    expect(body.created).toBe(true);
-    expect(typeof body.id).toBe("string");
-    expect(body.id.startsWith("lead_")).toBe(true);
+    expect(body.error).toBe("invalid_payload");
   });
 
   test("accepts unknown warranty key and still creates", async ({
