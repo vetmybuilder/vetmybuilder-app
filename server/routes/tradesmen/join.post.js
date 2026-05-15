@@ -60,6 +60,11 @@ const joinLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "rate_limited" },
+  // Match the skip pattern in server/lib/rateLimiters.js so vitest + E2E
+  // don't trip the limit when the same test shard fires many join calls.
+  skip: () =>
+    process.env.NODE_ENV === "test" ||
+    process.env.PILOT_AREAS_BYPASS === "1",
 });
 
 // httpsOnly: keep only URLs that survive normalizeUrl AND start with
