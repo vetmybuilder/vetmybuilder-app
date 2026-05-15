@@ -88,7 +88,7 @@ module.exports = (router, ctx) => {
     }
 
     // -------------------------------------------------------------
-    // 1) Load project
+    // 1) Load project + closure row
     // -------------------------------------------------------------
     let project;
     try {
@@ -107,26 +107,90 @@ module.exports = (router, ctx) => {
       return res.status(404).json({ error: "Not found" });
     }
 
+    let closure = null;
+    try {
+      const rows = await mysqlQuery(
+        `SELECT winner_tradesman_uid, boost_consent
+           FROM project_closures
+          WHERE projectId = ?
+          ORDER BY id DESC
+          LIMIT 1`,
+        [projectId]
+      );
+      closure = rows[0] || null;
+    } catch (err) {
+      log.error({ err }, "MySQL error loading closure row");
+      return res.status(500).json({ error: "internal_error" });
+    }
+
     // -------------------------------------------------------------
     // 2) Authorisation
     //
-    // NEW RULE:
-    //   - Owner always allowed
-    //   - Completed → ALL authenticated users allowed
-    //   - Other statuses → only owner
+    // Closure photos are sensitive. Visibility is now restricted to:
+    //   (a) the project owner
+    //   (b) the winning tradesperson on the closure
+    //   (c) anyone, if the homeowner explicitly opted into the public
+    //       boost via project_closures.boost_consent = 1
+    //   (d) admin users
+    // Everyone else gets a 403 (NOT 404 - the route is still real, the
+    // owner needs it to keep working).
     // -------------------------------------------------------------
     let allow = false;
+    let reason = "";
 
-    if (uid === project.ownerUserId) {
+    if (uid && uid === project.ownerUserId) {
       allow = true;
-    } else if (project.status === "completed") {
-      allow = true; // community visibility; no postcode logic
+      reason = "owner";
+    } else if (closure && uid && uid === closure.winner_tradesman_uid) {
+      allow = true;
+      reason = "winning_tradesperson";
+    } else if (closure && Number(closure.boost_consent) === 1) {
+      allow = true;
+      reason = "boost_consent_public";
+    } else {
+      // Admin escape hatch. We avoid wiring requireAdmin into the
+      // middleware chain (it would 403 owners) and instead do a cheap
+      // role lookup inline for this fall-through case only.
+      try {
+        const roleRows = await mysqlQuery(
+          `SELECT role
+             FROM user_roles
+            WHERE uid = ?
+              AND LOWER(role) = 'admin'
+            LIMIT 1`,
+          [uid]
+        );
+        if (roleRows && roleRows[0]) {
+          allow = true;
+          reason = "admin";
+        }
+      } catch (err) {
+        log.warn({ err }, "admin role lookup failed");
+      }
+
+      // Env-allowlist admin (matches requireAdmin in server/lib/roles.js).
+      if (!allow) {
+        const email = String(req.user?.email || "").toLowerCase();
+        const allowlist = (process.env.ADMIN_EMAILS || "")
+          .split(",")
+          .map((s) => s.trim().toLowerCase())
+          .filter(Boolean);
+        if (email && allowlist.includes(email)) {
+          allow = true;
+          reason = "admin_allowlist";
+        }
+      }
     }
 
     if (!allow) {
-      log.warn("Forbidden: user not permitted to view closure photos");
-      return res.status(403).json({ error: "Forbidden" });
+      log.warn(
+        { hasClosure: !!closure, boostConsent: closure?.boost_consent },
+        "Forbidden: user not permitted to view closure photos"
+      );
+      return res.status(403).json({ error: "forbidden" });
     }
+
+    log.info({ reason }, "Closure photo access granted");
 
     // -------------------------------------------------------------
     // 3) Load closure photos

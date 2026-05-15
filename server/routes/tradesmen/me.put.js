@@ -309,14 +309,26 @@ module.exports = (router, ctx) => {
           ? body.profilePictureUrl.trim() || null
           : null;
 
-      let companyNumber = (body.companyNumber || "").trim() || null;
-      let chStatus = body.chStatus || null;
+      // Companies House identity is a TRUST signal that drives the
+      // "Verified" badge across the deck and the vmb_score. It MUST be
+      // derived server-side from matchByName(). Any client-supplied
+      // chStatus / chName / chMatchScore / web_verified is ignored here
+      // - those were previously trusted, which let a tradesperson POST
+      // {companyNumber:"x", chStatus:"verified"} and self-elevate.
+      //
+      // A client-supplied companyNumber is treated as a HINT only - we
+      // never store it directly; matchByName's result is the only source
+      // of truth for the persisted number, name, score, and verdict.
+      const companyNumberHint = (body.companyNumber || "").trim() || null;
+
+      let companyNumber = null;
+      let chStatus = null;
       let chName = null;
       let chCheckedAt = null;
       let chMatchScore = 0;
 
-      // --- Companies House auto-fill ---
-      if (!companyNumber && typeof matchByName === "function") {
+      // --- Companies House lookup (always run, server-authoritative) ---
+      if (typeof matchByName === "function") {
         try {
           const toks = extractLocationTokens?.(serviceAreas || "") || {};
           const hint =
@@ -328,16 +340,15 @@ module.exports = (router, ctx) => {
           const result = await matchByName({
             name: companyName,
             locationHint: hint,
+            companyNumberHint,
           });
 
           chCheckedAt = mysqlNow();
           const verdict = String(result?.verdict || "").toLowerCase();
 
-          chStatus =
-            chStatus ||
-            (["verified", "good", "exact"].includes(verdict)
-              ? "verified"
-              : verdict || "ambiguous");
+          chStatus = ["verified", "good", "exact"].includes(verdict)
+            ? "verified"
+            : verdict || "ambiguous";
 
           if (result?.best) {
             companyNumber = result.best.number || null;

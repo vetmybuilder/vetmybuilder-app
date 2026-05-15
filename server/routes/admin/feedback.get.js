@@ -3,11 +3,13 @@
  * Auth: admin only
  * Returns all feedback entries, newest first.
  */
+const { requireAdmin } = require("../../lib/roles");
+
 module.exports = (router, ctx) => {
   const { mysqlQuery, auth } = ctx;
   const log = ctx.log || console;
 
-  router.get("/admin/feedback", auth, async (req, res) => {
+  router.get("/admin/feedback", auth, requireAdmin(ctx), async (req, res) => {
     try {
       const rows = await mysqlQuery(
         `SELECT f.*, u.firstName, u.lastName, u.email
