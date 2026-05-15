@@ -24,6 +24,40 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=7168
 
+  schema-drift:
+    name: "Schema Drift Guardrail"
+    runs-on: ubuntu-latest
+    # Verifies server/migrations/*.sql and mysql_schema.sql produce
+    # identical schemas. Fails the PR if anyone forgets to update one
+    # side when the other changes - prevents the kind of drift we
+    # had to retroactively patch on prod in May 2026.
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Run schema-drift check
+        env:
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_PORT: 3306
+          MYSQL_USER: root
+          MYSQL_PASSWORD: root
+        run: node scripts/check-schema-drift.js
+
   e2e:
     name: "E2E / shard-${{ matrix.shard.id }}"
     needs: unit-tests

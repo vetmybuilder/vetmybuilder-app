@@ -53,8 +53,8 @@ This is a two-service app (not a monorepo workspace) with shared `node_modules` 
 
 - `server/index.js` — Express entry point; registers all routes
 - `server/routes/` — Modular route files grouped by domain (projects, recommendations, tradesmen, auth, etc.)
-- `server/lib/` — Shared utilities: `mysql.js` (connection pool + AsyncLocalStorage transactions), `middleware.js` (Firebase auth), `migration.js` (auto-migration runner), `validation.js` (Zod schemas), `logger.js` (Pino)
-- `server/migrations/` — Numbered `.sql` files (e.g. `001_init.sql`); applied automatically on startup, tracked in `_migrations` table
+- `server/lib/` — Shared utilities: `mysql.js` (connection pool + AsyncLocalStorage transactions), `middleware.js` (Firebase auth), `migrate.js` (auto-migration runner), `validation.js` (Zod schemas), `logger.js` (Pino)
+- `server/migrations/` — Numbered `.sql` files (`000_baseline.sql` plus future `001_*.sql`, `002_*.sql`...). Applied automatically on server boot, tracked in `_migrations` table. Existing prod installs with pre-migration tables auto-record `000_baseline.sql` as applied without running it.
 
 ### Database
 
@@ -64,7 +64,13 @@ Dual-driver system — the same code paths work with both:
 
 Driver selection is automatic based on environment. MySQL uses `AsyncLocalStorage` in `server/lib/mysql.js` for per-request transaction context.
 
-**Adding a migration:** create `server/migrations/NNN_description.sql` and restart the server. It applies automatically.
+**Adding a schema change:**
+1. Pick the next `NNN` (highest existing number + 1).
+2. Create `server/migrations/NNN_short_description.sql` with the `ALTER` / `CREATE` statements.
+3. Also update `mysql_schema.sql` so the canonical snapshot stays current (used for fresh local installs and CI drift checks).
+4. Restart the API. The runner applies the new file and records it in `_migrations`. The same file runs identically on local, staging, and prod.
+
+Never edit `000_baseline.sql` or any previously-applied migration — they're frozen history. Always add a new file forward.
 
 ### Testing Architecture
 
