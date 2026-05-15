@@ -11,6 +11,7 @@ const { logger, withRequest } = require("./lib/logger");
 
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
 const admin = require("firebase-admin");
 const { query: mysqlQuery } = require("./lib/mysql");
 const { authMiddleware } = require("./lib/middleware");
@@ -50,6 +51,19 @@ app.use(
 );
 
 app.options("*", cors());
+
+// Security headers. CSP is intentionally disabled — it needs per-page
+// tuning for the Next.js frontend and would break inline scripts/styles
+// the framework injects. COEP is off because we serve images from R2
+// (cross-origin). Default helmet still sets HSTS, X-Content-Type-Options,
+// X-Frame-Options, Referrer-Policy, etc.
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  }),
+);
+
 app.use(express.json());
 
 // ✅ Always set db name header early for debugging (doesn't affect behavior)

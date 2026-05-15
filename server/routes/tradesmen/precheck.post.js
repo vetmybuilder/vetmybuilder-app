@@ -4,13 +4,15 @@
  * Body: { name: string, postcode?: string }
  * Uses Companies House match-by-name to prefill company number/status.
  */
+const { publicWriteLimiter } = require("../../lib/rateLimiters");
+
 module.exports = (router, ctx) => {
   const { matchByName } = ctx;
   const log = ctx.log || console;
   const TAG = "[tradesmen/precheck.post]";
   const ROUTE = "/tradesmen/precheck";
 
-  router.post(ROUTE, async (req, res) => {
+  router.post(ROUTE, publicWriteLimiter, async (req, res) => {
     const body = req.body || {};
     const name = String(body.name || "").trim();
     const postcode = String(body.postcode || "").trim() || undefined;

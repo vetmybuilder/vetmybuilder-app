@@ -8,6 +8,7 @@
  */
 
 const { logger, withRequest } = require("../../lib/logger");
+const { signupLimiter } = require("../../lib/rateLimiters");
 
 module.exports = (router, ctx) => {
   const { auth } = ctx; // route does NOT require auth, kept for consistency
@@ -48,7 +49,7 @@ module.exports = (router, ctx) => {
     return `${local}@gmail.com`;
   };
 
-  router.post("/auth/check-email", async (req, res) => {
+  router.post("/auth/check-email", signupLimiter, async (req, res) => {
     const log = withRequest(req).child({ route: "auth.check-email" });
 
     // Beta access code check — only enforced when BETA_CODE is set in env
