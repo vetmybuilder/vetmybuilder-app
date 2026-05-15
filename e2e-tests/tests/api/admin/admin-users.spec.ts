@@ -1,11 +1,23 @@
 import { test, expect } from "../../../src/fixtures";
 import Tradesman from "../../../src/models/tradesman";
 
+// Per-test email helper. The Firebase Auth emulator is shared across all
+// shards, so `Date.now()` alone can collide when two shards run the same
+// admin-users test at the same millisecond — the second create returns
+// 409 "email_exists" and the destructure of `user` from a non-201
+// response then explodes with "Cannot read properties of undefined".
+// Mixing in random hex makes the email unique across shards even on a
+// millisecond tie.
+function uniqueEmail(prefix: string): string {
+  const rand = Math.random().toString(16).slice(2, 10);
+  return `${prefix}-${Date.now()}-${rand}@test.com`;
+}
+
 test.describe("Admin user management API", () => {
   test("POST creates a homeowner and GET returns them", async ({
     adminApiClient,
   }) => {
-    const email = `test-ho-${Date.now()}@test.com`;
+    const email = uniqueEmail("test-ho");
     const createRes = await adminApiClient.post("/api/admin/users", {
       email,
       password: "Passw0rd!",
@@ -28,7 +40,7 @@ test.describe("Admin user management API", () => {
   test("POST creates a tradesman with company details", async ({
     adminApiClient,
   }) => {
-    const email = `test-tm-${Date.now()}@test.com`;
+    const email = uniqueEmail("test-tm");
     const createRes = await adminApiClient.post("/api/admin/users", {
       email,
       password: "Passw0rd!",
@@ -56,7 +68,7 @@ test.describe("Admin user management API", () => {
   test("PUT updates user role and details", async ({
     adminApiClient,
   }) => {
-    const email = `test-up-${Date.now()}@test.com`;
+    const email = uniqueEmail("test-up");
     const createRes = await adminApiClient.post("/api/admin/users", {
       email,
       password: "Passw0rd!",
@@ -64,7 +76,15 @@ test.describe("Admin user management API", () => {
       lastName: "Update",
       role: "user",
     });
+    // Guard against the silent failure mode: if the create returned a
+    // non-201 (e.g. 409 email_exists from a cross-shard collision in the
+    // shared Firebase Auth emulator), the destructure below would yield
+    // `user === undefined` and the next line would TypeError on `.uid`.
+    // Asserting the status first turns that into a clear failure with
+    // the body shape, not a cryptic property-read error.
+    expect(createRes.status()).toBe(201);
     const { user } = await createRes.json();
+    expect(user?.uid).toBeTruthy();
 
     const updateRes = await adminApiClient.put(`/api/admin/users/${user.uid}`, {
       firstName: "After",
@@ -82,7 +102,7 @@ test.describe("Admin user management API", () => {
   test("DELETE removes a user", async ({
     adminApiClient,
   }) => {
-    const email = `test-del-${Date.now()}@test.com`;
+    const email = uniqueEmail("test-del");
     const createRes = await adminApiClient.post("/api/admin/users", {
       email,
       password: "Passw0rd!",
@@ -90,7 +110,9 @@ test.describe("Admin user management API", () => {
       lastName: "Delete",
       role: "user",
     });
+    expect(createRes.status()).toBe(201);
     const { user } = await createRes.json();
+    expect(user?.uid).toBeTruthy();
 
     const deleteRes = await adminApiClient.del(`/api/admin/users/${user.uid}`);
     expect(deleteRes.status()).toBe(200);
