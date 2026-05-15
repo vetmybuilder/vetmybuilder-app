@@ -5,9 +5,10 @@
  */
 
 const { logger, withRequest } = require("../../lib/logger");
+const { contactLimiter } = require("../../lib/rateLimiters");
 
 module.exports = (router, ctx) => {
-  router.post("/contact", async (req, res) => {
+  router.post("/contact", contactLimiter, async (req, res) => {
     const log = withRequest(req).child({ route: "contact" });
 
     const { name, email, subject, message } = req.body || {};

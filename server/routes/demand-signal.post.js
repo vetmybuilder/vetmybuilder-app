@@ -27,6 +27,7 @@
 const {
   TYPE_TO_CATEGORY,
 } = require("../lib/matching/projectTradeMap");
+const { publicWriteLimiter } = require("../lib/rateLimiters");
 
 function ensureTable(mysqlQuery) {
   return mysqlQuery(
@@ -61,7 +62,7 @@ module.exports = function mountDemandSignalPost(router, ctx) {
   // tapping a "Coming soon" tile pre-signup can still be counted. When a
   // request DOES carry a valid Authorization header, the optional-auth
   // path below populates user_uid; otherwise we record anonymously.
-  router.post("/demand-signal", async (req, res) => {
+  router.post("/demand-signal", publicWriteLimiter, async (req, res) => {
     const body = req.body || {};
     const category = String(body.category || "").trim();
     const email = body.email ? String(body.email).trim().slice(0, 255) : null;

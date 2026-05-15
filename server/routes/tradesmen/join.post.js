@@ -7,6 +7,7 @@
  */
 const analytics = require("../../lib/analytics");
 const { claimPipelineEntry } = require("../../lib/claimPipelineEntry");
+const { publicWriteLimiter } = require("../../lib/rateLimiters");
 
 module.exports = (router, ctx) => {
   const { enrichTradesmanWithGoogle } = require("../../lib/ai/googleEnricher");
@@ -100,7 +101,7 @@ module.exports = (router, ctx) => {
   }
 
   // ---------- ROUTE ----------
-  router.post(ROUTE, async (req, res) => {
+  router.post(ROUTE, publicWriteLimiter, async (req, res) => {
     const b = req.body || {};
     const companyName = String(b.companyName || "").trim();
 

@@ -19,11 +19,12 @@
 const { updateUserLocationMysql } = require("../../lib/location");
 const { logger, withRequest } = require("../../lib/logger");
 const analytics = require("../../lib/analytics");
+const { signupLimiter } = require("../../lib/rateLimiters");
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery, admin } = ctx;
 
-  router.post("/auth/signup", auth, async (req, res) => {
+  router.post("/auth/signup", signupLimiter, auth, async (req, res) => {
     const log = withRequest(req, logger).child({
       route: "POST /api/auth/signup",
     });
