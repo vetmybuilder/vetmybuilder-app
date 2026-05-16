@@ -1,11 +1,10 @@
 // tests/web/components/SiteHeader.tradesman-nav.test.tsx
-// Verifies the trade-side header navigation. Matches is no longer
-// surfaced as a top-level tab - matched threads now live in the
-// messages dropdown (Activity tab) + the bottom-right dock, so the
-// standalone /tradesman/matches link was removed from the desktop
-// header. The other three tabs - Jobs, Jobs list, and Incoming
-// interest - still render.
-import { render, screen } from "@testing-library/react";
+// Verifies the trade-side header navigation. The centred tab pills
+// were retired in the dark-navbar refresh - trade nav now lives in the
+// avatar dropdown to mirror the homeowner pattern. This spec opens the
+// dropdown and asserts the expected items render (Jobs / Incoming
+// interest / Manage account) and that Matches stays absent.
+import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import React from "react";
 
@@ -73,7 +72,7 @@ describe("<SiteHeader /> tradesman navigation", () => {
     } catch {}
   });
 
-  it("renders Jobs / Jobs list / Incoming interest tabs (Matches removed)", async () => {
+  it("renders Jobs / Incoming interest / Manage account in the trades dropdown (Matches removed)", async () => {
     useAuthMock.mockReturnValue({
       user: { firstName: "Tina", lastName: "Trader" },
       loading: false,
@@ -82,27 +81,32 @@ describe("<SiteHeader /> tradesman navigation", () => {
 
     render(<SiteHeader />);
 
-    // Tabs render after /api/tradesmen/me resolves and the role check
-    // marks the viewer as a tradesman.
-    const jobsTab = await screen.findByRole(
-      "tab",
-      { name: /^jobs$/i },
+    // The dropdown button appears once /api/tradesmen/me resolves and
+    // the role check marks the viewer as a tradesman.
+    const menuBtn = await screen.findByTestId(
+      "trades-menu-button",
+      {},
       { timeout: 5000 },
     );
-    expect(jobsTab).toHaveAttribute("href", "/tradesman/jobs");
+    fireEvent.click(menuBtn);
 
-    expect(
-      screen.getByRole("tab", { name: /jobs list/i }),
-    ).toHaveAttribute("href", "/tradesman/jobs/list");
-    expect(
-      screen.getByRole("tab", { name: /incoming interest/i }),
-    ).toHaveAttribute("href", "/tradesman/leads");
+    expect(screen.getByTestId("menu-jobs")).toHaveAttribute(
+      "href",
+      "/tradesman/jobs/list",
+    );
+    expect(screen.getByTestId("menu-incoming-interest")).toHaveAttribute(
+      "href",
+      "/tradesman/leads",
+    );
+    expect(screen.getByTestId("menu-account")).toHaveAttribute(
+      "href",
+      "/tradesman/account",
+    );
 
-    // Regression guard: the Matches tab was removed in favour of the
-    // messages dropdown's Activity tab + the bottom-right dock. If a
-    // future change accidentally re-adds it, this assertion fires.
+    // Regression guard: Matches was removed in favour of the messages
+    // dropdown's Activity tab + the bottom-right dock.
     expect(
-      screen.queryByRole("tab", { name: /matches/i }),
+      screen.queryByRole("menuitem", { name: /matches/i }),
     ).not.toBeInTheDocument();
   });
 });

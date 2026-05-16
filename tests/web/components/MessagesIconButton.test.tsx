@@ -96,13 +96,13 @@ describe("<MessagesIconButton />", () => {
   it("uses the indigo badge palette for the homeowner tone", () => {
     setup({ unread: 1, tone: "indigo" });
     const badge = screen.getByText("1");
-    expect(badge.className).toMatch(/bg-indigo-600/);
+    expect(badge.className).toMatch(/bg-indigo-500/);
   });
 
   it("uses the emerald badge palette for the trade tone", () => {
     setup({ unread: 1, tone: "emerald" });
     const badge = screen.getByText("1");
-    expect(badge.className).toMatch(/bg-emerald-600/);
+    expect(badge.className).toMatch(/bg-emerald-500/);
   });
 
   it("dispatches vmb:openDock when popDockOnOpen is true and the trigger is clicked", () => {
