@@ -12,6 +12,7 @@
 // Mobile shows a short "I'm a tradesperson" lead; desktop shows the
 // long "Are you a tradesperson..." copy.
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useAuth } from "@/utils/auth";
@@ -30,8 +31,34 @@ export default function TradeAcquisitionBanner() {
   const router = useRouter();
   const { user, loading } = useAuth();
 
-  if (loading || user) return null;
+  // sessionStorage can only be read after hydration. Reading it during
+  // the first render would cause a hydration mismatch when the server's
+  // HTML (which always shows the banner) differs from the client's
+  // first paint (which hides it for returning tradespeople). Defer that
+  // hint to a post-mount effect.
+  const [hydrated, setHydrated] = useState(false);
+  const [sessionIsTrades, setSessionIsTrades] = useState(false);
+  useEffect(() => {
+    setHydrated(true);
+    try {
+      setSessionIsTrades(
+        sessionStorage.getItem("vmb:isTradesman") === "1",
+      );
+    } catch {}
+  }, []);
+
+  // Render optimistically as if the viewer is a guest while auth is
+  // still resolving. Most homepage visitors are guests, so this avoids
+  // the "header jumps down" flicker when the banner pops in 100-300ms
+  // after first paint. If auth eventually resolves to a signed-in user,
+  // the banner disappears (a much rarer transition).
+  if (user) return null;
   if (HIDDEN_PATHS.some((p) => router.pathname.startsWith(p))) return null;
+  // After hydration, suppress the banner if we likely-know the user is
+  // signed in as a tradesperson via the sessionStorage hint SiteHeader
+  // also reads. Pre-hydration we always render so the server + client
+  // first-paint match (avoids React hydration error).
+  if (hydrated && loading && sessionIsTrades) return null;
 
   return (
     <Link

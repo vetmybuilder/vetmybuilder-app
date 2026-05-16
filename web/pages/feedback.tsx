@@ -4,9 +4,7 @@ import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import WizardTopBar from "@/components/wizard/WizardTopBar";
 import WizardProgressBar from "@/components/wizard/WizardProgressBar";
-import WizardNavBar from "@/components/wizard/WizardNavBar";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 
 const EMOJI_SCALE = [
@@ -120,34 +118,31 @@ export default function FeedbackPage() {
   if (submitted) {
     return (
       <>
-      <Head>
-        <style>{`body { background: #fef6e9 !important; }`}</style>
-      </Head>
-      <main
-        className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-12 relative overflow-hidden flex flex-col items-center justify-center px-6"
-        style={{
-          fontFamily:
-            "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
-        }}
-      >
-        <BrandWatermarkScatter />
-        <div className="relative z-10 w-full max-w-md bg-white rounded-3xl border border-amber-100 shadow-lg p-8 sm:p-10 text-center">
-          <div className="text-6xl mb-4">{"🙏"}</div>
-          <h1 className="text-[22px] font-extrabold tracking-tight text-gray-900 mb-2">
-            Thanks! We hear you
-          </h1>
-          <p className="text-[13px] text-gray-500 leading-relaxed max-w-xs mx-auto mb-6">
-            Your feedback helps us build a better platform for everyone.
-          </p>
-          <Link
-            href={user ? "/projects" : "/"}
-            className="inline-flex items-center justify-center rounded-2xl px-6 py-3 text-sm font-extrabold text-white shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
-            style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
-          >
-            Back to {user ? "projects" : "home"}
-          </Link>
+        <Head>
+          <title>Thanks - VetMyBuilder</title>
+          <style>{`body { background: #fef6e9 !important; }`}</style>
+        </Head>
+        <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-12 relative overflow-hidden">
+          <BrandWatermarkScatter />
+          <div className="relative z-10 mx-auto max-w-md px-4 sm:px-6 lg:px-8 pt-6 pb-8">
+            <div className="w-full bg-white rounded-3xl border border-amber-100 shadow-sm p-8 sm:p-10 text-center">
+              <div className="text-6xl mb-4">{"🙏"}</div>
+              <h1 className="text-[22px] font-extrabold tracking-tight text-gray-900 mb-2">
+                Thanks! We hear you
+              </h1>
+              <p className="text-[13px] text-gray-500 leading-relaxed max-w-xs mx-auto mb-6">
+                Your feedback helps us build a better platform for everyone.
+              </p>
+              <Link
+                href={user ? "/projects" : "/"}
+                className="inline-flex items-center justify-center rounded-2xl px-6 py-3 text-sm font-extrabold text-white shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
+                style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
+              >
+                Back to {user ? "projects" : "home"}
+              </Link>
+            </div>
+          </div>
         </div>
-      </main>
       </>
     );
   }
@@ -159,82 +154,109 @@ export default function FeedbackPage() {
         <style>{`body { background: #fef6e9 !important; }`}</style>
       </Head>
 
-      <main
-        className="fixed inset-0 bg-[#fef6e9] flex flex-col"
-        style={{
-          paddingBottom: "env(safe-area-inset-bottom)",
-          fontFamily:
-            "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
-        }}
-      >
-        <div className="h-[env(safe-area-inset-top)]" />
+      <div className="bg-[#fef6e9] min-h-screen -mt-14 pt-14 pb-24 md:pb-12 relative overflow-hidden">
+        <BrandWatermarkScatter />
+        <div className="relative z-10 mx-auto max-w-2xl px-4 sm:px-6 lg:px-8 pt-4 pb-8">
+          <div className="w-full overflow-hidden rounded-3xl bg-white border border-amber-100 shadow-sm">
+            {/* Progress bar */}
+            <WizardProgressBar step={step} total={3} tone="indigo" />
 
-        {/* Mobile: edge-to-edge column. Desktop: centred card with chrome. */}
-        <div className="w-full md:max-w-2xl mx-auto flex-1 flex flex-col min-h-0 bg-gray-50 md:my-6 md:rounded-2xl md:shadow-lg md:overflow-hidden md:border md:border-gray-200">
+            {/* Step heading */}
+            <div className="px-5 sm:px-8 pt-5 pb-1">
+              <p className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-600">
+                {STEP_LABELS[step - 1]}
+              </p>
+            </div>
 
-        {/* Top bar */}
-        <WizardTopBar
-          title="Feedback"
-          onBack={handleBack}
-          onClose={() => router.back()}
-        />
+            <div className="pb-2">
+              {step === 1 && (
+                <Step1
+                  userTypes={userTypes}
+                  featuresUsed={featuresUsed}
+                  toggleUserType={toggleUserType}
+                  toggleFeature={toggleFeature}
+                />
+              )}
 
-        {/* Progress bar */}
-        <WizardProgressBar step={step} total={3} tone="indigo" />
+              {step === 2 && (
+                <Step2
+                  rating={rating}
+                  easeOfUse={easeOfUse}
+                  setRating={setRating}
+                  setEaseOfUse={setEaseOfUse}
+                />
+              )}
 
-        {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto">
-          {/* Step heading */}
-          <div className="px-[14px] pt-[18px] pb-1">
-            <p className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-600">
-              {STEP_LABELS[step - 1]}
-            </p>
+              {step === 3 && (
+                <Step3
+                  positives={positives}
+                  improvements={improvements}
+                  recommend={recommend}
+                  setPositives={setPositives}
+                  setImprovements={setImprovements}
+                  setRecommend={setRecommend}
+                  error={error}
+                />
+              )}
+            </div>
+
+            {/* Desktop footer: Back + Next inline inside the card so the
+                action sits on the same surface as the form, not in a
+                detached strip below it. Hidden on mobile where the
+                sticky-to-viewport footer below handles it. */}
+            <div className="hidden md:flex items-center justify-between gap-3 border-t border-gray-100 px-5 sm:px-8 py-4">
+              {step > 1 ? (
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  disabled={submitting}
+                  className="px-5 py-2.5 rounded-xl bg-white text-gray-900 border-[1.5px] border-gray-200 text-[13px] font-extrabold disabled:opacity-50 hover:border-gray-300 transition-colors"
+                >
+                  Back
+                </button>
+              ) : (
+                <span />
+              )}
+              <button
+                type="button"
+                onClick={handleNext}
+                disabled={!stepValid || submitting}
+                className="px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-[13px] font-extrabold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-indigo-700 transition-colors"
+              >
+                {step === 3 ? (submitting ? "Sending..." : "Send feedback") : "Next →"}
+              </button>
+            </div>
           </div>
-
-          {step === 1 && (
-            <Step1
-              userTypes={userTypes}
-              featuresUsed={featuresUsed}
-              toggleUserType={toggleUserType}
-              toggleFeature={toggleFeature}
-            />
-          )}
-
-          {step === 2 && (
-            <Step2
-              rating={rating}
-              easeOfUse={easeOfUse}
-              setRating={setRating}
-              setEaseOfUse={setEaseOfUse}
-            />
-          )}
-
-          {step === 3 && (
-            <Step3
-              positives={positives}
-              improvements={improvements}
-              recommend={recommend}
-              setPositives={setPositives}
-              setImprovements={setImprovements}
-              setRecommend={setRecommend}
-              error={error}
-            />
-          )}
-
-          <div className="h-4" />
         </div>
 
-        {/* Bottom nav */}
-        <WizardNavBar
-          onBack={step > 1 ? handleBack : undefined}
-          onNext={handleNext}
-          nextLabel={step === 3 ? (submitting ? "Sending..." : "Send feedback") : "Next →"}
-          nextDisabled={!stepValid}
-          busy={submitting}
-          tone="indigo"
-        />
+        {/* Mobile sticky footer - thumb-zone CTA on a translucent panel so
+            it doesn't read as a second detached card. */}
+        <div
+          className="md:hidden fixed inset-x-0 bottom-0 z-20 bg-[#fef6e9]/95 backdrop-blur border-t border-amber-100"
+          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        >
+          <div className="flex items-center gap-2 px-4 py-3">
+            {step > 1 && (
+              <button
+                type="button"
+                onClick={handleBack}
+                disabled={submitting}
+                className="px-4 py-3 rounded-xl bg-white text-gray-900 border-[1.5px] border-gray-200 text-[13px] font-extrabold disabled:opacity-50"
+              >
+                Back
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleNext}
+              disabled={!stepValid || submitting}
+              className="flex-1 bg-indigo-600 text-white px-3 py-3 rounded-xl text-[14px] font-extrabold disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {step === 3 ? (submitting ? "Sending..." : "Send feedback") : "Next →"}
+            </button>
+          </div>
         </div>
-      </main>
+      </div>
     </>
   );
 }

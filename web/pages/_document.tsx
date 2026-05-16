@@ -17,7 +17,7 @@ export default function Document() {
         {/* Google Fonts — Sora (headings/body) + Indie Flower (accent) + Caveat (bold accent) */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;800&family=Indie+Flower&family=Caveat:wght@400;700&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;800&family=Indie+Flower&family=Caveat:wght@400;700&family=Audiowide&display=swap" rel="stylesheet" />
         <link rel="preconnect" href="https://images.unsplash.com" />
         <link rel="preconnect" href="https://plus.unsplash.com" />
         {/* PWA manifest + home screen icon */}

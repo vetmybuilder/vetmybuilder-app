@@ -45,7 +45,7 @@ export default function JobCard({ data }: { data: JobCardData }) {
 
   return (
     <div
-      className="relative md:rounded-[22px] overflow-hidden bg-cover bg-center h-full w-full md:shadow-md select-none"
+      className="relative overflow-hidden bg-cover bg-center h-full w-full md:shadow-md select-none"
       style={{
         backgroundImage: `url(${heroImage})`,
         WebkitTouchCallout: "none",

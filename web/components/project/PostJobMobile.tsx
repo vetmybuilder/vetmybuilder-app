@@ -98,6 +98,16 @@ type PostJobMobileProps = {
    *  Falls back to the gradient/initial defaults when undefined (e.g.
    *  while previewMatches is still loading). */
   shuffleFaces?: import("./MatchShuffleAnimation").ShuffleFace[];
+
+  /** Set of categories with at least one live pilot leaf. `null` means
+   *  the pilot list hasn't loaded yet - treat everything as live so the
+   *  picker isn't blank. */
+  pilotCategoryNames?: Set<string> | null;
+  /** Set of live pilot leaf type-names. Same `null` semantics as above. */
+  pilotTypeNames?: Set<string> | null;
+  /** Triggered when the homeowner taps a disabled-at-launch category
+   *  tile - the parent opens ComingSoonSheet to capture demand. */
+  onComingSoonCategory?: (category: string) => void;
 };
 
 const FONT_STACK =
@@ -152,6 +162,9 @@ export default function PostJobMobile(props: PostJobMobileProps) {
     guestFlow,
     onCommitAndView,
     shuffleFaces,
+    pilotCategoryNames,
+    pilotTypeNames,
+    onComingSoonCategory,
   } = props;
 
   const router = useRouter();
@@ -227,6 +240,8 @@ export default function PostJobMobile(props: PostJobMobileProps) {
               setCategorySearch={setCategorySearch}
               CATEGORY_ICONS={CATEGORY_ICONS}
               currentCategory={form.category}
+              pilotCategoryNames={pilotCategoryNames ?? null}
+              onComingSoon={onComingSoonCategory}
               onSelect={(cat) => {
                 set("category", cat);
                 set("selectedTypes", []);
@@ -254,6 +269,7 @@ export default function PostJobMobile(props: PostJobMobileProps) {
               otherText={form.otherText}
               setOtherEnabled={(v) => set("otherEnabled", v)}
               setOtherText={(v) => set("otherText", v)}
+              pilotTypeNames={pilotTypeNames ?? null}
             />
           )}
 
@@ -536,6 +552,8 @@ function CategoryStep({
   setCategorySearch,
   CATEGORY_ICONS,
   currentCategory,
+  pilotCategoryNames,
+  onComingSoon,
   onSelect,
 }: {
   filteredCategories: string[];
@@ -543,6 +561,8 @@ function CategoryStep({
   setCategorySearch: (v: string) => void;
   CATEGORY_ICONS: Record<string, string>;
   currentCategory: string | null;
+  pilotCategoryNames: Set<string> | null;
+  onComingSoon?: (cat: string) => void;
   onSelect: (cat: string) => void;
 }) {
   return (
@@ -556,15 +576,28 @@ function CategoryStep({
       <div className="grid grid-cols-3 gap-3 mt-4">
         {filteredCategories.map((cat) => {
           const selected = currentCategory === cat;
+          const isLive =
+            pilotCategoryNames === null ? true : pilotCategoryNames.has(cat);
           return (
             <button
               key={cat}
               type="button"
-              onClick={() => onSelect(cat)}
+              onClick={() => {
+                if (!isLive) {
+                  onComingSoon?.(cat);
+                  return;
+                }
+                onSelect(cat);
+              }}
               aria-pressed={selected}
+              aria-disabled={!isLive}
               className={`${TILE_BASE} ${
-                selected ? TILE_SELECTED : TILE_UNSELECTED
-              } min-h-[88px]`}
+                !isLive
+                  ? "border-gray-200 bg-gray-50 opacity-60"
+                  : selected
+                    ? TILE_SELECTED
+                    : TILE_UNSELECTED
+              } relative min-h-[88px]`}
               data-testid={`category-${cat}`}
             >
               <span className="text-[28px] leading-none">
@@ -573,6 +606,11 @@ function CategoryStep({
               <span className="text-[12px] font-extrabold text-gray-800 leading-tight">
                 {cat}
               </span>
+              {!isLive && (
+                <span className="absolute top-1 right-1 px-1.5 py-[1px] rounded-full bg-zinc-900 text-white text-[8px] font-semibold whitespace-nowrap">
+                  Coming soon
+                </span>
+              )}
             </button>
           );
         })}
@@ -598,6 +636,7 @@ function SubtypesStep({
   otherText,
   setOtherEnabled,
   setOtherText,
+  pilotTypeNames,
 }: {
   category: string | null;
   filteredSubtypes: string[];
@@ -610,6 +649,7 @@ function SubtypesStep({
   otherText: string;
   setOtherEnabled: (v: boolean) => void;
   setOtherText: (v: string) => void;
+  pilotTypeNames: Set<string> | null;
 }) {
   if (!category) {
     return <p className="text-[13px] text-gray-400">Pick a category first.</p>;
@@ -632,23 +672,37 @@ function SubtypesStep({
           const checked = selectedTypes.some(
             (x) => x.toLowerCase() === t.toLowerCase(),
           );
+          const isLive = pilotTypeNames === null ? true : pilotTypeNames.has(t);
           return (
             <button
               key={t}
               type="button"
-              onClick={() => toggleSubtype(t)}
+              disabled={!isLive}
+              onClick={() => {
+                if (!isLive) return;
+                toggleSubtype(t);
+              }}
               aria-pressed={checked}
+              aria-disabled={!isLive}
               className={`w-full bg-white border rounded-2xl px-4 py-3.5 flex items-center justify-between text-left transition-colors ${
-                checked
-                  ? "border-indigo-500 bg-indigo-50"
-                  : "border-gray-200 hover:border-gray-300"
+                !isLive
+                  ? "border-gray-200 bg-gray-50 text-gray-400 opacity-60 cursor-not-allowed"
+                  : checked
+                    ? "border-indigo-500 bg-indigo-50"
+                    : "border-gray-200 hover:border-gray-300"
               }`}
             >
               <span className="text-[14px] font-bold text-gray-800">{t}</span>
-              {checked && (
-                <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[11px] font-extrabold">
-                  &#10003;
+              {!isLive ? (
+                <span className="px-1.5 py-[1px] rounded-full bg-zinc-900 text-white text-[9px] font-semibold whitespace-nowrap flex-shrink-0">
+                  Coming soon
                 </span>
+              ) : (
+                checked && (
+                  <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[11px] font-extrabold">
+                    &#10003;
+                  </span>
+                )
               )}
             </button>
           );

@@ -212,8 +212,6 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     "/builders/[id]",
     "/account",
     "/favourites",
-    "/feedback",
-    "/tradesman/register-tradesmen",
     "/tradesman/signup/complete",
     "/tradesman/jobs",
     "/tradesman/jobs/list",

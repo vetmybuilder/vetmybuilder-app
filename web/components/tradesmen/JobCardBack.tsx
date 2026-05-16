@@ -60,7 +60,7 @@ export default function JobCardBack({ data }: { data: JobCardData }) {
 
   return (
     <div
-      className="relative md:rounded-2xl overflow-hidden bg-stone-50 flex flex-col h-full"
+      className="relative overflow-hidden bg-stone-50 flex flex-col h-full"
       style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)" }}
     >
       {/* Emerald gradient hero */}

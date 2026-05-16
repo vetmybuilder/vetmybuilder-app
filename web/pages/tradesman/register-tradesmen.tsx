@@ -639,7 +639,12 @@ export default function TradesmanRegisterV2Page() {
         </Head>
 
         <main
-          className="fixed inset-0 bg-gray-100 md:bg-[#fef6e9] flex flex-col"
+          // Mobile: fixed full-bleed below the 56px sticky header for the
+          //   native-app-feel signup flow.
+          // Desktop (md+): normal flow so the page sits naturally under
+          //   the global SiteHeader and feels like the rest of the site.
+          //   The inner card at md:max-w-2xl below stays centred.
+          className="fixed top-14 inset-x-0 bottom-0 md:relative md:inset-auto md:min-h-[calc(100vh-56px)] bg-gray-100 md:bg-[#fef6e9] flex flex-col"
           data-testid="trades-register-page"
           style={{
             paddingBottom: "env(safe-area-inset-bottom)",

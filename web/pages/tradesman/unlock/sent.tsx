@@ -116,7 +116,7 @@ export default function UnlockSentPage() {
             aria-label="Back to jobs"
             className="inline-flex items-center"
           >
-            <BrandWordmark tone="emerald" />
+            <BrandWordmark tone="emerald" bg="light" />
           </Link>
           <button
             type="button"

@@ -185,7 +185,7 @@ export default function MobileMenu({
             aria-label="Go home"
             data-testid="mobile-menu-home"
           >
-            <BrandWordmark tone={isTrades ? "emerald" : "indigo"} />
+            <BrandWordmark tone={isTrades ? "emerald" : "indigo"} bg="light" />
           </button>
 
           <button

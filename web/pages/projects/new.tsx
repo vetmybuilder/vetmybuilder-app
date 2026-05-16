@@ -819,6 +819,9 @@ export default function NewProject() {
           guestFlow={!user}
           onCommitAndView={commitAndView}
           shuffleFaces={shuffleFaces}
+          pilotCategoryNames={pilotCategoryNames}
+          pilotTypeNames={pilotTypeNames}
+          onComingSoonCategory={setComingSoonCategory}
         />
       </div>
 

@@ -1,7 +1,7 @@
 // web/components/SiteHeader.tsx
 import Link from "next/link";
 import React, { useMemo, useRef, useState, useEffect } from "react";
-import { UserCog, LogOut, Heart, FolderOpen, Plus } from "lucide-react";
+import { UserCog, LogOut, Heart, FolderOpen, Plus, Briefcase, Inbox, LogIn, MessageSquare } from "lucide-react";
 import { useAuth, signOutUser } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 import { useRouter } from "next/router";
@@ -51,14 +51,14 @@ function OwnerHeaderTitle({
     >
       <div className="flex items-baseline gap-1.5 text-[17px]">
         <span
-          className="font-black text-slate-900"
+          className="font-black text-slate-100"
           style={{ fontFamily: "'Sora', sans-serif" }}
         >
           {title.plain}
         </span>
         {title.script && (
           <span
-            className="text-indigo-600"
+            className="text-indigo-300"
             style={{
               fontFamily: "'Caveat', cursive",
               fontSize: "26px",
@@ -214,40 +214,51 @@ export default function SiteHeader() {
     (router.pathname === "/login" &&
       String(router.query.next || "").includes("/tradesman/"));
 
-  const [isTrades, setIsTrades] = useState(false);
-  const [company, setCompany] = useState<string | null>(null);
+  // Seed isTrades/company/photo from sessionStorage SYNCHRONOUSLY in
+  // the useState initialiser so the very first render uses the cached
+  // role - eliminates the homeowner-then-trade flicker on every page
+  // load after the first ever visit. Honours the one-shot
+  // `vmb:justRegisteredTradesman` flag set by the trade register flow
+  // so we don't render the homeowner variant while an earlier in-flight
+  // GET's stale "0" is still in the cache.
+  function readCachedRole(): {
+    isTrades: boolean;
+    company: string | null;
+    photo: string | null;
+    roleChecked: boolean;
+  } {
+    if (typeof window === "undefined") {
+      return { isTrades: false, company: null, photo: null, roleChecked: false };
+    }
+    try {
+      if (sessionStorage.getItem("vmb:justRegisteredTradesman") === "1") {
+        return {
+          isTrades: true,
+          company: sessionStorage.getItem("vmb:tradesCo") || null,
+          photo: sessionStorage.getItem("vmb:tradesPhoto") || null,
+          roleChecked: true,
+        };
+      }
+      const cached = sessionStorage.getItem("vmb:isTradesman");
+      if (cached !== null) {
+        return {
+          isTrades: cached === "1",
+          company: sessionStorage.getItem("vmb:tradesCo") || null,
+          photo: sessionStorage.getItem("vmb:tradesPhoto") || null,
+          roleChecked: true,
+        };
+      }
+    } catch {}
+    return { isTrades: false, company: null, photo: null, roleChecked: false };
+  }
+  const seed = readCachedRole();
+  const [isTrades, setIsTrades] = useState<boolean>(seed.isTrades);
+  const [company, setCompany] = useState<string | null>(seed.company);
   // Profile picture URL for the trades menu avatar. Mirrors the same
   // field /tradesman/account renders (profile.profile_picture_url).
   // Cached in sessionStorage so it doesn't blink on subsequent loads.
-  const [tradesPhoto, setTradesPhoto] = useState<string | null>(null);
-  const [roleChecked, setRoleChecked] = useState(false);
-
-  // Seed from sessionStorage on client to avoid blink on subsequent loads.
-  // Honour the one-shot `vmb:justRegisteredTradesman` flag set by the
-  // tradesman register flow so we don't render the homeowner variant
-  // while an earlier in-flight GET's stale "0" is still in the cache.
-  useEffect(() => {
-    try {
-      const justRegistered =
-        sessionStorage.getItem("vmb:justRegisteredTradesman") === "1";
-      if (justRegistered) {
-        setIsTrades(true);
-        setCompany(sessionStorage.getItem("vmb:tradesCo") || null);
-        setTradesPhoto(sessionStorage.getItem("vmb:tradesPhoto") || null);
-        setRoleChecked(true);
-        // don't remove the flag here — useRole owns the one-shot lifecycle
-        return;
-      }
-
-      const cached = sessionStorage.getItem("vmb:isTradesman");
-      if (cached !== null) {
-        setIsTrades(cached === "1");
-        setCompany(sessionStorage.getItem("vmb:tradesCo") || null);
-        setTradesPhoto(sessionStorage.getItem("vmb:tradesPhoto") || null);
-        setRoleChecked(true);
-      }
-    } catch {}
-  }, []);
+  const [tradesPhoto, setTradesPhoto] = useState<string | null>(seed.photo);
+  const [roleChecked, setRoleChecked] = useState<boolean>(seed.roleChecked);
 
   // mobile menu — global instance lives at the app root; the burger
   // buttons here just call openMenu() via the shared context. Inbox
@@ -431,7 +442,7 @@ export default function SiteHeader() {
           role="banner"
           aria-label="Site header"
           data-testid="site-header"
-          className="sticky top-0 z-50 border-b border-stone-200/70 bg-stone-50/80 backdrop-blur supports-[backdrop-filter]:bg-stone-50/70"
+          className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/95 backdrop-blur supports-[backdrop-filter]:bg-slate-950/85"
         >
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <nav
@@ -445,7 +456,7 @@ export default function SiteHeader() {
                   aria-label="Go to homepage"
                   data-testid="nav-home"
                 >
-                  <BrandWordmark tone={isTrades || isTradesPage ? "emerald" : "indigo"} />
+                  <BrandWordmark tone={isTradesPage ? "emerald" : "indigo"} />
                 </Link>
               </div>
 
@@ -459,10 +470,11 @@ export default function SiteHeader() {
                 />
               )}
 
-              {/* Trade-side tabs - rendered on the homepage too so a
-                  signed-in tradesperson can jump straight to Jobs /
-                  Matches / etc without opening the avatar dropdown. */}
-              {showTradesTabs && (
+              {/* Trade-side tabs moved into the avatar dropdown (matches
+                  the homeowner pattern). The centered pill is hidden to
+                  keep the header clean - Jobs / Jobs list / Incoming
+                  interest now live in the menu below. */}
+              {false && showTradesTabs && (
                 <div className="hidden md:flex flex-1 items-center justify-center">
                   <div
                     className="inline-flex rounded-full bg-emerald-50 p-1"
@@ -580,6 +592,16 @@ export default function SiteHeader() {
                             >
                               <UserCog className="h-4 w-4 text-amber-700" />
                               <span>Manage account</span>
+                            </Link>
+                            <Link
+                              role="menuitem"
+                              href="/feedback"
+                              className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-amber-50 hover:text-slate-900 transition-colors"
+                              onClick={() => setOpenMenu(null)}
+                              data-testid="menu-feedback"
+                            >
+                              <MessageSquare className="h-4 w-4 text-indigo-500" />
+                              <span>Give feedback</span>
                             </Link>
                           </div>
 
@@ -701,9 +723,14 @@ export default function SiteHeader() {
                   <Link
                     href="/login"
                     data-testid="nav-sign-in-home"
-                    className="hidden sm:inline-flex items-center justify-center gap-1 px-3.5 h-9 rounded-full border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100 text-indigo-700 text-[12.5px] font-extrabold transition-colors"
+                    // Ghost-outline pill on the dark navbar. Just
+                    // "Login" with a key icon - role context lives in
+                    // the page itself, the nav doesn't need to repeat
+                    // it.
+                    className="hidden sm:inline-flex items-center justify-center gap-1.5 px-4 h-9 rounded-full border border-indigo-400/40 bg-transparent text-indigo-200 hover:bg-indigo-500/15 hover:border-indigo-300 hover:text-white text-[12.5px] font-bold tracking-tight transition-colors"
                   >
-                    Homeowner login
+                    <LogIn className="h-3.5 w-3.5" aria-hidden />
+                    <span>Login</span>
                   </Link>
                 )}
 
@@ -738,7 +765,7 @@ export default function SiteHeader() {
         role="banner"
         aria-label="Site header"
         data-testid="site-header"
-        className="sticky top-0 z-50 border-b border-stone-200/70 bg-stone-50/80 backdrop-blur supports-[backdrop-filter]:bg-stone-50/70"
+        className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/95 backdrop-blur supports-[backdrop-filter]:bg-slate-950/85"
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <nav
@@ -770,11 +797,11 @@ export default function SiteHeader() {
               />
             )}
 
-            {/* Trade-side primary nav: Jobs / Jobs list / Matches /
-                Incoming interest. Same shape + position as the owner
-                tabs but emerald-tinted so the two viewer roles read as
-                visually distinct. Active tab gets the emerald pill. */}
-            {showTradesTabs && (
+            {/* Trade-side tabs moved into the avatar dropdown. See the
+                trades-menu Items block below for Jobs / Jobs list /
+                Incoming interest with icons (matches the homeowner
+                menu pattern). */}
+            {false && showTradesTabs && (
               <div className="hidden md:flex flex-1 items-center justify-center">
                 <div
                   className="inline-flex rounded-full bg-emerald-50 p-1"
@@ -818,7 +845,7 @@ export default function SiteHeader() {
               {!displayUser && !isAuthPage && (
                 <Link
                   href="/login"
-                  className="hidden sm:inline-flex items-center justify-center rounded-xl px-3 h-9 text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                  className="hidden sm:inline-flex items-center justify-center rounded-xl px-3 h-9 text-sm font-semibold text-slate-200 hover:text-white hover:bg-slate-800 transition-colors"
                   data-testid="nav-sign-in"
                 >
                   <span>Sign in</span>
@@ -961,10 +988,33 @@ export default function SiteHeader() {
                         </div>
                       </div>
 
-                      {/* Items - top-level surfaces (Jobs, Matches,
-                          Incoming interest) live in the header tabs and
-                          are intentionally NOT duplicated here. */}
+                      {/* Items - mirrors the homeowner menu structure
+                          with icons. "Jobs" points to the list view (the
+                          swipe deck is a sub-view accessed from within
+                          the list, just like the homeowner's "My jobs"
+                          doesn't surface the preview-matches deck
+                          separately). */}
                       <div className="p-1.5">
+                        <Link
+                          role="menuitem"
+                          href="/tradesman/jobs/list"
+                          className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-emerald-50 hover:text-slate-900 transition-colors"
+                          onClick={() => setOpenMenu(null)}
+                          data-testid="menu-jobs"
+                        >
+                          <Briefcase className="h-4 w-4 text-emerald-600" />
+                          <span>Jobs</span>
+                        </Link>
+                        <Link
+                          role="menuitem"
+                          href="/tradesman/leads"
+                          className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-emerald-50 hover:text-slate-900 transition-colors"
+                          onClick={() => setOpenMenu(null)}
+                          data-testid="menu-incoming-interest"
+                        >
+                          <Inbox className="h-4 w-4 text-rose-500" />
+                          <span>Incoming interest</span>
+                        </Link>
                         <Link
                           role="menuitem"
                           href="/tradesman/account"
@@ -1094,6 +1144,16 @@ export default function SiteHeader() {
                         >
                           <UserCog className="h-4 w-4 text-amber-700" />
                           <span>Manage account</span>
+                        </Link>
+                        <Link
+                          role="menuitem"
+                          href="/feedback"
+                          className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-amber-50 hover:text-slate-900 transition-colors"
+                          onClick={() => setOpenMenu(null)}
+                          data-testid="menu-feedback"
+                        >
+                          <MessageSquare className="h-4 w-4 text-indigo-500" />
+                          <span>Give feedback</span>
                         </Link>
                       </div>
 

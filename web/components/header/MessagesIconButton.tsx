@@ -43,10 +43,15 @@ export default function MessagesIconButton({
   popDockOnOpen = false,
   renderDropdown,
 }: Props) {
+  // Tuned for the dark slate-950 navbar (2026-05): the hover bg is now a
+  // darker slate so it's visible on the dark chrome (previously the
+  // light amber/emerald hovers disappeared into the navbar), and the
+  // badge ring matches the navbar so the unread pip reads as a clean
+  // counter rather than a cream donut.
   const palette =
     tone === "emerald"
-      ? { hoverBg: "hover:bg-emerald-100", badgeBg: "bg-emerald-600" }
-      : { hoverBg: "hover:bg-amber-100", badgeBg: "bg-indigo-600" };
+      ? { hoverBg: "hover:bg-emerald-900/40", badgeBg: "bg-emerald-500" }
+      : { hoverBg: "hover:bg-indigo-900/40", badgeBg: "bg-indigo-500" };
 
   return (
     <div className="relative">
@@ -63,12 +68,12 @@ export default function MessagesIconButton({
           }
         }}
         data-testid={testId}
-        className={`relative inline-flex h-9 w-9 items-center justify-center rounded-full ${palette.hoverBg} transition-colors`}
+        className={`relative inline-flex h-10 w-10 items-center justify-center rounded-full ${palette.hoverBg} transition-colors`}
       >
-        <MessageSquare className="h-5 w-5 text-slate-600" />
+        <MessageSquare className="h-6 w-6 text-slate-200" />
         {unread > 0 && (
           <span
-            className={`absolute -top-0.5 -right-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full ${palette.badgeBg} text-white text-[10px] font-bold px-1 ring-2 ring-stone-50`}
+            className={`absolute -top-0.5 -right-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full ${palette.badgeBg} text-white text-[10px] font-bold px-1 ring-2 ring-slate-950`}
           >
             {unread > 99 ? "99+" : unread}
           </span>

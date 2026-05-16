@@ -198,14 +198,26 @@ export default function ComingSoonSheet({ open, category, onClose }: Props) {
         )}
 
         <div className="px-5 pt-3 pb-1">
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full rounded-2xl py-3 text-[14px] font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
-            data-testid="coming-soon-dismiss"
-          >
-            {submitted || isLoggedIn ? "Got it" : "Maybe later"}
-          </button>
+          {submitted || isLoggedIn ? (
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full rounded-2xl py-3.5 text-[15px] font-extrabold text-white shadow-lg shadow-indigo-500/25 hover:scale-[1.005] active:scale-[0.99] transition-transform"
+              style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
+              data-testid="coming-soon-dismiss"
+            >
+              Got it
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full rounded-2xl py-3 text-[14px] font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+              data-testid="coming-soon-dismiss"
+            >
+              Maybe later
+            </button>
+          )}
         </div>
       </div>
 

@@ -291,13 +291,17 @@ export default function TradesmanJobsDeckPage() {
           )}
 
           {/* Deck — edge-to-edge on mobile (flex-1 so it takes ALL
-              remaining vertical space inside the flex-column main),
-              two-column with job-detail rail on desktop. */}
+              remaining vertical space inside the flex-column main).
+              Desktop: rail pinned absolutely to the left edge (with
+              breathing room), deck stays at its original size and
+              centres relative to the viewport via mx-auto. */}
           {!loading && !error && (
-            <div className="md:px-0 md:mx-auto md:max-w-[900px] md:grid md:grid-cols-[280px_minmax(0,1fr)] md:gap-6 relative z-10 flex-1 min-h-0 md:flex-none flex flex-col md:block">
-              <DesktopJobDetailRail job={topJob} />
+            <div className="relative z-10 flex-1 min-h-0 md:flex-none md:min-h-[520px] flex flex-col md:block">
+              <div className="md:absolute md:top-0 md:left-12 lg:left-24 md:w-[280px]">
+                <DesktopJobDetailRail job={topJob} />
+              </div>
 
-              <div className="md:max-w-xl flex-1 min-h-0 md:min-h-[520px] md:h-[520px]">
+              <div className="md:max-w-xl md:mx-auto flex-1 min-h-0 md:min-h-[520px] md:h-[520px]">
                 <JobSwipeDeck
                   jobs={jobs}
                   noJobsYet={noJobsYet}

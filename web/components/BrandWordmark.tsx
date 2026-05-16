@@ -1,27 +1,48 @@
 // web/components/BrandWordmark.tsx
 //
-// The VetMyBuilder wordmark, used everywhere the brand appears (headers,
-// menu, footer, toasts, legal pages). The "My" word renders in the Caveat
-// cursive face with a tone-aware colour:
-//   - tradesman context  -> emerald
-//   - homeowner context  -> indigo
-//   - default / unknown  -> indigo
+// PREVIEW (2026-05) — currently rendering variant #22 from
+// /mocks/logo-redesign: Tesla-style E (3 horizontal bars, no vertical
+// stem) inside an Audiowide wordmark, colour-tuned for the dark navbar.
+// Tone-aware: indigo-300 for homeowner context, emerald-300 for
+// tradesperson context.
 //
-// `tone="auto"` derives from the URL: anything under /tradesman/ uses
-// emerald, everything else is indigo. Callers can pass an explicit tone
-// when the URL doesn't reflect the current user's role (e.g. a tradesman
-// browsing /account).
+// Revert: `git checkout HEAD~1 -- web/components/BrandWordmark.tsx` if
+// you decide to roll back to the Caveat-cursive version.
 
 import { useRouter } from "next/router";
 
 type Tone = "indigo" | "emerald" | "auto";
 
+function TeslaE({ color, size }: { color: string; size: number }) {
+  const w = size * 0.55;
+  return (
+    <svg
+      width={w}
+      height={size}
+      viewBox="0 0 55 100"
+      style={{ display: "inline-block", verticalAlign: "middle", margin: "0 2px" }}
+      aria-hidden="true"
+    >
+      <rect x="0" y="6" width="55" height="13" fill={color} />
+      <rect x="0" y="44" width="42" height="13" fill={color} />
+      <rect x="0" y="81" width="55" height="13" fill={color} />
+    </svg>
+  );
+}
+
 export default function BrandWordmark({
   tone = "auto",
-  className = "text-2xl font-black tracking-tight text-zinc-900",
+  bg = "dark",
+  className,
 }: {
   tone?: Tone;
-  /** Optional override for the outer span. Defaults to the standard header size. */
+  /**
+   * `dark` (default) renders light glyphs for the slate-950 navbar.
+   * `light` renders saturated glyphs for the mobile menu drawer / any
+   *  light-background context.
+   */
+  bg?: "dark" | "light";
+  /** Optional override for the outer span. */
   className?: string;
 }) {
   const router = useRouter();
@@ -32,24 +53,36 @@ export default function BrandWordmark({
         : "indigo"
       : tone;
 
-  const myColor =
-    resolved === "emerald" ? "text-emerald-600" : "text-indigo-600";
+  // Dark-bg palette (light glyphs) vs light-bg palette (dark glyphs).
+  const color =
+    bg === "light"
+      ? resolved === "emerald"
+        ? "#059669" // emerald-600
+        : "#4f46e5" // indigo-600
+      : resolved === "emerald"
+        ? "#6ee7b7" // emerald-300
+        : "#a5b4fc"; // indigo-300
+  const fontSize = 24;
+  const text = {
+    fontFamily: "Audiowide, sans-serif",
+    fontSize,
+    letterSpacing: "0.05em",
+    color,
+    lineHeight: 1,
+  } as const;
 
   return (
-    <span className={className}>
-      Vet
-      <span
-        className={myColor}
-        style={{
-          fontFamily: "'Caveat', cursive",
-          fontWeight: 700,
-          fontSize: "130%",
-          WebkitTextStroke: "0.5px currentColor",
-        }}
-      >
-        My
-      </span>
-      Builder
+    <span
+      className={className}
+      aria-label="VetMyBuilder"
+      style={{ display: "inline-flex", alignItems: "center" }}
+    >
+      {/* Audiowide font loaded in _document.tsx (preconnect + stylesheet). */}
+      <span style={text}>V</span>
+      <TeslaE color={color} size={fontSize} />
+      <span style={text}>TMYBUILD</span>
+      <TeslaE color={color} size={fontSize} />
+      <span style={text}>R</span>
     </span>
   );
 }
