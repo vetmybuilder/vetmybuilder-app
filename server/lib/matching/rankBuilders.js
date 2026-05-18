@@ -59,10 +59,19 @@ function computeScore(candidate, project) {
 }
 
 function isEligible(candidate, project) {
-  // Both trade match AND area match must hold. The helpers already return
-  // `true` when the corresponding filter is empty (no classification yet,
-  // or trade hasn't set service areas), so cold-start projects still
-  // surface every approved trade. Once classification is in place the
+  // Recommended trades bypass trade-type + area eligibility. A
+  // community recommendation is an explicit vouch: the recommender
+  // already decided this trade belongs on the shortlist regardless
+  // of whether their listed trades match the project's classification
+  // (or whether they service the area on paper). Filtering them out
+  // here would erase the whole point of the recommendation tier.
+  if (candidate.tier === "recommended") return true;
+
+  // Both trade match AND area match must hold for non-recommended
+  // candidates. The helpers already return `true` when the
+  // corresponding filter is empty (no classification yet, or trade
+  // hasn't set service areas), so cold-start projects still surface
+  // every approved trade. Once classification is in place the
   // trade-type filter becomes strict, which is what stops Elegant
   // appearing in a Pest Control deck (right-area, wrong trade).
   return (

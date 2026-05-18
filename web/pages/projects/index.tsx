@@ -1045,7 +1045,25 @@ function OwnerProjects() {
                                   {(p as any).matchedCount}
                                 </span>
                                 <span className="text-[9.5px] font-bold uppercase tracking-[0.12em]">
-                                  matches
+                                  {(p as any).matchedCount === 1 ? "match" : "matches"}
+                                </span>
+                              </span>
+                            )}
+                            {/* Single combined pill: trades who right-
+                                swiped (any source) and the homeowner
+                                hasn't reciprocated yet. The paid_unlock
+                                "priority" distinction stays out of the
+                                list view — it shows up inside the
+                                shortlist via the "Wants this job" badge,
+                                which is where it's actually
+                                actionable. */}
+                            {((p as any).interestCount ?? 0) > 0 && (
+                              <span className="inline-flex items-baseline gap-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-0.5">
+                                <span className="text-[13px] font-black leading-none">
+                                  {(p as any).interestCount}
+                                </span>
+                                <span className="text-[9.5px] font-bold uppercase tracking-[0.12em]">
+                                  {(p as any).interestCount === 1 ? "interest" : "interests"}
                                 </span>
                               </span>
                             )}

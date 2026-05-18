@@ -139,6 +139,28 @@ describe("<InboxDropdown />", () => {
     });
   });
 
+  // Regression: opening the Activity tab marks every visible
+  // notification as read in one fire-and-forget POST. The badge on
+  // the Messages icon (and the unread count on the tab label) clears
+  // immediately so the homeowner doesn't have to click each item to
+  // dismiss the "you have unread activity" signal.
+  it("POSTs /api/notifications/read-all when the user switches to the Activity tab", async () => {
+    render(<Harness onClose={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: /activity/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: /activity/i }));
+
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith(
+        "/api/notifications/read-all",
+        {},
+      ),
+    );
+  });
+
   it("exposes a 'View all' link pointing at /matches", async () => {
     render(<Harness onClose={vi.fn()} />);
     const viewAll = screen.getByRole("link", { name: /view all/i });

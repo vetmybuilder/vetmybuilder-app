@@ -102,7 +102,11 @@ export default function TradesmanLeadsPage() {
 
   async function respond(direction: "left" | "right") {
     if (!current || busy) return;
-    if (gated) {
+    // Gate ONLY the right-swipe (accept). Declining a lead gains the
+    // trade nothing, so charging them to say "no thanks" is bad UX —
+    // and risks them ignoring leads they don't want rather than
+    // explicitly declining, which leaves the homeowner waiting.
+    if (gated && direction === "right") {
       // Subscribed-tier lead but the builder isn't subscribed - open the
       // SwipePayGate so they can buy a pass or one-off unlock without
       // leaving the page. The current lead stays pinned in the carousel.
@@ -122,10 +126,19 @@ export default function TradesmanLeadsPage() {
         { direction },
       );
       if (direction === "right" && res.data?.status === "matched") {
-        // Direct-to-chat - the builder's intent was to reply, so skip
-        // the celebration screen and drop them into the conversation.
-        router.push(`/chat/${current.matchId}`);
-        return;
+        // Pop the bottom-right TradesmanMessagingDock for the new
+        // match instead of full-page-navigating to /chat — the
+        // homeowner side uses the same dock pattern (see
+        // InboxDropdown.openChatFromInbox), so both sides now land in
+        // the same chat surface after a match forms.
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("vmb:openDock"));
+          window.dispatchEvent(
+            new CustomEvent("vmb:openChat", {
+              detail: { matchId: Number(current.matchId) },
+            }),
+          );
+        }
       }
       // Drop the responded-to lead from the queue so the carousel
       // advances naturally. Reset index if we walked off the end.
@@ -143,8 +156,10 @@ export default function TradesmanLeadsPage() {
   // since the desktop layout shows all leads simultaneously.
   async function respondToLead(lead: IncomingLead, direction: "left" | "right") {
     if (busy) return;
+    // Only gate the right-swipe (accept). Left-swipe (decline) should
+    // always be free — see respond() above for the rationale.
     const isGated = lead.source === "subscribed" && !subActive;
-    if (isGated) {
+    if (isGated && direction === "right") {
       setPaygate({
         projectId: Number(lead.projectId),
         title: lead.title,
@@ -161,8 +176,16 @@ export default function TradesmanLeadsPage() {
         { direction },
       );
       if (direction === "right" && res.data?.status === "matched") {
-        router.push(`/chat/${lead.matchId}`);
-        return;
+        // Same dock-pop pattern as respond() above — matches the
+        // homeowner-side post-match UX.
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("vmb:openDock"));
+          window.dispatchEvent(
+            new CustomEvent("vmb:openChat", {
+              detail: { matchId: Number(lead.matchId) },
+            }),
+          );
+        }
       }
       // Remove the responded-to lead from the local list.
       setLeads((prev) => prev.filter((l) => l.matchId !== lead.matchId));

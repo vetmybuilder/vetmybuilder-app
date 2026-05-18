@@ -252,7 +252,14 @@ module.exports = function mountMatchesGet(router, ctx) {
          ) cv_agg ON cv_agg.companyNumber = t.company_number
         WHERE si.project_id = ?
           AND si.source = 'paid_unlock'
-          AND si.status = 'pending'
+          -- A paid_unlock row jumps straight to status='matched' on
+          -- activation (activate-unlock.post.js) — but the homeowner
+          -- hasn't reciprocated until homeowner_swiped_at is set. So we
+          -- treat the row as a deck-worthy boost regardless of status
+          -- as long as the homeowner hasn't acted yet. Older paid_unlock
+          -- rows that linger on status='pending' (from earlier code
+          -- paths) are still picked up.
+          AND si.status IN ('pending', 'matched')
           AND si.homeowner_swiped_at IS NULL
           AND (si.boost_expires_at IS NULL OR si.boost_expires_at > NOW())
         ORDER BY si.builder_swiped_at DESC`,

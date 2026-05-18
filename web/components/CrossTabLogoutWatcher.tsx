@@ -79,8 +79,18 @@ export default function CrossTabLogoutWatcher() {
       return;
     }
 
-    // Private page; bounce home.
-    router.replace("/");
+    // Debounce: a dev-server restart momentarily clears the user (e.g.
+    // Firebase emulator drops, /api/me 404s, useAuth nulls out user)
+    // before the real auth state recovers. Without this delay we'd
+    // bounce the user to / mid-restart and lose their place. Wait
+    // 3s — if they re-authenticate in that window, abort the redirect.
+    // Real logouts persist past 3s easily.
+    const t = setTimeout(() => {
+      if (!previousUserPresentRef.current) {
+        router.replace("/");
+      }
+    }, 3000);
+    return () => clearTimeout(t);
   }, [user, loading, router]);
 
   return null;

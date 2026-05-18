@@ -183,6 +183,19 @@ export default function TradesmanMessagingDock() {
       return next;
     });
     setOpen(false);
+    // Mirror the homeowner-side MessagingDock: stamp builder_last_read_at
+    // on this specific thread so the unread badge clears once the
+    // trade has the chat open. Dispatch vmb:notification after the
+    // POST so useTradesInboxUnread refetches and the icon badge
+    // clears immediately without waiting for the next SSE event.
+    api
+      .post(`/api/matches/${matchId}/read`, {})
+      .then(() => {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("vmb:notification"));
+        }
+      })
+      .catch(() => {});
   }
 
   function closeChat(matchId: number) {

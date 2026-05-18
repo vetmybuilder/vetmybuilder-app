@@ -145,6 +145,148 @@ describe("<NotificationsBell />", () => {
     expect(markAll).toBeDisabled();
   });
 
+  // Scenario B2: a tradesperson sends a chat message on a matched thread.
+  // The recipient (homeowner here) gets a bell entry that names the
+  // sender and routes to the chat thread on click. Notification shape is
+  // emitted by server/routes/chat/messages.post.js — type/message/linkPath
+  // here mirror that exactly so the test guards rendering against the
+  // real producer.
+  it("renders a chat_message_new notification with the sender name and routes to the thread on click", async () => {
+    const createdAt = new Date().toISOString();
+    renderBellLoggedIn({
+      unread: 1,
+      items: [
+        {
+          id: 77,
+          type: "chat_message_new",
+          message: "New message from Tina Trader",
+          projectId: 15,
+          linkPath: "/chat/42",
+          createdAt,
+          readAt: null,
+        },
+      ],
+    });
+
+    const btn = await screen.findByRole("button", {
+      name: /notifications \(unread\)/i,
+    });
+    fireEvent.click(btn);
+
+    const item = await screen.findByText(/new message from tina trader/i);
+    fireEvent.click(item);
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith("/api/notifications/77/read");
+      expect(pushMock).toHaveBeenCalledWith("/chat/42");
+    });
+  });
+
+  // Scenario B1: a match is formed when both sides have right-swiped. The
+  // bell entry on each side has a different message — the homeowner sees
+  // the tradesperson's company name, the tradesperson sees only "a
+  // homeowner" (homeowner identity stays masked until contact is unlocked
+  // / chat is opened). Both deep-link into the new /chat/:matchId page.
+  // Notification shape is emitted by server/lib/fireMatchFormed.js.
+  it("renders a match_formed notification on the homeowner side with the trade name", async () => {
+    renderBellLoggedIn({
+      unread: 1,
+      items: [
+        {
+          id: 88,
+          type: "match_formed",
+          message: '🎉 You matched with Acme Trades on "Replace bathroom flooring with LVT"',
+          projectId: 15,
+          linkPath: "/chat/42",
+          createdAt: new Date().toISOString(),
+          readAt: null,
+        },
+      ],
+    });
+
+    const btn = await screen.findByRole("button", {
+      name: /notifications \(unread\)/i,
+    });
+    fireEvent.click(btn);
+
+    const item = await screen.findByText(/you matched with acme trades/i);
+    fireEvent.click(item);
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith("/api/notifications/88/read");
+      expect(pushMock).toHaveBeenCalledWith("/chat/42");
+    });
+  });
+
+  it("renders a match_formed notification on the tradesperson side without naming the homeowner", async () => {
+    renderBellLoggedIn({
+      unread: 1,
+      items: [
+        {
+          id: 89,
+          type: "match_formed",
+          message: '🎉 You matched with a homeowner on "Replace bathroom flooring with LVT"',
+          projectId: 15,
+          linkPath: "/chat/42",
+          createdAt: new Date().toISOString(),
+          readAt: null,
+        },
+      ],
+    });
+
+    const btn = await screen.findByRole("button", {
+      name: /notifications \(unread\)/i,
+    });
+    fireEvent.click(btn);
+
+    const item = await screen.findByText(/you matched with a homeowner/i);
+    fireEvent.click(item);
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith("/api/notifications/89/read");
+      expect(pushMock).toHaveBeenCalledWith("/chat/42");
+    });
+  });
+
+  // Scenario B3: a new recommendation arrives on a homeowner's project.
+  // The bell entry is intentionally anonymous about the recommender (we
+  // want the signal to be about the trade, not who suggested them) and
+  // routes to the project page rather than a chat thread, because there
+  // is no chat yet. Notification shape is emitted by
+  // server/routes/projects/recommendations.post.js.
+  it("renders a recommendation_new notification anonymously and routes to the project page on click", async () => {
+    renderBellLoggedIn({
+      unread: 1,
+      items: [
+        {
+          id: 91,
+          type: "recommendation_new",
+          message:
+            'Someone has recommended a tradesperson to your project “Replace bathroom flooring with LVT”',
+          projectId: 15,
+          linkPath: "/projects/15",
+          createdAt: new Date().toISOString(),
+          readAt: null,
+        },
+      ],
+    });
+
+    const btn = await screen.findByRole("button", {
+      name: /notifications \(unread\)/i,
+    });
+    fireEvent.click(btn);
+
+    const item = await screen.findByText(
+      /someone has recommended a tradesperson/i,
+    );
+    fireEvent.click(item);
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith("/api/notifications/91/read");
+      expect(pushMock).toHaveBeenCalledWith("/projects/15");
+    });
+  });
+
   it("renders fine when logged out", async () => {
     useAuthMock.mockReturnValue({ user: null, loading: false });
     api.get.mockResolvedValue({ data: { items: [], unread: 0 } });
