@@ -182,35 +182,20 @@ module.exports = (router, ctx) => {
             const companyName = tRows?.[0]?.company_name || "A tradesperson";
 
             try {
-              // Click-through goes to the tradesperson's profile so the
-              // homeowner can review who paid to pitch (their photos,
-              // verified status, etc.) before deciding to engage. The
-              // ?projectId= param keeps the project context for any
-              // back-link/breadcrumb the profile renders.
-              const linkPath = `/tradesman/${uid}?projectId=${projectId}`;
-              const notifMessage = `${companyName} wants to work on your project`;
-              await mysqlQuery(
-                `INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
-                 VALUES (?, 'paid_unlock_card', ?, ?, ?, NOW())`,
-                [ownerUid, notifMessage, projectId, linkPath]
-              );
-              ctx.broadcastNotification?.(ownerUid, {
-                type: "paid_unlock_card",
-                message: notifMessage,
-                projectId,
-                linkPath,
-              });
-              // Real-time deck update: tells any open /projects/:id page
-              // to refetch matches and splice the new card in at currentIndex+1.
-              // Uses broadcastEvent (custom SSE event name) rather than
-              // broadcastNotification (which always sends as "notification").
+              // No bell notification here. A paid_unlock arrival was
+              // previously firing a "paid_unlock_card" bell entry that
+              // spammed the homeowner — per the agreed messaging model
+              // (S3) it surfaces only as the emerald "priority" pill on
+              // the /projects list. The real-time deck update below
+              // still fires so an open /projects/:id page splices the
+              // new card in without a refresh.
               ctx.broadcastEvent?.(ownerUid, "deck_card_added", {
                 type: "deck_card_added",
                 projectId,
                 builderUid: uid,
               });
             } catch (notifErr) {
-              log.warn({ err: notifErr?.message }, "paid_unlock notification failed");
+              log.warn({ err: notifErr?.message }, "paid_unlock deck update failed");
             }
           }
         } catch (e) {

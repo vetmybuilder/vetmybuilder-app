@@ -436,6 +436,7 @@ function buildRouter(ctx) {
   require("./routes/matches/list.get.js")(router, ctx);
   require("./routes/matches/get.js")(router, ctx);
   require("./routes/matches/read-all.post.js")(router, ctx);
+  require("./routes/matches/read.post.js")(router, ctx);
   require("./routes/tradesman/incoming-interest.get.js")(router, ctx);
   require("./routes/tradesman/matches.get.js")(router, ctx);
 
@@ -447,23 +448,18 @@ function buildRouter(ctx) {
   require("./routes/meta/plans.get")(router, ctx);
 
   // ---------------- Payments (mock) ----------------
-  require("./routes/payments/checkout.post")(router, ctx);
-  require("./routes/payments/checkout.session.get")(router, ctx);
   require("./routes/payments/mock.pay.post")(router, ctx);
   require("./routes/payments/mock.cancel.post")(router, ctx);
   require("./routes/payments/mock.session.get")(router, ctx);
   require("./routes/payments/subscription.uncancel.post")(router, ctx);
-  require("./routes/payments/oneoff.spotlight.purchase.post")(router, ctx);
-  require("./routes/payments/spotlight.purchase.post")(router, ctx);
   require("./routes/payments/mock.webhook.post")(router, ctx);
-  require("./routes/payments/stripe-webhook.post")(router, ctx);
+  require("./routes/payments/stripe.webhook.post")(router, ctx);
   require("./routes/payments/activate-unlock.post")(router, ctx);
 
   // ---------------- Subscriptions ----------------
   require("./routes/subscriptions/checkout.post")(router, ctx);
   require("./routes/subscriptions/cancel.post")(router, ctx);
   require("./routes/subscriptions/me.get")(router, ctx);
-  require("./routes/subscriptions/stripe-webhook.post")(router, ctx);
 
   // ---------------- Admin ----------------
   require("./routes/admin/projects.get")(router, ctx);
@@ -483,11 +479,6 @@ function buildRouter(ctx) {
   require("./routes/admin/subscription.sweep.post")(router, ctx);
   require("./routes/admin/subscriptions.cancel.post")(router, ctx);
   require("./routes/admin/recommendation-leaderboard.get")(router, ctx);
-  require("./routes/admin/spotlight.approve.post")(router, ctx);
-  require("./routes/admin/spotlight.reject.post")(router, ctx);
-  // Admin grant/revoke (no payment required - editorial spotlight)
-  require("./routes/admin/spotlight.grant.post")(router, ctx);
-  require("./routes/admin/pending-payments.get")(router, ctx);
   require("./routes/admin/subscription.approve.post")(router, ctx);
   require("./routes/admin/subscription.reject.post")(router, ctx);
   require("./routes/admin/compute-builder-summaries.post")(router, ctx);

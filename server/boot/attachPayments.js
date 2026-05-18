@@ -102,8 +102,15 @@ function attachPayments(ctx = {}) {
   // guard env var (also used to stub Google Places, Companies House,
   // Anthropic). It lets local dev keep a real Stripe key in .env while
   // test runs stay on the mock provider.
-  const mockExternal = process.env.MOCK_EXTERNAL_SERVICES === "1";
-  const stripeSecretKey = mockExternal
+  // Resolve the mock-payments toggle. Backward compat: if MOCK_PAYMENTS
+  // is unset, fall back to MOCK_EXTERNAL_SERVICES (the legacy single-flag
+  // behaviour used by CI / E2E and pre-staging-Stripe staging). Setting
+  // MOCK_PAYMENTS explicitly (0 or 1) always wins.
+  const mockPaymentsEnv = process.env.MOCK_PAYMENTS;
+  const mockPayments = mockPaymentsEnv != null
+    ? mockPaymentsEnv === "1" || mockPaymentsEnv === "true"
+    : process.env.MOCK_EXTERNAL_SERVICES === "1";
+  const stripeSecretKey = mockPayments
     ? null
     : pick(process.env.STRIPE_SECRET_KEY);
   let payments;
@@ -118,8 +125,8 @@ function attachPayments(ctx = {}) {
     if (payments) {
       log.info?.(`${TAG} Stripe attached: baseUrl=${baseUrl}`);
     }
-  } else if (mockExternal) {
-    log.info?.(`${TAG} MOCK_EXTERNAL_SERVICES=1 — forcing mock payments`);
+  } else if (mockPayments) {
+    log.info?.(`${TAG} MOCK_PAYMENTS resolved truthy — forcing mock payments`);
   }
 
   if (!payments) {
