@@ -30,8 +30,8 @@ module.exports = function mountSubscriptionCheckout(router, ctx) {
       const session = await payments.createSubscriptionCheckout({
         userId: uid,
         tier,
-        success_url: `${process.env.NEXT_PUBLIC_WEB_BASE || "http://localhost:3000"}/tradesman/billing?subscribed=1`,
-        cancel_url: `${process.env.NEXT_PUBLIC_WEB_BASE || "http://localhost:3000"}/tradesman/billing?canceled=1`,
+        success_url: `${process.env.NEXT_PUBLIC_WEB_BASE || "http://localhost:3000"}/tradesman/jobs?subscribed=1`,
+        cancel_url: `${process.env.NEXT_PUBLIC_WEB_BASE || "http://localhost:3000"}/tradesman/jobs?canceled=1`,
       });
       return res.status(200).json({
         ok: true,

@@ -298,7 +298,7 @@ export default function SwipePayGate({
     const activating = payState === "activating";
     return (
       <div
-        className="fixed inset-0 z-[60] flex items-center justify-center px-4 bg-white md:bg-black/40"
+        className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-white md:bg-black/40"
         data-testid="swipe-paygate-confirm"
         style={{
           fontFamily:
@@ -343,7 +343,7 @@ export default function SwipePayGate({
 
   return (
     <div
-      className="fixed inset-0 z-[60] bg-white md:bg-[#fef6e9] flex flex-col md:items-center md:justify-center md:p-6 overflow-y-auto md:overflow-hidden"
+      className="fixed inset-0 z-[100] bg-white md:bg-[#fef6e9] flex flex-col md:items-center md:justify-center md:p-4 md:pt-20 overflow-y-auto"
       data-testid="swipe-paygate"
       style={{
         fontFamily:
@@ -633,8 +633,8 @@ function DesktopGate({
   const selectedTier = TIERS.find((t) => t.id === selected)!;
 
   return (
-    <div className="hidden md:block w-full max-w-5xl mx-auto" data-testid="swipe-paygate-desktop">
-      <div className="bg-white rounded-3xl shadow-2xl border border-amber-100 overflow-hidden relative max-h-[90vh] flex flex-col">
+    <div className="hidden md:block w-full max-w-3xl mx-auto" data-testid="swipe-paygate-desktop">
+      <div className="bg-white rounded-3xl shadow-2xl border border-amber-100 overflow-hidden relative flex flex-col">
         {/* Close */}
         <button
           type="button"
@@ -647,14 +647,11 @@ function DesktopGate({
           ✕
         </button>
 
-        <div className="px-8 py-7 overflow-y-auto">
+        <div className="px-6 py-5">
           {/* Hero copy */}
           <div className="text-center max-w-xl mx-auto">
-            <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-1">
-              Reply to homeowner
-            </div>
             <h1
-              className="text-[28px] font-black tracking-tight text-slate-900 leading-tight"
+              className="text-[22px] font-black tracking-tight text-slate-900 leading-tight"
               style={{ fontFamily: "'Sora', sans-serif" }}
             >
               You like{" "}
@@ -665,14 +662,14 @@ function DesktopGate({
                 this one!
               </span>
             </h1>
-            <p className="mt-2 text-[13.5px] text-slate-500">
+            <p className="mt-1.5 text-[12.5px] text-slate-500">
               Pick a pass to reply to this homeowner - and every other matching
               lead while it&rsquo;s active.
             </p>
           </div>
 
           {/* Pinned job strip */}
-          <div className="mt-5 mx-auto max-w-2xl">
+          <div className="mt-4 mx-auto max-w-2xl">
             <div className="rounded-2xl overflow-hidden border border-amber-100 bg-white shadow-sm">
               <div
                 className="px-4 py-3 text-white"
@@ -699,7 +696,7 @@ function DesktopGate({
 
           {/* Tier cards */}
           <div
-            className="mt-7 grid grid-cols-3 gap-4 items-end"
+            className="mt-5 grid grid-cols-3 gap-3 items-end"
             role="radiogroup"
             aria-label="Choose a pass"
             data-testid="swipe-paygate-tiers"
@@ -716,7 +713,7 @@ function DesktopGate({
           </div>
 
           {/* CTA + one-off */}
-          <div className="mt-7 mx-auto max-w-2xl">
+          <div className="mt-5 mx-auto max-w-2xl">
             {/* CCR 2013 immediate-supply waiver - mandatory before pay. */}
             <label
               className="mb-3 flex items-start gap-2 text-[12.5px] text-slate-600 leading-snug cursor-pointer"
@@ -829,10 +826,10 @@ function DesktopTierCard({
       onClick={onSelect}
       disabled={disabled}
       data-testid={`swipe-paygate-tier-${tier.id}`}
-      className={`relative bg-white text-left rounded-3xl border transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
+      className={`relative bg-white text-left rounded-2xl border transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
         isBest
-          ? "p-6 -mt-4 border-emerald-300 shadow-lg shadow-emerald-100"
-          : "p-5 border-amber-100"
+          ? "p-4 -mt-3 border-emerald-300 shadow-lg shadow-emerald-100"
+          : "p-3.5 border-amber-100"
       } ${
         selected
           ? "ring-4 ring-emerald-100 border-emerald-500"
@@ -850,17 +847,17 @@ function DesktopTierCard({
       <div className="text-[12px] font-extrabold uppercase tracking-wider text-slate-500">
         {tier.label}
       </div>
-      <div className="mt-1 flex items-baseline gap-1">
+      <div className="mt-0.5 flex items-baseline gap-1">
         <span
-          className={`font-black text-slate-900 ${isBest ? "text-[36px]" : "text-[30px]"}`}
+          className={`font-black text-slate-900 ${isBest ? "text-[28px]" : "text-[24px]"}`}
           style={{ fontFamily: "'Sora', sans-serif" }}
         >
           {formatGbp(tier.amountPence)}
         </span>
       </div>
-      <div className="text-[11.5px] text-slate-500 mb-4">{tier.perDayLabel}</div>
+      <div className="text-[11px] text-slate-500 mb-3">{tier.perDayLabel}</div>
 
-      <ul className="space-y-1.5 mb-4">
+      <ul className="space-y-1 mb-3">
         <Bullet>{tier.blurb}</Bullet>
         <Bullet>Pitch every matching job</Bullet>
         <Bullet>Free chat on every match</Bullet>
