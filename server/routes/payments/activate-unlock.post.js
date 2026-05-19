@@ -68,12 +68,19 @@ module.exports = (router, ctx) => {
       const amount = Number(process.env.ONEOFF_UNLOCK_PRICE_PENCE) || 999;
 
       // Activate the unlock
+      const { REFUND_POLICY_VERSION } = require("../../lib/payments/refundPolicyVersion");
       await mysqlQuery(
         `INSERT INTO project_contact_unlocks
-          (project_id, buyer_uid, session_id, amount, currency, status, created_at, approved_at)
-         VALUES (?, ?, ?, ?, 'GBP', 'active', NOW(), NOW())
-         ON DUPLICATE KEY UPDATE status = 'active', approved_at = NOW()`,
-        [pid, uid, sessionId, amount]
+          (project_id, buyer_uid, session_id, amount, currency, status,
+           waiver_accepted_at, waiver_policy_version,
+           created_at, approved_at)
+         VALUES (?, ?, ?, ?, 'GBP', 'active', NOW(), ?, NOW(), NOW())
+         ON DUPLICATE KEY UPDATE
+           status = 'active',
+           approved_at = NOW(),
+           waiver_accepted_at = COALESCE(waiver_accepted_at, NOW()),
+           waiver_policy_version = COALESCE(waiver_policy_version, VALUES(waiver_policy_version))`,
+        [pid, uid, sessionId, amount, REFUND_POLICY_VERSION]
       );
 
       // Record payment

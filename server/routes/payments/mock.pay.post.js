@@ -5,6 +5,8 @@
 // Creates INTENT ONLY → always pending_admin.
 // Admin must approve later. No entitlements are activated here.
 
+const { REFUND_POLICY_VERSION } = require("../../lib/payments/refundPolicyVersion");
+
 module.exports = (router, ctx) => {
   const { auth, payments, mysqlQuery } = ctx;
   const { logger, withRequest } = require("../../lib/logger");
@@ -104,17 +106,21 @@ module.exports = (router, ctx) => {
         await mysqlQuery(
           `
           INSERT INTO project_contact_unlocks
-            (project_id, buyer_uid, session_id, amount, currency, status, created_at, approved_at)
+            (project_id, buyer_uid, session_id, amount, currency, status,
+             waiver_accepted_at, waiver_policy_version,
+             created_at, approved_at)
           VALUES
-            (?, ?, ?, ?, ?, 'active', NOW(), NOW())
+            (?, ?, ?, ?, ?, 'active', NOW(), ?, NOW(), NOW())
           ON DUPLICATE KEY UPDATE
             session_id = VALUES(session_id),
             amount = VALUES(amount),
             currency = VALUES(currency),
             status = 'active',
-            approved_at = NOW()
+            approved_at = NOW(),
+            waiver_accepted_at = COALESCE(waiver_accepted_at, NOW()),
+            waiver_policy_version = COALESCE(waiver_policy_version, VALUES(waiver_policy_version))
           `,
-          [projectId, uid, sid, amount, currency]
+          [projectId, uid, sid, amount, currency, REFUND_POLICY_VERSION]
         );
 
         await mysqlQuery(
@@ -321,19 +327,23 @@ module.exports = (router, ctx) => {
           `
           INSERT INTO payments_subscription
             (buyer_uid, plan_id, amount, currency, status,
-             provider_session_id, provider_payment_intent, created_at)
+             provider_session_id, provider_payment_intent,
+             waiver_accepted_at, waiver_policy_version, created_at)
           VALUES
             (?, ?, ?, ?, 'pending_admin',
-             ?, CONCAT('mock:', ?), NOW())
+             ?, CONCAT('mock:', ?),
+             NOW(), ?, NOW())
           ON DUPLICATE KEY UPDATE
             plan_id = VALUES(plan_id),
             amount  = VALUES(amount),
             currency = VALUES(currency),
             status = 'pending_admin',
             provider_session_id = VALUES(provider_session_id),
-            provider_payment_intent = VALUES(provider_payment_intent)
+            provider_payment_intent = VALUES(provider_payment_intent),
+            waiver_accepted_at = COALESCE(waiver_accepted_at, NOW()),
+            waiver_policy_version = COALESCE(waiver_policy_version, VALUES(waiver_policy_version))
           `,
-          [uid, plan, amount, currency, sid, sid]
+          [uid, plan, amount, currency, sid, sid, REFUND_POLICY_VERSION]
         );
 
         await mysqlQuery(
