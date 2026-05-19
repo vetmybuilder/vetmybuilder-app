@@ -178,6 +178,22 @@ export default function MessagingDock() {
       return next;
     });
     setOpen(false);
+    // Mark this specific thread as read for the caller. Stamps
+    // *_last_read_at on the swipe_interest row, which causes the
+    // unread query (matches/list.get.js) to stop counting messages
+    // older than NOW for this thread. Fire-and-forget — the dock has
+    // already opened so a network failure shouldn't block the UX.
+    // After the POST resolves, dispatch vmb:notification so the
+    // useInboxUnread hook refetches and the badge clears immediately
+    // (otherwise the cache is stale until the next SSE event lands).
+    api
+      .post(`/api/matches/${matchId}/read`, {})
+      .then(() => {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("vmb:notification"));
+        }
+      })
+      .catch(() => {});
   }
 
   function closeChat(matchId: number) {

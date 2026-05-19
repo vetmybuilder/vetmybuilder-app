@@ -26,7 +26,8 @@ export class TradesmanJobsListPage extends BasePage {
       await this.page.getByRole("button", { name: /more options/i }).click();
       await this.page.getByTestId("mobile-menu-trades-jobs-list").click();
     } else {
-      await this.page.getByRole("tab", { name: /jobs list/i }).click();
+      await this.page.getByTestId("trades-menu-button").click();
+      await this.page.getByTestId("menu-jobs").click();
     }
 
     await expect(this.root).toBeVisible({ timeout: 20_000 });

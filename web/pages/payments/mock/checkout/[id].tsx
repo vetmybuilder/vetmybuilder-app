@@ -65,20 +65,9 @@ export default function MockCheckout() {
 
   // ---- Fetch session (mock) -------------------------------------------------
   async function fetchSessionDual(sessionId: string) {
-    // 1) New: /api/payments/checkout/session?sessionId=...
-    try {
-      const { data } = await api.get("/api/payments/checkout/session", {
-        params: { sessionId },
-      });
-      return data?.session || data || null;
-    } catch (e: any) {
-      const code = e?.response?.status;
-      if (code !== 404) throw e;
-    }
-    // 2) Legacy: /api/payments/checkout/:id
-    const { data } = await api.get(
-      `/api/payments/checkout/${encodeURIComponent(sessionId)}`
-    );
+    const { data } = await api.get("/api/payments/mock/session", {
+      params: { sessionId },
+    });
     return data?.session || data || null;
   }
 

@@ -4,8 +4,6 @@ import { useRouter } from "next/router";
 import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
 import CloseProjectModal from "@/components/CloseProjectModal";
-import PlansModal from "@/components/plans/PlansModal";
-import { getPlan } from "@/shared/lib/plans";
 import type { PlanId } from "@/shared/lib/plans";
 
 export type Project = {
@@ -99,7 +97,6 @@ export function useProjectView() {
 
   const [busy, setBusy] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
-  const [plansOpen, setPlansOpen] = useState(false);
 
   const [interestBusy, setInterestBusy] = useState(false);
   const [interestSent, setInterestSent] = useState(false);
@@ -405,124 +402,6 @@ export function useProjectView() {
     }
   };
 
-  const onUpgradeClick = () => {
-    if (!paymentsEnabled) {
-      setFlash({ kind: "success", text: "Contact access is free during our launch period." });
-      return;
-    }
-    setPlansOpen(true);
-  };
-
-  const startOneOffCheckout = async () => {
-    if (!project?.id) return;
-    try {
-      const origin = window.location.origin;
-      const unlock = getPlan("unlock_contact");
-      const pounds = Number((unlock as any)?.billing?.priceOnce ?? 9.99);
-      const pence = Math.round(pounds * 100);
-      const { data } = await api.post("/api/payments/checkout", {
-        projectId: project.id,
-        entity_type: "project",
-        entity_id: project.id,
-        items: [
-          {
-            label: "Unlock homeowner contact",
-            price: { amount: pence, currency: "GBP" },
-            quantity: 1,
-          },
-        ],
-        metadata: { type: "unlock_contact", projectId: project.id },
-        success_url: `${origin}/payments/mock/success?session_id={SESSION_ID}`,
-        cancel_url: `${origin}/payments/mock/cancel?session_id={SESSION_ID}`,
-      });
-      const url =
-        data?.url || data?.session?.hosted_url || data?.hosted_url || null;
-      const sid =
-        data?.sessionId ||
-        data?.session_id ||
-        data?.id ||
-        data?.session?.id ||
-        null;
-      if (url) window.location.href = url;
-      else if (sid)
-        window.location.href = `/payments/mock/checkout/${encodeURIComponent(
-          sid
-        )}`;
-      else
-        setFlash({
-          kind: "error",
-          text: "Checkout session unavailable. Please try again.",
-        });
-    } catch (e: any) {
-      setFlash({
-        kind: "error",
-        text:
-          e?.response?.data?.error ||
-          e?.message ||
-          "Failed to start checkout session",
-      });
-    }
-  };
-
-  const startSubscriptionCheckout = async (planId: PlanId) => {
-    try {
-      const plan = getPlan(planId);
-      const monthly = Number((plan as any)?.billing?.priceMonthly) || 0;
-      const amountPence = Math.round(monthly * 100);
-      if (!amountPence || amountPence <= 0) {
-        setFlash({ kind: "error", text: "Plan price unavailable." });
-        return;
-      }
-      const { data } = await api.post("/api/payments/checkout", {
-        type: "subscription",
-        planId,
-        amountPence,
-        currency: "GBP",
-        origin: window.location.origin,
-        metadata: { planId, billing: "monthly" },
-      });
-      const url =
-        data?.url || data?.session?.hosted_url || data?.hosted_url || null;
-      const sid =
-        data?.sessionId ||
-        data?.session_id ||
-        data?.id ||
-        data?.session?.id ||
-        null;
-      if (url) window.location.href = url;
-      else if (sid)
-        window.location.href = `/payments/mock/checkout/${encodeURIComponent(
-          sid
-        )}`;
-      else
-        setFlash({
-          kind: "error",
-          text: "Could not start subscription checkout. Please try again.",
-        });
-    } catch (e: any) {
-      setFlash({
-        kind: "error",
-        text:
-          e?.response?.data?.error ||
-          e?.message ||
-          "Failed to start subscription checkout",
-      });
-    }
-  };
-
-  const handlePlanSelect = (planId: PlanId) => {
-    setPlansOpen(false);
-    if (planId === "free") {
-      setFlash({
-        kind: "error",
-        text: "Free plan selected — upgrade to contact owners directly.",
-      });
-      return;
-    }
-    if (planId === "unlock_contact") void startOneOffCheckout();
-    else void startSubscriptionCheckout(planId);
-  };
-
   const unlockQuery = String((router.query.unlock || "") as string);
 
   const paymentsEnabled =
@@ -668,15 +547,6 @@ export function useProjectView() {
     />
   );
 
-  const plansModal = (
-    <PlansModal
-      isOpen={plansOpen}
-      onClose={() => setPlansOpen(false)}
-      currentPlanId={currentPlanId}
-      projectId={project?.id ?? undefined}
-    />
-  );
-
   return {
     project,
     classification,
@@ -714,12 +584,7 @@ export function useProjectView() {
     doCloseSubmit,
     copyInvite,
     copyingInvite,
-    onUpgradeClick,
-    startOneOffCheckout,
-    startSubscriptionCheckout,
-    handlePlanSelect,
     loadingUi,
     closeProjectModal,
-    plansModal,
   };
 }

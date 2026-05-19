@@ -158,4 +158,86 @@ describe("Tradesman leads page", () => {
     );
     expect(post).not.toHaveBeenCalled();
   });
+
+  // Regression: when a match forms on the trade side (right-swipe →
+  // server returns status='matched'), pop the bottom-right
+  // TradesmanMessagingDock via the vmb:openDock + vmb:openChat events
+  // instead of full-page navigating to /chat/<matchId>. The homeowner
+  // side already uses the dock; both sides should land in the same
+  // chat surface.
+  it("dispatches vmb:openDock + vmb:openChat when a lead is matched on mobile", async () => {
+    leadsResponse = {
+      leads: [baseLead],
+      subscriptionActive: true,
+    };
+    post.mockResolvedValueOnce({ data: { status: "matched" } });
+
+    const events: Array<{ type: string; detail: any }> = [];
+    const onDock = (e: any) => events.push({ type: e.type, detail: e.detail });
+    const onChat = (e: any) => events.push({ type: e.type, detail: e.detail });
+    window.addEventListener("vmb:openDock", onDock);
+    window.addEventListener("vmb:openChat", onChat);
+
+    try {
+      render(<TradesmanLeads />);
+      await waitFor(() =>
+        expect(screen.getAllByText(/Kitchen extension/).length).toBeGreaterThan(0),
+      );
+
+      fireEvent.click(screen.getByTestId("mobile-lead-accept"));
+      await waitFor(() => expect(post).toHaveBeenCalled());
+
+      expect(events.some((e) => e.type === "vmb:openDock")).toBe(true);
+      expect(events.some((e) => e.type === "vmb:openChat")).toBe(true);
+    } finally {
+      window.removeEventListener("vmb:openDock", onDock);
+      window.removeEventListener("vmb:openChat", onChat);
+    }
+  });
+
+  // Regression: declining a subscribed-tier lead must NOT open the
+  // paygate. Charging a trade to say "no thanks" is bad UX and risks
+  // them silently ignoring leads instead of explicitly declining,
+  // which leaves the homeowner waiting. Only right-swipe (accept) is
+  // gated behind subscription.
+  it("does NOT open the paygate when a gated lead is passed on (mobile)", async () => {
+    leadsResponse = {
+      leads: [{ ...baseLead, source: "subscribed", recommenderName: null }],
+      subscriptionActive: false,
+    };
+
+    render(<TradesmanLeads />);
+    await waitFor(() =>
+      expect(screen.getAllByText(/Kitchen extension/).length).toBeGreaterThan(0),
+    );
+
+    fireEvent.click(screen.getByTestId("mobile-lead-pass"));
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith("/api/swipe-interest/m1/respond", {
+        direction: "left",
+      }),
+    );
+    // Paygate must NOT render on a decline.
+    expect(screen.queryByTestId("swipe-paygate")).not.toBeInTheDocument();
+  });
+
+  it("does NOT open the paygate when a gated lead is passed on (desktop)", async () => {
+    leadsResponse = {
+      leads: [{ ...baseLead, source: "subscribed", recommenderName: null }],
+      subscriptionActive: false,
+    };
+
+    render(<TradesmanLeads />);
+    await waitFor(() =>
+      expect(screen.getAllByText(/Kitchen extension/).length).toBeGreaterThan(0),
+    );
+
+    fireEvent.click(screen.getByTestId("desktop-lead-pass-m1"));
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith("/api/swipe-interest/m1/respond", {
+        direction: "left",
+      }),
+    );
+    expect(screen.queryByTestId("swipe-paygate")).not.toBeInTheDocument();
+  });
 });

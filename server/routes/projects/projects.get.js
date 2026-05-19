@@ -195,11 +195,21 @@ module.exports = (router, ctx) => {
       }
       try {
         const placeholders = ids.map(() => "?").join(",");
+        // A "true" match requires both sides to have right-swiped, so
+        // we filter on homeowner_swiped_at IS NOT NULL. Without this
+        // filter, paid_unlock rows (which jump straight to
+        // status='matched' but only have the builder's swipe set) would
+        // be counted as matches even though the homeowner hasn't
+        // reciprocated yet. Those rows belong on the INTERESTS pill
+        // until the homeowner actually swipes back.
         const countRows = await mysqlQuery(
           `SELECT project_id, status, COUNT(*) AS c
              FROM swipe_interest
             WHERE project_id IN (${placeholders})
-              AND status IN ('matched', 'pending')
+              AND (
+                (status = 'matched' AND homeowner_swiped_at IS NOT NULL)
+                OR status = 'pending'
+              )
             GROUP BY project_id, status`,
           ids,
         );
@@ -222,6 +232,56 @@ module.exports = (router, ctx) => {
         for (const r of rows) {
           r.matchedCount = 0;
           r.waitingCount = 0;
+        }
+      }
+
+      // Interested / paid-priority counts per project. These power the
+      // amber "N interested" + emerald "N priority" pills on the
+      // homeowner's /projects list (S1 / S3 in the messaging model).
+      // "Interested" = trades who right-swiped but the homeowner hasn't
+      // reciprocated yet. "Priority" is the subset where the trade paid
+      // for paid_unlock placement. No bell notification fires for these
+      // events; this pill is the only signal that there's something
+      // worth opening in the shortlist.
+      try {
+        const placeholders = ids.map(() => "?").join(",");
+        // We count rows where the trade has swiped right but the
+        // homeowner hasn't yet acted. Filtering on the timestamp fields
+        // (not the status column) covers both paths:
+        //   - status='pending' for subscribed/recommended right-swipes
+        //   - status='matched' for paid_unlock, which skips the pending
+        //     state because the trade paid to jump the queue
+        // Declined/expired rows are excluded.
+        const interestRows = await mysqlQuery(
+          `SELECT project_id,
+                  SUM(CASE WHEN source = 'paid_unlock' THEN 1 ELSE 0 END) AS paidCount,
+                  COUNT(*) AS totalCount
+             FROM swipe_interest
+            WHERE project_id IN (${placeholders})
+              AND builder_swiped_at IS NOT NULL
+              AND homeowner_swiped_at IS NULL
+              AND status IN ('pending', 'matched')
+            GROUP BY project_id`,
+          ids,
+        );
+        const interestById = new Map();
+        const paidById = new Map();
+        for (const row of interestRows) {
+          const pid = Number(row.project_id);
+          interestById.set(pid, Number(row.totalCount) || 0);
+          paidById.set(pid, Number(row.paidCount) || 0);
+        }
+        for (const r of rows) {
+          r.interestCount = interestById.get(Number(r.id)) || 0;
+          r.paidPriorityCount = paidById.get(Number(r.id)) || 0;
+        }
+      } catch (e) {
+        log.warn?.("[projects.get] interest count enrichment failed", {
+          error: e?.message,
+        });
+        for (const r of rows) {
+          r.interestCount = 0;
+          r.paidPriorityCount = 0;
         }
       }
 

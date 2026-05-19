@@ -1313,11 +1313,53 @@ export default function ProjectViewPage() {
   useEffect(() => {
     if (authLoading) return;
 
-    // Not logged in → treat as neighbour (can view live projects, add recs)
+    // Not logged in → MIGHT be a genuine neighbour, or might be a
+    // logged-in user mid-rehydrate (Firebase auth pulls from
+    // IndexedDB asynchronously; during a dev-server restart there's
+    // a brief window where authLoading flips to false but user is
+    // still being re-hydrated). If sessionStorage has a "was-authed"
+    // marker, we wait a beat before flashing the public neighbour
+    // view — flashing the wrong view and then swapping back is
+    // jarring after a server restart.
     if (!user) {
+      let wasAuthed = false;
+      try {
+        wasAuthed = sessionStorage.getItem("vmb:was-authed") === "1";
+      } catch {}
+      if (wasAuthed) {
+        // The session has previously been authenticated; the current
+        // null is almost certainly a transient state during Firebase
+        // re-hydrate (typical after a dev-server restart). Hold the
+        // viewerRole='unknown' state so the loading gate keeps the
+        // spinner up — the effect deps re-fire when user lands.
+        //
+        // If user is STILL null after 5s, the session is genuinely
+        // expired (not just re-hydrating). Send them to login rather
+        // than dropping a previously-authed user into the public
+        // neighbour view — that's the original "old design page"
+        // flash bug.
+        const t = setTimeout(() => {
+          try {
+            const next = encodeURIComponent(
+              typeof window !== "undefined" ? window.location.pathname : "/",
+            );
+            router.replace(`/login?next=${next}`);
+          } catch {
+            setViewerRole("home");
+          }
+        }, 5000);
+        return () => clearTimeout(t);
+      }
       setViewerRole("home");
       return;
     }
+
+    // Persist "this session has been authed" so the next refresh (or
+    // dev-server restart) knows to wait through the auth re-hydrate
+    // before falling back to the public view.
+    try {
+      sessionStorage.setItem("vmb:was-authed", "1");
+    } catch {}
 
     (async () => {
       try {
@@ -1462,7 +1504,6 @@ export default function ProjectViewPage() {
                 >
                   <OwnerProjectView vm={vm} />
                   {vm.closeProjectModal}
-                  {vm.plansModal}
                 </div>
               </div>
             </Layout>
@@ -1475,7 +1516,6 @@ export default function ProjectViewPage() {
                 onCloseProject={vm.onCloseProject}
               />
               {vm.closeProjectModal}
-              {vm.plansModal}
             </>
           )}
         </div>
@@ -1513,7 +1553,6 @@ export default function ProjectViewPage() {
             >
               {viewContent}
               {vm.closeProjectModal}
-              {vm.plansModal}
             </div>
           </div>
         </Layout>

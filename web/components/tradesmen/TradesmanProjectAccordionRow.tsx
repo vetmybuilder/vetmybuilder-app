@@ -1,12 +1,10 @@
 import * as React from "react";
 import { useApi } from "@/utils/api";
 import ShareProfileModal from "@/components/fileUpload/ShareProfileModal";
-import PlansModal from "@/components/plans/PlansModal";
 import AccordionRow from "@/components/AccordionRow";
 import HireRequestCard, {
   type HireRequest,
 } from "@/components/tradesmen/HireRequestCard";
-import type { PlanId } from "@/shared/lib/plans";
 import { useRouter } from "next/router";
 import {
   Briefcase,
@@ -102,9 +100,6 @@ export default function TradesmanProjectAccordionRow({
   const [contactStatus, setContactStatus] = React.useState<ContactStatus>("unknown");
   const hasRequestedContactRef = React.useRef(false);
 
-  const [plansOpen, setPlansOpen] = React.useState(false);
-  const [currentPlanId, setCurrentPlanId] = React.useState<PlanId | undefined>("free");
-
   const [projectHires, setProjectHires] = React.useState<HireRequest[]>([]);
   const [hiresLoading, setHiresLoading] = React.useState(false);
 
@@ -125,24 +120,6 @@ export default function TradesmanProjectAccordionRow({
     if (!expanded) return;
     fetchProjectHires();
   }, [expanded, fetchProjectHires]);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data } = await api.get("/api/tradesmen/me");
-        if (cancelled) return;
-        const livePlan =
-          (data?.profile?.plan as PlanId | undefined) ||
-          (data?.profile?.planId as PlanId | undefined) ||
-          "free";
-        setCurrentPlanId(livePlan);
-      } catch {
-        if (!cancelled) setCurrentPlanId("free");
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [api]);
 
   React.useEffect(() => {
     if (!expanded) return;
@@ -278,10 +255,6 @@ export default function TradesmanProjectAccordionRow({
       alert(e?.response?.data?.error || "Failed to start checkout");
       setUnlockBusy(false);
     }
-  };
-
-  const handleUpgradeClick = () => {
-    handleUnlockJob();
   };
 
   // Job is gated if contact is not unlocked (not recommended / not paid)
@@ -538,12 +511,6 @@ export default function TradesmanProjectAccordionRow({
                   <p className="text-xs opacity-70 mt-1">Complete verification and choose an unlock option to see this homeowner&apos;s email.</p>
                 </div>
               </div>
-              <button
-                onClick={handleUpgradeClick}
-                className="w-full rounded-lg bg-white/20 hover:bg-white/30 px-4 py-2.5 text-sm font-semibold transition-colors"
-              >
-                View plans &amp; unlock contact
-              </button>
             </div>
           )}
         </div>
@@ -592,8 +559,6 @@ export default function TradesmanProjectAccordionRow({
         <ShareProfileModal open={shareOpen} onClose={() => setShareOpen(false)} onSubmit={handleShareSubmit} />
       )}
 
-      {/* Plans modal */}
-      <PlansModal isOpen={plansOpen} onClose={() => setPlansOpen(false)} currentPlanId={currentPlanId} projectId={project.id} />
     </AccordionRow>
   );
 }

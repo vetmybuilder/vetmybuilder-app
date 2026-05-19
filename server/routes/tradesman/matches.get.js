@@ -118,6 +118,28 @@ module.exports = function mountTradesmanMatches(router, ctx) {
         // chat_messages absent / mock didn't supply - leave map empty.
       }
 
+      // Resolve the "effective me" uid set: the logged-in trade plus any
+      // ghost personas they operate as master. A ghost-attributed
+      // chat_messages row authored while the master was acting as one
+      // of their ghosts should count as "my own" outgoing message — not
+      // as inbound unread from the homeowner. Without this, the master
+      // sees their own ghost replies stack up as unread on their own
+      // inbox. Real trades who aren't master operators just get [self].
+      let selfUids = [builderUid];
+      try {
+        const ghostRows = await mysqlQuery(
+          `SELECT user_id FROM tradesmen WHERE master_uid = ?`,
+          [builderUid],
+        );
+        for (const r of ghostRows || []) {
+          if (r.user_id) selfUids.push(String(r.user_id));
+        }
+      } catch {
+        // tradesmen schema absent in tests / older mocks - fall back to
+        // [self] only.
+      }
+      const selfPh = selfUids.map(() => "?").join(",");
+
       try {
         const unreadRows = await mysqlQuery(
           `SELECT cm.match_id AS matchId, COUNT(*) AS c
@@ -125,15 +147,15 @@ module.exports = function mountTradesmanMatches(router, ctx) {
              LEFT JOIN (
                SELECT match_id, MAX(created_at) AS myLast
                  FROM chat_messages
-                WHERE sender_uid = ?
+                WHERE sender_uid IN (${selfPh})
                   AND match_id IN (${ph})
                 GROUP BY match_id
              ) mine ON mine.match_id = cm.match_id
             WHERE cm.match_id IN (${ph})
-              AND cm.sender_uid <> ?
+              AND cm.sender_uid NOT IN (${selfPh})
               AND (mine.myLast IS NULL OR cm.created_at > mine.myLast)
             GROUP BY cm.match_id`,
-          [builderUid, ...matchIds, ...matchIds, builderUid],
+          [...selfUids, ...matchIds, ...matchIds, ...selfUids],
         );
         for (const r of unreadRows || []) {
           unreadByMatch.set(Number(r.matchId), Number(r.c) || 0);

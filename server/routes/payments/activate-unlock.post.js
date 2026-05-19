@@ -123,28 +123,12 @@ module.exports = (router, ctx) => {
             matchId = m?.[0]?.id || 0;
           }
 
-          if (matchId) {
-            try {
-              const linkPath = `/chat/${matchId}`;
-              const notifMessage = `New message - paid unlock`;
-              await mysqlQuery(
-                `INSERT INTO notifications (userId, type, message, projectId, linkPath, createdAt)
-                 VALUES (?, 'chat_message_new', ?, ?, ?, NOW())`,
-                [ownerUid, notifMessage, pid, linkPath]
-              );
-              ctx.broadcastNotification?.(ownerUid, {
-                type: "chat_message_new",
-                message: notifMessage,
-                projectId: pid,
-                linkPath,
-              });
-            } catch (notifErr) {
-              (log?.warn || console.warn)(
-                { err: notifErr?.message },
-                `${TAG} chat_message_new notification failed`
-              );
-            }
-          }
+          // Deliberately no bell notification here. A paid_unlock arrival
+          // is not a chat message and was previously spamming the bell
+          // with "New message - paid unlock". The homeowner sees the
+          // arrival via the emerald "priority" pill on /projects (S3 in
+          // the messaging model). The match itself is silent until the
+          // homeowner reciprocates or the trade actually sends a chat.
         }
       } catch (e) {
         (log?.warn || console.warn)(

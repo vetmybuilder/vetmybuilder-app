@@ -135,4 +135,56 @@ describe("rankBuilders", () => {
     expect(first.tier).toBe("recommended");
     expect(second.tier).toBe("subscribed");
   });
+
+  // Regression: recommended trades must bypass the trade-type +
+  // service-area eligibility filter. A community recommendation is an
+  // explicit vouch — the recommender already decided this trade
+  // belongs on the shortlist, regardless of whether their listed
+  // trades match the project's classification or their service_areas
+  // include the project's outward. Filtering them out would erase
+  // the whole point of the recommendation tier.
+  it("keeps a recommended trade even when their trade types don't match the project classification", () => {
+    const recommended = {
+      uid: "rec1",
+      primaryTrade: "plumber", // project classification wants kitchen_fitter
+      secondaryTrades: ["gas_engineer"],
+      serviceAreas: ["E4"],
+      baseScore: 40,
+      tier: "recommended",
+    };
+    const result = rankBuilders({ project, candidates: [recommended] });
+    expect(result.length).toBe(1);
+    expect(result[0].tier).toBe("recommended");
+  });
+
+  it("keeps a recommended trade even when their service_areas don't include the project outward", () => {
+    const recommended = {
+      uid: "rec2",
+      primaryTrade: "kitchen_fitter", // matches trade
+      serviceAreas: ["N1"], // does NOT include project outward E4
+      baseScore: 40,
+      tier: "recommended",
+    };
+    const result = rankBuilders({ project, candidates: [recommended] });
+    expect(result.length).toBe(1);
+    expect(result[0].tier).toBe("recommended");
+  });
+
+  it("still filters non-recommended (subscribed) candidates by trade + area eligibility", () => {
+    // tier='subscribed' with a trade NOT in classification.recommended_trades
+    // (kitchen_fitter / plumber). Must be filtered out.
+    const subscribedWrongTrade = {
+      uid: "sub_off",
+      primaryTrade: "roofer",
+      secondaryTrades: ["pest_control"],
+      serviceAreas: ["E4"],
+      baseScore: 80,
+      tier: "subscribed",
+    };
+    const result = rankBuilders({
+      project,
+      candidates: [subscribedWrongTrade],
+    });
+    expect(result).toEqual([]);
+  });
 });

@@ -57,17 +57,21 @@ module.exports = function mountSwipe(router, ctx) {
 
     const status = direction === "right" ? "pending" : "declined_by_homeowner";
 
-    // Read the existing row's source BEFORE upserting so we can branch on
-    // it for the paid_unlock_passed trade notification below. If no row
-    // exists yet, the homeowner is initiating - source is whatever the
-    // frontend sent.
+    // Read the existing row's source + homeowner_swiped_at BEFORE
+    // upserting so we can (a) branch on source for the
+    // paid_unlock_passed trade notification below, and (b) detect the
+    // "homeowner just transitioned from not-swiped to swiped" case for
+    // match formation. If no row exists yet, the homeowner is
+    // initiating - source is whatever the frontend sent and
+    // homeowner_swiped_at was effectively null.
     const existing = await mysqlQuery(
-      `SELECT source FROM swipe_interest
+      `SELECT source, homeowner_swiped_at FROM swipe_interest
         WHERE project_id = ? AND builder_uid = ?
         LIMIT 1`,
       [pid, builderUid],
     );
     const existingSource = existing?.[0]?.source || null;
+    const homeownerSwipedBefore = existing?.[0]?.homeowner_swiped_at != null;
     const effectiveSource = existingSource || source;
 
     // Terminal states are sticky - see swipe.post.js for tradesman side
@@ -129,16 +133,20 @@ module.exports = function mountSwipe(router, ctx) {
       }
     }
 
-    // Trade notification when the homeowner is the FIRST mover - i.e. the
-    // homeowner just right-swiped on a subscribed trade who hasn't seen
-    // this job yet. Without this, the trade has no signal to open
-    // /tradesman/leads and swipe back, so the row sits in 'waiting'
-    // forever. Skip for paid_unlock + recommended sources (those flows
-    // already start with the trade or recommender swiping/posting first).
+    // Trade notification when the homeowner is the FIRST mover - i.e.
+    // the homeowner just right-swiped on a subscribed OR recommended
+    // trade who hasn't seen this job yet. Without this, the trade has
+    // no signal to open /tradesman/leads and swipe back, so the row
+    // sits in 'waiting' forever.
+    //
+    // Skip for paid_unlock — those rows are inserted with status='matched'
+    // by activate-unlock.post.js (the trade has already paid + swiped),
+    // so the homeowner's right-swipe is the SECOND mover, not the first.
+    // Match formation handles the notifications for that case below.
     if (
       direction === "right" &&
       !existingSource &&
-      source === "subscribed"
+      (source === "subscribed" || source === "recommended")
     ) {
       try {
         const ownerRows = await mysqlQuery(
@@ -175,17 +183,22 @@ module.exports = function mountSwipe(router, ctx) {
       }
     }
 
-    // Match formation: only when current row state is 'pending' and the
-    // builder has actually swiped right (builder_swiped_at non-null AND
-    // status is pending - timestamp alone isn't enough since the builder
-    // could have left-swiped, which also sets the timestamp).
+    // Match formation: fires when the homeowner has just transitioned
+    // from "not yet swiped" to "swiped right", and the builder has
+    // also swiped right (or is a ghost — see below). The homeowner
+    // transition is determined from `homeownerSwipedBefore` (read
+    // before the upsert), so we don't double-fire on repeat right-
+    // swipes from the homeowner. Status alone is unreliable here:
+    // paid_unlock rows arrive with status='matched' (from
+    // activate-unlock.post.js) but a NULL homeowner_swiped_at — they
+    // still need fireMatchFormed when the homeowner reciprocates.
     //
     // Ghost shortcut: when the builder is a staging-only ghost
     // (master_uid IS NOT NULL) we treat the homeowner's right-swipe as
     // mutually consensual without waiting for the master to manually
     // swipe back as the persona. This is what lets friends-and-family
     // testers experience the matched-then-chat flow end-to-end.
-    if (direction === "right") {
+    if (direction === "right" && !homeownerSwipedBefore) {
       const rowCheck = await mysqlQuery(
         `SELECT si.status,
                 si.builder_swiped_at,
@@ -198,9 +211,8 @@ module.exports = function mountSwipe(router, ctx) {
       );
       const cur = rowCheck?.[0];
       const builderSwiped = cur?.builder_swiped_at != null;
-      const isPending = cur?.status === "pending";
       const builderIsGhost = !!cur?.builderMasterUid;
-      if (isPending && (builderSwiped || builderIsGhost)) {
+      if (builderSwiped || builderIsGhost) {
         if (builderIsGhost && !builderSwiped) {
           // Backfill builder_swiped_at on the ghost row so the chat /
           // inbox queries that key off this column don't see a half-set
