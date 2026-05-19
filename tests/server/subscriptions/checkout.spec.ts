@@ -39,7 +39,10 @@ describe("POST /api/subscriptions/checkout", () => {
       payments: { createSubscriptionCheckout: vi.fn() },
     });
     const res = mockRes();
-    await handler({ user: { uid: "u1" }, body: {} }, res);
+    await handler(
+      { user: { uid: "u1" }, body: { waiverAccepted: true } },
+      res,
+    );
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({ error: expect.stringMatching(/tier/i) }),
@@ -70,7 +73,13 @@ describe("POST /api/subscriptions/checkout", () => {
       payments: { createSubscriptionCheckout: create },
     });
     const res = mockRes();
-    await handler({ user: { uid: "u1" }, body: { tier: "week_1" } }, res);
+    await handler(
+      {
+        user: { uid: "u1" },
+        body: { tier: "week_1", waiverAccepted: true },
+      },
+      res,
+    );
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({ userId: "u1", tier: "week_1" }),
     );

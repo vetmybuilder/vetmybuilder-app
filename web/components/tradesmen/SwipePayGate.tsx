@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useApi } from "@/utils/api";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 
 // Inline spinner SVG - matches the pattern used in ReportModal,
 // PushPrompt, CloseProjectModal, etc.
@@ -93,6 +94,10 @@ export default function SwipePayGate({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [oneOffPence, setOneOffPence] = useState<number | null>(null);
+  // CCR 2013: immediate-supply waiver must be ticked before either pay
+  // button can fire. Server-side gates at /api/subscriptions/checkout
+  // and /api/projects/:id/unlock-contact/checkout enforce the same.
+  const [waiverAccepted, setWaiverAccepted] = useState(false);
   // Drives the full-screen pay confirmation overlay shown over the
   // gate during a one-off pay flow:
   //   'activating' - spinner + "Activating your unlock..." while the
@@ -112,6 +117,7 @@ export default function SwipePayGate({
       setErr(null);
       setPayState("idle");
       setPayAmountLabel("");
+      setWaiverAccepted(false);
     }
   }, [open, subject?.projectId]);
 
@@ -167,6 +173,7 @@ export default function SwipePayGate({
     try {
       const res = await api.post("/api/subscriptions/checkout", {
         tier: selected,
+        waiverAccepted,
       });
       const redirectUrl = res.data?.hosted_url || res.data?.url;
       const isMock = String(redirectUrl || "").includes("/payments/mock/");
@@ -204,7 +211,7 @@ export default function SwipePayGate({
     try {
       const res = await api.post(
         `/api/projects/${subject.projectId}/unlock-contact/checkout`,
-        {},
+        { waiverAccepted },
       );
       // Server returns either:
       //   - real Stripe: hosted_url to checkout.stripe.com
@@ -336,13 +343,20 @@ export default function SwipePayGate({
 
   return (
     <div
-      className="fixed inset-0 z-[60] bg-white md:bg-[#fef6e9] flex flex-col md:items-center md:justify-center md:p-6 overflow-y-auto"
+      className="fixed inset-0 z-[60] bg-white md:bg-[#fef6e9] flex flex-col md:items-center md:justify-center md:p-6 overflow-y-auto md:overflow-hidden"
       data-testid="swipe-paygate"
       style={{
         fontFamily:
           "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
       }}
     >
+      {/* Cream-page brand watermark - desktop only; mobile keeps its
+          plain white background. Pointer-events disabled so it never
+          intercepts clicks on the modal card above it. */}
+      <div className="hidden md:block absolute inset-0 pointer-events-none overflow-hidden">
+        <BrandWatermarkScatter />
+      </div>
+
       {/* DESKTOP — V2 pricing-page layout. Inline render below; mobile
           is the existing vertical stack. */}
       <DesktopGate
@@ -355,6 +369,8 @@ export default function SwipePayGate({
         busy={busy}
         err={err}
         oneOffLabel={oneOffLabel}
+        waiverAccepted={waiverAccepted}
+        onAcceptWaiverChange={setWaiverAccepted}
       />
 
       {/* MOBILE — existing full-bleed vertical stack, untouched. */}
@@ -509,7 +525,7 @@ export default function SwipePayGate({
           <button
             type="button"
             onClick={startOneOff}
-            disabled={busy}
+            disabled={busy || !waiverAccepted}
             data-testid="swipe-paygate-oneoff"
             className="mt-3 w-full py-2.5 rounded-xl bg-white border-[1.5px] border-amber-400 text-amber-700 font-extrabold text-[13px] disabled:opacity-60 inline-flex items-center justify-center gap-2"
           >
@@ -517,6 +533,34 @@ export default function SwipePayGate({
             {busy ? "Opening…" : `Pay ${oneOffLabel} one-off`}
           </button>
         </div>
+
+        {/* CCR 2013 immediate-supply waiver - mandatory before pay. */}
+        <label
+          className="mx-5 mb-4 flex items-start gap-2 text-[12px] text-slate-600 leading-snug cursor-pointer"
+          data-testid="paygate-waiver"
+        >
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            checked={waiverAccepted}
+            onChange={(e) => setWaiverAccepted(e.target.checked)}
+            data-testid="paygate-waiver-input"
+          />
+          <span>
+            I understand I am getting immediate access to the homeowner&rsquo;s
+            contact details for this job, and I waive my 14-day cancellation
+            right. I&rsquo;ve read the{" "}
+            <a
+              href="/refund-policy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline font-semibold text-indigo-700"
+            >
+              Refund Policy
+            </a>
+            .
+          </span>
+        </label>
       </div>
 
       {/* Sticky CTA */}
@@ -527,7 +571,7 @@ export default function SwipePayGate({
         <button
           type="button"
           onClick={startPass}
-          disabled={busy}
+          disabled={busy || !waiverAccepted}
           data-testid="swipe-paygate-cta"
           className="w-full py-3 rounded-2xl text-white font-extrabold text-[14px] shadow-lg shadow-indigo-200 disabled:opacity-60 inline-flex items-center justify-center gap-2"
           style={{
@@ -571,6 +615,8 @@ function DesktopGate({
   busy,
   err,
   oneOffLabel,
+  waiverAccepted,
+  onAcceptWaiverChange,
 }: {
   subject: SwipePayGateSubject;
   selected: TierId;
@@ -581,6 +627,8 @@ function DesktopGate({
   busy: boolean;
   err: string | null;
   oneOffLabel: string;
+  waiverAccepted: boolean;
+  onAcceptWaiverChange: (v: boolean) => void;
 }) {
   const selectedTier = TIERS.find((t) => t.id === selected)!;
 
@@ -669,10 +717,38 @@ function DesktopGate({
 
           {/* CTA + one-off */}
           <div className="mt-7 mx-auto max-w-2xl">
+            {/* CCR 2013 immediate-supply waiver - mandatory before pay. */}
+            <label
+              className="mb-3 flex items-start gap-2 text-[12.5px] text-slate-600 leading-snug cursor-pointer"
+              data-testid="paygate-waiver"
+            >
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                checked={waiverAccepted}
+                onChange={(e) => onAcceptWaiverChange(e.target.checked)}
+                data-testid="paygate-waiver-input"
+              />
+              <span>
+                I understand I am getting immediate access to the homeowner&rsquo;s
+                contact details for this job, and I waive my 14-day cancellation
+                right. I&rsquo;ve read the{" "}
+                <a
+                  href="/refund-policy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline font-semibold text-indigo-700"
+                >
+                  Refund Policy
+                </a>
+                .
+              </span>
+            </label>
+
             <button
               type="button"
               onClick={startPass}
-              disabled={busy}
+              disabled={busy || !waiverAccepted}
               data-testid="swipe-paygate-cta"
               className="w-full py-3.5 rounded-2xl text-white font-extrabold text-[15px] shadow-lg shadow-emerald-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-none hover:brightness-105 active:brightness-95 inline-flex items-center justify-center gap-2 transition-all"
               style={{ background: "linear-gradient(135deg,#10b981,#059669)" }}
@@ -713,7 +789,7 @@ function DesktopGate({
               <button
                 type="button"
                 onClick={startOneOff}
-                disabled={busy}
+                disabled={busy || !waiverAccepted}
                 data-testid="swipe-paygate-oneoff"
                 className="shrink-0 px-4 py-2 rounded-full text-[12.5px] font-extrabold text-amber-800 bg-white border-[1.5px] border-amber-400 hover:bg-amber-50 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2 transition-colors"
               >

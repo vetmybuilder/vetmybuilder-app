@@ -116,6 +116,29 @@ test.describe("Tradesman pay-gate on /tradesman/jobs", () => {
     ).toBeVisible();
   });
 
+  test("pay buttons stay disabled until the tradesperson accepts immediate delivery and waives the 14-day cancellation right", async ({
+    request,
+    runtime,
+    apiClient,
+    adminApi,
+    tradesmanJobsDeckPage,
+    swipePayGatePage,
+  }) => {
+    const scene = await setupGatedJobScene({
+      request,
+      apiBaseUrl: runtime.apiBaseUrl,
+      tradesmanClient: apiClient,
+      adminApi,
+    });
+
+    await tradesmanJobsDeckPage.goto();
+    await tradesmanJobsDeckPage.expectTopCardShowing(scene.projectTitle);
+    await tradesmanJobsDeckPage.tapLike();
+
+    await swipePayGatePage.expectVisibleFor(scene.projectTitle);
+    await swipePayGatePage.expectPayButtonsDisabledUntilWaiver();
+  });
+
   test("liking a recommended job skips the pay-gate", async ({
     request,
     runtime,

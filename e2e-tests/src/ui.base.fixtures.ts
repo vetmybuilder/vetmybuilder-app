@@ -31,6 +31,7 @@ import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import SignupCompletePage from "./pages/SignupCompletePage";
 import TradesmanSignupCompletePage from "./pages/TradesmanSignupCompletePage";
 import AdminUsersPage from "./pages/AdminUsersPage";
+import AdminRefundsPage from "./pages/AdminRefundsPage";
 import NotificationSettingsPage from "./pages/NotificationSettingsPage";
 import TradesmanPublicProfilePage from "./pages/TradesmanPublicProfilePage";
 import CookieBannerComponent from "./pages/components/CookieBannerComponent";
@@ -72,6 +73,7 @@ type UiFixtures = {
   signupCompletePage: SignupCompletePage;
   tradesmanSignupCompletePage: TradesmanSignupCompletePage;
   adminUsersPage: AdminUsersPage;
+  adminRefundsPage: AdminRefundsPage;
   tradesmanPublicProfilePage: TradesmanPublicProfilePage;
   notificationSettingsPage: NotificationSettingsPage;
   cookieBanner: CookieBannerComponent;
@@ -237,6 +239,10 @@ export const test = base.extend<UiFixtures, { runtime: Runtime }>({
 
   adminUsersPage: async ({ page }, use) => {
     await use(new AdminUsersPage(page));
+  },
+
+  adminRefundsPage: async ({ page }, use) => {
+    await use(new AdminRefundsPage(page));
   },
 
   tradesmanPublicProfilePage: async ({ page }, use) => {

@@ -5,6 +5,7 @@
 // Extracted from server/routes/subscriptions/stripe-webhook.post.js.
 
 const { syncSubscriptionCache } = require("../../subscriptions/syncSubscriptionCache");
+const { REFUND_POLICY_VERSION } = require("../refundPolicyVersion");
 
 async function subscriptionCheckoutCompleted({ event, ctx }) {
   const { mysqlQuery, log = console } = ctx;
@@ -17,13 +18,16 @@ async function subscriptionCheckoutCompleted({ event, ctx }) {
 
   await mysqlQuery(
     `INSERT INTO builder_subscriptions
-       (user_id, tier_id, stripe_subscription_id, status)
-     VALUES (?, ?, ?, 'active')
+       (user_id, tier_id, stripe_subscription_id, status,
+        waiver_accepted_at, waiver_policy_version)
+     VALUES (?, ?, ?, 'active', NOW(), ?)
      ON DUPLICATE KEY UPDATE
        status = 'active',
        tier_id = VALUES(tier_id),
-       user_id = VALUES(user_id)`,
-    [userId, tier, subId],
+       user_id = VALUES(user_id),
+       waiver_accepted_at = COALESCE(waiver_accepted_at, NOW()),
+       waiver_policy_version = COALESCE(waiver_policy_version, VALUES(waiver_policy_version))`,
+    [userId, tier, subId, REFUND_POLICY_VERSION],
   );
   await syncSubscriptionCache({ mysqlQuery, userId, log });
 }

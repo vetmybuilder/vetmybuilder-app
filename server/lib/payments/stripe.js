@@ -217,6 +217,35 @@ function createStripePayments(opts = {}) {
     return { id: sub.id, cancelAtPeriodEnd: sub.cancel_at_period_end };
   }
 
+  async function createRefund({
+    paymentIntentId,
+    chargeId,
+    amountPence,
+    reason,
+    metadata,
+  }) {
+    if (!paymentIntentId && !chargeId) {
+      throw new Error("createRefund requires paymentIntentId or chargeId");
+    }
+    const params = {
+      reason: reason || "requested_by_customer",
+      metadata: metadata || {},
+    };
+    if (paymentIntentId) params.payment_intent = paymentIntentId;
+    if (chargeId) params.charge = chargeId;
+    if (Number.isFinite(amountPence) && amountPence > 0) {
+      params.amount = amountPence;
+    }
+    const refund = await stripe.refunds.create(params);
+    return {
+      id: refund.id,
+      status: refund.status,
+      amount: refund.amount,
+      payment_intent: refund.payment_intent,
+      charge: refund.charge,
+    };
+  }
+
   function verifyWebhookFromReq(req) {
     const sig = req.headers?.["stripe-signature"];
     const whSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -244,6 +273,7 @@ function createStripePayments(opts = {}) {
     listSessions,
     verifyWebhook: verifyWebhookFromReq,
     emitWebhook,
+    createRefund,
     isStripe: true,
   };
 }
