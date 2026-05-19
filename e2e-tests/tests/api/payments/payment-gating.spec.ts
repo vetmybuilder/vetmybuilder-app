@@ -30,7 +30,7 @@ test.describe("Payment gating for tradespeople", () => {
     const project = Project.aProject().withRandomDetails();
     const created = await projectApi.createProject(project.toApiPayload());
 
-    const res = await apiClient.post(`/api/projects/${created.id}/unlock-contact/checkout`);
+    const res = await apiClient.post(`/api/projects/${created.id}/unlock-contact/checkout`, { waiverAccepted: true });
     expect(res.ok()).toBe(true);
 
     const body = await res.json();
@@ -52,14 +52,14 @@ test.describe("Payment gating for tradespeople", () => {
     const project = Project.aProject().withRandomDetails();
     const created = await projectApi.createProject(project.toApiPayload());
 
-    const { sessionId } = await (await apiClient.post(`/api/projects/${created.id}/unlock-contact/checkout`)).json();
+    const { sessionId } = await (await apiClient.post(`/api/projects/${created.id}/unlock-contact/checkout`, { waiverAccepted: true })).json();
 
     await apiClient.post(`/api/payments/mock/pay`, {
       sessionId,
       card: TEST_CARD,
     });
 
-    const res = await apiClient.post(`/api/projects/${created.id}/unlock-contact/checkout`);
+    const res = await apiClient.post(`/api/projects/${created.id}/unlock-contact/checkout`, { waiverAccepted: true });
     const body = await res.json();
     expect(body.ok).toBe(true);
     expect(body.alreadyUnlocked).toBe(true);
@@ -78,7 +78,7 @@ test.describe("Payment gating for tradespeople", () => {
     const project = Project.aProject().withRandomDetails();
     const created = await projectApi.createProject(project.toApiPayload());
 
-    const { sessionId } = await (await apiClient.post(`/api/projects/${created.id}/unlock-contact/checkout`)).json();
+    const { sessionId } = await (await apiClient.post(`/api/projects/${created.id}/unlock-contact/checkout`, { waiverAccepted: true })).json();
 
     const payRes = await apiClient.post(`/api/payments/mock/pay`, {
       sessionId,
@@ -111,7 +111,7 @@ test.describe("Payment gating for tradespeople", () => {
       wouldUseAgain: false,
     });
 
-    const res = await apiClient.post(`/api/projects/${created.id}/unlock-contact/checkout`);
+    const res = await apiClient.post(`/api/projects/${created.id}/unlock-contact/checkout`, { waiverAccepted: true });
     expect(res.status()).toBe(400);
 
     const body = await res.json();
