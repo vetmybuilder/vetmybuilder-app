@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
+import { useRole } from "@/utils/useRole";
 import GuestOnly from "@/components/GuestOnly";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import { initFirebase } from "@/utils/firebase";
@@ -57,6 +58,7 @@ export default function TradesmanRegisterV2Page() {
   const api = useApi();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const { role, loading: roleLoading } = useRole();
 
   // IMPORTANT: while on this page, block global auth redirects
   useEffect(() => {
@@ -75,6 +77,11 @@ export default function TradesmanRegisterV2Page() {
   // popup completes Firebase sign-in and Next routes them back here. The
   // multi-step email wizard is no longer the right place to be — send them
   // to the SSO completion wizard instead.
+  //
+  // Logged-in users with no tradesman intent (e.g. a homeowner who clicked
+  // through to this URL by mistake) are bounced to their role-appropriate
+  // dashboard instead of seeing a blank page - GuestOnly intentionally
+  // doesn't redirect on /tradesman/* so this page owns its own routing.
   useEffect(() => {
     if (authLoading || !user) return;
     let intent: string | null = null;
@@ -83,8 +90,11 @@ export default function TradesmanRegisterV2Page() {
     } catch {}
     if (intent === "tradesman") {
       router.replace("/tradesman/signup/complete");
+      return;
     }
-  }, [user, authLoading, router]);
+    if (roleLoading) return;
+    router.replace(role === "tradesman" ? "/tradesman/jobs" : "/projects");
+  }, [user, authLoading, router, role, roleLoading]);
 
   const [step, setStep] = useState<Step>(1);
 
