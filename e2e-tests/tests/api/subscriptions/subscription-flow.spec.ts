@@ -6,6 +6,7 @@ test.describe("POST /api/subscriptions/checkout (mock provider)", () => {
   }) => {
     const res = await apiClient.post("/api/subscriptions/checkout", {
       tier: "week_1",
+      waiverAccepted: true,
     });
     expect(res.status()).toBe(200);
     const body = await res.json();
@@ -25,6 +26,7 @@ test.describe("POST /api/subscriptions/checkout (mock provider)", () => {
   test("returns 400 for unknown tier", async ({ apiClient }) => {
     const res = await apiClient.post("/api/subscriptions/checkout", {
       tier: "year_1",
+      waiverAccepted: true,
     });
     expect(res.status()).toBe(400);
   });
@@ -32,6 +34,7 @@ test.describe("POST /api/subscriptions/checkout (mock provider)", () => {
   test("cancel marks the subscription canceled", async ({ apiClient }) => {
     const checkoutRes = await apiClient.post("/api/subscriptions/checkout", {
       tier: "month_1",
+      waiverAccepted: true,
     });
     expect(checkoutRes.status()).toBe(200);
 

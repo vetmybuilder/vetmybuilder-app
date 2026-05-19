@@ -14,6 +14,13 @@ module.exports = function mountSubscriptionCheckout(router, ctx) {
     const uid = req.user?.uid;
     if (!uid) return res.status(401).json({ error: "Unauthorized" });
 
+    // CCR 2013: refuse to create the checkout session without an
+    // explicit immediate-supply waiver. The client must pass
+    // waiverAccepted: true with the request body.
+    if (req.body?.waiverAccepted !== true) {
+      return res.status(400).json({ error: "waiver_required" });
+    }
+
     const tier = req.body?.tier;
     if (!isValidTier(tier)) {
       return res.status(400).json({ error: "Unknown or missing tier" });

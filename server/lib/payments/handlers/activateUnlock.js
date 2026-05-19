@@ -6,6 +6,8 @@
 // updates the existing rows rather than duplicating. Full dedupe by
 // event.id arrives in spec #2.
 
+const { REFUND_POLICY_VERSION } = require("../refundPolicyVersion");
+
 async function activateUnlock({ event, ctx }) {
   const { mysqlQuery, log = console } = ctx;
   if (!mysqlQuery) return;
@@ -25,10 +27,16 @@ async function activateUnlock({ event, ctx }) {
 
   await mysqlQuery(
     `INSERT INTO project_contact_unlocks
-      (project_id, buyer_uid, session_id, amount, currency, status, created_at, approved_at)
-     VALUES (?, ?, ?, ?, ?, 'active', NOW(), NOW())
-     ON DUPLICATE KEY UPDATE status = 'active', approved_at = NOW()`,
-    [projectId, uid, session.id, amount, currency],
+      (project_id, buyer_uid, session_id, amount, currency, status,
+       waiver_accepted_at, waiver_policy_version,
+       created_at, approved_at)
+     VALUES (?, ?, ?, ?, ?, 'active', NOW(), ?, NOW(), NOW())
+     ON DUPLICATE KEY UPDATE
+       status = 'active',
+       approved_at = NOW(),
+       waiver_accepted_at = COALESCE(waiver_accepted_at, NOW()),
+       waiver_policy_version = COALESCE(waiver_policy_version, VALUES(waiver_policy_version))`,
+    [projectId, uid, session.id, amount, currency, REFUND_POLICY_VERSION],
   );
 
   await mysqlQuery(

@@ -231,6 +231,26 @@ function createMockPayments(opts = {}) {
     return { id: stripeSubscriptionId, cancelAtPeriodEnd: true };
   }
 
+  // Synthetic refund - no real Stripe call. The `pi_force_error` /
+  // `ch_force_error` magic IDs let admin-refund tests exercise the
+  // error path without a real Stripe failure.
+  async function createRefund({
+    paymentIntentId,
+    chargeId,
+    amountPence,
+  } = {}) {
+    if (paymentIntentId === "pi_force_error" || chargeId === "ch_force_error") {
+      throw new Error("mock Stripe refund failure (forced)");
+    }
+    return {
+      id: `re_mock_${Date.now()}`,
+      status: "succeeded",
+      amount: amountPence || 999,
+      payment_intent: paymentIntentId || null,
+      charge: chargeId || null,
+    };
+  }
+
   return {
     createCheckout,
     createSession: createCheckout,
@@ -244,6 +264,7 @@ function createMockPayments(opts = {}) {
     listSessions,
     verifyWebhook: verifyWebhookFromReq,
     emitWebhook,
+    createRefund,
     isStripe: false,
   };
 }

@@ -135,13 +135,40 @@ function findSchemaFile() {
     process.exit(0);
   }
 
+  // Read the migration filenames once so each freshly-applied schema can
+  // be marked at "latest" in _migrations. mysql_schema.sql is the
+  // canonical snapshot - it already contains every column/table that
+  // incremental migrations would add - so re-running 001+ against a
+  // wiped+seeded DB would fail with "Duplicate column" errors. Stamping
+  // them as already applied keeps the bookkeeping consistent with what
+  // the schema actually is.
+  const migrationsDir = path.resolve(__dirname, "..", "server", "migrations");
+  let migrationFiles = [];
+  try {
+    migrationFiles = fs
+      .readdirSync(migrationsDir)
+      .filter((f) => f.endsWith(".sql"))
+      .sort((a, b) => a.localeCompare(b));
+  } catch (e) {
+    logger.warn(
+      { err: e?.message, migrationsDir },
+      "Could not list migration files - _migrations will be empty after wipe",
+    );
+  }
+
   for (const db of SHARD_DBS) {
     try {
       await adminConn.query(`DROP DATABASE IF EXISTS \`${db}\``);
       await adminConn.query(`CREATE DATABASE \`${db}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
       await adminConn.query(`USE \`${db}\``);
       await adminConn.query(schemaSql);
-      logger.info({ db }, "DB wiped and schema applied");
+      for (const name of migrationFiles) {
+        await adminConn.query(
+          "INSERT IGNORE INTO _migrations (name, appliedAt) VALUES (?, NOW())",
+          [name],
+        );
+      }
+      logger.info({ db, migrationsRecorded: migrationFiles.length }, "DB wiped and schema applied");
     } catch (e) {
       logger.error({ db, err: e?.message }, "Failed to reset DB");
     }
