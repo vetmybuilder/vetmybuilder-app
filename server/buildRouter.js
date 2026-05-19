@@ -478,6 +478,8 @@ function buildRouter(ctx) {
   require("./routes/admin/tradesmen.unlocks.post")(router, ctx);
   require("./routes/admin/subscription.sweep.post")(router, ctx);
   require("./routes/admin/subscriptions.cancel.post")(router, ctx);
+  require("./routes/admin/refunds.post")(router, ctx);
+  require("./routes/admin/refunds.get")(router, ctx);
   require("./routes/admin/recommendation-leaderboard.get")(router, ctx);
   require("./routes/admin/subscription.approve.post")(router, ctx);
   require("./routes/admin/subscription.reject.post")(router, ctx);

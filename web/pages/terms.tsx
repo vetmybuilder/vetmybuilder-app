@@ -11,10 +11,9 @@ import LegalPageLayout, {
 // - Section "Tradespeople: Verified badge" - DMCC exposure
 // - Section "Limitation of liability" - CRA 2015 fairness test
 // - Section "Your content" - scope and sublicensing
-// - Section "Payments and access passes" - refund policy alignment with
-//   Consumer Contracts (Information, Cancellation and Additional Charges)
-//   Regulations 2013, especially the digital-content immediate-supply
-//   waiver.
+//
+// Refund detail lives on the dedicated /refund-policy page; this file
+// only summarises and links out so the two don't drift.
 // ---------------------------------------------------------------------------
 
 const sections: LegalSection[] = [
@@ -159,12 +158,7 @@ Payments are processed by **Stripe Payments Europe Ltd**. We never see your full
 
 **No auto-renewal.** Access passes are one-off purchases that expire at the end of their term. We will not charge your card again without an explicit new purchase.
 
-**Refunds.** Because access passes and one-off unlocks are digital services delivered immediately on payment, the statutory 14-day cancellation right under the Consumer Contracts (Information, Cancellation and Additional Charges) Regulations 2013 does not apply once you start using the entitlement. We will issue a refund where:
-- The Platform was unavailable for a substantial part of the period through our fault
-- The entitlement was charged to you in error
-- We are otherwise required to refund by law
-
-Email hello@vetmybuilder.com to request a refund.
+**Refunds.** Refund eligibility, how to request one, and the 14-day cancellation right under the Consumer Contracts Regulations 2013 are covered in full on our dedicated <a href="/refund-policy">Refund Policy</a> page.
 
 VAT receipts are available on request.`,
   },

@@ -44,6 +44,13 @@ const POLICIES: Policy[] = [
     group: "Using the platform",
   },
   {
+    title: "Refund Policy",
+    href: "/refund-policy",
+    description:
+      "When we refund tradesperson payments, when we don't, and how to request one.",
+    group: "Using the platform",
+  },
+  {
     title: "Acceptable Use Policy",
     href: "/acceptable-use",
     description:

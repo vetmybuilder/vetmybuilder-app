@@ -36,6 +36,14 @@ module.exports = (router, ctx) => {
           return res.status(401).json({ error: "Unauthorized" });
         }
 
+        // CCR 2013: refuse to create the checkout session without an
+        // explicit immediate-supply waiver. The client must surface a
+        // checkbox and pass waiverAccepted: true with the request body.
+        if (req.body?.waiverAccepted !== true) {
+          log.warn?.(`${TAG} rejected: waiver_required`, { uid });
+          return res.status(400).json({ error: "waiver_required" });
+        }
+
         // --- Verify tradesman ---
         const actorRows = await mysqlQuery(
           `SELECT user_id

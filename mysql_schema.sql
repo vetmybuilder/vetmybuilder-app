@@ -635,6 +635,8 @@ CREATE TABLE IF NOT EXISTS project_contact_unlocks (
       status      VARCHAR(50) NOT NULL DEFAULT 'pending', -- 'pending' | 'approved' | 'rejected'
       created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       approved_at DATETIME NULL,
+      waiver_accepted_at DATETIME NULL,
+      waiver_policy_version VARCHAR(32) NULL,
       UNIQUE (project_id, buyer_uid)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -649,6 +651,8 @@ CREATE TABLE IF NOT EXISTS builder_subscriptions (
   canceled_at   DATETIME NULL,
   created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  waiver_accepted_at DATETIME NULL,
+  waiver_policy_version VARCHAR(32) NULL,
   UNIQUE KEY uq_builder_subscriptions_stripe (stripe_subscription_id),
   KEY idx_builder_subscriptions_user_active (user_id, status, current_period_end)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -730,7 +734,9 @@ CREATE TABLE IF NOT EXISTS payments_subscription (
     provider_customer_id TEXT,
     provider_subscription_id TEXT,
     provider_payment_intent TEXT,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    waiver_accepted_at DATETIME NULL,
+    waiver_policy_version VARCHAR(32) NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS payments_oneoff (
@@ -746,6 +752,21 @@ CREATE TABLE IF NOT EXISTS payments_oneoff (
     expires_at TEXT,
     created_at TEXT NOT NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS admin_refunds (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  stripe_refund_id VARCHAR(64) NULL,
+  payment_intent_id VARCHAR(64) NULL,
+  charge_id VARCHAR(64) NULL,
+  amount_pence INT NULL,
+  reason TEXT NOT NULL,
+  admin_uid VARCHAR(64) NOT NULL,
+  status ENUM('success','error') NOT NULL,
+  error_text TEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_payment_intent (payment_intent_id),
+  INDEX idx_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS tradesmen_spotlight_views (
         tradesman_user_id VARCHAR(255) PRIMARY KEY,

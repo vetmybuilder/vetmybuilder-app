@@ -28,12 +28,16 @@ const {
 const {
   subscriptionDeleted,
 } = require("../../lib/payments/handlers/subscriptionDeleted");
+const {
+  chargeRefunded,
+} = require("../../lib/payments/handlers/chargeRefunded");
 
 const defaultHandlers = {
   activateUnlock,
   subscriptionCheckoutCompleted,
   subscriptionUpdated,
   subscriptionDeleted,
+  chargeRefunded,
 };
 
 module.exports = (router, ctx) => {
@@ -71,6 +75,8 @@ module.exports = (router, ctx) => {
           await handlers.subscriptionUpdated({ event, ctx });
         } else if (event.type === "customer.subscription.deleted") {
           await handlers.subscriptionDeleted({ event, ctx });
+        } else if (event.type === "charge.refunded") {
+          await handlers.chargeRefunded({ event, ctx });
         }
         // Unknown event types: 200 no-op so Stripe stops retrying.
         return res.status(200).json({ received: true });
