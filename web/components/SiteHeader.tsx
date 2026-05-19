@@ -251,14 +251,23 @@ export default function SiteHeader() {
     } catch {}
     return { isTrades: false, company: null, photo: null, roleChecked: false };
   }
-  const seed = readCachedRole();
-  const [isTrades, setIsTrades] = useState<boolean>(seed.isTrades);
-  const [company, setCompany] = useState<string | null>(seed.company);
-  // Profile picture URL for the trades menu avatar. Mirrors the same
-  // field /tradesman/account renders (profile.profile_picture_url).
-  // Cached in sessionStorage so it doesn't blink on subsequent loads.
-  const [tradesPhoto, setTradesPhoto] = useState<string | null>(seed.photo);
-  const [roleChecked, setRoleChecked] = useState<boolean>(seed.roleChecked);
+  // First render must match SSR exactly (no user, isTrades=false) to
+  // avoid React hydration mismatches. The sessionStorage cache is
+  // read in a post-mount effect below and the role-dependent UI
+  // updates after that. The cache is still doing its job — it just
+  // applies one paint later than the synchronous-seed version did.
+  const [isTrades, setIsTrades] = useState<boolean>(false);
+  const [company, setCompany] = useState<string | null>(null);
+  const [tradesPhoto, setTradesPhoto] = useState<string | null>(null);
+  const [roleChecked, setRoleChecked] = useState<boolean>(false);
+
+  useEffect(() => {
+    const seed = readCachedRole();
+    if (seed.isTrades) setIsTrades(true);
+    if (seed.company) setCompany(seed.company);
+    if (seed.photo) setTradesPhoto(seed.photo);
+    if (seed.roleChecked) setRoleChecked(true);
+  }, []);
 
   // mobile menu — global instance lives at the app root; the burger
   // buttons here just call openMenu() via the shared context. Inbox
