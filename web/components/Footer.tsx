@@ -127,9 +127,6 @@ export default function Footer() {
             <p className="text-xs text-zinc-600">
               Registered in England and Wales. Company No. 1627511.
             </p>
-            <p className="text-xs text-zinc-600">
-              Powered by Connect2Find Ltd.
-            </p>
           </div>
           <div className="flex items-center gap-5">
             <Link href="https://x.com/vetmybuilder" target="_blank" rel="noopener noreferrer" aria-label="X (Twitter)" className="text-zinc-500 hover:text-white transition-colors">
