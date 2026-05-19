@@ -90,9 +90,6 @@ export default function Footer() {
               className="text-xl font-black tracking-tight text-white"
             />
           </Link>
-          <p className="mt-4 mx-auto max-w-xs text-[13px] text-zinc-400 leading-relaxed">
-            Find a tradesperson the personal way. Hand-picked by your community, smart-ranked, and verified by us.
-          </p>
 
           <div className="mt-10 space-y-9">
             <Section title="Platform" items={platformLinks} />
@@ -102,20 +99,17 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* DESKTOP layout (5-column grid, left-aligned). */}
-        <div className="hidden sm:grid grid-cols-2 md:grid-cols-5 gap-8 lg:gap-12 text-left">
+        {/* DESKTOP layout - brand spans 2 columns so the wordmark has
+            room to breathe next to the section headers. */}
+        <div className="hidden sm:grid grid-cols-2 md:grid-cols-6 gap-8 lg:gap-12 text-left">
           {/* Brand */}
-          <div className="col-span-2 md:col-span-1">
+          <div className="col-span-2 md:col-span-2 md:pr-4">
             <Link href="/" className="flex items-center">
               <BrandWordmark
                 tone={isTrades ? "emerald" : "indigo"}
                 className="text-xl font-black tracking-tight text-white"
               />
             </Link>
-            <p className="mt-4 text-sm text-zinc-400 max-w-xs leading-relaxed">
-              Find a tradesperson the personal way. Hand-picked by your community,
-              smart-ranked, and verified by us.
-            </p>
           </div>
 
           <Section title="Platform" items={platformLinks} />
