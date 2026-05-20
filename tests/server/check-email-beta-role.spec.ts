@@ -107,14 +107,21 @@ describe("POST /api/auth/check-email — role-aware beta gate", () => {
   });
 
   it("lets trader signup past the beta gate even with no beta code at all", async () => {
-    // We only assert the gate decision here - whatever happens
-    // downstream (Firebase lookup, email validation) is out of scope.
+    // The beta gate is synchronous - it runs before the route awaits the
+    // Firebase lookup. We don't have firebase-admin mocked in unit tests,
+    // so awaiting the full handler hangs on CI (no Google creds available
+    // to resolve the lookup). Instead we kick the handler off, give the
+    // sync prelude one microtask tick to run, and assert on the gate
+    // decision. Suppress the trailing rejection so it doesn't pollute
+    // the test runner.
     const handler = mountCheckEmail();
     const res = mockRes();
-    await handler(
+    const pending = handler(
       { body: { email: "trader@example.com", role: "trader" } },
       res,
     );
+    void (pending as any)?.catch?.(() => {});
+    await Promise.resolve();
     expect(res.status).not.toHaveBeenCalledWith(403);
     expect(res.json).not.toHaveBeenCalledWith(
       expect.objectContaining({ error: "invalid_beta_code" }),
@@ -124,7 +131,7 @@ describe("POST /api/auth/check-email — role-aware beta gate", () => {
   it("lets the homeowner past the beta gate when the correct code is supplied", async () => {
     const handler = mountCheckEmail();
     const res = mockRes();
-    await handler(
+    const pending = handler(
       {
         body: {
           email: "alice@example.com",
@@ -134,6 +141,8 @@ describe("POST /api/auth/check-email — role-aware beta gate", () => {
       },
       res,
     );
+    void (pending as any)?.catch?.(() => {});
+    await Promise.resolve();
     expect(res.status).not.toHaveBeenCalledWith(403);
     expect(res.json).not.toHaveBeenCalledWith(
       expect.objectContaining({ error: "invalid_beta_code" }),
