@@ -14,6 +14,10 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/router";
 import { useApi } from "@/utils/api";
+import {
+  trackProjectRecSwiped,
+  trackMatchFormed,
+} from "@/utils/analytics";
 import BuilderCard, { BuilderCardBuilder } from "./BuilderCard";
 import BuilderCardBack from "./BuilderCardBack";
 import SwipeActionBar from "./SwipeActionBar";
@@ -118,7 +122,9 @@ export default function SwipeDeck({
         direction,
         source,
       });
+      trackProjectRecSwiped(direction, current.uid, Number(projectId));
       if (direction === "right" && res.data?.status === "matched") {
+        trackMatchFormed(Number(projectId), current.uid, source);
         // Server returns the swipe_interest row id; fall back to uid so
         // older paths that don't surface matchId still navigate (the
         // legacy /match/:id route accepts either).

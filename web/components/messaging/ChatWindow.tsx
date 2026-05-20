@@ -8,6 +8,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
+import {
+  trackChatThreadOpened,
+  trackChatMessageSent,
+} from "@/utils/analytics";
 import { useSseEvent } from "@/utils/useSseEvent";
 import PhotoLightbox from "@/components/PhotoLightbox";
 import TradesmanProfileModal from "@/components/project/TradesmanProfileModal";
@@ -79,6 +83,10 @@ export default function ChatWindow({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    if (matchId) trackChatThreadOpened(Number(matchId));
+  }, [matchId]);
+
+  useEffect(() => {
     let alive = true;
     (async () => {
       try {
@@ -147,6 +155,7 @@ export default function ChatWindow({
         );
         posted = res.data;
       }
+      trackChatMessageSent(Number(matchId), hasPhotos);
       setData((prev) =>
         prev
           ? {

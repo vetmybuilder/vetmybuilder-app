@@ -17,6 +17,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useApi } from "@/utils/api";
+import { trackLeadSwiped, trackMatchFormed } from "@/utils/analytics";
 import { useAuth } from "@/utils/auth";
 import { useMobileMenu } from "@/utils/mobileMenu";
 import { ChevronLeft } from "lucide-react";
@@ -125,7 +126,13 @@ export default function TradesmanLeadsPage() {
         `/api/swipe-interest/${current.matchId}/respond`,
         { direction },
       );
+      trackLeadSwiped(direction, Number(current.projectId));
       if (direction === "right" && res.data?.status === "matched") {
+        trackMatchFormed(
+          Number(current.projectId),
+          res.data?.builderUid || "self",
+          current.source === "paid_unlock" ? "paid_unlock" : "subscribed",
+        );
         // Pop the bottom-right TradesmanMessagingDock for the new
         // match instead of full-page-navigating to /chat — the
         // homeowner side uses the same dock pattern (see
@@ -175,7 +182,13 @@ export default function TradesmanLeadsPage() {
         `/api/swipe-interest/${lead.matchId}/respond`,
         { direction },
       );
+      trackLeadSwiped(direction, Number(lead.projectId));
       if (direction === "right" && res.data?.status === "matched") {
+        trackMatchFormed(
+          Number(lead.projectId),
+          res.data?.builderUid || "self",
+          lead.source === "paid_unlock" ? "paid_unlock" : "subscribed",
+        );
         // Same dock-pop pattern as respond() above — matches the
         // homeowner-side post-match UX.
         if (typeof window !== "undefined") {

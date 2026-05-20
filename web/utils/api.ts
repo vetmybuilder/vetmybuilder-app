@@ -2,6 +2,7 @@
 
 import axios from "axios";
 import type { InternalAxiosRequestConfig } from "axios";
+import posthog from "posthog-js";
 import { getAuth } from "firebase/auth";
 import { initFirebase } from "@/utils/firebase";
 
@@ -72,6 +73,35 @@ api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
   }
   return config;
 });
+
+/** Interceptor 3:
+ * Capture failed API calls as `api_error` events in PostHog. Skips
+ * admin pages so internal-only debugging noise doesn't pollute the
+ * product event stream. Never let analytics break the request flow.
+ */
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    try {
+      const path =
+        typeof window !== "undefined" ? window.location.pathname : "";
+      const loaded = Boolean((posthog as any).__loaded);
+      if (!path.startsWith("/admin/") && loaded) {
+        posthog.capture("api_error", {
+          method: String(err?.config?.method || "").toUpperCase(),
+          request_path: err?.config?.url || null,
+          status: err?.response?.status ?? null,
+          error_code:
+            err?.response?.data?.error || err?.code || null,
+          path,
+        });
+      }
+    } catch {
+      // never let analytics fail the request
+    }
+    return Promise.reject(err);
+  },
+);
 
 /**
  * The API server origin (e.g. "http://localhost:3100").

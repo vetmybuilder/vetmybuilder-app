@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
+import { trackUnlockActivated } from "@/utils/analytics";
 
 export default function PaymentSuccess() {
   const router = useRouter();
@@ -26,6 +27,10 @@ export default function PaymentSuccess() {
       try {
         await api.post("/api/payments/activate-unlock", { sessionId, projectId });
       } catch {}
+
+      if (projectId) {
+        trackUnlockActivated(Number(projectId), 0);
+      }
 
       setStatus("success");
 

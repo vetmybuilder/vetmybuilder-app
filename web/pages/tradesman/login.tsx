@@ -58,8 +58,8 @@ export default function TradesmanLoginAlias() {
         isTradesman =
           String(data?.role || "").toLowerCase() === "tradesman" ||
           !!data?.profile;
-      } catch (e) {
-        console.warn("[tradesman/login] /api/tradesmen/me failed", e);
+      } catch {
+        // Not yet a tradesman - fall through to the interstitial below.
       }
       if (!alive) return;
 
@@ -102,8 +102,8 @@ export default function TradesmanLoginAlias() {
     setPhase("redirecting");
     try {
       await signOutUser();
-    } catch (e) {
-      console.warn("[tradesman/login] signOutUser failed", e);
+    } catch {
+      // Best effort - the hard nav below resets local state regardless.
     }
     if (typeof window !== "undefined") {
       window.location.replace("/?signedOut=1");

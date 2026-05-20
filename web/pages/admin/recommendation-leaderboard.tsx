@@ -134,13 +134,8 @@ function AdminLeaderboardInner() {
             if (!Number.isFinite(idNum) || !Number.isFinite(val)) continue;
             scores[idNum] = val;
           }
-        } catch (e) {
+        } catch {
           // If a project is not accessible (e.g. not live / not owner), just skip it.
-          // eslint-disable-next-line no-console
-          console.warn("[admin rec leaderboard] ratings fetch failed", {
-            projectId,
-            error: e,
-          });
           continue;
         }
       }

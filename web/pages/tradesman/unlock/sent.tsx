@@ -18,6 +18,7 @@ import SiteHeader from "@/components/SiteHeader";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import BrandWordmark from "@/components/BrandWordmark";
 import { useApi } from "@/utils/api";
+import { trackUnlockActivated } from "@/utils/analytics";
 import { useMobileMenu } from "@/utils/mobileMenu";
 
 const BOOST_DAYS = 14;
@@ -58,6 +59,7 @@ export default function UnlockSentPage() {
     const v = Array.isArray(raw) ? raw[0] : raw;
     const projectId = Number(v);
     if (!Number.isFinite(projectId) || projectId <= 0) return;
+    trackUnlockActivated(projectId, 0);
 
     let cancelled = false;
     (async () => {

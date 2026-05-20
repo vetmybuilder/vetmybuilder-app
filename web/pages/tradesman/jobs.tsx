@@ -8,6 +8,7 @@ import { useRouter } from "next/router";
 import { MoreHorizontal } from "lucide-react";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
+import { trackPassActivated } from "@/utils/analytics";
 import { useMobileMenu } from "@/utils/mobileMenu";
 import { useSseEvent } from "@/utils/useSseEvent";
 import TradesmanOnly from "@/components/TradesmanOnly";
@@ -74,6 +75,22 @@ export default function TradesmanJobsDeckPage() {
   const builderTradesRef = useRef<string[]>([]);
   // Top card surfaced by the deck - mirrored into the desktop left rail.
   const [topJob, setTopJob] = useState<JobCardData | null>(null);
+
+  // Fire `pass_activated` once when the user lands here from a successful
+  // subscription checkout - the deep link carries `?subscribed=1` and
+  // optionally `tier=` / `amount_pence=`. Guard against React StrictMode
+  // double-mount via a ref so the event fires exactly once per landing.
+  const passActivatedFiredRef = useRef(false);
+  useEffect(() => {
+    if (!router.isReady) return;
+    if (router.query.subscribed !== "1") return;
+    if (passActivatedFiredRef.current) return;
+    passActivatedFiredRef.current = true;
+    trackPassActivated(
+      String(router.query.tier || "unknown"),
+      Number(router.query.amount_pence || 0),
+    );
+  }, [router.isReady, router.query.subscribed, router.query.tier, router.query.amount_pence]);
 
   useEffect(() => {
     // Wait for both the router AND Firebase auth before firing. Without

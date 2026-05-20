@@ -19,12 +19,8 @@ function buildConfigFromEnv(): FirebaseConfig {
   if (raw && raw.trim().length > 0) {
     try {
       return JSON.parse(raw) as FirebaseConfig;
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        "[firebase] Failed to parse NEXT_PUBLIC_FIREBASE_CONFIG_JSON:",
-        e,
-      );
+    } catch {
+      // Fall through to env-var-driven config.
     }
   }
 
