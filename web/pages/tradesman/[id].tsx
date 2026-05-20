@@ -68,6 +68,7 @@ import {
 } from "@/utils/tradesmanProfile";
 import { normalizedCompanyKey, getAggregateVmbForCompany } from "@/utils/vmb";
 import { GoogleRatingChip } from "@/components/GoogleRatingChip";
+import ContactLink from "@/components/tradesman/ContactLink";
 
 type TradesmanDetail = {
   builderId: string;
@@ -452,12 +453,14 @@ function Inner() {
                     value={item.phone}
                     href={item.phone ? `tel:${item.phone}` : undefined}
                     testId="tradesman-phone"
+                    emptyText="Available after a mutual match"
                   />
                   <ContactLink
                     icon={<Mail className="w-4 h-4" />}
                     value={item.email}
                     href={item.email ? `mailto:${item.email}` : undefined}
                     testId="tradesman-email"
+                    emptyText="Available after a mutual match"
                   />
                   <ContactLink
                     icon={<Globe className="w-4 h-4" />}
@@ -769,48 +772,6 @@ function MiniStat({
         {value}
       </div>
     </div>
-  );
-}
-
-function ContactLink({
-  icon,
-  value,
-  href,
-  testId,
-}: {
-  icon: ReactNode;
-  value?: string | null;
-  href?: string;
-  testId?: string;
-}) {
-  if (!value) {
-    return (
-      <div className="flex items-center gap-2.5 text-[13px] text-slate-400" data-testid={testId}>
-        <span className="text-amber-500">{icon}</span>
-        <span>Not provided</span>
-      </div>
-    );
-  }
-  if (!href) {
-    return (
-      <div className="flex items-center gap-2.5 text-[13px] font-semibold text-slate-700" data-testid={testId}>
-        <span className="text-amber-500">{icon}</span>
-        <span className="truncate">{value}</span>
-      </div>
-    );
-  }
-  const external = href.startsWith("http");
-  return (
-    <a
-      href={href}
-      target={external ? "_blank" : undefined}
-      rel={external ? "noopener noreferrer" : undefined}
-      className="flex items-center gap-2.5 text-[13px] font-bold text-emerald-600 hover:text-emerald-700 hover:underline"
-      data-testid={testId}
-    >
-      <span className="text-amber-500">{icon}</span>
-      <span className="truncate">{value}</span>
-    </a>
   );
 }
 
