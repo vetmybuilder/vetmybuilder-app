@@ -11,7 +11,8 @@ import type { AxiosInstance } from "axios";
 export async function ensureEmailAvailable(
   api: AxiosInstance,
   email: string,
-  betaCode?: string
+  betaCode?: string,
+  role?: "homeowner" | "trader"
 ): Promise<void> {
   const clean = (email || "").trim();
   if (!clean) {
@@ -23,6 +24,7 @@ export async function ensureEmailAvailable(
     const res = await api.post("/api/auth/check-email", {
       email: clean,
       ...(betaCode ? { betaCode } : {}),
+      ...(role ? { role } : {}),
     });
     data = res.data;
   } catch (e: any) {

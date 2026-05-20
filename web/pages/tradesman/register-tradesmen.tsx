@@ -74,29 +74,6 @@ export default function TradesmanRegisterV2Page() {
     };
   }, []);
 
-  // Post-OAuth bounce: if a guest clicks "Continue with Google" on Step 1, the
-  // popup completes Firebase sign-in and Next routes them back here. The
-  // multi-step email wizard is no longer the right place to be — send them
-  // to the SSO completion wizard instead.
-  //
-  // Logged-in users with no tradesman intent (e.g. a homeowner who clicked
-  // through to this URL by mistake) are bounced to their role-appropriate
-  // dashboard instead of seeing a blank page - GuestOnly intentionally
-  // doesn't redirect on /tradesman/* so this page owns its own routing.
-  useEffect(() => {
-    if (authLoading || !user) return;
-    let intent: string | null = null;
-    try {
-      intent = sessionStorage.getItem("vmb:oauthIntent");
-    } catch {}
-    if (intent === "tradesman") {
-      router.replace("/tradesman/signup/complete");
-      return;
-    }
-    if (roleLoading) return;
-    router.replace(role === "tradesman" ? "/tradesman/jobs" : "/projects");
-  }, [user, authLoading, router, role, roleLoading]);
-
   const [step, setStep] = useState<Step>(1);
 
   const [form, setForm] = useState({
@@ -141,8 +118,11 @@ export default function TradesmanRegisterV2Page() {
   const [betaCodeErr, setBetaCodeErr] = useState<string | null>(null);
 
   useEffect(() => {
+    // Pre-launch the beta gate is homeowner-only; trader signup is open
+    // so this call should always return required:false. We still ask so
+    // any future role-aware tweaks land cleanly here too.
     api
-      .get("/api/auth/beta-status")
+      .get("/api/auth/beta-status?role=trader")
       .then((res) => setBetaRequired(!!res.data?.required))
       .catch(() => {});
   }, []); // eslint-disable-line
@@ -153,6 +133,38 @@ export default function TradesmanRegisterV2Page() {
   const [err, setErr] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [step1Errors, setStep1Errors] = useState<Record<string, string | null>>({});
+
+  // Post-OAuth bounce: if a guest clicks "Continue with Google" on Step 1, the
+  // popup completes Firebase sign-in and Next routes them back here. The
+  // multi-step email wizard is no longer the right place to be - send them
+  // to the SSO completion wizard instead.
+  //
+  // Logged-in users with no tradesman intent (e.g. a homeowner who clicked
+  // through to this URL by mistake) are bounced to their role-appropriate
+  // dashboard instead of seeing a blank page - GuestOnly intentionally
+  // doesn't redirect on /tradesman/* so this page owns its own routing.
+  useEffect(() => {
+    if (authLoading || !user) return;
+    // While the email-signup submit handler is in flight, Firebase has
+    // already created the user but PUT /api/tradesmen/me (which sets
+    // role=tradesman) hasn't landed yet. Letting this effect fire here
+    // races with the submit's own router.replace("/tradesman/jobs"),
+    // and on slow workers (CI) role still resolves to non-tradesman so
+    // we bounce to /projects then /signup/complete via the
+    // profile-complete guards. Skip while busy; the submit handler
+    // owns the post-success redirect.
+    if (busy) return;
+    let intent: string | null = null;
+    try {
+      intent = sessionStorage.getItem("vmb:oauthIntent");
+    } catch {}
+    if (intent === "tradesman") {
+      router.replace("/tradesman/signup/complete");
+      return;
+    }
+    if (roleLoading) return;
+    router.replace(role === "tradesman" ? "/tradesman/jobs" : "/projects");
+  }, [user, authLoading, router, role, roleLoading, busy]);
 
   // ---- persistence load ----
   const parseCsv = (val: unknown): string[] =>
@@ -351,6 +363,7 @@ export default function TradesmanRegisterV2Page() {
         api,
         form.email.trim(),
         betaRequired ? form.betaCode : undefined,
+        "trader",
       );
       trackRegisterStepCompleted(1, "tradesman");
       setStep(2);
@@ -447,7 +460,8 @@ export default function TradesmanRegisterV2Page() {
       await ensureEmailAvailable(
         api,
         form.email.trim(),
-        betaRequired ? form.betaCode : undefined
+        betaRequired ? form.betaCode : undefined,
+        "trader",
       );
 
       // 1) Create Firebase user (this also logs them in)

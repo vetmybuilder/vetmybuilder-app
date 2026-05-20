@@ -78,7 +78,9 @@ export default function SignupForm() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    api.get("/api/auth/beta-status").then(({ data }) => {
+    // Homeowner signups are gated by BETA_CODE pre-launch. Trader signup
+    // hits the same endpoint with role=trader and is never gated.
+    api.get("/api/auth/beta-status?role=homeowner").then(({ data }) => {
       if (data?.required) setBetaRequired(true);
     }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -184,7 +186,7 @@ export default function SignupForm() {
     try {
       const email = form.email.trim();
 
-      await ensureEmailAvailable(api, email, betaRequired ? form.betaCode.trim() : undefined);
+      await ensureEmailAvailable(api, email, betaRequired ? form.betaCode.trim() : undefined, "homeowner");
 
       // Check username availability before creating the Firebase user.
       // If we created the Firebase user first and the username were taken,
