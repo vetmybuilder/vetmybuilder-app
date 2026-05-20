@@ -75,7 +75,7 @@ describe("<Layout />", () => {
     expect(screen.queryByTestId("account-menu-button")).not.toBeInTheDocument();
   });
 
-  it("shows account button and initials when signed in", () => {
+  it("shows account button and initials when signed in", async () => {
     useAuthMock.mockReturnValue({
       user: { firstName: "Chris", lastName: "Morris" },
       loading: false,
@@ -83,8 +83,13 @@ describe("<Layout />", () => {
 
     render(<Layout>content</Layout>);
 
-    // Account button and initials
-    expect(screen.getByTestId("account-menu-button")).toBeInTheDocument();
+    // The account button is gated on roleChecked (set true only after
+    // /api/tradesmen/me resolves) so the pill no longer renders
+    // synchronously - prevents the homeowner-initials flash when a
+    // trader has a stale homeowner cache. Wait for the API to settle.
+    expect(
+      await screen.findByTestId("account-menu-button"),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("account-initials")).toHaveTextContent("CM");
 
     // No "Sign in" when logged in
@@ -116,7 +121,7 @@ describe("<Layout />", () => {
     expect(screen.queryByTestId("account-initials")).not.toBeInTheDocument();
   });
 
-  it("does NOT hide the account menu while profileComplete is still null (loading /api/me)", () => {
+  it("does NOT hide the account menu while profileComplete is still null (loading /api/me)", async () => {
     // Returning user — Firebase has signed them in but /api/me hasn't
     // returned yet. profileComplete is null (unknown). We must NOT flash
     // the logged-out chrome on every page load while waiting for /api/me.
@@ -128,7 +133,11 @@ describe("<Layout />", () => {
 
     render(<Layout>content</Layout>);
 
-    expect(screen.getByTestId("account-menu-button")).toBeInTheDocument();
+    // Account button now gated on roleChecked - wait for /api/tradesmen/me
+    // to resolve. See the "shows account button..." test for rationale.
+    expect(
+      await screen.findByTestId("account-menu-button"),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("account-initials")).toHaveTextContent("CM");
   });
 
@@ -140,8 +149,9 @@ describe("<Layout />", () => {
 
     render(<Layout>content</Layout>);
 
-    // Open menu
-    fireEvent.click(screen.getByTestId("account-menu-button"));
+    // Open menu - account-menu-button gated on roleChecked
+    const btn = await screen.findByTestId("account-menu-button");
+    fireEvent.click(btn);
     const menu = await screen.findByTestId("account-menu");
     expect(menu).toBeInTheDocument();
 

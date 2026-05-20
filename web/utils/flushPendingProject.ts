@@ -50,19 +50,10 @@ export async function flushPendingProject(
     const data = res?.data ?? res;
     const id = data?.project?.id;
     if (!id) {
-      // eslint-disable-next-line no-console
-      console.warn("[flushPendingProject] POST returned no id", { data });
       return null;
     }
     return `/projects/${id}?justCreated=1`;
-  } catch (e: any) {
-    // eslint-disable-next-line no-console
-    console.warn("[flushPendingProject] POST failed", {
-      status: e?.response?.status,
-      data: e?.response?.data,
-      message: e?.message,
-      payload,
-    });
+  } catch {
     return null;
   }
 }

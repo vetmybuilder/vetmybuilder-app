@@ -3,6 +3,7 @@ import { useMemo, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
+import { trackProjectClosed } from "@/utils/analytics";
 import CloseProjectModal from "@/components/CloseProjectModal";
 import type { PlanId } from "@/shared/lib/plans";
 
@@ -376,6 +377,10 @@ export function useProjectView() {
         `/api/projects/${project.id}/close`,
         payload
       );
+      trackProjectClosed(project.id, {
+        winnerPicked: Boolean(payload.selectedRecommendationId),
+        wouldUseAgain: Boolean(payload.didGoAhead),
+      });
       const updated: Project = data?.project ?? project;
       setCloseOpen(false);
       // Navigate away from the now-closed project before flipping vm

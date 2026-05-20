@@ -469,19 +469,8 @@ function Inner() {
           if (data?.ok && Array.isArray(data.urls)) {
             photoUrls = [...photoUrls, ...data.urls];
           }
-
-          console.log(
-            "[profile/edit] uploaded work photos",
-            form.workPhotos.length,
-            "-> urls:",
-            photoUrls.length
-          );
         }
-      } catch (uploadErr: any) {
-        console.error(
-          "[profile/edit] photo upload failed:",
-          uploadErr?.message || uploadErr
-        );
+      } catch {
         // soft-fail: keep existing photos
       }
 
@@ -563,7 +552,6 @@ function Inner() {
     } catch (e: any) {
       const msg =
         e?.response?.data?.error || e?.message || "Failed to save changes.";
-      console.error("[profile/edit] save failed:", msg);
       setErr(msg);
     } finally {
       setBusy(false);

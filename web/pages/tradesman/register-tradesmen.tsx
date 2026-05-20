@@ -6,6 +6,7 @@ import { useRouter } from "next/router";
 import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
 import { useRole } from "@/utils/useRole";
+import { trackRegisterStepCompleted } from "@/utils/analytics";
 import GuestOnly from "@/components/GuestOnly";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import { initFirebase } from "@/utils/firebase";
@@ -351,6 +352,7 @@ export default function TradesmanRegisterV2Page() {
         form.email.trim(),
         betaRequired ? form.betaCode : undefined,
       );
+      trackRegisterStepCompleted(1, "tradesman");
       setStep(2);
     } catch (ex: any) {
       const errCode = ex?.response?.data?.error || ex?.message || "";
@@ -366,6 +368,7 @@ export default function TradesmanRegisterV2Page() {
   const onNextFromStep2 = (e: React.FormEvent) => {
     e.preventDefault();
     setErr(null);
+    trackRegisterStepCompleted(2, "tradesman");
     setStep(3);
   };
 
@@ -385,8 +388,8 @@ export default function TradesmanRegisterV2Page() {
         set("chStatus", (data.verdict || best?.status || null) as any);
         if (best?.number) setOkMsg("Company verified with Companies House.");
       }
-    } catch (e: any) {
-      console.warn("[register-tradesmen] precheckCH failed:", e?.message || e);
+    } catch {
+      // Precheck is best-effort - the real CH lookup runs on submit.
     }
   }, [api, form.companyName, form.serviceAreas, set]); // eslint-disable-line
 
@@ -422,6 +425,7 @@ export default function TradesmanRegisterV2Page() {
       sessionStorage.setItem(DRAFT_KEY, JSON.stringify(snapshot));
     } catch {}
     void precheckCH().then(() => setOkMsg("Saved."));
+    trackRegisterStepCompleted(3, "tradesman");
     setStep(4);
   };
 
@@ -501,11 +505,7 @@ export default function TradesmanRegisterV2Page() {
           }
 
         }
-      } catch (uploadErr: any) {
-        console.error(
-          "[register-tradesmen] photo upload failed:",
-          uploadErr?.message || uploadErr
-        );
+      } catch {
         // don't hard fail the whole registration on upload failure
       }
 
@@ -599,7 +599,6 @@ export default function TradesmanRegisterV2Page() {
         e?.response?.data?.error ||
         e?.message ||
         "Failed to create your account.";
-      console.error("[register-tradesmen] create/save failed:", msg);
       setErr(msg);
       setBusy(false);
     }

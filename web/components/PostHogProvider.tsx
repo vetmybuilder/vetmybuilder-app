@@ -62,5 +62,46 @@ export default function PostHogProvider({ children }: { children: React.ReactNod
     };
   }, [router.events]);
 
+  // Capture uncaught JS errors + unhandled promise rejections as
+  // `client_error` events. Admin pages are excluded so internal-only
+  // debugging noise doesn't pollute the product event stream.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    function onAdminPath() {
+      return window.location.pathname.startsWith("/admin/");
+    }
+
+    function handleError(ev: ErrorEvent) {
+      if (onAdminPath()) return;
+      posthog.capture("client_error", {
+        message: ev.message || "unknown",
+        filename: ev.filename || null,
+        lineno: ev.lineno || null,
+        colno: ev.colno || null,
+        stack: ev.error?.stack || null,
+        path: window.location.pathname,
+      });
+    }
+
+    function handleRejection(ev: PromiseRejectionEvent) {
+      if (onAdminPath()) return;
+      const reason: any = ev.reason;
+      posthog.capture("client_error", {
+        kind: "unhandled_rejection",
+        message: reason?.message || String(reason || "unknown"),
+        stack: reason?.stack || null,
+        path: window.location.pathname,
+      });
+    }
+
+    window.addEventListener("error", handleError);
+    window.addEventListener("unhandledrejection", handleRejection);
+    return () => {
+      window.removeEventListener("error", handleError);
+      window.removeEventListener("unhandledrejection", handleRejection);
+    };
+  }, []);
+
   return <>{children}</>;
 }

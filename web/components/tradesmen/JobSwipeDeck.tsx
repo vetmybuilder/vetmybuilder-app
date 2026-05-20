@@ -6,6 +6,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useApi } from "@/utils/api";
+import { trackJobSwiped, trackMatchFormed } from "@/utils/analytics";
 import JobCard, { JobCardData } from "./JobCard";
 import JobCardBack from "./JobCardBack";
 import SwipeActionBar from "@/components/project/SwipeActionBar";
@@ -63,7 +64,11 @@ export default function JobSwipeDeck({
         `/api/tradesmen/jobs/${current.projectId}/swipe`,
         { decision: direction === "right" ? "right" : "left" },
       );
+      const source: "subscribed" | "recommended" | "paid_unlock" =
+        res.data?.source || "subscribed";
+      trackJobSwiped(direction, current.projectId, source);
       if (direction === "right" && res.data?.matched) {
+        trackMatchFormed(current.projectId, res.data?.builderUid || "self", source);
         router.push(`/match/${current.projectId}`);
         return false; // navigation handles unmount
       }

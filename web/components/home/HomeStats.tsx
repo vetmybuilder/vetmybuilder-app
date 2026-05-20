@@ -95,8 +95,8 @@ export default function HomeStats() {
             shortlists: Number(json.shortlists) || 0,
           });
         }
-      } catch (e) {
-        console.warn("stats error", e);
+      } catch {
+        // Stats are decorative; ignore fetch failures.
       }
     })();
     return () => {

@@ -87,14 +87,10 @@ describe("HomeStats", () => {
       } as unknown as Response),
     );
 
-    const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
     render(<HomeStats />);
 
     await waitFor(() => {
-      expect(consoleSpy).toHaveBeenCalled();
+      expect(screen.queryByTestId("home-stats")).toBeNull();
     });
-
-    expect(screen.queryByTestId("home-stats")).toBeNull();
   });
 });

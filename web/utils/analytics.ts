@@ -37,8 +37,15 @@ export function trackProjectPublished(projectId: number) {
   track("project_published", { project_id: projectId });
 }
 
-export function trackProjectClosed(projectId: number) {
-  track("project_closed", { project_id: projectId });
+export function trackProjectClosed(
+  projectId: number,
+  options?: { winnerPicked?: boolean; wouldUseAgain?: boolean },
+) {
+  track("project_closed", {
+    project_id: projectId,
+    winner_picked: options?.winnerPicked ?? null,
+    would_use_again: options?.wouldUseAgain ?? null,
+  });
 }
 
 // ---- Recommendation events ----
@@ -119,4 +126,117 @@ export function trackReportSubmitted(targetType: string, category: string) {
 
 export function trackEvent(event: string, properties?: Record<string, any>) {
   track(event, properties);
+}
+
+// ---- Swipe events ----
+
+export function trackJobSwiped(
+  direction: "left" | "right",
+  projectId: number,
+  source: "subscribed" | "recommended" | "paid_unlock",
+) {
+  track("job_swiped", { direction, project_id: projectId, source });
+}
+
+export function trackProjectRecSwiped(
+  direction: "left" | "right",
+  builderId: string,
+  projectId: number,
+) {
+  track("project_rec_swiped", {
+    direction,
+    builder_id: builderId,
+    project_id: projectId,
+  });
+}
+
+export function trackLeadSwiped(
+  direction: "left" | "right",
+  projectId: number,
+) {
+  track("lead_swiped", { direction, project_id: projectId });
+}
+
+// ---- Match events ----
+
+export function trackMatchFormed(
+  projectId: number,
+  builderUid: string,
+  source: "subscribed" | "recommended" | "paid_unlock",
+) {
+  track("match_formed", {
+    project_id: projectId,
+    builder_uid: builderUid,
+    source,
+  });
+}
+
+// ---- Chat events ----
+
+export function trackChatThreadOpened(matchId: number) {
+  track("chat_thread_opened", { match_id: matchId });
+}
+
+export function trackChatMessageSent(matchId: number, hasAttachment: boolean) {
+  track("chat_message_sent", {
+    match_id: matchId,
+    has_attachment: hasAttachment,
+  });
+}
+
+// ---- Payment events ----
+
+export function trackPaygateOpened(projectId: number) {
+  track("paygate_opened", { project_id: projectId });
+}
+
+export function trackWaiverAccepted(
+  projectId: number,
+  kind: "pass" | "oneoff",
+) {
+  track("waiver_accepted", { project_id: projectId, kind });
+}
+
+export function trackCheckoutStarted(
+  kind: "pass" | "oneoff",
+  amountPence: number,
+  projectId: number | null,
+) {
+  track("checkout_started", {
+    kind,
+    amount_pence: amountPence,
+    project_id: projectId,
+  });
+}
+
+export function trackPaymentFailed(
+  kind: "pass" | "oneoff",
+  errorCode: string,
+  projectId: number | null,
+) {
+  track("payment_failed", {
+    kind,
+    error_code: errorCode,
+    project_id: projectId,
+  });
+}
+
+export function trackUnlockActivated(projectId: number, amountPence: number) {
+  track("unlock_activated", {
+    project_id: projectId,
+    amount_pence: amountPence,
+  });
+}
+
+export function trackPassActivated(tier: string, amountPence: number) {
+  track("pass_activated", { tier, amount_pence: amountPence });
+}
+
+// ---- Register wizard ----
+
+export function trackRegisterStepCompleted(
+  step: number,
+  role: "tradesman",
+) {
+  track("register_step_completed", { step, role });
 }

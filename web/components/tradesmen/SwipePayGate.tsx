@@ -10,6 +10,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useApi } from "@/utils/api";
+import {
+  trackPaygateOpened,
+  trackWaiverAccepted,
+  trackCheckoutStarted,
+  trackPaymentFailed,
+} from "@/utils/analytics";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 
 // Inline spinner SVG - matches the pattern used in ReportModal,
@@ -118,6 +124,7 @@ export default function SwipePayGate({
       setPayState("idle");
       setPayAmountLabel("");
       setWaiverAccepted(false);
+      if (subject) trackPaygateOpened(subject.projectId);
     }
   }, [open, subject?.projectId]);
 
@@ -170,6 +177,10 @@ export default function SwipePayGate({
     if (busy) return;
     setBusy(true);
     setErr(null);
+    if (subject) {
+      trackWaiverAccepted(subject.projectId, "pass");
+      trackCheckoutStarted("pass", selectedTier.amountPence, subject.projectId);
+    }
     try {
       const res = await api.post("/api/subscriptions/checkout", {
         tier: selected,
@@ -192,6 +203,8 @@ export default function SwipePayGate({
       } catch {}
       router.replace(router.asPath);
     } catch (e: any) {
+      const code = e?.response?.data?.error || e?.message || "unknown";
+      if (subject) trackPaymentFailed("pass", String(code), subject.projectId);
       setErr(
         e?.response?.data?.error ||
           e?.message ||
@@ -208,6 +221,8 @@ export default function SwipePayGate({
     setErr(null);
     setPayState("activating");
     setPayAmountLabel(oneOffLabel);
+    trackWaiverAccepted(subject.projectId, "oneoff");
+    trackCheckoutStarted("oneoff", oneOffPence ?? 999, subject.projectId);
     try {
       const res = await api.post(
         `/api/projects/${subject.projectId}/unlock-contact/checkout`,
@@ -281,6 +296,10 @@ export default function SwipePayGate({
         return;
       }
       setPayState("idle");
+      const code = e?.response?.data?.error || e?.message || "unknown";
+      if (subject) {
+        trackPaymentFailed("oneoff", String(code), subject.projectId);
+      }
       setErr(
         e?.response?.data?.error ||
           e?.message ||
