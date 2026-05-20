@@ -101,8 +101,6 @@ module.exports = (router, ctx) => {
 
       const cols = await ensureGoogleCols();
 
-      const numericId = /^\d+$/.test(String(id)) ? Number(id) : null;
-
       // If columns don't exist, select NULL/0 aliases so the query still works.
       const selectGooglePlaceId = cols.hasGooglePlaceId
         ? "google_place_id"
@@ -122,7 +120,6 @@ module.exports = (router, ctx) => {
         rows = await mysqlQuery(
           `
           SELECT
-            id,
             user_id,
             company_name,
             ${selectCompanyNumber},
@@ -131,13 +128,12 @@ module.exports = (router, ctx) => {
             ${selectGoogleReviewsCount}
           FROM tradesmen
           WHERE user_id = ?
-             OR (? IS NOT NULL AND id = ?)
           LIMIT 1
         `,
-          [String(id), numericId, numericId]
+          [String(id)]
         );
       } catch (e) {
-        log.error?.(`${TAG} tradesmen SELECT failed`, { error: e?.message });
+        log.error?.({ error: e?.message }, `${TAG} tradesmen SELECT failed`);
         return res.status(500).json({ error: "internal_error" });
       }
 
@@ -204,7 +200,6 @@ module.exports = (router, ctx) => {
 
       const payload = {
         ok: true,
-        tradesmanId: row.id,
         userId: row.user_id,
         companyName: row.company_name,
         companyNumber: row.company_number || null,
