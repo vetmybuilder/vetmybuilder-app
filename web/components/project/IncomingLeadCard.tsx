@@ -18,7 +18,7 @@ export interface IncomingLead {
   startWindow: string;
   description: string;
   trades: string[];
-  source: "recommended" | "subscribed";
+  source: "recommended" | "subscribed" | "paid_unlock";
   recommenderName?: string;
   pickedHoursAgo: number;
 }
