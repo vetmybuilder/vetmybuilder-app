@@ -73,7 +73,7 @@ export default function PostHogProvider({ children }: { children: React.ReactNod
     }
 
     function handleError(ev: ErrorEvent) {
-      if (onAdminPath() || !posthog.__loaded) return;
+      if (onAdminPath()) return;
       posthog.capture("client_error", {
         message: ev.message || "unknown",
         filename: ev.filename || null,
@@ -85,7 +85,7 @@ export default function PostHogProvider({ children }: { children: React.ReactNod
     }
 
     function handleRejection(ev: PromiseRejectionEvent) {
-      if (onAdminPath() || !posthog.__loaded) return;
+      if (onAdminPath()) return;
       const reason: any = ev.reason;
       posthog.capture("client_error", {
         kind: "unhandled_rejection",

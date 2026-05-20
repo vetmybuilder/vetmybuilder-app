@@ -85,8 +85,11 @@ api.interceptors.response.use(
     try {
       const path =
         typeof window !== "undefined" ? window.location.pathname : "";
-      const loaded = Boolean((posthog as any).__loaded);
-      if (!path.startsWith("/admin/") && loaded) {
+      // posthog-js queues capture() internally between init() and the
+      // feature-flag bootstrap completing, so we don't gate on __loaded -
+      // a fast 500 can return before bootstrap and would otherwise be
+      // dropped silently.
+      if (typeof window !== "undefined" && !path.startsWith("/admin/")) {
         posthog.capture("api_error", {
           method: String(err?.config?.method || "").toUpperCase(),
           request_path: err?.config?.url || null,
