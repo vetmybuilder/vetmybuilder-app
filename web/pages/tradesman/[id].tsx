@@ -58,7 +58,6 @@ const TRADE_ICONS: Record<string, React.ElementType> = {
   "lighting":                 Lightbulb,
 };
 import SharedProfilePhotosSection from "@/components/tradesmen/SharedProfilePhotosSection";
-import HireButton from "@/components/project/HireButton";
 import {
   initials,
   prettyDomain,
@@ -435,14 +434,9 @@ function Inner() {
                   })()}
                 </div>
 
-                {item.builderId && (
-                  <div className="mt-4">
-                    <HireButton
-                      tradesmanUserId={item.builderId}
-                      displayName={title}
-                    />
-                  </div>
-                )}
+                {/* HireButton hidden pre-launch - the hire flow is being
+                    replaced as part of the swipe/match redesign. See
+                    pre-launch task to fully remove the feature. */}
               </div>
 
               {/* Contact details card */}
