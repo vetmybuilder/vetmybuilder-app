@@ -13,7 +13,7 @@ type User = {
   email: string;
   firstName: string;
   lastName: string;
-  role: "user" | "tradesman" | "admin";
+  role: "user" | "tradesman" | "tradesman_pending" | "admin";
   location: string | null;
   companyName?: string | null;
   trades?: string | null;
@@ -30,7 +30,7 @@ type ModalUser = {
   password: string;
   firstName: string;
   lastName: string;
-  role: "user" | "tradesman" | "admin";
+  role: "user" | "tradesman" | "tradesman_pending" | "admin";
   location: string;
   companyName: string;
   trades: string;
@@ -58,9 +58,15 @@ function RoleBadge({ role }: { role: string }) {
       ? "bg-orange-900 text-orange-300"
       : role === "tradesman"
         ? "bg-emerald-900 text-emerald-300"
-        : "bg-blue-900 text-blue-300";
+        : role === "tradesman_pending"
+          ? "bg-amber-900 text-amber-300"
+          : "bg-blue-900 text-blue-300";
   const label =
-    role === "user" ? "homeowner" : role;
+    role === "user"
+      ? "homeowner"
+      : role === "tradesman_pending"
+        ? "tradesman (pending)"
+        : role;
   return (
     <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${cls}`}>
       {label}

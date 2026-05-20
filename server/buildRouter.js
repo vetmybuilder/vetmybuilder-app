@@ -314,6 +314,7 @@ function buildRouter(ctx) {
   require("./routes/auth/beta-status.get")(router, ctx);
   require("./routes/auth/check-email.post")(router, ctx);
   require("./routes/auth/check-username.get")(router, ctx);
+  require("./routes/auth/role-intent.post")(router, ctx);
   require("./routes/auth/signup.post")(router, ctx);
 
   // ---------------- Boroughs ----------------

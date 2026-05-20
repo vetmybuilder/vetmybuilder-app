@@ -72,7 +72,14 @@ module.exports = (router, ctx) => {
           if (areas.length === 1) return areas[0];
           return `${areas[0]} +${areas.length - 1} more`;
         })(),
-        role: r.role === "admin" ? "admin" : r.company_name ? "tradesman" : "user",
+        role:
+          r.role === "admin"
+            ? "admin"
+            : r.company_name
+              ? "tradesman"
+              : String(r.role || "").toLowerCase() === "tradesman"
+                ? "tradesman_pending"
+                : "user",
         createdAt: r.createdAt,
         tradesman: r.company_name
           ? {

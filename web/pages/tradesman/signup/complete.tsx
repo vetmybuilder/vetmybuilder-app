@@ -175,6 +175,18 @@ export default function TradesmanSsoOnboardingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Stamp the trader intent as soon as we have an authed user. Before
+  // this, mid-signup users showed up in /admin as homeowners by
+  // default (admin's fallback when no user_roles row exists). The
+  // role-intent ping fills in user_roles so admin labels them
+  // "tradesman (pending)".
+  useEffect(() => {
+    if (authLoading || !user) return;
+    api
+      .post("/api/auth/role-intent", { role: "tradesman" })
+      .catch(() => {});
+  }, [user, authLoading, api]);
+
   // Pre-fill email + contact name from the Firebase token. We leave the
   // fields in the form so users can edit the contact name, but disable
   // the email field - it's the identity we'll be talking to.
