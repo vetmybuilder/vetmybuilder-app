@@ -445,61 +445,73 @@ export default function TradesmanProfileMobile({
       )}
 
       {/* Profile details */}
-      {(item.phone || item.email || item.website || item.companyNumber) && (
-        <>
-          <SectionHeader>Profile details</SectionHeader>
-          <section className="px-5" data-testid="tradesman-contact-card">
-            <dl className="rounded-2xl border border-gray-200 bg-white divide-y divide-gray-100">
-              {item.phone && (
-                <DetailRow label="Phone">
-                  <a
-                    href={`tel:${item.phone}`}
-                    data-testid="tradesman-phone"
-                    className="text-rose-500 font-bold break-all"
-                  >
-                    {item.phone}
-                  </a>
-                </DetailRow>
+      <>
+        <SectionHeader>Profile details</SectionHeader>
+        <section className="px-5" data-testid="tradesman-contact-card">
+          <dl className="rounded-2xl border border-gray-200 bg-white divide-y divide-gray-100">
+            <DetailRow label="Phone">
+              {item.phone ? (
+                <a
+                  href={`tel:${item.phone}`}
+                  data-testid="tradesman-phone"
+                  className="text-rose-500 font-bold break-all"
+                >
+                  {item.phone}
+                </a>
+              ) : (
+                <span
+                  data-testid="tradesman-phone"
+                  className="text-slate-400 font-normal"
+                >
+                  Available after a mutual match
+                </span>
               )}
-              {item.email && (
-                <DetailRow label="Email">
-                  <a
-                    href={`mailto:${item.email}`}
-                    data-testid="tradesman-email"
-                    className="text-rose-500 font-bold break-all"
-                  >
-                    {item.email}
-                  </a>
-                </DetailRow>
+            </DetailRow>
+            <DetailRow label="Email">
+              {item.email ? (
+                <a
+                  href={`mailto:${item.email}`}
+                  data-testid="tradesman-email"
+                  className="text-rose-500 font-bold break-all"
+                >
+                  {item.email}
+                </a>
+              ) : (
+                <span
+                  data-testid="tradesman-email"
+                  className="text-slate-400 font-normal"
+                >
+                  Available after a mutual match
+                </span>
               )}
-              {item.website && (
-                <DetailRow label="Website">
-                  <a
-                    href={
-                      item.website.startsWith("http")
-                        ? item.website
-                        : `https://${item.website}`
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    data-testid="tradesman-website"
-                    className="text-rose-500 font-bold break-all"
-                  >
-                    {prettyDomain(item.website)}
-                  </a>
-                </DetailRow>
-              )}
-              {item.companyNumber && (
-                <DetailRow label="Company no">
-                  <span className="font-extrabold text-gray-900">
-                    {item.companyNumber}
-                  </span>
-                </DetailRow>
-              )}
-            </dl>
-          </section>
-        </>
-      )}
+            </DetailRow>
+            {item.website && (
+              <DetailRow label="Website">
+                <a
+                  href={
+                    item.website.startsWith("http")
+                      ? item.website
+                      : `https://${item.website}`
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-testid="tradesman-website"
+                  className="text-rose-500 font-bold break-all"
+                >
+                  {prettyDomain(item.website)}
+                </a>
+              </DetailRow>
+            )}
+            {item.companyNumber && (
+              <DetailRow label="Company no">
+                <span className="font-extrabold text-gray-900">
+                  {item.companyNumber}
+                </span>
+              </DetailRow>
+            )}
+          </dl>
+        </section>
+      </>
 
       {/* External review links */}
       {Array.isArray(item.reviewLinks) && item.reviewLinks.length > 0 && (
