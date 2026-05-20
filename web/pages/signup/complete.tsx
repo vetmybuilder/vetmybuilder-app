@@ -53,8 +53,9 @@ export default function SignupComplete() {
   }, [authLoading, user, router]);
 
   useEffect(() => {
+    // Homeowner SSO landing - gated by BETA_CODE pre-launch.
     api
-      .get("/api/auth/beta-status")
+      .get("/api/auth/beta-status?role=homeowner")
       .then((res) => setBetaRequired(!!res.data?.required))
       .catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -101,6 +102,7 @@ export default function SignupComplete() {
         await api.post("/api/auth/check-email", {
           email: user?.email || "",
           betaCode: code,
+          role: "homeowner",
         });
       } catch (ex: any) {
         const errCode = ex?.response?.data?.error || "";

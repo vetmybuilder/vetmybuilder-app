@@ -141,8 +141,11 @@ export default function TradesmanRegisterV2Page() {
   const [betaCodeErr, setBetaCodeErr] = useState<string | null>(null);
 
   useEffect(() => {
+    // Pre-launch the beta gate is homeowner-only; trader signup is open
+    // so this call should always return required:false. We still ask so
+    // any future role-aware tweaks land cleanly here too.
     api
-      .get("/api/auth/beta-status")
+      .get("/api/auth/beta-status?role=trader")
       .then((res) => setBetaRequired(!!res.data?.required))
       .catch(() => {});
   }, []); // eslint-disable-line
@@ -351,6 +354,7 @@ export default function TradesmanRegisterV2Page() {
         api,
         form.email.trim(),
         betaRequired ? form.betaCode : undefined,
+        "trader",
       );
       trackRegisterStepCompleted(1, "tradesman");
       setStep(2);
@@ -447,7 +451,8 @@ export default function TradesmanRegisterV2Page() {
       await ensureEmailAvailable(
         api,
         form.email.trim(),
-        betaRequired ? form.betaCode : undefined
+        betaRequired ? form.betaCode : undefined,
+        "trader",
       );
 
       // 1) Create Firebase user (this also logs them in)

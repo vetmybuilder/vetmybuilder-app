@@ -165,10 +165,11 @@ export default function TradesmanSsoOnboardingPage() {
   }, [authLoading, user, api, router]);
 
   // Is the beta gate active? Fetched on mount so the UI knows whether to
-  // show the beta-code field on Step 1.
+  // show the beta-code field on Step 1. Trader signups are not gated
+  // pre-launch so this should always come back required:false.
   useEffect(() => {
     api
-      .get("/api/auth/beta-status")
+      .get("/api/auth/beta-status?role=trader")
       .then((res) => setBetaRequired(!!res.data?.required))
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -387,6 +388,7 @@ export default function TradesmanSsoOnboardingPage() {
         await api.post("/api/auth/check-email", {
           email: user?.email || form.email,
           betaCode: code,
+          role: "trader",
         });
       } catch (ex: any) {
         const errCode = ex?.response?.data?.error || "";
