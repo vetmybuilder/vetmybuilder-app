@@ -18,7 +18,7 @@ import ProjectMobileRecsStrip from "@/components/project/ProjectMobileRecsStrip"
 import PhotoLightbox from "@/components/PhotoLightbox";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import { useApi } from "@/utils/api";
-import { useAuth } from "@/utils/auth";
+import { useAuth, isSignOutInProgress } from "@/utils/auth";
 import { useRouter } from "next/router";
 import { useSseEvent } from "@/utils/useSseEvent";
 
@@ -1322,6 +1322,15 @@ export default function ProjectViewPage() {
     // view — flashing the wrong view and then swapping back is
     // jarring after a server restart.
     if (!user) {
+      // An explicit logout in progress: the SiteHeader hard-navs to "/"
+      // immediately after signOutUser resolves. Force the spinner state
+      // until that navigation tears the page down, otherwise we flash
+      // the NeighbourProjectView ("old red design") in the window
+      // between Firebase emitting user=null and the hard nav landing.
+      if (isSignOutInProgress()) {
+        setViewerRole("unknown");
+        return;
+      }
       let wasAuthed = false;
       try {
         wasAuthed = sessionStorage.getItem("vmb:was-authed") === "1";
@@ -1329,15 +1338,13 @@ export default function ProjectViewPage() {
       if (wasAuthed) {
         // The session has previously been authenticated; the current
         // null is almost certainly a transient state during Firebase
-        // re-hydrate (typical after a dev-server restart). Hold the
-        // viewerRole='unknown' state so the loading gate keeps the
-        // spinner up — the effect deps re-fire when user lands.
-        //
-        // If user is STILL null after 5s, the session is genuinely
-        // expired (not just re-hydrating). Send them to login rather
-        // than dropping a previously-authed user into the public
-        // neighbour view — that's the original "old design page"
-        // flash bug.
+        // re-hydrate (typical after a dev-server restart) OR a fresh
+        // logout. Either way, we MUST NOT render the public neighbour
+        // view in the interim - that was the "old red design" flash.
+        // Force viewerRole back to 'unknown' so the ready-gate keeps
+        // the loading spinner up; the effect deps re-fire when user
+        // lands, or the timeout below sends them to /login.
+        setViewerRole("unknown");
         const t = setTimeout(() => {
           try {
             const next = encodeURIComponent(

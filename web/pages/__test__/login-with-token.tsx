@@ -34,8 +34,8 @@ export default function LoginWithToken() {
           });
         });
         router.replace(redirect);
-      } catch (e) {
-        console.error("[__test__] signInWithCustomToken failed", e);
+      } catch {
+        // Test-only helper - failures surface in the E2E run logs.
       }
     })();
   }, [token, redirect, router]);

@@ -238,8 +238,9 @@ function Inner() {
         setItem({ ...item, isFavourite: false });
         setFavToast("Removed from favourites");
       }
-    } catch (e) {
-      console.error("Failed to toggle favourite", e);
+    } catch {
+      // Toggle failed - leave the optimistic state as-is so the user
+      // can retry.
     } finally {
       setFavBusy(false);
     }

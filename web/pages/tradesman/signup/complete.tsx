@@ -470,13 +470,9 @@ export default function TradesmanSsoOnboardingPage() {
             photoUrls = uploadRes.data.urls;
           }
         }
-      } catch (uploadErr: any) {
+      } catch {
         // Same tolerance as register-tradesmen.tsx - don't hard-fail the
         // whole signup on photo-upload failure.
-        console.error(
-          "[tradesman/signup/complete] photo upload failed:",
-          uploadErr?.message || uploadErr,
-        );
       }
 
       let profilePictureUrl: string | null = null;

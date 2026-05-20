@@ -68,9 +68,8 @@ function ensureFirebaseClientInit(): void {
 
   try {
     initFirebase();
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.warn("[_app] initFirebase failed:", e);
+  } catch {
+    // initFirebase failures surface to the user via the auth flow itself.
   }
 }
 

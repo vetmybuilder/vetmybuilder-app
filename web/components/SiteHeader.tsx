@@ -262,11 +262,16 @@ export default function SiteHeader() {
   const [roleChecked, setRoleChecked] = useState<boolean>(false);
 
   useEffect(() => {
+    // Cosmetic seed only. We deliberately do NOT setRoleChecked(true)
+    // from the cache because the cache may be stale (a homeowner logs
+    // out, a trader logs in - cache still says "homeowner" until the
+    // live /api/tradesmen/me call resolves). The visible role-pill
+    // renders are gated on roleChecked, so leaving it false keeps both
+    // pill variants hidden until the API has spoken authoritatively.
     const seed = readCachedRole();
     if (seed.isTrades) setIsTrades(true);
     if (seed.company) setCompany(seed.company);
     if (seed.photo) setTradesPhoto(seed.photo);
-    if (seed.roleChecked) setRoleChecked(true);
   }, []);
 
   // mobile menu — global instance lives at the app root; the burger
@@ -518,8 +523,12 @@ export default function SiteHeader() {
               )}
 
               <div className="flex items-center gap-3">
-                {/* Logged-in homeowner: Projects button + account menu */}
-                {displayUser && !isTrades && (
+                {/* Logged-in homeowner: Projects button + account menu.
+                    Gate on roleChecked so we never flash the homeowner
+                    pill for a tradesperson while the seed effect is
+                    still resolving (the post-mount cache read takes
+                    one paint). */}
+                {displayUser && !isTrades && roleChecked && (
                   <>
                     <div className="relative hidden sm:block" data-testid="account-menu-wrapper">
                       <button
@@ -686,13 +695,28 @@ export default function SiteHeader() {
                           </div>
                         </div>
 
-                        {/* Items - top-level surfaces (Jobs, Matches,
-                            Incoming interest) live in the centered
-                            trade tabs and are intentionally NOT
-                            duplicated here. Same shape as the
-                            non-homepage variant so the menu reads
-                            consistently across pages. */}
+                        {/* Items mirror the /tradesman/* trades dropdown so
+                            the menu reads the same wherever the trade is
+                            on the site - including the public homepage. */}
                         <div className="p-1.5">
+                          <Link
+                            role="menuitem"
+                            href="/tradesman/jobs/list"
+                            className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-emerald-50 hover:text-slate-900 transition-colors"
+                            onClick={() => setOpenMenu(null)}
+                          >
+                            <Briefcase className="h-4 w-4 text-emerald-600" />
+                            <span>Jobs</span>
+                          </Link>
+                          <Link
+                            role="menuitem"
+                            href="/tradesman/leads"
+                            className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-emerald-50 hover:text-slate-900 transition-colors"
+                            onClick={() => setOpenMenu(null)}
+                          >
+                            <Inbox className="h-4 w-4 text-rose-500" />
+                            <span>Incoming interest</span>
+                          </Link>
                           <Link
                             role="menuitem"
                             href="/tradesman/account"
@@ -700,7 +724,7 @@ export default function SiteHeader() {
                             onClick={() => setOpenMenu(null)}
                           >
                             <UserCog className="h-4 w-4 text-amber-700" />
-                            <span>Account</span>
+                            <span>Manage account</span>
                           </Link>
                         </div>
 
@@ -867,7 +891,7 @@ export default function SiteHeader() {
                   the /projects/new wizard itself - showing a "Post a
                   job" button while the user is literally posting a job
                   is confusing. */}
-              {displayUser && !isTrades && router.pathname !== "/projects/new" && (
+              {displayUser && !isTrades && roleChecked && router.pathname !== "/projects/new" && (
                 <Link
                   href="/projects/new"
                   className="hidden sm:inline-flex items-center gap-2 rounded-full pl-3.5 pr-5 py-2 text-[13.5px] font-extrabold text-white shadow-sm hover:shadow-md transition-all group"
@@ -886,7 +910,7 @@ export default function SiteHeader() {
                   InboxDropdown. Only opens the dropdown - the dock
                   pops when the user actually clicks a row inside the
                   dropdown (or via /projects/:id?openChat=N). */}
-              {displayUser && !isTrades && (
+              {displayUser && !isTrades && roleChecked && (
                 <MessagesIconButton
                   buttonRef={btnMessagesRef}
                   menuRef={menuRef}
@@ -1053,7 +1077,7 @@ export default function SiteHeader() {
                 </div>
               )}
 
-              {displayUser && !isTrades && (
+              {displayUser && !isTrades && roleChecked && (
                 <div className="relative" data-testid="account-menu-wrapper">
                   <button
                     ref={btnAccountRef}
