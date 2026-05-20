@@ -74,6 +74,19 @@ export default function TradesmanRegisterV2Page() {
     };
   }, []);
 
+  // Stamp the trader intent as soon as we have an authed user on this
+  // page. Before this, mid-signup users (Firebase-authed but no
+  // tradesman row yet) appeared in /admin as homeowners by default,
+  // which is misleading and broke supply-side analytics. We send a
+  // role-intent ping so user_roles is populated before the wizard
+  // completes; the admin list then labels them "tradesman (pending)".
+  useEffect(() => {
+    if (authLoading || !user) return;
+    api
+      .post("/api/auth/role-intent", { role: "tradesman" })
+      .catch(() => {});
+  }, [user, authLoading, api]);
+
   const [step, setStep] = useState<Step>(1);
 
   const [form, setForm] = useState({
