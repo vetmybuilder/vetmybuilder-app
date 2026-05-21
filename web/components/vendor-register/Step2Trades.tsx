@@ -309,6 +309,11 @@ export default function Step2Trades({
           }
           onProfilePictureKeyChange={onProfilePictureKeyChange}
           onConsentChange={setPhotoConsent}
+          // The final "By signing up, I agree to the Terms of Use and
+          // Acceptable Use Policy" checkbox on Step 3 already covers
+          // the same legal consent, so suppress the per-uploader
+          // checkbox to avoid asking twice.
+          requireConsent={false}
           tone="emerald"
           emeraldLabel="Add photos of your work"
         />

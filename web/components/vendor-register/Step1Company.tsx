@@ -344,12 +344,18 @@ export default function Step1Company({
               placeholder="020..."
               data-testid="input-phone"
               aria-invalid={!!err("phone")}
-              aria-describedby={err("phone") ? "phone-error" : undefined}
+              aria-describedby={
+                err("phone") ? "phone-error" : "phone-help"
+              }
             />
           </div>
-          {err("phone") && (
+          {err("phone") ? (
             <p id="phone-error" className="text-sm text-red-600 mt-1" role="alert">
               {err("phone")}
+            </p>
+          ) : (
+            <p id="phone-help" className="text-[11.5px] text-gray-500 mt-1">
+              Shared with homeowners after a mutual match so they can call you about the job.
             </p>
           )}
         </div>

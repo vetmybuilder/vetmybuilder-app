@@ -217,21 +217,21 @@ export default function Step3Offers({
 
       {showTermsCheckbox && (
         <label
-          className="mx-3 mt-2 flex items-start gap-2.5 cursor-pointer"
+          className="mx-3 mt-12 sm:mt-16 flex items-start gap-3 cursor-pointer border-t border-zinc-200 pt-6"
           data-testid="agree-terms"
         >
           <input
             type="checkbox"
             checked={agreedTerms}
             onChange={(e) => setAgreedTerms(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+            className="mt-0.5 h-5 w-5 rounded border-zinc-400 text-emerald-600 focus:ring-emerald-500"
           />
-          <span className="text-xs text-zinc-500 leading-relaxed">
+          <span className="text-sm text-slate-700 leading-relaxed">
             By signing up, I agree to the{" "}
             <Link
               href="/terms"
               target="_blank"
-              className="text-emerald-600 hover:underline"
+              className="text-emerald-600 font-semibold hover:underline"
             >
               Terms of Use
             </Link>{" "}
@@ -239,7 +239,7 @@ export default function Step3Offers({
             <Link
               href="/acceptable-use"
               target="_blank"
-              className="text-emerald-600 hover:underline"
+              className="text-emerald-600 font-semibold hover:underline"
             >
               Acceptable Use Policy
             </Link>
