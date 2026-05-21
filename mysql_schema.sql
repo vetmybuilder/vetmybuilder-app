@@ -319,6 +319,7 @@ CREATE TABLE IF NOT EXISTS tradesmen (
   offers_discount INTEGER DEFAULT 0,
   warranty_months INTEGER DEFAULT 0,
   web_verified INTEGER DEFAULT 0,
+  web_verification_reason VARCHAR(64) NULL,
   web_url TEXT,
   vmb_score INTEGER DEFAULT 0,
   vmb_badge VARCHAR(20) DEFAULT 'bronze',
