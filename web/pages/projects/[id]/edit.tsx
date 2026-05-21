@@ -531,6 +531,9 @@ function EditProjectInner() {
           descriptionPlaceholder="Any extra details for tradespeople..."
           descriptionMax={200}
           accessOptionsSingle={ACCESS_OPTIONS}
+          pilotCategoryNames={pilotCategoryNames}
+          pilotTypeNames={pilotTypeNames}
+          onComingSoonCategory={setComingSoonCategory}
         />
       </div>
 
