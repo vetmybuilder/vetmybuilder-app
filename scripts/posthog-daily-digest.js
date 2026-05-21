@@ -13,7 +13,11 @@
 //   RESEND_API_KEY      - same key the server uses for outbound mail
 //
 // Optional env:
-//   POSTHOG_HOST        - default eu.posthog.com
+//   POSTHOG_API_HOST    - default eu.posthog.com (NOT the same as the
+//                         POSTHOG_HOST used by the web app for ingest -
+//                         the query endpoint lives on the main app host
+//                         eu.posthog.com, not the ingest host
+//                         eu.i.posthog.com)
 //   DIGEST_TO           - default support@vetmybuilder.com
 //   DIGEST_FROM         - default VetMyBuilder <noreply@vetmybuilder.com>
 //   DIGEST_WINDOW_HOURS - default 24
@@ -32,7 +36,11 @@ const { Resend } = require("resend");
 
 const POSTHOG_API_KEY = process.env.POSTHOG_API_KEY;
 const POSTHOG_PROJECT_ID = process.env.POSTHOG_PROJECT_ID;
-const POSTHOG_HOST = process.env.POSTHOG_HOST || "eu.posthog.com";
+// Defensive: strip any accidental protocol prefix / trailing slash so a
+// host-only string is always what we hand to fetch().
+const POSTHOG_API_HOST = (process.env.POSTHOG_API_HOST || "eu.posthog.com")
+  .replace(/^https?:\/\//i, "")
+  .replace(/\/+$/, "");
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const DIGEST_TO = process.env.DIGEST_TO || "support@vetmybuilder.com";
 const DIGEST_FROM =
@@ -54,7 +62,7 @@ function escHtml(s) {
 }
 
 async function hogql(query) {
-  const url = `https://${POSTHOG_HOST}/api/projects/${POSTHOG_PROJECT_ID}/query/`;
+  const url = `https://${POSTHOG_API_HOST}/api/projects/${POSTHOG_PROJECT_ID}/query/`;
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -247,7 +255,7 @@ function renderDigest({ counts, signupsByRole, funnel, windowHours, generatedAt 
     </div>
 
     <p style="margin:24px 0 0 0;font-size:12px;color:#94a3b8;">
-      Source: PostHog (${escHtml(POSTHOG_HOST)}) - <a href="${escHtml(APP_URL)}" style="color:#94a3b8;">${escHtml(APP_URL)}</a>
+      Source: PostHog (${escHtml(POSTHOG_API_HOST)}) - <a href="${escHtml(APP_URL)}" style="color:#94a3b8;">${escHtml(APP_URL)}</a>
     </p>
   </div>
 </body></html>`;
