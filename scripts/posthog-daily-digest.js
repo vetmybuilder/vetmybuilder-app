@@ -19,6 +19,15 @@
 //   DIGEST_WINDOW_HOURS - default 24
 //   PUBLIC_APP_URL      - default https://vetmybuilder.com (used in email footer)
 
+// Prefer IPv4 DNS resolution. Some hosts (incl. the prod VM) resolve
+// eu.posthog.com to an IPv6 address first and Node 20's undici fetch
+// hangs / aborts on the IPv6 path. curl works because it falls back to
+// IPv4 cleanly. Forcing the order here keeps the script reliable.
+const dns = require("node:dns");
+if (typeof dns.setDefaultResultOrder === "function") {
+  dns.setDefaultResultOrder("ipv4first");
+}
+
 const { Resend } = require("resend");
 
 const POSTHOG_API_KEY = process.env.POSTHOG_API_KEY;
