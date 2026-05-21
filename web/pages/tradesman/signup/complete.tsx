@@ -17,6 +17,7 @@ import { useRouter } from "next/router";
 import { useApi } from "@/utils/api";
 import { useAuth, signOutUser } from "@/utils/auth";
 import { initFirebase } from "@/utils/firebase";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 
 import Step1Company, {
   type Step1Form,
@@ -62,7 +63,7 @@ type Doc = SupportingDoc;
 export default function TradesmanSsoOnboardingPage() {
   const api = useApi();
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, refreshProfile } = useAuth();
 
   const [step, setStep] = useState<Step>(1);
 
@@ -145,10 +146,12 @@ export default function TradesmanSsoOnboardingPage() {
       try {
         const { data } = await api.get("/api/tradesmen/me");
         if (!alive) return;
-        const isTradesman =
-          String(data?.role || "").toLowerCase() === "tradesman" ||
-          !!data?.profile;
-        if (isTradesman) {
+        // Only bounce when the user has an actual tradesmen profile.
+        // Since me.get.js now surfaces role='tradesman' for mid-signup
+        // users (stamped by role-intent, no profile yet), checking
+        // role alone would loop them straight to /tradesman/jobs and
+        // they'd never get to finish the wizard.
+        if (data?.profile) {
           router.replace("/tradesman/jobs");
           return;
         }
@@ -545,11 +548,33 @@ export default function TradesmanSsoOnboardingPage() {
         }
       } catch {}
 
+      // Always fire the notifications opt-in modal after a successful
+      // trader signup. We deliberately do NOT short-circuit on the
+      // localStorage "vmb:pushSetupShown" sentinel - that flag was
+      // global per browser, so once anyone skipped the modal, every
+      // future signup in the same browser was silent. Each newly
+      // created account deserves its own prompt; PushPrompt itself
+      // handles already-granted / already-denied native permission
+      // states so re-showing is a no-op if the user has answered.
       try {
-        if ("Notification" in window && !localStorage.getItem("vmb:pushSetupShown")) {
+        if ("Notification" in window) {
           sessionStorage.setItem("vmb:showPushPrompt", "1");
         }
       } catch {}
+
+      // Re-fetch /api/me so useAuth picks up the firstName / lastName
+      // that me.put.js just wrote to the users row. Without this,
+      // profileComplete stays false (because the very first /api/me
+      // ran BEFORE the wizard saved anything), SiteHeader treats the
+      // trader as "mid-signup" and hides the account chrome behind
+      // the guest Sign in / Get started CTAs, and PushPromptMount
+      // never opens (its gate is profileComplete === true).
+      try {
+        await refreshProfile();
+      } catch {
+        // Non-fatal - the next authed request will refresh on its own.
+      }
+
       router.replace("/tradesman/jobs");
     } catch (ex: any) {
       const msg =
@@ -576,22 +601,37 @@ export default function TradesmanSsoOnboardingPage() {
 
   const handleBack = async () => {
     if (step === 1) {
-      // Step 1 back exits the SSO flow entirely. Sign the user out (their
-      // Firebase identity is the only artefact created so far) and bounce
-      // back to /login so they can pick a different account or method.
-      try {
-        sessionStorage.removeItem("vmb:tradesmanSignupInProgress");
-      } catch {}
-      try {
-        await signOutUser();
-      } catch {}
-      router.push("/login");
-    } else {
-      setStep((s) => (s - 1) as Step);
+      // Step 1 back exits the signup flow entirely - same effect as
+      // the X close: clear the trade role-intent, drop session flags,
+      // sign out, and bounce to the homepage. Without the role-intent
+      // cleanup, admin keeps the bailed account as a ghost row.
+      await handleClose();
+      return;
     }
+    setStep((s) => (s - 1) as Step);
   };
 
-  const handleClose = () => {
+  const handleClose = async () => {
+    // Clean up the trader role-intent stamp (and the ghost users row
+    // if no profile/project exists) that mounting this page wrote to
+    // the DB. Without this, admin keeps showing the bailed account as
+    // "tradesman (pending)" - or, after deleting just the role,
+    // misleadingly as "Homeowner".
+    try {
+      await api.delete("/api/auth/role-intent");
+    } catch {
+      // Non-fatal; admin can tidy up the row later.
+    }
+    try {
+      sessionStorage.removeItem("vmb:tradesmanSignupInProgress");
+      sessionStorage.removeItem("vmb:oauthIntent");
+    } catch {}
+    // Sign the user out so they're not stuck as a Firebase-authed
+    // account pointing at a deleted users row. Best-effort - the
+    // hard nav resets local state regardless.
+    try {
+      await signOutUser();
+    } catch {}
     router.push("/");
   };
 
@@ -609,11 +649,11 @@ export default function TradesmanSsoOnboardingPage() {
     <>
       <Head>
         <title>Finish tradesperson signup - VetMyBuilder</title>
-        <style>{`body { background: #ffffff !important; }`}</style>
+        <style>{`body { background: #fef6e9 !important; }`}</style>
       </Head>
 
       <main
-        className="fixed inset-0 bg-gray-100 flex flex-col"
+        className="fixed inset-0 bg-[#fef6e9] flex flex-col overflow-hidden"
         data-testid="tradesman-signup-complete-page"
         style={{
           paddingBottom: "env(safe-area-inset-bottom)",
@@ -621,6 +661,9 @@ export default function TradesmanSsoOnboardingPage() {
             "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif",
         }}
       >
+        {/* VMB watermark scatter as the page backdrop. Lives behind the
+            wizard card so the dialog still reads as the primary surface. */}
+        <BrandWatermarkScatter />
         <div className="h-[env(safe-area-inset-top)]" />
 
         {/* Mobile: edge-to-edge column. Desktop: centred card with chrome. */}

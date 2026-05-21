@@ -11,6 +11,7 @@ const completeProfile: VendorForScoring = {
   serviceAreas: ["E4", "E17", "N17"],
   supportingDocCount: 3,
   websiteUrl: "https://example.com",
+  webVerified: true,
   socialLinks: ["https://facebook.com/example"],
   offersDiscount: true,
 };
@@ -80,5 +81,29 @@ describe("getCoachingTips", () => {
       expect(tip.points).toBeGreaterThan(0);
       expect(tip.message).toBeTruthy();
     }
+  });
+
+  it("surfaces a tip when the website is set but verification failed", () => {
+    // Otherwise-complete profile with a website that the server
+    // couldn't confirm (verifyWebPresence returned verified=false on
+    // save - e.g. company name not on the page).
+    const profile: VendorForScoring = {
+      ...completeProfile,
+      webVerified: false,
+    };
+    const tips = getCoachingTips(profile);
+    const tip = tips.find((t) => t.key === "websiteUnverified");
+    expect(tip).toBeDefined();
+    expect(tip?.message).toMatch(/couldn't verify/i);
+  });
+
+  it("does NOT surface the unverified-website tip when no website is set", () => {
+    const profile: VendorForScoring = {
+      ...completeProfile,
+      websiteUrl: null,
+      webVerified: false,
+    };
+    const tips = getCoachingTips(profile);
+    expect(tips.some((t) => t.key === "websiteUnverified")).toBe(false);
   });
 });

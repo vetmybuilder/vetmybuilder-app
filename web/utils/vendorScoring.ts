@@ -11,6 +11,11 @@
 export type VendorForScoring = {
   serviceAreas?: string[] | string | null;
   websiteUrl?: string | null;
+  // Whether the website passed verifyWebPresence on the server. Carried
+  // through here so coaching tips can prompt the trader when their URL
+  // saved but couldn't be auto-confirmed (e.g. company name doesn't
+  // appear on the page, brand_mismatch).
+  webVerified?: boolean | number | null;
   socialLinks?: string[] | string | null;
   companyNumber?: string | null;
   chStatus?: "verified" | "ambiguous" | "no_match" | "error" | "" | null;

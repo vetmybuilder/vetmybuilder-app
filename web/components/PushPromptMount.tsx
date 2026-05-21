@@ -16,19 +16,24 @@
 // localStorage `vmb:pushSetupShown` so future signups in the same
 // browser don't re-prompt.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/router";
 import { useAuth } from "@/utils/auth";
+import { useRole } from "@/utils/useRole";
 import PushPrompt from "@/components/PushPrompt";
 
-export default function PushPromptMount({
-  isTradesman = false,
-}: {
-  isTradesman?: boolean;
-}) {
+export default function PushPromptMount() {
   const { profileComplete } = useAuth();
+  const router = useRouter();
+  // Derive isTradesman so the prompt picks up the correct palette
+  // (emerald for traders, indigo for homeowners). Passing it from
+  // _app.tsx would require role plumbing there; useRole already owns
+  // the same sessionStorage / API fast-path as SiteHeader.
+  const { role } = useRole();
+  const isTradesman = role === "tradesman";
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
+  const checkFlag = useCallback(() => {
     if (profileComplete !== true) return;
     try {
       if (sessionStorage.getItem("vmb:showPushPrompt") === "1") {
@@ -37,6 +42,26 @@ export default function PushPromptMount({
       }
     } catch {}
   }, [profileComplete]);
+
+  // Initial check when profileComplete first flips to true (the
+  // homeowner / fresh-Firebase-user path).
+  useEffect(() => {
+    checkFlag();
+  }, [checkFlag]);
+
+  // Trade signup completion path: an OAuth trader has
+  // profileComplete=true from the start (touchUserMw seeded firstName
+  // from their Google displayName), so the dep above never re-fires
+  // when the wizard sets the flag. Listen for routeChangeComplete so
+  // when the wizard router.replace's to /tradesman/jobs we re-read
+  // sessionStorage and fire the prompt.
+  useEffect(() => {
+    const handler = () => checkFlag();
+    router.events.on("routeChangeComplete", handler);
+    return () => {
+      router.events.off("routeChangeComplete", handler);
+    };
+  }, [router.events, checkFlag]);
 
   if (!open) return null;
   return (

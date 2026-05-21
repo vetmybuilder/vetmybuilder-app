@@ -158,11 +158,36 @@ export default function Login() {
       // where the next useEffect tick sees the empty flag and falls
       // through to the homeowner /signup/complete branch.
       redirectFiredRef.current = true;
-      if (role === "tradesman") {
-        router.replace("/tradesman/jobs");
-      } else {
-        router.replace("/tradesman/signup/complete");
-      }
+      // We CANNOT rely on `role === "tradesman"` from useRole here:
+      // useRole now treats vmb:oauthIntent="tradesman" as a strong
+      // tradesman signal (needed for header/footer/CTAs during
+      // mid-signup). If we trusted it for the destination too, a
+      // BRAND-NEW Google account would be routed straight to
+      // /tradesman/jobs and never see the wizard. Make an
+      // authoritative check: only an existing `profile` on
+      // /api/tradesmen/me means they've completed signup.
+      (async () => {
+        let hasProfile = false;
+        try {
+          const auth = initFirebase();
+          const token = auth.currentUser
+            ? await auth.currentUser.getIdToken(false)
+            : "";
+          const r = await fetch("/api/tradesmen/me", {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          if (r.ok) {
+            const d = await r.json();
+            hasProfile = !!d?.profile;
+          }
+        } catch {
+          // Best-effort. A failed lookup falls through to the wizard
+          // path - safer than the dashboard.
+        }
+        router.replace(
+          hasProfile ? "/tradesman/jobs" : "/tradesman/signup/complete",
+        );
+      })();
       return;
     }
 

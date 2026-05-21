@@ -236,8 +236,11 @@ export default function SignupForm() {
       // profileComplete flips to true, PushPromptMount's effect picks
       // it up on the same tick. Setting it after refreshProfile would
       // miss the trigger (effect already ran with no flag).
+      // Each newly-completed homeowner signup gets its own opt-in
+      // chance - see /tradesman/signup/complete for rationale on
+      // dropping the per-browser localStorage gate.
       try {
-        if ("Notification" in window && !localStorage.getItem("vmb:pushSetupShown")) {
+        if ("Notification" in window) {
           sessionStorage.setItem("vmb:showPushPrompt", "1");
         }
       } catch {}
