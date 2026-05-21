@@ -152,7 +152,6 @@ export const PROJECT_TYPES: ProjectTypeCategory[] = [
       "Door Frame & Architrave",
       "Fitted Wardrobes",
       "Handrails & Balustrades",
-      "Internal Door Hanging",
       "Joinery Repairs",
       "Kitchen Fitting (Carpentry)",
       "Media/TV Wall Unit",
@@ -526,9 +525,23 @@ export const PROJECT_TYPES: ProjectTypeCategory[] = [
     ],
   },
 
-  /* ===================== Windows & Doors ===================== */
+  /* ===================== Windows ===================== */
   {
-    category: "Windows & Doors",
+    category: "Windows",
+    types: [
+      "Sash Window Repair/Replacement",
+      "Secondary Glazing",
+      "Triple Glazing Upgrade",
+      "Window Repair",
+      "Window Replacement (uPVC)",
+      "Window Replacement (Aluminium)",
+      "Window Replacement (Timber)",
+    ],
+  },
+
+  /* ===================== Doors ===================== */
+  {
+    category: "Doors",
     types: [
       "Bi-fold Door Installation",
       "Door Frame Repair",
@@ -536,13 +549,6 @@ export const PROJECT_TYPES: ProjectTypeCategory[] = [
       "Garage Door Replacement",
       "Internal Door Hanging",
       "Patio/French Door Installation",
-      "Sash Window Repair/Replacement",
-      "Secondary Glazing",
-      "Triple Glazing Upgrade",
-      "Window Replacement (uPVC)",
-      "Window Replacement (Aluminium)",
-      "Window Replacement (Timber)",
-      "Window Repair",
     ],
   },
 ];

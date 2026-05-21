@@ -253,6 +253,15 @@ export default function AdminTradesmenLeaderboardPage() {
               <p className="text-sm mt-0.5">
                 You need admin access to view the leaderboard.
               </p>
+              <div className="mt-3">
+                <Link
+                  href="/"
+                  className="inline-flex items-center gap-1 text-xs font-bold underline hover:text-rose-900"
+                  data-testid="btn-leaderboard-back-home"
+                >
+                  ← Back to home
+                </Link>
+              </div>
             </div>
           )}
           {err && !forbidden && (
