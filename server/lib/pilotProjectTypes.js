@@ -26,7 +26,8 @@ const { TYPE_TO_CATEGORY } = require("./matching/projectTradeMap");
 //   Electrical, Painting & Decorating, Tiling & Plastering)
 // - low-ticket entry point (Cleaning & Waste)
 // - catch-all (Repairs & Maintenance)
-// - Windows & Doors (replacement / secondary glazing demand)
+// - Windows (replacement / secondary glazing demand)
+// - Doors (front-door replacement, internal door hanging, bi-fold demand)
 const DEFAULT_ENABLED_CATEGORIES = new Set([
   "Bathroom",
   "Extensions & Conversions",
@@ -36,7 +37,8 @@ const DEFAULT_ENABLED_CATEGORIES = new Set([
   "Painting & Decorating",
   "Plumbing",
   "Electrical",
-  "Windows & Doors",
+  "Windows",
+  "Doors",
   "Tiling & Plastering",
   "Repairs & Maintenance",
 ]);

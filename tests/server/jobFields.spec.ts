@@ -56,6 +56,111 @@ describe("jobFields.getSpecForSelection", () => {
     expect(getSpecForSelection(null)).toBeNull();
     expect(getSpecForSelection(undefined)).toBeNull();
   });
+
+  it("returns the windows_generic spec for window types where material is asked", () => {
+    expect(getSpecForSelection(["Sash Window Repair/Replacement"])?.id).toBe(
+      "windows_generic",
+    );
+    expect(getSpecForSelection(["Secondary Glazing"])?.id).toBe(
+      "windows_generic",
+    );
+    expect(getSpecForSelection(["Triple Glazing Upgrade"])?.id).toBe(
+      "windows_generic",
+    );
+    expect(getSpecForSelection(["Window Repair"])?.id).toBe("windows_generic");
+  });
+
+  it("returns the windows_material_known spec when the work type already encodes a material", () => {
+    expect(getSpecForSelection(["Window Replacement (uPVC)"])?.id).toBe(
+      "windows_material_known",
+    );
+    expect(getSpecForSelection(["Window Replacement (Aluminium)"])?.id).toBe(
+      "windows_material_known",
+    );
+    expect(getSpecForSelection(["Window Replacement (Timber)"])?.id).toBe(
+      "windows_material_known",
+    );
+  });
+
+  it("returns the doors spec for any door work type", () => {
+    for (const t of [
+      "Bi-fold Door Installation",
+      "Door Frame Repair",
+      "Front Door Replacement",
+      "Garage Door Replacement",
+      "Internal Door Hanging",
+      "Patio/French Door Installation",
+    ]) {
+      expect(getSpecForSelection([t])?.id).toBe("doors");
+    }
+  });
+});
+
+describe("jobFields field shapes for the new Windows/Doors specs", () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { JOB_FIELDS } = require("../../server/lib/jobFields.js") as {
+    JOB_FIELDS: Array<{ id: string; groups: Array<{ fields: Array<{ key: string }> }> }>;
+  };
+
+  const fieldKeysFor = (id: string): string[] => {
+    const spec = JOB_FIELDS.find((s) => s.id === id);
+    if (!spec) return [];
+    return spec.groups.flatMap((g) => g.fields.map((f) => f.key));
+  };
+
+  it("windows_generic asks for count and material", () => {
+    expect(fieldKeysFor("windows_generic").sort()).toEqual(
+      ["count", "material"].sort(),
+    );
+  });
+
+  it("windows_material_known asks for count only", () => {
+    expect(fieldKeysFor("windows_material_known")).toEqual(["count"]);
+  });
+
+  it("doors asks for count, material, style, internal_or_external", () => {
+    expect(fieldKeysFor("doors").sort()).toEqual(
+      ["count", "internal_or_external", "material", "style"].sort(),
+    );
+  });
+});
+
+describe("projectTradeMap TYPE_TO_CATEGORY", () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { TYPE_TO_CATEGORY } = require(
+    "../../server/lib/matching/projectTradeMap.js",
+  ) as { TYPE_TO_CATEGORY: Record<string, string> };
+
+  it("classifies all door work types under 'Doors'", () => {
+    for (const t of [
+      "Bi-fold Door Installation",
+      "Door Frame Repair",
+      "Front Door Replacement",
+      "Garage Door Replacement",
+      "Internal Door Hanging",
+      "Patio/French Door Installation",
+    ]) {
+      expect(TYPE_TO_CATEGORY[t]).toBe("Doors");
+    }
+  });
+
+  it("classifies all window work types under 'Windows'", () => {
+    for (const t of [
+      "Sash Window Repair/Replacement",
+      "Secondary Glazing",
+      "Triple Glazing Upgrade",
+      "Window Repair",
+      "Window Replacement (uPVC)",
+      "Window Replacement (Aluminium)",
+      "Window Replacement (Timber)",
+    ]) {
+      expect(TYPE_TO_CATEGORY[t]).toBe("Windows");
+    }
+  });
+
+  it("no longer references the old 'Windows & Doors' category", () => {
+    expect(Object.values(TYPE_TO_CATEGORY)).not.toContain("Windows & Doors");
+  });
 });
 
 describe("jobFields.validateAnswers", () => {
