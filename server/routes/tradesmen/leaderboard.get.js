@@ -19,6 +19,26 @@ module.exports = (router, ctx) => {
     String(v).toLowerCase() === "1" ||
     String(v).toLowerCase() === "true";
 
+  // Self-healing ALTER so the SELECT below doesn't 500 on installs created
+  // before web_verification_reason was added to the schema. Mirrors the
+  // pattern in tradesmen/me.put.js. Runs once per process.
+  let reasonColumnEnsured = false;
+  async function ensureWebVerificationReasonColumn() {
+    if (reasonColumnEnsured) return;
+    reasonColumnEnsured = true;
+    try {
+      await mysqlQuery(
+        "ALTER TABLE tradesmen ADD COLUMN web_verification_reason VARCHAR(64) NULL",
+      );
+      log.info?.(`${TAG} added web_verification_reason column`);
+    } catch (err) {
+      const msg = String(err?.message || "");
+      if (!/Duplicate column|already exists/i.test(msg)) {
+        log.warn?.(`${TAG} ensureWebVerificationReasonColumn failed`, msg);
+      }
+    }
+  }
+
   async function isAdmin(req) {
     const uid = req.user?.uid;
     if (!uid) return false;
@@ -58,6 +78,8 @@ module.exports = (router, ctx) => {
     });
 
     try {
+      await ensureWebVerificationReasonColumn();
+
       if (!(await isAdmin(req))) {
         log.warn(`${TAG} forbidden – not admin`);
         return res.status(403).json({
