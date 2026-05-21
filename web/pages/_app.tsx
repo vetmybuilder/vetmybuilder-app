@@ -222,6 +222,8 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     "/tradesman/profile/edit",
     "/tradesman/unlock/sent",
     "/chat/[matchId]",
+    "/mocks/trader-social-ads",
+    "/mocks/icon-source",
   ]);
   const isBareRoute = NO_LAYOUT_PATHS.has(router.pathname);
 
