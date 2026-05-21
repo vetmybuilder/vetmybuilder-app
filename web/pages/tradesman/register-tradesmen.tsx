@@ -171,6 +171,20 @@ export default function TradesmanRegisterPage() {
     <>
       <Head>
         <title>Register as a Tradesperson — VetMyBuilder</title>
+        <meta
+          property="og:title"
+          content="Register as a Tradesperson — VetMyBuilder"
+        />
+        <meta
+          property="og:description"
+          content="The new home for tradespeople. Verified local jobs, direct chat with homeowners, no bidding wars."
+        />
+        <meta
+          property="og:image"
+          content="https://vetmybuilder.com/icon-512.png"
+        />
+        <meta property="og:type" content="website" />
+        <meta name="twitter:card" content="summary_large_image" />
         <style>{`body { background: #fef6e9 !important; }`}</style>
       </Head>
 
