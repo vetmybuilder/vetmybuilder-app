@@ -278,7 +278,11 @@ function renderDigest({ counts, signupsByRole, funnel, windowHours, generatedAt 
     signupsByRole = rowsToMap(b);
     funnel = rowsToMap(c);
   } catch (err) {
-    fail(`PostHog query failed: ${err?.message || err}`);
+    const cause = err?.cause;
+    const causeStr = cause
+      ? ` (cause: ${[cause.code, cause.message, cause.errno].filter(Boolean).join(" ")})`
+      : "";
+    fail(`PostHog query failed: ${err?.message || err}${causeStr}`);
   }
 
   const html = renderDigest({
