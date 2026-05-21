@@ -167,11 +167,17 @@ export default function AdminHeader() {
     setOpenDropdown(null);
   }, [router.pathname]);
 
+  // Logo destination depends on access:
+  // - admin: /admin/dashboard (the actual admin home)
+  // - everyone else: / (homepage) — gives a real escape hatch when a
+  //   non-admin lands on an admin URL with the chrome rendered.
+  const logoHref = isAdmin ? "/admin/dashboard" : "/";
+
   return (
     <header className="sticky top-0 z-40 border-b border-slate-500/60 bg-slate-700/90 backdrop-blur">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
         {/* Left: brand logo */}
-        <Link href="/admin/tradesmen-leaderboard" className="flex items-center gap-2">
+        <Link href={logoHref} className="flex items-center gap-2">
           <BrandWordmark
             tone="auto"
             className="text-xl font-black tracking-tight text-white"
@@ -181,13 +187,24 @@ export default function AdminHeader() {
 
         {/* Right: pill navigation */}
         <nav className="flex items-center gap-1.5 text-sm">
-          {!user || !isAdmin ? (
+          {!user ? (
             <Link
               href="/login?next=/admin/tradesmen-leaderboard"
               className={`inline-flex items-center rounded-full px-4 h-9 text-sm ${inactivePill}`}
               data-testid="btn-admin-login"
             >
               Admin login
+            </Link>
+          ) : !isAdmin ? (
+            // Authed but NOT admin: a "Admin login" link to /login?next=/admin/...
+            // would loop back here via login.tsx's deep-route auto-redirect.
+            // Give them a real way out instead.
+            <Link
+              href="/"
+              className={`inline-flex items-center rounded-full px-4 h-9 text-sm ${inactivePill}`}
+              data-testid="btn-back-home"
+            >
+              Back to home
             </Link>
           ) : (
             <>

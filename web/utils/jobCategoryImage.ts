@@ -43,7 +43,8 @@ const CATEGORY_IMAGE: Record<string, string> = {
   Roofing: "/job-images/roofing.jpg",
   "Smart Home & Security": "/job-images/smart-home-and-security.jpg",
   "Tiling & Plastering": "/job-images/tiling-and-plastering.jpg",
-  "Windows & Doors": "/job-images/windows-and-doors.jpg",
+  Windows: "/job-images/windows-and-doors.jpg",
+  Doors: "/job-images/windows-and-doors.jpg",
 };
 
 /**

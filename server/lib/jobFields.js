@@ -4,7 +4,7 @@
 // _FILE_VERSION must match the TS file — server logs a warning on startup
 // if they drift (see checkJobFieldsMirror below).
 
-const _FILE_VERSION = 6;
+const _FILE_VERSION = 7;
 
 // ──────────────────────────────────────────────────────────────────
 // Flooring price model — mirror of web/config/jobFields.ts.
@@ -213,6 +213,131 @@ const JOB_FIELDS = [
               { value: "none", label: "None currently" },
               { value: "thin", label: "Some, but inadequate" },
               { value: "unknown", label: "Not sure" },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+
+  // Windows - generic types where material is not implied by the label.
+  {
+    id: "windows_generic",
+    label: "Windows (material asked)",
+    workTypes: [
+      "Sash Window Repair/Replacement",
+      "Secondary Glazing",
+      "Triple Glazing Upgrade",
+      "Window Repair",
+    ],
+    groups: [
+      {
+        id: "windows",
+        title: "About the window job",
+        fields: [
+          {
+            key: "count",
+            kind: "number",
+            label: "How many windows",
+            unit: "count",
+          },
+          {
+            key: "material",
+            kind: "select",
+            label: "Preferred material",
+            options: [
+              { value: "upvc", label: "uPVC" },
+              { value: "aluminium", label: "Aluminium" },
+              { value: "timber", label: "Timber / Wood" },
+              { value: "composite", label: "Composite" },
+              { value: "unsure", label: "Not sure" },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+
+  // Windows - material-specific replacements. Material implicit in the label.
+  {
+    id: "windows_material_known",
+    label: "Windows (material implicit)",
+    workTypes: [
+      "Window Replacement (uPVC)",
+      "Window Replacement (Aluminium)",
+      "Window Replacement (Timber)",
+    ],
+    groups: [
+      {
+        id: "windows",
+        title: "About the window job",
+        fields: [
+          {
+            key: "count",
+            kind: "number",
+            label: "How many windows",
+            unit: "count",
+          },
+        ],
+      },
+    ],
+  },
+
+  // Doors
+  {
+    id: "doors",
+    label: "Doors",
+    workTypes: [
+      "Bi-fold Door Installation",
+      "Door Frame Repair",
+      "Front Door Replacement",
+      "Garage Door Replacement",
+      "Internal Door Hanging",
+      "Patio/French Door Installation",
+    ],
+    groups: [
+      {
+        id: "doors",
+        title: "About the door job",
+        fields: [
+          {
+            key: "count",
+            kind: "number",
+            label: "How many doors",
+            unit: "count",
+          },
+          {
+            key: "material",
+            kind: "select",
+            label: "Material",
+            options: [
+              { value: "upvc", label: "uPVC" },
+              { value: "aluminium", label: "Aluminium (50mm-100mm thick)" },
+              { value: "timber", label: "Timber / Wood" },
+              { value: "composite", label: "Composite" },
+              { value: "steel", label: "Steel" },
+              { value: "glass", label: "Glass / Glazed" },
+              { value: "unsure", label: "Not sure" },
+            ],
+          },
+          {
+            key: "style",
+            kind: "select",
+            label: "Style",
+            options: [
+              { value: "hinged", label: "Hinged (standard)" },
+              { value: "sliding", label: "Sliding" },
+              { value: "bifold", label: "Bi-fold" },
+              { value: "french_patio", label: "French / Patio" },
+            ],
+          },
+          {
+            key: "internal_or_external",
+            kind: "select",
+            label: "Internal or external?",
+            options: [
+              { value: "internal", label: "Internal" },
+              { value: "external", label: "External" },
             ],
           },
         ],

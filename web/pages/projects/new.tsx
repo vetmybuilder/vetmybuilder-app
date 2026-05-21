@@ -47,7 +47,8 @@ const CATEGORY_ICONS: Record<string, string> = {
   "Roofing": "\u{1F3E0}",
   "Smart Home & Security": "\u{1F4F1}",
   "Tiling & Plastering": "\u{1F9F1}",
-  "Windows & Doors": "\u{1FA9F}",
+  "Windows": "\u{1FA9F}",
+  "Doors": "\u{1F6AA}",
 };
 
 /* ===== Constants & helpers ===== */

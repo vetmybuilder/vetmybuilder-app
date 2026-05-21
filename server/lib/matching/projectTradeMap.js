@@ -221,12 +221,16 @@ const CATEGORY_TRADES = {
     "Dryliner / Partitions",
     "Suspended Ceilings",
   ],
-  "Windows & Doors": [
+  "Windows": [
     "Window / Door Fitter",
     "Glazier",
     "Sash Window Specialist",
     "Carpenter / Joiner",
     "Skylights / Rooflights",
+  ],
+  "Doors": [
+    "Window / Door Fitter",
+    "Carpenter / Joiner",
   ],
 };
 
@@ -478,7 +482,7 @@ const TYPE_TO_CATEGORY = {
   "Door Frame & Architrave": "Carpentry & Joinery",
   "Fitted Wardrobes": "Carpentry & Joinery",
   "Handrails & Balustrades": "Carpentry & Joinery",
-  "Internal Door Hanging": "Carpentry & Joinery",
+  "Internal Door Hanging": "Doors",
   "Joinery Repairs": "Carpentry & Joinery",
   "Kitchen Fitting (Carpentry)": "Carpentry & Joinery",
   "Media/TV Wall Unit": "Carpentry & Joinery",
@@ -740,19 +744,20 @@ const TYPE_TO_CATEGORY = {
   "Tank & Waterproof (Wet Areas)": "Tiling & Plastering",
   "Wall Tiling": "Tiling & Plastering",
 
-  // Windows & Doors
-  "Bi-fold Door Installation": "Windows & Doors",
-  "Door Frame Repair": "Windows & Doors",
-  "Front Door Replacement": "Windows & Doors",
-  "Garage Door Replacement": "Windows & Doors",
-  "Patio/French Door Installation": "Windows & Doors",
-  "Sash Window Repair/Replacement": "Windows & Doors",
-  "Secondary Glazing": "Windows & Doors",
-  "Triple Glazing Upgrade": "Windows & Doors",
-  "Window Replacement (uPVC)": "Windows & Doors",
-  "Window Replacement (Aluminium)": "Windows & Doors",
-  "Window Replacement (Timber)": "Windows & Doors",
-  "Window Repair": "Windows & Doors",
+  // Doors
+  "Bi-fold Door Installation": "Doors",
+  "Door Frame Repair": "Doors",
+  "Front Door Replacement": "Doors",
+  "Garage Door Replacement": "Doors",
+  "Patio/French Door Installation": "Doors",
+  // Windows
+  "Sash Window Repair/Replacement": "Windows",
+  "Secondary Glazing": "Windows",
+  "Triple Glazing Upgrade": "Windows",
+  "Window Replacement (uPVC)": "Windows",
+  "Window Replacement (Aluminium)": "Windows",
+  "Window Replacement (Timber)": "Windows",
+  "Window Repair": "Windows",
 };
 
 function normalise(s) {
