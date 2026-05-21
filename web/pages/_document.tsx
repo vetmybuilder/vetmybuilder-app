@@ -31,6 +31,23 @@ export default function Document() {
             keyboard-open gap below the page doesn't flash a different
             colour. Mirrors the manifest theme_color for installed PWA. */}
         <meta name="theme-color" content="#ffffff" />
+        {/* Default Open Graph + Twitter Card. Per-page Head tags can
+            override og:title / og:description / og:image as needed. */}
+        <meta property="og:site_name" content="VetMyBuilder" />
+        <meta property="og:type" content="website" />
+        <meta
+          property="og:title"
+          content="VetMyBuilder - the new home for tradespeople"
+        />
+        <meta
+          property="og:description"
+          content="Verified local jobs, direct chat with homeowners, no bidding wars."
+        />
+        <meta
+          property="og:image"
+          content="https://vetmybuilder.com/icon-512.png"
+        />
+        <meta name="twitter:card" content="summary_large_image" />
       </Head>
       <body>
         <Main />
