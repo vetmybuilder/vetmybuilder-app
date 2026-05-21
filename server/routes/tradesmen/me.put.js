@@ -50,6 +50,27 @@ module.exports = (router, ctx) => {
     }
   }
 
+  // Same self-healing trick for web_verification_reason - the column
+  // holds the machine code from verifyWebPresence (e.g. brand_mismatch,
+  // parked_or_placeholder) so admin can show a human label next to
+  // "Website confirmed" when the check didn't tick.
+  let reasonColumnEnsured = false;
+  async function ensureWebVerificationReasonColumn() {
+    if (reasonColumnEnsured) return;
+    reasonColumnEnsured = true;
+    try {
+      await mysqlQuery(
+        "ALTER TABLE tradesmen ADD COLUMN web_verification_reason VARCHAR(64) NULL",
+      );
+      log.info?.(`${TAG} added web_verification_reason column`);
+    } catch (err) {
+      const msg = String(err?.message || "");
+      if (!/Duplicate column|already exists/i.test(msg)) {
+        log.warn?.(`${TAG} ensureWebVerificationReasonColumn failed`, msg);
+      }
+    }
+  }
+
   // ---- CH + location helpers ----
   let matchByName = ctx.matchByName;
   let extractLocationTokens = ctx.extractLocationTokens;
@@ -109,8 +130,17 @@ module.exports = (router, ctx) => {
     if (Array.isArray(body.photoUrls)) buckets.push(body.photoUrls);
     return buckets
       .flat()
-      .filter(Boolean)
-      .map((u) => String(u).trim());
+      .map((u) => {
+        // Defense-in-depth: a previous bug let R2 result objects
+        // ({ key, publicUrl }) leak into tradesmen_photos.url where
+        // String(obj) produced "[object Object]". If we see an object
+        // shape, pull publicUrl/url; otherwise coerce to string.
+        if (u && typeof u === "object") {
+          return String(u.publicUrl || u.url || "").trim();
+        }
+        return String(u || "").trim();
+      })
+      .filter((s) => s && s !== "[object Object]");
   };
 
   // ---- scoring ----
@@ -163,6 +193,7 @@ module.exports = (router, ctx) => {
   // ---------- ROUTE ----------
   router.put("/tradesmen/me", auth, async (req, res) => {
     await ensureSupportingDocsJsonColumn();
+    await ensureWebVerificationReasonColumn();
     const uid = req.user.uid;
 
     log.info(`${TAG} incoming update`, {
@@ -207,13 +238,29 @@ module.exports = (router, ctx) => {
       // changes their website later keeps the old verified flag (which
       // defaults to 0) and "Website confirmed" stays unticked in admin.
       // Network failures keep the flag at 0 - same behaviour as signup.
+      //
+      // We also persist the first reason from the failed check so the
+      // admin drawer can render a human label next to the unticked
+      // row (e.g. "Parked or placeholder page"). Only the website
+      // reason is captured here; social-link failures are uninteresting
+      // for admin diagnosis.
       let webVerified = 0;
+      let webVerificationReason = null;
       try {
         if (website || socialLinksArr.length) {
           const vr = await verifyWebPresence(website, socialLinksArr, {
             vendorName: body.companyName || body.contactName || undefined,
           });
           webVerified = vr?.verified ? 1 : 0;
+          if (!vr?.verified && website) {
+            // reasons are formatted as "website:<code>" or "socials:<code>".
+            const first = (vr?.reasons || []).find((r) =>
+              String(r || "").startsWith("website:"),
+            );
+            if (first) {
+              webVerificationReason = String(first).slice("website:".length);
+            }
+          }
           log.info(`${TAG} web presence`, {
             verified: !!vr?.verified,
             reasons: vr?.reasons,
@@ -379,14 +426,30 @@ module.exports = (router, ctx) => {
         // who registered via the email/password wizard were invisible
         // in the admin User Management page because they only had a
         // tradesmen row.
+        // Split the trader's contactName ("Olive Tester") into first +
+        // last so the users row has firstName populated. Without this,
+        // auth.tsx's profileComplete = !!me.firstName stays false and
+        // SiteHeader's isMidSignup gate suppresses the entire account
+        // chrome - the trader sees the guest header ("Sign in / Get
+        // started") on /tradesman/jobs after signing up.
+        const nameParts = String(contactName || "")
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean);
+        const userFirstName = nameParts[0] || null;
+        const userLastName =
+          nameParts.length > 1 ? nameParts.slice(1).join(" ") : null;
+
         await run(
           `
-          INSERT INTO users (uid, email, createdAt)
-          VALUES (?, ?, NOW())
+          INSERT INTO users (uid, email, firstName, lastName, createdAt)
+          VALUES (?, ?, ?, ?, NOW())
           ON DUPLICATE KEY UPDATE
-            email = COALESCE(VALUES(email), email)
+            email = COALESCE(VALUES(email), email),
+            firstName = COALESCE(users.firstName, VALUES(firstName)),
+            lastName = COALESCE(users.lastName, VALUES(lastName))
           `,
-          [uid, email],
+          [uid, email, userFirstName, userLastName],
         );
 
         // UPSERT main row
@@ -395,7 +458,7 @@ module.exports = (router, ctx) => {
           INSERT INTO tradesmen (
             user_id, company_name, contact_name, phone, email,
             trade_types, service_areas,
-            web_verified, web_url, social_links_json, review_links_json,
+            web_verified, web_verification_reason, web_url, social_links_json, review_links_json,
             offers_discount, warranty_months, photo_count, supporting_doc_count,
             supporting_docs_json,
             discount_min_percent, discount_max_percent,
@@ -404,7 +467,7 @@ module.exports = (router, ctx) => {
           ) VALUES (
             ?, ?, ?, ?, ?,
             ?, ?,
-            ?, ?, ?, ?,
+            ?, ?, ?, ?, ?,
             ?, ?, ?, ?,
             ?,
             ?, ?,
@@ -419,6 +482,7 @@ module.exports = (router, ctx) => {
             trade_types         = VALUES(trade_types),
             service_areas       = VALUES(service_areas),
             web_verified        = VALUES(web_verified),
+            web_verification_reason = VALUES(web_verification_reason),
             web_url             = VALUES(web_url),
             social_links_json   = VALUES(social_links_json),
             review_links_json   = VALUES(review_links_json),
@@ -445,6 +509,7 @@ module.exports = (router, ctx) => {
             tradeTypes,
             serviceAreas,
             webVerified,
+            webVerificationReason,
             website,
             socialLinks,
             reviewLinks,

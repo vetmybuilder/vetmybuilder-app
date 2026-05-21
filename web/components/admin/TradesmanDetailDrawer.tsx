@@ -35,6 +35,10 @@ export type LeaderboardItem = {
   companyNumber: string | null;
   chStatus: string | null;
   webVerified: boolean;
+  // Machine code from server/lib/webPresence.js when verification
+  // failed (e.g. "brand_mismatch", "parked_or_placeholder"). null when
+  // verification passed or hasn't run.
+  webVerificationReason?: string | null;
   website: string | null;
   trades: string;
   areas: string;
@@ -398,6 +402,11 @@ function OverviewTab({
             label={`Website confirmed${
               item.website ? ` (${item.website})` : ""
             }`}
+            note={
+              item.webVerificationReason
+                ? humanWebReason(item.webVerificationReason)
+                : null
+            }
           />
           <CheckRow
             on={item.docs >= 2}
@@ -434,16 +443,69 @@ function StatCard({
   );
 }
 
-function CheckRow({ on, label }: { on: boolean; label: string }) {
+function CheckRow({
+  on,
+  label,
+  note,
+}: {
+  on: boolean;
+  label: string;
+  // Optional human-readable annotation rendered in red next to the
+  // label when the check is failing. Used for the website row so
+  // admin can see WHY verification didn't tick (e.g. "Parked or
+  // placeholder page" vs "Company name not found on the page").
+  note?: string | null;
+}) {
   return (
     <li
-      className={`flex items-center gap-2 ${
+      className={`flex items-start gap-2 ${
         on ? "text-slate-900" : "text-slate-400"
       }`}
     >
-      <span>{on ? "✓" : "·"}</span> {label}
+      <span className="leading-snug">{on ? "✓" : "·"}</span>
+      <span className="leading-snug">
+        {label}
+        {!on && note ? (
+          <span className="ml-2 text-rose-600 font-medium">- {note}</span>
+        ) : null}
+      </span>
     </li>
   );
+}
+
+// Maps the machine reason code from server/lib/webPresence.js into
+// the short human label rendered next to the unticked website row.
+function humanWebReason(code: string | null | undefined): string | null {
+  if (!code) return null;
+  switch (code) {
+    case "brand_mismatch":
+      return "Company name not found on the page";
+    case "parked_or_placeholder":
+      return "Parked or placeholder page";
+    case "too_thin":
+      return "Page has too little content";
+    case "http_error":
+      return "Site returned an error";
+    case "dns_failed":
+      return "Domain didn't resolve";
+    case "timeout":
+      return "Site didn't respond in time";
+    case "invalid_url":
+      return "URL is invalid";
+    case "url_shortener_blocked":
+      return "Short URLs aren't allowed";
+    case "blocked_private_ip":
+      return "Points to a private address";
+    case "blocked_protocol":
+      return "Unsupported URL protocol";
+    case "fetch_failed":
+    case "fetch failed":
+      return "Site couldn't be fetched";
+    case "external_services_mocked":
+      return "Web checks disabled in this environment";
+    default:
+      return code;
+  }
 }
 
 function DocsTab({

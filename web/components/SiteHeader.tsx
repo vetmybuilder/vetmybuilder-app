@@ -260,6 +260,34 @@ export default function SiteHeader() {
   const [company, setCompany] = useState<string | null>(null);
   const [tradesPhoto, setTradesPhoto] = useState<string | null>(null);
   const [roleChecked, setRoleChecked] = useState<boolean>(false);
+  // True while sessionStorage carries either of two trade-signup
+  // signals:
+  //   - `vmb:oauthIntent === "tradesman"`: set by OAuthSignInButton
+  //     before opening the Google popup. Cleared when the user lands
+  //     on /tradesman/signup/complete.
+  //   - `vmb:tradesmanSignupInProgress === "1"`: set on the trade
+  //     signup wizard mount. Persists until PUT /api/tradesmen/me
+  //     succeeds OR the user signs out.
+  // Either flag tells us the header should NOT render the homeowner
+  // indigo pill - the user is mid-trade-signup and /api/tradesmen/me
+  // may still report role=user (no tradesmen row yet, role-intent
+  // not stamped yet). Re-read on route change so the cancel-and-go-
+  // home path (X out of the wizard -> "/") keeps suppressing the
+  // wrong pill.
+  const [traderIntent, setTraderIntent] = useState<boolean>(false);
+  useEffect(() => {
+    if (!displayUser) {
+      setTraderIntent(false);
+      return;
+    }
+    try {
+      const intent =
+        sessionStorage.getItem("vmb:oauthIntent") === "tradesman";
+      const inProgress =
+        sessionStorage.getItem("vmb:tradesmanSignupInProgress") === "1";
+      setTraderIntent(intent || inProgress);
+    } catch {}
+  }, [displayUser, router.pathname]);
 
   useEffect(() => {
     // Cosmetic seed only. We deliberately do NOT setRoleChecked(true)
@@ -399,11 +427,20 @@ export default function SiteHeader() {
       : "/projects"
     : "/";
 
+  // Effective trader signal for UI gating: prefer the live API answer
+  // (isTrades), but treat trade-signup-intent users as traders too.
+  // Covers the window where role-intent has been stamped on the
+  // server (admin shows "tradesman (pending)") but the header's
+  // /api/tradesmen/me fetch resolved before the stamp landed. Without
+  // this, the homeowner tabs, indigo pill, and homeowner inbox fetch
+  // all fire for a user who just cancelled mid-trade-signup.
+  const effectiveIsTrades = isTrades || traderIntent;
+
   // Owner tabs visible whenever the viewer is a signed-in homeowner and
   // not on an auth screen. Hidden for tradespeople and on /admin/*
   // (admin uses its own AdminLayout shell).
   const showOwnerTabs =
-    !!displayUser && !isTrades && !isAuthPage && !router.pathname.startsWith("/admin");
+    !!displayUser && !effectiveIsTrades && !isAuthPage && !router.pathname.startsWith("/admin");
 
   const onProjectsListPage = router.pathname === "/projects";
   const activeOwnerTab: OwnerTabKey | null = onProjectsListPage
@@ -422,7 +459,7 @@ export default function SiteHeader() {
   // /tradesman/jobs/list since they're the same product surface from
   // the user's POV.
   const showTradesTabs =
-    !!displayUser && isTrades && !isAuthPage && !router.pathname.startsWith("/admin");
+    !!displayUser && effectiveIsTrades && !isAuthPage && !router.pathname.startsWith("/admin");
 
   const activeTradesTab: TradesTabKey | null = (() => {
     const p = router.pathname;
@@ -443,9 +480,9 @@ export default function SiteHeader() {
   // Combined unread count across Messages + Activity tabs of the inbox.
   // Only fetched for signed-in homeowners (the only viewers who see the
   // inbox icon).
-  const { total: inboxUnread } = useInboxUnread(!!displayUser && !isTrades);
+  const { total: inboxUnread } = useInboxUnread(!!displayUser && !effectiveIsTrades);
   const { total: tradesInboxUnread } = useTradesInboxUnread(
-    !!displayUser && isTrades,
+    !!displayUser && effectiveIsTrades,
   );
 
   /* ========= 1) SIMPLE HOMEPAGE HEADER ========= */
@@ -470,7 +507,7 @@ export default function SiteHeader() {
                   aria-label="Go to homepage"
                   data-testid="nav-home"
                 >
-                  <BrandWordmark tone={isTradesPage ? "emerald" : "indigo"} />
+                  <BrandWordmark tone={effectiveIsTrades || isTradesPage ? "emerald" : "indigo"} />
                 </Link>
               </div>
 
@@ -528,7 +565,7 @@ export default function SiteHeader() {
                     pill for a tradesperson while the seed effect is
                     still resolving (the post-mount cache read takes
                     one paint). */}
-                {displayUser && !isTrades && roleChecked && (
+                {displayUser && !isTrades && roleChecked && !traderIntent && (
                   <>
                     <div className="relative hidden sm:block" data-testid="account-menu-wrapper">
                       <button
@@ -642,7 +679,7 @@ export default function SiteHeader() {
                 )}
 
                 {/* Logged-in tradesperson: trades menu */}
-                {displayUser && isTrades && (
+                {displayUser && effectiveIsTrades && (
                   <div className="relative hidden sm:block" data-testid="trades-menu-wrapper">
                     <button
                       ref={btnTradesRef}
@@ -815,7 +852,7 @@ export default function SiteHeader() {
                 data-testid="nav-home"
                 onClick={closeMobileMenu}
               >
-                <BrandWordmark tone={isTrades || isTradesPage ? "emerald" : "indigo"} />
+                <BrandWordmark tone={effectiveIsTrades || isTradesPage ? "emerald" : "indigo"} />
               </Link>
             </div>
 
@@ -891,7 +928,7 @@ export default function SiteHeader() {
                   the /projects/new wizard itself - showing a "Post a
                   job" button while the user is literally posting a job
                   is confusing. */}
-              {displayUser && !isTrades && roleChecked && router.pathname !== "/projects/new" && (
+              {displayUser && !isTrades && roleChecked && !traderIntent && router.pathname !== "/projects/new" && (
                 <Link
                   href="/projects/new"
                   className="hidden sm:inline-flex items-center gap-2 rounded-full pl-3.5 pr-5 py-2 text-[13.5px] font-extrabold text-white shadow-sm hover:shadow-md transition-all group"
@@ -910,7 +947,7 @@ export default function SiteHeader() {
                   InboxDropdown. Only opens the dropdown - the dock
                   pops when the user actually clicks a row inside the
                   dropdown (or via /projects/:id?openChat=N). */}
-              {displayUser && !isTrades && roleChecked && (
+              {displayUser && !isTrades && roleChecked && !traderIntent && (
                 <MessagesIconButton
                   buttonRef={btnMessagesRef}
                   menuRef={menuRef}
@@ -934,7 +971,7 @@ export default function SiteHeader() {
                   /api/tradesman/matches-backed dropdown. Does NOT pop
                   the dock; the chat window only opens when a thread
                   is explicitly tapped inside the dropdown. */}
-              {displayUser && isTrades && (
+              {displayUser && effectiveIsTrades && (
                 <MessagesIconButton
                   buttonRef={btnMessagesRef}
                   menuRef={menuRef}
@@ -955,7 +992,7 @@ export default function SiteHeader() {
                 />
               )}
 
-              {displayUser && isTrades && (
+              {displayUser && effectiveIsTrades && (
                 <div className="relative" data-testid="trades-menu-wrapper">
                   <button
                     ref={btnTradesRef}
@@ -975,9 +1012,11 @@ export default function SiteHeader() {
                       photoUrl={tradesPhoto}
                       company={company}
                     />
-                    <span className="hidden sm:block text-sm font-semibold text-gray-700 max-w-[200px] truncate">
-                      {company || "Trades"}
-                    </span>
+                    {company && (
+                      <span className="hidden sm:block text-sm font-semibold text-gray-700 max-w-[200px] truncate">
+                        {company}
+                      </span>
+                    )}
                     <svg
                       className={`h-4 w-4 text-gray-500 transition-transform ${
                         openMenu === "trades" ? "rotate-180" : ""
@@ -1077,7 +1116,7 @@ export default function SiteHeader() {
                 </div>
               )}
 
-              {displayUser && !isTrades && roleChecked && (
+              {displayUser && !isTrades && roleChecked && !traderIntent && (
                 <div className="relative" data-testid="account-menu-wrapper">
                   <button
                     ref={btnAccountRef}
@@ -1281,7 +1320,7 @@ function TradesAvatar({
   return (
     <span
       aria-hidden
-      className="inline-flex shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white font-bold"
+      className="inline-flex shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white font-bold"
       style={{ ...dim, fontSize }}
     >
       {initial}

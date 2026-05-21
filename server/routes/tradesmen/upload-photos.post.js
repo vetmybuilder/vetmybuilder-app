@@ -85,7 +85,11 @@ module.exports = (router, ctx) => {
             }),
           ),
         );
-        urls = await Promise.all(
+        // uploadToR2 returns { key, publicUrl }; we only persist the
+        // public URL string. Forgetting this extraction is what
+        // produced the "[object Object]" rows in tradesmen_photos.url
+        // when R2 mode is active.
+        const r2Results = await Promise.all(
           processed.map((p) =>
             uploadToR2({
               buffer: p.buffer,
@@ -95,6 +99,7 @@ module.exports = (router, ctx) => {
             })
           )
         );
+        urls = r2Results.map((r) => r.publicUrl);
       } else {
         // Local disk: multer has written each file to disk; normalise
         // in place (HEIC is replaced by a .jpg file, EXIF stripped).

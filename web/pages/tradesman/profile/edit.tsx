@@ -188,6 +188,10 @@ function Inner() {
   const [form, setForm] = useState<FormState | null>(null);
 
   const [loading, setLoading] = useState(true);
+  // Suppress the empty-state render while a redirect is in flight so a
+  // mid-signup user doesn't see the red "No trade profile found"
+  // error flash between setLoading(false) and the actual navigation.
+  const [redirecting, setRedirecting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
@@ -210,6 +214,15 @@ function Inner() {
         if (cancelled) return;
 
         if (!data?.profile || data.role !== "tradesman") {
+          // A tradesman_pending user (role-intent stamped but the
+          // wizard never ran to completion) shouldn't hit a cold
+          // "no profile" error - send them back to finish signup.
+          const r = String(data?.role || "").toLowerCase();
+          if (r === "tradesman" && !data?.profile) {
+            setRedirecting(true);
+            router.replace("/tradesman/signup/complete");
+            return;
+          }
           setErr("No trade profile found.");
           setProfile(null);
           setForm(null);
@@ -335,6 +348,7 @@ function Inner() {
       serviceAreas: parseCsv(profile.service_areas),
       supportingDocCount: parseSupportingDocs(profile.supporting_docs_json).length,
       websiteUrl: profile.web_url ?? null,
+      webVerified: (profile as any).web_verified ?? null,
       socialLinks: socialsArray,
       offersDiscount: !!profile.offers_discount,
     });
@@ -595,6 +609,11 @@ function Inner() {
   };
 
   // ===== RENDER =====
+
+  // Suppress the entire render while a redirect to /tradesman/signup/
+  // complete is in flight - otherwise the empty-state error block
+  // flashes for a frame between setLoading(false) and the route change.
+  if (redirecting) return null;
 
   if (loading) {
     return (

@@ -175,26 +175,27 @@ describe("PUT /api/tradesmen/me - ch_status spoof prevention", () => {
     //   5  trade_types
     //   6  service_areas
     //   7  web_verified
-    //   8  web_url
-    //   9  social_links_json
-    //  10  review_links_json
-    //  11  offers_discount
-    //  12  warranty_months
-    //  13  photo_count
-    //  14  supporting_doc_count
-    //  15  supporting_docs_json
-    //  16  discount_min_percent
-    //  17  discount_max_percent
-    //  18  company_number
-    //  19  ch_status
-    //  20  ch_name
-    //  21  ch_checked_at
-    //  22  ch_match_score
+    //   8  web_verification_reason  (added 2026-05-21 - shifted all later indices by +1)
+    //   9  web_url
+    //  10  social_links_json
+    //  11  review_links_json
+    //  12  offers_discount
+    //  13  warranty_months
+    //  14  photo_count
+    //  15  supporting_doc_count
+    //  16  supporting_docs_json
+    //  17  discount_min_percent
+    //  18  discount_max_percent
+    //  19  company_number
+    //  20  ch_status
+    //  21  ch_name
+    //  22  ch_checked_at
+    //  23  ch_match_score
     const persistedWebVerified = params[7];
-    const persistedCompanyNumber = params[18];
-    const persistedChStatus = params[19];
-    const persistedChName = params[20];
-    const persistedChMatchScore = params[22];
+    const persistedCompanyNumber = params[19];
+    const persistedChStatus = params[20];
+    const persistedChName = params[21];
+    const persistedChMatchScore = params[23];
 
     // ch_status must be derived from matchByName's verdict, NOT the
     // client's "verified" string.
@@ -231,8 +232,8 @@ describe("PUT /api/tradesmen/me - ch_status spoof prevention", () => {
 
     expect(captured.tradesmenInsert).not.toBeNull();
     const params = captured.tradesmenInsert as any[];
-    expect(params[19]).toBe("verified");
-    expect(params[18]).toBe("00000001");
-    expect(params[20]).toBe("Real Ltd");
+    expect(params[20]).toBe("verified");
+    expect(params[19]).toBe("00000001");
+    expect(params[21]).toBe("Real Ltd");
   });
 });

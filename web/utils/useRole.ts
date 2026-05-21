@@ -51,6 +51,24 @@ export function useRole(): { role: Role; loading: boolean } {
       /* sessionStorage unavailable */
     }
 
+    // Trade-signup-in-flight signal. SiteHeader's first /api/tradesmen/me
+    // call can resolve BEFORE the role-intent stamp has landed, leaving
+    // vmb:isTradesman="0" in the cache even though the user has declared
+    // trade intent. Check this BEFORE the cache so a stale "0" written
+    // during the race doesn't override the live signup intent.
+    try {
+      if (
+        sessionStorage.getItem("vmb:tradesmanSignupInProgress") === "1" ||
+        sessionStorage.getItem("vmb:oauthIntent") === "tradesman"
+      ) {
+        setRole("tradesman");
+        setLoading(false);
+        return;
+      }
+    } catch {
+      // sessionStorage unavailable
+    }
+
     try {
       const cached = sessionStorage.getItem("vmb:isTradesman");
       if (cached === "1") {

@@ -1,19 +1,21 @@
 // web/components/Footer.tsx
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { useAuth } from "@/utils/auth";
+import { useRole } from "@/utils/useRole";
 import BrandWordmark from "@/components/BrandWordmark";
 
 export default function Footer() {
   const year = new Date().getFullYear();
   const { user } = useAuth();
 
-  // Read isTradesman flag set by SiteHeader (avoids a second API call)
-  const [isTrades, setIsTrades] = useState(false);
-  useEffect(() => {
-    if (!user) { setIsTrades(false); return; }
-    setIsTrades(sessionStorage.getItem("vmb:isTradesman") === "1");
-  }, [user]);
+  // useRole respects trade-signup-in-progress / oauth-intent flags so
+  // a mid-trader-signup user (incl. just-cancelled) is treated as
+  // tradesman here, not as a homeowner. Reading the raw
+  // vmb:isTradesman sessionStorage flag directly would flip homeowner
+  // for the race window where SiteHeader cached "0" before the
+  // role-intent stamp landed.
+  const { role } = useRole();
+  const isTrades = !!user && role === "tradesman";
 
   // Tradespeople links:
   // - Not logged in -> Register + Login

@@ -107,9 +107,29 @@ module.exports = (router, ctx) => {
       const profile = rows[0] || null;
 
       if (!profile) {
-        log.info(`${TAG} no tradesman row found`, { uid });
+        // No tradesmen profile yet - but the user may still have a
+        // user_roles row stamped 'tradesman' by /api/auth/role-intent
+        // (set when they land on a trade signup page). Returning
+        // role='user' here lies about their declared intent and
+        // breaks the header, footer, and trade-section guards. Read
+        // user_roles so a mid-signup trader keeps their stamped role.
+        let stampedRole = "user";
+        try {
+          const roleRows = await mysqlQuery(
+            `SELECT role FROM user_roles WHERE uid = ? LIMIT 1`,
+            [uid],
+          );
+          const r = String(roleRows?.[0]?.role || "").toLowerCase();
+          if (r === "tradesman" || r === "admin") stampedRole = r;
+        } catch (e) {
+          log.warn?.(`${TAG} user_roles lookup failed`, {
+            uid,
+            error: e?.message,
+          });
+        }
+        log.info(`${TAG} no tradesman row found`, { uid, stampedRole });
         res.set("Cache-Control", "no-store");
-        return res.json({ role: "user", profile: null });
+        return res.json({ role: stampedRole, profile: null });
       }
 
       // Fetch photo URLs from tradesmen_photos (source of truth)

@@ -512,11 +512,15 @@ async function verifyWebPresence(
   // shape callers expect with verified=false so the row is saved without
   // fanning out to the public internet.
   if (isExternalServicesMocked()) {
+    // Surface a reason so admin still gets a human label rather than
+    // a silent unticked row. In prod (no mock) the real check runs
+    // and produces real reasons (parked_or_placeholder etc.).
     return {
       verified: false,
       website: undefined,
       socials: [],
       mocked: true,
+      reasons: ["website:external_services_mocked"],
     };
   }
 

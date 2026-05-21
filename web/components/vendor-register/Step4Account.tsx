@@ -85,19 +85,19 @@ export default function Step4Account({
       </div>
 
       {/* Terms card */}
-      <div className="bg-white rounded-xl mx-3 my-2 px-3.5 py-3">
-        <label className="flex items-start gap-2.5 cursor-pointer" data-testid="agree-terms">
+      <div className="bg-white rounded-xl mx-3 mt-6 mb-2 px-3.5 py-4">
+        <label className="flex items-start gap-3 cursor-pointer" data-testid="agree-terms">
           <input
             type="checkbox"
             checked={agreedTerms}
             onChange={(e) => setAgreedTerms(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+            className="mt-0.5 h-5 w-5 rounded border-zinc-400 text-emerald-600 focus:ring-emerald-500"
           />
-          <span className="text-xs text-zinc-500 leading-relaxed">
+          <span className="text-sm text-slate-700 leading-relaxed">
             By signing up, I agree to the{" "}
-            <Link href="/terms" target="_blank" className="text-emerald-600 hover:underline">Terms of Use</Link>
+            <Link href="/terms" target="_blank" className="text-emerald-600 font-semibold hover:underline">Terms of Use</Link>
             {" "}and{" "}
-            <Link href="/acceptable-use" target="_blank" className="text-emerald-600 hover:underline">Acceptable Use Policy</Link>.
+            <Link href="/acceptable-use" target="_blank" className="text-emerald-600 font-semibold hover:underline">Acceptable Use Policy</Link>.
           </span>
         </label>
       </div>

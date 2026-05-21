@@ -61,6 +61,23 @@ const GAP_RULES: Array<{
     message: () => "Upload insurance or qualification documents.",
   },
   {
+    // Fires when the trader supplied a website but the server couldn't
+    // confirm it (verifyWebPresence returned verified=false, e.g.
+    // brand_mismatch / parked_or_placeholder). Surfaces ahead of the
+    // generic "no web presence" tip because the gap is more actionable -
+    // they've already tried, they just need to make their name visible
+    // on the page or use a domain that matches.
+    key: "websiteUnverified",
+    points: 7,
+    check: (p) => {
+      const hasUrl = !!(p.websiteUrl || "").trim();
+      const verified = p.webVerified === true || p.webVerified === 1;
+      return hasUrl && !verified;
+    },
+    message: () =>
+      "We couldn't verify your website. Make sure your company name appears on the page so we can confirm it belongs to you.",
+  },
+  {
     key: "webPresence",
     points: 5,
     check: (p) => {

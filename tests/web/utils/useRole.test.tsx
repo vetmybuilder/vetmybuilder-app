@@ -114,4 +114,74 @@ describe("useRole — cache trust rules", () => {
     expect(result.current.role).toBe("guest");
     expect(get).not.toHaveBeenCalled();
   });
+
+  // ----- Trade-signup-intent fast path -----
+  // A user who has just OAuth'd into the trade flow may have a stale
+  // vmb:isTradesman="0" cached from the pre-login render (or from an
+  // older /api/tradesmen/me call that ran BEFORE role-intent had a
+  // chance to stamp). The in-progress / oauth-intent flags must beat
+  // that stale cache so the homepage CTAs, footer, and header chrome
+  // all render the trade variant.
+
+  it("returns 'tradesman' when vmb:tradesmanSignupInProgress is set, beating a stale cache '0'", async () => {
+    try {
+      sessionStorage.setItem("vmb:isTradesman", "0");
+      sessionStorage.setItem("vmb:tradesmanSignupInProgress", "1");
+    } catch {
+      /* ignore */
+    }
+    useAuthMock.mockReturnValue({
+      user: { uid: "trade-intent-1" },
+      loading: false,
+    });
+
+    const { result } = renderHook(() => useRole());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+    expect(result.current.role).toBe("tradesman");
+    // The intent signal is authoritative - no fallback API call.
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it("returns 'tradesman' when vmb:oauthIntent='tradesman' is set, beating a stale cache '0'", async () => {
+    try {
+      sessionStorage.setItem("vmb:isTradesman", "0");
+      sessionStorage.setItem("vmb:oauthIntent", "tradesman");
+    } catch {
+      /* ignore */
+    }
+    useAuthMock.mockReturnValue({
+      user: { uid: "trade-intent-2" },
+      loading: false,
+    });
+
+    const { result } = renderHook(() => useRole());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+    expect(result.current.role).toBe("tradesman");
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it("intent signals do not short-circuit when no user is signed in", async () => {
+    // Edge case: stale flags from a previous session shouldn't claim
+    // a logged-out viewer is a tradesman.
+    try {
+      sessionStorage.setItem("vmb:tradesmanSignupInProgress", "1");
+    } catch {
+      /* ignore */
+    }
+    useAuthMock.mockReturnValue({ user: null, loading: false });
+
+    const { result } = renderHook(() => useRole());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+    expect(result.current.role).toBe("guest");
+    expect(get).not.toHaveBeenCalled();
+  });
 });

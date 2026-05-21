@@ -6,7 +6,7 @@
 // stats card on the seam, then inline content sections (Trades, Service
 // areas, Recent work) on a white backdrop.
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { useAuth } from "@/utils/auth";
@@ -14,6 +14,7 @@ import { useApi } from "@/utils/api";
 import { ChevronLeft, Pencil, ShieldCheck } from "lucide-react";
 import PhotoLightbox from "@/components/PhotoLightbox";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
+import { getCoachingTips } from "@/utils/coachingTips";
 
 type MeResponse = {
   role: "tradesman" | "user";
@@ -52,6 +53,10 @@ function Inner() {
   const api = useApi();
 
   const [profile, setProfile] = useState<Profile | null>(null);
+  // The raw API row is kept alongside the mapped Profile so we can
+  // compute coaching tips - mapProfile drops the fields the scorer
+  // needs (ch_status, photo_count, warranty_months, etc.).
+  const [rawProfile, setRawProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<{ photos: string[]; index: number } | null>(null);
@@ -66,10 +71,20 @@ function Inner() {
         const data = (res as any)?.data ?? res;
         const p = data?.profile;
         if (!p || data?.role !== "tradesman") {
+          // tradesman_pending (role-intent stamped, wizard not
+          // completed) -> send to wizard instead of a cold error.
+          const r = String(data?.role || "").toLowerCase();
+          if (r === "tradesman" && !p) {
+            if (!cancelled) router.replace("/tradesman/signup/complete");
+            return;
+          }
           if (!cancelled) setErr("No trade profile found.");
           return;
         }
-        if (!cancelled) setProfile(mapProfile(p));
+        if (!cancelled) {
+          setProfile(mapProfile(p));
+          setRawProfile(p);
+        }
       } catch (e: any) {
         if (!cancelled) setErr(e?.message || "Failed to load profile.");
       } finally {
@@ -78,6 +93,30 @@ function Inner() {
     })();
     return () => { cancelled = true; };
   }, [api]);
+
+  // Same coaching tips as /tradesman/profile/edit. Shown on the
+  // profile view too so the trader sees the same nudges without
+  // having to click into edit mode.
+  const tips = useMemo(() => {
+    if (!rawProfile) return [];
+    const socials = parseSocialLinks(rawProfile.social_links_json);
+    return getCoachingTips({
+      photoCount: Array.isArray(rawProfile.photo_urls)
+        ? rawProfile.photo_urls.length
+        : 0,
+      chStatus: (rawProfile.ch_status as any) ?? null,
+      warrantyMonths: rawProfile.warranty_months ?? null,
+      trades: parseTrades(rawProfile.trade_types),
+      serviceAreas: parseServiceAreas(rawProfile.service_areas),
+      supportingDocCount: parseSupportingDocCount(
+        rawProfile.supporting_docs_json,
+      ),
+      websiteUrl: rawProfile.web_url ?? null,
+      webVerified: rawProfile.web_verified ?? null,
+      socialLinks: socials,
+      offersDiscount: !!rawProfile.offers_discount,
+    });
+  }, [rawProfile]);
 
   const heroLetter = profile
     ? initials(profile.companyName || profile.contactName || "T")
@@ -221,6 +260,16 @@ function Inner() {
                   />
                 </div>
               </div>
+
+              {/* Coaching tips - mirrors /tradesman/profile/edit so
+                  traders see profile gaps without having to enter
+                  edit mode. Sits below the stats card so the hero +
+                  stats layering isn't disturbed. */}
+              {tips.length > 0 && (
+                <div className="px-5 mt-5">
+                  <CoachingTipsCallout tips={tips} />
+                </div>
+              )}
 
               {/* TRADES OFFERED */}
               {profile.trades.length > 0 && (
@@ -465,6 +514,15 @@ function Inner() {
                     />
                   </div>
                 </div>
+
+                {/* Coaching tips - same callout shown on
+                    /tradesman/profile/edit so the trader sees the
+                    same nudges without needing to enter edit mode. */}
+                {tips.length > 0 && (
+                  <div className="mt-6">
+                    <CoachingTipsCallout tips={tips} />
+                  </div>
+                )}
 
                 {/* BODY GRID - left column: chips + contact. right
                     column: gallery. Stacks single-column under lg
@@ -763,4 +821,58 @@ function prettyDomain(url: string) {
   } catch {
     return url;
   }
+}
+
+// Same JSON shape that /tradesman/profile/edit uses to feed
+// getCoachingTips. Kept local so the profile view doesn't have to
+// import the edit page's helpers.
+function parseSocialLinks(raw: unknown): string[] {
+  if (!raw) return [];
+  try {
+    const v = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (Array.isArray(v)) return v.filter(Boolean).map(String);
+  } catch {
+    /* ignore */
+  }
+  return [];
+}
+
+function parseSupportingDocCount(raw: unknown): number {
+  if (!raw) return 0;
+  try {
+    const v = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return Array.isArray(v) ? v.length : 0;
+  } catch {
+    return 0;
+  }
+}
+
+// Shared "Boost your profile" callout - mirrors the markup from
+// /tradesman/profile/edit so the trader sees the same nudges in both
+// places without having to click Edit to find out what's missing.
+function CoachingTipsCallout({
+  tips,
+}: {
+  tips: Array<{ key: string; message: string }>;
+}) {
+  if (!tips.length) return null;
+  return (
+    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+      <p className="text-sm font-semibold text-amber-900">
+        Boost your profile - {tips.length} quick win
+        {tips.length === 1 ? "" : "s"}
+      </p>
+      <ul className="mt-1.5 space-y-1">
+        {tips.map((tip) => (
+          <li
+            key={tip.key}
+            className="flex items-start gap-2 text-sm text-amber-800"
+          >
+            <span className="mt-0.5 text-amber-500">•</span>
+            {tip.message}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
