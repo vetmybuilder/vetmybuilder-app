@@ -107,7 +107,7 @@ function signupsByRoleQuery(hours) {
 
 function registerFunnelQuery(hours) {
   return `
-    SELECT toInt64(properties.step) AS step, count() AS cnt
+    SELECT toInt(properties.step) AS step, count() AS cnt
     FROM events
     WHERE event = 'register_step_completed'
       AND timestamp > now() - INTERVAL ${hours} HOUR
