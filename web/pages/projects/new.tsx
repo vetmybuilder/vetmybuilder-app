@@ -10,7 +10,6 @@ import { PROJECT_TYPES, type ProjectTypeCategory } from "@/types/projectTypes";
 import ComingSoonSheet from "@/components/ComingSoonSheet";
 import LocationField from "@/components/forms/LocationField";
 import PilotAreasBanner from "@/components/PilotAreasBanner";
-import { trackProjectCreated } from "@/utils/analytics";
 import DynamicFieldGroup, {
   validateGroup,
 } from "@/components/forms/DynamicFieldGroup";
@@ -722,7 +721,8 @@ export default function NewProject() {
     setErr(null);
     try {
       const { data } = await api.post("/api/projects", payload);
-      trackProjectCreated(data.project.id, (payload as { type: string }).type);
+      // project_created event is captured server-side in projects.post.js
+      // (more reliable than client-side - no ad-blocker risk, no double-fire).
       router.replace(`/projects/${data.project.id}?justCreated=1`);
     } catch (e: any) {
       const data = e?.response?.data;
