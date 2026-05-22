@@ -9,7 +9,6 @@ import FileGridUploader from "@/components/fileUpload/FileGridUploader";
 import RecommendMobile from "@/components/recommend/RecommendMobile";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import { ChevronLeft, Sparkles, Star, ThumbsUp } from "lucide-react";
-import { trackRecommendationMade } from "@/utils/analytics";
 import {
   RATING_CATEGORIES,
   StarRow,
@@ -431,7 +430,7 @@ export default function RecommendOnPlatform() {
 
       if (!recommendationId) throw new Error("Could not save recommendation");
 
-      trackRecommendationMade(Number(id), form.company);
+      // recommendation_made event captured server-side in recommendations.post.js.
       trackAnonymousRecommendation(recommendationId);
       setNotice(
         `Thanks! Your recommendation for ${form.company.trim()} has been sent.`,
