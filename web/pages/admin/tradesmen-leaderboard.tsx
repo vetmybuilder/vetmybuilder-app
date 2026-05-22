@@ -404,7 +404,7 @@ function RowCard({
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <StatusBadge s={item.status} testid={`tradesman-status-${item.userId}`} />
-              <PlanBadge plan={item.plan} />
+              <PlanBadge plan={tierLabel(item)} />
             </div>
           </div>
 
@@ -489,6 +489,21 @@ function StatusBadge({ s, testid }: { s: string; testid?: string }) {
       {s}
     </span>
   );
+}
+
+// Resolve the active subscription tier into a short pill label. Reads
+// the new builder_subscriptions tier first; falls back to the legacy
+// tradesmen.plan column (free/gold) when no tier is active.
+function tierLabel(item: {
+  subscriptionTierId?: string | null;
+  plan?: string | null;
+}): string {
+  const tier = (item.subscriptionTierId || "").toLowerCase();
+  if (tier === "week_1") return "1 week";
+  if (tier === "week_2") return "2 weeks";
+  if (tier === "month_1") return "1 month";
+  // No active subscription - fall back to legacy plan column.
+  return item.plan || "free";
 }
 
 function PlanBadge({ plan }: { plan?: string | null }) {
