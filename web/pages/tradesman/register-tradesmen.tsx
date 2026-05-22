@@ -189,19 +189,19 @@ export default function TradesmanRegisterPage() {
       </Head>
 
       <main
-        className="fixed inset-0 bg-[#fef6e9] flex flex-col overflow-hidden"
+        className="relative bg-[#fef6e9] min-h-screen overflow-hidden"
         data-testid="tradesman-register-page"
       >
         <BrandWatermarkScatter />
 
-        <div className="relative z-10 w-full md:max-w-md mx-auto flex-1 flex flex-col bg-white md:my-6 md:rounded-2xl md:shadow-lg md:overflow-hidden md:border md:border-gray-200">
+        <div className="relative z-10 w-full md:max-w-md mx-auto bg-white md:my-10 md:rounded-2xl md:shadow-lg md:overflow-hidden md:border md:border-gray-200">
           <WizardTopBar
             title="Tradesperson signup"
             onBack={() => router.push("/")}
             onClose={handleClose}
           />
 
-          <div className="flex-1 overflow-y-auto px-5 py-5">
+          <div className="px-5 py-5">
             <p className="text-center text-[10.5px] font-extrabold uppercase tracking-[0.18em] text-emerald-700">
               Sign up
             </p>

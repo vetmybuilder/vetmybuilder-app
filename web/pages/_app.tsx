@@ -224,6 +224,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     "/chat/[matchId]",
     "/mocks/trader-social-ads",
     "/mocks/icon-source",
+    "/mocks/trader-social-ads-animated",
   ]);
   const isBareRoute = NO_LAYOUT_PATHS.has(router.pathname);
 
