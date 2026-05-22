@@ -225,6 +225,8 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     "/mocks/trader-social-ads",
     "/mocks/icon-source",
     "/mocks/trader-social-ads-animated",
+    "/login",
+    "/signup",
   ]);
   const isBareRoute = NO_LAYOUT_PATHS.has(router.pathname);
 
