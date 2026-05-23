@@ -86,9 +86,12 @@ describe("<Home /> homepage CTAs by role", () => {
 
     render(<Home />);
 
-    // Guests see the shorter "Post a job" CTA + the See-how-it-works
-    // scroll link, NOT the auth-gated variants.
-    expect(screen.getByText("Post a job")).toBeInTheDocument();
+    // Guests now see ONLY the See-how-it-works scroll link in the hero.
+    // The "Post a job" CTA was promoted into the sticky SiteHeader so
+    // it's persistent across scroll - tested separately in the header
+    // suite. None of the auth-gated CTAs should appear.
+    expect(screen.getByText("See how it works")).toBeInTheDocument();
+    expect(screen.queryByText("Post a job")).not.toBeInTheDocument();
     expect(screen.queryByText("Post a new job")).not.toBeInTheDocument();
     expect(screen.queryByText("My projects")).not.toBeInTheDocument();
     expect(screen.queryByText("View available jobs")).not.toBeInTheDocument();

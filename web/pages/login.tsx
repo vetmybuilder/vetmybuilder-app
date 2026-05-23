@@ -420,25 +420,27 @@ export default function Login() {
         <title>Sign in - VetMyBuilder</title>
         <meta name="description" content="Sign in to your VetMyBuilder account." />
         {/* Cream brand backdrop - matches /projects, /signup/complete, /404. */}
-        <style>{`body { background: #fef6e9 !important; }`}</style>
+        <style>{`body { background: #ffffff !important; }`}</style>
       </Head>
 
-      {/* Mobile: form fills the viewport edge-to-edge so the cream
-          chrome doesn't frame it (matches the post-restyle on /signup).
-          Desktop: keep the card-on-cream chrome. */}
-      <div className="bg-white md:bg-[#fef6e9] min-h-screen -mt-14 pt-0 md:pt-14 pb-0 md:pb-12 relative overflow-hidden">
+      <div className="bg-white min-h-screen relative overflow-hidden">
         <BrandWatermarkScatter />
-        <div className="relative z-10 mx-auto max-w-none md:max-w-md px-0 md:px-5 pt-0 md:pt-6 pb-0 md:pb-16" data-testid="login-page">
-          <div className="bg-white border-0 shadow-none px-5 pt-5 pb-6 md:rounded-3xl md:border md:border-amber-100 md:shadow-xl md:shadow-amber-100/40 md:p-8">
-          {/* Heading block - VMB wordmark already shown by SiteHeader */}
-          <div className="mb-7">
-            <h1 className="text-[28px] font-extrabold tracking-[-0.01em] text-slate-900 leading-[1.1]" data-testid="login-title">
+        <div className="relative z-10 mx-auto max-w-6xl px-6 py-8 md:py-20 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10 items-center" data-testid="login-page">
+          {/* Form column (left on desktop, below photo on mobile). */}
+          <div className="order-2 md:order-1">
+            <h1
+              className="text-[34px] md:text-[44px] font-black text-slate-900 leading-[1.05] tracking-tight"
+              data-testid="login-title"
+              style={{ fontFamily: "'Sora', sans-serif" }}
+            >
               {heading}
             </h1>
-            <p className="mt-2 text-[13.5px] text-slate-500 leading-snug">
+            <p className="mt-3 text-[14px] text-slate-600">
               {subcopy}
             </p>
-          </div>
+
+            <div className="mt-7 rounded-2xl bg-slate-50 border border-slate-200 p-5 sm:p-6">
+              <p className="text-[13px] font-bold text-slate-900 mb-3">Sign in</p>
 
           {/* OAuth: Google only. Hidden on admin flow. */}
           {!isAdminFlow && (
@@ -450,9 +452,9 @@ export default function Login() {
                 onError={(msg) => setErr(msg)}
               />
 
-              <div className="my-5 flex items-center gap-3 text-[10.5px] uppercase tracking-wider text-slate-400 font-bold">
+              <div className="my-4 flex items-center gap-3 text-[10.5px] uppercase tracking-wider text-slate-400 font-bold">
                 <div className="h-px flex-1 bg-slate-200" />
-                <span>or</span>
+                <span>Or sign in with email</span>
                 <div className="h-px flex-1 bg-slate-200" />
               </div>
             </>
@@ -507,7 +509,14 @@ export default function Login() {
                 data-testid="input-login-password"
               />
               <div className="mt-1.5 text-right">
-                <Link href="/forgot-password" className={`text-[12px] font-bold ${linkColor}`}>
+                <Link
+                  href={
+                    nextRaw
+                      ? `/forgot-password?next=${encodeURIComponent(nextRaw)}`
+                      : "/forgot-password"
+                  }
+                  className={`text-[12px] font-bold ${linkColor}`}
+                >
                   Forgot password?
                 </Link>
               </div>
@@ -542,7 +551,7 @@ export default function Login() {
 
           {!isAdminFlow && (
             <p
-              className="mt-6 text-center text-[13px] text-slate-500"
+              className="mt-4 text-center text-[13px] text-slate-500"
               data-testid="login-to-register"
             >
               {isVendorFlow ? "New tradesperson?" : "New to VetMyBuilder?"}
@@ -559,6 +568,77 @@ export default function Login() {
               </Link>
             </p>
           )}
+            </div>
+          </div>
+
+          {/* Photo / illustration column (right on desktop, top on mobile).
+              Trade flow gets a trade photo, homeowner gets a finished
+              room, admin gets a slate dashboard illustration. */}
+          <div className="order-1 md:order-2">
+            {isAdminFlow ? (
+              <div
+                className="relative rounded-2xl overflow-hidden shadow-lg aspect-[16/10] md:aspect-[4/5] flex items-center justify-center"
+                style={{
+                  background:
+                    "linear-gradient(135deg,#0f172a 0%,#1e293b 60%,#334155 100%)",
+                }}
+              >
+                {/* faint dot grid */}
+                <svg className="absolute inset-0" width="100%" height="100%" aria-hidden>
+                  {Array.from({ length: 30 }).map((_, i) => {
+                    const cx = (i * 47) % 600;
+                    const cy = (i * 83) % 700;
+                    return (
+                      <circle
+                        key={i}
+                        cx={cx}
+                        cy={cy}
+                        r="2.5"
+                        fill="#cbd5e1"
+                        opacity={0.12}
+                      />
+                    );
+                  })}
+                </svg>
+                {/* shield + check */}
+                <svg
+                  viewBox="0 0 240 240"
+                  width="58%"
+                  height="58%"
+                  aria-hidden
+                  style={{ filter: "drop-shadow(0 12px 30px rgba(0,0,0,0.45))" }}
+                >
+                  <path
+                    d="M120 28 L208 60 V128 C208 174 170 200 120 218 C70 200 32 174 32 128 V60 Z"
+                    fill="#0f172a"
+                    stroke="#cbd5e1"
+                    strokeWidth="4"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M78 120 L110 152 L168 92"
+                    fill="none"
+                    stroke="#34d399"
+                    strokeWidth="14"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </div>
+            ) : (
+              <div className="relative rounded-2xl overflow-hidden shadow-lg aspect-[16/10] md:aspect-[4/5]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={
+                    isVendorFlow
+                      ? "/job-images/electrical.jpg"
+                      : "/job-images/bathroom.jpg"
+                  }
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

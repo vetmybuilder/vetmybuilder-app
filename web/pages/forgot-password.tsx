@@ -1,9 +1,8 @@
 // web/pages/forgot-password.tsx
 import Head from "next/head";
 import Link from "next/link";
-import { useRouter } from "next/router";
 import { useState } from "react";
-import { ChevronLeft, Mail } from "lucide-react";
+import { useRouter } from "next/router";
 import { initFirebase } from "@/utils/firebase";
 import { sendPasswordResetEmail } from "firebase/auth";
 import GuestOnly from "@/components/GuestOnly";
@@ -11,6 +10,12 @@ import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 
 export default function ForgotPassword() {
   const router = useRouter();
+  const nextRaw =
+    typeof router.query.next === "string" ? router.query.next : "";
+  const backToLoginHref = nextRaw
+    ? `/login?next=${encodeURIComponent(nextRaw)}`
+    : "/login";
+
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
@@ -46,156 +51,165 @@ export default function ForgotPassword() {
       <>
         <Head>
           <title>Reset password - VetMyBuilder</title>
-          {/* Cream brand backdrop - matches /projects, /login, /404. */}
-          <style>{`body { background: #fef6e9 !important; }`}</style>
+          <style>{`body { background: #ffffff !important; }`}</style>
         </Head>
 
-        {/* Mobile: form fills the viewport edge-to-edge so the cream
-            chrome doesn't frame it. Desktop: card-on-cream chrome. */}
-        <div className="bg-white md:bg-[#fef6e9] min-h-screen -mt-14 pt-0 md:pt-14 pb-0 md:pb-12 relative overflow-hidden">
+        <main className="bg-white min-h-screen relative overflow-hidden">
           <BrandWatermarkScatter />
           <div
-            className="relative z-10 mx-auto max-w-none md:max-w-md px-0 md:px-5 pt-0 md:pt-10 pb-0 md:pb-16"
+            className="relative z-10 mx-auto max-w-6xl px-6 py-8 md:py-20 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10 items-center"
             data-testid="forgot-password-card"
           >
-            <div className="bg-white border-0 shadow-none px-5 pt-5 pb-6 md:rounded-3xl md:border md:border-amber-100 md:shadow-xl md:shadow-amber-100/40 md:p-8">
-              <button
-                type="button"
-                aria-label="Back"
-                onClick={() => router.back()}
-                className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-700 mb-4"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-            {sent ? (
-              <div data-testid="forgot-password-success">
-                <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-indigo-50 mb-4">
-                  <Mail className="h-6 w-6 text-indigo-600" />
-                </div>
-                <h1
-                  className="text-[28px] font-black tracking-tight text-slate-900 leading-tight"
-                  style={{ fontFamily: "'Sora', sans-serif" }}
-                >
-                  Check your email
-                </h1>
-                <p className="mt-2 text-[13.5px] text-slate-500 leading-relaxed">
-                  If an account exists for{" "}
-                  <span className="font-extrabold text-slate-700">{email}</span>,
-                  we've sent a password reset link. Click it to choose a new
-                  password.
-                </p>
-                <p className="mt-3 text-[12px] text-slate-400">
-                  Didn't get it? Check your spam folder.
-                </p>
-                <Link
-                  href="/login"
-                  className="mt-6 w-full inline-flex items-center justify-center rounded-2xl py-3.5 text-[14px] font-extrabold text-white shadow-lg"
-                  style={{
-                    background: "linear-gradient(135deg, #6366f1, #4f46e5)",
-                    boxShadow: "0 8px 22px rgba(99,102,241,0.3)",
-                  }}
-                >
-                  Back to sign in
-                </Link>
-              </div>
-            ) : (
-              <>
-                <div className="mb-6">
+            {/* Form column. */}
+            <div className="order-2 md:order-1">
+              {sent ? (
+                <div data-testid="forgot-password-success">
                   <h1
-                    className="text-[28px] font-extrabold tracking-[-0.01em] text-slate-900 leading-[1.1]"
+                    className="text-[34px] md:text-[44px] font-black text-slate-900 leading-[1.05] tracking-tight"
+                    style={{ fontFamily: "'Sora', sans-serif" }}
                   >
-                    Forgot your password?
+                    Check your email.
                   </h1>
-                  <p className="mt-2 text-[13.5px] text-slate-500 leading-snug">
-                    Enter your email and we'll send you a reset link.
+                  <p className="mt-3 text-[14px] text-slate-600">
+                    If an account exists for{" "}
+                    <span className="font-extrabold text-slate-900">{email}</span>,
+                    we&apos;ve sent a password reset link. Click it to choose a
+                    new password.
                   </p>
-                </div>
-
-                <form onSubmit={onSubmit} className="space-y-4">
-                  <div>
-                    <label
-                      htmlFor="fp-email"
-                      className="block text-[11px] font-extrabold uppercase tracking-[0.16em] text-indigo-700 mb-2"
-                    >
-                      Email address
-                    </label>
-                    <input
-                      id="fp-email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                      autoComplete="email"
-                      placeholder="you@example.com"
-                      data-testid="input-forgot-email"
-                      className="w-full bg-amber-50/40 rounded-2xl border-[1.5px] border-amber-100 px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:bg-white focus:outline-none transition-colors"
-                    />
-                  </div>
-
-                  {err && (
-                    <p
-                      className="text-[12.5px] font-semibold text-rose-600"
-                      role="alert"
-                    >
-                      {err}
-                    </p>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={busy}
-                    data-testid="btn-forgot-submit"
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-2xl py-3.5 text-[14px] font-extrabold text-white shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
-                    style={{
-                      background: busy
-                        ? "linear-gradient(135deg, #94a3b8, #64748b)"
-                        : "linear-gradient(135deg, #6366f1, #4f46e5)",
-                      boxShadow: busy
-                        ? undefined
-                        : "0 8px 22px rgba(99,102,241,0.3)",
-                    }}
+                  <p className="mt-2 text-[13px] text-slate-500">
+                    Didn&apos;t get it? Check your spam folder.
+                  </p>
+                  <Link
+                    href={backToLoginHref}
+                    className="mt-6 inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-500 px-5 py-2.5 text-sm font-extrabold text-white"
                   >
-                    {busy && (
-                      <svg
-                        className="h-4 w-4 animate-spin"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                      >
-                        <circle
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="3"
-                          className="opacity-25"
-                        />
-                        <path
-                          d="M4 12a8 8 0 018-8"
-                          stroke="currentColor"
-                          strokeWidth="3"
-                          strokeLinecap="round"
-                          className="opacity-75"
-                        />
-                      </svg>
-                    )}
-                    {busy ? "Sending..." : "Send reset link"}
-                  </button>
-
-                  <p className="text-center text-[12.5px] text-slate-500">
-                    Remember it?{" "}
-                    <Link
-                      href="/login"
-                      className="font-extrabold text-indigo-700 hover:underline"
-                    >
-                      Sign in
-                    </Link>
+                    Back to sign in
+                  </Link>
+                </div>
+              ) : (
+                <>
+                  <h1
+                    className="text-[34px] md:text-[44px] font-black text-slate-900 leading-[1.05] tracking-tight"
+                    style={{ fontFamily: "'Sora', sans-serif" }}
+                  >
+                    Forgot your{" "}
+                    <span className="text-emerald-700">password</span>?
+                  </h1>
+                  <p className="mt-3 text-[14px] text-slate-600">
+                    No drama. Pop in the email you signed up with and we&apos;ll send a reset link.
                   </p>
-                </form>
-              </>
-            )}
+
+                  <div className="mt-7 rounded-2xl bg-slate-50 border border-slate-200 p-5 sm:p-6">
+                    <p className="text-[13px] font-bold text-slate-900 mb-3">
+                      Send reset link
+                    </p>
+
+                    <form onSubmit={onSubmit} className="space-y-3">
+                      <div>
+                        <label
+                          htmlFor="fp-email"
+                          className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1"
+                        >
+                          Email
+                        </label>
+                        <input
+                          id="fp-email"
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          required
+                          autoComplete="email"
+                          placeholder="you@company.com"
+                          data-testid="input-forgot-email"
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+
+                      {err && (
+                        <p className="text-[12.5px] font-semibold text-rose-600" role="alert">
+                          {err}
+                        </p>
+                      )}
+
+                      <button
+                        type="submit"
+                        disabled={busy}
+                        data-testid="btn-forgot-submit"
+                        className="w-full inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-500 py-2.5 text-sm font-extrabold text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {busy ? "Sending..." : "Send reset link"}
+                      </button>
+
+                      <p className="text-center text-[12.5px] text-slate-500">
+                        Remembered it?{" "}
+                        <Link
+                          href={backToLoginHref}
+                          className="font-extrabold text-emerald-700 hover:underline"
+                        >
+                          Back to sign in
+                        </Link>
+                      </p>
+                    </form>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Illustration column (right on desktop, top on mobile). */}
+            <div className="order-1 md:order-2">
+              <div
+                className="relative rounded-2xl overflow-hidden shadow-lg aspect-[16/10] md:aspect-[4/5] flex items-center justify-center"
+                style={{
+                  background:
+                    "linear-gradient(135deg,#ecfdf5 0%,#d1fae5 60%,#a7f3d0 100%)",
+                }}
+              >
+                <svg
+                  className="absolute inset-0"
+                  width="100%"
+                  height="100%"
+                  aria-hidden
+                >
+                  {Array.from({ length: 18 }).map((_, i) => {
+                    const cx = (i * 53) % 600;
+                    const cy = (i * 91) % 700;
+                    return (
+                      <circle
+                        key={i}
+                        cx={cx}
+                        cy={cy}
+                        r="3"
+                        fill="#10b981"
+                        opacity={0.15}
+                      />
+                    );
+                  })}
+                </svg>
+
+                <svg
+                  viewBox="0 0 240 240"
+                  width="60%"
+                  height="60%"
+                  aria-hidden
+                  style={{ filter: "drop-shadow(0 12px 30px rgba(5,150,105,0.30))" }}
+                >
+                  <rect x="30" y="70" width="180" height="120" rx="14" fill="#ffffff" stroke="#059669" strokeWidth="4" />
+                  <path d="M30,84 L120,150 L210,84" fill="none" stroke="#059669" strokeWidth="4" strokeLinejoin="round" />
+                  <circle cx="170" cy="60" r="22" fill="#fcd34d" stroke="#b45309" strokeWidth="4" />
+                  <circle cx="170" cy="60" r="7" fill="#ffffff" stroke="#b45309" strokeWidth="3" />
+                  <path
+                    d="M188 75 L218 105 L210 113 L218 121 L210 129 L202 121 L192 131"
+                    fill="none"
+                    stroke="#b45309"
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </div>
             </div>
           </div>
-        </div>
+        </main>
       </>
     </GuestOnly>
   );

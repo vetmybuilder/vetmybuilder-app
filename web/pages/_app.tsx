@@ -211,7 +211,6 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     "/builders/[id]",
     "/account",
     "/favourites",
-    "/tradesman/register-tradesmen",
     "/tradesman/signup/complete",
     "/tradesman/jobs",
     "/tradesman/jobs/list",
@@ -225,8 +224,13 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     "/mocks/trader-social-ads",
     "/mocks/icon-source",
     "/mocks/trader-social-ads-animated",
-    "/login",
-    "/signup",
+    "/mocks/register-redesign-a",
+    "/mocks/register-redesign-b",
+    "/mocks/register-redesign-c",
+    "/mocks/register-redesign-d",
+    "/mocks/register-redesign-e",
+    "/mocks/login-redesign-e",
+    "/mocks/forgot-password-redesign-e",
   ]);
   const isBareRoute = NO_LAYOUT_PATHS.has(router.pathname);
 

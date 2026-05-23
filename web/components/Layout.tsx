@@ -25,8 +25,15 @@ export default function Layout({
         Skip to content
       </a>
 
-      <TradeAcquisitionBanner />
-      <SiteHeader />
+      {/* Sticky chrome: trade-acquisition banner sits above SiteHeader
+          and travels with it on scroll so the trade entry never gets
+          lost off-screen. Both elements were individually sticky
+          (banner non-sticky, header sticky) - wrapping them in a single
+          sticky container keeps them visually paired. */}
+      <div className="sticky top-0 z-50">
+        <TradeAcquisitionBanner />
+        <SiteHeader />
+      </div>
 
       <main
         id="main"

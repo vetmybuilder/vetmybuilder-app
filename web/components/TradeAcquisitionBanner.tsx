@@ -64,9 +64,48 @@ export default function TradeAcquisitionBanner() {
     <Link
       href="/tradesman/register-tradesmen"
       data-testid="trade-acquisition-banner"
-      className="block bg-emerald-50 hover:bg-emerald-100 transition-colors border-b border-emerald-200 text-center text-[12px] font-bold text-emerald-800 py-1.5 px-3"
+      aria-label="Tradespeople, list your business free"
+      className="group relative block border-b border-emerald-700/40 px-3 py-2 text-center text-[13px] font-extrabold tracking-tight text-white shadow-sm transition-colors hover:brightness-110"
+      style={{
+        background:
+          "linear-gradient(90deg,#047857 0%,#059669 50%,#10b981 100%)",
+      }}
     >
-      Tradespeople, <span className="underline">list your business free →</span>
+      <span className="inline-flex items-center gap-2">
+        {/* hard hat */}
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+          className="shrink-0"
+        >
+          <path d="M3 17h18" />
+          <path d="M5 17v-2a7 7 0 0114 0v2" />
+          <path d="M10 6V4h4v2" />
+        </svg>
+        <span className="hidden sm:inline">
+          Tradesperson? List your business for{" "}
+          <span className="bg-white/15 rounded px-1.5 py-0.5 ml-0.5">
+            FREE
+          </span>
+        </span>
+        <span className="sm:hidden">
+          List your business{" "}
+          <span className="bg-white/15 rounded px-1.5 py-0.5">FREE</span>
+        </span>
+        <span
+          aria-hidden
+          className="ml-1 inline-block transition-transform duration-300 ease-out group-hover:translate-x-1"
+        >
+          →
+        </span>
+      </span>
     </Link>
   );
 }
