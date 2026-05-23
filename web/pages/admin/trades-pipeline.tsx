@@ -24,6 +24,9 @@ type PipelineEntry = {
   website: string | null;
   company_number: string | null;
   ch_name: string | null;
+  outreach_sent_at: string | null;
+  outreach_subject: string | null;
+  outreach_body: string | null;
 };
 
 const STATUS_BADGE: Record<string, string> = {
@@ -46,13 +49,27 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
-type DiscoveryLog = { message: string; level?: string; company?: string; score?: number };
+type DiscoveryLog = {
+  message: string;
+  level?: string;
+  company?: string;
+  score?: number;
+  step?: number;
+  total?: number;
+};
 type PreviewData = {
-  searches: { query: string; trade: string }[];
-  estimatedResults: number;
-  estimatedQualifying: number;
-  estimatedCost: string;
-  filters: { minRating: number; minReviews: number };
+  // Google Places preview shape
+  searches?: { query: string; trade: string }[];
+  estimatedResults?: number;
+  estimatedQualifying?: number;
+  estimatedCost?: string;
+  filters?: { minRating: number; minReviews: number };
+  // Companies House preview shape
+  boroughs?: string[];
+  totalKeywords?: number;
+  estimatedCompanies?: number;
+  estimatedSeconds?: number;
+  cost?: string;
 };
 
 const toggleItem = (arr: string[], item: string) => {
@@ -71,10 +88,128 @@ const LONDON_BOROUGHS = [
   "Southwark", "Sutton", "Tower Hamlets", "Waltham Forest", "Wandsworth", "Westminster",
 ];
 
+function ToolsHelpPanel() {
+  const [open, setOpen] = useState(false);
+  const tools: Array<{ name: string; what: string }> = [
+    {
+      name: "Discover",
+      what:
+        "Search for new tradespeople to add to your list. Uses Google + Companies House together to find local companies in the areas and trades you pick.",
+    },
+    {
+      name: "Re-verify CH",
+      what:
+        "Re-check Companies House for tradespeople on the list who don't have a company number yet. Useful if you've fixed a name and want another lookup.",
+    },
+    {
+      name: "Enrich emails",
+      what:
+        "For tradespeople without a contact email, guess their website and try to find one. About 1 in 3 succeed.",
+    },
+    {
+      name: "Compose email",
+      what:
+        "Write and send a personal intro email to a tradesperson. Once sent, the same person can't be emailed again from here - no accidental double-pitch.",
+    },
+    {
+      name: "Resurface all",
+      what:
+        "Move tradespeople you previously rejected back to the pending list for another look.",
+    },
+  ];
+  return (
+    <div className="mb-6 rounded-xl border border-slate-700 bg-slate-800/60 p-4">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between text-left"
+      >
+        <span className="text-sm font-semibold text-slate-200">
+          📖 Tools cheat-sheet
+        </span>
+        <span className="text-xs text-slate-400">
+          {open ? "Hide ▴" : "Show ▾"}
+        </span>
+      </button>
+      {open && (
+        <div className="mt-3 overflow-hidden rounded-lg border border-slate-700">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-900/80 text-[11px] uppercase tracking-wider text-slate-400">
+              <tr>
+                <th className="px-3 py-2 text-left font-semibold w-44">Tool</th>
+                <th className="px-3 py-2 text-left font-semibold">Use case</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {tools.map((t) => (
+                <tr key={t.name} className="bg-slate-950/40">
+                  <td className="px-3 py-2 font-semibold text-white align-top">
+                    {t.name}
+                  </td>
+                  <td className="px-3 py-2 text-slate-300 align-top">
+                    {t.what}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function logColor(level?: string) {
+  if (level === "added") return "text-emerald-400";
+  if (level === "skip") return "text-slate-500";
+  if (level === "warn" || level === "error") return "text-amber-400";
+  if (level === "done") return "text-emerald-300 font-semibold";
+  return "text-slate-300";
+}
+
+// Real-progress bar driven by the latest step/total values in the
+// streamed log entries. Falls back to an indeterminate look on the
+// very first tick before step/total arrives.
+function ProgressBar({ logs }: { logs: DiscoveryLog[] }) {
+  let step = 0;
+  let total = 0;
+  for (let i = logs.length - 1; i >= 0; i--) {
+    if (typeof logs[i].step === "number" && typeof logs[i].total === "number") {
+      step = logs[i].step!;
+      total = logs[i].total!;
+      break;
+    }
+  }
+  const pct =
+    total > 0 ? Math.min(100, Math.round((step / total) * 100)) : 0;
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-semibold uppercase tracking-wider text-blue-300">
+          Discovery running...
+        </span>
+        <span className="font-mono text-slate-400">
+          {total > 0 ? `${step} / ${total}` : "starting..."}
+          {total > 0 && <span className="ml-2 text-blue-300">{pct}%</span>}
+        </span>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-blue-500 to-emerald-400 transition-all duration-300"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function DiscoveryPanel({ api, onComplete }: { api: ReturnType<typeof useApi>; onComplete: () => void }) {
   const [open, setOpen] = useState(false);
+  // Source of discovery: Google Places (rating-based local search) vs
+  // Companies House (SIC-code-filtered registered companies).
+  const [source, setSource] = useState<"google" | "ch">("google");
 
-  // Areas (multi-select with postcode autocomplete)
+  // Areas (multi-select with postcode autocomplete) - shared by both sources
   const [areas, setAreas] = useState<string[]>([]);
   const [areaQuery, setAreaQuery] = useState("");
   const [areaSuggestions, setAreaSuggestions] = useState<string[]>([]);
@@ -91,11 +226,27 @@ function DiscoveryPanel({ api, onComplete }: { api: ReturnType<typeof useApi>; o
   const [previewing, setPreviewing] = useState(false);
   const [running, setRunning] = useState(false);
   const [logs, setLogs] = useState<DiscoveryLog[]>([]);
-  const logsEndRef = useRef<HTMLDivElement>(null);
+  const logsBoxRef = useRef<HTMLDivElement>(null);
+  const progressRef = useRef<HTMLDivElement>(null);
 
+  // Auto-scroll just the inner log container - never the page. Using
+  // scrollIntoView on a child element would scroll the whole window
+  // when bursts of logs arrive, which produced visible shaking.
   useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const box = logsBoxRef.current;
+    if (box) box.scrollTop = box.scrollHeight;
   }, [logs]);
+
+  // When a run starts, scroll the page to the progress bar so the admin
+  // doesn't have to hunt for it after pressing Run Discovery.
+  useEffect(() => {
+    if (running) {
+      progressRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }
+  }, [running]);
 
   // Close area dropdown on outside click
   useEffect(() => {
@@ -192,39 +343,73 @@ function DiscoveryPanel({ api, onComplete }: { api: ReturnType<typeof useApi>; o
     setAreas((prev) => prev.filter((x) => x !== a));
   }
 
+  // Whether the current source has the inputs it needs to run.
+  const sourceReady = areas.length > 0;
+
   async function handlePreview() {
-    if (areas.length === 0) return;
+    if (!sourceReady) return;
     setPreviewing(true);
     setPreview(null);
     setLogs([]);
     try {
-      const { data } = await api.post("/api/admin/trades-pipeline/discover/preview", {
-        trades: selectedTrades.length > 0 ? selectedTrades : undefined,
-        areas,
-      });
-      setPreview(data);
+      if (source === "ch") {
+        const { data } = await api.post(
+          "/api/admin/trades-pipeline/discover-ch/preview",
+          {
+            areas,
+            trades: selectedTrades.length > 0 ? selectedTrades : undefined,
+          },
+        );
+        setPreview(data);
+      } else {
+        const { data } = await api.post(
+          "/api/admin/trades-pipeline/discover/preview",
+          {
+            trades: selectedTrades.length > 0 ? selectedTrades : undefined,
+            areas,
+          },
+        );
+        setPreview(data);
+      }
     } catch { /* ignore */ }
     setPreviewing(false);
   }
 
   async function handleRun() {
-    if (areas.length === 0) return;
+    if (!sourceReady) return;
     setRunning(true);
     setLogs([]);
 
     try {
-      const { data } = await api.post("/api/admin/trades-pipeline/discover/run", {
-        trades: selectedTrades.length > 0 ? selectedTrades : undefined,
-        areas,
-      });
+      const runPath =
+        source === "ch"
+          ? "/api/admin/trades-pipeline/discover-ch/run"
+          : "/api/admin/trades-pipeline/discover/run";
+      const streamPath =
+        source === "ch"
+          ? "/api/admin/trades-pipeline/discover-ch/stream"
+          : "/api/admin/trades-pipeline/discover/stream";
+      const runBody =
+        source === "ch"
+          ? {
+              areas,
+              trades: selectedTrades.length > 0 ? selectedTrades : undefined,
+            }
+          : {
+              trades: selectedTrades.length > 0 ? selectedTrades : undefined,
+              areas,
+            };
+
+      const { data } = await api.post(runPath, runBody);
 
       const jobId = data.jobId;
       const auth = getAuth();
-      const token = await auth.currentUser?.getIdToken(false) || "";
-      const origin = typeof window !== "undefined" && window.location.hostname === "localhost"
-        ? "http://127.0.0.1:3100"
-        : "";
-      const url = `${origin}/api/admin/trades-pipeline/discover/stream?jobId=${encodeURIComponent(jobId)}&token=${encodeURIComponent(token)}`;
+      const token = (await auth.currentUser?.getIdToken(false)) || "";
+      const origin =
+        typeof window !== "undefined" && window.location.hostname === "localhost"
+          ? "http://127.0.0.1:3100"
+          : "";
+      const url = `${origin}${streamPath}?jobId=${encodeURIComponent(jobId)}&token=${encodeURIComponent(token)}`;
 
       const es = new EventSource(url);
 
@@ -257,14 +442,6 @@ function DiscoveryPanel({ api, onComplete }: { api: ReturnType<typeof useApi>; o
     }
   }
 
-  const logColor = (level?: string) => {
-    if (level === "added") return "text-emerald-400";
-    if (level === "skip") return "text-slate-500";
-    if (level === "warn" || level === "error") return "text-amber-400";
-    if (level === "done") return "text-emerald-300 font-semibold";
-    return "text-slate-300";
-  };
-
   if (!open) {
     return (
       <button
@@ -283,10 +460,40 @@ function DiscoveryPanel({ api, onComplete }: { api: ReturnType<typeof useApi>; o
         <button onClick={() => setOpen(false)} className="text-slate-500 hover:text-white text-sm">Close</button>
       </div>
 
-      {/* ── Service areas (multi-select via LocationField) ── */}
+      {/* ── Source toggle ── */}
+      <div>
+        <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">
+          Source
+        </label>
+        <div className="flex gap-2">
+          {[
+            { v: "google", label: "Google + CH (combined)", hint: "rating-based local search + CH backfill" },
+            { v: "ch", label: "Companies House only", hint: "SIC-filtered registered companies" },
+          ].map((opt) => (
+            <button
+              key={opt.v}
+              type="button"
+              onClick={() => {
+                setSource(opt.v as "google" | "ch");
+                setPreview(null);
+              }}
+              className={`rounded-lg border px-3 py-2 text-left ${
+                source === opt.v
+                  ? "border-blue-500 bg-blue-600/15 text-white"
+                  : "border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700"
+              }`}
+            >
+              <div className="text-sm font-semibold">{opt.label}</div>
+              <div className="text-[11px] text-slate-400">{opt.hint}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Boroughs / areas (multi-select via LocationField) - both sources ── */}
       <div>
         <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">
-          Service areas {areas.length > 0 && `(${areas.length})`}
+          Boroughs {areas.length > 0 && `(${areas.length})`}
         </label>
         <div className="max-w-md relative" ref={areaBoxRef}>
           <input
@@ -336,7 +543,7 @@ function DiscoveryPanel({ api, onComplete }: { api: ReturnType<typeof useApi>; o
         )}
       </div>
 
-      {/* ── Trade types (searchable with buckets) ── */}
+      {/* ── Trade types (searchable with buckets) - shared by both sources ── */}
       <div>
         <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">
           Trade types
@@ -414,10 +621,14 @@ function DiscoveryPanel({ api, onComplete }: { api: ReturnType<typeof useApi>; o
       <div className="flex items-center gap-3">
         <button
           onClick={handlePreview}
-          disabled={areas.length === 0 || previewing || running}
+          disabled={!sourceReady || previewing || running}
           className="rounded-lg bg-slate-700 hover:bg-slate-600 disabled:opacity-40 px-4 py-2 text-sm font-semibold text-white"
         >
-          {previewing ? "Estimating..." : "Preview Cost"}
+          {previewing
+            ? "Estimating..."
+            : source === "ch"
+            ? "Preview"
+            : "Preview Cost"}
         </button>
 
         {preview && !running && (
@@ -426,7 +637,7 @@ function DiscoveryPanel({ api, onComplete }: { api: ReturnType<typeof useApi>; o
             disabled={running}
             className="rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 px-4 py-2 text-sm font-semibold text-white"
           >
-            Run Discovery
+            {source === "ch" ? "Run Discovery (Companies House)" : "Run Discovery"}
           </button>
         )}
       </div>
@@ -434,27 +645,398 @@ function DiscoveryPanel({ api, onComplete }: { api: ReturnType<typeof useApi>; o
       {/* ── Preview results ── */}
       {preview && (
         <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-4 text-sm space-y-1">
-          <p><span className="text-slate-500">Searches:</span> <span className="text-white">{preview.searches.length}</span></p>
-          <p><span className="text-slate-500">Estimated results:</span> <span className="text-white">~{preview.estimatedResults}</span></p>
-          <p><span className="text-slate-500">Estimated qualifying:</span> <span className="text-white">~{preview.estimatedQualifying}</span></p>
-          <p><span className="text-slate-500">Estimated cost:</span> <span className="text-amber-400 font-semibold">{preview.estimatedCost}</span></p>
-          <p className="text-xs text-slate-500 mt-2">Filters: rating &ge; {preview.filters.minRating}, reviews &ge; {preview.filters.minReviews}</p>
+          {source === "ch" ? (
+            <>
+              <p><span className="text-slate-500">Boroughs:</span> <span className="text-white">{preview.boroughs?.join(", ")}</span></p>
+              <p><span className="text-slate-500">Search keywords:</span> <span className="text-white">{preview.totalKeywords}</span></p>
+              <p><span className="text-slate-500">Estimated companies:</span> <span className="text-white">~{preview.estimatedCompanies}</span></p>
+              <p><span className="text-slate-500">Estimated time:</span> <span className="text-white">~{preview.estimatedSeconds}s</span></p>
+              <p><span className="text-slate-500">Cost:</span> <span className="text-emerald-400 font-semibold">{preview.cost}</span></p>
+            </>
+          ) : (
+            <>
+              <p><span className="text-slate-500">Searches:</span> <span className="text-white">{preview.searches?.length}</span></p>
+              <p><span className="text-slate-500">Estimated results:</span> <span className="text-white">~{preview.estimatedResults}</span></p>
+              <p><span className="text-slate-500">Estimated qualifying:</span> <span className="text-white">~{preview.estimatedQualifying}</span></p>
+              <p><span className="text-slate-500">Estimated cost:</span> <span className="text-amber-400 font-semibold">{preview.estimatedCost}</span></p>
+              {preview.filters && (
+                <p className="text-xs text-slate-500 mt-2">Filters: rating &ge; {preview.filters.minRating}, reviews &ge; {preview.filters.minReviews}</p>
+              )}
+            </>
+          )}
         </div>
       )}
 
       {/* ── Progress log ── */}
       {logs.length > 0 && (
-        <div className="rounded-lg border border-slate-700 bg-slate-950 p-3 max-h-64 overflow-y-auto font-mono text-xs space-y-0.5">
+        <div
+          ref={logsBoxRef}
+          className="rounded-lg border border-slate-700 bg-slate-950 p-3 max-h-64 overflow-y-auto font-mono text-xs space-y-0.5"
+        >
           {logs.map((l, i) => (
             <div key={i} className={logColor(l.level)}>{l.message}</div>
           ))}
-          <div ref={logsEndRef} />
         </div>
       )}
 
       {running && (
-        <p className="text-sm text-blue-400 animate-pulse">Discovery running...</p>
+        <div ref={progressRef}>
+          <ProgressBar logs={logs} />
+        </div>
       )}
+    </div>
+  );
+}
+
+function EnrichEmailsPanel({
+  api,
+  onComplete,
+}: {
+  api: ReturnType<typeof useApi>;
+  onComplete: () => void;
+}) {
+  const [limit, setLimit] = useState(50);
+  const [running, setRunning] = useState(false);
+  const [logs, setLogs] = useState<DiscoveryLog[]>([]);
+  const logsBoxRef = useRef<HTMLDivElement>(null);
+  const progressRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const box = logsBoxRef.current;
+    if (box) box.scrollTop = box.scrollHeight;
+  }, [logs]);
+
+  useEffect(() => {
+    if (running) {
+      progressRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }
+  }, [running]);
+
+  async function handleRun() {
+    setRunning(true);
+    setLogs([]);
+    try {
+      const { data } = await api.post(
+        "/api/admin/trades-pipeline/enrich-emails/run",
+        { limit },
+      );
+      const jobId = data.jobId;
+      const auth = getAuth();
+      const token = (await auth.currentUser?.getIdToken(false)) || "";
+      const origin =
+        typeof window !== "undefined" &&
+        window.location.hostname === "localhost"
+          ? "http://127.0.0.1:3100"
+          : "";
+      const url = `${origin}/api/admin/trades-pipeline/enrich-emails/stream?jobId=${encodeURIComponent(jobId)}&token=${encodeURIComponent(token)}`;
+      const es = new EventSource(url);
+      es.addEventListener("progress", (e) => {
+        try {
+          setLogs((prev) => [...prev, JSON.parse(e.data)]);
+        } catch {
+          /* ignore */
+        }
+      });
+      es.addEventListener("done", (e) => {
+        try {
+          const d = JSON.parse(e.data);
+          setLogs((prev) => [...prev, { message: d.message, level: "done" }]);
+        } catch {
+          /* ignore */
+        }
+        es.close();
+        setRunning(false);
+        onComplete();
+      });
+      es.addEventListener("error", () => {
+        es.close();
+        setRunning(false);
+      });
+    } catch {
+      setRunning(false);
+    }
+  }
+
+  return (
+    <div className="mb-6 rounded-xl border border-slate-700 bg-slate-800/80 p-5">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h2 className="text-lg font-semibold">Enrich emails</h2>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Guess each company&apos;s website + scrape contact email for
+            pending rows that don&apos;t have one. ~25-35% hit rate.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-slate-400">Limit</label>
+          <input
+            type="number"
+            min={1}
+            max={500}
+            value={limit}
+            onChange={(e) =>
+              setLimit(
+                Math.max(1, Math.min(500, Number(e.target.value) || 50)),
+              )
+            }
+            disabled={running}
+            className="w-20 rounded-lg border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-white disabled:opacity-40"
+          />
+          <button
+            onClick={handleRun}
+            disabled={running}
+            className="rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 px-4 py-2 text-sm font-semibold text-white"
+          >
+            {running ? "Enriching..." : "Enrich pending"}
+          </button>
+        </div>
+      </div>
+
+      {running && (
+        <div ref={progressRef} className="mt-3">
+          <ProgressBar logs={logs} />
+        </div>
+      )}
+
+      {logs.length > 0 && (
+        <div
+          ref={logsBoxRef}
+          className="mt-3 rounded-lg border border-slate-700 bg-slate-950 p-3 max-h-64 overflow-y-auto font-mono text-xs space-y-0.5"
+        >
+          {logs.map((l, i) => (
+            <div key={i} className={logColor(l.level)}>
+              {l.message}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OutreachModal({
+  api,
+  id,
+  onClose,
+  onSent,
+}: {
+  api: ReturnType<typeof useApi>;
+  id: number;
+  onClose: () => void;
+  onSent: () => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [to, setTo] = useState("");
+  const [originalTo, setOriginalTo] = useState("");
+  const [bodyHtml, setBodyHtml] = useState("");
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [alreadySent, setAlreadySent] = useState(false);
+  const [sentAt, setSentAt] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      setErr(null);
+      try {
+        const { data } = await api.post(
+          "/api/admin/trades-pipeline/outreach/draft",
+          { id },
+        );
+        if (!alive) return;
+        setTo(data.to || "");
+        setOriginalTo(data.to || "");
+        setBodyHtml(data.bodyHtml || "");
+        setSubject(data.subject || "");
+        setBody(data.body || "");
+        setAlreadySent(!!data.alreadySent);
+        setSentAt(data.sentAt || null);
+      } catch (e: any) {
+        if (!alive) return;
+        setErr(e?.response?.data?.error || e?.message || "draft failed");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [api, id]);
+
+  // Re-render the HTML preview as the admin edits the body. Skip the
+  // very first run (the draft response already supplied bodyHtml) and
+  // anything while loading.
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (loading) return;
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    const t = setTimeout(async () => {
+      try {
+        const { data } = await api.post(
+          "/api/admin/trades-pipeline/outreach/render",
+          { body },
+        );
+        setBodyHtml(data.bodyHtml || "");
+      } catch {
+        /* keep stale preview */
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [api, body, loading]);
+
+  async function handleSend() {
+    setSending(true);
+    setErr(null);
+    try {
+      // Pass `to` only when admin overrode it (test send). Same address
+      // -> backend treats it as a real send and locks the row from re-send.
+      const isOverride =
+        to.trim().toLowerCase() !== originalTo.trim().toLowerCase();
+      await api.post("/api/admin/trades-pipeline/outreach/send", {
+        id,
+        subject,
+        body,
+        ...(isOverride ? { to: to.trim() } : {}),
+      });
+      onSent();
+    } catch (e: any) {
+      setErr(e?.response?.data?.detail || e?.response?.data?.error || e?.message || "send failed");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 p-6 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white">
+            {alreadySent ? "Outreach (sent)" : "Compose outreach"}
+          </h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-white text-sm">
+            Close
+          </button>
+        </div>
+
+        {loading ? (
+          <p className="text-slate-400 text-sm">Loading draft...</p>
+        ) : (
+          <div className="space-y-4 text-sm">
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">From</label>
+              <p className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-300">
+                VetMyBuilder &lt;hello@vetmybuilder.com&gt;
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">
+                To{" "}
+                <span className="text-slate-500 normal-case font-normal tracking-normal">
+                  (override for test sends - real-target sends still go to the row&apos;s email)
+                </span>
+              </label>
+              <input
+                type="email"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                disabled={alreadySent || sending}
+                className="w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-white disabled:opacity-60 focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Subject</label>
+              <input
+                type="text"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                disabled={alreadySent || sending}
+                className="w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-white disabled:opacity-60 focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Body</label>
+              <textarea
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                disabled={alreadySent || sending}
+                rows={16}
+                className="w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-white font-mono disabled:opacity-60 focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">
+                Live preview{" "}
+                <span className="text-slate-500 normal-case font-normal tracking-normal">
+                  (re-renders ~400ms after you stop typing)
+                </span>
+              </label>
+              <iframe
+                title="Outreach email preview"
+                // On localhost the email template's prod image URLs would
+                // 404 (banner/hero/icon aren't deployed to prod until next
+                // push). Rewrite them to the local origin for preview only -
+                // real outbound emails keep the prod URLs.
+                srcDoc={
+                  typeof window !== "undefined" &&
+                  window.location.hostname === "localhost"
+                    ? bodyHtml.replace(
+                        /https:\/\/vetmybuilder\.com\/(hero\.png|icon-512\.png|icon-192\.png|email-banner\.png)/g,
+                        `${window.location.origin}/$1`,
+                      )
+                    : bodyHtml
+                }
+                sandbox=""
+                className="w-full h-[480px] rounded-lg border border-slate-700 bg-white"
+              />
+            </div>
+
+            {alreadySent && sentAt && (
+              <p className="text-emerald-400 text-xs">
+                Already sent {new Date(sentAt).toLocaleString("en-GB")} - can&apos;t resend.
+              </p>
+            )}
+            {err && <p className="text-rose-400 text-xs">{err}</p>}
+
+            {!alreadySent && (
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={onClose}
+                  disabled={sending}
+                  className="rounded-lg bg-slate-700 hover:bg-slate-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSend}
+                  disabled={sending || !subject.trim() || !body.trim()}
+                  className="rounded-lg bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+                >
+                  {sending ? "Sending..." : "Send email"}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -466,21 +1048,31 @@ export default function TradesPipelinePage() {
   const [offset, setOffset] = useState(0);
   const limit = 50;
   const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(q), 300);
+    return () => clearTimeout(t);
+  }, [q]);
   const [statusFilter, setStatusFilter] = useState("pending");
+  const [hasEmail, setHasEmail] = useState(false);
+  const [outreachSent, setOutreachSent] = useState<"" | "yes" | "no">("");
   const [tradeFilter, setTradeFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [actioning, setActioning] = useState<number | null>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [outreachId, setOutreachId] = useState<number | null>(null);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (q) params.set("q", q);
+      if (debouncedQ) params.set("q", debouncedQ);
       if (statusFilter) params.set("status", statusFilter);
       if (tradeFilter) params.set("trade", tradeFilter);
+      if (hasEmail) params.set("hasEmail", "1");
+      if (outreachSent === "yes") params.set("outreachSent", "1");
+      if (outreachSent === "no") params.set("outreachNotSent", "1");
       params.set("limit", String(limit));
       params.set("offset", String(offset));
 
@@ -491,15 +1083,13 @@ export default function TradesPipelinePage() {
       if (err?.response?.status === 403) setForbidden(true);
     }
     setLoading(false);
-  }, [api, q, statusFilter, tradeFilter, offset]);
+  }, [api, debouncedQ, statusFilter, tradeFilter, hasEmail, outreachSent, offset]);
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
 
   function onSearchChange(val: string) {
     setQ(val);
     setOffset(0);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => fetchItems(), 300);
   }
 
   async function updateStatus(id: number, status: "approved" | "rejected") {
@@ -564,8 +1154,14 @@ export default function TradesPipelinePage() {
             </div>
           </div>
 
+          {/* Tools cheat-sheet */}
+          <ToolsHelpPanel />
+
           {/* Discovery panel */}
           <DiscoveryPanel api={api} onComplete={fetchItems} />
+
+          {/* Email enrichment panel */}
+          <EnrichEmailsPanel api={api} onComplete={fetchItems} />
 
           {/* Filters */}
           <div className="flex flex-col sm:flex-row gap-3 mb-6">
@@ -595,6 +1191,58 @@ export default function TradesPipelinePage() {
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
             </select>
+          </div>
+
+          {/* Quick toggle pills - email + outreach state */}
+          <div className="flex flex-wrap items-center gap-2 mb-6 -mt-3">
+            <button
+              type="button"
+              onClick={() => { setHasEmail((v) => !v); setOffset(0); }}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold border transition-colors ${
+                hasEmail
+                  ? "bg-emerald-600 border-emerald-500 text-white"
+                  : "bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700"
+              }`}
+            >
+              ✉️ Has email
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOutreachSent((v) => (v === "yes" ? "" : "yes"));
+                setOffset(0);
+              }}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold border transition-colors ${
+                outreachSent === "yes"
+                  ? "bg-blue-600 border-blue-500 text-white"
+                  : "bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700"
+              }`}
+            >
+              ✅ Outreach sent
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOutreachSent((v) => (v === "no" ? "" : "no"));
+                setOffset(0);
+              }}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold border transition-colors ${
+                outreachSent === "no"
+                  ? "bg-amber-600 border-amber-500 text-white"
+                  : "bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700"
+              }`}
+            >
+              📭 Not contacted yet
+            </button>
+            {(hasEmail || outreachSent) && (
+              <button
+                type="button"
+                onClick={() => { setHasEmail(false); setOutreachSent(""); setOffset(0); }}
+                className="text-xs text-slate-500 hover:text-rose-400 underline"
+              >
+                Clear toggles
+              </button>
+            )}
           </div>
 
           {/* Table */}
@@ -677,9 +1325,23 @@ export default function TradesPipelinePage() {
                                       </p>
                                     )}
                                     {entry.email && (
-                                      <p>
-                                        <span className="text-slate-500 text-xs">Email: </span>
-                                        <a href={`mailto:${entry.email}`} className="text-blue-400 hover:text-blue-300">{entry.email}</a>
+                                      <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                        <span>
+                                          <span className="text-slate-500 text-xs">Email: </span>
+                                          <a href={`mailto:${entry.email}`} className="text-blue-400 hover:text-blue-300">{entry.email}</a>
+                                        </span>
+                                        {entry.outreach_sent_at ? (
+                                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600/20 border border-emerald-500/30 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">
+                                            ✓ Sent {new Date(entry.outreach_sent_at).toLocaleString("en-GB", { day: "numeric", month: "short" })}
+                                          </span>
+                                        ) : (
+                                          <button
+                                            onClick={() => setOutreachId(entry.id)}
+                                            className="inline-flex items-center rounded-full bg-emerald-600 hover:bg-emerald-500 px-2.5 py-0.5 text-[11px] font-semibold text-white"
+                                          >
+                                            Compose email
+                                          </button>
+                                        )}
                                       </p>
                                     )}
                                     {entry.website && (
@@ -819,6 +1481,18 @@ export default function TradesPipelinePage() {
           )}
         </div>
       </div>
+
+      {outreachId !== null && (
+        <OutreachModal
+          api={api}
+          id={outreachId}
+          onClose={() => setOutreachId(null)}
+          onSent={() => {
+            setOutreachId(null);
+            fetchItems();
+          }}
+        />
+      )}
     </AuthedOnly>
   );
 }

@@ -1,3 +1,7 @@
+# Local exports / artefacts not for repo
+discover/
+web/public/creatives/
+
 # Node
 node_modules/
 npm-debug.log*
