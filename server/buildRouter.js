@@ -508,6 +508,9 @@ function buildRouter(ctx) {
   require("./routes/admin/trades-pipeline.get")(router, ctx);
   require("./routes/admin/trades-pipeline.patch")(router, ctx);
   require("./routes/admin/trades-pipeline-discover")(router, ctx);
+  require("./routes/admin/trades-pipeline-discover-ch")(router, ctx);
+  require("./routes/admin/trades-pipeline-enrich-emails")(router, ctx);
+  require("./routes/admin/trades-pipeline-outreach")(router, ctx);
   require("./routes/admin/trades-pipeline.reverify.post")(router, ctx);
   require("./routes/admin/trades-pipeline.resurface.post")(router, ctx);
   require("./routes/admin/feedback.get")(router, ctx);

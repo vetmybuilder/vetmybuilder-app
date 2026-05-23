@@ -192,8 +192,18 @@ async function runDiscovery(job, trades, areas, apiKey, mysqlQuery, log) {
   try {
     const { matchByName } = require("../../lib/companiesHouse");
 
-    const totalSearches = trades.length * areas.length;
-    emit("progress", { message: `Starting discovery: ${trades.length} trade(s) x ${areas.length} area(s) = ${totalSearches} searches` });
+    // Pre-count all the work so the UI can render a real % bar.
+    // = Google searches (trade x area) + CH-pass keywords (per area).
+    const { keywordsForArea: _kwForArea } = require("../../lib/admin/chDiscovery");
+    let chPassKeywordCount = 0;
+    for (const a of areas) chPassKeywordCount += _kwForArea(a).length;
+    const totalSearches =
+      trades.length * areas.length + chPassKeywordCount;
+    emit("progress", {
+      message: `Starting discovery: ${trades.length} trade(s) x ${areas.length} area(s) = ${trades.length * areas.length} Google searches + ${chPassKeywordCount} CH keyword(s)`,
+      step: 0,
+      total: totalSearches,
+    });
 
     let searchNum = 0;
     for (const area of areas) {
@@ -344,6 +354,96 @@ async function runDiscovery(job, trades, areas, apiKey, mysqlQuery, log) {
       }
     }
     } // end areas loop
+
+    // ── CH pass: pull any companies in the SAME areas that Google
+    //    missed (no Google presence, but match selected trades by SIC).
+    try {
+      const {
+        sicsForTrades,
+        pickTrade,
+        fmtAddress,
+        keywordsForArea,
+        chAuthHeader,
+        chAdvancedSearch,
+      } = require("../../lib/admin/chDiscovery");
+      const ah = chAuthHeader();
+      if (ah) {
+        const sics = sicsForTrades(trades);
+        emit("progress", {
+          message: `── Companies House pass (SIC: ${sics.length} code(s)) ──`,
+          step: searchNum,
+          total: totalSearches,
+        });
+        for (const area of areas) {
+          const keywords = keywordsForArea(area);
+          emit("progress", {
+            message: `  CH: ${area} (${keywords.length} keyword(s))`,
+            step: searchNum,
+            total: totalSearches,
+          });
+          const byNumber = new Map();
+          for (const kw of keywords) {
+            const items = await chAdvancedSearch(kw, sics, ah, log);
+            for (const c of items) {
+              if (c.company_number && !byNumber.has(c.company_number)) {
+                byNumber.set(c.company_number, c);
+              }
+            }
+            searchNum++;
+            emit("progress", {
+              message: `    [${kw}] dedup pool ${byNumber.size}`,
+              step: searchNum,
+              total: totalSearches,
+            });
+          }
+          for (const c of byNumber.values()) {
+            const dup = await mysqlQuery(
+              "SELECT id FROM tradesperson_pipeline WHERE company_number = ? LIMIT 1",
+              [c.company_number],
+            );
+            if (dup.length > 0) continue;
+            const onboarded = await mysqlQuery(
+              "SELECT 1 FROM tradesmen WHERE company_number = ? LIMIT 1",
+              [c.company_number],
+            );
+            if (onboarded.length > 0) continue;
+            const trade = pickTrade(c.sic_codes);
+            const postcode = c?.registered_office_address?.postal_code || null;
+            await mysqlQuery(
+              `INSERT INTO tradesperson_pipeline
+                 (company_name, trade_types, service_areas, company_number,
+                  ch_status, ch_name, vetting_score, status, discovered_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', NOW())`,
+              [
+                c.company_name || "",
+                trade,
+                `${area}${postcode ? " (" + postcode + ")" : ""}`,
+                c.company_number,
+                c.company_status || null,
+                c.company_name || null,
+                0,
+              ],
+            );
+            totalInserted++;
+            emit("progress", {
+              message: `  Added (CH-only): ${c.company_name} (${c.company_number}) - ${trade}`,
+              level: "added",
+              company: c.company_name,
+            });
+          }
+        }
+      } else {
+        emit("progress", {
+          message: "  CH pass skipped - CH_KEY not configured",
+          level: "warn",
+        });
+      }
+    } catch (chErr) {
+      emit("progress", {
+        message: `  CH pass error: ${chErr.message}`,
+        level: "warn",
+      });
+    }
 
     emit("done", {
       message: `Discovery complete. Searched ${totalSearched}, added ${totalInserted}, skipped ${totalSkipped}.`,

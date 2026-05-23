@@ -32,6 +32,19 @@ module.exports = (router, ctx) => {
         params.push(statusFilter);
       }
 
+      // Quick toggles surfaced as filter pills in the admin UI.
+      const truthy = (v) =>
+        v === "1" || v === 1 || v === true || String(v).toLowerCase() === "true";
+      if (truthy(req.query.hasEmail)) {
+        wh.push("email IS NOT NULL AND email <> ''");
+      }
+      if (truthy(req.query.outreachSent)) {
+        wh.push("outreach_sent_at IS NOT NULL");
+      }
+      if (truthy(req.query.outreachNotSent)) {
+        wh.push("outreach_sent_at IS NULL");
+      }
+
       const whereSql = wh.length > 0 ? `WHERE ${wh.join(" AND ")}` : "";
 
       const countRows = await mysqlQuery(
