@@ -28,6 +28,7 @@ async function ensureColumns(mysqlQuery, log) {
     "ALTER TABLE tradesperson_pipeline ADD COLUMN outreach_sent_at DATETIME NULL",
     "ALTER TABLE tradesperson_pipeline ADD COLUMN outreach_subject VARCHAR(255) NULL",
     "ALTER TABLE tradesperson_pipeline ADD COLUMN outreach_body TEXT NULL",
+    "ALTER TABLE tradesperson_pipeline ADD COLUMN outreach_recipient_name VARCHAR(255) NULL",
   ];
   for (const sql of alters) {
     try {
@@ -63,10 +64,12 @@ const TEMPLATES = {
     label: "Default - founder story",
     render(row) {
       const company = titleCase(row.company_name || "your business");
+      const recipFirst = firstName(row.outreach_recipient_name || "");
+      const greeting = recipFirst ? `Hi ${recipFirst},` : "Hi there,";
       const trade = (row.trade_types || "tradesperson").toLowerCase();
       return {
         subject: `Quick one for ${company} - new local jobs in your area`,
-        body: `Hi there,
+        body: `${greeting}
 
 I came across ${company} while pulling together a list of trusted local tradespeople for VetMyBuilder, and the work I've seen is genuinely impressive.
 
@@ -98,9 +101,11 @@ https://vetmybuilder.com`,
     label: "Short & direct",
     render(row) {
       const company = titleCase(row.company_name || "your business");
+      const recipFirst = firstName(row.outreach_recipient_name || "");
+      const greeting = recipFirst ? `Hi ${recipFirst},` : "Hi there,";
       return {
         subject: `${company} - local job leads, no per-lead fees`,
-        body: `Hi there,
+        body: `${greeting}
 
 Saw ${company}'s work and wanted to drop a quick line.
 
@@ -122,10 +127,12 @@ https://vetmybuilder.com`,
     label: "Value-led - lead-fee angle",
     render(row) {
       const company = titleCase(row.company_name || "your business");
+      const recipFirst = firstName(row.outreach_recipient_name || "");
+      const greeting = recipFirst ? `Hi ${recipFirst},` : "Hi there,";
       const trade = (row.trade_types || "tradesperson").toLowerCase();
       return {
         subject: `How many lead fees has ${company} paid this month?`,
-        body: `Hi there,
+        body: `${greeting}
 
 Quick question: how many leads has ${company} paid for that went nowhere?
 
@@ -279,7 +286,8 @@ module.exports = (router, ctx) => {
       }
       const rows = await mysqlQuery(
         `SELECT id, company_name, trade_types, email,
-                outreach_sent_at, outreach_subject, outreach_body
+                outreach_sent_at, outreach_subject, outreach_body,
+                outreach_recipient_name
            FROM tradesperson_pipeline
           WHERE id = ?
           LIMIT 1`,
@@ -444,6 +452,80 @@ module.exports = (router, ctx) => {
         return res
           .status(500)
           .json({ error: "send_failed", detail: err?.message });
+      }
+    },
+  );
+
+  // Manual outreach: admin adds a company that wasn't discovered, then
+  // the existing Compose flow takes over (modal opens on returned id).
+  // The row is inserted as status='approved' so it doesn't pollute the
+  // pending review queue and is easy to filter from discovered rows.
+  router.post(
+    "/admin/trades-pipeline/manual/add",
+    ...adminGuard,
+    async (req, res) => {
+      await ensureColumns(mysqlQuery, log);
+
+      const company = String(req.body?.company || "").trim();
+      const email = String(req.body?.email || "").trim().toLowerCase();
+      const trade = String(req.body?.trade || "General Builder").trim();
+      const area = String(req.body?.area || "").trim();
+      const recipientName = String(req.body?.recipientName || "").trim();
+
+      if (!company) {
+        return res.status(400).json({ error: "company required" });
+      }
+      if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+        return res.status(400).json({ error: "valid email required" });
+      }
+
+      try {
+        // Skip if we've already onboarded this email as a tradesperson.
+        const onboarded = await mysqlQuery(
+          "SELECT 1 FROM tradesmen WHERE LOWER(email) = ? LIMIT 1",
+          [email],
+        );
+        if (onboarded.length > 0) {
+          return res
+            .status(409)
+            .json({ error: "already_onboarded", message: "email belongs to an existing tradesperson" });
+        }
+
+        // De-dupe against the pipeline by email (case-insensitive). If
+        // an existing row matches, just hand back its id instead of
+        // inserting again - admin can still Compose against it.
+        const existing = await mysqlQuery(
+          "SELECT id FROM tradesperson_pipeline WHERE LOWER(email) = ? LIMIT 1",
+          [email],
+        );
+        if (existing.length > 0) {
+          return res.json({
+            id: existing[0].id,
+            reused: true,
+          });
+        }
+
+        const result = await mysqlQuery(
+          `INSERT INTO tradesperson_pipeline
+             (company_name, trade_types, service_areas, email,
+              outreach_recipient_name, status, discovered_at)
+           VALUES (?, ?, ?, ?, ?, 'approved', NOW())`,
+          [company, trade, area || null, email, recipientName || null],
+        );
+
+        ctx.logActivity?.(
+          "admin.pipeline.manual.add",
+          "info",
+          req.user?.uid,
+          `Manual pipeline entry added: ${company} (${email})`,
+        );
+
+        return res.json({ id: result.insertId, reused: false });
+      } catch (err) {
+        log.error?.({ err: err?.message }, "[outreach] manual add failed");
+        return res
+          .status(500)
+          .json({ error: "manual_add_failed", detail: err?.message });
       }
     },
   );

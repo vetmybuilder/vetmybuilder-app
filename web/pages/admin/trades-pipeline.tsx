@@ -1072,6 +1072,156 @@ function OutreachModal({
   );
 }
 
+function ManualOutreachModal({
+  api,
+  onClose,
+  onCreated,
+}: {
+  api: ReturnType<typeof useApi>;
+  onClose: () => void;
+  onCreated: (id: number) => void;
+}) {
+  const [company, setCompany] = useState("");
+  const [email, setEmail] = useState("");
+  const [recipientName, setRecipientName] = useState("");
+  const [trade, setTrade] = useState("General Builder");
+  const [area, setArea] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function handleAdd() {
+    setErr(null);
+    setBusy(true);
+    try {
+      const { data } = await api.post(
+        "/api/admin/trades-pipeline/manual/add",
+        { company, email, recipientName, trade, area },
+      );
+      onCreated(data.id);
+    } catch (e: any) {
+      setErr(
+        e?.response?.data?.message ||
+          e?.response?.data?.error ||
+          e?.message ||
+          "failed",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white">New manual outreach</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-white text-sm">
+            Close
+          </button>
+        </div>
+        <p className="text-xs text-slate-400 mb-4">
+          Adds the company to the pipeline and opens the Compose modal so you
+          can review + send. Everything is recorded - filter by &quot;Outreach
+          sent&quot; later to see your manual emails.
+        </p>
+
+        <div className="space-y-3 text-sm">
+          <div>
+            <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">
+              Company name *
+            </label>
+            <input
+              type="text"
+              value={company}
+              onChange={(e) => setCompany(e.target.value)}
+              disabled={busy}
+              placeholder="ACME Construction Ltd"
+              className="w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-white disabled:opacity-60 focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">
+              Email *
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={busy}
+              placeholder="contact@acme.co.uk"
+              className="w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-white disabled:opacity-60 focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">
+              Recipient name <span className="text-slate-500 font-normal normal-case tracking-normal">(optional - personalises greeting)</span>
+            </label>
+            <input
+              type="text"
+              value={recipientName}
+              onChange={(e) => setRecipientName(e.target.value)}
+              disabled={busy}
+              placeholder="John Smith"
+              className="w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-white disabled:opacity-60 focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">
+              Trade <span className="text-slate-500 font-normal normal-case tracking-normal">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={trade}
+              onChange={(e) => setTrade(e.target.value)}
+              disabled={busy}
+              placeholder="General Builder"
+              className="w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-white disabled:opacity-60 focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">
+              Area <span className="text-slate-500 font-normal normal-case tracking-normal">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={area}
+              onChange={(e) => setArea(e.target.value)}
+              disabled={busy}
+              placeholder="Walthamstow (E17)"
+              className="w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-white disabled:opacity-60 focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+
+          {err && <p className="text-rose-400 text-xs">{err}</p>}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              onClick={onClose}
+              disabled={busy}
+              className="rounded-lg bg-slate-700 hover:bg-slate-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAdd}
+              disabled={busy || !company.trim() || !email.trim()}
+              className="rounded-lg bg-blue-600 hover:bg-blue-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+            >
+              {busy ? "Adding..." : "Add & compose"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function TradesPipelinePage() {
   const api = useApi();
   const [items, setItems] = useState<PipelineEntry[]>([]);
@@ -1093,6 +1243,7 @@ export default function TradesPipelinePage() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [actioning, setActioning] = useState<number | null>(null);
   const [outreachId, setOutreachId] = useState<number | null>(null);
+  const [manualOpen, setManualOpen] = useState(false);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -1157,6 +1308,13 @@ export default function TradesPipelinePage() {
             <h1 className="text-2xl font-bold">Trades Pipeline</h1>
             <AdminRefreshButton onRefresh={fetchItems} />
             <div className="ml-auto flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setManualOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-500 transition-colors"
+              >
+                + Manual outreach
+              </button>
               <button
                 type="button"
                 onClick={async () => {
@@ -1521,6 +1679,18 @@ export default function TradesPipelinePage() {
           onSent={() => {
             setOutreachId(null);
             fetchItems();
+          }}
+        />
+      )}
+
+      {manualOpen && (
+        <ManualOutreachModal
+          api={api}
+          onClose={() => setManualOpen(false)}
+          onCreated={(newId) => {
+            setManualOpen(false);
+            fetchItems();
+            setOutreachId(newId);
           }}
         />
       )}
