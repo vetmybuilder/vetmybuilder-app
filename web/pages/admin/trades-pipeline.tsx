@@ -833,6 +833,8 @@ function OutreachModal({
   const [to, setTo] = useState("");
   const [originalTo, setOriginalTo] = useState("");
   const [bodyHtml, setBodyHtml] = useState("");
+  const [templateId, setTemplateId] = useState("default");
+  const [templates, setTemplates] = useState<Array<{ id: string; label: string }>>([]);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [alreadySent, setAlreadySent] = useState(false);
@@ -847,7 +849,7 @@ function OutreachModal({
       try {
         const { data } = await api.post(
           "/api/admin/trades-pipeline/outreach/draft",
-          { id },
+          { id, templateId },
         );
         if (!alive) return;
         setTo(data.to || "");
@@ -857,6 +859,7 @@ function OutreachModal({
         setBody(data.body || "");
         setAlreadySent(!!data.alreadySent);
         setSentAt(data.sentAt || null);
+        if (Array.isArray(data.templates)) setTemplates(data.templates);
       } catch (e: any) {
         if (!alive) return;
         setErr(e?.response?.data?.error || e?.message || "draft failed");
@@ -867,7 +870,7 @@ function OutreachModal({
     return () => {
       alive = false;
     };
-  }, [api, id]);
+  }, [api, id, templateId]);
 
   // Re-render the HTML preview as the admin edits the body. Skip the
   // very first run (the draft response already supplied bodyHtml) and
@@ -937,6 +940,34 @@ function OutreachModal({
           <p className="text-slate-400 text-sm">Loading draft...</p>
         ) : (
           <div className="space-y-4 text-sm">
+            {templates.length > 1 && !alreadySent && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">
+                  Template
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {templates.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setTemplateId(t.id)}
+                      disabled={sending}
+                      className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                        templateId === t.id
+                          ? "bg-blue-600 text-white"
+                          : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Changing template replaces subject + body. Edits you've made will be lost.
+                </p>
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">From</label>
               <p className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-300">

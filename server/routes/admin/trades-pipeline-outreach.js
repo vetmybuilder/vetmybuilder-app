@@ -58,13 +58,15 @@ function titleCase(s) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function renderTemplate(row) {
-  const company = titleCase(row.company_name || "your business");
-  const trade = (row.trade_types || "tradesperson").toLowerCase();
-  const greeting = "Hi there,";
-
-  const subject = `Quick one for ${company} - new local jobs in your area`;
-  const body = `${greeting}
+const TEMPLATES = {
+  default: {
+    label: "Default - founder story",
+    render(row) {
+      const company = titleCase(row.company_name || "your business");
+      const trade = (row.trade_types || "tradesperson").toLowerCase();
+      return {
+        subject: `Quick one for ${company} - new local jobs in your area`,
+        body: `Hi there,
 
 I came across ${company} while pulling together a list of trusted local tradespeople for VetMyBuilder, and the work I've seen is genuinely impressive.
 
@@ -87,11 +89,77 @@ If it's not for you, no worries - just hit reply and I'll take ${company} off th
 
 Cheers,
 Chris (Founder & CEO)
-VetMyBuilder
 hello@vetmybuilder.com
-https://vetmybuilder.com`;
+https://vetmybuilder.com`,
+      };
+    },
+  },
+  short: {
+    label: "Short & direct",
+    render(row) {
+      const company = titleCase(row.company_name || "your business");
+      return {
+        subject: `${company} - local job leads, no per-lead fees`,
+        body: `Hi there,
 
-  return { subject, body };
+Saw ${company}'s work and wanted to drop a quick line.
+
+I'm launching **VetMyBuilder** this month - local homeowners post real jobs, trades match directly. No bidding wars, no lead fees.
+
+Sign-ups are open in Waltham Forest, Barnet, Redbridge and Epping. It's **Free** and takes about a minute:
+${REGISTER_URL}
+
+If it's not for you, just hit reply and I'll take you off the list.
+
+Cheers,
+Chris (Founder & CEO)
+hello@vetmybuilder.com
+https://vetmybuilder.com`,
+      };
+    },
+  },
+  value: {
+    label: "Value-led - lead-fee angle",
+    render(row) {
+      const company = titleCase(row.company_name || "your business");
+      const trade = (row.trade_types || "tradesperson").toLowerCase();
+      return {
+        subject: `How many lead fees has ${company} paid this month?`,
+        body: `Hi there,
+
+Quick question: how many leads has ${company} paid for that went nowhere?
+
+A friend in the trade showed me how much he was burning on lead-gen sites. I built VetMyBuilder so it doesn't have to work that way - homeowners post real jobs in their borough and ${trade}s match directly. No bidding wars, no per-lead fees.
+
+The first wave of sign-ups is open in:
+• Waltham Forest
+• Barnet
+• Redbridge
+• Epping
+
+Founding members sit at the top of the homeowner feed.
+
+It's **Free** to sign up, takes about a minute.
+${REGISTER_URL}
+
+If you'd rather not hear from me again, just reply STOP.
+
+Cheers,
+Chris (Founder & CEO)
+hello@vetmybuilder.com
+https://vetmybuilder.com`,
+      };
+    },
+  },
+};
+
+function renderTemplate(row, templateId) {
+  const id = TEMPLATES[templateId] ? templateId : "default";
+  return TEMPLATES[id].render(row);
+}
+
+function listTemplates() {
+  return Object.entries(TEMPLATES).map(([id, t]) => ({ id, label: t.label }));
 }
 
 const PUBLIC_APP_URL = "https://vetmybuilder.com";
@@ -235,10 +303,12 @@ module.exports = (router, ctx) => {
           bodyHtml: bodyToHtml(sentBody),
           alreadySent: true,
           sentAt: row.outreach_sent_at,
+          templates: listTemplates(),
         });
       }
 
-      const { subject, body } = renderTemplate(row);
+      const templateId = String(req.body?.templateId || "default");
+      const { subject, body } = renderTemplate(row, templateId);
       return res.json({
         to: row.email,
         subject,
@@ -246,8 +316,16 @@ module.exports = (router, ctx) => {
         bodyHtml: bodyToHtml(body),
         alreadySent: false,
         sentAt: null,
+        templateId,
+        templates: listTemplates(),
       });
     },
+  );
+
+  router.get(
+    "/admin/trades-pipeline/outreach/templates",
+    ...adminGuard,
+    (req, res) => res.json({ templates: listTemplates() }),
   );
 
   // Re-render the HTML preview for arbitrary subject + body. The modal
