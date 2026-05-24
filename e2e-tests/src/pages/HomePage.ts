@@ -39,10 +39,11 @@ export class HomePage {
     // so only one is visible per viewport. Use `:visible` in the CSS
     // locator so we always grab the right one regardless of viewport.
     this.heroCta = page.locator('[data-testid="hero-cta"]:visible');
-    // Guest "Post a job" CTA lives in the sticky SiteHeader (homepage
-    // variant), not the hero, so it stays reachable as the user scrolls.
+    // Guest "Post a job" CTA lives in the sticky SiteHeader on desktop
+    // (≥sm) and in the hero on mobile (<sm). Match whichever is visible
+    // at the current viewport so the same test passes everywhere.
     this.headerPostAJob = page.locator(
-      '[data-testid="home-header-post-job"]:visible',
+      '[data-testid="home-header-post-job"]:visible, [data-testid="hero-cta-mobile"]:visible',
     );
     this.localTradespeopleEyebrow = page.getByText("Hundreds of vetted tradespeople nearby.", {
       exact: true,
