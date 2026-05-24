@@ -86,12 +86,13 @@ describe("<Home /> homepage CTAs by role", () => {
 
     render(<Home />);
 
-    // Guests now see ONLY the See-how-it-works scroll link in the hero.
-    // The "Post a job" CTA was promoted into the sticky SiteHeader so
-    // it's persistent across scroll - tested separately in the header
-    // suite. None of the auth-gated CTAs should appear.
+    // Guests see See-how-it-works (all viewports) + a mobile-only
+    // Post-a-job pill (sm:hidden, so it falls through to the sticky
+    // SiteHeader on desktop). Both should be in the DOM under jsdom
+    // because jsdom ignores the responsive utility. None of the
+    // auth-gated CTAs should appear.
     expect(screen.getByText("See how it works")).toBeInTheDocument();
-    expect(screen.queryByText("Post a job")).not.toBeInTheDocument();
+    expect(screen.getByTestId("hero-cta-mobile")).toBeInTheDocument();
     expect(screen.queryByText("Post a new job")).not.toBeInTheDocument();
     expect(screen.queryByText("My projects")).not.toBeInTheDocument();
     expect(screen.queryByText("View available jobs")).not.toBeInTheDocument();
