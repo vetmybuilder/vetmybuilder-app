@@ -420,12 +420,20 @@ export default function SiteHeader() {
 
   // Logo destination: signed-in users go to their "home" (deck for
    // homeowners, jobs for trades) instead of the marketing landing.
-   // Guests still land on the marketing homepage.
-  const homeHref = displayUser
-    ? isTrades
-      ? "/tradesman/jobs"
-      : "/projects"
-    : "/";
+   // Guests still land on the marketing homepage - except on the admin
+   // login (/login?next=/admin/...) where the logo points back at the
+   // admin home rather than the public site.
+  const nextQuery =
+    typeof router.query.next === "string" ? router.query.next : "";
+  const isAdminContext =
+    router.pathname.startsWith("/admin") || nextQuery.startsWith("/admin");
+  const homeHref = isAdminContext
+    ? "/admin"
+    : displayUser
+      ? isTrades
+        ? "/tradesman/jobs"
+        : "/projects"
+      : "/";
 
   // Effective trader signal for UI gating: prefer the live API answer
   // (isTrades), but treat trade-signup-intent users as traders too.
@@ -507,7 +515,15 @@ export default function SiteHeader() {
                   aria-label="Go to homepage"
                   data-testid="nav-home"
                 >
-                  <BrandWordmark tone={effectiveIsTrades || isTradesPage ? "emerald" : "indigo"} />
+                  <BrandWordmark
+                    tone={
+                      isAdminContext
+                        ? "slate"
+                        : effectiveIsTrades || isTradesPage
+                          ? "emerald"
+                          : "indigo"
+                    }
+                  />
                 </Link>
               </div>
 
@@ -781,27 +797,34 @@ export default function SiteHeader() {
                   </div>
                 )}
 
-                {/* Guest header is intentionally minimal: just a homeowner
-                    login chip. Trade entry lives in the slim emerald
-                    banner above SiteHeader (and the trade signup page
-                    has its own "Already a member? Sign in" link).
-                    Homeowner entry lives in the page hero CTAs.
-                    /login routes by account role server-side, so a
-                    returning trade signing in here will still land on
+                {/* Guest header gets a primary "Post a job" CTA plus a
+                    compact icon-only Login. Trade entry lives in the
+                    slim emerald banner above SiteHeader (and the trade
+                    signup page has its own "Already a member? Sign in"
+                    link). /login routes by account role server-side so
+                    a returning trade signing in here still lands on
                     the trade dashboard. */}
                 {!displayUser && !isTrades && (
-                  <Link
-                    href="/login"
-                    data-testid="nav-sign-in-home"
-                    // Ghost-outline pill on the dark navbar. Just
-                    // "Login" with a key icon - role context lives in
-                    // the page itself, the nav doesn't need to repeat
-                    // it.
-                    className="hidden sm:inline-flex items-center justify-center gap-1.5 px-4 h-9 rounded-full border border-indigo-400/40 bg-transparent text-indigo-200 hover:bg-indigo-500/15 hover:border-indigo-300 hover:text-white text-[12.5px] font-bold tracking-tight transition-colors"
-                  >
-                    <LogIn className="h-3.5 w-3.5" aria-hidden />
-                    <span>Login</span>
-                  </Link>
+                  <>
+                    <Link
+                      href="/projects/new"
+                      data-testid="home-header-post-job"
+                      className="hidden sm:inline-flex items-center gap-2 rounded-full pl-3.5 pr-4 h-9 text-[13px] font-extrabold text-white shadow-sm hover:shadow-md transition-all group"
+                      style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
+                    >
+                      <Plus className="h-4 w-4 transition-transform duration-300 ease-out group-hover:rotate-90" />
+                      Post a job
+                    </Link>
+                    <Link
+                      href="/login"
+                      aria-label="Login"
+                      title="Login"
+                      data-testid="nav-sign-in-home"
+                      className="hidden sm:inline-flex items-center justify-center h-9 w-9 rounded-full border border-indigo-400/40 bg-transparent text-indigo-200 hover:bg-indigo-500/15 hover:border-indigo-300 hover:text-white transition-colors"
+                    >
+                      <LogIn className="h-4 w-4" aria-hidden />
+                    </Link>
+                  </>
                 )}
 
                 {/* Mobile menu */}
@@ -912,13 +935,18 @@ export default function SiteHeader() {
               className="hidden md:flex items-center gap-1.5"
               data-testid="nav-actions"
             >
+              {/* Guest: primary "Post a job" CTA. Mirrors the homepage
+                  variant so the same action sits in the same place
+                  whichever route the visitor lands on first. */}
               {!displayUser && !isAuthPage && (
                 <Link
-                  href="/login"
-                  className="hidden sm:inline-flex items-center justify-center rounded-xl px-3 h-9 text-sm font-semibold text-slate-200 hover:text-white hover:bg-slate-800 transition-colors"
-                  data-testid="nav-sign-in"
+                  href="/projects/new"
+                  data-testid="nav-post-a-job"
+                  className="hidden sm:inline-flex items-center gap-2 rounded-full pl-3.5 pr-4 h-9 text-[13px] font-extrabold text-white shadow-sm hover:shadow-md transition-all group"
+                  style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
                 >
-                  <span>Sign in</span>
+                  <Plus className="h-4 w-4 transition-transform duration-300 ease-out group-hover:rotate-90" />
+                  Post a job
                 </Link>
               )}
 
@@ -1246,14 +1274,18 @@ export default function SiteHeader() {
                 </div>
               )}
 
+              {/* Guest: secondary icon-only Login. Square chip, matches
+                  the homepage header so guests see a consistent pair
+                  (Post a job + Login icon) everywhere. */}
               {!displayUser && !isAuthPage && (
                 <Link
-                  href="/signup"
-                  className="inline-flex items-center justify-center rounded-xl px-5 h-9 text-sm font-bold text-white shadow-sm transition-colors"
-                  style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
-                  data-testid="nav-join"
+                  href="/login"
+                  aria-label="Login"
+                  title="Login"
+                  data-testid="nav-sign-in"
+                  className="inline-flex items-center justify-center h-9 w-9 rounded-full border border-indigo-400/40 bg-transparent text-indigo-200 hover:bg-indigo-500/15 hover:border-indigo-300 hover:text-white transition-colors"
                 >
-                  <span>Get started</span>
+                  <LogIn className="h-4 w-4" aria-hidden />
                 </Link>
               )}
             </div>

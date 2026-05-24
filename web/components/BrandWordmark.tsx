@@ -11,7 +11,7 @@
 
 import { useRouter } from "next/router";
 
-type Tone = "indigo" | "emerald" | "auto";
+type Tone = "indigo" | "emerald" | "slate" | "auto";
 
 function TeslaE({ color, size }: { color: string; size: number }) {
   const w = size * 0.55;
@@ -46,11 +46,19 @@ export default function BrandWordmark({
   className?: string;
 }) {
   const router = useRouter();
+  // Auto-detect admin context (path /admin/* OR /login?next=/admin/...).
+  const nextQuery =
+    typeof router.query.next === "string" ? router.query.next : "";
+  const isAdminContext =
+    router.pathname.startsWith("/admin") ||
+    nextQuery.startsWith("/admin");
   const resolved =
     tone === "auto"
-      ? router.pathname.startsWith("/tradesman")
-        ? "emerald"
-        : "indigo"
+      ? isAdminContext
+        ? "slate"
+        : router.pathname.startsWith("/tradesman")
+          ? "emerald"
+          : "indigo"
       : tone;
 
   // Dark-bg palette (light glyphs) vs light-bg palette (dark glyphs).
@@ -58,10 +66,14 @@ export default function BrandWordmark({
     bg === "light"
       ? resolved === "emerald"
         ? "#059669" // emerald-600
-        : "#4f46e5" // indigo-600
+        : resolved === "slate"
+          ? "#0f172a" // slate-900 (black-ish on light bg)
+          : "#4f46e5" // indigo-600
       : resolved === "emerald"
         ? "#6ee7b7" // emerald-300
-        : "#a5b4fc"; // indigo-300
+        : resolved === "slate"
+          ? "#e2e8f0" // slate-200 (near-white on dark navbar)
+          : "#a5b4fc"; // indigo-300
   const fontSize = 24;
   const text = {
     fontFamily: "Audiowide, sans-serif",

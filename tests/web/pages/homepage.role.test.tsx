@@ -86,9 +86,13 @@ describe("<Home /> homepage CTAs by role", () => {
 
     render(<Home />);
 
-    // Guests see the shorter "Post a job" CTA + the See-how-it-works
-    // scroll link, NOT the auth-gated variants.
-    expect(screen.getByText("Post a job")).toBeInTheDocument();
+    // Guests see See-how-it-works (all viewports) + a mobile-only
+    // Post-a-job pill (sm:hidden, so it falls through to the sticky
+    // SiteHeader on desktop). Both should be in the DOM under jsdom
+    // because jsdom ignores the responsive utility. None of the
+    // auth-gated CTAs should appear.
+    expect(screen.getByText("See how it works")).toBeInTheDocument();
+    expect(screen.getByTestId("hero-cta-mobile")).toBeInTheDocument();
     expect(screen.queryByText("Post a new job")).not.toBeInTheDocument();
     expect(screen.queryByText("My projects")).not.toBeInTheDocument();
     expect(screen.queryByText("View available jobs")).not.toBeInTheDocument();

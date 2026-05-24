@@ -164,16 +164,6 @@ export default function Home() {
   // Guests with auth resolved render their unauth CTAs immediately.
   const isResolvingRole = authLoading || (!!user && roleLoading);
 
-  function rememberReturnTo() {
-    try {
-      if (!sessionStorage.getItem("vmb:returnTo")) {
-        sessionStorage.setItem("vmb:returnTo", "/");
-      }
-    } catch {
-      /* noop */
-    }
-  }
-
   const steps = isTrades
     ? [
         {
@@ -353,11 +343,14 @@ export default function Home() {
                     </>
                   ) : (
                     <>
+                      {/* Mobile-only Post-a-job CTA. Desktop guests get the
+                          same action in the sticky SiteHeader, but mobile
+                          hides those header CTAs to keep the bar compact,
+                          so the hero needs to surface it here. */}
                       <Link
                         href="/projects/new"
-                        onClick={rememberReturnTo}
-                        data-testid="hero-cta"
-                        className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-[13px] lg:text-[14px] font-extrabold text-white shadow-lg shadow-indigo-500/40 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all"
+                        data-testid="hero-cta-mobile"
+                        className="sm:hidden inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-extrabold text-white shadow-lg shadow-indigo-500/40 hover:shadow-xl active:scale-[0.99] transition-all"
                         style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
                       >
                         Post a job
@@ -366,6 +359,7 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}
+                        data-testid="hero-cta"
                         className="inline-flex items-center justify-center gap-2 rounded-xl bg-white/95 backdrop-blur border-[1.5px] border-white/60 px-5 py-2.5 text-[13px] lg:text-[14px] font-extrabold text-slate-800 hover:bg-white transition-colors shadow-lg"
                       >
                         See how it works

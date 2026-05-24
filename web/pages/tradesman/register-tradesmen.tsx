@@ -23,9 +23,8 @@ import { useApi } from "@/utils/api";
 import { useAuth } from "@/utils/auth";
 import { useRole } from "@/utils/useRole";
 import { trackRegisterStepCompleted } from "@/utils/analytics";
-import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import OAuthSignInButton from "@/components/forms/OAuthSignInButton";
-import WizardTopBar from "@/components/wizard/WizardTopBar";
+import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import { ensureEmailAvailable } from "@/utils/email";
 import PasswordChecklist, {
   isStrongPassword,
@@ -185,49 +184,42 @@ export default function TradesmanRegisterPage() {
         />
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary_large_image" />
-        <style>{`body { background: #fef6e9 !important; }`}</style>
+        <style>{`body { background: #ffffff !important; }`}</style>
       </Head>
 
       <main
-        className="relative bg-[#fef6e9] min-h-screen overflow-hidden"
+        className="bg-white min-h-screen relative overflow-hidden"
         data-testid="tradesman-register-page"
       >
         <BrandWatermarkScatter />
-
-        <div className="relative z-10 w-full md:max-w-md mx-auto bg-white md:my-10 md:rounded-2xl md:shadow-lg md:overflow-hidden md:border md:border-gray-200">
-          <WizardTopBar
-            title="Tradesperson signup"
-            onBack={() => router.push("/")}
-            onClose={handleClose}
-          />
-
-          <div className="px-5 py-5">
-            <p className="text-center text-[10.5px] font-extrabold uppercase tracking-[0.18em] text-emerald-700">
-              Sign up
-            </p>
+        <div className="relative z-10 mx-auto max-w-6xl px-6 py-8 md:py-20 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10 items-center">
+          {/* Form column - left on desktop, below photo on mobile. */}
+          <div className="order-2 md:order-1">
             <h1
-              className="mt-2 text-center text-[24px] sm:text-[28px] font-black tracking-tight text-slate-900 leading-tight"
+              className="text-[34px] md:text-[44px] font-black text-slate-900 leading-[1.05] tracking-tight"
               style={{ fontFamily: "'Sora', sans-serif" }}
             >
-              Win more work, your way.
+              Win more work,{" "}
+              <span className="text-emerald-700">your way</span>.
             </h1>
-            <p className="mt-2 text-center text-[13px] text-slate-600">
-              Free to join. No commission. Set-up takes about 2 minutes.
+            <p className="mt-3 text-[14px] text-slate-600">
+              Built by a tradesperson, for tradespeople. Free to join. Takes about 2 minutes.
             </p>
 
-            <div className="mt-6">
+            <div className="mt-7 rounded-2xl bg-slate-50 border border-slate-200 p-5 sm:p-6">
+              <p className="text-[13px] font-bold text-slate-900 mb-3">Sign up - tradespeople</p>
+
               <OAuthSignInButton
                 provider="google"
                 intent="tradesman"
                 onError={(msg) => setErr(msg)}
               />
-            </div>
 
-            <div className="my-5 flex items-center gap-3 text-[10.5px] uppercase tracking-wider text-slate-400 font-bold">
-              <div className="h-px flex-1 bg-slate-200" />
-              <span>Or sign up with email</span>
-              <div className="h-px flex-1 bg-slate-200" />
-            </div>
+              <div className="my-4 flex items-center gap-3 text-[10.5px] uppercase tracking-wider text-slate-400 font-bold">
+                <div className="h-px flex-1 bg-slate-200" />
+                <span>Or sign up with email</span>
+                <div className="h-px flex-1 bg-slate-200" />
+              </div>
 
             <form onSubmit={onSubmit} className="space-y-3" noValidate>
               <div>
@@ -355,19 +347,32 @@ export default function TradesmanRegisterPage() {
               </button>
             </form>
 
-            <p
-              className="mt-5 text-center text-[12.5px] text-slate-500"
-              data-testid="vendor-already-member"
-            >
-              Already a member?{" "}
-              <Link
-                href="/login?next=/tradesman/jobs"
-                className="font-extrabold text-emerald-600 hover:underline"
-                data-testid="link-vendor-signin"
+              <p
+                className="mt-4 text-center text-[12.5px] text-slate-500"
+                data-testid="vendor-already-member"
               >
-                Sign in
-              </Link>
-            </p>
+                Already a member?{" "}
+                <Link
+                  href="/login?next=/tradesman/jobs"
+                  className="font-extrabold text-emerald-600 hover:underline"
+                  data-testid="link-vendor-signin"
+                >
+                  Sign in
+                </Link>
+              </p>
+            </div>
+          </div>
+
+          {/* Photo column - right on desktop, top on mobile. */}
+          <div className="order-1 md:order-2">
+            <div className="relative rounded-2xl overflow-hidden shadow-lg aspect-[16/10] md:aspect-[4/5]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/job-images/plumbing.jpg"
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            </div>
           </div>
         </div>
       </main>
