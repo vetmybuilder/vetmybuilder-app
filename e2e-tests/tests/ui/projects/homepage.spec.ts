@@ -52,15 +52,11 @@ test.describe("Homepage", () => {
   });
 
   test.describe("Guest", () => {
-    // Engagement-first flow: guest hero CTA opens the post-job wizard
-    // directly (no auth wall). The wizard captures the project payload,
-    // then routes the guest to /signup at submit time. See
-    // utils/flushPendingProject.ts for the post-auth flush.
-    test("hero CTA opens the post-job wizard", async ({ basePage, homePage }) => {
+    test("header CTA opens the post-job wizard", async ({ basePage, homePage }) => {
       await basePage.logoutViaUrl();
       await homePage.goto();
-      await homePage.expectHeroCtaLabel(/post a job/i);
-      await homePage.clickHeroCta();
+      await homePage.expectHeaderPostAJobLabel(/post a job/i);
+      await homePage.clickHeaderPostAJob();
       await homePage.expectUrl(/\/projects\/new$/);
     });
 

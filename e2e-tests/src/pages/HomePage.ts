@@ -25,6 +25,7 @@ export class HomePage {
 
   readonly header: Locator;
   readonly heroCta: Locator;
+  readonly headerPostAJob: Locator;
   readonly localTradespeopleEyebrow: Locator;
   readonly myProjectsLink: Locator;
   readonly seeHowItWorksButton: Locator;
@@ -38,6 +39,11 @@ export class HomePage {
     // so only one is visible per viewport. Use `:visible` in the CSS
     // locator so we always grab the right one regardless of viewport.
     this.heroCta = page.locator('[data-testid="hero-cta"]:visible');
+    // Guest "Post a job" CTA lives in the sticky SiteHeader (homepage
+    // variant), not the hero, so it stays reachable as the user scrolls.
+    this.headerPostAJob = page.locator(
+      '[data-testid="home-header-post-job"]:visible',
+    );
     this.localTradespeopleEyebrow = page.getByText("Hundreds of vetted tradespeople nearby.", {
       exact: true,
     });
@@ -115,6 +121,16 @@ export class HomePage {
   async clickHeroCta() {
     await expect(this.heroCta).toBeVisible({ timeout: 15_000 });
     await this.heroCta.click();
+  }
+
+  async expectHeaderPostAJobLabel(label: string | RegExp) {
+    await expect(this.headerPostAJob).toBeVisible({ timeout: 15_000 });
+    await expect(this.headerPostAJob).toHaveText(label);
+  }
+
+  async clickHeaderPostAJob() {
+    await expect(this.headerPostAJob).toBeVisible({ timeout: 15_000 });
+    await this.headerPostAJob.click();
   }
 
   async clickMyProjectsLink() {
