@@ -167,11 +167,60 @@ export default function FreeWallInsulation() {
   return (
     <>
       <Head>
-        <title>Free wall insulation check - VetMyBuilder</title>
-        {/* overflow-x:hidden on body kills any stray horizontal scroll
-            caused by absolute-positioned overlays or wide inline
-            children on narrow viewports. The page is mobile-first
-            after this. */}
+        <title>Free Wall Insulation Check - Am I Eligible? | VetMyBuilder</title>
+        <meta name="description" content="Check if your home qualifies for free wall insulation under a government grant. Takes 60 seconds - no obligations." />
+        <link rel="canonical" href="https://vetmybuilder.com/free-wall-insulation" />
+
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://vetmybuilder.com/free-wall-insulation" />
+        <meta property="og:title" content="Free Wall Insulation Check - Am I Eligible?" />
+        <meta property="og:description" content="Check if your home qualifies for free wall insulation under a government grant. Takes 60 seconds - no obligations." />
+        <meta property="og:image" content="https://vetmybuilder.com/vetmybuilder-eco4-hero.webp" />
+        <meta property="og:site_name" content="VetMyBuilder" />
+        <meta property="og:locale" content="en_GB" />
+
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Free Wall Insulation Check - Am I Eligible?" />
+        <meta name="twitter:description" content="Check if your home qualifies for free wall insulation under a government grant. Takes 60 seconds - no obligations." />
+        <meta name="twitter:image" content="https://vetmybuilder.com/vetmybuilder-eco4-hero.webp" />
+
+        <meta name="robots" content="index, follow" />
+        <meta name="keywords" content="free wall insulation, ECO4 grant, cavity wall insulation, government grant, energy efficiency, home insulation, EPC upgrade" />
+
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          "name": "Free Wall Insulation Eligibility Check",
+          "description": "Check if your home qualifies for free wall insulation under a government grant. Takes 60 seconds - no obligations.",
+          "url": "https://vetmybuilder.com/free-wall-insulation",
+          "publisher": {
+            "@type": "Organization",
+            "name": "VetMyBuilder",
+            "url": "https://vetmybuilder.com",
+            "logo": { "@type": "ImageObject", "url": "https://vetmybuilder.com/logo.png" }
+          },
+          "mainEntity": {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "Can I get free wall insulation?",
+                "acceptedAnswer": { "@type": "Answer", "text": "You may qualify if you own or privately rent your home, have gas or oil heating, an EPC rating of D-G, and receive certain benefits like pension credit or universal credit." }
+              },
+              {
+                "@type": "Question",
+                "name": "How long does the eligibility check take?",
+                "acceptedAnswer": { "@type": "Answer", "text": "The online check takes about 60 seconds. Answer a few questions about your property and we will tell you if you are likely to qualify." }
+              },
+              {
+                "@type": "Question",
+                "name": "What happens after I check my eligibility?",
+                "acceptedAnswer": { "@type": "Answer", "text": "If you qualify, a vetted insulation specialist will contact you to arrange a free survey. There is no obligation and the installation is fully funded by the government ECO scheme." }
+              }
+            ]
+          }
+        }) }} />
+
         <style>{`body { background:#f8fafc; overflow-x: hidden; }`}</style>
       </Head>
 
