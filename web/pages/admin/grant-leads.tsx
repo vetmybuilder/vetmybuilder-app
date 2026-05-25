@@ -187,7 +187,7 @@ function GrantLeadsInner() {
             . Currently routing to Elegant Building by default.
           </p>
         </div>
-        <AdminRefreshButton onClick={fetchList} loading={loading} />
+        <AdminRefreshButton onRefresh={fetchList} />
       </div>
 
       {/* Filter row */}
