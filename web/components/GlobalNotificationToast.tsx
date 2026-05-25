@@ -67,6 +67,11 @@ export default function GlobalNotificationToast() {
         "recommendation_new",
         "tradesman_paid_unlock",
         "homeowner_swiped",
+        // Grant funnel: homeowner gets a one-off prompt after posting
+        // an insulation job; the assigned specialist (Elegant) gets
+        // each new lead routed to them. Both are actionable in-app.
+        "grant_opportunity",
+        "grant_lead_assigned",
       ]);
       if (!detail.type || !TOAST_TYPES.has(detail.type)) return;
 
@@ -112,7 +117,15 @@ export default function GlobalNotificationToast() {
     <button
       type="button"
       onClick={() => {
-        if (linkPath) router.push(linkPath);
+        if (linkPath) {
+          // Grant funnel notifications open in a new tab so the user
+          // keeps their VMB session in place.
+          if (type === "grant_opportunity") {
+            window.open(linkPath, "_blank", "noopener,noreferrer");
+          } else {
+            router.push(linkPath);
+          }
+        }
         setToast(null);
       }}
       className={`fixed left-1/2 -translate-x-1/2 z-[60] inline-flex items-center gap-2.5 rounded-full px-4 py-2.5 text-white text-[13px] font-bold shadow-lg max-w-[calc(100vw-32px)] bg-gradient-to-r ${tone}`}

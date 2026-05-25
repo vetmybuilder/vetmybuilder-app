@@ -30,6 +30,10 @@ import IncomingLeadCard, {
 import SwipePayGate, {
   type SwipePayGateSubject,
 } from "@/components/tradesmen/SwipePayGate";
+import {
+  GrantLeadsViewMobile,
+  GrantLeadsViewDesktop,
+} from "@/components/tradesmen/GrantLeadsView";
 
 export default function TradesmanLeadsPage() {
   const api = useApi();
@@ -89,6 +93,22 @@ export default function TradesmanLeadsPage() {
   const current = leads[index];
   const remaining = Math.max(0, leads.length - index);
   const gated = current?.source === "subscribed" && !subActive;
+
+  // Lead type tab - "interest" is the existing swipe deck / desktop
+  // list; "grants" surfaces the ECO4 grant leads routed to this trade
+  // via the /free-wall-insulation funnel. Driven by ?type= so the push
+  // notification from a new submission deep-links into the right tab.
+  const view: "interest" | "grants" =
+    router.query.type === "grants" ? "grants" : "interest";
+  const setView = (next: "interest" | "grants") => {
+    router.replace(
+      next === "grants"
+        ? { pathname: "/tradesman/leads", query: { type: "grants" } }
+        : { pathname: "/tradesman/leads" },
+      undefined,
+      { shallow: true },
+    );
+  };
 
   // Desktop V1 filter state - persists across responses but not pages.
   const [sourceFilter, setSourceFilter] = useState<"all" | "recommended" | "subscribed">("all");
@@ -262,6 +282,17 @@ export default function TradesmanLeadsPage() {
             </button>
           </div>
 
+          {/* Lead-type tabs - segmented control just below the top
+              bar. Always visible so the user can flip between interest
+              and grants without leaving the page. */}
+          <div className="px-4 pt-1 pb-2 shrink-0 flex justify-center">
+            <LeadsViewTabs view={view} onChange={setView} />
+          </div>
+
+          {view === "grants" ? (
+            <GrantLeadsViewMobile />
+          ) : (
+            <>
           {/* Position indicator */}
           {!loading && leads.length > 0 && (
             <div className="text-center text-[11px] font-extrabold tracking-[0.18em] uppercase text-emerald-900/60 pb-1 shrink-0">
@@ -353,6 +384,8 @@ export default function TradesmanLeadsPage() {
               </div>
             </>
           )}
+            </>
+          )}
         </main>
 
         {/* DESKTOP - V1 two-column layout: filter rail + lead rows with
@@ -365,6 +398,16 @@ export default function TradesmanLeadsPage() {
           <SiteHeader />
           <BrandWatermarkScatter />
 
+          {/* Lead-type tabs - centred above the page content so the
+              user can flip between interest and grants. */}
+          <div className="mx-auto max-w-6xl px-6 pt-5 relative z-10 flex justify-center">
+            <LeadsViewTabs view={view} onChange={setView} />
+          </div>
+
+          {view === "grants" ? (
+            <GrantLeadsViewDesktop />
+          ) : (
+            <>
           <div className="mx-auto max-w-6xl px-6 pb-12 relative z-10">
             <div className="text-center pt-6 pb-4">
               <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-emerald-700 mb-0.5">
@@ -514,6 +557,8 @@ export default function TradesmanLeadsPage() {
               </main>
             </div>
           </div>
+            </>
+          )}
         </div>
 
         {/* Pitch-this-job paygate. Same modal that opens when a builder
@@ -735,6 +780,47 @@ function IncomingLeadsEmpty({ hasSub }: { hasSub: boolean }) {
           Discover new jobs &rarr;
         </Link>
       </div>
+    </div>
+  );
+}
+
+function LeadsViewTabs({
+  view,
+  onChange,
+}: {
+  view: "interest" | "grants";
+  onChange: (next: "interest" | "grants") => void;
+}) {
+  const tabs: { key: "interest" | "grants"; label: string }[] = [
+    { key: "interest", label: "Interest" },
+    { key: "grants", label: "Grants" },
+  ];
+  return (
+    <div
+      role="tablist"
+      className="inline-flex p-1 rounded-full bg-white/85 border border-emerald-100 shadow-sm"
+      style={{ backdropFilter: "blur(8px)" }}
+    >
+      {tabs.map((t) => {
+        const active = view === t.key;
+        return (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(t.key)}
+            data-testid={`leads-tab-${t.key}`}
+            className={`px-4 py-1.5 rounded-full text-[12.5px] font-extrabold uppercase tracking-wider transition-colors ${
+              active
+                ? "bg-emerald-600 text-white shadow"
+                : "text-emerald-700 hover:bg-emerald-50"
+            }`}
+          >
+            {t.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

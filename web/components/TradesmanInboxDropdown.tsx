@@ -411,6 +411,9 @@ function ActivityList({
           return m ? Number(m[1]) : null;
         })();
         const interceptToDock = matchIdFromLink != null;
+        // Grant funnel notifications are a companion experience -
+        // open in a new tab so the user keeps their VMB session in place.
+        const openInNewTab = n.type === "grant_opportunity";
         return (
           <li
             key={n.id}
@@ -419,6 +422,9 @@ function ActivityList({
           >
             <Link
               href={href}
+              {...(openInNewTab
+                ? { target: "_blank", rel: "noopener noreferrer" }
+                : {})}
               onClick={(e) => {
                 if (interceptToDock) {
                   e.preventDefault();

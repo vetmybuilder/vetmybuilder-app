@@ -109,3 +109,7 @@ web/pages/admin/tradesmen-leaderboard.old.tsx.bak
 
 # Solo-developer AI guidance, not for source control
 CLAUDE.md
+
+# Per-branch planning notes - working docs for the AI / Chris, never
+# shipped. Survives session crashes so the next session can resume.
+plans/

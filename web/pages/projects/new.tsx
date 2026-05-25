@@ -866,16 +866,21 @@ export default function NewProject() {
                 : "py-6 sm:py-10 min-h-[28rem]"
             }`}>
 
-              {/* Close button */}
-              <button
-                type="button"
-                onClick={() => router.push("/projects")}
-                className="absolute top-1 right-1 sm:top-2 sm:right-2 w-8 h-8 rounded-full border-2 border-zinc-200 bg-white text-zinc-400 hover:text-zinc-900 hover:border-zinc-300 flex items-center justify-center text-sm transition-colors"
-                aria-label="Cancel"
-                data-testid="btn-cancel"
-              >
-                &#10005;
-              </button>
+              {/* Close button - hidden on the preview step. Once the
+                  job has been submitted and matches are being shuffled
+                  in, an exit-by-X is misleading: the job is already
+                  live, so cancelling here doesn't undo anything. */}
+              {currentStep.key !== "preview" && (
+                <button
+                  type="button"
+                  onClick={() => router.push("/projects")}
+                  className="absolute top-1 right-1 sm:top-2 sm:right-2 w-8 h-8 rounded-full border-2 border-zinc-200 bg-white text-zinc-400 hover:text-zinc-900 hover:border-zinc-300 flex items-center justify-center text-sm transition-colors"
+                  aria-label="Cancel"
+                  data-testid="btn-cancel"
+                >
+                  &#10005;
+                </button>
+              )}
 
               {/* Step counter is redundant on the preview step - the
                   progress bar at the top already shows we're on the

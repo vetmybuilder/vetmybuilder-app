@@ -186,6 +186,13 @@ export default function NotificationsBell() {
           ? `/projects/${n.projectId}`
           : "/projects";
 
+    // Grant funnel notifications open in a new tab so the user keeps
+    // their VMB session in place.
+    if (n.type === "grant_opportunity") {
+      window.open(href, "_blank", "noopener,noreferrer");
+      return;
+    }
+
     try {
       await router.push(href);
     } catch {

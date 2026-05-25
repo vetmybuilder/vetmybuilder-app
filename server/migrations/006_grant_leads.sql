@@ -1,0 +1,42 @@
+CREATE TABLE IF NOT EXISTS grant_leads (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  reference_code VARCHAR(32) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  property_type VARCHAR(40) NOT NULL,
+  tenure VARCHAR(40) NOT NULL,
+  heating_fuel VARCHAR(40) NOT NULL,
+  epc_rating VARCHAR(4) NOT NULL,
+  benefits JSON NOT NULL,
+  postcode VARCHAR(16) NOT NULL,
+  name VARCHAR(120) NOT NULL,
+  email VARCHAR(190) NOT NULL,
+  phone VARCHAR(40) NOT NULL,
+  qualified VARCHAR(10) NOT NULL,
+  assigned_tradesperson_uid VARCHAR(255) NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'new',
+  source VARCHAR(80) NULL,
+  ip VARCHAR(64) NULL,
+  user_agent TEXT NULL,
+  consent_at DATETIME NULL,
+  notes TEXT NULL,
+  last_status_at DATETIME NULL,
+  viewed_at DATETIME NULL,
+  UNIQUE KEY uq_grant_leads_reference (reference_code),
+  KEY idx_grant_leads_status (status),
+  KEY idx_grant_leads_qualified (qualified),
+  KEY idx_grant_leads_assigned (assigned_tradesperson_uid),
+  KEY idx_grant_leads_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS grant_lead_events (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  grant_lead_id INT NOT NULL,
+  event_type VARCHAR(40) NOT NULL,
+  prev_status VARCHAR(20) NULL,
+  new_status VARCHAR(20) NULL,
+  detail TEXT NULL,
+  actor_uid VARCHAR(128) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_grant_lead_events_lead (grant_lead_id),
+  KEY idx_grant_lead_events_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

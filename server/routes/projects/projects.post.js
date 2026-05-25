@@ -249,6 +249,30 @@ module.exports = (router, ctx) => {
         log.warn?.("[projects.post] publish notifications error", { err: err?.message });
       });
 
+      // Insulation jobs: nudge the homeowner about the ECO4 grant funnel
+      // once. Helper is fully idempotent per user and never throws.
+      // Delayed by 6s so the toast lands AFTER the user has navigated
+      // off the post-job flow onto /projects or /projects/:id - firing
+      // mid-route was beating the page render and the toast was lost.
+      if (TYPE_TO_CATEGORY[body.type] === "Insulation") {
+        const {
+          notifyHomeownerGrantOpportunity,
+        } = require("../../lib/notifyHomeownerGrantOpportunity");
+        setTimeout(() => {
+          notifyHomeownerGrantOpportunity({
+            mysqlQuery,
+            ownerUid: uid,
+            projectId: insertedId,
+            broadcastNotification: ctx.broadcastNotification,
+            logActivity: ctx.logActivity,
+          }).catch((err) => {
+            log.warn?.("[projects.post] grant opportunity nudge error", {
+              err: err?.message,
+            });
+          });
+        }, 6000);
+      }
+
       return;
     } catch (err) {
       log.error?.("[projects.post] error", err);
