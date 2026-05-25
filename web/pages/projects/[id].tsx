@@ -24,6 +24,28 @@ import { useSseEvent } from "@/utils/useSseEvent";
 
 type ViewerRole = "unknown" | "owner" | "trades" | "home";
 
+// Project sub-types that roll up to the Insulation category in the
+// server-side TYPE_TO_CATEGORY map. Kept inline rather than imported
+// because the server map isn't exposed to the web bundle - small,
+// stable list. Update if the server map grows.
+const INSULATION_TYPES = new Set<string>([
+  "Cavity Wall Insulation",
+  "Draught Proofing",
+  "External Wall Insulation",
+  "Floor Insulation",
+  "Garage Insulation",
+  "Internal Wall Insulation",
+  "Loft Insulation",
+  "Pipe & Tank Lagging",
+  "Room-in-Roof Insulation",
+  "Soundproofing",
+  "Underfloor Insulation",
+]);
+
+function isInsulationType(type: unknown): boolean {
+  return typeof type === "string" && INSULATION_TYPES.has(type);
+}
+
 function getShortProjectTitle(name?: string | null): string {
   if (!name) return "";
   let base = name.trim();
@@ -376,6 +398,38 @@ function ProjectSwipeDesktop({
                   </div>
                 </div>
 
+                {/* Grant-check card. Insulation jobs only. The funnel
+                    opens in a new tab so the user doesn't lose their
+                    project view - same pattern as the homeowner-side
+                    grant notification's new-tab behaviour. */}
+                {isInsulationType((project as any)?.type) && (
+                  <a
+                    href="/free-wall-insulation"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-testid="grant-check-card"
+                    className="block bg-white border-2 border-emerald-400 rounded-3xl p-5 shadow-md relative hover:shadow-lg transition-shadow"
+                  >
+                    <span className="absolute -top-2.5 left-5 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white bg-emerald-600 px-2 py-0.5 rounded-full">
+                      Government grant
+                    </span>
+                    <h3
+                      className="text-[16px] font-black tracking-tight text-slate-900 leading-tight"
+                      style={{ fontFamily: "'Sora', sans-serif" }}
+                    >
+                      You might get this paid for
+                    </h3>
+                    <p className="mt-1 text-[12.5px] text-slate-600 leading-relaxed">
+                      Up to £14,000 of insulation work is funded under
+                      the ECO4 grant for eligible homes. 2-minute check.
+                    </p>
+                    <span className="mt-3 inline-flex items-center gap-1 text-[12.5px] font-extrabold text-emerald-700">
+                      Check eligibility
+                      <span aria-hidden>→</span>
+                    </span>
+                  </a>
+                )}
+
                 {/* Share card - lives under the project summary on the
                     left so the right rail is free for recommendations
                     received for this job. */}
@@ -722,9 +776,11 @@ function ProjectSwipeDesktop({
 function ProjectSwipeMobile({
   projectId,
   projectTitle,
+  projectType,
 }: {
   projectId: string;
   projectTitle: string;
+  projectType?: string | null;
 }) {
   const api = useApi();
   const router = useRouter();
@@ -870,6 +926,7 @@ function ProjectSwipeMobile({
         onClose={() => setActionsOpen(false)}
         projectId={projectId}
         projectName={projectTitle}
+        projectType={projectType ?? null}
       />
 
       {paidUnlockToast && (
@@ -1495,6 +1552,7 @@ export default function ProjectViewPage() {
             <ProjectSwipeMobile
               projectId={projectIdStr}
               projectTitle={projectTitle}
+              projectType={(vm.project as { type?: string } | null)?.type ?? null}
             />
           )}
         </div>

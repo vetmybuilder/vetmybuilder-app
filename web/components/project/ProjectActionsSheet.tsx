@@ -7,23 +7,44 @@
 // whether the work went ahead and a winner was picked).
 
 import { useRouter } from "next/router";
-import { CheckCircle2, Pencil } from "lucide-react";
+import { CheckCircle2, Pencil, PoundSterling } from "lucide-react";
 
 import BottomSheet from "@/components/BottomSheet";
+
+// Project sub-types that roll up to the Insulation category. Kept in
+// sync with the same list on pages/projects/[id].tsx - the server-side
+// TYPE_TO_CATEGORY map isn't exposed to the web bundle.
+const INSULATION_TYPES = new Set<string>([
+  "Cavity Wall Insulation",
+  "Draught Proofing",
+  "External Wall Insulation",
+  "Floor Insulation",
+  "Garage Insulation",
+  "Internal Wall Insulation",
+  "Loft Insulation",
+  "Pipe & Tank Lagging",
+  "Room-in-Roof Insulation",
+  "Soundproofing",
+  "Underfloor Insulation",
+]);
 
 type Props = {
   open: boolean;
   onClose: () => void;
   projectId: string;
   projectName?: string;
+  projectType?: string | null;
 };
 
 export default function ProjectActionsSheet({
   open,
   onClose,
   projectId,
+  projectType,
 }: Props) {
   const router = useRouter();
+  const showGrantCheck =
+    typeof projectType === "string" && INSULATION_TYPES.has(projectType);
 
   function pickEdit() {
     onClose();
@@ -33,6 +54,13 @@ export default function ProjectActionsSheet({
   function pickClose() {
     onClose();
     router.push(`/projects/${projectId}/close`);
+  }
+
+  function pickGrantCheck() {
+    onClose();
+    if (typeof window !== "undefined") {
+      window.open("/free-wall-insulation", "_blank", "noopener,noreferrer");
+    }
   }
 
   return (
@@ -89,6 +117,27 @@ export default function ProjectActionsSheet({
             </span>
           </span>
         </button>
+
+        {showGrantCheck && (
+          <button
+            type="button"
+            onClick={pickGrantCheck}
+            data-testid="project-actions-grant-check"
+            className="bg-white border-[1.5px] border-emerald-200 rounded-[18px] p-4 flex items-center gap-3 active:scale-[0.99] transition-transform text-left"
+          >
+            <span className="w-11 h-11 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+              <PoundSterling className="w-5 h-5" />
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-[15px] font-extrabold tracking-tight text-gray-900">
+                Check grant eligibility
+              </span>
+              <span className="block text-[12.5px] text-gray-500 leading-snug">
+                You might get this paid for by the government.
+              </span>
+            </span>
+          </button>
+        )}
       </div>
 
       <div

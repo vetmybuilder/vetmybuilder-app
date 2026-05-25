@@ -26,6 +26,8 @@ const CATEGORY_MAP = {
   project_live_local: "local_activity",
   project_closed_local: "local_activity",
   project_match: "project_matches",
+  grant_opportunity: "grant_opportunities",
+  grant_lead_assigned: "grant_leads",
   // tradesman_interest / tradesman_shared_profile are no longer fired anywhere
   // and intentionally absent from the map.
 };
@@ -38,6 +40,8 @@ const DEFAULT_PREFERENCES = {
   messages: true,
   local_activity: false,
   project_matches: true,
+  grant_opportunities: true,
+  grant_leads: true,
 };
 
 /**

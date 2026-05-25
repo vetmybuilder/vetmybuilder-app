@@ -231,6 +231,10 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     "/mocks/register-redesign-e",
     "/mocks/login-redesign-e",
     "/mocks/forgot-password-redesign-e",
+    "/mocks/grants-helper",
+    "/mocks/free-wall-insulation",
+    "/mocks/trade-grant-leads",
+    "/free-wall-insulation",
   ]);
   const isBareRoute = NO_LAYOUT_PATHS.has(router.pathname);
 

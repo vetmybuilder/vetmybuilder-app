@@ -137,11 +137,12 @@ export default function AdminHeader() {
       label: "Quality",
       href: "/admin/recommendation-leaderboard",
       testId: "nav-admin-quality",
-      active: isOnAny(["/admin/recommendation-leaderboard", "/admin/feedback", "/admin/reports"]),
+      active: isOnAny(["/admin/recommendation-leaderboard", "/admin/feedback", "/admin/reports", "/admin/grant-leads"]),
       dropdown: [
         { label: "Recommendation leaderboard", href: "/admin/recommendation-leaderboard", testId: "nav-admin-recs", active: isOn("/admin/recommendation-leaderboard") },
         { label: "Feedback", href: "/admin/feedback", testId: "nav-admin-feedback", active: isOn("/admin/feedback") },
         { label: "Reports", href: "/admin/reports", testId: "nav-admin-reports", active: isOn("/admin/reports") },
+        { label: "Grant leads", href: "/admin/grant-leads", testId: "nav-admin-grant-leads", active: isOn("/admin/grant-leads") },
       ],
     },
     {

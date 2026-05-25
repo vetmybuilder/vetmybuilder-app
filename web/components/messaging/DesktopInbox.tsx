@@ -610,6 +610,9 @@ function ActivityDetail({ notif }: { notif: NotificationRow }) {
       {notif.linkPath ? (
         <Link
           href={notif.linkPath}
+          {...(notif.type === "grant_opportunity"
+            ? { target: "_blank", rel: "noopener noreferrer" }
+            : {})}
           className="inline-flex items-center justify-center rounded-full px-5 py-2.5 text-[13px] font-extrabold text-white shadow-sm"
           style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
         >

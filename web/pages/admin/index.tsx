@@ -137,6 +137,19 @@ const TILES: Tile[] = [
     ),
   },
   {
+    href: "/admin/grant-leads",
+    label: "Grant leads",
+    blurb: "Insulation grant funnel submissions, routed to Elegant.",
+    accent: "text-lime-300",
+    icon: (
+      <svg {...ICON_PROPS} aria-hidden>
+        <path d="M3 21h18" />
+        <path d="M5 21V10l7-6 7 6v11" />
+        <path d="M9 21v-6h6v6" />
+      </svg>
+    ),
+  },
+  {
     href: "/admin/feedback",
     label: "Feedback",
     blurb: "What users are telling us via the feedback form.",

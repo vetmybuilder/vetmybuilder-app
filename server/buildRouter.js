@@ -329,6 +329,10 @@ function buildRouter(ctx) {
   // Public endpoint - homeowners tapping "Coming soon" categories.
   require("./routes/demand-signal.post")(router, ctx);
 
+  // ---------------- Grant leads ----------------
+  // Public endpoint - inbound submissions from /free-wall-insulation.
+  require("./routes/grant-leads.post")(router, ctx);
+
   // ---------------- Notifications & SSE ----------------
   require("./routes/notifications/stream.get")(router, ctx);
   require("./routes/notifications/notifications.get")(router, ctx);
@@ -441,6 +445,8 @@ function buildRouter(ctx) {
   require("./routes/matches/read.post.js")(router, ctx);
   require("./routes/tradesman/incoming-interest.get.js")(router, ctx);
   require("./routes/tradesman/matches.get.js")(router, ctx);
+  require("./routes/tradesman/grant-leads.get.js")(router, ctx);
+  require("./routes/tradesman/grant-leads.view.post.js")(router, ctx);
 
   // ---------------- Chat ----------------
   require("./routes/chat/messages.get.js")(router, ctx);
@@ -513,6 +519,8 @@ function buildRouter(ctx) {
   require("./routes/admin/trades-pipeline-outreach")(router, ctx);
   require("./routes/admin/trades-pipeline.reverify.post")(router, ctx);
   require("./routes/admin/trades-pipeline.resurface.post")(router, ctx);
+  require("./routes/admin/grant-leads.get")(router, ctx);
+  require("./routes/admin/grant-leads.patch")(router, ctx);
   require("./routes/admin/feedback.get")(router, ctx);
   require("./routes/admin/pricing.get")(router, ctx);
   require("./routes/admin/pricing.put")(router, ctx);
