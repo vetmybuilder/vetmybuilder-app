@@ -11,6 +11,7 @@
 
 import Head from "next/head";
 import { useMemo, useState } from "react";
+import posthog from "posthog-js";
 import BrandWordmark from "@/components/BrandWordmark";
 
 type Step =
@@ -78,6 +79,7 @@ export default function FreeWallInsulation() {
     setStep(next);
     if (typeof window !== "undefined") {
       window.scrollTo({ top: 0, behavior: "smooth" });
+      posthog.capture("grants_funnel_step", { step: next });
     }
   }
 
@@ -112,6 +114,11 @@ export default function FreeWallInsulation() {
       }
       setReference(data.reference);
       setServerQualified(data.qualified);
+      posthog.capture("grants_lead_submitted", {
+        qualified: data.qualified,
+        postcode: answers.postcode,
+        source: new URLSearchParams(window.location.search).get("utm_source") || "direct",
+      });
       go("confirmation");
     } catch (e) {
       setSubmitError("network_error");
@@ -285,7 +292,7 @@ export default function FreeWallInsulation() {
             view rather than a multi-page wizard. */}
         <div
           key={step}
-          style={{ animation: "vmbSlideIn 0.38s cubic-bezier(.2,.8,.2,1) both" }}
+          style={step !== "landing" ? { animation: "vmbSlideIn 0.38s cubic-bezier(.2,.8,.2,1) both" } : undefined}
         >
           {step === "landing" && <Landing onStart={() => go("property")} />}
 
@@ -436,6 +443,70 @@ export default function FreeWallInsulation() {
           </div>
         )}
       </main>
+
+      {step === "landing" && (
+        <section className="bg-gradient-to-b from-[#064e3b] to-[#022c22] px-5 sm:px-8 md:px-12 lg:px-16 py-16 md:py-24">
+          <div className="max-w-3xl mx-auto">
+            <p className="text-center text-[11px] font-extrabold uppercase tracking-[0.2em] text-emerald-400 mb-3">
+              Got questions?
+            </p>
+            <h2
+              className="text-[26px] md:text-[36px] font-black text-white mb-10 md:mb-14 text-center"
+              style={{ fontFamily: "'Sora', sans-serif" }}
+            >
+              Frequently asked questions
+            </h2>
+            <div className="space-y-3">
+              {[
+                {
+                  q: "What is the ECO4 free insulation scheme?",
+                  a: "The Energy Company Obligation (ECO4) is a UK government programme that requires large energy suppliers to fund home insulation for qualifying households. If you are eligible, the full cost of cavity wall insulation, loft insulation, or solid wall insulation is covered - you pay nothing. The scheme runs alongside the Great British Insulation Scheme (GBIS) and together they fund up to £14,000 of work per property.",
+                },
+                {
+                  q: "Who qualifies for free wall insulation?",
+                  a: "Eligibility depends on your property, heating system, EPC rating, and whether you receive certain benefits. You are likely to qualify if you own or privately rent your home, your property has an EPC rating of D, E, F, or G, your home is heated by mains gas, oil, LPG, or electric storage heaters, and you receive a qualifying benefit such as Universal Credit, Pension Credit, Child Tax Credit, or Income Support. Even if you are not on benefits, you may still qualify under GBIS if your home has poor insulation and falls within certain council tax bands. Our free eligibility check takes 60 seconds and tells you instantly.",
+                },
+                {
+                  q: "How does it work?",
+                  a: "Complete our 60-second eligibility check above. If you qualify, a vetted insulation specialist contacts you to arrange a free home survey. The surveyor confirms the work needed and schedules the installation. Your insulation is installed at no cost to you - fully funded by the government scheme.",
+                },
+                {
+                  q: "What types of insulation are covered?",
+                  a: "ECO4 and GBIS cover cavity wall insulation, external wall insulation, internal wall insulation, loft insulation, underfloor insulation, and flat roof insulation. The type recommended for your home depends on its construction and current energy performance. A qualified surveyor will advise which measures deliver the best improvement.",
+                },
+                {
+                  q: "Is it really free?",
+                  a: "Yes. ECO4 is funded by energy companies as a legal obligation, not by taxpayers or homeowners. There is no upfront cost, no loan, and no catch. The installer is paid directly through the scheme. Every specialist on VetMyBuilder is vetted and verified before they can take on grant-funded work.",
+                },
+                {
+                  q: "Is this available in my area?",
+                  a: "We currently serve homeowners across East London and North East London, including Waltham Forest, Walthamstow, Chingford, Leyton, Leytonstone, and surrounding boroughs. Enter your postcode above to check if a vetted specialist covers your area.",
+                },
+              ].map(({ q, a }) => (
+                <details key={q} className="group rounded-2xl bg-white/[0.07] backdrop-blur-sm border border-emerald-400/10 hover:border-emerald-400/25 transition-colors">
+                  <summary className="flex items-center justify-between gap-4 cursor-pointer px-6 py-5 text-[15px] md:text-[17px] font-bold text-white select-none list-none [&::-webkit-details-marker]:hidden">
+                    {q}
+                    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-emerald-500/20 shrink-0 transition-transform duration-200 group-open:rotate-180">
+                      <svg
+                        className="w-4 h-4 text-emerald-300"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2.5}
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </span>
+                  </summary>
+                  <p className="px-6 pb-5 text-[14px] md:text-[15px] text-emerald-100/80 leading-relaxed pr-14">
+                    {a}
+                  </p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       <style jsx global>{`
         /* Pure horizontal slide for step transitions. No opacity fade,
