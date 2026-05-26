@@ -64,7 +64,6 @@ jobs:
 
       - name: Deploy to Staging
         if: steps.changed.outputs.app == 'true'
-        continue-on-error: true
         env:
           PROD_HOST: ${{ secrets.PROD_HOST }}
         run: |

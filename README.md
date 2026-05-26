@@ -1,37 +1,61 @@
-# Vetmybuilder v1.3 (POC)
+# VetMyBuilder
 
-**Next.js (web)** + **Express (server)** + **SQLite** + **Firebase Auth**.
-Node 20+. Tailwind for styling.
+Two-sided marketplace connecting homeowners with vetted local tradespeople. Homeowners post projects, swipe through ranked tradespeople, and form matches. Tradespeople get verified, browse a job discovery deck, and connect directly with homeowners - no bidding wars, no spam.
 
-## Contents
-- `web/` – Next.js 14 + TypeScript + Tailwind UI
-- `server/` – Express API + Firebase Admin + SQLite + migrations
-- `data/` – local SQLite DB file (created automatically)
+## Architecture
 
-## Quick start
-1. Copy `.env.sample` → `.env` at repo root (server vars) **and** `web/.env.local.sample` → `web/.env.local` (web vars). Fill both.
-2. Install deps: `npm install`
-3. Run both apps: `npm run dev`
-   - Web: http://localhost:3000
-   - API: http://localhost:8787
+- **Web**: Next.js 14 (pages router), Tailwind CSS, Firebase Auth
+- **Server**: Node.js/Express, MySQL 8, Firebase Admin SDK
+- **Infra**: Oracle Cloud VM, Nginx reverse proxy, PM2, Let's Encrypt
+- **Services**: Stripe (payments), Resend (email), PostHog (analytics), Google Places, Companies House API, Anthropic (AI classification)
 
-## Environment variables
-See `.env.sample` for all options. You **must** set:
-- `NEXT_PUBLIC_FIREBASE_CONFIG_JSON` – JSON string of your web Firebase config
-- `FIREBASE_ADMIN_CREDENTIALS_JSON` – JSON string of your Firebase service account
+## User types
 
-## Scripts
-- `npm run dev` – runs Next dev server and API together
-- `npm run build` – builds the Next.js app
-- `npm run start` – starts API and Next in prod modes
+- **Homeowner**: posts projects, swipes through ranked tradespeople, hires, leaves recommendations
+- **Tradesperson**: registers business, gets verified, browses job deck, swipes on projects, manages leads
+- **Admin**: verifies tradespeople, manages pilot areas/categories, monitors dashboard, processes refunds
 
-## Project scope (Phase 1)
-- Register/Login via Firebase
-- Create Project (name, type, location, description, propertyType, bedrooms)
-- Projects List (My Projects / Recommended)
-- Project View
+## Key features
 
-## Where to read more
-- `server/README.md` – API routes, auth, DB, migrations
-- `server/MIGRATIONS.md` – how to write and apply migrations
-- `web/README.md` – pages, components, auth flow, styling
+- **Swipe matching**: homeowners and tradespeople swipe on each other; mutual interest forms a match and reveals contact details
+- **AI ranking**: projects are classified by trade type; tradespeople are scored by area match, trade match, price band, and reputation
+- **Community recommendations**: homeowners recommend tradespeople via magic links with per-category star ratings
+- **Grants helper**: public /free-wall-insulation funnel checks ECO4/GBIS eligibility, captures leads, routes to assigned specialist
+- **Real-time notifications**: web push (VAPID), SSE broadcast, email (Resend), in-app bell
+- **Payment gating**: Stripe subscriptions and one-time contact unlocks
+- **Admin dashboard**: stats, activity log, trades pipeline, grant leads inbox, leaderboards
+
+## Local dev
+
+```bash
+npm install
+npm run dev:manual          # full stack with Firebase Auth emulator
+```
+
+Requires: Node.js 20, MySQL 8, Docker (for Firebase emulators).
+
+See `web/.env.local.sample` for required env vars. Copy to `web/.env.local` and fill values.
+
+The canonical database schema is `mysql_schema.sql`. Migrations live in `server/migrations/` and run automatically on server boot.
+
+## Testing
+
+```bash
+npm test              # all tests
+npm run test:api      # server/API tests (vitest.config.ts)
+npm run test:web      # web component tests (vitest.web.config.mts)
+```
+
+## Deploy
+
+Pushes to `master` trigger GitHub Actions: runs tests, deploys to staging, then production. See `RUNBOOK.md` for ops details.
+
+## Docs
+
+See `docs/` for detailed feature documentation:
+- [Matching and ranking](docs/matching.md)
+- [Notifications](docs/notifications.md)
+- [Grants helper](docs/grants.md)
+- [Admin features](docs/admin.md)
+- [API routes](docs/api-routes.md)
+- [Page routes](docs/page-routes.md)
