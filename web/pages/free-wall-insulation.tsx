@@ -119,6 +119,9 @@ export default function FreeWallInsulation() {
         postcode: answers.postcode,
         source: new URLSearchParams(window.location.search).get("utm_source") || "direct",
       });
+      if (typeof (window as any).gtag === "function") {
+        (window as any).gtag("event", "conversion", { send_to: "AW-18189420130/submit_lead_form" });
+      }
       go("confirmation");
     } catch (e) {
       setSubmitError("network_error");
