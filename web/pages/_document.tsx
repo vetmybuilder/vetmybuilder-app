@@ -48,6 +48,14 @@ export default function Document() {
           content="https://vetmybuilder.com/icon-512.png"
         />
         <meta name="twitter:card" content="summary_large_image" />
+        {/* Google Ads conversion tracking (gtag.js) */}
+        <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18189420130" />
+        <script dangerouslySetInnerHTML={{ __html: `
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'AW-18189420130');
+        `}} />
       </Head>
       <body>
         <Main />
