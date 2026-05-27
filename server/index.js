@@ -301,17 +301,27 @@ const touchUserMw = async (req, _res, next) => {
     }
   }
 
+  let username = null;
+  if (firstName) {
+    const base = [firstName, lastName].filter(Boolean).join(".").toLowerCase().replace(/[^a-z0-9.]/g, "");
+    if (base) {
+      const suffix = Math.random().toString(36).slice(2, 7);
+      username = `${base}.${suffix}`;
+    }
+  }
+
   try {
     await mysqlQuery(
       `
-      INSERT INTO users (uid, email, createdAt, firstName, lastName)
-      VALUES (?, ?, NOW(), ?, ?)
+      INSERT INTO users (uid, email, createdAt, firstName, lastName, username)
+      VALUES (?, ?, NOW(), ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         email     = COALESCE(VALUES(email), email),
         firstName = COALESCE(firstName, VALUES(firstName)),
-        lastName  = COALESCE(lastName, VALUES(lastName))
+        lastName  = COALESCE(lastName, VALUES(lastName)),
+        username  = COALESCE(username, VALUES(username))
       `,
-      [uid, email, firstName, lastName],
+      [uid, email, firstName, lastName, username],
     );
   } catch (err) {
     // Don't block requests if touch fails; log for diagnosis
