@@ -43,7 +43,7 @@ export default function GlobalNotificationToast() {
   }, [router.asPath]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || !user) return;
 
     let nextId = 1;
 
@@ -83,7 +83,7 @@ export default function GlobalNotificationToast() {
     return () => {
       window.removeEventListener("vmb:notification", onNotif);
     };
-  }, []);
+  }, [user]);
 
   // Auto-dismiss tied to the active toast id. Re-runs only when the
   // toast itself changes (new toast OR manual dismiss), so navigation
