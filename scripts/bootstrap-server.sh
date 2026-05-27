@@ -30,6 +30,20 @@ set -e
 echo "=== VetMyBuilder server bootstrap ==="
 
 # -------------------------------------------------------
+# 0. Ensure swap (small VMs need this for npm ci + Next.js build)
+# -------------------------------------------------------
+if [ ! -f /swapfile ]; then
+  echo "[0/9] Creating 2GB swap..."
+  fallocate -l 2G /swapfile
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+else
+  echo "[0/9] Swap already exists"
+fi
+
+# -------------------------------------------------------
 # 1. Install packages
 # -------------------------------------------------------
 echo "[1/9] Installing packages..."
