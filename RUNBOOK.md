@@ -57,6 +57,15 @@ Certs (Let's Encrypt):
 Health checks:
 - Prod API: curl https://vetmybuilder.com/health
 - Staging API: curl https://staging.vetmybuilder.com/health
+- Automated: /usr/local/bin/vmb-healthcheck (every 5 min via cron)
+- Checks: prod API, prod web, staging API, staging web, MySQL, PM2 processes, disk (>85%)
+- Log: /var/log/vmb-healthcheck.log
+- Alerts: emails support@vetmybuilder.com via Resend on failure
+- Manual: ssh vmb then vmb-healthcheck
+- External dashboard: uptimerobot.com (login: support@vetmybuilder.com)
+  - VMB Prod: https://vetmybuilder.com/health
+  - VMB Staging: https://staging.vetmybuilder.com/health
+  - VMB Grants Page: https://vetmybuilder.com/free-wall-insulation
 
 Backups:
 - Script: /usr/local/bin/vmb-backup
