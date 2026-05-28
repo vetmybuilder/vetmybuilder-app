@@ -102,6 +102,12 @@ export default function Signup() {
                 </p>
               </div>
 
+              {router.query.invite_only === "1" && (
+                <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 p-3 text-[13px] text-amber-800">
+                  Homeowner sign-ups are invite-only right now. Please sign up with your email and access code below.
+                </div>
+              )}
+
               <SignupForm />
             </div>
           </div>

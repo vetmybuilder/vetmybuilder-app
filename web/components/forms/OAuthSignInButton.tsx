@@ -16,6 +16,8 @@ import {
   signInWithProvider,
   type OAuthProviderName,
 } from "@/utils/oauthSignIn";
+import { signOutUser } from "@/utils/auth";
+import { useApi } from "@/utils/api";
 
 type Props = {
   provider: OAuthProviderName;
@@ -99,6 +101,7 @@ export default function OAuthSignInButton({
   onError,
 }: Props) {
   const [loading, setLoading] = useState(false);
+  const api = useApi();
 
   async function handleClick() {
     setLoading(true);
@@ -118,6 +121,33 @@ export default function OAuthSignInButton({
         }
       } catch {}
       const result = await signInWithProvider(provider);
+
+      // Beta gate: homeowner signups are invite-only during beta. If this
+      // OAuth sign-in just CREATED a new homeowner account while the beta
+      // gate is on, immediately sign them back out and block. Existing
+      // homeowners (isNewUser=false) and tradesmen (intent=tradesman) are
+      // unaffected.
+      if (result.ok && result.isNewUser && intent !== "tradesman") {
+        let blocked = false;
+        try {
+          const { data } = await api.get("/api/auth/beta-status?role=homeowner");
+          blocked = !!data?.required;
+        } catch {
+          // Fail safe - block the new homeowner account rather than let it through.
+          blocked = true;
+        }
+        if (blocked) {
+          await signOutUser();
+          // Hard-redirect to the signup page so the auth listener's in-flight
+          // navigation to /projects is overridden and the signed-out state is
+          // clean. The signup page reads ?invite_only=1 to show the message.
+          if (typeof window !== "undefined") {
+            window.location.replace("/signup?invite_only=1");
+          }
+          return;
+        }
+      }
+
       if (result.ok) {
         const { trackLogin } = await import("@/utils/analytics");
         trackLogin("google");
