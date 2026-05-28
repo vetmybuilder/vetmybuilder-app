@@ -17,6 +17,8 @@
 const { logger, withRequest } = require("../../lib/logger");
 const { enrichTradesmanWithGoogle } = require("../../lib/ai/googleEnricher");
 const { logAdminAction } = require("../../lib/adminAuditLog");
+const { generateSlug } = require("../../lib/generateProfileSlug");
+const { assignTemplate } = require("../../lib/assignProfileTemplate");
 
 module.exports = (router, ctx) => {
   const { mysqlQuery, auth, extractLocationTokens } = ctx;
@@ -296,6 +298,37 @@ module.exports = (router, ctx) => {
           let row = updated;
 
           if (status === "active") {
+            if (!row.slug) {
+              const uRows = await mysqlQuery(
+                `SELECT username FROM users WHERE uid = ? LIMIT 1`,
+                [srcUid],
+              );
+              const slug = generateSlug(row.company_name, uRows[0]?.username);
+              const template = assignTemplate(row.trade_types);
+              if (slug) {
+                try {
+                  await mysqlQuery(
+                    `UPDATE tradesmen SET slug = ?, profile_template = ? WHERE user_id = ? AND slug IS NULL`,
+                    [slug, template, srcUid],
+                  );
+                  row = { ...row, slug, profile_template: template };
+                  log.info({ slug, template }, "Profile slug + template assigned");
+                } catch (e) {
+                  if (e?.code === "ER_DUP_ENTRY") {
+                    const suffixed = `${slug}-${Math.random().toString(36).slice(2, 6)}`;
+                    await mysqlQuery(
+                      `UPDATE tradesmen SET slug = ?, profile_template = ? WHERE user_id = ? AND slug IS NULL`,
+                      [suffixed, template, srcUid],
+                    );
+                    row = { ...row, slug: suffixed, profile_template: template };
+                    log.info({ slug: suffixed, template }, "Profile slug assigned (with suffix)");
+                  } else {
+                    log.warn({ err: e?.message }, "Slug assignment failed");
+                  }
+                }
+              }
+            }
+
             log.info("Real UID activated, enriching with Google");
             row = await enrichTradesman(row, log);
           }
