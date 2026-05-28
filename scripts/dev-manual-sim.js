@@ -383,7 +383,7 @@ async function ensureElegantCanonical() {
                ?, 3, ?,
                12, 0, 5,
                1, ?, ?,
-               'elegant-building-services', 'extension-1', 1)
+               NULL, NULL, 0)
        ON DUPLICATE KEY UPDATE
          company_name = VALUES(company_name),
          trade_types = VALUES(trade_types),
