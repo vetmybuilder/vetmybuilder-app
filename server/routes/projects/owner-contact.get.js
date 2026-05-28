@@ -18,6 +18,7 @@
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery } = ctx;
   const { logger, withRequest } = require("../../lib/logger");
+  const { isFlagEnabled } = require("../../lib/featureFlags");
 
   router.get("/projects/:id/owner-contact", auth, async (req, res) => {
     const viewerUid = req.user?.uid;
@@ -142,7 +143,7 @@ module.exports = (router, ctx) => {
       const { planId, subscriptionStatus, verificationStatus } =
         await getPlanAndVerification(viewerUid);
 
-      const paymentsEnabled = process.env.ENABLE_PAYMENTS === "true";
+      const paymentsEnabled = await isFlagEnabled(mysqlQuery, "payments");
 
       // --------------------------------------
       // 6. One-off unlock status (per project)

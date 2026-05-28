@@ -10,6 +10,7 @@ const { fireMatchFormed } = require("../../../lib/fireMatchFormed");
 const {
   isBuilderSubscribed,
 } = require("../../../lib/subscriptions/isBuilderSubscribed");
+const { isFlagEnabled } = require("../../../lib/featureFlags");
 
 module.exports = function mountTradesmenJobsSwipe(router, ctx) {
   const { auth, mysqlQuery } = ctx;
@@ -66,7 +67,10 @@ module.exports = function mountTradesmenJobsSwipe(router, ctx) {
       // always free, and left-swipes never need a subscription. Returning
       // 403 with `requiresSubscription: true` so the deck can route the
       // builder to /tradesman/billing instead of silently failing.
-      if (decision === "right" && source === "subscribed") {
+      // Only gate behind a subscription when payments are enabled. With
+      // payments off (e.g. beta), all right-swipes are free.
+      const paymentsOn = await isFlagEnabled(mysqlQuery, "payments");
+      if (paymentsOn && decision === "right" && source === "subscribed") {
         const subscribed = await isBuilderSubscribed(uid, mysqlQuery);
         if (!subscribed) {
           return res.status(403).json({

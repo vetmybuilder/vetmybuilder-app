@@ -4,12 +4,24 @@
 //   1. POST /api/tradesmen/jobs/:projectId/swipe  (builder-initiated)
 //   2. POST /api/projects/:id/swipe               (homeowner mutual-match detection)
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
 
 vi.mock("../../server/lib/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
   withRequest: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { loadFlags, clearFlagCache } = require("../../server/lib/featureFlags");
+
+// Payments flag ON: the subscribed-tier swipe gate (isBuilderSubscribed)
+// only runs when payments are enabled, which is the behaviour these chains
+// are written for. Prime the shared flag cache so isFlagEnabled reads it
+// without issuing an extra DB query that would shift the mock chain.
+async function enablePayments() {
+  clearFlagCache();
+  await loadFlags(async () => [{ flag_key: "payments", enabled: 1 }]);
+}
 
 // Mock pushSender so we don't need VAPID keys in tests
 vi.mock("../../server/lib/pushSender.js", () => ({
@@ -125,7 +137,11 @@ function loadHomeownerSwipeHandler(ctx: any) {
 // ---- describe blocks --------------------------------------------------------
 
 describe("POST /api/tradesmen/jobs/:projectId/swipe — builder-initiated", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await enablePayments();
+  });
+  afterAll(() => clearFlagCache());
 
   it("builder right-swipes a job with no homeowner interest yet → pending, matched:false", async () => {
     const q = vi

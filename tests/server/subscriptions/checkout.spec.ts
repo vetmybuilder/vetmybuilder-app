@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
 
 vi.mock("../../../server/lib/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -7,6 +7,16 @@ vi.mock("../../../server/lib/logger.js", () => ({
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const checkoutMount = require("../../../server/routes/subscriptions/checkout.post.js");
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { loadFlags, clearFlagCache } = require("../../../server/lib/featureFlags");
+
+// Payments flag ON: these cases test the checkout behaviour that runs once
+// payments are enabled. Prime the shared flag cache (same module singleton
+// the route reads) so isFlagEnabled returns true without a real DB.
+async function enablePayments() {
+  clearFlagCache();
+  await loadFlags(async () => [{ flag_key: "payments", enabled: 1 }]);
+}
 
 type Handler = (req: any, res: any) => Promise<void>;
 
@@ -30,7 +40,11 @@ function mockRes() {
 }
 
 describe("POST /api/subscriptions/checkout", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await enablePayments();
+  });
+  afterAll(() => clearFlagCache());
 
   it("returns 400 when tier is missing or unknown", async () => {
     const handler = loadHandler({
