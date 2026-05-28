@@ -310,6 +310,11 @@ function buildRouter(ctx) {
   // ---------------- feedback ----------------
   require("./routes/feedback/feedback.post")(router, ctx);
 
+  // ---------------- feature flags ----------------
+  require("./routes/feature-flags.get")(router, ctx);
+  require("./routes/admin/feature-flags.get")(router, ctx);
+  require("./routes/admin/feature-flags.post")(router, ctx);
+
   // ---------------- auth ----------------
   require("./routes/auth/beta-status.get")(router, ctx);
   require("./routes/auth/check-email.post")(router, ctx);

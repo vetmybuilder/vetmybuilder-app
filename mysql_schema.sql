@@ -1218,3 +1218,11 @@ CREATE TABLE IF NOT EXISTS profile_enquiries (
   KEY idx_profile_enquiries_uid (tradesperson_uid),
   KEY idx_profile_enquiries_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS feature_flags (
+  flag_key VARCHAR(64) NOT NULL PRIMARY KEY,
+  enabled TINYINT(1) NOT NULL DEFAULT 0,
+  description VARCHAR(255) NULL,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  updated_by VARCHAR(255) NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

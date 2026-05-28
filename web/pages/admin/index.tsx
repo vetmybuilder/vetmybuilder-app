@@ -173,6 +173,18 @@ const TILES: Tile[] = [
     ),
   },
   {
+    href: "/admin/feature-flags",
+    label: "Feature flags",
+    blurb: "Switch features like payments and homeowner signup on or off.",
+    accent: "text-emerald-300",
+    icon: (
+      <svg {...ICON_PROPS} aria-hidden>
+        <rect x="2.5" y="7" width="19" height="10" rx="5" />
+        <circle cx="16" cy="12" r="3" />
+      </svg>
+    ),
+  },
+  {
     href: "/admin/cleanup",
     label: "Cleanup",
     blurb: "Maintenance scripts and one-off jobs.",

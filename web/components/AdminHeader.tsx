@@ -149,8 +149,9 @@ export default function AdminHeader() {
       label: "Settings",
       href: "/admin/pilot-areas",
       testId: "nav-admin-settings",
-      active: isOnAny(["/admin/pilot-areas", "/admin/pilot-project-types", "/admin/pricing", "/admin/refunds", "/admin/cleanup"]),
+      active: isOnAny(["/admin/pilot-areas", "/admin/pilot-project-types", "/admin/feature-flags", "/admin/pricing", "/admin/refunds", "/admin/cleanup"]),
       dropdown: [
+        { label: "Feature flags", href: "/admin/feature-flags", testId: "nav-admin-feature-flags", active: isOn("/admin/feature-flags") },
         { label: "Pilot areas", href: "/admin/pilot-areas", testId: "nav-admin-pilot-areas", active: isOn("/admin/pilot-areas") },
         { label: "Pilot project types", href: "/admin/pilot-project-types", testId: "nav-admin-pilot-project-types", active: isOn("/admin/pilot-project-types") },
         { label: "Pricing", href: "/admin/pricing", testId: "nav-admin-pricing", active: isOn("/admin/pricing") },
