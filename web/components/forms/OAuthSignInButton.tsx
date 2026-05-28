@@ -122,25 +122,35 @@ export default function OAuthSignInButton({
       } catch {}
       const result = await signInWithProvider(provider);
 
-      // Beta gate: homeowner signups are invite-only during beta. If this
-      // OAuth sign-in just CREATED a new homeowner account while the beta
-      // gate is on, immediately sign them back out and block. Existing
-      // homeowners (isNewUser=false) and tradesmen (intent=tradesman) are
-      // unaffected.
+      // Homeowner signup gate for brand-new OAuth accounts. Two layers,
+      // both skipped for existing homeowners (isNewUser=false) and
+      // tradespeople (intent=tradesman) so logins keep working:
+      //   1. homeowner_signup flag OFF (closed) -> signup is shut entirely.
+      //   2. flag ON but a beta code is required -> SSO can't collect one,
+      //      so new homeowners are routed to the invite-only message.
       if (result.ok && result.isNewUser && intent !== "tradesman") {
-        let blocked = false;
+        let closed = false;
+        let required = false;
         try {
           const { data } = await api.get("/api/auth/beta-status?role=homeowner");
-          blocked = !!data?.required;
+          closed = !!data?.closed;
+          required = !!data?.required;
         } catch {
-          // Fail safe - block the new homeowner account rather than let it through.
-          blocked = true;
+          // Fail safe - block the new homeowner rather than let them through.
+          closed = true;
         }
-        if (blocked) {
+        // Hard-redirect in both cases so the auth listener's in-flight
+        // navigation to /projects is overridden and the signed-out state is
+        // clean.
+        if (closed) {
           await signOutUser();
-          // Hard-redirect to the signup page so the auth listener's in-flight
-          // navigation to /projects is overridden and the signed-out state is
-          // clean. The signup page reads ?invite_only=1 to show the message.
+          if (typeof window !== "undefined") {
+            window.location.replace("/signup?signup_closed=1");
+          }
+          return;
+        }
+        if (required) {
+          await signOutUser();
           if (typeof window !== "undefined") {
             window.location.replace("/signup?invite_only=1");
           }

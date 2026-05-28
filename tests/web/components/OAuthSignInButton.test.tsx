@@ -8,6 +8,18 @@ vi.mock("../../../web/utils/oauthSignIn", () => ({
   signInWithProvider: vi.fn(),
 }));
 
+// Hoisted mocks for the homeowner-signup gate dependencies.
+const { mockGet, signOutMock } = vi.hoisted(() => ({
+  mockGet: vi.fn(),
+  signOutMock: vi.fn(),
+}));
+vi.mock("../../../web/utils/api", () => ({
+  useApi: () => ({ get: mockGet }),
+}));
+vi.mock("../../../web/utils/auth", () => ({
+  signOutUser: signOutMock,
+}));
+
 import OAuthSignInButton, {
   RETURN_TO_KEY,
   INTENT_KEY,
@@ -19,6 +31,8 @@ const mockedSignIn = signInWithProvider as unknown as ReturnType<typeof vi.fn>;
 describe("<OAuthSignInButton />", () => {
   beforeEach(() => {
     mockedSignIn.mockReset();
+    mockGet.mockReset();
+    signOutMock.mockReset();
     try {
       sessionStorage.clear();
     } catch {}
@@ -170,5 +184,100 @@ describe("<OAuthSignInButton />", () => {
       credential: { user: { getIdToken: vi.fn() } },
     });
     await waitFor(() => expect(button.disabled).toBe(false));
+  });
+
+  describe("homeowner signup gate (homeowner_signup flag off)", () => {
+    function stubLocationReplace() {
+      const replaceSpy = vi.fn();
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: { replace: replaceSpy, href: "" },
+      });
+      return replaceSpy;
+    }
+
+    it("signs out and redirects a brand-new homeowner when signup is closed", async () => {
+      const replaceSpy = stubLocationReplace();
+      mockedSignIn.mockResolvedValueOnce({
+        ok: true,
+        isNewUser: true,
+        credential: { user: { getIdToken: vi.fn() } },
+      });
+      mockGet.mockResolvedValueOnce({ data: { required: true, closed: true } });
+
+      render(<OAuthSignInButton provider="google" intent="homeowner" />);
+      fireEvent.click(screen.getByTestId("google-signin-button"));
+
+      await waitFor(() => expect(signOutMock).toHaveBeenCalledTimes(1));
+      expect(mockGet).toHaveBeenCalledWith("/api/auth/beta-status?role=homeowner");
+      expect(replaceSpy).toHaveBeenCalledWith("/signup?signup_closed=1");
+    });
+
+    it("blocks the new homeowner fail-safe if the status check errors", async () => {
+      const replaceSpy = stubLocationReplace();
+      mockedSignIn.mockResolvedValueOnce({
+        ok: true,
+        isNewUser: true,
+        credential: { user: { getIdToken: vi.fn() } },
+      });
+      mockGet.mockRejectedValueOnce(new Error("network"));
+
+      render(<OAuthSignInButton provider="google" intent="homeowner" />);
+      fireEvent.click(screen.getByTestId("google-signin-button"));
+
+      await waitFor(() => expect(signOutMock).toHaveBeenCalledTimes(1));
+      expect(replaceSpy).toHaveBeenCalledWith("/signup?signup_closed=1");
+    });
+
+    it("lets a brand-new homeowner through when signup is open", async () => {
+      const replaceSpy = stubLocationReplace();
+      mockedSignIn.mockResolvedValueOnce({
+        ok: true,
+        isNewUser: true,
+        credential: { user: { getIdToken: vi.fn() } },
+      });
+      mockGet.mockResolvedValueOnce({ data: { required: false, closed: false } });
+
+      render(<OAuthSignInButton provider="google" intent="homeowner" />);
+      fireEvent.click(screen.getByTestId("google-signin-button"));
+
+      await waitFor(() => expect(mockGet).toHaveBeenCalled());
+      expect(signOutMock).not.toHaveBeenCalled();
+      expect(replaceSpy).not.toHaveBeenCalled();
+    });
+
+    it("never gates a tradesperson signup, even when homeowner signup is closed", async () => {
+      const replaceSpy = stubLocationReplace();
+      mockedSignIn.mockResolvedValueOnce({
+        ok: true,
+        isNewUser: true,
+        credential: { user: { getIdToken: vi.fn() } },
+      });
+
+      render(<OAuthSignInButton provider="google" intent="tradesman" />);
+      fireEvent.click(screen.getByTestId("google-signin-button"));
+
+      await waitFor(() => expect(mockedSignIn).toHaveBeenCalled());
+      expect(mockGet).not.toHaveBeenCalled();
+      expect(signOutMock).not.toHaveBeenCalled();
+      expect(replaceSpy).not.toHaveBeenCalled();
+    });
+
+    it("does not gate an existing homeowner (isNewUser=false) logging in", async () => {
+      const replaceSpy = stubLocationReplace();
+      mockedSignIn.mockResolvedValueOnce({
+        ok: true,
+        isNewUser: false,
+        credential: { user: { getIdToken: vi.fn() } },
+      });
+
+      render(<OAuthSignInButton provider="google" intent="homeowner" />);
+      fireEvent.click(screen.getByTestId("google-signin-button"));
+
+      await waitFor(() => expect(mockedSignIn).toHaveBeenCalled());
+      expect(mockGet).not.toHaveBeenCalled();
+      expect(signOutMock).not.toHaveBeenCalled();
+      expect(replaceSpy).not.toHaveBeenCalled();
+    });
   });
 });
