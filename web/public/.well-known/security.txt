@@ -1,0 +1,6 @@
+# VetMyBuilder security contact (RFC 9116)
+# Served at https://vetmybuilder.com/.well-known/security.txt
+Contact: mailto:morris27sky@googlemail.com
+Expires: 2027-05-29T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://vetmybuilder.com/.well-known/security.txt

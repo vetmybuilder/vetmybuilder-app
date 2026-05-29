@@ -1,6 +1,49 @@
+// Content-Security-Policy is shipped in REPORT-ONLY mode first: it never
+// blocks anything, it only reports violations, so we can watch for breakage
+// (GTM, PostHog, Firebase, Google Fonts, SSO) before switching the header
+// name to "Content-Security-Policy" to enforce. Inline script/style is still
+// allowed here because the pages router relies on it; tightening to nonces is
+// a follow-up.
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "img-src 'self' https: data: blob:",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://*.posthog.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com data:",
+  "connect-src 'self' https: wss:",
+  "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com",
+  "form-action 'self'",
+].join("; ");
+
+const SECURITY_HEADERS = [
+  // Browsers stick to HTTPS for a year. Only honored over HTTPS, so it pairs
+  // with the nginx HTTP->HTTPS redirect. `preload` is intentionally omitted
+  // (hard to undo); add it later if you submit to the preload list.
+  {
+    key: "Strict-Transport-Security",
+    value: "max-age=31536000; includeSubDomains",
+  },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=()",
+  },
+  {
+    key: "Content-Security-Policy-Report-Only",
+    value: CONTENT_SECURITY_POLICY,
+  },
+];
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Drop the "X-Powered-By: Next.js" stack-fingerprinting header.
+  poweredByHeader: false,
   devIndicators: { buildActivity: false },
 
   experimental: {
@@ -47,6 +90,10 @@ const nextConfig = {
         },
       ],
     };
+  },
+
+  async headers() {
+    return [{ source: "/:path*", headers: SECURITY_HEADERS }];
   },
 };
 
