@@ -354,7 +354,12 @@ CREATE TABLE IF NOT EXISTS tradesmen (
 
   -- Internal flag for seed-generated rows so we can wipe + regenerate the
   -- staging sim. Never returned by any public-facing endpoint.
-  is_seed TINYINT(1) NOT NULL DEFAULT 0
+  is_seed TINYINT(1) NOT NULL DEFAULT 0,
+
+  slug VARCHAR(255) NULL,
+  profile_template VARCHAR(50) NULL,
+  profile_public TINYINT(1) NOT NULL DEFAULT 0,
+  UNIQUE KEY uq_tradesmen_slug (slug)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX idx_tradesmen_service_areas ON tradesmen(service_areas);
@@ -1182,4 +1187,25 @@ CREATE TABLE IF NOT EXISTS grant_lead_events (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY idx_grant_lead_events_lead (grant_lead_id),
   KEY idx_grant_lead_events_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS profile_enquiries (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tradesperson_uid VARCHAR(255) NOT NULL,
+  visitor_name VARCHAR(120) NOT NULL,
+  visitor_phone VARCHAR(40) NOT NULL,
+  visitor_email VARCHAR(190) NULL,
+  message TEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  read_at DATETIME NULL,
+  KEY idx_profile_enquiries_uid (tradesperson_uid),
+  KEY idx_profile_enquiries_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS feature_flags (
+  flag_key VARCHAR(64) NOT NULL PRIMARY KEY,
+  enabled TINYINT(1) NOT NULL DEFAULT 0,
+  description VARCHAR(255) NULL,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  updated_by VARCHAR(255) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

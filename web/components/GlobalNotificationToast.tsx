@@ -72,6 +72,8 @@ export default function GlobalNotificationToast() {
         // each new lead routed to them. Both are actionable in-app.
         "grant_opportunity",
         "grant_lead_assigned",
+        "profile_enquiry",
+        "profile_live",
       ]);
       if (!detail.type || !TOAST_TYPES.has(detail.type)) return;
 

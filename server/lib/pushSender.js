@@ -28,8 +28,8 @@ const CATEGORY_MAP = {
   project_match: "project_matches",
   grant_opportunity: "grant_opportunities",
   grant_lead_assigned: "grant_leads",
-  // tradesman_interest / tradesman_shared_profile are no longer fired anywhere
-  // and intentionally absent from the map.
+  profile_enquiry: "profile_enquiries",
+  profile_live: "profile_enquiries",
 };
 
 /** Default push preferences when no DB row exists */
@@ -42,6 +42,7 @@ const DEFAULT_PREFERENCES = {
   project_matches: true,
   grant_opportunities: true,
   grant_leads: true,
+  profile_enquiries: true,
 };
 
 /**

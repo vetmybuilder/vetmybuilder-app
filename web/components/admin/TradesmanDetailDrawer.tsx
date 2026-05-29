@@ -34,6 +34,8 @@ export type LeaderboardItem = {
   score: number;
   companyNumber: string | null;
   chStatus: string | null;
+  slug?: string | null;
+  profilePublic?: boolean;
   webVerified: boolean;
   // Machine code from server/lib/webPresence.js when verification
   // failed (e.g. "brand_mismatch", "parked_or_placeholder"). null when
@@ -271,6 +273,24 @@ export default function TradesmanDetailDrawer({
                   ? `CH ${item.companyNumber}`
                   : "no CH number"}
               </p>
+              {item.slug && item.profilePublic && (
+                <p className="text-xs text-slate-500 mt-1">
+                  <span className="font-bold text-slate-600">Public site:</span>{" "}
+                  <a
+                    href={`/t/${item.slug}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-indigo-600 hover:underline break-all"
+                  >
+                    {typeof window !== "undefined" ? window.location.host : "vetmybuilder.com"}/t/{item.slug}
+                  </a>
+                </p>
+              )}
+              {item.slug && !item.profilePublic && item.status === "active" && (
+                <p className="text-xs text-amber-700 mt-1 font-semibold">
+                  Public profile not yet live - publish it in the Manage tab
+                </p>
+              )}
             </div>
             <div className="flex items-start gap-3 shrink-0">
               <div className="text-right">
@@ -349,6 +369,8 @@ export default function TradesmanDetailDrawer({
               uid={item.userId}
               currentStatus={item.status}
               currentPlan={item.plan}
+              slug={item.slug}
+              profilePublic={item.profilePublic}
               onRefresh={() => onRefresh?.()}
             />
           )}

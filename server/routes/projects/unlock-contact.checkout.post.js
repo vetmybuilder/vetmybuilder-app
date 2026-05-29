@@ -8,6 +8,7 @@
 const {
   isBuilderSubscribed,
 } = require("../../lib/subscriptions/isBuilderSubscribed");
+const { isFlagEnabled } = require("../../lib/featureFlags");
 
 module.exports = (router, ctx) => {
   const { auth, mysqlQuery, payments } = ctx;
@@ -34,6 +35,10 @@ module.exports = (router, ctx) => {
         if (!uid) {
           log.warn?.(`${TAG} unauthorized (no uid)`);
           return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        if (!(await isFlagEnabled(mysqlQuery, "payments"))) {
+          return res.status(403).json({ error: "payments_disabled" });
         }
 
         // CCR 2013: refuse to create the checkout session without an

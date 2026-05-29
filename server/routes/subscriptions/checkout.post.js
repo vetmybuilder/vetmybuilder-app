@@ -5,14 +5,19 @@
 // Returns { ok, hosted_url, sessionId, tier }.
 
 const { isValidTier } = require("../../lib/subscriptions/tiers");
+const { isFlagEnabled } = require("../../lib/featureFlags");
 
 module.exports = function mountSubscriptionCheckout(router, ctx) {
-  const { auth, payments } = ctx;
+  const { auth, payments, mysqlQuery } = ctx;
   if (!payments) throw new Error("payments not attached to ctx");
 
   router.post("/subscriptions/checkout", auth, async (req, res) => {
     const uid = req.user?.uid;
     if (!uid) return res.status(401).json({ error: "Unauthorized" });
+
+    if (!(await isFlagEnabled(mysqlQuery, "payments"))) {
+      return res.status(403).json({ error: "payments_disabled" });
+    }
 
     // CCR 2013: refuse to create the checkout session without an
     // explicit immediate-supply waiver. The client must pass

@@ -34,6 +34,8 @@ type Props = {
   uid: string;
   currentStatus: string;
   currentPlan?: string | null;
+  slug?: string | null;
+  profilePublic?: boolean;
   onRefresh: () => void;
 };
 
@@ -41,6 +43,8 @@ export default function TradesmanManageTab({
   uid,
   currentStatus,
   currentPlan,
+  slug,
+  profilePublic,
   onRefresh,
 }: Props) {
   const api = useApi();
@@ -57,8 +61,12 @@ export default function TradesmanManageTab({
   // re-keyed. Re-sync if the parent ever pushes a fresh item in.
   const [status, setStatus] = useState(currentStatus);
   const [plan, setPlan] = useState<string | null | undefined>(currentPlan);
+  const [isPublic, setIsPublic] = useState<boolean>(!!profilePublic);
+  const [localSlug, setLocalSlug] = useState<string | null | undefined>(slug);
   useEffect(() => setStatus(currentStatus), [currentStatus]);
   useEffect(() => setPlan(currentPlan), [currentPlan]);
+  useEffect(() => setIsPublic(!!profilePublic), [profilePublic]);
+  useEffect(() => setLocalSlug(slug), [slug]);
 
   // Unlocks state — fetched on mount, refetched after each mutation.
   const [unlocks, setUnlocks] = useState<Unlock[]>([]);
@@ -141,10 +149,14 @@ export default function TradesmanManageTab({
                 disabled={busy || isCurrent}
                 onClick={() =>
                   mutate(`status-${s}`, `Set to ${s}`, async () => {
-                    await api.post(`/api/admin/tradesmen/${uid}/status`, {
+                    const { data } = await api.post(`/api/admin/tradesmen/${uid}/status`, {
                       status: s,
                     });
                     setStatus(s);
+                    // Activation generates a slug server-side - reflect it
+                    // immediately so the publish toggle appears without a reload.
+                    const newSlug = (data as { tradesman?: { slug?: string } })?.tradesman?.slug;
+                    if (newSlug) setLocalSlug(newSlug);
                   })
                 }
                 className={`px-3 py-1.5 rounded-lg border-[1.5px] text-xs font-bold transition-colors ${
@@ -159,6 +171,55 @@ export default function TradesmanManageTab({
             );
           })}
         </div>
+      </Section>
+
+      {/* ============ PUBLIC PROFILE ============ */}
+      <Section title="Public profile" hint={isPublic ? "Live" : "Not published"}>
+        {!localSlug ? (
+          <p className="text-xs text-slate-500">
+            No profile slug yet. Set the account to <strong>active</strong> first - a slug is generated automatically on activation.
+          </p>
+        ) : (
+          <>
+            {!isPublic && (
+              <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 mb-3">
+                This tradesperson&apos;s public website is ready but <strong>not yet live</strong>. Turn it on to publish it, notify them, and show the URL.
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-bold text-slate-900">
+                  {isPublic ? "Public profile is live" : "Publish public profile"}
+                </p>
+                <p className="text-[11px] text-slate-500 mt-0.5 break-all">/t/{localSlug}</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={isPublic}
+                disabled={busyKey === "profile-public"}
+                onClick={() =>
+                  mutate(
+                    "profile-public",
+                    isPublic ? "Public profile hidden" : "Public profile published",
+                    async () => {
+                      await api.post(`/api/admin/tradesmen/${uid}/profile-public`, {
+                        enabled: !isPublic,
+                      });
+                      setIsPublic(!isPublic);
+                    },
+                  )
+                }
+                className={`relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full transition-colors ${
+                  isPublic ? "bg-emerald-500" : "bg-slate-300"
+                } disabled:opacity-60`}
+                data-testid="manage-profile-public"
+              >
+                <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${isPublic ? "translate-x-6" : "translate-x-1"}`} />
+              </button>
+            </div>
+          </>
+        )}
       </Section>
 
       {/* ============ SUBSCRIPTION ============ */}

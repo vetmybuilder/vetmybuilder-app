@@ -3,6 +3,7 @@ import { useMemo, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "@/utils/auth";
 import { useApi } from "@/utils/api";
+import { useFeatureFlag } from "@/utils/useFeatureFlags";
 import CloseProjectModal from "@/components/CloseProjectModal";
 import type { PlanId } from "@/shared/lib/plans";
 
@@ -48,6 +49,7 @@ export function useProjectView() {
   const api = useApi();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const paymentsEnabled = useFeatureFlag("payments");
 
   const projectId = useMemo(() => {
     const raw = router.query.id;
@@ -404,9 +406,6 @@ export function useProjectView() {
   };
 
   const unlockQuery = String((router.query.unlock || "") as string);
-
-  const paymentsEnabled =
-    process.env.NEXT_PUBLIC_ENABLE_PAYMENTS === "true";
 
   const entitledToContact = paymentsEnabled
     ? !!project &&

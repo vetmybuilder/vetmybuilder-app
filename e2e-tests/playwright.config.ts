@@ -91,6 +91,12 @@ export default defineConfig({
                 TEST_TOTAL_SHARDS: String(TOTAL_SHARDS),
                 TEST_SHARD: String(i),
 
+                // Feature flags default OFF with no seeded rows; open the
+                // ones the e2e suites need (homeowner signup + payments).
+                // Honored only because TEST_ENV=e2e.
+                FEATURE_HOMEOWNER_SIGNUP: "1",
+                FEATURE_PAYMENTS: "1",
+
                 // Explicit DB name so server and test runtime use the same database.
                 MYSQL_DATABASE: shardDbName(i),
 

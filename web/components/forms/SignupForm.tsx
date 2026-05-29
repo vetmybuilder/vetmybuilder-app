@@ -71,17 +71,23 @@ export default function SignupForm() {
   });
 
   const [betaRequired, setBetaRequired] = useState(false);
+  const [signupClosed, setSignupClosed] = useState(false);
+  // Gate the first render on the beta-status fetch so we never flash the
+  // signup form before we know whether homeowner signups are closed.
+  const [betaStatusReady, setBetaStatusReady] = useState(false);
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Homeowner signups are gated by BETA_CODE pre-launch. Trader signup
-    // hits the same endpoint with role=trader and is never gated.
+    // Homeowner signups are controlled by the `homeowner_signup` feature
+    // flag (closed) and the legacy BETA_CODE invite gate (required).
+    // Trader signup hits the same endpoint with role=trader and is open.
     api.get("/api/auth/beta-status?role=homeowner").then(({ data }) => {
       if (data?.required) setBetaRequired(true);
-    }).catch(() => {});
+      if (data?.closed) setSignupClosed(true);
+    }).catch(() => {}).finally(() => setBetaStatusReady(true));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -300,6 +306,38 @@ export default function SignupForm() {
       setLoading(false);
     }
   };
+
+  // Show the closed message immediately when the flag fetch reports closed,
+  // or when we arrive here from the OAuth gate's redirect (?signup_closed=1) -
+  // the latter skips the skeleton so the redirect landing doesn't flicker.
+  const forcedClosed = router.isReady && router.query.signup_closed === "1";
+
+  if (signupClosed || forcedClosed) {
+    return (
+      <div className="rounded-2xl bg-amber-50 border border-amber-200 p-5 text-center" data-testid="signup-closed">
+        <p className="text-[15px] font-bold text-amber-900 mb-1">
+          Homeowner sign-ups are currently closed
+        </p>
+        <p className="text-[13px] text-amber-800">
+          We&apos;re opening up to homeowners soon. Check back shortly - or if you&apos;re a tradesperson,{" "}
+          <Link href="/tradesman/register-tradesmen" className="font-bold underline">
+            register your business
+          </Link>
+          .
+        </p>
+      </div>
+    );
+  }
+
+  if (!betaStatusReady) {
+    return (
+      <div className="grid gap-4" data-testid="signup-loading" aria-busy="true">
+        <div className="h-14 rounded-full bg-zinc-100 animate-pulse" />
+        <div className="h-14 rounded-2xl bg-zinc-100 animate-pulse" />
+        <div className="h-14 rounded-2xl bg-zinc-100 animate-pulse" />
+      </div>
+    );
+  }
 
   return (
     <div className="grid gap-4">

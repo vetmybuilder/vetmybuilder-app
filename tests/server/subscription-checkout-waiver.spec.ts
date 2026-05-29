@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
 
 vi.mock("../../server/lib/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -6,6 +6,16 @@ vi.mock("../../server/lib/logger.js", () => ({
 }));
 
 const mount = require("../../server/routes/subscriptions/checkout.post.js");
+const { loadFlags, clearFlagCache } = require("../../server/lib/featureFlags");
+
+// Payments flag ON: this suite exercises the waiver/tier logic that only
+// runs once the payments feature flag is enabled. Prime the shared flag
+// cache (the route reads the same module singleton) so isFlagEnabled
+// returns true without needing a real DB.
+async function enablePayments() {
+  clearFlagCache();
+  await loadFlags(async () => [{ flag_key: "payments", enabled: 1 }]);
+}
 
 function loadHandler(ctx: any) {
   let captured: any = null;
@@ -29,7 +39,11 @@ function mockRes() {
 }
 
 describe("POST /api/subscriptions/checkout - waiver gate", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await enablePayments();
+  });
+  afterAll(() => clearFlagCache());
 
   const baseCtx = () => ({
     auth: (_q: any, _r: any, n: any) => n(),

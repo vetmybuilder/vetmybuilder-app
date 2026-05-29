@@ -75,6 +75,12 @@ services:
       # Open the project-type picker in E2E so disabled-at-launch
       # categories (Appliances/Flooring/etc) stay clickable in tests.
       PILOT_PROJECT_TYPES_OPEN: "1"
+      # Feature flags default OFF and there are no seeded feature_flags rows
+      # in E2E, so open the ones the suites exercise: homeowner signup
+      # (email + SSO) and payments (unlock/subscription checkout). Honored
+      # only because TEST_ENV=e2e; prod ignores these.
+      FEATURE_HOMEOWNER_SIGNUP: "1"
+      FEATURE_PAYMENTS: "1"
       # E2E cost guard — never let test runs hit billable external APIs.
       MOCK_EXTERNAL_SERVICES: "1"
       GOOGLE_PLACES_API_KEY: ""

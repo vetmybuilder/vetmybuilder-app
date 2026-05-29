@@ -235,6 +235,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     "/mocks/free-wall-insulation",
     "/mocks/trade-grant-leads",
     "/free-wall-insulation",
+    "/t/[slug]",
   ]);
   const isBareRoute = NO_LAYOUT_PATHS.has(router.pathname);
 

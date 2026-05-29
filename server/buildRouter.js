@@ -310,6 +310,11 @@ function buildRouter(ctx) {
   // ---------------- feedback ----------------
   require("./routes/feedback/feedback.post")(router, ctx);
 
+  // ---------------- feature flags ----------------
+  require("./routes/feature-flags.get")(router, ctx);
+  require("./routes/admin/feature-flags.get")(router, ctx);
+  require("./routes/admin/feature-flags.post")(router, ctx);
+
   // ---------------- auth ----------------
   require("./routes/auth/beta-status.get")(router, ctx);
   require("./routes/auth/check-email.post")(router, ctx);
@@ -448,6 +453,10 @@ function buildRouter(ctx) {
   require("./routes/tradesman/grant-leads.get.js")(router, ctx);
   require("./routes/tradesman/grant-leads.view.post.js")(router, ctx);
 
+  // ---------------- Public profile ----------------
+  require("./routes/public/profile.get")(router, ctx);
+  require("./routes/public/profile-enquiry.post")(router, ctx);
+
   // ---------------- Chat ----------------
   require("./routes/chat/messages.get.js")(router, ctx);
   require("./routes/chat/messages.post.js")(router, ctx);
@@ -479,6 +488,7 @@ function buildRouter(ctx) {
   require("./routes/admin/tradesman-photos.get")(router, ctx);
   require("./routes/admin/tradesman-activity.get")(router, ctx);
   require("./routes/admin/tradesman.status.post")(router, ctx);
+  require("./routes/admin/tradesman.profile-public.post")(router, ctx);
   require("./routes/admin/tradesman.flag.post")(router, ctx);
   require("./routes/admin/subscriptions.post")(router, ctx);
   require("./routes/admin/builder-subscriptions.post")(router, ctx);

@@ -1,0 +1,2 @@
+ALTER TABLE tradesmen
+  ADD COLUMN profile_public TINYINT(1) NOT NULL DEFAULT 0;

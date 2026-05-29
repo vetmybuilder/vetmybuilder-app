@@ -13,6 +13,7 @@ import {
   GoogleAuthProvider,
   FacebookAuthProvider,
   signInWithPopup,
+  getAdditionalUserInfo,
   type AuthProvider,
   type UserCredential,
 } from "firebase/auth";
@@ -21,7 +22,7 @@ import { initFirebase } from "./firebase";
 export type OAuthProviderName = "google" | "facebook";
 
 export type OAuthSignInResult =
-  | { ok: true; credential: UserCredential }
+  | { ok: true; credential: UserCredential; isNewUser: boolean }
   | { ok: false; code: string; message: string };
 
 function buildProvider(name: OAuthProviderName): AuthProvider {
@@ -51,7 +52,8 @@ export async function signInWithProvider(
 
   try {
     const credential = await signInWithPopup(auth, provider);
-    return { ok: true, credential };
+    const info = getAdditionalUserInfo(credential);
+    return { ok: true, credential, isNewUser: !!info?.isNewUser };
   } catch (e: any) {
     return {
       ok: false,

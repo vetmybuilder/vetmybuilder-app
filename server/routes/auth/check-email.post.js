@@ -9,9 +9,10 @@
 
 const { logger, withRequest } = require("../../lib/logger");
 const { signupLimiter } = require("../../lib/rateLimiters");
+const { isFlagEnabled } = require("../../lib/featureFlags");
 
 module.exports = (router, ctx) => {
-  const { auth } = ctx; // route does NOT require auth, kept for consistency
+  const { auth, mysqlQuery } = ctx; // route does NOT require auth, kept for consistency
 
   // Firebase Admin lazy-init
   let admin;
@@ -61,6 +62,15 @@ module.exports = (router, ctx) => {
     const role = String(req.body?.role || "").toLowerCase();
     const isTrader =
       role === "trader" || role === "tradesman" || role === "tradesperson";
+
+    // Master switch: homeowner signup must be enabled. Traders are exempt.
+    if (!isTrader && mysqlQuery) {
+      const signupOpen = await isFlagEnabled(mysqlQuery, "homeowner_signup");
+      if (!signupOpen) {
+        return res.status(403).json({ ok: false, error: "signup_closed" });
+      }
+    }
+
     if (requiredCode && !isTrader) {
       const provided = String(req.body?.betaCode || "").trim();
       if (provided !== requiredCode) {

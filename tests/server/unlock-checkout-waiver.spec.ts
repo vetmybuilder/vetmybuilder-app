@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
 
 vi.mock("../../server/lib/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -6,6 +6,14 @@ vi.mock("../../server/lib/logger.js", () => ({
 }));
 
 const mount = require("../../server/routes/projects/unlock-contact.checkout.post.js");
+const { loadFlags, clearFlagCache } = require("../../server/lib/featureFlags");
+
+// Payments flag ON: the waiver gate only runs once payments are enabled.
+// Prime the shared flag cache so isFlagEnabled returns true without a DB.
+async function enablePayments() {
+  clearFlagCache();
+  await loadFlags(async () => [{ flag_key: "payments", enabled: 1 }]);
+}
 
 function loadHandler(ctx: any) {
   let captured: any = null;
@@ -32,7 +40,11 @@ function mockRes() {
 // right before we hit Stripe. The gate fires before any DB or Stripe
 // work, so these tests only need to verify the early rejection.
 describe("POST /api/projects/:id/unlock-contact/checkout - waiver gate", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await enablePayments();
+  });
+  afterAll(() => clearFlagCache());
 
   const baseCtx = () => ({
     auth: (_q: any, _r: any, n: any) => n(),

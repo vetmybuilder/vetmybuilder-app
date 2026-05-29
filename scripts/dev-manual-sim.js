@@ -369,7 +369,8 @@ async function ensureElegantCanonical() {
           web_url, social_links_json,
           photo_count, supporting_doc_count, supporting_docs_json,
           warranty_months, discount_min_percent, discount_max_percent,
-          offers_discount, profile_picture_url, about)
+          offers_discount, profile_picture_url, about,
+          slug, profile_template, profile_public)
        VALUES (?, 'Elegant Building Services Ltd', 'Adam',
                '07000000000', 'info@elegantbuilding.co.uk',
                ?,
@@ -381,7 +382,8 @@ async function ensureElegantCanonical() {
                'https://elegantbuilding.co.uk/', ?,
                ?, 3, ?,
                12, 0, 5,
-               1, ?, ?)
+               1, ?, ?,
+               NULL, NULL, 0)
        ON DUPLICATE KEY UPDATE
          company_name = VALUES(company_name),
          trade_types = VALUES(trade_types),
@@ -406,7 +408,10 @@ async function ensureElegantCanonical() {
          discount_max_percent = VALUES(discount_max_percent),
          offers_discount = VALUES(offers_discount),
          profile_picture_url = VALUES(profile_picture_url),
-         about = VALUES(about)`,
+         about = VALUES(about),
+         slug = VALUES(slug),
+         profile_template = VALUES(profile_template),
+         profile_public = VALUES(profile_public)`,
       [
         ELEGANT_UID,
         ELEGANT_TRADES,

@@ -16,6 +16,8 @@ import {
   signInWithProvider,
   type OAuthProviderName,
 } from "@/utils/oauthSignIn";
+import { signOutUser } from "@/utils/auth";
+import { useApi } from "@/utils/api";
 
 type Props = {
   provider: OAuthProviderName;
@@ -99,6 +101,7 @@ export default function OAuthSignInButton({
   onError,
 }: Props) {
   const [loading, setLoading] = useState(false);
+  const api = useApi();
 
   async function handleClick() {
     setLoading(true);
@@ -118,6 +121,43 @@ export default function OAuthSignInButton({
         }
       } catch {}
       const result = await signInWithProvider(provider);
+
+      // Homeowner signup gate for brand-new OAuth accounts. Two layers,
+      // both skipped for existing homeowners (isNewUser=false) and
+      // tradespeople (intent=tradesman) so logins keep working:
+      //   1. homeowner_signup flag OFF (closed) -> signup is shut entirely.
+      //   2. flag ON but a beta code is required -> SSO can't collect one,
+      //      so new homeowners are routed to the invite-only message.
+      if (result.ok && result.isNewUser && intent !== "tradesman") {
+        let closed = false;
+        let required = false;
+        try {
+          const { data } = await api.get("/api/auth/beta-status?role=homeowner");
+          closed = !!data?.closed;
+          required = !!data?.required;
+        } catch {
+          // Fail safe - block the new homeowner rather than let them through.
+          closed = true;
+        }
+        // Hard-redirect in both cases so the auth listener's in-flight
+        // navigation to /projects is overridden and the signed-out state is
+        // clean.
+        if (closed) {
+          await signOutUser();
+          if (typeof window !== "undefined") {
+            window.location.replace("/signup?signup_closed=1");
+          }
+          return;
+        }
+        if (required) {
+          await signOutUser();
+          if (typeof window !== "undefined") {
+            window.location.replace("/signup?invite_only=1");
+          }
+          return;
+        }
+      }
+
       if (result.ok) {
         const { trackLogin } = await import("@/utils/analytics");
         trackLogin("google");
