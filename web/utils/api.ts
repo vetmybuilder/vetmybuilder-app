@@ -54,6 +54,17 @@ api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
   try {
     initFirebase(); // no-op if already initialized
     const auth = getAuth();
+
+    // On a hard reload Firebase restores the persisted session
+    // asynchronously, so auth.currentUser is null for the first few hundred
+    // ms. Without waiting, an authed request fired on mount goes out with no
+    // Authorization header and the server returns 401 "Missing bearer token".
+    // authStateReady() resolves once that initial state settles (and instantly
+    // thereafter), so this only delays the very first request after load.
+    if (typeof auth.authStateReady === "function") {
+      await auth.authStateReady();
+    }
+
     const user = auth.currentUser;
 
     if (user) {

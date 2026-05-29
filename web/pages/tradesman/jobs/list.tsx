@@ -14,6 +14,7 @@ import TradesmanOnly from "@/components/TradesmanOnly";
 import SiteHeader from "@/components/SiteHeader";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import JobListRow, { type JobListRowData } from "@/components/tradesmen/JobListRow";
+import { getWithAuthRetry } from "@/components/builder/api";
 
 // ─── types ──────────────────────────────────────────────────────────────────
 
@@ -124,7 +125,9 @@ export default function TradesmanJobsListPage() {
       });
       if (committedSearch.trim()) q.set("q", committedSearch.trim());
 
-      const { data } = await api.get(`/api/tradesmen/jobs?${q.toString()}`);
+      const { data } = await getWithAuthRetry(() =>
+        api.get(`/api/tradesmen/jobs?${q.toString()}`),
+      );
       if (mySeq !== reqSeqRef.current) return;
 
       const rawItems: RawJob[] = data?.items ?? data?.jobs ?? [];
@@ -156,7 +159,9 @@ export default function TradesmanJobsListPage() {
     let alive = true;
     (async () => {
       try {
-        const meRes = await api.get("/api/tradesmen/me").catch(() => null);
+        const meRes = await getWithAuthRetry(() =>
+          api.get("/api/tradesmen/me"),
+        ).catch(() => null);
         if (!alive) return;
 
         const meData = meRes?.data ?? null;
