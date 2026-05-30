@@ -246,19 +246,58 @@ describe("<OAuthSignInButton />", () => {
       expect(replaceSpy).not.toHaveBeenCalled();
     });
 
-    it("never gates a tradesperson signup, even when homeowner signup is closed", async () => {
+    it("never `closed`-gates a tradesperson signup, even if the status check fails", async () => {
       const replaceSpy = stubLocationReplace();
       mockedSignIn.mockResolvedValueOnce({
         ok: true,
         isNewUser: true,
         credential: { user: { getIdToken: vi.fn() } },
       });
+      // Status check errors out - homeowner would be fail-safe blocked, but
+      // traders never have a `closed` gate so they pass through.
+      mockGet.mockRejectedValueOnce(new Error("network"));
 
       render(<OAuthSignInButton provider="google" intent="tradesman" />);
       fireEvent.click(screen.getByTestId("google-signin-button"));
 
       await waitFor(() => expect(mockedSignIn).toHaveBeenCalled());
-      expect(mockGet).not.toHaveBeenCalled();
+      expect(mockGet).toHaveBeenCalledWith("/api/auth/beta-status?role=trader");
+      expect(signOutMock).not.toHaveBeenCalled();
+      expect(replaceSpy).not.toHaveBeenCalled();
+    });
+
+    it("blocks a brand-new tradesperson when beta_code_required is on (SSO can't collect a code)", async () => {
+      const replaceSpy = stubLocationReplace();
+      mockedSignIn.mockResolvedValueOnce({
+        ok: true,
+        isNewUser: true,
+        credential: { user: { getIdToken: vi.fn() } },
+      });
+      mockGet.mockResolvedValueOnce({ data: { required: true, closed: false } });
+
+      render(<OAuthSignInButton provider="google" intent="tradesman" />);
+      fireEvent.click(screen.getByTestId("google-signin-button"));
+
+      await waitFor(() => expect(signOutMock).toHaveBeenCalledTimes(1));
+      expect(mockGet).toHaveBeenCalledWith("/api/auth/beta-status?role=trader");
+      expect(replaceSpy).toHaveBeenCalledWith(
+        "/tradesman/register-tradesmen?invite_only=1",
+      );
+    });
+
+    it("lets a brand-new tradesperson through when no gate is required", async () => {
+      const replaceSpy = stubLocationReplace();
+      mockedSignIn.mockResolvedValueOnce({
+        ok: true,
+        isNewUser: true,
+        credential: { user: { getIdToken: vi.fn() } },
+      });
+      mockGet.mockResolvedValueOnce({ data: { required: false, closed: false } });
+
+      render(<OAuthSignInButton provider="google" intent="tradesman" />);
+      fireEvent.click(screen.getByTestId("google-signin-button"));
+
+      await waitFor(() => expect(mockGet).toHaveBeenCalled());
       expect(signOutMock).not.toHaveBeenCalled();
       expect(replaceSpy).not.toHaveBeenCalled();
     });

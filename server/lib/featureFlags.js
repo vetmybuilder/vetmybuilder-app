@@ -22,6 +22,20 @@ const FLAG_DEFINITIONS = [
     description: "Allow homeowners to register (email and Google). When off, homeowner signup is closed.",
     default: false,
   },
+  {
+    key: "beta_code_homeowner",
+    label: "Beta code required - homeowners",
+    description:
+      "When on, homeowner signup (email and Google) requires a beta access code. Code value is read from the BETA_CODE env var. Default off.",
+    default: false,
+  },
+  {
+    key: "beta_code_trader",
+    label: "Beta code required - tradespeople",
+    description:
+      "When on, tradesperson signup (email and Google) requires a beta access code. Code value is read from the BETA_CODE env var. Default off.",
+    default: false,
+  },
 ];
 
 const CACHE_TTL_MS = 30_000;
@@ -38,6 +52,8 @@ let cacheAt = 0;
 const ENV_OVERRIDE_VARS = {
   payments: "FEATURE_PAYMENTS",
   homeowner_signup: "FEATURE_HOMEOWNER_SIGNUP",
+  beta_code_homeowner: "FEATURE_BETA_CODE_HOMEOWNER",
+  beta_code_trader: "FEATURE_BETA_CODE_TRADER",
 };
 
 function readEnvOverride(key) {

@@ -14,19 +14,30 @@ module.exports = (router, ctx) => {
   const { mysqlQuery } = ctx;
 
   router.get("/auth/beta-status", async (req, res) => {
-    // Traders always stay open so we can build supply ahead of opening
-    // homeowner registrations.
     const role = String(req.query?.role || "").toLowerCase();
-    if (role === "trader" || role === "tradesman" || role === "tradesperson") {
-      return res.json({ required: false, closed: false });
+    const isTrader =
+      role === "trader" || role === "tradesman" || role === "tradesperson";
+
+    // Beta access code is gated by a per-role admin flag, both default
+    // off. The actual code value lives in BETA_CODE env; if the flag is
+    // on but BETA_CODE is missing, the gate still trips (no provided
+    // code can match) so a misconfigured prod doesn't silently leak.
+    const betaCodeFlag = isTrader ? "beta_code_trader" : "beta_code_homeowner";
+    const betaCodeRequired = await isFlagEnabled(mysqlQuery, betaCodeFlag);
+
+    if (isTrader) {
+      // Traders stay open (no homeowner_signup closed-gate) so we can
+      // build supply ahead of opening homeowner registrations.
+      return res.json({
+        required: betaCodeRequired,
+        closed: false,
+      });
     }
 
-    // Homeowner: the `homeowner_signup` flag is the master switch. When
-    // off, signup is closed. When on, the legacy BETA_CODE invite gate
-    // (if set) still applies.
+    // Homeowner: the `homeowner_signup` flag is the master switch.
     const signupOpen = await isFlagEnabled(mysqlQuery, "homeowner_signup");
     res.json({
-      required: signupOpen ? !!process.env.BETA_CODE : true,
+      required: signupOpen ? betaCodeRequired : true,
       closed: !signupOpen,
     });
   });

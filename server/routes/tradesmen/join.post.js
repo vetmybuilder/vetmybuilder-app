@@ -49,6 +49,10 @@ const JoinSchema = z.object({
     .optional(),
   likesCount: z.number().int().min(0).max(100000).optional(),
   winsCount: z.number().int().min(0).max(100000).optional(),
+  // Acquisition ref captured on the signup landing page (?ref=...).
+  // Same alphabet as the /go/:code route enforces so a fuzzed value
+  // never reaches the DB.
+  acquisitionRef: z.string().regex(/^[A-Za-z0-9._-]{1,64}$/).optional(),
 }).passthrough();
 
 // Per-IP limiter for the join route specifically. 5 attempts per 15min
@@ -321,6 +325,18 @@ module.exports = (router, ctx) => {
         }
       }
 
+      // Same bootstrap pattern for the acquisition ref column.
+      try {
+        await mysqlQuery(
+          "ALTER TABLE tradesmen ADD COLUMN acq_ref VARCHAR(64) NULL",
+        );
+      } catch (err) {
+        const msg = String(err?.message || "");
+        if (!/Duplicate column|already exists/i.test(msg)) {
+          log.warn(`${TAG} acq_ref column ensure failed`, msg);
+        }
+      }
+
       await mysqlQuery(
         `
         INSERT INTO tradesmen (
@@ -331,6 +347,7 @@ module.exports = (router, ctx) => {
           photo_count, discount_min_percent, discount_max_percent, offers_discount,
           warranty_months, supporting_doc_count, supporting_docs_json,
           likes_count, wins_count,
+          acq_ref,
           subscription_status, status, created_at, updated_at,
           public_id
         )
@@ -342,6 +359,7 @@ module.exports = (router, ctx) => {
           ?, ?, ?, ?,
           ?, ?, ?,
           ?, ?,
+          ?,
           'draft', 'draft', NOW(), NOW(),
           UUID()
         )
@@ -370,6 +388,10 @@ module.exports = (router, ctx) => {
           supporting_docs_json  = VALUES(supporting_docs_json),
           likes_count           = VALUES(likes_count),
           wins_count            = VALUES(wins_count),
+          -- acq_ref: only set if the existing row didn't already have one
+          -- (preserves the first-touch attribution if the trade comes back
+          -- via a different channel to refine their listing).
+          acq_ref               = COALESCE(acq_ref, VALUES(acq_ref)),
           updated_at            = NOW()
         `,
         [
@@ -397,6 +419,7 @@ module.exports = (router, ctx) => {
           supporting_docs_json,
           likes_count,
           wins_count,
+          payload.acquisitionRef || null,
         ]
       );
 

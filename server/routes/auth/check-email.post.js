@@ -53,12 +53,6 @@ module.exports = (router, ctx) => {
   router.post("/auth/check-email", signupLimiter, async (req, res) => {
     const log = withRequest(req).child({ route: "auth.check-email" });
 
-    // Beta access code check - only enforced when BETA_CODE is set in
-    // env AND the signup is for a homeowner. Pre-launch, trader signup
-    // is open via both email and SSO so we can build supply ahead of
-    // opening homeowner registrations. Missing/unknown roles fall back
-    // to homeowner-style enforcement so older clients still gate.
-    const requiredCode = process.env.BETA_CODE;
     const role = String(req.body?.role || "").toLowerCase();
     const isTrader =
       role === "trader" || role === "tradesman" || role === "tradesperson";
@@ -71,10 +65,24 @@ module.exports = (router, ctx) => {
       }
     }
 
-    if (requiredCode && !isTrader) {
-      const provided = String(req.body?.betaCode || "").trim();
-      if (provided !== requiredCode) {
-        return res.status(403).json({ ok: false, error: "invalid_beta_code" });
+    // Beta access code check - per-role admin flag, both default off.
+    // `beta_code_homeowner` controls homeowner signup (email + SSO);
+    // `beta_code_trader` controls trader signup (email + SSO). Code
+    // value lives in BETA_CODE env; if the flag is on but env is
+    // missing/empty, no provided code can match, so we 403.
+    if (mysqlQuery) {
+      const betaCodeFlag = isTrader
+        ? "beta_code_trader"
+        : "beta_code_homeowner";
+      const betaCodeRequired = await isFlagEnabled(mysqlQuery, betaCodeFlag);
+      if (betaCodeRequired) {
+        const expected = String(process.env.BETA_CODE || "").trim();
+        const provided = String(req.body?.betaCode || "").trim();
+        if (!expected || provided !== expected) {
+          return res
+            .status(403)
+            .json({ ok: false, error: "invalid_beta_code" });
+        }
       }
     }
 

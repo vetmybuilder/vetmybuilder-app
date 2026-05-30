@@ -26,6 +26,7 @@ import { trackRegisterStepCompleted } from "@/utils/analytics";
 import OAuthSignInButton from "@/components/forms/OAuthSignInButton";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import { ensureEmailAvailable } from "@/utils/email";
+import { captureRefFromUrl } from "@/utils/acquisitionRef";
 import PasswordChecklist, {
   isStrongPassword,
 } from "@/components/forms/PasswordChecklist";
@@ -95,6 +96,15 @@ export default function TradesmanRegisterPage() {
       .then((res) => setBetaRequired(!!res.data?.required))
       .catch(() => {});
   }, [api]);
+
+  // Acquisition tracking: capture ?ref=<code> from the URL so the
+  // signup-complete page can attach it to the tradesmen row. The ref
+  // is stashed in sessionStorage AND a cookie so it survives the
+  // Google SSO popup round-trip (sessionStorage is invisible to the
+  // popup; the cookie is not).
+  useEffect(() => {
+    captureRefFromUrl();
+  }, []);
 
   const handleClose = () => {
     router.push("/");
@@ -208,6 +218,12 @@ export default function TradesmanRegisterPage() {
 
             <div className="mt-7 rounded-2xl bg-slate-50 border border-slate-200 p-5 sm:p-6">
               <p className="text-[13px] font-bold text-slate-900 mb-3">Sign up - tradespeople</p>
+
+              {router.query.invite_only === "1" && (
+                <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 p-3 text-[13px] text-amber-800" data-testid="trade-invite-only-banner">
+                  Sign-ups are invite-only right now. Please sign up with your email and the access code below.
+                </div>
+              )}
 
               <OAuthSignInButton
                 provider="google"
