@@ -18,10 +18,12 @@ beforeEach(() => {
 });
 
 describe("featureFlags helper", () => {
-  it("ships payments and homeowner_signup defaulting to off", () => {
+  it("ships payments, homeowner_signup, beta_code_homeowner and beta_code_trader defaulting to off", () => {
     const keys = FLAG_DEFINITIONS.map((d: any) => d.key);
     expect(keys).toContain("payments");
     expect(keys).toContain("homeowner_signup");
+    expect(keys).toContain("beta_code_homeowner");
+    expect(keys).toContain("beta_code_trader");
     for (const def of FLAG_DEFINITIONS) {
       expect(def.default).toBe(false);
     }
@@ -32,6 +34,8 @@ describe("featureFlags helper", () => {
     const flags = await loadFlags(mysqlQuery);
     expect(flags.payments).toBe(false);
     expect(flags.homeowner_signup).toBe(false);
+    expect(flags.beta_code_homeowner).toBe(false);
+    expect(flags.beta_code_trader).toBe(false);
   });
 
   it("applies DB overrides over the defaults", async () => {
@@ -97,6 +101,8 @@ describe("featureFlags env overrides (e2e only)", () => {
     TEST_ENV: process.env.TEST_ENV,
     FEATURE_PAYMENTS: process.env.FEATURE_PAYMENTS,
     FEATURE_HOMEOWNER_SIGNUP: process.env.FEATURE_HOMEOWNER_SIGNUP,
+    FEATURE_BETA_CODE_HOMEOWNER: process.env.FEATURE_BETA_CODE_HOMEOWNER,
+    FEATURE_BETA_CODE_TRADER: process.env.FEATURE_BETA_CODE_TRADER,
   };
 
   beforeEach(() => clearFlagCache());

@@ -122,26 +122,30 @@ export default function OAuthSignInButton({
       } catch {}
       const result = await signInWithProvider(provider);
 
-      // Homeowner signup gate for brand-new OAuth accounts. Two layers,
-      // both skipped for existing homeowners (isNewUser=false) and
-      // tradespeople (intent=tradesman) so logins keep working:
-      //   1. homeowner_signup flag OFF (closed) -> signup is shut entirely.
-      //   2. flag ON but a beta code is required -> SSO can't collect one,
-      //      so new homeowners are routed to the invite-only message.
-      if (result.ok && result.isNewUser && intent !== "tradesman") {
+      // Signup gates for brand-new OAuth accounts. Skipped for existing
+      // users (isNewUser=false) so logins keep working.
+      //   1. closed: homeowner_signup flag OFF (homeowner-only gate).
+      //   2. required: beta access code required (applies to both roles
+      //      when the beta_code_required flag is on). SSO can't collect
+      //      a code, so block and route to invite-only message.
+      if (result.ok && result.isNewUser) {
+        const isTraderIntent = intent === "tradesman";
         let closed = false;
         let required = false;
         try {
-          const { data } = await api.get("/api/auth/beta-status?role=homeowner");
+          const role = isTraderIntent ? "trader" : "homeowner";
+          const { data } = await api.get(`/api/auth/beta-status?role=${role}`);
           closed = !!data?.closed;
           required = !!data?.required;
         } catch {
-          // Fail safe - block the new homeowner rather than let them through.
-          closed = true;
+          // Fail safe for homeowners (block); traders never have a
+          // closed-gate, so a status fetch failure leaves them through.
+          closed = !isTraderIntent;
         }
-        // Hard-redirect in both cases so the auth listener's in-flight
-        // navigation to /projects is overridden and the signed-out state is
-        // clean.
+        // Hard-redirect so the auth listener's in-flight navigation
+        // to /projects is overridden and the signed-out state is clean.
+        // `closed` only ever fires for homeowners; the trader endpoint
+        // always returns closed:false.
         if (closed) {
           await signOutUser();
           if (typeof window !== "undefined") {
@@ -152,7 +156,10 @@ export default function OAuthSignInButton({
         if (required) {
           await signOutUser();
           if (typeof window !== "undefined") {
-            window.location.replace("/signup?invite_only=1");
+            const target = isTraderIntent
+              ? "/tradesman/register-tradesmen?invite_only=1"
+              : "/signup?invite_only=1";
+            window.location.replace(target);
           }
           return;
         }

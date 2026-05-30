@@ -1,15 +1,15 @@
 // tests/server/check-email-beta-role.spec.ts
 //
-// Pins the role-aware gate on POST /api/auth/check-email and
-// GET /api/auth/beta-status.
-//
-// Two layers stack here:
-//   1. The `homeowner_signup` feature flag is the master switch. When OFF,
-//      homeowner signup is closed entirely (beta-status `closed:true`,
-//      check-email 403 signup_closed) - even with a valid beta code.
-//   2. When the flag is ON, the legacy BETA_CODE invite gate (if set) still
-//      applies to homeowners.
-// Traders bypass both so we can build supply ahead of opening to homeowners.
+// Pins the role + flag gates on POST /api/auth/check-email and
+// GET /api/auth/beta-status. Three independent admin flags stack here:
+//   1. `homeowner_signup`    - master switch for homeowner registration.
+//                              When OFF, homeowner signup is closed entirely
+//                              (beta-status `closed:true`, check-email 403
+//                              signup_closed). Does not affect traders.
+//   2. `beta_code_homeowner` - invite gate for homeowner signup (email + SSO).
+//   3. `beta_code_trader`    - invite gate for trader signup (email + SSO).
+// Each gate is independent. BETA_CODE env is the value to match against,
+// never the trigger.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
@@ -36,15 +36,26 @@ const { clearFlagCache } = require("../../server/lib/featureFlags.js");
 
 type Handler = (req: any, res: any) => Promise<void> | void;
 
-// mysqlQuery stub that reports the homeowner_signup flag as on/off.
-function flagQuery(homeownerSignupOn: boolean) {
+type FlagOpts = {
+  homeownerSignup?: boolean;
+  betaCodeHomeowner?: boolean;
+  betaCodeTrader?: boolean;
+};
+
+function flagQuery(opts: FlagOpts) {
   return vi.fn(async (sql: string) => {
-    if (String(sql).includes("feature_flags")) {
-      return homeownerSignupOn
-        ? [{ flag_key: "homeowner_signup", enabled: 1 }]
-        : [];
+    if (!String(sql).includes("feature_flags")) return [];
+    const rows: Array<{ flag_key: string; enabled: number }> = [];
+    if (opts.homeownerSignup) {
+      rows.push({ flag_key: "homeowner_signup", enabled: 1 });
     }
-    return [];
+    if (opts.betaCodeHomeowner) {
+      rows.push({ flag_key: "beta_code_homeowner", enabled: 1 });
+    }
+    if (opts.betaCodeTrader) {
+      rows.push({ flag_key: "beta_code_trader", enabled: 1 });
+    }
+    return rows;
   });
 }
 
@@ -93,8 +104,10 @@ describe("POST /api/auth/check-email — role + flag gate", () => {
     else process.env.BETA_CODE = originalBetaCode;
   });
 
-  it("closes homeowner signup entirely when the flag is off (even with a code)", async () => {
-    const handler = mountCheckEmail({ mysqlQuery: flagQuery(false) });
+  it("closes homeowner signup entirely when the master flag is off (even with a code)", async () => {
+    const handler = mountCheckEmail({
+      mysqlQuery: flagQuery({ homeownerSignup: false, betaCodeHomeowner: true }),
+    });
     const res = mockRes();
     await handler(
       {
@@ -113,11 +126,19 @@ describe("POST /api/auth/check-email — role + flag gate", () => {
     });
   });
 
-  it("blocks homeowner signup with a wrong beta code when the flag is on", async () => {
-    const handler = mountCheckEmail({ mysqlQuery: flagQuery(true) });
+  it("blocks homeowner signup with a wrong beta code when beta_code_homeowner is on", async () => {
+    const handler = mountCheckEmail({
+      mysqlQuery: flagQuery({ homeownerSignup: true, betaCodeHomeowner: true }),
+    });
     const res = mockRes();
     await handler(
-      { body: { email: "alice@example.com", betaCode: "wrong", role: "homeowner" } },
+      {
+        body: {
+          email: "alice@example.com",
+          betaCode: "wrong",
+          role: "homeowner",
+        },
+      },
       res,
     );
     expect(res.status).toHaveBeenCalledWith(403);
@@ -127,11 +148,49 @@ describe("POST /api/auth/check-email — role + flag gate", () => {
     });
   });
 
-  it("lets trader signup past both gates even with no beta code and signup closed", async () => {
+  it("lets the homeowner past the gates with the correct code when beta_code_homeowner is on", async () => {
+    const handler = mountCheckEmail({
+      mysqlQuery: flagQuery({ homeownerSignup: true, betaCodeHomeowner: true }),
+    });
+    const res = mockRes();
+    const pending = handler(
+      {
+        body: {
+          email: "alice@example.com",
+          betaCode: "test-launch-code",
+          role: "homeowner",
+        },
+      },
+      res,
+    );
+    void (pending as any)?.catch?.(() => {});
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(res.status).not.toHaveBeenCalledWith(403);
+  });
+
+  it("does NOT require a code for a homeowner when beta_code_homeowner is off, even though BETA_CODE env is set", async () => {
+    const handler = mountCheckEmail({
+      mysqlQuery: flagQuery({ homeownerSignup: true, betaCodeHomeowner: false }),
+    });
+    const res = mockRes();
+    const pending = handler(
+      { body: { email: "alice@example.com", role: "homeowner" } },
+      res,
+    );
+    void (pending as any)?.catch?.(() => {});
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(res.status).not.toHaveBeenCalledWith(403);
+  });
+
+  it("lets trader signup past both gates when beta_code_trader is off", async () => {
     // The gate runs before the route awaits the Firebase lookup. We don't
     // mock firebase-admin here, so awaiting the full handler would hang.
-    // Kick it off, let the prelude run one microtask, assert on the gate.
-    const handler = mountCheckEmail({ mysqlQuery: flagQuery(false) });
+    // Note: homeowner_signup off has no effect on traders.
+    const handler = mountCheckEmail({
+      mysqlQuery: flagQuery({ homeownerSignup: false, betaCodeTrader: false }),
+    });
     const res = mockRes();
     const pending = handler(
       { body: { email: "trader@example.com", role: "trader" } },
@@ -143,17 +202,71 @@ describe("POST /api/auth/check-email — role + flag gate", () => {
     expect(res.status).not.toHaveBeenCalledWith(403);
   });
 
-  it("lets the homeowner past the gates with the correct code when the flag is on", async () => {
-    const handler = mountCheckEmail({ mysqlQuery: flagQuery(true) });
+  it("blocks trader signup with a wrong code when beta_code_trader is on", async () => {
+    const handler = mountCheckEmail({
+      mysqlQuery: flagQuery({ betaCodeTrader: true }),
+    });
+    const res = mockRes();
+    await handler(
+      {
+        body: { email: "trader@example.com", betaCode: "wrong", role: "trader" },
+      },
+      res,
+    );
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({
+      ok: false,
+      error: "invalid_beta_code",
+    });
+  });
+
+  it("lets trader signup past with the correct code when beta_code_trader is on", async () => {
+    const handler = mountCheckEmail({
+      mysqlQuery: flagQuery({ betaCodeTrader: true }),
+    });
     const res = mockRes();
     const pending = handler(
       {
         body: {
-          email: "alice@example.com",
+          email: "trader@example.com",
           betaCode: "test-launch-code",
-          role: "homeowner",
+          role: "trader",
         },
       },
+      res,
+    );
+    void (pending as any)?.catch?.(() => {});
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(res.status).not.toHaveBeenCalledWith(403);
+  });
+
+  it("does NOT gate a trader when only beta_code_homeowner is on", async () => {
+    const handler = mountCheckEmail({
+      mysqlQuery: flagQuery({ betaCodeHomeowner: true, betaCodeTrader: false }),
+    });
+    const res = mockRes();
+    const pending = handler(
+      { body: { email: "trader@example.com", role: "trader" } },
+      res,
+    );
+    void (pending as any)?.catch?.(() => {});
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(res.status).not.toHaveBeenCalledWith(403);
+  });
+
+  it("does NOT gate a homeowner when only beta_code_trader is on", async () => {
+    const handler = mountCheckEmail({
+      mysqlQuery: flagQuery({
+        homeownerSignup: true,
+        betaCodeHomeowner: false,
+        betaCodeTrader: true,
+      }),
+    });
+    const res = mockRes();
+    const pending = handler(
+      { body: { email: "alice@example.com", role: "homeowner" } },
       res,
     );
     void (pending as any)?.catch?.(() => {});
@@ -177,29 +290,77 @@ describe("GET /api/auth/beta-status — role + flag response", () => {
     else process.env.BETA_CODE = originalBetaCode;
   });
 
-  it("reports closed:true to homeowners when the signup flag is off", async () => {
-    const handler = mountBetaStatus({ mysqlQuery: flagQuery(false) });
+  it("reports closed:true to homeowners when the master signup flag is off", async () => {
+    const handler = mountBetaStatus({
+      mysqlQuery: flagQuery({ homeownerSignup: false }),
+    });
     const res = mockRes();
     await handler({ query: { role: "homeowner" } }, res);
     expect(res.json).toHaveBeenCalledWith({ required: true, closed: true });
   });
 
-  it("reports required:true, closed:false to homeowners when the flag is on and BETA_CODE is set", async () => {
-    const handler = mountBetaStatus({ mysqlQuery: flagQuery(true) });
+  it("reports required:true to homeowners when both signup is open and beta_code_homeowner is on", async () => {
+    const handler = mountBetaStatus({
+      mysqlQuery: flagQuery({ homeownerSignup: true, betaCodeHomeowner: true }),
+    });
     const res = mockRes();
     await handler({ query: { role: "homeowner" } }, res);
     expect(res.json).toHaveBeenCalledWith({ required: true, closed: false });
   });
 
-  it("reports required:false, closed:false to traders regardless of flag", async () => {
-    const handler = mountBetaStatus({ mysqlQuery: flagQuery(false) });
+  it("reports required:false to homeowners when signup is open but beta_code_homeowner is off", async () => {
+    const handler = mountBetaStatus({
+      mysqlQuery: flagQuery({ homeownerSignup: true, betaCodeHomeowner: false }),
+    });
+    const res = mockRes();
+    await handler({ query: { role: "homeowner" } }, res);
+    expect(res.json).toHaveBeenCalledWith({ required: false, closed: false });
+  });
+
+  it("reports required:false, closed:false to traders when no flags are on", async () => {
+    const handler = mountBetaStatus({
+      mysqlQuery: flagQuery({}),
+    });
     const res = mockRes();
     await handler({ query: { role: "trader" } }, res);
     expect(res.json).toHaveBeenCalledWith({ required: false, closed: false });
   });
 
+  it("reports required:true to traders when beta_code_trader is on", async () => {
+    const handler = mountBetaStatus({
+      mysqlQuery: flagQuery({ betaCodeTrader: true }),
+    });
+    const res = mockRes();
+    await handler({ query: { role: "trader" } }, res);
+    expect(res.json).toHaveBeenCalledWith({ required: true, closed: false });
+  });
+
+  it("ignores beta_code_homeowner for traders", async () => {
+    const handler = mountBetaStatus({
+      mysqlQuery: flagQuery({ betaCodeHomeowner: true, betaCodeTrader: false }),
+    });
+    const res = mockRes();
+    await handler({ query: { role: "trader" } }, res);
+    expect(res.json).toHaveBeenCalledWith({ required: false, closed: false });
+  });
+
+  it("ignores beta_code_trader for homeowners", async () => {
+    const handler = mountBetaStatus({
+      mysqlQuery: flagQuery({
+        homeownerSignup: true,
+        betaCodeHomeowner: false,
+        betaCodeTrader: true,
+      }),
+    });
+    const res = mockRes();
+    await handler({ query: { role: "homeowner" } }, res);
+    expect(res.json).toHaveBeenCalledWith({ required: false, closed: false });
+  });
+
   it("defaults to homeowner-style gated response when role is missing", async () => {
-    const handler = mountBetaStatus({ mysqlQuery: flagQuery(false) });
+    const handler = mountBetaStatus({
+      mysqlQuery: flagQuery({}),
+    });
     const res = mockRes();
     await handler({ query: {} }, res);
     expect(res.json).toHaveBeenCalledWith({ required: true, closed: true });
