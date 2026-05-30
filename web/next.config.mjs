@@ -88,6 +88,14 @@ const nextConfig = {
           source: "/uploads/:path*",
           destination: `${apiServerBase}/uploads/:path*`,
         },
+        // Acquisition short link: /go/<ref-code> -> the scan-logging
+        // API endpoint, which 302s on to the trade signup landing page
+        // with ?ref=<ref-code>. Lets the printed QR carry a friendly
+        // /go/flyer-e4 URL instead of /api/track/go/flyer-e4.
+        {
+          source: "/go/:code",
+          destination: `${apiServerBase}/api/track/go/:code`,
+        },
       ],
     };
   },

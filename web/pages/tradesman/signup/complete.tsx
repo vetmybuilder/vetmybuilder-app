@@ -16,6 +16,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import { useApi } from "@/utils/api";
 import { useAuth, signOutUser } from "@/utils/auth";
+import { captureRefFromUrl, readRef, clearRef } from "@/utils/acquisitionRef";
 import { initFirebase } from "@/utils/firebase";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 
@@ -130,6 +131,9 @@ export default function TradesmanSsoOnboardingPage() {
       sessionStorage.setItem("vmb:tradesmanSignupInProgress", "1");
       sessionStorage.removeItem("vmb:oauthIntent");
     } catch {}
+    // Re-capture in case the user landed here directly from the QR via
+    // SSO without first touching /tradesman/register-tradesmen.
+    captureRefFromUrl();
   }, []);
 
   // Redirect away if not signed in. If the user already has a tradesmen
@@ -525,6 +529,10 @@ export default function TradesmanSsoOnboardingPage() {
         companyNumber: form.companyNumber || null,
         chStatus: form.chStatus || null,
         profilePictureUrl,
+        // Acquisition channel ref captured on the signup landing page.
+        // Server validates and drops the value if it fails the alphabet
+        // check, so a stale/bad cookie can't fail the profile save.
+        acquisitionRef: readRef() || undefined,
       };
 
       const { data } = await api.put("/api/tradesmen/me", payload, {
@@ -536,6 +544,9 @@ export default function TradesmanSsoOnboardingPage() {
         sessionStorage.removeItem(DRAFT_KEY);
         sessionStorage.removeItem("vmb:tradesmanSignupInProgress");
       } catch {}
+      // Clear the captured ref so a second signup from the same browser
+      // doesn't inherit the first's attribution.
+      clearRef();
 
       // Prime the role cache so the next page doesn't race
       // /api/tradesmen/me and flash the homeowner chrome. Same one-shot

@@ -366,6 +366,12 @@ CREATE TABLE IF NOT EXISTS tradesmen (
   -- Admin-controlled: whether the public profile page is live. Decoupled
   -- from account status so admins publish deliberately (default off).
   profile_public TINYINT(1) NOT NULL DEFAULT 0,
+
+  -- Acquisition channel: which campaign / flyer / post brought this trade
+  -- in. Set from a ref query param captured on the signup landing page
+  -- and joined against acquisition_scans for the admin funnel report.
+  -- NULL = organic.
+  acq_ref VARCHAR(64) NULL,
   UNIQUE KEY uq_tradesmen_slug (slug)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -373,6 +379,20 @@ CREATE INDEX idx_tradesmen_service_areas ON tradesmen(service_areas);
 CREATE INDEX idx_tradesmen_master_uid ON tradesmen(master_uid);
 CREATE INDEX idx_tradesmen_trade_types   ON tradesmen(trade_types);
 CREATE UNIQUE INDEX idx_tradesmen_public_id ON tradesmen(public_id);
+CREATE INDEX idx_tradesmen_acq_ref ON tradesmen(acq_ref);
+
+-- Acquisition scan log: every hit to /go/<ref> writes one row. Joined
+-- against tradesmen.acq_ref for the funnel rollup in admin
+-- (scans -> signups -> conversion %). ip_hash is sha256(IP + salt) so
+-- we never store raw IPs; user_agent is truncated to 255 chars.
+CREATE TABLE IF NOT EXISTS acquisition_scans (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  ref VARCHAR(64) NOT NULL,
+  scanned_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ip_hash VARCHAR(64) NULL,
+  user_agent VARCHAR(255) NULL,
+  INDEX idx_acquisition_scans_ref (ref, scanned_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE IF NOT EXISTS tradesmen_offers (
   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   user_id VARCHAR(255) NOT NULL,

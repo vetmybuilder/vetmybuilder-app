@@ -71,6 +71,24 @@ module.exports = (router, ctx) => {
     }
   }
 
+  // Acquisition channel ref (flyer/QR/social campaign code).
+  let acqRefColumnEnsured = false;
+  async function ensureAcqRefColumn() {
+    if (acqRefColumnEnsured) return;
+    acqRefColumnEnsured = true;
+    try {
+      await mysqlQuery(
+        "ALTER TABLE tradesmen ADD COLUMN acq_ref VARCHAR(64) NULL",
+      );
+      log.info?.(`${TAG} added acq_ref column`);
+    } catch (err) {
+      const msg = String(err?.message || "");
+      if (!/Duplicate column|already exists/i.test(msg)) {
+        log.warn?.(`${TAG} ensureAcqRefColumn failed`, msg);
+      }
+    }
+  }
+
   // ---- CH + location helpers ----
   let matchByName = ctx.matchByName;
   let extractLocationTokens = ctx.extractLocationTokens;
@@ -194,6 +212,7 @@ module.exports = (router, ctx) => {
   router.put("/tradesmen/me", auth, async (req, res) => {
     await ensureSupportingDocsJsonColumn();
     await ensureWebVerificationReasonColumn();
+    await ensureAcqRefColumn();
     const uid = req.user.uid;
 
     log.info(`${TAG} incoming update`, {
@@ -213,6 +232,16 @@ module.exports = (router, ctx) => {
         log.warn(`${TAG} missing companyName`, { uid });
         return res.status(400).json({ error: "companyName_required" });
       }
+
+      // Acquisition ref captured on the signup landing page. Same
+      // alphabet as the /go/:code route accepts so a fuzzed value
+      // never reaches the DB. Anything that fails the pattern is
+      // dropped silently - we don't want a malformed marketing param
+      // to fail the whole profile save.
+      const acqRefRaw = String(body.acquisitionRef || "").trim();
+      const acqRef = /^[A-Za-z0-9._-]{1,64}$/.test(acqRefRaw)
+        ? acqRefRaw
+        : null;
 
       const rawPhone = (req.body && req.body.phone) || "";
       if (rawPhone && !isValidUKPhone(rawPhone)) {
@@ -463,6 +492,7 @@ module.exports = (router, ctx) => {
             supporting_docs_json,
             discount_min_percent, discount_max_percent,
             company_number, ch_status, ch_name, ch_checked_at, ch_match_score,
+            acq_ref,
             vmb_score, vmb_badge, created_at, updated_at
           ) VALUES (
             ?, ?, ?, ?, ?,
@@ -472,6 +502,7 @@ module.exports = (router, ctx) => {
             ?,
             ?, ?,
             ?, ?, ?, ?, ?,
+            ?,
             0, 'bronze', NOW(), NOW()
           )
           ON DUPLICATE KEY UPDATE
@@ -498,6 +529,9 @@ module.exports = (router, ctx) => {
             ch_name             = COALESCE(VALUES(ch_name), ch_name),
             ch_checked_at       = COALESCE(VALUES(ch_checked_at), ch_checked_at),
             ch_match_score      = COALESCE(VALUES(ch_match_score), ch_match_score),
+            -- First-touch attribution: don't overwrite an existing ref
+            -- if the trade comes back via a different channel.
+            acq_ref             = COALESCE(acq_ref, VALUES(acq_ref)),
             updated_at          = NOW()
         `,
           [
@@ -525,6 +559,7 @@ module.exports = (router, ctx) => {
             chName,
             chCheckedAt,
             chMatchScore,
+            acqRef,
           ]
         );
 

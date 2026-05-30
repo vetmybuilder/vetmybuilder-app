@@ -26,6 +26,7 @@ import { trackRegisterStepCompleted } from "@/utils/analytics";
 import OAuthSignInButton from "@/components/forms/OAuthSignInButton";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import { ensureEmailAvailable } from "@/utils/email";
+import { captureRefFromUrl } from "@/utils/acquisitionRef";
 import PasswordChecklist, {
   isStrongPassword,
 } from "@/components/forms/PasswordChecklist";
@@ -95,6 +96,15 @@ export default function TradesmanRegisterPage() {
       .then((res) => setBetaRequired(!!res.data?.required))
       .catch(() => {});
   }, [api]);
+
+  // Acquisition tracking: capture ?ref=<code> from the URL so the
+  // signup-complete page can attach it to the tradesmen row. The ref
+  // is stashed in sessionStorage AND a cookie so it survives the
+  // Google SSO popup round-trip (sessionStorage is invisible to the
+  // popup; the cookie is not).
+  useEffect(() => {
+    captureRefFromUrl();
+  }, []);
 
   const handleClose = () => {
     router.push("/");
