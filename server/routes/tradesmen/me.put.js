@@ -589,7 +589,7 @@ module.exports = (router, ctx) => {
           const reviewBase = (
             process.env.PUBLIC_API_BASE || "https://vetmybuilder.com"
           ).replace(/\/+$/, "");
-          const reviewLink = `${reviewBase}/admin/trades-pipeline?focus=${encodeURIComponent(uid)}`;
+          const reviewLink = `${reviewBase}/admin/tradesmen-leaderboard`;
           const contactBits = [email, phone].filter(Boolean).join("  -  ") || "-";
           postSlackMessage({
             text: `New tradesperson signup: ${companyName}`,
