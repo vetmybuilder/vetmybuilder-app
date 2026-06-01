@@ -33,6 +33,7 @@ function TeslaE({ color, size }: { color: string; size: number }) {
 export default function BrandWordmark({
   tone = "auto",
   bg = "dark",
+  fontSize = 24,
   className,
 }: {
   tone?: Tone;
@@ -42,6 +43,12 @@ export default function BrandWordmark({
    *  light-background context.
    */
   bg?: "dark" | "light";
+  /** Pixel size for the glyphs. Default 24 matches the navbar. The
+   *  custom-bar E (TeslaE) scales proportionally off this value, so
+   *  bumping this is the right way to make the whole mark bigger
+   *  (transform:scale leaves layout dimensions at the unscaled width
+   *  and the glyphs overflow their container). */
+  fontSize?: number;
   /** Optional override for the outer span. */
   className?: string;
 }) {
@@ -74,7 +81,6 @@ export default function BrandWordmark({
         : resolved === "slate"
           ? "#e2e8f0" // slate-200 (near-white on dark navbar)
           : "#a5b4fc"; // indigo-300
-  const fontSize = 24;
   const text = {
     fontFamily: "Audiowide, sans-serif",
     fontSize,

@@ -2,7 +2,6 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import BrandWordmark from "@/components/BrandWordmark";
-import { getSessionBg } from "@/utils/sessionBackground";
 import {
   User,
   Wrench,
@@ -104,11 +103,9 @@ export default function MobileMenu({
   onGoAccount: () => void;
 }) {
   const [mounted, setMounted] = React.useState(false);
-  const [bgUrl, setBgUrl] = React.useState<string>("");
 
   React.useEffect(() => {
     setMounted(true);
-    setBgUrl(getSessionBg());
   }, []);
 
   // lock scroll while open
@@ -158,36 +155,31 @@ export default function MobileMenu({
       data-testid="mobile-menu"
       style={{ fontFamily: FONT_STACK }}
     >
-      {/* Hero photo (same one Layout shows behind the rest of the app)
-          plus a soft white veil so menu rows stay legible. */}
-      {bgUrl && (
-        <img
-          src={bgUrl}
-          alt=""
-          aria-hidden="true"
-          className="absolute inset-0 h-full w-full object-cover"
-        />
-      )}
-      <div className="absolute inset-0 bg-white/70" />
+      {/* Hero video, full-bleed behind the menu, with a soft white
+          veil over the top so the menu rows stay legible. The session
+          background image is used as the poster so something is on
+          screen before the video has buffered the first frame (matters
+          on slow mobile data). muted+autoPlay+playsInline is the iOS
+          Safari combo that actually plays without a user tap. */}
+      <video
+        src="/mobile-video.mp4"
+        poster="/mobile-video-poster.jpg"
+        autoPlay
+        loop
+        muted
+        playsInline
+        preload="auto"
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full object-cover"
+      />
       <div
         className="absolute inset-0 flex flex-col w-screen h-[100dvh]"
         style={safeAreaStyle}
       >
-        {/* Top bar — wordmark + close */}
-        <div className="h-14 px-5 flex items-center justify-between shrink-0">
-          <button
-            type="button"
-            onClick={() => {
-              onGoHome();
-              onClose();
-            }}
-            className="inline-flex items-center"
-            aria-label="Go home"
-            data-testid="mobile-menu-home"
-          >
-            <BrandWordmark tone={isTrades ? "emerald" : "indigo"} bg="light" />
-          </button>
-
+        {/* Top bar — close only. Brand wordmark moved into the guest
+            hero panel below the video so it sits centre stage instead
+            of being competing chrome at the top. */}
+        <div className="h-14 px-5 flex items-center justify-end shrink-0">
           <button
             type="button"
             aria-label="Close menu"
@@ -401,26 +393,17 @@ export default function MobileMenu({
             </nav>
           )}
 
-          {/* Guest hero. The text sits on a busy photo (boards/scaffolding
-              etc.) so a soft frosted panel underneath keeps the italic
-              strapline legible without flattening the brand chrome
-              behind it. */}
+          {/* Guest hero. Brand wordmark centred over the video. The
+              frosted panel behind it keeps the glyphs readable against
+              whatever frame the looping video is on at a given moment. */}
           {!isAuthed && (
             <div className="flex flex-col items-center justify-center text-center flex-1 px-6">
-              <div className="rounded-2xl bg-white/85 backdrop-blur-sm px-6 py-5 shadow-sm border border-white/60 max-w-sm">
-                <p
-                  className="text-slate-900 text-[26px] font-black tracking-[-0.01em] leading-[1.15]"
-                  style={{ fontFamily: "'Sora', sans-serif" }}
-                >
-                  Post your job -{" "}
-                  <span
-                    className="text-indigo-600"
-                    style={{ fontFamily: "'Caveat', cursive", fontSize: "120%" }}
-                  >
-                    we&apos;ll smart-match
-                  </span>{" "}
-                  the rest.
-                </p>
+              <div className="rounded-2xl bg-white/85 backdrop-blur-sm px-7 py-5 shadow-sm border border-white/60">
+                <BrandWordmark
+                  tone={isTrades ? "emerald" : "indigo"}
+                  bg="light"
+                  fontSize={44}
+                />
               </div>
             </div>
           )}

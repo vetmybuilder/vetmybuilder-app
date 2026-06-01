@@ -269,12 +269,16 @@ export default function Home() {
             />
 
 
-            <div className="absolute inset-0 flex flex-col justify-start pt-20 sm:pt-24 md:justify-end md:pt-0 md:pb-12 lg:pb-16">
+            {/* pb-48 on mobile reserves bottom space for the absolute
+                review card so the CTAs sit just above it. */}
+            <div className="absolute inset-0 flex flex-col pt-2 sm:pt-6 pb-48 md:pt-0 md:pb-12 lg:pb-16 md:justify-end">
+              {/* Text block - top of hero on mobile, bottom-left on
+                  desktop (carried there by the parent md:justify-end). */}
               <div className="w-full max-w-6xl mx-auto md:mx-0 px-5 sm:px-8 md:pl-10 lg:pl-14 xl:pl-20">
                 <div className="max-w-2xl">
                 {!isTrades && (
                   <p
-                    className="text-[13px] sm:text-sm font-extrabold uppercase tracking-[0.18em] text-white mb-4"
+                    className="text-center md:text-left text-[13px] sm:text-sm font-extrabold uppercase tracking-[0.18em] text-white mb-4"
                     style={{
                       textShadow:
                         "0 1px 2px rgba(0,0,0,0.55), 0 2px 12px rgba(0,0,0,0.45)",
@@ -283,18 +287,26 @@ export default function Home() {
                     Hundreds of vetted tradespeople nearby.
                   </p>
                 )}
-                <h1
-                  className="font-black tracking-[-0.02em] text-amber-300 drop-shadow-lg leading-[0.95] text-[40px] sm:text-[52px] lg:text-[64px] xl:text-[72px]"
-                  style={{ fontFamily: "'Caveat', cursive" }}
-                >
-                  {isTrades ? "Work, your way." : "Let’s find yours."}
-                </h1>
+                {isTrades && (
+                  <h1
+                    className="font-black tracking-[-0.02em] text-amber-300 drop-shadow-lg leading-[0.95] text-[40px] sm:text-[52px] lg:text-[64px] xl:text-[72px]"
+                    style={{ fontFamily: "'Caveat', cursive" }}
+                  >
+                    Work, your way.
+                  </h1>
+                )}
+                </div>
+              </div>
 
-                {/* CTAs sit inside the hero overlay on every viewport so
-                    the primary action is consistently above the fold.
-                    items-start prevents flex from stretching them to
-                    full-width on mobile (which would dominate the photo). */}
-                <div className="mt-5 md:mt-6 lg:mt-8 flex flex-row flex-wrap items-start gap-2.5 md:gap-3">
+              {/* CTA block. mt-auto pushes it to the bottom of the
+                  hero on mobile (sitting above the absolute review
+                  card thanks to the outer pb-36). On desktop mt-auto
+                  cancels via md:mt-0, the parent md:justify-end packs
+                  text + CTAs at the bottom-left, and md:mt-6 gives
+                  spacing between them. Left-aligned in both. */}
+              <div className="mt-auto md:mt-0 w-full max-w-6xl mx-auto md:mx-0 px-5 sm:px-8 md:pl-10 lg:pl-14 xl:pl-20">
+                <div className="max-w-2xl">
+                <div className="md:mt-6 lg:mt-8 flex flex-row flex-wrap items-start justify-start gap-2.5 md:gap-3">
                   {/*
                     Hero CTA sizing is shared across every viewer state
                     (guest / homeowner / trade) so the three branches read
@@ -343,14 +355,15 @@ export default function Home() {
                     </>
                   ) : (
                     <>
-                      {/* Mobile-only Post-a-job CTA. Desktop guests get the
-                          same action in the sticky SiteHeader, but mobile
-                          hides those header CTAs to keep the bar compact,
-                          so the hero needs to surface it here. */}
+                      {/* Guest CTAs overlaid on the hero photo. On
+                          mobile the surrounding flex container centers
+                          them and positions them at the top of the
+                          hero; on desktop they're left-aligned at the
+                          bottom. */}
                       <Link
                         href="/projects/new"
                         data-testid="hero-cta-mobile"
-                        className="sm:hidden inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-extrabold text-white shadow-lg shadow-indigo-500/40 hover:shadow-xl active:scale-[0.99] transition-all"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-[13px] lg:text-[14px] font-extrabold text-white shadow-lg shadow-indigo-500/40 hover:shadow-xl active:scale-[0.99] transition-all"
                         style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}
                       >
                         Post a job
