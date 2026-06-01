@@ -243,6 +243,22 @@ module.exports = (router, ctx) => {
         ? acqRefRaw
         : null;
 
+      // Pre-check: is this a brand-new tradesperson row, or a profile
+      // update of an existing one? The upsert below doesn't distinguish,
+      // and we only want to fire the Slack signup notification on the
+      // first save. One indexed SELECT on the PK is effectively free.
+      let isFirstSave = false;
+      try {
+        const existing = await mysqlQuery(
+          "SELECT 1 FROM tradesmen WHERE user_id = ? LIMIT 1",
+          [uid],
+        );
+        isFirstSave = !(existing && existing.length);
+      } catch {
+        // If the check fails, fall back to not-notifying rather than
+        // double-notifying. Better silent than spammy.
+      }
+
       const rawPhone = (req.body && req.body.phone) || "";
       if (rawPhone && !isValidUKPhone(rawPhone)) {
         return res.status(400).json({
@@ -564,6 +580,47 @@ module.exports = (router, ctx) => {
         );
 
         log.info(`${TAG} upserted tradesmen row`, { uid });
+
+        // Slack notification on first-time signup only (skips subsequent
+        // profile edits). Fire-and-forget: a Slack failure must never
+        // affect the signup response. SLACK_WEBHOOK_URL unset = no-op.
+        if (isFirstSave) {
+          const { postSlackMessage } = require("../../lib/slack");
+          const reviewBase = (
+            process.env.PUBLIC_API_BASE || "https://vetmybuilder.com"
+          ).replace(/\/+$/, "");
+          const reviewLink = `${reviewBase}/admin/trades-pipeline?focus=${encodeURIComponent(uid)}`;
+          const contactBits = [email, phone].filter(Boolean).join("  -  ") || "-";
+          postSlackMessage({
+            text: `New tradesperson signup: ${companyName}`,
+            blocks: [
+              {
+                type: "header",
+                text: { type: "plain_text", text: "New tradesperson signup" },
+              },
+              {
+                type: "section",
+                fields: [
+                  { type: "mrkdwn", text: `*Company*\n${companyName}` },
+                  { type: "mrkdwn", text: `*Trades*\n${tradeTypes || "-"}` },
+                  { type: "mrkdwn", text: `*Areas*\n${serviceAreas || "-"}` },
+                  { type: "mrkdwn", text: `*Contact*\n${contactBits}` },
+                ],
+              },
+              {
+                type: "actions",
+                elements: [
+                  {
+                    type: "button",
+                    text: { type: "plain_text", text: "Review in admin" },
+                    url: reviewLink,
+                    style: "primary",
+                  },
+                ],
+              },
+            ],
+          }).catch(() => {});
+        }
 
         // SYNC PHOTOS
         await run(`DELETE FROM tradesmen_photos WHERE tradesman_user_id = ?`, [

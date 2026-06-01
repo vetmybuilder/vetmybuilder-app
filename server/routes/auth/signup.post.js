@@ -55,6 +55,20 @@ module.exports = (router, ctx) => {
       });
     }
 
+    // Pre-check: is this a brand-new homeowner, or is /auth/signup being
+    // called a second time (which the endpoint explicitly supports)?
+    // We only want Slack to fire on the first save. One indexed PK SELECT.
+    let isFirstSave = false;
+    try {
+      const existing = await mysqlQuery(
+        "SELECT 1 FROM users WHERE uid = ? LIMIT 1",
+        [uid],
+      );
+      isFirstSave = !(existing && existing.length);
+    } catch {
+      // Failed check -> fall back to not notifying rather than risk a dupe.
+    }
+
     try {
       await mysqlQuery(
         `
@@ -87,6 +101,34 @@ module.exports = (router, ctx) => {
       res.json({ ok: true });
       analytics.trackSignup(uid, { method: "firebase", role: "homeowner", email });
       ctx.logActivity("auth.signup", "info", uid, `New user: ${email}`);
+
+      // Slack notification on first-time homeowner signup only.
+      // Fire-and-forget: a Slack failure must never affect the signup
+      // response. SLACK_WEBHOOK_URL unset = no-op (so local dev stays quiet).
+      // Homeowners don't need admin review (no button), but we want to know
+      // they joined so we can size demand against trade supply.
+      if (isFirstSave) {
+        const { postSlackMessage } = require("../../lib/slack");
+        const fullName = [firstName, lastName].filter(Boolean).join(" ") || "(no name)";
+        postSlackMessage({
+          text: `New homeowner signup: ${fullName}`,
+          blocks: [
+            {
+              type: "header",
+              text: { type: "plain_text", text: "New homeowner signup" },
+            },
+            {
+              type: "section",
+              fields: [
+                { type: "mrkdwn", text: `*Name*\n${fullName}` },
+                { type: "mrkdwn", text: `*Email*\n${email || "-"}` },
+                { type: "mrkdwn", text: `*Location*\n${location || "-"}` },
+                { type: "mrkdwn", text: `*Username*\n${username || "-"}` },
+              ],
+            },
+          ],
+        }).catch(() => {});
+      }
 
       // Removed 2026-05: previously fired up to 5 "A neighbour near you
       // is looking for help with X" notifications on signup to surface
