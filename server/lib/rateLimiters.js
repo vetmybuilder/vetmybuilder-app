@@ -11,16 +11,22 @@
  * the Firebase token rather than IP. These limiters target the genuinely
  * public surface area.
  *
- * Skip rules:
+ * Skip rules (evaluated per-request, never in production):
  *  - NODE_ENV === "test"          - so vitest + supertest never trip
  *  - PILOT_AREAS_BYPASS === "1"   - so E2E / staging override flag works
+ *
+ * The production guard means a leaked PILOT_AREAS_BYPASS flag cannot silently
+ * disable throttling on the live service.
  */
 
 const rateLimit = require("express-rate-limit");
 
-const SKIP =
-  process.env.NODE_ENV === "test" ||
-  process.env.PILOT_AREAS_BYPASS === "1";
+function shouldSkip() {
+  if (process.env.NODE_ENV === "production") return false;
+  return (
+    process.env.NODE_ENV === "test" || process.env.PILOT_AREAS_BYPASS === "1"
+  );
+}
 
 function buildLimiter({ windowMs, max, name }) {
   return rateLimit({
@@ -28,7 +34,7 @@ function buildLimiter({ windowMs, max, name }) {
     max,
     standardHeaders: "draft-7",
     legacyHeaders: false,
-    skip: () => SKIP,
+    skip: () => shouldSkip(),
     handler: (req, res /*, next, opts */) => {
       // Compute remaining seconds. express-rate-limit attaches resetTime
       // (a Date) to req.rateLimit; fall back to the window if missing.
@@ -65,8 +71,19 @@ const publicWriteLimiter = buildLimiter({
   name: "public_write",
 });
 
+// Username availability checks are called repeatedly during a single signup as
+// the user tries names, so the cap is generous - high enough not to hurt real
+// UX, low enough to blunt bulk username enumeration.
+const usernameCheckLimiter = buildLimiter({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30,
+  name: "username_check",
+});
+
 module.exports = {
+  shouldSkip,
   signupLimiter,
   contactLimiter,
   publicWriteLimiter,
+  usernameCheckLimiter,
 };
