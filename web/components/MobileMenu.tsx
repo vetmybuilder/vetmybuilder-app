@@ -172,6 +172,17 @@ export default function MobileMenu({
         aria-hidden="true"
         className="absolute inset-0 h-full w-full object-cover"
       />
+      {/* When logged in the menu shows a stack of text rows (My jobs,
+          Messages, Account, etc.) which were illegible against the
+          raw video. A light wash improves legibility without hiding
+          the video; the guest view (wordmark on full video) skips
+          this entirely since its content has its own backgrounds. */}
+      {isAuthed && (
+        <div
+          className="absolute inset-0 bg-white/35"
+          aria-hidden="true"
+        />
+      )}
       <div
         className="absolute inset-0 flex flex-col w-screen h-[100dvh]"
         style={safeAreaStyle}
