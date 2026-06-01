@@ -26,6 +26,7 @@ export class HomePage {
   readonly header: Locator;
   readonly heroCta: Locator;
   readonly headerPostAJob: Locator;
+  readonly heroPostAJobMobile: Locator;
   readonly localTradespeopleEyebrow: Locator;
   readonly myProjectsLink: Locator;
   readonly seeHowItWorksButton: Locator;
@@ -33,21 +34,18 @@ export class HomePage {
   constructor(page: Page) {
     this.page = page;
     this.header = page.getByRole("banner", { name: "Site header" });
-    // Hero CTA + See-how-it-works render in two places: the desktop
-    // overlay sitting on top of the hero photo, and the mobile cream
-    // block under it. One is `md:hidden`, the other is `hidden md:flex`,
-    // so only one is visible per viewport. Use `:visible` in the CSS
-    // locator so we always grab the right one regardless of viewport.
     this.heroCta = page.locator('[data-testid="hero-cta"]:visible');
-    // Guest "Post a job" CTA lives in the sticky SiteHeader on desktop
-    // (≥sm) and in the hero on mobile (<sm). Match whichever is visible
-    // at the current viewport so the same test passes everywhere.
-    this.headerPostAJob = page.locator(
-      '[data-testid="home-header-post-job"]:visible, [data-testid="hero-cta-mobile"]:visible',
+    this.headerPostAJob = page.getByTestId("home-header-post-job");
+    // The guest's primary "Post a job" CTA. On desktop it lives in the header
+    // (`home-header-post-job`, hidden below the `sm` breakpoint); on mobile the
+    // header CTA is hidden and the hero renders its own "Post a job" link.
+    this.heroPostAJobMobile = page.getByTestId("hero-cta-mobile");
+    this.localTradespeopleEyebrow = page.getByText(
+      "Hundreds of vetted tradespeople nearby.",
+      {
+        exact: true,
+      },
     );
-    this.localTradespeopleEyebrow = page.getByText("Hundreds of vetted tradespeople nearby.", {
-      exact: true,
-    });
     this.myProjectsLink = page.getByRole("link", { name: "My projects" });
     this.seeHowItWorksButton = page.locator(
       'button:visible:has-text("See how it works")',
@@ -124,14 +122,25 @@ export class HomePage {
     await this.heroCta.click();
   }
 
-  async expectHeaderPostAJobLabel(label: string | RegExp) {
-    await expect(this.headerPostAJob).toBeVisible({ timeout: 15_000 });
-    await expect(this.headerPostAJob).toHaveText(label);
+  /**
+   * Resolves to whichever "Post a job" CTA is the live one for the current
+   * viewport: the header CTA on desktop, the hero CTA on mobile (where the
+   * header CTA is hidden below Tailwind's `sm` breakpoint, 640px).
+   */
+  private postAJobCta(): Locator {
+    const viewport = this.page.viewportSize();
+    const isMobile = !!viewport && viewport.width < 640;
+    return isMobile ? this.heroPostAJobMobile : this.headerPostAJob;
   }
 
-  async clickHeaderPostAJob() {
-    await expect(this.headerPostAJob).toBeVisible({ timeout: 15_000 });
-    await this.headerPostAJob.click();
+  async expectPostAJobCtaLabel(label: string | RegExp) {
+    await expect(this.postAJobCta()).toBeVisible({ timeout: 15_000 });
+    await expect(this.postAJobCta()).toHaveText(label);
+  }
+
+  async clickPostAJobCta() {
+    await expect(this.postAJobCta()).toBeVisible({ timeout: 15_000 });
+    await this.postAJobCta().click();
   }
 
   async clickMyProjectsLink() {
@@ -153,7 +162,9 @@ export class HomePage {
   }
 
   async expectLocalTradespeopleEyebrow() {
-    await expect(this.localTradespeopleEyebrow).toBeVisible({ timeout: 15_000 });
+    await expect(this.localTradespeopleEyebrow).toBeVisible({
+      timeout: 15_000,
+    });
   }
 
   async expectNoLocalTradespeopleEyebrow() {
