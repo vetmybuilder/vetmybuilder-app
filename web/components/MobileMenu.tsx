@@ -60,7 +60,7 @@ function Chevron() {
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
-    <div className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-gray-400 px-5 pt-4 pb-2">
+    <div className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-gray-700 px-5 pt-4 pb-2 [text-shadow:0_0_8px_rgba(255,255,255,0.95),0_0_3px_rgba(255,255,255,0.85)]">
       {children}
     </div>
   );
@@ -70,8 +70,12 @@ function Separator() {
   return <div className="h-px bg-gray-100 mx-5 my-3" />;
 }
 
+// `text-shadow` not in the Tailwind defaults - use the arbitrary-value
+// syntax to add a white halo around the dark row labels so they stay
+// readable against the looping video background without needing a
+// heavier white veil over the video.
 const ROW_BASE =
-  "flex items-center gap-4 p-4 mx-3 mb-1 rounded-2xl w-[calc(100%-1.5rem)] text-left text-[16px] font-bold tracking-tight";
+  "flex items-center gap-4 p-4 mx-3 mb-1 rounded-2xl w-[calc(100%-1.5rem)] text-left text-[16px] font-bold tracking-tight [text-shadow:0_0_8px_rgba(255,255,255,0.95),0_0_3px_rgba(255,255,255,0.85)]";
 
 export default function MobileMenu({
   open,
