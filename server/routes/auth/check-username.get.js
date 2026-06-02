@@ -4,11 +4,12 @@
  * No auth required — called during registration before Firebase user creation.
  */
 const { logger, withRequest } = require("../../lib/logger");
+const { usernameCheckLimiter } = require("../../lib/rateLimiters");
 
 module.exports = (router, ctx) => {
   const { mysqlQuery } = ctx;
 
-  router.get("/auth/check-username", async (req, res) => {
+  router.get("/auth/check-username", usernameCheckLimiter, async (req, res) => {
     const log = withRequest(req).child({ route: "auth.check-username" });
 
     try {

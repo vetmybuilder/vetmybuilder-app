@@ -245,10 +245,13 @@ function requireAdmin(ctx) {
     .filter(Boolean);
 
   const testAdminUid = String(process.env.TEST_ADMIN_USER_UID || "").trim();
+  // Never honour the test-uid escape hatch in production, even if one of these
+  // flags leaks into the prod environment.
   const isTestEnv =
-    process.env.NODE_ENV === "test" ||
-    process.env.ENABLE_TEST_ROUTES === "1" ||
-    String(process.env.TEST_ENV || "").toLowerCase() === "e2e";
+    process.env.NODE_ENV !== "production" &&
+    (process.env.NODE_ENV === "test" ||
+      process.env.ENABLE_TEST_ROUTES === "1" ||
+      String(process.env.TEST_ENV || "").toLowerCase() === "e2e");
 
   return async (req, res, next) => {
     try {

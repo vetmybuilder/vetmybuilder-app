@@ -52,11 +52,11 @@ test.describe("Homepage", () => {
   });
 
   test.describe("Guest", () => {
-    test("header CTA opens the post-job wizard", async ({ basePage, homePage }) => {
+    test("Post a job CTA opens the post-job wizard", async ({ basePage, homePage }) => {
       await basePage.logoutViaUrl();
       await homePage.goto();
-      await homePage.expectHeaderPostAJobLabel(/post a job/i);
-      await homePage.clickHeaderPostAJob();
+      await homePage.expectPostAJobCtaLabel(/post a job/i);
+      await homePage.clickPostAJobCta();
       await homePage.expectUrl(/\/projects\/new$/);
     });
 

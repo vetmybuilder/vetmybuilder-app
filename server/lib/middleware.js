@@ -20,8 +20,12 @@ function authMiddleware(admin) {
     const log = withRequest(req);
 
     // Sim-bot shortcut: X-Sim-Uid + X-Test-Secret bypasses Firebase token exchange.
-    // Only active when ENABLE_TEST_ROUTES=1 (same guard as the test routes).
-    if (process.env.ENABLE_TEST_ROUTES === "1") {
+    // Only active when ENABLE_TEST_ROUTES=1 (same guard as the test routes), and
+    // NEVER in production - so a leaked env flag can't become an auth bypass.
+    if (
+      process.env.NODE_ENV !== "production" &&
+      process.env.ENABLE_TEST_ROUTES === "1"
+    ) {
       const secret = process.env.E2E_TEST_SECRET;
       const simUid = req.headers["x-sim-uid"];
       if (secret && simUid && req.headers["x-test-secret"] === secret) {
