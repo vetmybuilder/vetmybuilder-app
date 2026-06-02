@@ -1,5 +1,36 @@
 import { Mail, MessageSquare } from "lucide-react";
 import BottomSheet from "@/components/BottomSheet";
+import { useSocialShare } from "@/utils/useSocialShare";
+
+const MODAL_TILE_CLASS =
+  "bg-white border-[1.5px] border-gray-200 rounded-[18px] py-4 flex flex-col items-center gap-2 active:scale-95 transition-transform";
+
+function NextdoorModalGlyph() {
+  return (
+    <span
+      className="w-12 h-12 rounded-full flex items-center justify-center text-white"
+      style={{ background: "linear-gradient(135deg,#19975d,#0b7a44)" }}
+    >
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 11l9-8 9 8" />
+        <path d="M5 10v10h14V10" />
+      </svg>
+    </span>
+  );
+}
+
+function FacebookModalGlyph() {
+  return (
+    <span
+      className="w-12 h-12 rounded-full flex items-center justify-center text-white"
+      style={{ background: "linear-gradient(135deg,#3b82f6,#1877f2)" }}
+    >
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+        <path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.78-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.44 2.89h-2.34v6.99A10 10 0 0 0 22 12z" />
+      </svg>
+    </span>
+  );
+}
 
 function WhatsAppIcon({ size = 22 }: { size?: number }) {
   // Official WhatsApp glyph (simplified for solid colour fill)
@@ -34,6 +65,8 @@ export default function ShareProjectModal({
       : "";
   const projectLabel = projectName ? `my "${projectName}" project` : "my project";
   const messageBody = `Hey — I'm looking for a tradesperson for ${projectLabel}. If you know someone you'd recommend, please add them via VetMyBuilder: ${shareUrl}`;
+
+  const social = useSocialShare({ shareUrl, message: messageBody });
 
   function viaWhatsApp() {
     window.location.href = `https://wa.me/?text=${encodeURIComponent(messageBody)}`;
@@ -115,6 +148,64 @@ export default function ShareProjectModal({
               Email
             </span>
           </button>
+
+          {/* Nextdoor + Facebook, each gated by its own feature flag. On mobile
+              they open the native share sheet; on desktop they are web links. */}
+          {social.nextdoorEnabled &&
+            (social.useNativeShare ? (
+              <button
+                type="button"
+                onClick={social.nativeShare}
+                data-testid="share-nextdoor"
+                className={MODAL_TILE_CLASS}
+              >
+                <NextdoorModalGlyph />
+                <span className="text-[12px] font-extrabold tracking-tight text-gray-900">
+                  Nextdoor
+                </span>
+              </button>
+            ) : (
+              <a
+                href={social.nextdoorHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="share-nextdoor"
+                className={MODAL_TILE_CLASS}
+              >
+                <NextdoorModalGlyph />
+                <span className="text-[12px] font-extrabold tracking-tight text-gray-900">
+                  Nextdoor
+                </span>
+              </a>
+            ))}
+
+          {social.facebookEnabled &&
+            (social.useNativeShare ? (
+              <button
+                type="button"
+                onClick={social.nativeShare}
+                data-testid="share-facebook"
+                className={MODAL_TILE_CLASS}
+              >
+                <FacebookModalGlyph />
+                <span className="text-[12px] font-extrabold tracking-tight text-gray-900">
+                  Facebook
+                </span>
+              </button>
+            ) : (
+              <a
+                href={social.facebookHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="share-facebook"
+                className={MODAL_TILE_CLASS}
+              >
+                <FacebookModalGlyph />
+                <span className="text-[12px] font-extrabold tracking-tight text-gray-900">
+                  Facebook
+                </span>
+              </a>
+            ))}
         </div>
 
         {/* Message preview */}

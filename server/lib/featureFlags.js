@@ -36,9 +36,28 @@ const FLAG_DEFINITIONS = [
       "When on, tradesperson signup (email and Google) requires a beta access code. Code value is read from the BETA_CODE env var. Default off.",
     default: false,
   },
+  {
+    key: "share_nextdoor",
+    label: "Nextdoor share button",
+    description:
+      "Show the Nextdoor tile in the owner 'Invite your community' card. Independent of the Facebook tile. WhatsApp/Email/SMS/Copy are always shown. Default off.",
+    default: false,
+  },
+  {
+    key: "share_facebook",
+    label: "Facebook share button",
+    description:
+      "Show the Facebook tile in the owner 'Invite your community' card. Independent of the Nextdoor tile. WhatsApp/Email/SMS/Copy are always shown. Default off.",
+    default: false,
+  },
 ];
 
-const CACHE_TTL_MS = 30_000;
+// Short TTL so admin toggles take effect almost immediately on refresh. The
+// toggling node clears its own cache on write (instant on single-process prod);
+// this small TTL also bounds staleness on any other process (e.g. the local
+// dev multi-shard stack) to ~2s. The cache still shields the public
+// /api/feature-flags endpoint from a DB read on every request.
+const CACHE_TTL_MS = 2_000;
 let cache = null;
 let cacheAt = 0;
 

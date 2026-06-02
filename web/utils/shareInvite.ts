@@ -1,6 +1,24 @@
 // web/utils/shareInvite.ts
 
-export type ShareChannel = "whatsapp" | "sms" | "email";
+export type ShareChannel = "whatsapp" | "sms" | "email" | "nextdoor" | "facebook";
+
+/** Facebook only accepts the URL; it builds its own preview from the page's OG tags. */
+export function buildFacebookShareUrl(opts: { url: string }): string {
+  return `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(opts.url)}`;
+}
+
+/**
+ * Nextdoor ShareKit: pre-fills the neighbourhood composer with our message.
+ * The message already contains the recommend link, which Nextdoor turns into
+ * a smartlink preview.
+ */
+export function buildNextdoorShareUrl(opts: { message: string }): string {
+  const params = new URLSearchParams({
+    source: "VetMyBuilder",
+    body: opts.message,
+  });
+  return `https://nextdoor.com/sharekit/?${params.toString()}`;
+}
 
 function isIOS(): boolean {
   if (typeof navigator === "undefined") return false;

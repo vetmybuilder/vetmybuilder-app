@@ -24,6 +24,14 @@ export class ProjectDetailsPage extends BasePage {
 
   readonly shareAndPublish: Locator;
   readonly shareButton: Locator;
+
+  readonly shareWhatsApp: Locator;
+  readonly shareEmail: Locator;
+  readonly shareSms: Locator;
+  readonly shareNextdoor: Locator;
+  readonly shareFacebook: Locator;
+  readonly shareCopyLink: Locator;
+
   readonly viewMoreButton: Locator;
   readonly shortlistEmptyCta: Locator;
   readonly markCompletedButton: Locator;
@@ -59,6 +67,16 @@ export class ProjectDetailsPage extends BasePage {
 
     this.shareAndPublish = this.root.getByTestId("btn-get-recs-draft");
     this.shareButton = this.root.getByTestId("btn-get-recs");
+
+    // Owner "Invite your community" share card (ProjectSwipeDesktop).
+    // Page-scoped (not under root) since the card lives in the side rail.
+    this.shareWhatsApp = page.getByTestId("share-whatsapp");
+    this.shareEmail = page.getByTestId("share-email");
+    this.shareSms = page.getByTestId("share-sms");
+    this.shareNextdoor = page.getByTestId("share-nextdoor");
+    this.shareFacebook = page.getByTestId("share-facebook");
+    this.shareCopyLink = page.getByTestId("share-copy-link");
+
     this.viewMoreButton = this.root.getByTestId("btn-shortlist-view-more");
     this.shortlistEmptyCta = this.root.getByTestId("btn-shortlist-share-publish");
     this.markCompletedButton = page
@@ -105,6 +123,81 @@ export class ProjectDetailsPage extends BasePage {
   async visit(projectId: string | number) {
     await safeGoto(this.page, `/projects/${projectId}`);
     await this.waitUntilReady();
+  }
+
+  /** Opens the "Share your project" bottom-sheet from the swipe deck. */
+  async openShareProjectSheet() {
+    await this.page
+      .getByRole("button", { name: /Share project/i })
+      .first()
+      .click();
+    await expect(
+      this.page.getByRole("dialog", { name: "Share project" }),
+    ).toBeVisible({ timeout: 15_000 });
+  }
+
+  /** Nextdoor + Facebook tiles are visible inside the share-project sheet. */
+  async expectModalSocialTilesVisible() {
+    const sheet = this.page.getByRole("dialog", { name: "Share project" });
+    await expect(sheet.getByTestId("share-nextdoor")).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(sheet.getByTestId("share-facebook")).toBeVisible({
+      timeout: 15_000,
+    });
+  }
+
+  /** The always-on share channels (WhatsApp/Email/SMS/Copy) are visible. */
+  async expectCoreShareChannels() {
+    for (const l of [
+      this.shareWhatsApp,
+      this.shareEmail,
+      this.shareSms,
+      this.shareCopyLink,
+    ]) {
+      await expect(l).toBeVisible({ timeout: 15_000 });
+    }
+  }
+
+  /** Nextdoor/Facebook tiles are absent (share_nextdoor/share_facebook flags off). */
+  async expectSocialShareHidden() {
+    await expect(this.shareNextdoor).toHaveCount(0);
+    await expect(this.shareFacebook).toHaveCount(0);
+  }
+
+  /** The Facebook tile links to the FB sharer for the recommend URL. */
+  async expectFacebookShareHref(recommendUrl: string) {
+    const expected = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+      recommendUrl,
+    )}`;
+    await expect(this.shareFacebook).toHaveAttribute("href", expected);
+  }
+
+  /** The Nextdoor tile links to ShareKit with the message body containing `text`. */
+  async expectNextdoorShareHrefContains(text: string) {
+    const href = await this.shareNextdoor.getAttribute("href");
+    expect(href, "nextdoor href present").toBeTruthy();
+    expect(href!.startsWith("https://nextdoor.com/sharekit/?")).toBe(true);
+    const body = new URL(href!).searchParams.get("body") || "";
+    expect(body).toContain(text);
+  }
+
+  /**
+   * Asserts the Nextdoor + Facebook share tiles are present on whichever
+   * surface the current viewport uses: the inline card on desktop, the
+   * "Share your project" sheet on mobile.
+   */
+  async expectSocialShareTilesVisible(projectId: string | number) {
+    const recommendPath = `/projects/${projectId}/recommend`;
+    if (this.isMobile()) {
+      await this.openShareProjectSheet();
+      await this.expectModalSocialTilesVisible();
+      return;
+    }
+    await this.expectCoreShareChannels();
+    const recommendUrl = `${new URL(this.page.url()).origin}${recommendPath}`;
+    await this.expectFacebookShareHref(recommendUrl);
+    await this.expectNextdoorShareHrefContains(recommendPath);
   }
 
   /**

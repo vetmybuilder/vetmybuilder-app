@@ -48,6 +48,16 @@ export class AdminApi {
     expect(res.status()).toBe(200);
   }
 
+  // ─── Feature flags ──────────────────────────────────────────────
+
+  /** Toggle a feature flag on/off (clears the server cache server-side). */
+  async setFeatureFlag(key: string, enabled: boolean): Promise<void> {
+    const res = await this.apiClient.post(`/api/admin/feature-flags/${key}`, {
+      enabled,
+    });
+    expect(res.status()).toBe(200);
+  }
+
   // ─── Tradesmen leaderboard ──────────────────────────────────────
 
   async getTradesmenLeaderboard(): Promise<{ items: any[] }> {
