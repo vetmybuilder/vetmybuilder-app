@@ -1,27 +1,23 @@
-import { setupOwnerWithLiveProject } from "../../../src/apiHelper/project/setupOwnerWithLiveProject";
+import { setupSharableProjectScene } from "../../../src/apiHelper/project/setupSharableProjectScene";
 import { test } from "../../../src/ui.fixtures";
 
 test.describe("Share a job to socials", () => {
-  // The Nextdoor + Facebook tiles are gated behind the social_share_buttons
-  // feature flag (default off), so by default only the always-on channels
-  // show. The on-state (anchors + correct hrefs) is covered by the
-  // SocialShareButtons component unit test.
-  test("owner sees the core channels; Nextdoor/Facebook gated off by default", async ({
+  test("owner sees the Nextdoor and Facebook share tiles", async ({
     request,
     runtime,
+    adminApi,
     loginPage,
     projectDetailsPage,
   }) => {
-    const { owner, projectId } = await setupOwnerWithLiveProject({
+    const { owner, projectId } = await setupSharableProjectScene({
       request,
       apiBaseUrl: runtime.apiBaseUrl,
+      adminApi,
       location: "E4",
     });
 
     await loginPage.loginExpectSuccess(owner.email!, owner.password!);
     await projectDetailsPage.visit(projectId);
-
-    await projectDetailsPage.expectCoreShareChannels();
-    await projectDetailsPage.expectSocialShareHidden();
+    await projectDetailsPage.expectSocialShareTilesVisible(projectId);
   });
 });

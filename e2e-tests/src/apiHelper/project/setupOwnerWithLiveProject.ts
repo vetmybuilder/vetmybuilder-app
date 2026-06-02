@@ -23,7 +23,7 @@ type SetupArgs = {
   location?: string;
 };
 
-type SetupResult = {
+export type SetupResult = {
   owner: Account;
   ownerUid: string;
   ownerClient: Awaited<ReturnType<typeof authedApiForUid>>;

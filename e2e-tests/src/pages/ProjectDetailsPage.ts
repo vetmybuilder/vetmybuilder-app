@@ -125,6 +125,28 @@ export class ProjectDetailsPage extends BasePage {
     await this.waitUntilReady();
   }
 
+  /** Opens the "Share your project" bottom-sheet from the swipe deck. */
+  async openShareProjectSheet() {
+    await this.page
+      .getByRole("button", { name: /Share project/i })
+      .first()
+      .click();
+    await expect(
+      this.page.getByRole("dialog", { name: "Share project" }),
+    ).toBeVisible({ timeout: 15_000 });
+  }
+
+  /** Nextdoor + Facebook tiles are visible inside the share-project sheet. */
+  async expectModalSocialTilesVisible() {
+    const sheet = this.page.getByRole("dialog", { name: "Share project" });
+    await expect(sheet.getByTestId("share-nextdoor")).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(sheet.getByTestId("share-facebook")).toBeVisible({
+      timeout: 15_000,
+    });
+  }
+
   /** The always-on share channels (WhatsApp/Email/SMS/Copy) are visible. */
   async expectCoreShareChannels() {
     for (const l of [
@@ -158,6 +180,24 @@ export class ProjectDetailsPage extends BasePage {
     expect(href!.startsWith("https://nextdoor.com/sharekit/?")).toBe(true);
     const body = new URL(href!).searchParams.get("body") || "";
     expect(body).toContain(text);
+  }
+
+  /**
+   * Asserts the Nextdoor + Facebook share tiles are present on whichever
+   * surface the current viewport uses: the inline card on desktop, the
+   * "Share your project" sheet on mobile.
+   */
+  async expectSocialShareTilesVisible(projectId: string | number) {
+    const recommendPath = `/projects/${projectId}/recommend`;
+    if (this.isMobile()) {
+      await this.openShareProjectSheet();
+      await this.expectModalSocialTilesVisible();
+      return;
+    }
+    await this.expectCoreShareChannels();
+    const recommendUrl = `${new URL(this.page.url()).origin}${recommendPath}`;
+    await this.expectFacebookShareHref(recommendUrl);
+    await this.expectNextdoorShareHrefContains(recommendPath);
   }
 
   /**

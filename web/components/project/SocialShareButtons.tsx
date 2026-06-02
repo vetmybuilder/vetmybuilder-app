@@ -1,25 +1,12 @@
 // web/components/project/SocialShareButtons.tsx
 //
-// The Nextdoor + Facebook tiles in the owner "Invite your community" share
-// card. Each tile is gated by its OWN feature flag ("share_nextdoor" /
-// "share_facebook") so they can be toggled independently from the admin
-// feature-flags page without a deploy.
-//
-// Desktop: plain web links to the platform share dialogs (open in a new tab).
-// Mobile (with the Web Share API): the tiles trigger the native OS share sheet
-// so the user can post via the installed Facebook / Nextdoor app - consistent
-// with how WhatsApp/SMS/Email already open their native apps. (Facebook and
-// Nextdoor publish no share deep-link of their own, so the OS sheet is the only
-// way to reach their apps from mobile web.)
+// The Nextdoor + Facebook tiles in the DESKTOP owner "Invite your community"
+// card. Each tile is gated by its own feature flag (share_nextdoor /
+// share_facebook). Logic (gating + native-vs-web) lives in useSocialShare;
+// the mobile "Share your project" sheet (ShareProjectModal) reuses that hook
+// with its own tile styling.
 
-import { useEffect, useState } from "react";
-import { useFeatureFlag } from "@/utils/useFeatureFlags";
-import { buildFacebookShareUrl, buildNextdoorShareUrl } from "@/utils/shareInvite";
-
-function isMobileDevice(): boolean {
-  if (typeof navigator === "undefined") return false;
-  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-}
+import { useSocialShare } from "@/utils/useSocialShare";
 
 const TILE_CLASS =
   "aspect-square rounded-2xl border border-amber-100 bg-white flex flex-col items-center justify-center gap-1 transition-colors";
@@ -58,29 +45,16 @@ export default function SocialShareButtons({
   shareUrl: string;
   message: string;
 }) {
-  const nextdoorEnabled = useFeatureFlag("share_nextdoor");
-  const facebookEnabled = useFeatureFlag("share_facebook");
-
-  // Decide native-vs-web after mount to avoid SSR/hydration mismatch
-  // (navigator is unavailable on the server).
-  const [useNativeShare, setUseNativeShare] = useState(false);
-  useEffect(() => {
-    setUseNativeShare(
-      isMobileDevice() && typeof navigator !== "undefined" && !!navigator.share,
-    );
-  }, []);
+  const {
+    nextdoorEnabled,
+    facebookEnabled,
+    useNativeShare,
+    nativeShare,
+    nextdoorHref,
+    facebookHref,
+  } = useSocialShare({ shareUrl, message });
 
   if (!nextdoorEnabled && !facebookEnabled) return null;
-
-  // Mobile: open the OS share sheet (carries the same message the other
-  // channels send, which already contains the recommend link).
-  async function nativeShare() {
-    try {
-      await navigator.share({ text: message });
-    } catch {
-      /* user dismissed the sheet, or share unsupported - no-op */
-    }
-  }
 
   return (
     <>
@@ -98,7 +72,7 @@ export default function SocialShareButtons({
           </button>
         ) : (
           <a
-            href={buildNextdoorShareUrl({ message })}
+            href={nextdoorHref}
             target="_blank"
             rel="noopener noreferrer"
             data-testid="share-nextdoor"
@@ -124,7 +98,7 @@ export default function SocialShareButtons({
           </button>
         ) : (
           <a
-            href={buildFacebookShareUrl({ url: shareUrl })}
+            href={facebookHref}
             target="_blank"
             rel="noopener noreferrer"
             data-testid="share-facebook"
