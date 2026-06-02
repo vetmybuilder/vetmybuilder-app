@@ -214,6 +214,15 @@ function RecommendOgHead({ og }: { og: RecommendOg | null }) {
       <title>{title}</title>
       <meta property="og:title" content={title} />
       <meta property="og:description" content={description} />
+      {og?.url && <meta property="og:url" content={og.url} />}
+      {og?.image && (
+        <>
+          <meta property="og:image" content={og.image} />
+          <meta property="og:image:width" content="1200" />
+          <meta property="og:image:height" content="630" />
+          <meta name="twitter:image" content={og.image} />
+        </>
+      )}
       <meta property="og:type" content="website" />
       <meta name="twitter:card" content="summary_large_image" />
     </Head>
@@ -994,6 +1003,10 @@ function resolveApiBase(req: { headers: Record<string, any> }): string {
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   const id = String(ctx.params?.id || "");
+  const proto = (ctx.req.headers["x-forwarded-proto"] as string) || "https";
+  const origin = `${proto}://${ctx.req.headers.host}`;
+  const url = `${origin}/projects/${id}/recommend`;
+  const image = `${origin}/og-recommend.png`;
   try {
     const res = await fetch(`${resolveApiBase(ctx.req)}/projects/${id}`, {
       headers: { accept: "application/json" },
@@ -1002,7 +1015,7 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
     const data = await res.json();
     const project = data?.project;
     if (!project?.name) return { props: { og: null } };
-    return { props: { og: buildRecommendOg(project) } };
+    return { props: { og: { ...buildRecommendOg(project), url, image } } };
   } catch {
     return { props: { og: null } };
   }

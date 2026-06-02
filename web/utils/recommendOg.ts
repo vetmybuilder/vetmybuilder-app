@@ -4,7 +4,12 @@
 // page, so a shared link (Facebook / Nextdoor smartlink) renders a card that
 // names the actual job rather than a generic site card.
 
-export type RecommendOg = { title: string; description: string };
+export type RecommendOg = {
+  title: string;
+  description: string;
+  url?: string;
+  image?: string;
+};
 
 export function buildRecommendOg(project: {
   name?: string;

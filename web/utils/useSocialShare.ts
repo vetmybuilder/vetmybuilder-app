@@ -39,11 +39,14 @@ export function useSocialShare({
     );
   }, []);
 
-  // Carries the same message the other channels send (it already contains the
-  // recommend link). Swallow AbortError when the user dismisses the sheet.
+  // Pass the link as the dedicated `url` field (not just inside the text):
+  // Facebook's share target ignores text-only shares and only attaches a
+  // proper link from `url`. The text is the message with the trailing URL
+  // stripped so the link isn't duplicated. Swallow AbortError on dismiss.
   async function nativeShare() {
+    const text = message.split(shareUrl)[0].replace(/[\s:]+$/, "").trim();
     try {
-      await navigator.share({ text: message });
+      await navigator.share(text ? { text, url: shareUrl } : { url: shareUrl });
     } catch {
       /* dismissed or unsupported - no-op */
     }

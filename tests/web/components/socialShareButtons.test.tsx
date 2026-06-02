@@ -100,6 +100,8 @@ describe("SocialShareButtons", () => {
     fireEvent.click(screen.getByTestId("share-facebook"));
 
     expect(shareSpy).toHaveBeenCalledTimes(2);
-    expect(shareSpy).toHaveBeenCalledWith({ text: MESSAGE });
+    expect(shareSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ url: SHARE_URL }),
+    );
   });
 });
