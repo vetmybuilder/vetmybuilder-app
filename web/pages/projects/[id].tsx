@@ -18,6 +18,7 @@ import ProjectMobileRecsStrip from "@/components/project/ProjectMobileRecsStrip"
 import PhotoLightbox from "@/components/PhotoLightbox";
 import BrandWatermarkScatter from "@/components/BrandWatermarkScatter";
 import { useApi } from "@/utils/api";
+import SocialShareButtons from "@/components/project/SocialShareButtons";
 import { useAuth, isSignOutInProgress } from "@/utils/auth";
 import { useRouter } from "next/router";
 import { useSseEvent } from "@/utils/useSseEvent";
@@ -456,6 +457,7 @@ function ProjectSwipeDesktop({
                     <button
                       type="button"
                       onClick={viaWhatsApp}
+                      data-testid="share-whatsapp"
                       aria-label="Share via WhatsApp"
                       className="aspect-square rounded-2xl border border-amber-100 bg-white flex flex-col items-center justify-center gap-1 hover:border-emerald-300 hover:bg-emerald-50 transition-colors"
                     >
@@ -473,6 +475,7 @@ function ProjectSwipeDesktop({
                     <button
                       type="button"
                       onClick={viaEmail}
+                      data-testid="share-email"
                       aria-label="Share via email"
                       className="aspect-square rounded-2xl border border-amber-100 bg-white flex flex-col items-center justify-center gap-1 hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
                     >
@@ -491,6 +494,7 @@ function ProjectSwipeDesktop({
                     <button
                       type="button"
                       onClick={viaSms}
+                      data-testid="share-sms"
                       aria-label="Share via SMS"
                       className="aspect-square rounded-2xl border border-amber-100 bg-white flex flex-col items-center justify-center gap-1 hover:border-amber-400 hover:bg-amber-50 transition-colors"
                     >
@@ -504,11 +508,16 @@ function ProjectSwipeDesktop({
                       </span>
                       <span className="text-[10.5px] font-bold text-slate-700">SMS</span>
                     </button>
+
+                    {/* Nextdoor + Facebook tiles, gated by the
+                        social_share_buttons feature flag. */}
+                    <SocialShareButtons shareUrl={shareUrl} message={messageBody} />
                   </div>
 
                   <button
                     type="button"
                     onClick={copyLink}
+                    data-testid="share-copy-link"
                     className="mt-2.5 w-full inline-flex items-center justify-center gap-2 rounded-full bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2.5 text-[12.5px] font-bold hover:bg-amber-100 transition-colors"
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">

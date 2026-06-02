@@ -13,6 +13,8 @@ import {
   RATING_CATEGORIES,
   StarRow,
 } from "@/components/ratings/StarRatingList";
+import type { GetServerSideProps } from "next";
+import { buildRecommendOg, type RecommendOg } from "@/utils/recommendOg";
 
 type Project = {
   id: number;
@@ -196,7 +198,29 @@ function FieldError({ id, message }: { id: string; message?: string }) {
   );
 }
 
-export default function RecommendOnPlatform() {
+/**
+ * Open Graph head for the public recommend link. Rendered unconditionally
+ * (at the top of every return branch) so the SSR HTML a Facebook / Nextdoor
+ * crawler reads always includes the per-project card, even though the page's
+ * access check resolves client-side and the first paint is the loading state.
+ */
+function RecommendOgHead({ og }: { og: RecommendOg | null }) {
+  const title = og?.title || "Recommend a tradesperson - VetMyBuilder";
+  const description =
+    og?.description ||
+    "Know a great tradesperson? Add your recommendation on VetMyBuilder.";
+  return (
+    <Head>
+      <title>{title}</title>
+      <meta property="og:title" content={title} />
+      <meta property="og:description" content={description} />
+      <meta property="og:type" content="website" />
+      <meta name="twitter:card" content="summary_large_image" />
+    </Head>
+  );
+}
+
+export default function RecommendOnPlatform({ og }: { og: RecommendOg | null }) {
   const api = useApi();
   const router = useRouter();
   const { id } = router.query;
@@ -491,9 +515,7 @@ export default function RecommendOnPlatform() {
   if (accessCheckPending) {
     return (
       <>
-        <Head>
-          <title>Recommend a tradesperson - VetMyBuilder</title>
-        </Head>
+        <RecommendOgHead og={og} />
         <div
           className="fixed inset-0 flex items-center justify-center bg-[#fef6e9]"
           data-testid="recommend-access-checking"
@@ -509,9 +531,7 @@ export default function RecommendOnPlatform() {
 
   return (
     <>
-      <Head>
-        <title>Recommend a tradesperson - VetMyBuilder</title>
-      </Head>
+      <RecommendOgHead og={og} />
 
       {/* MOBILE - bare V1 single-page form. Shares state with the desktop
           branch via the same closure variables (form, set, submit, etc.). */}
@@ -956,3 +976,34 @@ export default function RecommendOnPlatform() {
     </>
   );
 }
+
+/**
+ * Resolve the API base for server-side fetches. Prefers an absolute
+ * NEXT_PUBLIC_API_BASE; otherwise derives it from the incoming request host
+ * (nginx routes /api to the API server on the same origin in prod/staging).
+ */
+function resolveApiBase(req: { headers: Record<string, any> }): string {
+  const env = (process.env.NEXT_PUBLIC_API_BASE || "").trim();
+  if (/^https?:\/\//.test(env)) {
+    const noSlash = env.replace(/\/$/, "");
+    return noSlash.endsWith("/api") ? noSlash : `${noSlash}/api`;
+  }
+  const proto = (req.headers["x-forwarded-proto"] as string) || "https";
+  return `${proto}://${req.headers.host}/api`;
+}
+
+export const getServerSideProps: GetServerSideProps = async (ctx) => {
+  const id = String(ctx.params?.id || "");
+  try {
+    const res = await fetch(`${resolveApiBase(ctx.req)}/projects/${id}`, {
+      headers: { accept: "application/json" },
+    });
+    if (!res.ok) return { props: { og: null } };
+    const data = await res.json();
+    const project = data?.project;
+    if (!project?.name) return { props: { og: null } };
+    return { props: { og: buildRecommendOg(project) } };
+  } catch {
+    return { props: { og: null } };
+  }
+};
