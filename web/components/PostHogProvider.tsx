@@ -17,7 +17,18 @@ export default function PostHogProvider({ children }: { children: React.ReactNod
 
   // Initialise PostHog on page load
   useEffect(() => {
-    if (!POSTHOG_KEY || initialised.current) return;
+    if (initialised.current) return;
+    if (!POSTHOG_KEY) {
+      // A missing key used to fail silently - the web build can compile
+      // without NEXT_PUBLIC_POSTHOG_KEY (it's inlined at build time), which
+      // is how analytics once died unnoticed. Make it loud in production.
+      if (process.env.NODE_ENV === "production") {
+        console.warn(
+          "[analytics] NEXT_PUBLIC_POSTHOG_KEY missing - PostHog disabled. The web build was compiled without the key; no events will be captured.",
+        );
+      }
+      return;
+    }
     initialised.current = true;
     posthog.init(POSTHOG_KEY, {
       api_host: POSTHOG_HOST,
