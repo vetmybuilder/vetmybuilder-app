@@ -1,10 +1,16 @@
 VetMyBuilder Ops Runbook (quick reference)
 
 Server:
-- Provider: Oracle Cloud (Always Free tier, ARM Ampere A1.Flex)
-- IP: 140.238.73.63
+- Provider: Oracle Cloud (Always Free tier, AMD VM.Standard.E2.1.Micro - 1/8
+  OCPU, 1GB RAM, 2GB swap. Note: the box this replaced was actually a paid
+  VM.Standard.E5.Flex shape despite being documented as Always Free ARM -
+  Oracle auto-terminated it 2026-07-26 when the account's free trial period
+  ended. ARM A1.Flex had no capacity in uk-london-1 at rebuild time
+  (2026-08-12), so this genuinely-Always-Free AMD micro shape was used
+  instead - see plans/oracle-vm-rebuild-2026-08-12.md)
+- IP: 141.147.91.235
 - SSH: ssh vmb (alias in ~/.ssh/config, key ~/.ssh/id_ed25519_vmb)
-- OS: Ubuntu 20.04, Node.js 20, MySQL 8, Nginx, PM2
+- OS: Ubuntu 24.04, Node.js 20, MySQL 8, Nginx, PM2
 
 App paths:
 - Prod repo: ~/apps/vmb/vetmybuilder-app
@@ -33,14 +39,14 @@ Deploy:
 - Manual trigger: GitHub Actions > Deploy workflow > Run workflow
 
 DNS (GoDaddy):
-- vetmybuilder.com (A @ -> 140.238.73.63)
-- www.vetmybuilder.com (A www -> 140.238.73.63)
-- staging.vetmybuilder.com (A staging -> 140.238.73.63)
-- vetmybuilder.co.uk (A @ -> 140.238.73.63)
-- www.vetmybuilder.co.uk (A www -> 140.238.73.63)
+- vetmybuilder.com (A @ -> 141.147.91.235)
+- www.vetmybuilder.com (A www -> 141.147.91.235)
+- staging.vetmybuilder.com (A staging -> 141.147.91.235)
+- vetmybuilder.co.uk (A @ -> 141.147.91.235)
+- www.vetmybuilder.co.uk (A www -> 141.147.91.235)
 
 GitHub Actions secrets:
-- PROD_HOST: 140.238.73.63
+- PROD_HOST: 141.147.91.235
 - PROD_SSH_KEY: base64-encoded deploy key (decode with base64 -d in workflow)
 
 Nginx:

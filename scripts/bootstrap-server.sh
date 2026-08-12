@@ -2,12 +2,41 @@
 # bootstrap-server.sh
 #
 # Takes a fresh Ubuntu VM and sets up the full VetMyBuilder stack.
-# Run from your laptop: ssh root@<ip> < scripts/bootstrap-server.sh
+#
+# DO NOT run this piped over a live SSH session (`ssh root@ip < script.sh`).
+# On small instances (e.g. the Always-Free E2.1.Micro, 1 vCPU/1GB) the
+# Next.js builds are CPU-heavy enough that the SSH client can time out and
+# drop the connection mid-build. The remote process may survive, but the
+# script's own stdout becomes a dead pipe - the next `echo` or command that
+# tries to write to it gets SIGPIPE'd and the WHOLE SCRIPT DIES SILENTLY,
+# often mid-`npm ci`, with no error visible locally. This happened during
+# the 2026-08-12 recovery and cost real time to diagnose. Instead:
+#
+#   scp scripts/bootstrap-server.sh root@<ip>:/root/bootstrap-server.sh
+#   ssh root@<ip> 'setsid nohup bash /root/bootstrap-server.sh \
+#     > /root/bootstrap.log 2>&1 < /dev/null &'
+#
+# Then poll completion with short-lived checks, e.g.:
+#   ssh root@<ip> "tail -f /root/bootstrap.log"   (reconnect if it drops -
+#     the remote process keeps running either way)
+#   ssh root@<ip> "test -f /root/apps/vmb/vetmybuilder-staging/web/.next/BUILD_ID && echo DONE"
 #
 # Prerequisites:
 #   - Fresh Ubuntu 20.04+ VM with root SSH access
 #   - GCS backup bucket (gs://vetmybuilder-backups) with env files and DB dumps
 #   - Deploy SSH public key already in authorized_keys (set during VM creation)
+#   - GCS service-account key uploaded first to /root/.gcs-backup-key.json
+#     (create a fresh one if needed: the old key only ever lives on the VM,
+#     so it dies with it - `gcloud iam service-accounts keys create ... \
+#     --iam-account=vmb-backup@vetmybuilder.iam.gserviceaccount.com`)
+#
+# If launching the replacement instance on Oracle: try Always-Free ARM
+# `VM.Standard.A1.Flex` first, but its regional capacity pool is frequently
+# exhausted ("Out of host capacity" on every AD/size). If so, fall back to
+# the other Always-Free shape, `VM.Standard.E2.1.Micro` (AMD, 1 vCPU/1GB) -
+# already proven to run the full stack end to end (dry run 2026-05-27,
+# real recovery 2026-08-12). Do not use any other shape without adding
+# real billing - see plans/oracle-vm-rebuild-2026-08-12.md for why.
 #
 # What it does:
 #   1. Installs Node.js 20, MySQL 8, Nginx, PM2, Certbot, gcloud CLI
@@ -16,14 +45,16 @@
 #   4. Clones the repo (prod + staging copies)
 #   5. Restores env files and DB dumps from latest GCS backup
 #   6. Builds both apps
-#   7. Configures Nginx reverse proxy
+#   7. Configures Nginx reverse proxy (incl. /health passthrough)
 #   8. Starts PM2 processes
 #   9. Sets up nightly backup cron
 #
 # After running, you still need to:
-#   - Update DNS A records to point to the new IP
+#   - Update DNS A records to point to the new IP (GoDaddy - no API creds
+#     exist for this, it's a manual dashboard walkthrough)
 #   - Run certbot for SSL (needs DNS to resolve first)
 #   - Update GitHub Actions secrets (PROD_HOST, PROD_SSH_KEY)
+#   - Update ~/.ssh/config and RUNBOOK.md with the new IP
 
 set -e
 
@@ -180,6 +211,15 @@ server {
     listen 80;
     server_name vetmybuilder.com www.vetmybuilder.com vetmybuilder.co.uk www.vetmybuilder.co.uk;
 
+    location = /health {
+        proxy_pass http://127.0.0.1:8787;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     location /api/notifications/stream {
         proxy_pass http://127.0.0.1:8787;
         proxy_http_version 1.1;
@@ -221,6 +261,15 @@ cat > /etc/nginx/sites-available/vetmybuilder-staging << 'NGINX'
 server {
     listen 80;
     server_name staging.vetmybuilder.com;
+
+    location = /health {
+        proxy_pass http://127.0.0.1:8788;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
 
     location /api/notifications/stream {
         proxy_pass http://127.0.0.1:8788;
